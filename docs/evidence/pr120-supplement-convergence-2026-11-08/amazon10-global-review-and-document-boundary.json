@@ -1,0 +1,73 @@
+{
+  "run": "amazon-qualification-20261109-10",
+  "session": "ee78598303da4a92858e4cf3d7b18d8b",
+  "source": "2ea23c51fac05474a371c810eebc9b894a7b01f3",
+  "planning": {
+    "calls": 31,
+    "physical_attempts": 32,
+    "global_review": "ok",
+    "review_origin": "delegated_test_reviewed",
+    "reviewed_revision": 85,
+    "artifact_hash": "d7d3a02098980bae02ad0dcf805ed1f2ae045d9d47ae1487e791b984d48c4477",
+    "known_usage_tariff_eur": "10.258065382892969099865651596",
+    "unknown_physical_attempts": 1,
+    "retained_unknown_full_hold_eur": "7.0599820868786386027765338109"
+  },
+  "execution": {
+    "success": false,
+    "first_operation": "browser_get_content",
+    "error_code": "NAVIGATION_EVIDENCE_INCOMPLETE",
+    "error_message": "The observed response no longer owns the current document.",
+    "requested_url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+    "current_document_url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+    "recorded_navigation_hops": [
+      {
+        "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+        "method": "GET",
+        "statusCode": 200,
+        "location": null
+      },
+      {
+        "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+        "method": "GET",
+        "statusCode": 200,
+        "location": null
+      }
+    ],
+    "navigation_evidence_complete": false,
+    "observed_current_navigation": {
+      "generation": 4,
+      "url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+      "title": null,
+      "method": null,
+      "statusCode": null
+    },
+    "last_response": {
+      "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+      "method": "GET",
+      "statusCode": 200
+    },
+    "browser_closed_by_root_cleanup": true,
+    "workbook_exists": false,
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "workbook_missing"
+      ]
+    },
+    "never_replay": true
+  },
+  "cause_status": "Current document response ownership boundary under controlled local reproduction; do not infer a permission or provider failure.",
+  "available_after_closed_run_eur": "158.449574563367666815942671688",
+  "limits": [
+    "No full Amazon qualification.",
+    "No runtime model inference reached; the initial Browser operation failed.",
+    "No hold released and no new grant."
+  ],
+  "private_evidence_sha256": {
+    "amazon10-final-run.json": "bfa8bc4ee97d6e3a1ea0706e24c9c6bdaf9b231d27868d6aafb37de100956c54",
+    "amazon10-closed-audit.json": "3d8fd1f3e80b8e7694eb27457241714926aa7c17e476e38dac89932b71b56bb2",
+    "amazon10-review-notes.json": "1622ce1415f78b47c0bffd5b5cd3618cf86e723f4ab530bf5276ff7c1e582542"
+  }
+}

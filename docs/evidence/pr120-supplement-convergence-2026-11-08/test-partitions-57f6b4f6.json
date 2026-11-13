@@ -1,0 +1,96 @@
+{
+  "source": "57f6b4f637379651c4dbf90f340e7253056a29cc",
+  "excluded_from_remainder_filter": "FullyQualifiedName!~GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests",
+  "fixture_case_count": 216,
+  "fixture_method_count": 47,
+  "disjoint_complete_method_partition": true,
+  "shards": [
+    {
+      "methods": [
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V15CompositionPreservesExactLocalWorkbookAndRecovery",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalRevisionCorrectsBusinessCompositionWithoutChangingHistoricalArtifact",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11InlinesPreparationWithoutMovingMappingInferenceOrContracts",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CompactUnionUsesExistingBindingsAndPreservesRequirements",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10HeaderAndRowsUseNativeBindingsAndWriteExactCells",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.MissingLinksUseExplicitErrorRowsAndDoNotStopLaterVisits",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalReviewRejectsChangesBeyondTheAuthorizedDelta"
+      ],
+      "expected_cases": 67,
+      "filter": "FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CompactUnionUsesExistingBindingsAndPreservesRequirements|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalReviewRejectsChangesBeyondTheAuthorizedDelta|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalRevisionCorrectsBusinessCompositionWithoutChangingHistoricalArtifact|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.MissingLinksUseExplicitErrorRowsAndDoNotStopLaterVisits|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10HeaderAndRowsUseNativeBindingsAndWriteExactCells|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11InlinesPreparationWithoutMovingMappingInferenceOrContracts|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V15CompositionPreservesExactLocalWorkbookAndRecovery",
+      "index": 1
+    },
+    {
+      "methods": [
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14CompositionPreservesExactLocalWorkbookAndRecovery",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CompositionExecutesOriginalObservationsAndExactWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedCompositionCompilesWithoutPlanningOrEffects",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionRevisionPreservesBusinessWorkAndReachesReview",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedNullableGuardsAndDisposableCompositionHaveSeparateProofs",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14SimplifiesTheSameLexicalCompositionWithoutRemovingChecksOrBoundaries",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedGuardsPreserveBusinessWorkAndDoNotExecuteEffects",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardRevisionReviewRejectsUnrelatedBusinessChanges"
+      ],
+      "expected_cases": 54,
+      "filter": "FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionRevisionPreservesBusinessWorkAndReachesReview|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardRevisionReviewRejectsUnrelatedBusinessChanges|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedNullableGuardsAndDisposableCompositionHaveSeparateProofs|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedCompositionCompilesWithoutPlanningOrEffects|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedGuardsPreserveBusinessWorkAndDoNotExecuteEffects|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10NullableFieldsReconnectOnlyExactOfferedOriginalBlocks|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CompositionExecutesOriginalObservationsAndExactWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14CompositionPreservesExactLocalWorkbookAndRecovery|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14SimplifiesTheSameLexicalCompositionWithoutRemovingChecksOrBoundaries",
+      "index": 2
+    },
+    {
+      "methods": [
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.FactsExtractionAndDeterministicStatusPreserveWorkbookAndRecovery",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13ResourceComparisonPreservesCompleteLocalOutcome",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedGuardsAndExplicitCompositionRevisionStaySeparate",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12DirectValuesPreserveTheSameBusinessPlanAndIndependentBoundaries",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10FieldReconnectionRemovesLearnedAssemblyWithoutChangingAcceptedOutputs",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionRemovesForwardersWithoutChangingContractsOrLowering",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedReadableCompositionUsesBindingsWithoutDroppingValidationOrWork",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerBusinessReviewRejectsUnrelatedStructuralChanges"
+      ],
+      "expected_cases": 52,
+      "filter": "FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionExecutesRealVisitsAndWorkbookWithLocalAssertions|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.BusinessCompositionRemovesForwardersWithoutChangingContractsOrLowering|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerBusinessReviewRejectsUnrelatedStructuralChanges|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.FactsExtractionAndDeterministicStatusPreserveWorkbookAndRecovery|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedGuardsAndExplicitCompositionRevisionStaySeparate|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedReadableCompositionUsesBindingsWithoutDroppingValidationOrWork|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10FieldReconnectionRemovesLearnedAssemblyWithoutChangingAcceptedOutputs|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12DirectValuesPreserveTheSameBusinessPlanAndIndependentBoundaries|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13ResourceComparisonPreservesCompleteLocalOutcome",
+      "index": 3
+    },
+    {
+      "methods": [
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V15ResourceBaselineUsesTheIdenticalV14BusinessComposition",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14ResourceBaselineUsesTheIdenticalV13BusinessComposition",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CheckedOutputsPreserveLocalWorkbook",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13ChecksReplaceTechnicalInvocationsOnTheSameBusinessPlan",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.ReadableProfilesPreserveBusinessCompositionContracts",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10TypedOriginalsRetainProducerRecordsAndNarrowConsumerViews",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedWholeProposalUsesOnlyExistingTypedBindingsAndPreservesRequirements",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CommittedResponsesStillValidateAgainstTheirOriginalIssuedSchemas",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerSequentialAssertionsFailWhereConditionalAlternativesSucceed",
+        "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10RetainedConsumerRepairBypassedTheHeaderWithoutFixingItsProducer"
+      ],
+      "expected_cases": 43,
+      "filter": "FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerSequentialAssertionsFailWhereConditionalAlternativesSucceed|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.ReadableProfilesPreserveBusinessCompositionContracts|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedWholeProposalUsesOnlyExistingTypedBindingsAndPreservesRequirements|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CommittedResponsesStillValidateAgainstTheirOriginalIssuedSchemas|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10RetainedConsumerRepairBypassedTheHeaderWithoutFixingItsProducer|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10TypedOriginalsRetainProducerRecordsAndNarrowConsumerViews|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CheckedOutputsPreserveLocalWorkbook|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13ChecksReplaceTechnicalInvocationsOnTheSameBusinessPlan|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V14ResourceBaselineUsesTheIdenticalV13BusinessComposition|FullyQualifiedName=GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V15ResourceBaselineUsesTheIdenticalV14BusinessComposition",
+      "index": 4
+    }
+  ],
+  "remainder_log": "final57-full-remainder.log",
+  "inventory_log": "final57-server-test-inventory.log",
+  "partial_results_counted": false,
+  "same_source_and_binaries": true,
+  "binaries_sha256": {
+    "GnOuGo.Agent.Server.Tests.dll": "a78731b59acef43c1beae98052854e5038adcc94fa31978b237251e422d4682f",
+    "GnOuGo.Flow.Planning.dll": "f6f023d57f443662190676e9654330308fd51e161f47db242cf407942ef0bc92"
+  },
+  "inventory_sha256": "19fe729735a5ec678839008d1288cdfd630ce093cd3e625fde807d1542d79a63",
+  "actual_coverage_checked": true,
+  "all_shards_exit_code": 0,
+  "no_missing_or_duplicate_cases": true
+}

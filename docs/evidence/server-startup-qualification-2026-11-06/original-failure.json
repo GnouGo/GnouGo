@@ -1,0 +1,12 @@
+{
+  "source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "session": "11386753f6ce4c4eb456deb20376e057",
+  "launch": "see ../amazon-live-admission-2026-11-06/attempt.json",
+  "host_mode": "Benchmark entry assembly hosting actual GnOuGoAgentWebHost in-process",
+  "benchmark_assembly_sha256": "926e23c9adaea7d4baba4798c591d4eb93dad1f630b2fa819c5b4ca7cca1625f",
+  "server_assembly_sha256": "a1634a029b084d34a8581801984c60f7adaebda98f4642285bc4f83c4974bd28",
+  "earliest_exception_stack": "Microsoft.JSInterop.JSException: Could not find 'GnOuGo.Agent.markdown.enhance' ('GnOuGo' was undefined).\n      Error: Could not find 'GnOuGo.Agent.markdown.enhance' ('GnOuGo' was undefined).\n          at E (http://127.0.0.1:56173/_framework/blazor.web.js:1:6748)\n          at h.resolveInvocationHandler (http://127.0.0.1:56173/_framework/blazor.web.js:1:379)\n          at C (http://127.0.0.1:56173/_framework/blazor.web.js:1:6447)\n          at b.processJSCall (http://127.0.0.1:56173/_framework/blazor.web.js:1:4440)\n          at b.beginInvokeJSFromDotNet (http://127.0.0.1:56173/_framework/blazor.web.js:1:4125)\n          at kn._invokeClientMethod (http://127.0.0.1:56173/_framework/blazor.web.js:1:69348)\n          at kn._processIncomingData (http://127.0.0.1:56173/_framework/blazor.web.js:1:66713)\n          at connection.onreceive (http://127.0.0.1:56173/_framework/blazor.web.js:1:60364)\n          at i.onmessage (http://127.0.0.1:56173/_framework/blazor.web.js:1:84422)\n         at Microsoft.JSInterop.JSRuntime.InvokeAsync[TValue](Int64 targetInstanceId, String identifier, JSCallType callType, Object[] args)\n         at Microsoft.JSInterop.JSRuntimeExtensions.InvokeVoidAsync(IJSRuntime jsRuntime, String identifier, Object[] args)\n         at GnOuGo.Agent.Server.Components.Pages.PlanningPage.OnAfterRenderAsync(Boolean firstRender) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/Components/Pages/PlanningPage.razor:line 317\n         at Microsoft.AspNetCore.Components.RenderTree.Renderer.GetErrorHandledTask(Task taskToHandle, ComponentState owningComponentState)",
+  "physical_provider_http_attempts": 0,
+  "discovery_reached": false,
+  "older_ed9a3a3e_binary": "unavailable; today comparison is not retrospective proof of its failed predicate"
+}

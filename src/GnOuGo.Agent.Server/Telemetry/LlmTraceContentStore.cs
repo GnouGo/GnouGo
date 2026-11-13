@@ -11,10 +11,11 @@ using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Agent.Server.Telemetry;
 
-public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsMonitor<TraceDebugSettings> settings,
-    IOptions<OpenTelemetrySettings> telemetry, IPlanningSessionStore sessions, LLMRuntimeOptionsStore? runtimeOptions = null)
+public sealed partial class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsMonitor<TraceDebugSettings> settings,
+    IOptions<OpenTelemetrySettings> telemetry, IPlanningSessionStore sessions, LLMRuntimeOptionsStore? runtimeOptions = null) : IPlanningJournalObserver
 {
     internal const string Collection = "agent-llm-diagnostic-content-v1";
+    internal const string DocumentCollection = Collection + "-documents";
     private const string Author = "GnOuGo.Agent.Server.TraceDebug";
     internal string Tenant => WorkflowExecutionTenant.Resolve(telemetry);
     internal bool Enabled => settings.CurrentValue.Enabled;
@@ -24,7 +25,11 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     internal async Task SaveAsync(string id, LlmTraceContent content, CancellationToken ct)
     {
         if (!Enabled || content.TenantId != Tenant) return;
-        await records.UpsertAsync(Collection, Tenant, id, JsonSerializer.Serialize(content, LlmTraceJsonContext.Default.LlmTraceContent), Author, ct);
+        var copy = JsonSerializer.Deserialize(JsonSerializer.Serialize(content, LlmTraceJsonContext.Default.LlmTraceContent), LlmTraceJsonContext.Default.LlmTraceContent)!;
+        copy.Documents = await PrepareTraceDocumentsAsync(id, copy, ct);
+        if (copy.Input?.Length > 32768) copy.Input = null;
+        if (copy.Output?.Length > 32768) copy.Output = null;
+        await records.UpsertAsync(Collection, Tenant, id, JsonSerializer.Serialize(copy, LlmTraceJsonContext.Default.LlmTraceContent), Author, ct);
     }
 
     public async Task<LlmTraceContent?> LoadAsync(string id, string trace, string span, string? session, CancellationToken ct)
@@ -35,6 +40,9 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
         var content = JsonSerializer.Deserialize(record.Value, LlmTraceJsonContext.Default.LlmTraceContent);
         if (content is null || content.TenantId != Tenant || content.TraceId != trace || content.SpanId != span
             || session is not null && content.SessionId != session) return null;
+        foreach (var doc in content.Documents ?? [])
+            if (doc.Title == "Request and response schema" && content.Input is null) content.Input = (await records.GetAsync(DocumentCollection, Tenant, doc.Id, Author, ct))?.Value;
+            else if (doc.Title == "Response and tool calls" && content.Output is null) content.Output = (await records.GetAsync(DocumentCollection, Tenant, doc.Id, Author, ct))?.Value;
         if (content.Journal is not null && content.RequestKey is not null && content.SessionId is not null)
         {
             var journal = await LoadJournalAsync(content.SessionId, content.Journal == "flow", content.RequestKey, ct);
@@ -58,50 +66,48 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
         foreach (var journal in new[] { "flow", "agent" })
         {
             var key = journal == "flow" ? requestId : session + ":" + requestId;
-            if (await records.GetAsync(journal + "-planning-model-requests-v10", Tenant, key, Author, ct) is not null)
+            if (records is IKeyVaultRecordReader reader && await reader.GetMetadataAsync(journal + "-planning-model-requests-v11", Tenant, key, Author, ct) is not null)
                 return (journal, key);
         }
         return null;
     }
 
-    private async Task<bool> OwnsSession(string id, bool workflow, CancellationToken ct)
+    private async Task<PlanningSession?> OwnedSessionAsync(string id, bool workflow, CancellationToken ct)
     {
         var session = workflow
-            ? (await records.GetAsync("flow-planning-sessions-v10", Tenant, id, Author, ct) is { } value
+            ? (await records.GetAsync("flow-planning-sessions-v11", Tenant, id, Author, ct) is { } value
                 ? JsonSerializer.Deserialize(value.Value, PlanningJsonContext.Default.PlanningSession) : null)
             : await sessions.LoadAsync(Tenant, id, ct);
-        return session?.Request.SessionId == id && session.Request.TenantId == Tenant && session.SchemaVersion == 10;
+        return session?.Request.SessionId == id && session.Request.TenantId == Tenant && session.SchemaVersion == 11 ? session : null;
     }
+
+    private async Task<bool> OwnsSession(string id, bool workflow, CancellationToken ct) => await OwnedSessionAsync(id, workflow, ct) is not null;
 
     public async Task<IReadOnlyList<LlmJournalCall>> HistoryAsync(string session, bool workflow, CancellationToken ct)
     {
-        if (!Enabled || !await OwnsSession(session, workflow, ct)) return [];
-        var prefix = workflow ? "flow" : "agent";
-        var requests = await records.ListAsync(prefix + "-planning-model-requests-v10", Tenant, Author, ct);
         var result = new List<LlmJournalCall>();
-        foreach (var record in requests.Where(r => r.Key.StartsWith(session + ":", StringComparison.Ordinal)).OrderBy(r => r.CreatedAt))
+        LlmCallCursor? cursor = null;
+        while (true)
         {
-            var request = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMRequest);
-            if (request?.ClientRequestId?.StartsWith(session + ":", StringComparison.Ordinal) != true) continue;
-            var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v10", Tenant, record.Key, Author, ct);
-            var response = receipt is null ? null : JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse);
-            result.Add(new(record.Key, record.CreatedAt, request.Provider ?? "unknown", request.Model,
-                receipt is null ? "uncertain — no receipt" : response?.CompletionStatus == "output_limit" ? "truncated receipt" : "completed receipt (replayable)",
-                LlmTraceCapture.Usage(response?.Usage, "input_tokens", "prompt_tokens", "inputTokens"),
-                LlmTraceCapture.Usage(response?.Usage, "output_tokens", "completion_tokens", "outputTokens")));
+            var page = await ReadCallsAsync(session, workflow, cursor, ct);
+            result.AddRange(page.Calls.Select(c => new LlmJournalCall(c.JournalKey!, c.CreatedAt ?? DateTimeOffset.MinValue,
+                c.Provider ?? "unavailable", c.Model ?? "unavailable", c.ResponseStatus, c.InputTokens, c.OutputTokens)));
+            cursor = page.Cursor;
+            if (!page.HasMore) break;
         }
-        return result;
+        return result.DistinctBy(c => c.Key).ToArray();
     }
 
     public async Task<LlmTraceContent?> LoadJournalAsync(string session, bool workflow, string key, CancellationToken ct)
     {
         if (!Enabled || !key.StartsWith(session + ":", StringComparison.Ordinal) || !await OwnsSession(session, workflow, ct)) return null;
         var prefix = workflow ? "flow" : "agent";
-        var record = await records.GetAsync(prefix + "-planning-model-requests-v10", Tenant, key, Author, ct);
+        var record = await records.GetAsync(prefix + "-planning-model-requests-v11", Tenant, key, Author, ct);
         if (record is null) return null;
         var request = JsonSerializer.Deserialize(record.Value, PlanningJsonContext.Default.LLMRequest);
         if (request?.ClientRequestId?.StartsWith(session + ":", StringComparison.Ordinal) != true) return null;
-        var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v10", Tenant, key, Author, ct);
+        if (key != (workflow ? request.ClientRequestId : session + ":" + request.ClientRequestId)) return null;
+        var receipt = await records.GetAsync(prefix + "-planning-model-receipts-v11", Tenant, key, Author, ct);
         var result = new LlmTraceContent { TenantId = Tenant, SessionId = session, CreatedAt = record.CreatedAt };
         SetInput(result, RequestDocument(request));
         if (receipt is not null)
@@ -114,19 +120,20 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
     {
         text = Redact(text);
         content.InputBytes = Encoding.UTF8.GetByteCount(text);
-        content.InputStatus = content.InputBytes > Limit ? "oversized — not retained for display" : "available";
-        content.Input = content.InputBytes > Limit ? null : text;
+        content.InputStatus = "available";
+        content.Input = text;
     }
     internal void SetOutput(LlmTraceContent content, string text)
     {
         text = Redact(text);
         content.OutputBytes = Encoding.UTF8.GetByteCount(text);
-        content.OutputStatus = content.OutputBytes > Limit ? "oversized — not retained for display" : "available";
-        content.Output = content.OutputBytes > Limit ? null : text;
+        content.OutputStatus = "available";
+        content.Output = text;
     }
 
-    private string Redact(string value)
+    internal string Redact(string value)
     {
+        value = DiagnosticRedaction.Redact(value);
         if (runtimeOptions is null) return value;
         foreach (var provider in runtimeOptions.Current.Models.Values)
             foreach (var secret in new[] { provider.ApiKey, provider.ClientSecret, provider.PrivateKeyPem })
@@ -147,9 +154,20 @@ public sealed class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsM
 
     public async Task PurgeAsync(CancellationToken ct)
     {
-        // Only this diagnostic collection. Durable planner requests/receipts are never purged here.
-        foreach (var record in await records.ListAsync(Collection, Tenant, Author, ct))
-            if (record.CreatedAt < Cutoff) await records.DeleteAsync(Collection, Tenant, record.Key, Author, ct);
+        // Only diagnostic content and its parts. Never hydrate bodies for retention or touch replay journals.
+        if (records is not IKeyVaultRecordReader reader) return;
+        foreach (var collection in new[] { Collection, DocumentCollection })
+        {
+            KeyVaultRecordCursor? cursor = null;
+            while (true)
+            {
+                var page = await reader.QueryMetadataAsync(collection, Tenant, "", Author, cursor, ct: ct);
+                foreach (var record in page.Records)
+                    if (record.CreatedAt < Cutoff) await records.DeleteAsync(collection, Tenant, record.Key, Author, ct);
+                cursor = page.Next;
+                if (!page.HasMore) break;
+            }
+        }
     }
 }
 

@@ -1,0 +1,205 @@
+{
+  "version": 1,
+  "source": "e6b24bb77380828f04447d7cc2fff2cf3e4354e2",
+  "cohort": "compactre6b24bb77colv5",
+  "case": "collections",
+  "recorded_at_utc": "2026-10-24T18:22:17.048256+00:00",
+  "scope": "One fresh diagnostic. Safe terminal measurements only; no artifact, approval or runtime result.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77colv5/freeze.json",
+      "sha256": "9f9f319381331bc97118bac4c0334eb84fe085280deedfcb60e4ebd5b3d97903",
+      "bytes": 12999
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77colv5/collections-terminal-safe-metrics.json",
+      "sha256": "abfdd53cee9ba4930d104770e270628f786d827a7b3e916f876eb63b19429cde",
+      "bytes": 10754
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77colv5/collections-planning.jsonl",
+      "sha256": "e63d6a618ae0da169d30826bf73efcb7dd693a4f44b4472624f7c48c36e2d1d7",
+      "bytes": 9500
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactre6b24bb77colv5/collections-exit.json",
+      "sha256": "040adffa6bff59268ecd039452cf59623483c159b6cfb39da5263c0af9810c1e",
+      "bytes": 67
+    }
+  ],
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "presentation_version": 5,
+    "benchmark_binary_sha256": "98de0591d5247ddcdcbd95a763286eed2e9e3c613ff6e3f7485687166d0159e8",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 18000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "high",
+        "outputTokens": 8192
+      }
+    },
+    "max_physical_attempts": 64,
+    "max_repairs": 4,
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "mcp_files_verified_at_freeze": 568,
+    "profile_comparison": "Collections phase-policy bytes remain identical to its retained control. Sources differ. No paired comparison or causal effect is established."
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "diagnostic": "MODEL_OUTPUT_LIMIT",
+    "logical_calls": 2,
+    "physical_attempts": 3,
+    "receipts": 2,
+    "corrections": 0,
+    "checkpoints": 0,
+    "constructed_requests": 2,
+    "admitted_requests": 2,
+    "prepared_only_requests": 0,
+    "rejected_before_dispatch": 0,
+    "receiptless_request_identities": 0,
+    "retained_failed_attempt_reservations": 1,
+    "final_review": false,
+    "artifact_present": false,
+    "approval_present": false,
+    "runtime_started": false,
+    "runtime_result": null,
+    "description": "Request 1 received HTTP 200. Request 2 received a confirmed HTTP 500, then its journaled retry received HTTP 200 with completion_status output_limit. That receipt reports 32,768 output tokens, all 32,768 classified as reasoning, zero derived visible tokens and zero response-content bytes. The host stopped; HTTP success is not planning success."
+  },
+  "usage_and_cost": {
+    "known_tokens": {
+      "input": 1945,
+      "output": 33181,
+      "reasoning": 33069,
+      "visible_output_derived": 112
+    },
+    "known_cost_eur": "0.8970593485051316376617581437",
+    "retained_failed_attempt_reservation_eur": "0.9308701472556894243641231593",
+    "cost_upper_bound_eur": "1.8279294957608210620258813030",
+    "usage_complete": false,
+    "usage_bounded": true,
+    "reserved_input_tokens": 12000,
+    "reserved_output_tokens": 32768,
+    "exact_money_source": "Original public terminal JSONL parsed with Decimal precision 80; the safe metrics JSON is preserved unchanged and its exact decimal monetary values also reconcile.",
+    "interpretation": "The failed HTTP 500 has unknown usage and retains its full reservation despite the subsequent successful HTTP response. Both logical calls have receipts; this is not receiptless dispatch uncertainty. Reasoning is included in output tokens, not added again."
+  },
+  "measurements": {
+    "phase": "construction_intent",
+    "complete_request_bytes": {
+      "count": 2,
+      "p50": "5471.5",
+      "p95": "8505",
+      "maximum": "8505",
+      "total": "10943"
+    },
+    "estimated_input_tokens": {
+      "count": 2,
+      "p50": "2080",
+      "p95": "3091",
+      "maximum": "3091",
+      "total": "4160"
+    },
+    "component_bytes": {
+      "diagnostics": 52,
+      "envelope": 876,
+      "evidence": 23,
+      "instructions": 2355,
+      "intent": 1762,
+      "interfaces": 59,
+      "response_schema": 5816
+    },
+    "component_estimate_rounding_difference": 3,
+    "all_complete_request_components_reconcile": true,
+    "all_requests_within_12000_input_limit": true,
+    "logical_call_elapsed_ms": {
+      "count": 2,
+      "p50": "309239.0008",
+      "p95": "602748.5913",
+      "maximum": "602748.5913",
+      "total": "618478.0016"
+    },
+    "planning_ms": 623706,
+    "runtime_ms": null,
+    "peak_draft_input_tokens": null,
+    "peak_judge_input_tokens": null,
+    "interpretation": "p50 is the median; p95 is nearest rank. Two observations are descriptive only. Logical call intervals include transport retry/accounting overhead and are not provider-only latency. Component estimates round independently and are not billed tokens."
+  },
+  "responses": [
+    {
+      "request_id": "d43ed189e25344cc141a7c894ada73e4f306968ab80b9e9104b3a9ad3a07d87b:1:bb350fe3d7988593fdc21b2140f6c5222581474d2f8a66efaa8c44327ff5d2a2",
+      "request_sha256": "9642983369f4dced1555ca843277bd8774d66bf53ef6ae46be854e2af56519c1",
+      "receipt_sha256": "aeeb22f29edbe10600b4061192d3f4a3f411ae0e8e449bdb6e4df237deabe12a",
+      "http_journal_sha256": "5cc4bced5e378c9acf55a6f10f1294b225cbb7a4a7d0de8a9a83544d388579cf",
+      "http_statuses": [
+        200
+      ],
+      "completion_status": null,
+      "input_tokens": 377,
+      "output_tokens": 413,
+      "reasoning_tokens": 301,
+      "visible_output_tokens_derived": 112,
+      "retained_response_content_bytes": 480,
+      "retained_response_content_sha256": "dd776089397df51f0952dabf73cc3a7b8ec57c25f360e1dba1e59bf1f4e71689"
+    },
+    {
+      "request_id": "d43ed189e25344cc141a7c894ada73e4f306968ab80b9e9104b3a9ad3a07d87b:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+      "request_sha256": "656266ffb18cbb60b87f76efcf0d05439fb0448e698a152009513e366fe41e95",
+      "receipt_sha256": "4f0037e4a169796fb58f49c471d1f98d2383fa399c77a882dae49fe05b421d1b",
+      "http_journal_sha256": "5e9fea46a0628204347acb20834a9b2b6e8e0ae5ecf3cf29ad9e97966d03bd76",
+      "http_statuses": [
+        500,
+        200
+      ],
+      "completion_status": "output_limit",
+      "input_tokens": 1568,
+      "output_tokens": 32768,
+      "reasoning_tokens": 32768,
+      "visible_output_tokens_derived": 0,
+      "retained_response_content_bytes": 0,
+      "retained_response_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "formatting": {
+    "original_response_formatting_exported": false,
+    "first_response_original_whitespace": null,
+    "second_response_content_bytes": 0,
+    "interpretation": "The second retained response is empty, not whitespace-only. The first response content count is reader-normalized; original whitespace and original byte count are not inferred."
+  },
+  "terminal_campaign_snapshot": {
+    "provenance": "Public terminal summary; dated at this run, not a later readiness or closure audit.",
+    "physical_attempts": 2778,
+    "known_cost_eur": "115.21423544707578202260744744",
+    "retained_reservations_eur": "25.522920456374507181842093334",
+    "cost_upper_bound_eur": "140.73715590345028920444954077",
+    "unknown_usage_attempts": 37,
+    "decimal_crosscheck_known_plus_reserved_minus_reported_upper_eur": "4E-27"
+  },
+  "limitations": [
+    "No Judge, accepted checkpoint, artifact, approval or execution occurred. Frozen useful-work obligations were not accepted; no per-accepted-obligation ratio is computed.",
+    "The terminal failure-history category is provisional. Receipt completion_status and MODEL_OUTPUT_LIMIT are the supported classification; no timeout, causal prompt defect or provider termination cause is inferred.",
+    "This single observation does not establish convergence, reliability, avoided corrections, source benefit or the cause of reasoning exhaustion.",
+    "No main source, campaign store, reader, model, runtime or approval action was invoked while constructing this archive. Exact-source technical validation is separate from this live outcome."
+  ]
+}

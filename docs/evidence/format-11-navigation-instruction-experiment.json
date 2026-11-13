@@ -1,0 +1,525 @@
+{
+  "experiment": "single navigation instruction constant replacement",
+  "control_revision": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "candidate_base_revision": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "candidate_source_overlay": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "6d8e270611835966359f17477873ede4524bebfba2a9a4c064f4f7b707f58baf",
+    ".agents/skills/gnougo-planning/SKILL.md": "b89fe7110e85a29262ee482107046d0d58bf5cde8bb37e0c9b2cd108ff1f5a18"
+  },
+  "harness": "same private test-only request capture in both arms; normal coordinator dispatch with controlled schema-conforming TestRuntime responses",
+  "paid_calls": 0,
+  "operational_data_access": false,
+  "source_diff": "One TransformSemantics navigation instruction constant; skill guidance only; no emitted schema/settings/Judge instruction change",
+  "validation": [
+    {
+      "arm": "control",
+      "exit_code": 0,
+      "tests_passed": 254,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "compiler_warnings": 0,
+      "compiler_errors": 0,
+      "source_manifest_sha256": "8642c8d171fbec57b5d1a0b0fa5263924161ccf6edef102048d7aded93a905f9",
+      "snapshot_hashes_unchanged": true,
+      "log": "control/logs/focused-tests.log",
+      "command_file": "control/command.json",
+      "log_sha256": "0330c923b004e75a6b8ec675e90bdaa58f3c063301761b7d02bed642aa52da73",
+      "raw_request_fixture_sha256": "8059201aaae383f351081578accba06130b8abce290e8d97268989b50b6bd840"
+    },
+    {
+      "arm": "candidate",
+      "exit_code": 0,
+      "tests_passed": 254,
+      "tests_failed": 0,
+      "tests_skipped": 0,
+      "compiler_warnings": 0,
+      "compiler_errors": 0,
+      "source_manifest_sha256": "3cb84b142a9972d08bc0430170224b53cf4d92f183f788db71233edebafccdee",
+      "snapshot_hashes_unchanged": true,
+      "log": "candidate/logs/focused-tests.log",
+      "command_file": "candidate/command.json",
+      "log_sha256": "673c20b5be90c85356789e57c0a413c58d6724972e6d1798ad87f6e91e70a105",
+      "raw_request_fixture_sha256": "e3f7191dbebfa62561c18161177b2d31355839aaa1ddda06d7971da6271ceaf4"
+    }
+  ],
+  "unique_tests_per_arm": 254,
+  "paired_regressions_not_unique_test_count": 508,
+  "request_pairs": [
+    {
+      "name": "intent_control",
+      "phase": "construction_intent",
+      "control_complete_bytes": 2302,
+      "candidate_complete_bytes": 2302,
+      "delta_complete_bytes": 0,
+      "control_estimated_input_tokens": 1024,
+      "candidate_estimated_input_tokens": 1024,
+      "delta_estimated_input_tokens": 0,
+      "schema_hash": "ffc6edf758d296cd10dd919fba663202bba859c667cea78dd8934d3398b1bebe",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "diagnostics": {
+          "control_bytes": 26,
+          "candidate_bytes": 26,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 403,
+          "candidate_bytes": 403,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 882,
+          "candidate_bytes": 882,
+          "delta_bytes": 0
+        },
+        "intent": {
+          "control_bytes": 292,
+          "candidate_bytes": 292,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 699,
+          "candidate_bytes": 699,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "selection_small",
+      "phase": "construction_select",
+      "control_complete_bytes": 10331,
+      "candidate_complete_bytes": 10463,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 3700,
+      "candidate_estimated_input_tokens": 3744,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "1e2d3aca77fb1fa695360539ca06647d1e965283f34ca70d8d57772fe1d2b408",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 1005,
+          "candidate_bytes": 1005,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 411,
+          "candidate_bytes": 411,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2852,
+          "candidate_bytes": 2984,
+          "delta_bytes": 132
+        },
+        "interfaces": {
+          "control_bytes": 464,
+          "candidate_bytes": 464,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 4829,
+          "candidate_bytes": 4829,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "selection_cached_contracts",
+      "phase": "construction_select",
+      "control_complete_bytes": 12770,
+      "candidate_complete_bytes": 12902,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 4513,
+      "candidate_estimated_input_tokens": 4557,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "93e6b732ce5ca83fc08f19f5a6be8438b28e8acf4b2f79ff37fbfad586dc5458",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 2500,
+          "candidate_bytes": 2500,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 412,
+          "candidate_bytes": 412,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2852,
+          "candidate_bytes": 2984,
+          "delta_bytes": 132
+        },
+        "interfaces": {
+          "control_bytes": 464,
+          "candidate_bytes": 464,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 5772,
+          "candidate_bytes": 5772,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "discovery_provider",
+      "phase": "construction_discovery",
+      "control_complete_bytes": 7523,
+      "candidate_complete_bytes": 7655,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 2764,
+      "candidate_estimated_input_tokens": 2808,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "3b6344a2784045449211e2c61f59502a11f9f4dab9b93365df3591fc6b80d621",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 580,
+          "candidate_bytes": 580,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 407,
+          "candidate_bytes": 407,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2170,
+          "candidate_bytes": 2302,
+          "delta_bytes": 132
+        },
+        "mcp_descriptors": {
+          "control_bytes": 614,
+          "candidate_bytes": 614,
+          "delta_bytes": 0
+        },
+        "objective": {
+          "control_bytes": 62,
+          "candidate_bytes": 62,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 2920,
+          "candidate_bytes": 2920,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "discovery_descriptors",
+      "phase": "construction_discovery",
+      "control_complete_bytes": 12088,
+      "candidate_complete_bytes": 12220,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 4286,
+      "candidate_estimated_input_tokens": 4330,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "12bc0c177d66a3ec6c2b002d2d93495cc73dfd10b38da493f4a4ed11567cb8e4",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 580,
+          "candidate_bytes": 580,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 408,
+          "candidate_bytes": 408,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2170,
+          "candidate_bytes": 2302,
+          "delta_bytes": 132
+        },
+        "mcp_descriptors": {
+          "control_bytes": 1432,
+          "candidate_bytes": 1432,
+          "delta_bytes": 0
+        },
+        "objective": {
+          "control_bytes": 62,
+          "candidate_bytes": 62,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 6666,
+          "candidate_bytes": 6666,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "discovery_original_evidence",
+      "phase": "construction_discovery",
+      "control_complete_bytes": 13618,
+      "candidate_complete_bytes": 13750,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 4796,
+      "candidate_estimated_input_tokens": 4840,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "6a2daae9f7460695745d5f9b7652a6caaaa067aa6b5e7e8d39435566edac1c18",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 580,
+          "candidate_bytes": 580,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 410,
+          "candidate_bytes": 410,
+          "delta_bytes": 0
+        },
+        "evidence": {
+          "control_bytes": 1081,
+          "candidate_bytes": 1081,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2170,
+          "candidate_bytes": 2302,
+          "delta_bytes": 132
+        },
+        "mcp_descriptors": {
+          "control_bytes": 1879,
+          "candidate_bytes": 1879,
+          "delta_bytes": 0
+        },
+        "objective": {
+          "control_bytes": 62,
+          "candidate_bytes": 62,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 6666,
+          "candidate_bytes": 6666,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "discovery_prior_cache",
+      "phase": "construction_discovery",
+      "control_complete_bytes": 8843,
+      "candidate_complete_bytes": 8975,
+      "delta_complete_bytes": 132,
+      "control_estimated_input_tokens": 3204,
+      "candidate_estimated_input_tokens": 3248,
+      "delta_estimated_input_tokens": 44,
+      "schema_hash": "43d236fb0b577c0c867d0b68ff30f1e43e0bedcfd0ac6c1977c8381361ff889b",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 580,
+          "candidate_bytes": 580,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 408,
+          "candidate_bytes": 408,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 2170,
+          "candidate_bytes": 2302,
+          "delta_bytes": 132
+        },
+        "mcp_descriptors": {
+          "control_bytes": 1814,
+          "candidate_bytes": 1814,
+          "delta_bytes": 0
+        },
+        "objective": {
+          "control_bytes": 67,
+          "candidate_bytes": 67,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 3034,
+          "candidate_bytes": 3034,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "draft_control",
+      "phase": "construction_draft",
+      "control_complete_bytes": 16033,
+      "candidate_complete_bytes": 16033,
+      "delta_complete_bytes": 0,
+      "control_estimated_input_tokens": 5601,
+      "candidate_estimated_input_tokens": 5601,
+      "delta_estimated_input_tokens": 0,
+      "schema_hash": "659a0c197508b095e9f128151f872ff204857480c70225cd90eb31e16b1e138e",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 1360,
+          "candidate_bytes": 1360,
+          "delta_bytes": 0
+        },
+        "diagnostics": {
+          "control_bytes": 26,
+          "candidate_bytes": 26,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 416,
+          "candidate_bytes": 416,
+          "delta_bytes": 0
+        },
+        "evidence": {
+          "control_bytes": 25,
+          "candidate_bytes": 25,
+          "delta_bytes": 0
+        },
+        "fragment": {
+          "control_bytes": 22,
+          "candidate_bytes": 22,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 1095,
+          "candidate_bytes": 1095,
+          "delta_bytes": 0
+        },
+        "interfaces": {
+          "control_bytes": 25,
+          "candidate_bytes": 25,
+          "delta_bytes": 0
+        },
+        "mcp_contracts": {
+          "control_bytes": 25,
+          "candidate_bytes": 25,
+          "delta_bytes": 0
+        },
+        "objective": {
+          "control_bytes": 62,
+          "candidate_bytes": 62,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 770,
+          "candidate_bytes": 770,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 12207,
+          "candidate_bytes": 12207,
+          "delta_bytes": 0
+        }
+      }
+    },
+    {
+      "name": "business_judge_control",
+      "phase": "construction_local_judge",
+      "control_complete_bytes": 4948,
+      "candidate_complete_bytes": 4948,
+      "delta_complete_bytes": 0,
+      "control_estimated_input_tokens": 1906,
+      "candidate_estimated_input_tokens": 1906,
+      "delta_estimated_input_tokens": 0,
+      "schema_hash": "2802e48886d6f1514f7e02a037737b17a084aa6f3ad1b87c7b8f73b7d63f427d",
+      "schema_byte_identical": true,
+      "request_except_unique_id_and_instruction_identical": true,
+      "components": {
+        "construction_context": {
+          "control_bytes": 639,
+          "candidate_bytes": 639,
+          "delta_bytes": 0
+        },
+        "envelope": {
+          "control_bytes": 411,
+          "candidate_bytes": 411,
+          "delta_bytes": 0
+        },
+        "fragment": {
+          "control_bytes": 524,
+          "candidate_bytes": 524,
+          "delta_bytes": 0
+        },
+        "instructions": {
+          "control_bytes": 1456,
+          "candidate_bytes": 1456,
+          "delta_bytes": 0
+        },
+        "interfaces": {
+          "control_bytes": 287,
+          "candidate_bytes": 287,
+          "delta_bytes": 0
+        },
+        "requirements": {
+          "control_bytes": 372,
+          "candidate_bytes": 372,
+          "delta_bytes": 0
+        },
+        "response_schema": {
+          "control_bytes": 1259,
+          "candidate_bytes": 1259,
+          "delta_bytes": 0
+        }
+      }
+    }
+  ],
+  "summary": {
+    "requests_compared": 9,
+    "schemas_byte_identical": 9,
+    "navigation_requests_changed": 6,
+    "non_navigation_controls_byte_identical_except_unique_request_id": 3,
+    "navigation_delta_complete_bytes": [
+      132
+    ],
+    "navigation_delta_estimated_input_tokens": [
+      44
+    ]
+  },
+  "limits": [
+    "Mocked request/response traces verify construction and request sizes, not real model semantic convergence or runtime business acceptance.",
+    "Estimated tokens use the retained conservative estimator, not provider-reported token usage.",
+    "No causal claim about live calls, reasoning, latency, cost or business success.",
+    "The first candidate measurement-probe compile failed due to a private harness ToArray/List mismatch; fixed identically in both arms and retained as probe-compile1.log."
+  ],
+  "validation_did_not_mutate_main": true,
+  "candidate_overlay_prepared_before_validation": true,
+  "private_evidence_summary_sha256": "558b4c36b24152412777b0226027d43cb073524a01c2e75ba07aab27322d0605"
+}

@@ -1,0 +1,84 @@
+{
+  "production_and_harness_source": "5e0bc6d8f8d4374a1837aa22d48518ba0a2347d6",
+  "run": "compactm5e0bc6d8code11a-code-1",
+  "verified_exceedances": 6,
+  "issued_calls": [
+    {
+      "number": 34,
+      "phase": "replan",
+      "bytes": 61320,
+      "estimate": 20696,
+      "limit": 20000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 8000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 12360
+    },
+    {
+      "number": 37,
+      "phase": "replan",
+      "bytes": 99747,
+      "estimate": 33505,
+      "limit": 20000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 8000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 18325
+    },
+    {
+      "number": 40,
+      "phase": "replan",
+      "bytes": 70365,
+      "estimate": 23711,
+      "limit": 20000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 8000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 13498
+    },
+    {
+      "number": 43,
+      "phase": "construction_select",
+      "bytes": 56441,
+      "estimate": 19070,
+      "limit": 18000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 3000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 11559
+    },
+    {
+      "number": 44,
+      "phase": "construction_draft",
+      "bytes": 71954,
+      "estimate": 24241,
+      "limit": 20000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 8000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 12628
+    },
+    {
+      "number": 45,
+      "phase": "construction_draft",
+      "bytes": 95381,
+      "estimate": 32050,
+      "limit": 20000,
+      "admission": "admitted",
+      "receipt_exists": true,
+      "captured_target": 8000,
+      "durable_warning_present": true,
+      "provider_input_tokens": 16389
+    }
+  ],
+  "measurement_basis": "Complete serialized bytes and conservative estimates. Input limits here are captured advisory project thresholds, not physical deployment capacities. Provider input tokens are whole-call reported usage, not estimates.",
+  "requests_reissued_to_obtain_evidence": false,
+  "provider_calls_for_this_inspection": 0,
+  "current_source_live_proof": false,
+  "runtime_success": false
+}

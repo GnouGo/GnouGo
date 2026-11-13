@@ -1,0 +1,143 @@
+{
+  "tested_public_source": "ed00493430cddc5a2359834b2cf7dc395495bc95",
+  "private_source": "9b5ced0167ae4efa72d34a824c5d410525c27720",
+  "case": "review_pr",
+  "cohort": "compactmed004934code11a",
+  "format": 11,
+  "model": "gpt-5.5-2026-04-24",
+  "profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "planning_ms": 4491420,
+  "logical_requests": 62,
+  "physical_attempts": 63,
+  "received_responses": 61,
+  "corrections": 0,
+  "accounting": {
+    "logical_calls": 62,
+    "physical_attempts": 63,
+    "known_input_tokens": 317417,
+    "known_output_tokens": 165907,
+    "known_cost_eur": "5.8962498877211892571633881254",
+    "unknown_attempts": 2,
+    "reserved_input_tokens": 50421,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": "1.9924413904607922392886014552"
+  },
+  "artifact": false,
+  "runtime_executed": false,
+  "completed_business_units": 0,
+  "calls_per_completed_unit": null,
+  "recorded_diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/",
+      "message": "Planning could not safely complete this operation.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "independent_stop_classification": "Request 62 reserved no attempt. 63 prior physical attempts plus the new attempt and mandatory review would exceed 64. Exact durable admission evidence establishes a pre-dispatch stop, not provider uncertainty.",
+  "new_closure": {
+    "mode": "unstarted-planning-request",
+    "evidence_hash": "52a3cb3e97818c102d0a63d63238cffdeb625f7a1f1122caed020aaa6b253eb5",
+    "request_number": 62,
+    "new_physical_reservations": 0,
+    "new_reservation_released": "0",
+    "prior_failed_attempt_reservations_retained_eur": "1.9924413904607922392886014552",
+    "exact_delegation": "Current user authorizes exact administrative retention of stopped planning requests.",
+    "idempotent_apply": true,
+    "fresh_process_replay_and_continuation_rejected": true,
+    "original_accounting_unchanged": true,
+    "closure_implementation": "5fab9b6eff01cbd514675fcfdfc59e5ae7158c7d"
+  },
+  "demonstrated_context_defect": "Slash count of a flat canonical scope address was used as nesting depth. Optional context fitting could retain a parent while hiding its deeper active child. Fixed separately in 44563ec5 with actual Scope.Parent depth.",
+  "scope_fix_live_benefit": "Unproven for this stopped control.",
+  "raw_result_sha256": "cdfa6d059d03693a333affe0976c888e64bb7ce4db5a30cd80b86d8027acb450",
+  "retained_inspection_sha256": "295038a25ef3fecc4d399cd9e56e89fe969d3a9bf1ec791892cfd4c3319d3a04",
+  "phase_measurements": {
+    "construction_intent": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 8723,
+      "known_output_tokens": 11199,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "0.3409548190065570825473816581",
+      "usage_complete": false,
+      "usage_bounded": true,
+      "reserved_input_tokens": 18000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "0.9638372406359471840474265697",
+      "logical_calls": 6,
+      "elapsed_ms": "578639.9463",
+      "physical_attempts": 7
+    },
+    "construction_select": {
+      "input_tokens": 65271,
+      "output_tokens": 66619,
+      "known_input_tokens": 65271,
+      "known_output_tokens": 66619,
+      "estimated_cost_eur": "2.0883185125303152789005658853",
+      "known_cost_eur": "2.0883185125303152789005658853",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 15,
+      "elapsed_ms": "1151703.3706",
+      "physical_attempts": 14
+    },
+    "construction_draft": {
+      "input_tokens": 36622,
+      "output_tokens": 8013,
+      "known_input_tokens": 36622,
+      "known_output_tokens": 8013,
+      "estimated_cost_eur": "0.3804006107967304410311685979",
+      "known_cost_eur": "0.3804006107967304410311685979",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 7,
+      "elapsed_ms": "256277.0143",
+      "physical_attempts": 7
+    },
+    "construction_discovery": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 206801,
+      "known_output_tokens": 80076,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "3.0865759453875864546842719841",
+      "usage_complete": false,
+      "usage_bounded": true,
+      "reserved_input_tokens": 32421,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "1.0286041498248450552411748855",
+      "logical_calls": 34,
+      "elapsed_ms": "2118511.2943",
+      "physical_attempts": 35
+    }
+  }
+}

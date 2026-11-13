@@ -1,0 +1,113 @@
+{
+  "kind": "Complete unfiltered regression and scoped CI orchestration; no demonstrated runtime hang",
+  "diagnostic_source": "bc0ef13f17ae88c007d32c281c513f17429372cd",
+  "linux_ci": {
+    "run_id": 42739710727,
+    "job_id": 129577475036,
+    "conclusion": "cancelled",
+    "operator_cancelled_superseded_job": true,
+    "server_summary_utc": "2026-11-10T04:06:55.1288984Z",
+    "server_test_run_successful": true,
+    "server_passed": 2060,
+    "server_existing_platform_skip": 1,
+    "fixture_cases_passed": 216,
+    "subsequent_flow_packs_completed": true,
+    "cancelled_during": "isolated Benchmark build",
+    "overall_job_pass_claimed": false
+  },
+  "unfiltered_local": {
+    "source": "bc0ef13f17ae88c007d32c281c513f17429372cd",
+    "exit_code": 0,
+    "unfiltered_server_assembly": true,
+    "counters": {
+      "total": "2061",
+      "executed": "2061",
+      "passed": "2061",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "fixture_cases": 216,
+    "distinct_fixture_names": 216,
+    "frozen_binaries_unchanged": true,
+    "private_evidence_sha256": {
+      "resume300b-unfiltered-server.log": "085e9bf41d696c8c1ca0dca6d15ffcbc5274f71c1df6d6f8b93b418231a73b07",
+      "resume300b-unfiltered-server-exit.json": "c77686198d15c2f78d8c4a6bbf9679c2fecf66681db58c8e3e95310dfb124a82",
+      "resume300b-unfiltered-server-results/server.trx": "876367af81d644fb84b0c4358e64bc732613cc49d2caa5c09be53922d3cfbc9e"
+    }
+  },
+  "binary_provenance": {
+    "unfiltered_invocation_git_head": "bc0ef13f17ae88c007d32c281c513f17429372cd",
+    "frozen_debug_build_source": "a84b2d891e4ad68a27db7a601b3ba13d6f3d7d4a",
+    "intervening_runtime_source_changes": false,
+    "explanation": "Later commits before invocation only changed documentation and CI diagnostics. The original invocation basis and exit records are preserved."
+  },
+  "first_cause": "The serial workbook fixture class completes slowly on the hosted runner; detailed logs show all tests passed. No hanging test or runtime defect was established.",
+  "ci_change": {
+    "one_warning_free_build": true,
+    "complete_unfiltered_discovery": true,
+    "ordinary_remainder_one_process": true,
+    "fixture_partitions_parallel": 4,
+    "whole_methods": true,
+    "exact_case_name_multiset_validation": true,
+    "frozen_managed_binaries_checked": true,
+    "unexpected_skips_fail": true,
+    "existing_linux_skip": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "hang_diagnostic": "5m, no memory dumps",
+    "coverage_manifest_retained": true,
+    "tests_removed": false,
+    "runtime_or_live_policy_changed": false
+  },
+  "local_runner_validation": {
+    "basis": "Existing unfiltered TRX independently checked with the new coverage validator; not a new execution of all tests",
+    "inventory": 2061,
+    "fixture_cases": 216,
+    "fixture_methods": 47,
+    "partitions": [
+      {
+        "name": "remainder",
+        "cases": 1845
+      },
+      {
+        "name": "part-1",
+        "cases": 54
+      },
+      {
+        "name": "part-2",
+        "cases": 54
+      },
+      {
+        "name": "part-3",
+        "cases": 54
+      },
+      {
+        "name": "part-4",
+        "cases": 54
+      }
+    ],
+    "complete_exact_case_names_match_unfiltered_trx": true,
+    "exact_equality_filter_verified_against_actual_dotnet_discovery": true,
+    "exact_filter_cases": 1,
+    "unit_regressions_passed": 5,
+    "exact_theory_filter_cases": 8
+  },
+  "new_remote_ci": "Required on the exact new commit; this evidence does not claim it passed.",
+  "private_evidence_sha256": {
+    "resume300b-ci-bc0-cancelled.log": "c9f3aed2a36c5c2e8dd135b1007d1715af036fe048da730d7976e3d58a318dc9",
+    "resume300b-ci-partition-local-validation.json": "53d897daa54fa022346935c498a953910fddc5bd0e4f463a0477fccac9873e0d",
+    "resume300b-ci-exact-theory-filter-inventory.log": "6e8ffef5521a0c877980161454b0408ed95086f782ce5a02d0d453658ffd7c8a",
+    "resume300b-unfiltered-server-proof.json": "531efdf8ccbf4235f25920a489147c8854c09875dca549582e1d077ae4d7f1ac",
+    "resume300b-unfiltered-server-basis.json": "2092c3577cab79c40b4f27b415e0227277fe23dbefbb0ee3a1348d994284e8a3",
+    "resume300b-unfiltered-server-exit.json": "c77686198d15c2f78d8c4a6bbf9679c2fecf66681db58c8e3e95310dfb124a82"
+  }
+}

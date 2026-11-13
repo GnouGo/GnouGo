@@ -1,0 +1,18 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "800",
+  "spending_authorization_history_count": 2,
+  "supplement_reference": "pr120-supplement-20261108-400-01",
+  "supplement_applied_once": true,
+  "known_usage_tariff_estimate_eur": "467.30222122704881325570981157",
+  "unresolved_http_reservations_eur": "310.83681146439767129422301845",
+  "verified_retained_application_reservations_eur": "16.004818629646215853112404838",
+  "available_campaign_allocation_eur": "5.856148678907299596954765142",
+  "unknown_physical_attempts": 32,
+  "audit_model_dispatches": 0,
+  "audit_historical_changes": false,
+  "globally_available_funding": null,
+  "limitation": "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+  "provider_invoice": false,
+  "all_historical_charges_and_holds_retained": true
+}

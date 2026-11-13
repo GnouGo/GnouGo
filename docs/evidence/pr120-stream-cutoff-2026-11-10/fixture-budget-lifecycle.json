@@ -1,0 +1,107 @@
+{
+  "scope": "controlled fixture lifecycle only; production runtime, provider transport and live campaign unchanged",
+  "base_head": "ede82dc527931babbdcfe6a80b36925068ca790a",
+  "demonstrated_cause": "A finite execution scope was constructed before inference-free offline plan/catalogue preparation. Budget age included setup; CI refused at 120\u2013125 seconds while actual execution had run only 33\u201340 seconds.",
+  "initial_ci_failure": {
+    "source": "e25ef5f66ad8bbeb3daf4966671558bfa0fe4228",
+    "run_id": 42787456545,
+    "job_id": 129732167491,
+    "conclusion": "failure",
+    "artifact_id": 13754512097,
+    "artifact_sha256": "61310659c812123a2ede816945d101198993361ceed45055261b6f92b3fbd631",
+    "passed": 2060,
+    "failed": 4,
+    "existing_linux_skip": 1,
+    "exact_inventory_coverage": true,
+    "binaries_unchanged": true,
+    "failures": [
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"repeated\")",
+        "total_duration": "00:02:09.8690000",
+        "runtime_elapsed_ms": 40183,
+        "finite_elapsed_allowance_ms": 120000,
+        "budget_elapsed_ms": 125203.2093,
+        "calls_before_refusal": 10,
+        "limit_kind": "elapsed_ms",
+        "origin": "explicit_workflow_limit",
+        "dispatch_status": "not_started"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"complete\")",
+        "total_duration": "00:02:04.8860000",
+        "runtime_elapsed_ms": 32737,
+        "finite_elapsed_allowance_ms": 120000,
+        "budget_elapsed_ms": 120577.5257,
+        "calls_before_refusal": 8,
+        "limit_kind": "elapsed_ms",
+        "origin": "explicit_workflow_limit",
+        "dispatch_status": "not_started"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"null_href\")",
+        "total_duration": "00:02:09.6610000",
+        "runtime_elapsed_ms": 39762,
+        "finite_elapsed_allowance_ms": 120000,
+        "budget_elapsed_ms": 124557.5231,
+        "calls_before_refusal": 10,
+        "limit_kind": "elapsed_ms",
+        "origin": "explicit_workflow_limit",
+        "dispatch_status": "not_started"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")",
+        "total_duration": "00:02:05.4310000",
+        "runtime_elapsed_ms": 33556,
+        "finite_elapsed_allowance_ms": 120000,
+        "budget_elapsed_ms": 120567.0592,
+        "calls_before_refusal": 8,
+        "limit_kind": "elapsed_ms",
+        "origin": "explicit_workflow_limit",
+        "dispatch_status": "not_started"
+      }
+    ]
+  },
+  "independent_ci_on_unchanged_runtime": {
+    "source": "ede82dc527931babbdcfe6a80b36925068ca790a",
+    "run_id": 42793088274,
+    "job_id": 129751240298,
+    "conclusion": "success",
+    "artifact_id": 13754618158,
+    "artifact_sha256": "53fcbb76ab4d3f4ce311312600841fda78bda7dcdec6b1bb5a318bc33f78adf6",
+    "passed": 2064,
+    "failed": 0,
+    "existing_linux_skip": 1,
+    "original_fixture_cases": 216,
+    "exact_inventory_counter_independently_verified": true,
+    "binaries_unchanged": true
+  },
+  "correction": "Create this new fixture run\u2019s finite execution scope once, immediately before execution. Assert that no prior scope exists; do not replace or restore a spent scope. The test had made zero model requests during preparation.",
+  "finite_execution_allowance_before_and_after_ms": 120000,
+  "production_budget_semantics_changed": false,
+  "live_budget_or_reservations_changed": false,
+  "regressions": {
+    "red": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "trx_sha256": "1a5616482a89b16a1f3aa7c50d29f692ac5eda6764b7fc3331056ba9806255b3"
+    },
+    "green": {
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "trx_sha256": "a946d4ff91002dad739e193f73bd4b1ad8c59c6a253063cb04415e7a2c2b15ea"
+    }
+  },
+  "controlled_clock_offline_age_ms": 180000,
+  "after_correction_expired_scope_still_rejects_at_ms": 120000,
+  "original_fixture_cases_preserved": 216,
+  "new_lifecycle_regressions": 1,
+  "next_complete_fixture_inventory": 217,
+  "new_paid_calls": 0,
+  "limitations": [
+    "The earlier failing run remains a failure; the later unchanged-runtime pass does not erase it.",
+    "Final corrected-source complete CI is reported separately; nine focused controls are recorded here.",
+    "This fixture timing issue does not explain Code20/21\u2019s remote 301-second stream cutoff."
+  ]
+}

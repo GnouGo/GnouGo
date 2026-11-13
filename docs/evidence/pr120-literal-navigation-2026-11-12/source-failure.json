@@ -1,0 +1,66 @@
+{
+  "source": "745a12fc11ae0c1c4254d2f6d49d298164b00bdc",
+  "identity": "amazon-aax-mcp-source-20261112-02",
+  "source_records": 1640,
+  "source_entry_occurrences": 6,
+  "source_mcp_held_open": true,
+  "source_only": true,
+  "model_calls": 0,
+  "actual_content_tool_calls": 3,
+  "complete_aax_product_reads": 1,
+  "incomplete_aax_reads": 1,
+  "failure": "NotSupportedException: The specified pattern with RegexOptions.NonBacktracking could result in an automata as large as '11580' nodes, which is larger than the configured limit of '10000'.",
+  "pre_navigation_validation": true,
+  "cleanup": {
+    "closed": true,
+    "probe_error": true,
+    "no_active_page": true,
+    "source_mcp": {
+      "closed": true,
+      "probe_error": true,
+      "no_active_page": true
+    }
+  },
+  "raw_events_sha256": "9f4b6d62da37ef98425beaca5cff1e7d33c87e49fb95f537282e4dc852462a4c",
+  "workflow_activation": false,
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false,
+  "urls": [
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:396",
+      "has_heading": false,
+      "href_characters": 1982,
+      "href_sha256": "ff46e5dc7b0aacb81dde92ee827ee7f0cdd4cd47aba16c7222460d1dac5803ac"
+    },
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:401",
+      "has_heading": true,
+      "href_characters": 2315,
+      "href_sha256": "56267e081eb24d179a92a06e4782c4960f81e54eaf81ca7613c786e12bc2a33a"
+    },
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:406",
+      "has_heading": false,
+      "href_characters": 2315,
+      "href_sha256": "56267e081eb24d179a92a06e4782c4960f81e54eaf81ca7613c786e12bc2a33a"
+    },
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:1309",
+      "has_heading": false,
+      "href_characters": 1985,
+      "href_sha256": "36bc0d0345b59ce398efd6f011a5d566f4a52286d75c0640b6974da4f8645d3b"
+    },
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:1314",
+      "has_heading": true,
+      "href_characters": 2315,
+      "href_sha256": "9456a2a0110be08dce45b06d42639730e89a1fbb61e859847fc0b16c977b5655"
+    },
+    {
+      "reference": "d4e2516a46d64cf5b3d8c25987a3712a:record:1319",
+      "has_heading": false,
+      "href_characters": 2315,
+      "href_sha256": "9456a2a0110be08dce45b06d42639730e89a1fbb61e859847fc0b16c977b5655"
+    }
+  ]
+}

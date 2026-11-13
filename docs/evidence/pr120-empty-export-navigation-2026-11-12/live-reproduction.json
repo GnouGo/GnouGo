@@ -1,0 +1,52 @@
+{
+  "source": "8f2d02f4ada37ad407382cf6c9ddc8aad5366440",
+  "run": "amazon-v13-qualification-20261111-01",
+  "scope_evidence_requests": [
+    {
+      "request_id": "435c641ba1d9426da659673cf29333d4:41:8762a9d5b0fea6aeba6abb46016e258042998e3fbe3faa0dd31b18f5408effdd:de1c4590bb14e6bf87890b624dfd6de2560cc30d83ea9994e89681b22912d436",
+      "scope": "/root",
+      "accepted_export_count": 0,
+      "accepted_export_names": [],
+      "offered_evidence_id": "e4c659eac_72",
+      "requested": true,
+      "schema_contains_issued_id": true,
+      "record_projection_sha256": "979cd38a6abe8ceb676e2540651eefa7f413fbd924e822702ac71d7e7bb5b16e"
+    },
+    {
+      "request_id": "435c641ba1d9426da659673cf29333d4:42:834244f159dd7cb3bb7a7ed164720e01a3a6417e42a9ec1f7a8ea540e9baa699:bb648646d750ed13e45d7ad9eb10a81422e363ac4892355be79a83709fd7a331",
+      "scope": "/root",
+      "accepted_export_count": 0,
+      "accepted_export_names": [],
+      "offered_evidence_id": "e15ea97b8_72",
+      "requested": true,
+      "schema_contains_issued_id": true,
+      "record_projection_sha256": "a37928d911a2965dfbd8876ef887652feee898955e56c32980abfd1100549724"
+    },
+    {
+      "request_id": "435c641ba1d9426da659673cf29333d4:43:a87e08abbeff026ae9901a82e913e6e3dd188f527bbf23852e3d52b6eb23882c:593345cc6fc18624f571cb0495945950a3066ae94db74419f83d9ff10c10c8bc",
+      "scope": "/root",
+      "accepted_export_count": 0,
+      "accepted_export_names": [],
+      "offered_evidence_id": "e0d9f3288_72",
+      "requested": true,
+      "schema_contains_issued_id": true,
+      "record_projection_sha256": "be54521d8a3bb4a902be89030014cd1f6957e1c33aa0acabf486a4cde695bc12"
+    },
+    {
+      "request_id": "435c641ba1d9426da659673cf29333d4:44:e98b790e13c9c363e4712284ba5b96005a89e1ad9b00a7ad3c0bf5bf98d80054:46f20b13263a3a8f0d48053115c27b509f2526a9a066eda9ac0f80bbc4b722ea",
+      "scope": "/root",
+      "accepted_export_count": 0,
+      "accepted_export_names": [],
+      "offered_evidence_id": "eff931a50_72",
+      "requested": true,
+      "schema_contains_issued_id": true,
+      "record_projection_sha256": "06c9866e0300dbae0c0afa8173f0b3a88e3da70dde194efd47e456e7a420443d"
+    }
+  ],
+  "reader_rejection": "CONSTRUCTION_EVIDENCE_UNKNOWN",
+  "canonical_unavailable_address": "scope-exports:accepted:%2Froot@886d35b373cef8572cdaf9859d8dd8c8410d41affb9467c2a7ca7de38d69e54b:0",
+  "accepted_plan": false,
+  "execution": false,
+  "independent_oracle": false,
+  "request_hash_representation": "UTF-8 compact JSON projection preserving stored property order with ensure_ascii=false; not the physical wire hash"
+}

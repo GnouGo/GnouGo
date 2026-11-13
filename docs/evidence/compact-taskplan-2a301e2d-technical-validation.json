@@ -1,0 +1,182 @@
+{
+  "evidence_version": 1,
+  "observed_at_utc": "2026-10-28T18:17:22.130469+00:00",
+  "source_revision": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+  "scope": "Technical evidence snapshot only; live business qualification is not established here.",
+  "source_manifest_sha256": "7e6b9927e22c5ac19f075551db51d298a3030c9671bff02372b97c91b9e1d8a7",
+  "source_files": 4739,
+  "source_unchanged": true,
+  "otlp_pinned_inputs": 9,
+  "otlp_inputs_unchanged": true,
+  "independent_publication": {
+    "all_stages_passed": true,
+    "warnings": 0,
+    "stages": [
+      {
+        "stage": "core-pack",
+        "exit_code": 0
+      },
+      {
+        "stage": "planning-pack",
+        "exit_code": 0
+      },
+      {
+        "stage": "integrations-pack",
+        "exit_code": 0
+      },
+      {
+        "stage": "copilot-pack",
+        "exit_code": 0
+      },
+      {
+        "stage": "persistence-pack",
+        "exit_code": 0
+      },
+      {
+        "stage": "native-publish",
+        "exit_code": 0
+      },
+      {
+        "stage": "native-run",
+        "exit_code": 0
+      },
+      {
+        "stage": "server-restore",
+        "exit_code": 0
+      },
+      {
+        "stage": "server-publish",
+        "exit_code": 0
+      },
+      {
+        "stage": "server-storage-run",
+        "exit_code": 0
+      }
+    ],
+    "packages": [
+      {
+        "name": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "bytes": 11006,
+        "sha256": "77fedd193c0a05b8d5bfe8978203743ee56e2661a4a9bdcfa3f440554be8df0e",
+        "repository_commit": "2a301e2d4ce609d99af6b41d8169fbb8be067f49"
+      },
+      {
+        "name": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "bytes": 737277,
+        "sha256": "b200f48c41fe922f3aaa7866a5a52b9964ae704a38ea089697ca1320c33a6581",
+        "repository_commit": "2a301e2d4ce609d99af6b41d8169fbb8be067f49"
+      },
+      {
+        "name": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "bytes": 59871,
+        "sha256": "f31eeeab62255a446da7880ccd90a1d1fcb1953ae52e1e524cb57535a9e242f6",
+        "repository_commit": "2a301e2d4ce609d99af6b41d8169fbb8be067f49"
+      },
+      {
+        "name": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "bytes": 50206,
+        "sha256": "ff0a3c8c26fcd2133463bc50bb68970c4da2f33b9a74d5b271d0b9cbee741f00",
+        "repository_commit": "2a301e2d4ce609d99af6b41d8169fbb8be067f49"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "bytes": 588034,
+        "sha256": "bc90073d33f05f2a6c0611357c70cd0da871ac8776f34910f2e0fdc070c08766",
+        "repository_commit": "2a301e2d4ce609d99af6b41d8169fbb8be067f49"
+      }
+    ],
+    "native_actual_execution": true,
+    "native_binary_format": "Mach-O 64-bit executable arm64",
+    "native_runtimeconfig_present": false,
+    "artifacts": [
+      {
+        "path": "published/planning-aot/GnOuGo.Flow.Planning.Smoke",
+        "bytes": 34178632,
+        "sha256": "bc7f108cecece6b697c8f03b616c07e93bcc6da0cdc887f07665f210c32c907b"
+      },
+      {
+        "path": "published/server/GnOuGo.Agent.Server",
+        "bytes": 71248436,
+        "sha256": "c7733981409eed84fae73151fb50165375594d24625430a95dc490ab81e6ceb5"
+      }
+    ],
+    "published_checks": [
+      "format11 encrypted planning and session storage",
+      "tenant isolation and retired-format rejection without mutation",
+      "exact saved current HTTP request and receipt recovery",
+      "cumulative physical accounting",
+      "current global review receipt recovery",
+      "mapping and schema9 runtime receipt recovery"
+    ],
+    "summary_sha256": "fa0e6c51015e235b1383cfa206f47b7ed62266f6add74c6553df2140985efe68",
+    "constraints": {
+      "paid_calls": 0,
+      "provider_secrets_or_live_flags_inherited": false,
+      "operational_workspaces_accessed": false,
+      "all_outputs_private": true
+    }
+  },
+  "controlled_instruction_comparison": {
+    "evidence_file": "docs/evidence/format-11-navigation-instruction-experiment.json",
+    "evidence_sha256": "b3ed3513212802555323ee1447902f967d2eb3963f889e033a70637b6046831d",
+    "control": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+    "candidate_overlay": {
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "6d8e270611835966359f17477873ede4524bebfba2a9a4c064f4f7b707f58baf",
+      ".agents/skills/gnougo-planning/SKILL.md": "b89fe7110e85a29262ee482107046d0d58bf5cde8bb37e0c9b2cd108ff1f5a18"
+    },
+    "unique_tests_per_arm": 254,
+    "arms_passed": 2,
+    "total_unique_tests_not_508": true,
+    "paired_schemas_byte_identical": 9,
+    "navigation_request_bytes_delta": 132,
+    "navigation_estimated_input_tokens_delta": 44,
+    "model_settings_changed": false,
+    "judge_instructions_changed": false,
+    "live_causal_claim": false
+  },
+  "ci": {
+    "head": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+    "planner": {
+      "run": 40741300501,
+      "status": "completed",
+      "conclusion": "failure",
+      "passed": 2238,
+      "failed": 1,
+      "failure": "CompactRequirementPageTests.CardinalityAndOriginalPageBoundariesStayStableAsUnrelatedRequirementsGrow",
+      "log_sha256": "391243b23c078b84c497e893aadf9795fd53ba5cf26383d4f073157afebcfa2d"
+    },
+    "proxy_standalone": {
+      "run": 40741300560,
+      "status": "completed",
+      "conclusion": "success"
+    },
+    "proxy_native_aot": {
+      "run": 40741300412,
+      "status": "completed",
+      "conclusion": "success",
+      "successful_platforms": 6
+    }
+  },
+  "earlier_source_attribution": {
+    "664_technical_evidence": "docs/evidence/compact-taskplan-664895d7-technical-validation.json",
+    "277_superseded_planner": {
+      "run": 40739915743,
+      "conclusion": "cancelled_superseded_not_passed",
+      "planning_passed": 2239,
+      "browser_passed": 142,
+      "integrations_passed": 103,
+      "targeted_and_full_counts_not_added": true
+    }
+  },
+  "limitations": [
+    "Planner CI failed the recorded narrow synthetic6k requirement-page fixture. Exact control/candidate admission and the test-only correction are retained in format-11-requirement-page-fixture.json; production limits are unchanged.",
+    "The exact2a3 full solution remains in progress with26 failed Agent.Server cases across five fixture classes; no whole-solution pass is claimed. Original failures and private fixture corrections remain separately source-bound.",
+    "Prior failed and cancelled runs remain failed/cancelled, not replaced by publication success.",
+    "Controlled tests and publication smokes do not establish real-model convergence or runtime business acceptance."
+  ],
+  "followup_evidence": {
+    "requirement_page_fixture": "format-11-requirement-page-fixture.json",
+    "full_solution_failure_inventory_sha256": "24bb30568ec7bdecb4e10e0dbedb22cb890c572571e6082e4100bf6e45d63f88",
+    "inventory_status": "Captured partial inventory; raw exact2a3 full run continues unchanged."
+  }
+}

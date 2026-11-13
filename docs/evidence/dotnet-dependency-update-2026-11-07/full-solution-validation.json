@@ -1,0 +1,310 @@
+{
+  "source": "f015f5a4bad6feba552cd743ed54e447a41a0e81",
+  "trackedSourceUnchanged": true,
+  "assemblies": 33,
+  "passed": 8197,
+  "failed": 0,
+  "skipped": 13,
+  "compilerDiagnostics": [],
+  "logSha256": "53dc5dd4f5d40151ec9e76ca2cd4fc5f720938ff91add3cf099e805bf70ec774",
+  "results": [
+    {
+      "assembly": "GnOuGo.AI.Core.Tests.dll",
+      "total": 353,
+      "passed": 353,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "12c5a9b67a187da9f1178243d612abee43e798c7bb357d4e0090a2dd02f53123"
+    },
+    {
+      "assembly": "GnOuGo.AI.Local.Tests.dll",
+      "total": 19,
+      "passed": 19,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "2a014bbf2c2fe4bedf5d741a0be90150608b331c7a2b2454d2d999af8b9c86cd"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Mcp.Tests.dll",
+      "total": 103,
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "87b960cca7d23d7868405a8dac7fda3f2ee6c988cd905d86a17b4b27ac4a2298"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.Tests.dll",
+      "total": 1786,
+      "passed": 1785,
+      "failed": 0,
+      "skipped": 1,
+      "otherOutcomes": {},
+      "trxSha256": "b85847bc61bb3fbfbd22d1cdff5f47a81cc156fc9bbf939169b9ed13b8c5ed08"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Server.Tests.dll",
+      "total": 13,
+      "passed": 13,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "e06bc92d05ce847952a12f51ba67bb03443b5da397ffc3189f40c2c26b3b428d"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Animation.Tests.dll",
+      "total": 42,
+      "passed": 42,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "b4b83658e6f6eee44700268ad1485fc4b8a4dc98a16bd4ac4f8d3984a2beae83"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Server.Tests.dll",
+      "total": 28,
+      "passed": 28,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "7260a4d3a3c284303a35f06216fa1a300e1cc2380e71e10abbf36b3b6bcbe993"
+    },
+    {
+      "assembly": "GnOuGo.Assets.Bears.Tests.dll",
+      "total": 91,
+      "passed": 91,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "6658057baf48684ba7ab50fd7eb5efd216adba6347229cede10a8ab32de7b6f5"
+    },
+    {
+      "assembly": "GnOuGo.Auth.Core.Tests.dll",
+      "total": 8,
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "20276aaff364caea8fc2e906fe573e5ed37cd74d462723b52e480551d35e7c62"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.Tests.dll",
+      "total": 142,
+      "passed": 142,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "a826755b25ad369b4234ba0fbfaee3d398385ca963f124233402cc4b39f4f4b5"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.Tests.dll",
+      "total": 100,
+      "passed": 93,
+      "failed": 0,
+      "skipped": 7,
+      "otherOutcomes": {},
+      "trxSha256": "72227c285a0a6a105a58c6b9ed956df1627394e37f44ec98113f535d4b564db1"
+    },
+    {
+      "assembly": "GnOuGo.Diff.Tests.dll",
+      "total": 52,
+      "passed": 52,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "ad2e1ad290f27e0c77c7857c2b2c3499a58e43ca8ea8dca02cf570ce2975b0c7"
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Mcp.Tests.dll",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "4bb883115319388848dc8369d904bb77980103a9b12a6e7a8f72fa424204376e"
+    },
+    {
+      "assembly": "GnOuGo.DocIngestor.Tests.dll",
+      "total": 97,
+      "passed": 97,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "1c16127e50fd9fb8975b66ce12d2aa4ef25d50565483cf3d6cbea4ac8065a8c5"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.Tests.dll",
+      "total": 73,
+      "passed": 73,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "ac2525f6cca6cd785750f826d4698e980fc7264a97ddfb4b9fe06d786ae757e3"
+    },
+    {
+      "assembly": "GnOuGo.Files.Server.Tests.dll",
+      "total": 10,
+      "passed": 10,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "288d8dae01391063f57b50ba04739929db68bdd54a7d339d7da7187265f7ff4a"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Copilot.Tests.dll",
+      "total": 5,
+      "passed": 5,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "47c053bb311c4f1c9ec355220fc4aad032a81984531cfd1a78831cfd9ed43155"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+      "total": 121,
+      "passed": 121,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "64bc37e97e34073196a9320ae4571e2d1a2d8999fefaa0c1d55dacf4b2f6f979"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Mermaid.Tests.dll",
+      "total": 12,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "3788fd9fe5119d4658a6f1fa463ef7cf2720bf3acd9670978dcfe7505477bcc4"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.Tests.dll",
+      "total": 26,
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "44b8be61b3093255fe6fb2bf1ec086a4adf168b0e2fae3378bee33158f3266ed"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "total": 2783,
+      "passed": 2783,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "89224d899ecfcd495f1b5932ee5c36331ed31cedd1656b818532457a7c4d307b"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Tests.dll",
+      "total": 1529,
+      "passed": 1529,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "7d94e2ef6e53f6bc1745e6d0a5d8d7cce85dd0022f6d5c9c20a794968c6fda69"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.Tests.dll",
+      "total": 84,
+      "passed": 84,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "3eba46c909b50f68741b5d1b993a6783f4aeff6915ba26ab1221926fb0f02852"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.Tests.dll",
+      "total": 173,
+      "passed": 173,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "ba0ccab3e9a73ad3b3a42c37792d76c7f8ede4dd6d708d53b79c7c1ed96dc0f3"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.E2E.Tests.dll",
+      "total": 12,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 5,
+      "otherOutcomes": {},
+      "trxSha256": "580f823a8ee161b4c78b8cb326d480dbe11d6723305d0ae0994036ca3aa6fbcd"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.Tests.dll",
+      "total": 243,
+      "passed": 243,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "99e8298e935b86eba628594e9b39b0d44399e3649341b877edbee987af0b371e"
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Core.Tests.dll",
+      "total": 23,
+      "passed": 23,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "0c2b210a0649bb326f981e3cf71ff546a496a53845b94e79704c90a76f120cea"
+    },
+    {
+      "assembly": "GnOuGo.KeyVault.Mcp.Tests.dll",
+      "total": 9,
+      "passed": 9,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "589df4c72381be3fb15e7d8b4e288681bd3515e216a8b414002d937dd522b2c9"
+    },
+    {
+      "assembly": "GnOuGo.Mcp.Core.Tests.dll",
+      "total": 49,
+      "passed": 49,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "d4b0ffa1a5cdc37cfd3e8996c58940dfe0de8cd9c986db70d67f6f235ddd56e7"
+    },
+    {
+      "assembly": "GnOuGo.Observability.Core.Tests.dll",
+      "total": 3,
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "6e36546c36a542a5eb9e83d78c8e11930505283ed7a8714bba98c97f492d0f20"
+    },
+    {
+      "assembly": "GnOuGo.OtlpCollector.Server.Tests.dll",
+      "total": 7,
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "f2a4c2a45ddde055f8da4e81cf91f36d977755fa2e1099f7d4677ee59c64e154"
+    },
+    {
+      "assembly": "GnOuGo.ProxyCopilot.Server.Tests.dll",
+      "total": 177,
+      "passed": 177,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "1cb08c564d9fefeccd2d512b5db433354eb077b0418d86829442948bd2282618"
+    },
+    {
+      "assembly": "GnOuGo.Workspace.Tests.dll",
+      "total": 30,
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "otherOutcomes": {},
+      "trxSha256": "f38eb373617a6821e33bd8f28888bb2d3e897145e4c0b0cbfd3858026b664447"
+    }
+  ],
+  "exitCode": 0
+}

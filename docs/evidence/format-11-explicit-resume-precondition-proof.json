@@ -1,0 +1,70 @@
+{
+  "kind": "received_explicit_resume_precondition_failure",
+  "public_source": "d99cb6c75e1660538522d51f03b10a585a0bc981",
+  "raw_terminal_sha256": "818ed1c559de4ca07492c4459a96e3a31971a6eaba5ec1bce5886d2e8e64efef",
+  "cohort": "compactld99cb6c7amz11a",
+  "technical_proof": {
+    "producer_checkpoint": 2,
+    "producer_current_task_snapshot_exact": true,
+    "checkpoint_owns_selected_task": true,
+    "invalidated_task_ids": [],
+    "business_review_pending": true,
+    "checkpoint_review_count": 0,
+    "selected_binding": {
+      "kind": "output",
+      "source": "step_4",
+      "port": "amazon_fr_search_url"
+    },
+    "consumer_count_retained": 2
+  },
+  "received_failure": {
+    "explicit_resume_requests": [
+      {
+        "ordinal": 19,
+        "issued_raw_sha256": "ae18ae6ee9ca0f5e89978649e41786694a410c97e964a9a8a2bd606c0658bbb8",
+        "complete_request_bytes": 18273,
+        "estimated_input_tokens": 6347,
+        "input_limit": 12000,
+        "provider_input_tokens": 3823,
+        "provider_output_tokens": 1356,
+        "reasoning_tokens_included_in_output": 1240,
+        "known_cost_eur": "0.0537096919069433216563370161",
+        "elapsed_ms": "35492.8149",
+        "parsed_response_bytes": 285
+      },
+      {
+        "ordinal": 20,
+        "issued_raw_sha256": "865c3628a2686a42a480b877844f3011563bc068fab2b86bcd4407f54606bed1",
+        "complete_request_bytes": 18508,
+        "estimated_input_tokens": 6426,
+        "input_limit": 12000,
+        "provider_input_tokens": 3606,
+        "provider_output_tokens": 616,
+        "reasoning_tokens_included_in_output": 512,
+        "known_cost_eur": "0.0327943950417677175963352196",
+        "elapsed_ms": "28578.8907",
+        "parsed_response_bytes": 285
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "CONSTRUCTION_CONTINUATION_INVALID",
+        "location": "/resumeStep/producerCheckpoint"
+      },
+      {
+        "code": "REPLAN_NO_PROGRESS",
+        "location": "/"
+      }
+    ],
+    "cause": "CheckpointProducerCurrent required business review before explicit semantic binding could compose an accepted prerequisite. Exact owning content and the selected checkpoint were current; automatic resumption remains a separate reviewed-authority path.",
+    "unchanged_plan_and_binding_repeated": true
+  },
+  "business_result": {
+    "artifact": false,
+    "runtime": "not_started",
+    "business_success": false,
+    "efficiency_benefit": "unproven",
+    "runtime_business_fulfillment": 0
+  },
+  "limits": "Offline read-only analysis of previously received state and requests; no model calls, operational reads, state writes, replay or runtime effects."
+}

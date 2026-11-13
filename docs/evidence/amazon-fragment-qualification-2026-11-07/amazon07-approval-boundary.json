@@ -1,0 +1,53 @@
+{
+  "run": "fragmentfix-amazon-20261107-07",
+  "session": "d41ffc3a0ce249819fe37a3d0d2763f6",
+  "generationSource": "70ad476dfeef9cb9996ec6c54c918fc63caf59bc",
+  "finalReviewRevision": 53,
+  "artifactHash": "ef66768f4907cdad10659e2ac41248acd29d298e2a50dc78f7a21349462e37ee",
+  "normalModelReceipts": 21,
+  "globalReview": "ok",
+  "deterministicValidation": "passed",
+  "delegatedReviewSubmitted": true,
+  "approvalGranted": false,
+  "approvalFailureRevision": 54,
+  "approvalFailureDiagnostics": [
+    {
+      "code": "CATALOG_CHANGED",
+      "location": "cap_490d9e16075cbdca5954ec27",
+      "message": "A selected capability changed or was removed. Regenerate and approve the workflow.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "CATALOG_CHANGED",
+      "location": "cap_37c513d225bb1b870053c5d3",
+      "message": "A selected capability changed or was removed. Regenerate and approve the workflow.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "CATALOG_CHANGED",
+      "location": "cap_bdb7ba9ab04b18783883fa86",
+      "message": "A selected capability changed or was removed. Regenerate and approve the workflow.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "authorityFieldsUnchanged": {
+    "request": true,
+    "requirements": true,
+    "plan": true,
+    "graph": true,
+    "catalog": true,
+    "usage": true,
+    "construction": true,
+    "modelCalls": true,
+    "replanAttempts": true
+  },
+  "executionStarted": false,
+  "businessToolsExecuted": false,
+  "oracleRun": false
+}

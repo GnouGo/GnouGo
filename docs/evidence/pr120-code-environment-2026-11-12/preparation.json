@@ -1,0 +1,11 @@
+{
+  "original_readiness_sha256": "ede3ba875572ea0e370dd4d9802f8b4de710ed843cbfeb886e6ca3e417360e01",
+  "generated_source_sha256": "5662fa1743290c33bd62e5f8680ef916fec9b408151b53d6d0a3c0afed068ef5",
+  "probe_script_sha256": "bfc566f113733cb0aba1d858b835945e1cc64b249297dfef520a6a2193a69575",
+  "preparation_sha256": "ff194dd3e65c2843a1bbd46b5ce976566040c7081eb8b8af63e3292da3e27cc6",
+  "production_files_changed": false,
+  "provider_calls": 0,
+  "build_warnings": 0,
+  "build_errors": 0,
+  "build_log_sha256": "9fd2a29140f7a5ffee21183cf10ffa6f756e59f834497a868497dc1e88ea8eda"
+}

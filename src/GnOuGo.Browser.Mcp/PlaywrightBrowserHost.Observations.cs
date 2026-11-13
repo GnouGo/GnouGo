@@ -10,11 +10,27 @@ namespace GnOuGo.Browser.Mcp;
 
 public sealed record BrowserObservationRecord(string Kind, string Tag, string Selector, string Group, string Text, string? Href, string? Role)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Nearest semantic container's tag, explicit role and snapshot-local index. Nested semantic items may have a different outer occurrence.")]
+    public BrowserObservationGroup? GroupContext { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Outer semantic item below the nearest landmark/dialog, with its DOM selector, tag, role and snapshot-local index. Nested variant links retain this same outer item; distinct items remain distinct even when their destination URLs match. This is DOM provenance, not a business classification.")]
+    public BrowserObservationOccurrence? Occurrence { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("DOM selector of an enclosing heading or a heading contained in this link. Preserves its heading association separately from other links in the item.")]
+    public string? Heading { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Optional host-requested link attributes from the nearest ancestor within the selected root, including the link itself. A null value means no matching ancestor; an empty attribute remains an explicit empty string. Tag, role and snapshot-local index identify the actual source element; repeated values on different elements retain different indexes. This is observed DOM evidence, not a business classification.")]
+    public IReadOnlyDictionary<string, BrowserObservationAncestorAttribute?>? AncestorAttributes { get; init; }
+
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public string? Reference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Actions { get; init; }
 }
+public sealed record BrowserObservationAncestorAttribute(string Value, string Tag, string? Role, int Index);
+public sealed record BrowserObservationGroup(string Tag, string? Role, int Index);
+public sealed record BrowserObservationOccurrence(string Selector, string Tag, string? Role, int Index);
 public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
@@ -39,6 +55,8 @@ public sealed record BrowserSnapshotAcquisition(int Attempts, IReadOnlyList<Brow
     public long? ElapsedMilliseconds { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyDictionary<string, long>? TimingsMilliseconds { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailureCategory { get; init; }
 }
 internal sealed class BrowserObservationException(string code, string message, BrowserSnapshotAcquisition acquisition) : InvalidOperationException(message)
 {
@@ -74,6 +92,7 @@ public sealed partial class PlaywrightBrowserHost
     {
         lock (_observationLock)
         {
+            if (reason == "closure") _observedNavigation.Clear("closure");
             if (_observation is { } snapshot) { RememberInvalidation(snapshot.Stamp, reason); _retiredObservationHandles.Add(snapshot.Handle); }
             if (_capturingObservation is { } capture) RememberInvalidation(capture, reason);
             _observation = null;
@@ -139,7 +158,7 @@ public sealed partial class PlaywrightBrowserHost
         {
             if (ObservationCheckpoint is { } capturing) await capturing(page, "capture", ct).WaitAsync(ct);
             EnsureCurrent(stamp);
-            handle = await locator.EvaluateHandleAsync(ObservationScript, stamp.Id).WaitAsync(ct);
+            handle = await locator.EvaluateHandleAsync(ObservationScript, new[] { stamp.Id }.Concat(_observationAncestorAttributes).ToArray()).WaitAsync(ct);
             var json = await handle.EvaluateAsync<string>("capture => capture.json").WaitAsync(ct);
             EnsureCurrent(stamp);
             var capture = JsonSerializer.Deserialize(json, BrowserMcpJsonContext.Default.BrowserObservationCapture)
@@ -175,7 +194,7 @@ public sealed partial class PlaywrightBrowserHost
     }
 
     private async Task<BrowserContentResult> AcquireCompleteObservationAsync(string? url, string waitUntil, int? timeoutMs,
-        string? selector, int? characters, int? records, CancellationToken ct)
+        string? selector, int? characters, int? records, CancellationToken ct, long navigationAuthorityGeneration)
     {
         var invalidations = new List<BrowserSnapshotInvalidation>();
         var attempt = 0;
@@ -226,14 +245,29 @@ public sealed partial class PlaywrightBrowserHost
                     navigation = navigation with { StatusCode = response.Status };
             }
         }
+        void Failed(object? sender, IRequest request)
+        {
+            lock (_observationLock)
+                if (pendingRequest == request) { pendingRequest = null; pendingStatus = null; }
+        }
         void Navigated(object? sender, IFrame frame)
         {
             if (frame != page!.MainFrame) return;
             lock (_observationLock)
             {
-                committedRequest = pendingRequest?.Url == frame.Url ? pendingRequest : null;
-                navigation = new(_observationGeneration, frame.Url, null, committedRequest?.Method,
-                    committedRequest is null ? null : pendingStatus);
+                if (pendingRequest is null && committedRequest is not null && navigation is not null &&
+                    _committedMainNavigation == committedRequest && NavigationEvidenceFor(page)?.FinalUrl == committedRequest.Url)
+                {
+                    // A verified history-only address change keeps this document's
+                    // actual method/status, independently of its current address.
+                    navigation = navigation with { Generation = _observationGeneration, Url = frame.Url };
+                }
+                else
+                {
+                    committedRequest = pendingRequest?.Url == frame.Url ? pendingRequest : null;
+                    navigation = new(_observationGeneration, frame.Url, null, committedRequest?.Method,
+                        committedRequest is null ? null : pendingStatus);
+                }
                 pendingRequest = null; pendingStatus = null;
             }
         }
@@ -261,18 +295,19 @@ public sealed partial class PlaywrightBrowserHost
         var token = deadline.Token;
         try
         {
-            var target = url is null ? null : BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+            var target = url is null ? null : _observedNavigation.Validate(url, _settings, true);
             page = target is null ? GetRequiredPage() : await EnsurePageAsync().WaitAsync(token);
             page.Request += Requested;
             page.Response += Responded;
+            page.RequestFailed += Failed;
             page.FrameNavigated += Navigated;
             using var readiness = ObserveMainFrameNavigation(page);
             if (target is not null)
             {
                 InvalidateObservation("navigation");
                 SetPhase("navigation");
-                initialResponse = await page.GotoAsync(target.ToString(), new PageGotoOptions
-                    { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+                initialResponse = await NavigateReadAsync(page, target.AbsoluteUri, ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
+                if (NavigationAcquisitionCheckpoint is { } navigated) await navigated(page, token).WaitAsync(token);
             }
             // Navigation invalidation and one eligible empty-document reload share
             // the original deadline and three captures. No interaction is replayed.
@@ -285,7 +320,7 @@ public sealed partial class PlaywrightBrowserHost
                     SetPhase("readiness");
                     await readiness.WaitForLoadStateAsync(ParseLoadState(waitUntil), Remaining(), token);
                     EnsureCurrent(stamp);
-                    BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                    _observedNavigation.Validate(page.Url, _settings, true);
                     // Complete acquisition must not silently broaden a requested selector.
                     var requested = string.IsNullOrWhiteSpace(selector) ? "body" : selector.Trim();
                     SetPhase("selector");
@@ -330,9 +365,9 @@ public sealed partial class PlaywrightBrowserHost
                         if (!reload)
                             throw new BrowserObservationException("OBSERVATION_EMPTY", "The document is empty or unusable. No business absence or blocker can be established from this acquisition.", Acquisition());
                         reloaded = true;
-                        BrowserNavigationPolicy.ValidateNavigationTarget(page.Url, _settings);
+                        _observedNavigation.Validate(page.Url, _settings, true);
                         SetPhase("reload");
-                        await page.ReloadAsync(new PageReloadOptions { WaitUntil = ParseWaitUntil(waitUntil), Timeout = Remaining() }).WaitAsync(token);
+                        await NavigateReadAsync(page, page.Url, ParseWaitUntil(waitUntil), Remaining(), token).WaitAsync(token);
                         continue;
                     }
                     var pages = snapshot.Pages.Select(p => p.Observation! with { NextCursor = null }).ToArray();
@@ -341,7 +376,7 @@ public sealed partial class PlaywrightBrowserHost
                     {
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
-                        Acquisition = Acquisition()
+                        Acquisition = Acquisition(), NavigationEvidence = NavigationEvidenceFor(page)
                     };
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
                     if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
@@ -357,6 +392,7 @@ public sealed partial class PlaywrightBrowserHost
                         snapshot.Complete = true;
                         foreach (var pageResult in snapshot.Pages) snapshot.Deliver(pageResult);
                         published = true;
+                        _observedNavigation.Publish(result, selector, navigationAuthorityGeneration);
                         Activity.Current?.SetTag("browser.snapshot.attempts", attempt);
                         Activity.Current?.SetTag("browser.snapshot.id", snapshot.Id);
                         Activity.Current?.SetTag("browser.snapshot.pages", pages.Length);
@@ -410,9 +446,22 @@ public sealed partial class PlaywrightBrowserHost
             ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
             throw;
         }
-        catch (PlaywrightException)
+        catch (PlaywrightException error)
         {
-            throw new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition());
+            var category = error.Message.Contains("Execution context was destroyed", StringComparison.Ordinal) ? "document_context_destroyed"
+                : error.Message.Contains("interrupted by another navigation", StringComparison.Ordinal) ? "navigation_interrupted"
+                : error.Message.Contains("closed", StringComparison.OrdinalIgnoreCase) ? "target_closed"
+                : System.Text.RegularExpressions.Regex.Match(error.Message, @"net::ERR_[A-Z_]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+                    TimeSpan.FromMilliseconds(100)) is { Success: true } network ? network.Value : "playwright_error";
+            var failure = new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition() with { FailureCategory = category });
+            if (error.Data[nameof(BrowserNavigationEvidence)] is BrowserNavigationEvidence partialNavigation)
+                failure.Data[nameof(BrowserNavigationEvidence)] = partialNavigation;
+            throw failure;
+        }
+        catch (BrowserNavigationException ex)
+        {
+            ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
+            throw;
         }
         catch (InvalidOperationException ex) when (ex is not BrowserObservationException)
         {
@@ -425,6 +474,7 @@ public sealed partial class PlaywrightBrowserHost
                 page.Request -= Requested;
                 page.Response -= Responded;
                 page.FrameNavigated -= Navigated;
+                page.RequestFailed -= Failed;
             }
         }
     }
@@ -530,8 +580,9 @@ public sealed partial class PlaywrightBrowserHost
     // Browser-owned deterministic observation, never a model-generated page script.
     // A capture has finite traversal/storage limits; incomplete captures remain explicitly incomplete.
     internal static readonly string ObservationScript = """
-        (root, snapshotId) => {
-          const records = [], elements = [], states = [], actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,input,select,textarea';
+        (root, observation) => {
+          const [snapshotId, ...attributeNames] = observation, attributeContexts = new Map();
+          const records = [], elements = [], states = [], groups = new Map(), occurrences = new Map(), actionState = __ACTION_STATE__, owned = 'a[href],button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],[contenteditable="true"],h1,h2,h3,h4,h5,h6,[role="heading"],input,select,textarea';
           let visited = 0, size = 0, truncated = false;
           const text = s => (s || '').replace(/\s+/g, ' ').trim();
           const documentEmpty = () => {
@@ -579,15 +630,47 @@ public sealed partial class PlaywrightBrowserHost
           while (element && !truncated) {
             const tag = element.tagName.toLowerCase(), owner = element.closest(owned);
             if (!owner || owner === element) {
-              const kind = element.matches('button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],input,select,textarea,[contenteditable="true"]') ? 'control' : element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) ? 'heading' : 'text';
+              const kind = element.matches('button,[role="button"],[role="checkbox"],[role="radio"],[role="switch"],[role="tab"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"],input,select,textarea,[contenteditable="true"]') ? 'control' : element.matches('a[href]') ? 'link' : /^h[1-6]$/.test(tag) || element.getAttribute('role') === 'heading' ? 'heading' : 'text';
               const label = element.getAttribute('aria-label');
               const content = kind === 'control' ? text(label || (element.matches('button,[role="button"]') ? element.innerText : element.getAttribute('placeholder'))) :
-                kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText);
+                kind === 'text' ? text([...element.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(' ')) : text(element.innerText) || text(label);
               const href = kind === 'link' ? element.href : null;
               if (content || href || kind === 'control') {
-                const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,section,tr,nav,header,main,form') || root;
+                const group = element.closest('dialog,[role="dialog"],[role="alertdialog"],[aria-modal="true"]') || element.closest('article,li,tr,[role="listitem"],[role="article"],[role="row"]') || element.closest('section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;
+                if (!groups.has(group)) groups.set(group, { tag: group.tagName.toLowerCase(), role: group.getAttribute('role'), index: groups.size });
+                const itemSelector = 'article,li,tr,[role="listitem"],[role="article"],[role="row"]';
+                const boundary = element.closest('dialog,[role="dialog"],[role="alertdialog"],section,nav,header,main,form,[role="region"],[role="navigation"],[role="main"],[role="form"]') || root;
+                let occurrence = element.closest(itemSelector);
+                if (occurrence && !boundary.contains(occurrence)) occurrence = null;
+                if (occurrence) {
+                  let parent = occurrence.parentElement?.closest(itemSelector);
+                  while (parent && boundary.contains(parent)) { occurrence = parent; parent = parent.parentElement?.closest(itemSelector); }
+                  if (!occurrences.has(occurrence)) occurrences.set(occurrence, {selector: selector(occurrence), tag: occurrence.tagName.toLowerCase(), role: occurrence.getAttribute('role'), index: occurrences.size});
+                }
+                const heading = element.closest('h1,h2,h3,h4,h5,h6,[role="heading"]') || (kind === 'link' ? element.querySelector('h1,h2,h3,h4,h5,h6,[role="heading"]') : null);
                 const state = actionState(element);
-                const record = { kind, tag, selector: selector(element), group: selector(group), text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
+                const record = { kind, tag, selector: selector(element), group: selector(group), groupContext: groups.get(group), occurrence: occurrence ? occurrences.get(occurrence) : null, heading: heading ? selector(heading) : null, text: content, href, role: element.getAttribute('role'), reference: snapshotId + ':record:' + records.length, actions: state.actions };
+                if (kind === 'link' && attributeNames.length) {
+                  const attributes = Object.create(null);
+                  for (const name of attributeNames) {
+                    let ancestor = element, depth = 0;
+                    while (ancestor && root.contains(ancestor) && !ancestor.hasAttribute(name)) {
+                      if (++depth > 64) { truncated = true; break; }
+                      if (ancestor === root) { ancestor = null; break; }
+                      ancestor = ancestor.parentElement;
+                    }
+                    if (truncated) break;
+                    if (!ancestor || !root.contains(ancestor)) attributes[name] = null;
+                    else {
+                      const value = ancestor.getAttribute(name);
+                      if (value.length > 1024) { truncated = true; break; }
+                      if (!attributeContexts.has(ancestor)) attributeContexts.set(ancestor, attributeContexts.size);
+                      attributes[name] = {value, tag: ancestor.tagName.toLowerCase(), role: ancestor.getAttribute('role'), index: attributeContexts.get(ancestor)};
+                    }
+                  }
+                  if (truncated) break;
+                  record.ancestorAttributes = attributes;
+                }
                 const length = JSON.stringify(record).length;
                 if (records.length >= 10000 || size + length > 2000000) { truncated = true; break; }
                 records.push(record); elements.push(element); states.push(state.signature); size += length;

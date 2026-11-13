@@ -1,0 +1,31 @@
+{
+  "baseline_source": "c05b114f52486735f18b71b0ab67b2be326e4542",
+  "candidate_files_sha256": {
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "1d3f995fd5859f7603fd5b973e4b97cbed4369a6df9caafd0ca5156271c89bc1",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs": "6516e2cd5a49bdb0ad6817d35d46a5461520c476284132e240b7f3c90bc9080f",
+    "tests/GnOuGo.Agent.Planning.Benchmark/ServerLiveReviewWait.cs": "b9538aa361ffdc17aa264612465127e4ef352d65ef6d41e2637c96dd057a682a",
+    "tests/GnOuGo.Agent.Server.Tests/ServerLiveReviewWaitTests.cs": "2c568cfe8e16fbc920abb67566b6882fafdeea2a8c060b81052073973ecf9347",
+    "tests/GnOuGo.Agent.Server.Tests/LiveWorkflowReviewTests.cs": "4eed0a400b916426635ad2aa800a853cbfe70b3bb915a3903dbdb15e62919696",
+    "tests/GnOuGo.Agent.Server.Tests/AmazonResolvedStoreWorkflowTests.cs": "bcb293226c77bbc6cf590a06836baaaf8cfd1e913e7aff7f2967c4019002c310",
+    "tests/GnOuGo.Agent.Server.Tests/AmazonResolvedProductWorkflowTests.cs": "48926e6e8fd4deb1b724d6df0cddcd2de79e5bf829c66f717ecce2ae831cead1",
+    "tests/GnOuGo.Agent.Server.Tests/AmazonReviewProofWorkflowTests.cs": "5ceedd3ce5feabf8a77b3230100387444540a47a46cf6c1253aa3970796d864d"
+  },
+  "red": {
+    "failed": 8,
+    "passed": 0,
+    "log_sha256": "3ec15c50062d75403c7104350cea22575428b951bbd366a9bc96861ac2e280db"
+  },
+  "green": {
+    "initial_regressions_passed": 8,
+    "affected_tests_passed": 1105,
+    "additional_header_and_negative_checks_passed": 47,
+    "scoped_handoff_and_review_wait_passed": 13,
+    "failures": 0,
+    "skips": 0,
+    "warnings_as_errors": true
+  },
+  "production_source_changed": false,
+  "oracle_changed": false,
+  "api_or_protocol_changed": false,
+  "paid_calls": 0
+}

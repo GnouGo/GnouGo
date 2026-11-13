@@ -1,0 +1,58 @@
+{
+  "comparison_source": "2d09aaee916a88caf39e4cf1df674d407c161a2d",
+  "production_source": "0881cf87f2274720a99f0d4675ee4fbd9530d531",
+  "all_files": {
+    "files": 113,
+    "added_lines": 6449,
+    "deleted_lines": 2410,
+    "net_lines": 4039
+  },
+  "production_csharp": {
+    "files": 26,
+    "added_lines": 334,
+    "deleted_lines": 523,
+    "net_lines": -189
+  },
+  "tests": {
+    "files": 52,
+    "added_lines": 1008,
+    "deleted_lines": 1877,
+    "net_lines": -869
+  },
+  "test_csharp": {
+    "files": 50,
+    "added_lines": 774,
+    "deleted_lines": 1877,
+    "net_lines": -1103
+  },
+  "immutable_evidence": {
+    "files": 31,
+    "added_lines": 4998,
+    "deleted_lines": 0,
+    "net_lines": 4998
+  },
+  "removed_types": [
+    "PlanningConstructionInterfaceExtraction",
+    "PlanningConstructionInterfaceDisposition"
+  ],
+  "removed_orchestration": [
+    "ClassifyConstructionIntentAsync",
+    "ExtractConstructionInterfacesAsync",
+    "ResolveConstructionInterfacesAsync"
+  ],
+  "removed_schemas": [
+    "ClassificationSchema",
+    "InterfaceSchema",
+    "ResolvableInterfaceSchema"
+  ],
+  "retired_exclusive_tests": [
+    "CompactIntentResolutionTests.cs",
+    "CompactInterfaceCoverageTests.cs"
+  ],
+  "new_execution_engine": false,
+  "new_planning_protocol": false,
+  "new_persisted_state_for_latest_correction": false,
+  "active_internal_format": 11,
+  "overall_net_deletion_claimed": false,
+  "scope": "This interval, not the entire PR. Subsequent generic correctness fixes add code; preserved evidence increases the total diff. No measured live call saving from the latest corrections is claimed."
+}

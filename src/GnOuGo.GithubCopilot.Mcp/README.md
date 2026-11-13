@@ -1,6 +1,6 @@
 # GnOuGo.GithubCopilot.Mcp
 
-Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. MCP SDK 2.2.0 has a separate ten-round input-required limit; sufficiently long interactive calls can still stop at that limit. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
+Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. Earlier qualification with MCP SDK 2.2.0 encountered a separate ten-round input-required limit on long interactive calls. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
 
 MCP stdio server for safe code operations on a local project.
 
@@ -133,6 +133,8 @@ Supported provider section names are:
 
 The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in KeyVault, environment variables, or another secure configuration provider; do not commit real tokens to `appsettings.json`.
 
+For a versioned URL containing `/deployments/<deployment>`, Chat Completions uses the SDK Azure base route and deployment identity. An explicit `wireApi: responses` retains the configured deployment URL because the SDK appends `/responses` directly. Authentication, model identity and API version remain unchanged. Gateway support for that configured endpoint must be verified separately; the resolver never falls back to a sibling route.
+
 For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Provider identity is case-insensitive. One canonical key wins over one legacy key; multiple same-priority canonical or legacy variants are ambiguous and fail startup without exposing their values. Agent configuration saves reuse the existing canonical key and retire equivalent aliases so the ambiguity cannot be recreated by a case-only edit. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
 
 Configuration precedence is packaged/appsettings/environment/command line, then shared provider secrets, then MCP-specific KeyVault overrides. The complete KeyVault overlay therefore has the highest priority, with MCP-specific values winning over shared provider fields. It is loaded once when the MCP process starts. If optional KeyVault storage is missing or unavailable, the entire overlay is discarded and a redacted warning is logged; if a present value is malformed, ambiguous, or invalid for a typed setting, startup fails without logging the value.
@@ -149,6 +151,11 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 `code_agent_edit` is a compatibility wrapper over the same bounded logical operation
 and durable MCP Tasks receipt as `copilot_interactive_one_shot`. Its existing
 `CodeAgentEditResult` contract is preserved, including truthful `toolExecutions`.
+Its metadata and session prompt describe the existing bounded coding task: inspection,
+review, checks or edits as requested. Available SDK tools and the current host
+permission/sandbox policy determine actual execution. Session completion alone does
+not establish that commands ran or checks succeeded; preserve unavailable, denied,
+failed and incomplete observations. Read-only tasks do not require file changes.
 `code_suggest_change` also uses Core, with tool execution disabled. MCP never
 creates SDK clients or sessions. The shared configuration builder preserves provider,
 telemetry, trace, and timeout settings for both legacy and managed tools.
@@ -330,7 +337,7 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 ## Long interactive operations
 
 `copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned
-with `ModelContextProtocol.Extensions.Tasks` 2.2.0 (protocol 2026-07-28 or later).
+with `ModelContextProtocol.Extensions.Tasks` 2.4.0 (protocol 2026-07-28 or later).
 The generic Flow MCP client polls task status, presents each new human-input request
 once, resends retained answers on repeated pending IDs, and returns one final tool
 result. Older clients must add Tasks support for these operations. Other tools retain
@@ -378,3 +385,30 @@ conflicting events and unverified cancellation remain reconciliation cases; thei
 SDK identities and evidence are retained. Host ceilings and permission rules are unchanged.
 
 See [deterministic browsing/review and receipt regressions](../../docs/browsing-review-and-copilot-receipts.md).
+
+
+## Structured OpenAi tool transport
+
+For a configured Chat Completions deployment that supports strict JSON schema but
+rejects native function tools, explicitly select
+`Code:Copilot:InferenceTransport=gnougo-structured-tools-v1`. The default is `native`.
+Host MCP environment settings use `Code__Copilot__InferenceTransport`; an explicit
+`Code__Copilot__Provider=OpenAi` continues to resolve the shared KeyVault provider.
+
+This adapter reuses `GnOuGo.AI.Core.ChatRequestBuilder`. It preserves the exact SDK
+endpoint, authentication headers, model, reasoning and conversation. Full original
+tool declarations remain in the model context. A strict JSON decision selects an
+exact declared function and its JSON arguments, or a final assistant message. The
+SDK receives the selected native tool call and retains execution, input validation,
+permissions, sandboxing and task receipts. No business result or tool response is
+supplied by the adapter. Forced/required/disabled tool choice and disabled parallel
+calls remain binding. Unsupported protocols and conflicting output schemas fail
+explicitly.
+
+Upstream inference is one bounded JSON response. A complete decision is validated
+before tool calls are exposed; SDK streaming is restored as ordinary SSE chunks
+with the actual provider usage. Error responses pass through. The existing policy
+proxy retains the original provider response, while logical budgets charge the
+expanded request before sending. Selecting this transport does not authorize any
+new endpoint or tool effect. Capture changed settings in a new immutable campaign
+amendment before a fresh live run; stopped native sessions remain stopped.

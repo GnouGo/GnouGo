@@ -1,0 +1,47 @@
+{
+  "cause": "Amazon14 sequence drafts repeatedly requested the missing collection/export semantics of nested foreach, although that shape was already allowed by the strict grammar.",
+  "correction": "Describe reachable nested controls and newly declared child-scope outputs in draft guidance. Preserve focused scalar guidance, original grammar, constraints and all approval/permission checks.",
+  "controlled_initial_red": {
+    "failed": 4,
+    "passed_scalar_controls": 2
+  },
+  "final_focused": {
+    "passed": 52,
+    "failed": 0
+  },
+  "complete_planning_project": {
+    "passed": 2948,
+    "failed": 0,
+    "skipped": 0
+  },
+  "final_release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "request_size_regression": {
+    "unchanged_target_tokens": 8000,
+    "passed": true,
+    "target_raised": false
+  },
+  "initial_broad_attempt": {
+    "passed": 2943,
+    "failed": 5,
+    "superseded": true,
+    "cause": "Extra scalar helper descriptions exceeded the existing8000-token check (8086); the correction was narrowed. A pre-existing assertion excluded conditional semantics despite permitting a nested conditional; it now checks the actual offered contract."
+  },
+  "new_cases": 6,
+  "old_captures_rewritten": false,
+  "new_execution_or_repair_authority": false,
+  "private_log_sha256": {
+    "nested-control-guidance-red.log": "787561f4a9faca31d992837d0d4b7a4722c2fcad9a441cb18694bc2c26e41893",
+    "nested-control-guidance-final-focused.log": "5fd6dd5306e50143fe1cf0a4d1491c75fbfe14613a3f3360c771b349438221a0",
+    "nested-control-guidance-planning-all.log": "aa14ced3c66409fc78abd381d8b02b2dccf3f0df9d6b3b465a099cfd68373e8e",
+    "nested-control-guidance-final-planning-all.log": "49bfcd5bea34625310249664530de4469dc6e114560ccac851c9cff47b902a79",
+    "nested-control-guidance-final-release-build.log": "4c786a41411ca3999fa83703d32d90ab4e2dcb163a0792ce8304c32c6a2e40ab"
+  },
+  "limitations": [
+    "Controlled semantic-presentation regressions and broad planning tests; fresh live confirmation and final complete source suite remain required.",
+    "No Amazon-specific rule, TaskPlan grammar expansion, financial/physical threshold change or fake producer interface was introduced."
+  ]
+}

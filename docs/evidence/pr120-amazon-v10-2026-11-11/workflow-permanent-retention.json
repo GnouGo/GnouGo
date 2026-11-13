@@ -1,0 +1,17 @@
+{
+  "evidence_hash": "e56f0f548ba36cce44d29120eea1a88d7c1f78a763d8fcfbc3ab3e6fce6d7e03",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "reason": "operator_retained_uncertain_planning",
+  "operator": "Codex",
+  "authorization_hash": "0fda71c0acf19babcbd18e348000d03cd9a3628f9d44f2b257d37b8839f4d154",
+  "retained_at": "2026-11-11T10:05:48.9540570+00:00",
+  "campaign": "pr120-live-20261107-400",
+  "run_key": "amazon-v10-qualification-20261111-01",
+  "session_id": "63c81aa8d50f46deb31114d1a7e79032",
+  "revision": 87,
+  "request_id": "63c81aa8d50f46deb31114d1a7e79032:29:de74cbbe551eeb6b34b1343c7a3c44f21c7db8eef205bea9e06bcff0294751f5:55abf9479974562dbdea1f55ec5208cfaba41324f81d4a606e599569f02876a4",
+  "retention_kind": "cancelled-planning-request"
+}

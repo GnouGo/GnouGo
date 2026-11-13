@@ -1,0 +1,169 @@
+{
+  "source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "presentation_version": 9,
+  "cohort": "compactr65db90d9bamz22j20v9a",
+  "role": "Frozen v9 Amazon control; no candidate acceptance credit.",
+  "case": "amazon",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "db687b1d5cf51c319605d306d805ac11a47478a68ab556889e64988e1e6e9290",
+  "benchmark_binary_sha256": "126055c812f91f76896f9e5a38ace5fcea0b17a1bedcd919b0e90db235961571",
+  "source_manifest_sha256": "7b1b6cd9c72f270fb89f77a86505ba8698a7acc495dcbcac5e04211c4a7253ef",
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "observation_utc": "2026-10-27T14:37:06.138368+00:00",
+  "result": "Stopped during explicit consumer resumption after the host reconstructed a fifth prerequisite note.",
+  "planning": {
+    "logical_calls": 26,
+    "physical_attempts": 26,
+    "known_input_tokens": 134691,
+    "known_output_tokens": 33821,
+    "known_cost_eur": "1.5065461847389558232931726910",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "receipts": 26,
+    "automatic_corrections": 3,
+    "planning_ms": 997118,
+    "known_reasoning_tokens": 26679
+  },
+  "classification": {
+    "terminal_cause": "Planner host reconstruction defect followed by repeated-action non-progress.",
+    "received_response_conformance": "Both received q25 and q26 resume responses validate against their exact issued schemas with zero findings.",
+    "provider_failure_records": 0,
+    "new_uncertain_attempts": 0,
+    "all_logical_receipts_present": true,
+    "terminal_input_limit_or_output_exhaustion_diagnostic": false,
+    "boundary": "The recorded terminal diagnostic is not a provider rejection or transport uncertainty. Absence of saved provider failure records does not supply missing per-attempt HTTP metadata."
+  },
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_STEP_INVALID",
+      "location": "/step/prerequisites"
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/"
+    }
+  ],
+  "resume_failure": {
+    "requests": [
+      {
+        "request_id": "compactr65db90d9bamz22j20v9a-amazon-1:25:559dedd428c61531b9e32caa969b525acd4019d4fed003b94e2c7ac583f8e22c",
+        "request_sha256": "20c615918f958b1470fea1734e5a83dc43faf6f1485c2088ccdb736a4d606566",
+        "schema_sha256": "90e3f995f9cceccfd154acb63e6fc3802aaac81634b69602fcecfb109b62a961",
+        "response_sha256": "a69382383dd7503295ab532eb6a43abbf6e46a5713a1be67f26cbeb10e986742",
+        "validation_error_count": 0,
+        "reader_stdout_sha256": "68c9dcc773693c730ce3a994ead3868b22099d0962ee267e73ccce315a18fe54"
+      },
+      {
+        "request_id": "compactr65db90d9bamz22j20v9a-amazon-1:26:64acf656dbb428e89f061a3ff4595e5230b9a30d8184a03de0efbcc3a69111ae",
+        "request_sha256": "e3ef1c97b0c038651c55124dc81a86bbfae84ca30301d0a14005e0634f7aaed8",
+        "schema_sha256": "90e3f995f9cceccfd154acb63e6fc3802aaac81634b69602fcecfb109b62a961",
+        "response_sha256": "a69382383dd7503295ab532eb6a43abbf6e46a5713a1be67f26cbeb10e986742",
+        "validation_error_count": 0,
+        "reader_stdout_sha256": "921841d67cc1126136dfe1f2a4ce31b9b99462969b69998b5919028d4bdaa649"
+      }
+    ],
+    "schema_title": "construction_select",
+    "validation_api": "Exact frozen Core PlanningContractValidation.ValidateInstanceFindings",
+    "step_is_null": true,
+    "resume_required_keys": [
+      "continuationId",
+      "producerCheckpoint",
+      "binding"
+    ],
+    "response_supplied_prerequisite_array": false,
+    "selected_continuation": "continuation_1",
+    "selected_producer_checkpoint": 3,
+    "selected_binding": {
+      "kind": "output",
+      "source": "step_5",
+      "port": "searchUrl"
+    },
+    "offered_checkpoint_sequences": [
+      2,
+      3
+    ],
+    "offered_can_attempt_resume": true,
+    "retained_consumer_prerequisite_count": 4,
+    "resolved_typed_need_is_exact_existing_note": false,
+    "host_reconstructed_prerequisite_count": 5,
+    "existing_validation_limit": 4,
+    "mechanism": "ResumeStep clones the retained consumer and appends its distinct suspended typed need to the four existing prerequisite notes; ValidateSelection then rejects the host-created fifth note. The repeated valid resume response is subsequently rejected as non-progress.",
+    "correction_attribution": "Three automatic correction charges are retained as the run total; this record does not assign every earlier charge to the terminal defect.",
+    "source_references": [
+      {
+        "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+        "symbol": "ResumeStep",
+        "lines": [
+          159,
+          167
+        ],
+        "sha256": "16e83b69c764a14e4b51fe57211b9d93dd3a2a0db70599d152e3c8653b4cf01e"
+      },
+      {
+        "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+        "symbol": "ValidatePrerequisites",
+        "lines": [
+          995,
+          997
+        ],
+        "sha256": "23ea61a1e188869526ea9da0b38e63a469d9e7d32ce5ea8b677a966d389b6aca"
+      }
+    ],
+    "source_reference_scope": "Line numbers and content hashes refer to frozen 65db, not a later corrected working tree."
+  },
+  "stopped_state": {
+    "pending_call_present": false,
+    "current_step_present": false,
+    "resuming_step_id": null,
+    "waiting_continuations": 1,
+    "run_hash": "732fa37061d3954a70a70138c1f017ce34e8d9a9476fe28c3921f64e1c13b695",
+    "reader_stdout_sha256": "a4d5edee254588faed407dc5bbbabbb67136688bc25c88b6465f3e4a796e389e"
+  },
+  "business_outcome": {
+    "artifact_hash": null,
+    "artifact_oracle": null,
+    "runtime": null,
+    "independently_completed_business_obligations": 0,
+    "logical_calls_per_completed_business_obligation": null,
+    "physical_attempts_per_completed_business_obligation": null,
+    "ratio_status": "Undefined: no independently completed business obligation.",
+    "candidate_acceptance_credit": 0
+  },
+  "accounting_snapshot": {
+    "captured_utc": "2026-10-27T14:37:29.488373+00:00",
+    "inspection_sha256": "7aa6d79ec1630b14fa42f83b89d4d55e7a5c2b1e5f25866667dbe67b2b490ffb",
+    "evidence_hash": "2303d471ebe7bc6da50271ae4afea342e7f68dafd45e6d0af3c4f9c4fde98454",
+    "source_projection_sha256": "6af517b1c1863e1bbad4606171a6806889f79ad1ce332fb05cdd84bf0f85b19f",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "known_cost_eur": "238.97849247518823182180423451",
+    "retained_reserved_cost_eur": "75.888632192206724941770696634",
+    "cost_upper_bound_eur": "314.86712466739495676357493114",
+    "available_eur": "225.16297916531134777887001616",
+    "historical_unknown_physical_attempts": 93,
+    "uncertain_logical_count": 36,
+    "closed_logical_count": 36,
+    "unresolved_logical_count": 0,
+    "scope": "Single dated post-terminal readback, not current admission authority. Historical reservations remain retained; this run adds none. Saved campaign decimal totals are copied exactly."
+  },
+  "measurements": {
+    "file": "compact-taskplan-65db90d9-amazon-measurements.json",
+    "sha256": "deefe0015c252c349f7f60d0f77ddf709f2f70dc5ffd5195dcb6d8213c4b1181",
+    "bytes": 4632
+  },
+  "evidence": {
+    "terminal_inspection_sha256": "ed25cf448f17890857421fb6eceb1e49b2f076cc2047592df4988ce9458c1c76",
+    "terminal_projection_sha256": "c6b86ec8ea4d3ce6ed5bb406876cbe20e381db2e2c0757b1628f129c9378dd9a",
+    "schema_assessment_sha256": "08ebf557383747455bf5e123a01b4786e29be59b015d11193b5b775c31dc2318",
+    "reader_qualification_sha256": "81f99d8752060be73e0edc93fb353e6154120cf09f61715ece8a35feabfed23d",
+    "reader_peer_sha256": "daf29d6af37bf4840ab7c240a0df375634e0d9e7fe1ca882a98f9d4cc14e4099",
+    "schema_validator_core_sha256": "9a80472b95fe5d7b282947a8d09bb0b1704c1276aff9a4c0463378bfc5df69e4",
+    "schema_bridge_binary_sha256": "85c821fa994a882bb288c35cd6926b433768cd9087a2056730d116a31653126a"
+  },
+  "limitations": [
+    "Original prompts, clauses, contract text and raw receipts were read only in RAM; no such content is copied here.",
+    "Exact q25/q26 conformance is independently checked; a full original-format scan of all 26 responses is not claimed.",
+    "The frozen failed control remains immutable. A future correction requires separate validation and a fresh frozen run; no avoided-call or live-convergence claim follows from this diagnosis."
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "source": "d52e07a0bcccac2a44feb4b7d34b5051b1c02909",
+  "passed": 8548,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-syntax-full-remainder.log": "44ba9a193b613e3419de35ab2b4b67a1e5750638bb4433334793744cfee9720b",
+    "post-syntax-fixture-shard1.log": "70e412db9ed98e86c5b26dcf55e4bf5887e45ca4617633370e4d01de909f251c",
+    "post-syntax-fixture-shard2.log": "3fb8c8b94017d6bdf38c0c50079592d9089c3eb55b67dcaeb2dc5df77423886c",
+    "post-syntax-fixture-shard3.log": "e850159c310a46116a308760740063260f911ee079b2996a33b674c9bec24b1e",
+    "post-syntax-fixture-shard4.log": "6a748d630e9c68d37a40ac6cd00d449792c51163763dfe14560ca6c1e8b1c670",
+    "post-syntax-release-build.log": "51bf64ccca3db624afce32065daac86e53dd8f23be44889c9ada2990dd9ff4bc",
+    "post-syntax-server-tests-build.log": "bb81c06ece6eb3e94dc66001e4c5d1f23d8a91b80b2de831171527f62ca2c2c3",
+    "post-syntax-frontend-build.log": "3bf8b4e35af17d8b2b3c6022118c1800d114ad5b45bc5bd7ab68cb43f7b00167",
+    "post-syntax-core-pack.log": "b4f6bcdc12dd698db516f1805ae7b4b0e85b615f5fb6753e74d8aa4054323f4d",
+    "post-syntax-planning-pack.log": "67cbc97d0270547cdaf59134dce7ef7c51b496309d5249e922006099106bb4be",
+    "post-syntax-aot-publish.log": "57dc41f3904a2cfde21a39e1b569018c4f1f572d62920a38db279791cd4f31f3",
+    "post-syntax-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification."
+  ]
+}

@@ -53,7 +53,7 @@ result field defaults to an empty list when reading older serialized results. Bo
 legacy `terminal` and current `shell_exit` SDK receipts are supported; output-preview
 truncation and output-file metadata remain explicit.
 
-The library pins `GitHub.Copilot.SDK` `1.0.14`, bundles Copilot CLI `1.0.88`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+The library pins `GitHub.Copilot.SDK` `1.0.29`, bundles Copilot CLI `1.0.107`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 
@@ -121,3 +121,13 @@ session enforcement probe remains authoritative before inference. This query nev
 changes device settings, authentication or permissions.
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+
+An optional captured `InferenceTransport` identifies a host-registered HTTP adapter.
+Core admits the prepared physical request through the existing inference budget
+before direct or policy-proxy dispatch, and restores the SDK response afterward.
+A received response that fails decoding does not become a transport retry or
+release its reservation. Native configurations omit the new field and keep their
+previous representation. Restore requires the registered adapter for the captured
+identity; it cannot silently substitute native inference. Adapters execute no tools
+and change no filesystem, approval or sandbox rules.

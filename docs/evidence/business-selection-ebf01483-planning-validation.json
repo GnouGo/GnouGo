@@ -1,0 +1,40 @@
+{
+  "source": "ebf01483e027612d2003bdd6a69066c722d0edee",
+  "parent": "5ea6946c1b93a371e544daa64853df60ba2afb65",
+  "observed_at_utc": "2026-10-30T16:49:18.282470+00:00",
+  "change": "Initialize the current construction contract before assigning technical cursor fixtures. No production, assertion or authority change.",
+  "source_files_sha256": {
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConstructionClosureTests.cs": "afc095a0e71d6ccb4b999630e874277f84bfa1bbf64993c5cd3f0c47f9a53e7a",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConstructionContractsTests.cs": "404feffe6634acf43085c7bc1aaa1dc68383eb45ad87e1671456ddad95c667d0",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryStepPresentationTests.cs": "2fc3bef31c3185aa6ededfda93b61f9aa7f673a49c122334d2afca3dde14a633"
+  },
+  "before": {
+    "failed": 28,
+    "passed": 2590,
+    "total": 2618,
+    "classes": {
+      "CompactConstructionContractsTests": 18,
+      "CompactDiscoveryStepPresentationTests": 5,
+      "CompactConstructionClosureTests": 5
+    }
+  },
+  "focused": {
+    "passed": 111,
+    "failed": 0
+  },
+  "full_planning": {
+    "passed": 2618,
+    "failed": 0,
+    "skipped": 0
+  },
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror",
+  "log_sha256": {
+    "pr120-fresh-capture-fixtures-focused.log": "9f440ec23cea31e0a3fa49e9b80ed51ef1420513e1d6797426e9d848693b5eda",
+    "pr120-fresh-capture-fixtures-full-planning.log": "2826ccc942b4fdd350dcbbe267f0636daa57eade1cf0124d1037332c0feee100",
+    "planning.trx": "8d4f71d4617a6eff1cc1020ad26a8cc4659df0d93d65080ca561fdd9c0cf4e4c"
+  },
+  "independent_source_review": "no blocker",
+  "provider_calls": 0,
+  "operational_writes": 0,
+  "limitation": "Offline fixture validation only. Tests ran before commit; recorded file hashes match committed files."
+}

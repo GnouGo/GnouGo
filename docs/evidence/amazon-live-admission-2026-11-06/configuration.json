@@ -1,0 +1,10 @@
+{
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "host_fingerprint_matches": true,
+  "metadata_fingerprint_matches": true,
+  "differences": [],
+  "provider_model_changed": false,
+  "credential_or_endpoint_exported": false
+}

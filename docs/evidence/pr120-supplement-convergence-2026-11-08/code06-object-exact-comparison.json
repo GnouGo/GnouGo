@@ -1,0 +1,48 @@
+{
+  "probe_source": "883df901",
+  "source_request": "3f0bc436cd2c40c8b381ffc678a5d060:11:89a41ac445218c25d6d99742c85fde18a12b000171b93bededcdb20ae8efc14f:97227d10c8475b64b39f473eba064c9b785ea123927604e25e3278c1b8131c98",
+  "factor": "Equivalent evidence selector encoding only; prompt and other actual HTTP fields identical.",
+  "original_reported_output_tokens": 4096,
+  "original_outcome": "MODEL_OUTPUT_LIMIT; no fragment accepted",
+  "runs": [
+    {
+      "run": "code06-evidence-object-20261108-01",
+      "actual_http_sha256": "5152adf64190b227ad307e9622c40d3631059149b710797b5d82d8bfafe0d04d",
+      "same_other_wire_fields": true,
+      "canonical_schema_equal": true,
+      "selector": {
+        "single": "ea0ff8e4c_15"
+      },
+      "physical_attempts": 1,
+      "reported_input_tokens": 10384,
+      "reported_output_tokens": 65,
+      "captured_cost_eur": "0.2894939543215405284370801612",
+      "finish_reason": "stop",
+      "schema_valid": true,
+      "candidate_applied": false,
+      "business_effects_executed": false
+    },
+    {
+      "run": "code06-evidence-object-20261108-02",
+      "actual_http_sha256": "5152adf64190b227ad307e9622c40d3631059149b710797b5d82d8bfafe0d04d",
+      "same_other_wire_fields": true,
+      "canonical_schema_equal": true,
+      "selector": {
+        "single": "ea0ff8e4c_15"
+      },
+      "physical_attempts": 1,
+      "reported_input_tokens": 10384,
+      "reported_output_tokens": 64,
+      "captured_cost_eur": "0.2893327362292879534258844604",
+      "finish_reason": "stop",
+      "schema_valid": true,
+      "candidate_applied": false,
+      "business_effects_executed": false
+    }
+  ],
+  "limitations": [
+    "Two diagnostic schema-valid responses do not establish an upstream root cause or an accepted contribution.",
+    "The original run is not resumed.",
+    "Business, permission, financial and independent-oracle requirements remain intact."
+  ]
+}

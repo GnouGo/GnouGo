@@ -1,0 +1,234 @@
+{
+  "schema_version": 1,
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1accolhighv6nh1",
+  "joins": {
+    "received_request_phase_receipt_joins": 42,
+    "join_rows_sha256": "f5ee32158e61596e213068bf9d5d8622a86b221dae9654869206a918d24732f9",
+    "supplemental_request_response_joins": 3,
+    "original_response_text_not_present_in_trace": true
+  },
+  "measured_outcome": {
+    "logical_requests": 42,
+    "physical_attempts": 42,
+    "receipts": 42,
+    "corrections": 4,
+    "checkpoints": 10,
+    "artifact": null,
+    "runtime": null,
+    "rejected_before_dispatch": [
+      {
+        "estimated_input_tokens": 8067,
+        "limit": 8000
+      },
+      {
+        "estimated_input_tokens": 8056,
+        "limit": 8000
+      }
+    ],
+    "numeric_peer_sha256": "c7d1d483f06fde3d7c1c3bb45043b9d22a9b6582361335c1ce75c3b448998e11"
+  },
+  "events": [
+    {
+      "ordinal": 24,
+      "phase": "construction_select",
+      "assessment": "Selects a second root foreach despite the accepted first producer and exact original obligations being displayed."
+    },
+    {
+      "ordinal": 25,
+      "phase": "construction_draft",
+      "assessment": "Draft repeats accepted foreach_values ID; deterministic TASK_IDENTITY_INVALID is supported."
+    },
+    {
+      "ordinal": 26,
+      "phase": "replan",
+      "assessment": "Repairs that identity by renaming only; redundant behavior remains."
+    },
+    {
+      "ordinal": 27,
+      "phase": "construction_local_judge",
+      "assessment": "Clean partial review accepts the second opening. All exact clauses and first task evidence are present; its uncertainty defers final business coverage. This is a missed unnecessary-work issue, not proof that the returned result is wrong."
+    },
+    {
+      "ordinal": 29,
+      "phase": "construction_draft",
+      "assessment": "Draft duplicates double_current_item inside second loop; deterministic identity rejection is supported."
+    },
+    {
+      "ordinal": 30,
+      "phase": "replan",
+      "assessment": "Renames second call and adds its doubled export; does not eliminate redundant root loop."
+    },
+    {
+      "ordinal": 35,
+      "phase": "construction_select",
+      "assessment": "Selects a third root loop while both accepted loops are displayed."
+    },
+    {
+      "ordinal": 36,
+      "phase": "construction_draft",
+      "assessment": "Abandons that tentative selection with an explicit redundancy explanation; accepted second loop remains."
+    },
+    {
+      "ordinal": 38,
+      "phase": "construction_draft",
+      "assessment": "Claims completion without closing root; deterministic CONSTRUCTION_INCOMPLETE is supported."
+    },
+    {
+      "ordinal": 39,
+      "phase": "replan",
+      "assessment": "Removes alias, directly exports first loop doubled and closes root; tentative, not accepted."
+    },
+    {
+      "ordinal": 40,
+      "phase": "construction_local_judge",
+      "assessment": "Requests root and first-loop exact scope evidence."
+    },
+    {
+      "ordinal": 41,
+      "phase": "construction_local_judge",
+      "assessment": "Requests reusable-group and second-loop exact scope evidence."
+    },
+    {
+      "ordinal": 42,
+      "phase": "construction_local_judge",
+      "assessment": "Requests req_1 and its/global source clauses to assess whole-candidate closure while current window contains only req_0."
+    }
+  ],
+  "accepted_structure": {
+    "root_foreach_count": 2,
+    "same_caller_array": "values",
+    "parallel": true,
+    "max_items_each": 100,
+    "max_concurrency_each": 100,
+    "same_closed_group": "double_item",
+    "group_computation": "exact item * 2 arithmetic",
+    "candidate_public_result": "foreach_values.doubled (first loop)",
+    "effects_or_runtime_inference_tasks": 0,
+    "assessment": "A second complete computation is unused by the proposed public result. This is demonstrated redundant accepted work. The witness does not prove incorrect output values, order, duplicate preservation, runtime success, or that loop duplication caused the admission limit. Finite capacity 100 remains a limit, not universal array fulfillment."
+  },
+  "window_scope": {
+    "set_hash": "debb448331dde8da1c69502ba428df5a56b2600622c1a02ffc156b653ef42202",
+    "window_index": 0,
+    "window_count": 2,
+    "source_ids": [
+      "requirement:req_0"
+    ],
+    "next_window_source_ids": [
+      "requirement:req_1",
+      "global:request:0:clause:2"
+    ],
+    "whole_candidate_close_requirement_ids": [
+      "req_1"
+    ],
+    "open_scope_count": 0,
+    "assessment": "The instructions retain the complete-closure obligation while saying each window has assigned originals and all windows must pass. They do not explicitly distinguish assessing this window against the unchanged full claims from demanding every claimed requirement original in this one request. The received q42 explanation follows the latter interpretation. This is a demonstrated presentation ambiguity; its causal effect and benefit of clarification are unproven. Cross-window retrieval remains legitimate for a concrete relationship needed to assess a current clause.",
+    "source_locations": [
+      "HybridWorkflowPlanner.ConstructionReview.cs:12-15,252-255,281-289",
+      "PlanningConstructionReviewCoverage.cs:247-260,276-293"
+    ]
+  },
+  "repair_authority": {
+    "recommendation": "Do not invoke scoped revision to remove the accepted second loop.",
+    "basis": "Existing EditablePaths permits existing semantic bindings/input lists/conditions/transform declarations/export values, not task or subtree deletion. Rollback requires reconstruction of original work and cannot withdraw it. The cumulative four corrections are already used and revise does not reset them.",
+    "source_locations": [
+      "TaskPlanRevisions.cs:9-27,231 onward",
+      "HybridWorkflowPlanner.cs:146-166",
+      "HybridWorkflowPlanner.Construction.cs:29-63,357-362",
+      "PlanningConstruction.Rollback.cs:8-31",
+      "PlanningModelCalls.cs:15,209-211,228-232"
+    ]
+  },
+  "recommendation": "Only a private minimal v6 source-window instruction clarification and existing-fixture behavioral regression are supported now. Preserve full claims, all-window acceptance, coupled-original retrieval, ceilings, schema, historical issued requests and correction accounting; no semantic duplicate ban, new retry, address filtering or accepted-task removal.",
+  "limits": [
+    "No live efficacy or successful business-obligation ratio established.",
+    "Safe trace contains selected contexts and parsed responses; omitted keys are not treated as absent issued evidence.",
+    "All clean partial reviews are not classified as business false positives; q27 is specifically limited to a missed unnecessary-work issue.",
+    "Final diagnostics describe rejected prospective review requests, not an unreceived provider outcome or a final adverse Judge report."
+  ],
+  "source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs",
+      "sha256": "4df4119a2c36ccd2af45c2525a7876a1f6af41f0512f034a6d8a4c0c55e9f342",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+      "sha256": "5a4efc926fc805487220dbb98fbf0271efaa49d2f73e6e543ca2b99a393fa4d8",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs",
+      "sha256": "c496731d77532948799299c9e70d717d6a5a00af33573f788387af88feb8c4eb",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "sha256": "8f0a22836204046cb2befc8be0ddc19c99ce8f8a36117c34171c8db24723eb43",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs",
+      "sha256": "50ce2f032b19d106aeedbcd9d16319d7a4037598202bcac42d0b88e346db1656",
+      "equals_committed": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9",
+      "equals_committed": true
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs",
+      "sha256": "0d121463cd5e659af725d4029671af441fe2605dc4a393fcc1c16394c103140d",
+      "equals_committed": true
+    }
+  ],
+  "scope": "Public-safe bounded source assessment; source record and its independent peer are pinned below. No received text, task body or original prompt is copied.",
+  "evidence_index": [
+    {
+      "path": "source-assessment-safe.json",
+      "sha256": "a4a77e35311c04d6dfcc7f20d1e7222d8469bbe490e4db38b3ad0bf1d662fa0a",
+      "bytes": 13540
+    },
+    {
+      "path": "independent-review-safe.json",
+      "sha256": "4c7f8cb87253f367048a2c9c42f2cf2372cc3c46f3e3d788d7c78aeabf0c7dd4",
+      "bytes": 1983
+    },
+    {
+      "path": "collections-state-witness-safe.json",
+      "sha256": "8e46e62c8ca2d1df73b3f113c2194f492e09c08581c263d75048b0c369c80886",
+      "bytes": 94929
+    },
+    {
+      "path": "collections-received-decisions-safe.json",
+      "sha256": "2dcf7fcd41bd4f862bd6964d05adc7dc694cd44b606e21fc6a07d2ee60cc38cc",
+      "bytes": 196023
+    },
+    {
+      "path": "collections-window-navigation-witness-safe.json",
+      "sha256": "5eb003c97cc478c8422b88f290e471de7159f33fcc3aa97b9e9b77e293249589",
+      "bytes": 14298
+    },
+    {
+      "path": "collections-terminal-exact-metrics.json",
+      "sha256": "50acb1f5656f6c8b5d022eefef08f1a8eadd82c7e3aae4c2ba31c3124eaa3878",
+      "bytes": 179427
+    },
+    {
+      "path": "collections-independent-numeric-review-safe.json",
+      "sha256": "c7d1d483f06fde3d7c1c3bb45043b9d22a9b6582361335c1ce75c3b448998e11",
+      "bytes": 1653
+    }
+  ]
+}

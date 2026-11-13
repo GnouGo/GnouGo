@@ -18,7 +18,7 @@ public sealed class WorkflowPlanningRuntimeAdmissionTests
         var context = Context(new WorkflowEngine { LLMClient = engineHasAnotherClient ? other : null });
         var runtime = new WorkflowPlanningRuntime(context, supplied, (_, _) => Task.CompletedTask);
 
-        var result = await PlanningModelCalls.CallAsync(state, runtime, "tasks", "Return the declared Boolean.", Schema(), PlannerFixture.Ct);
+        var result = await PlanningModelCalls.CallAsync(state, runtime, PlanningConstruction.DraftPurpose, "Return the declared Boolean.", Schema(), PlannerFixture.Ct);
 
         Assert.True(result["accepted"]!.GetValue<bool>());
         Assert.Equal(1, supplied.Calls);
@@ -39,7 +39,7 @@ public sealed class WorkflowPlanningRuntimeAdmissionTests
             supplied, (_, _) => Task.CompletedTask);
 
         var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => PlanningModelCalls.CallAsync(state, runtime,
-            "tasks", "Return the declared Boolean.", Schema(), PlannerFixture.Ct));
+            PlanningConstruction.DraftPurpose, "Return the declared Boolean.", Schema(), PlannerFixture.Ct));
 
         Assert.Equal(expectedCode, error.Code);
         Assert.Equal("not_started", error.Details!["dispatch_status"]!.ToString());

@@ -1,0 +1,569 @@
+{
+  "source": "c05b114f52486735f18b71b0ab67b2be326e4542",
+  "identity": "amazon-proxy-qualification-20261111-02",
+  "session": "02fd75a713434939b9c48df7dd84e085",
+  "model_calls": 47,
+  "physical_attempts": 47,
+  "cold_receipts": 47,
+  "all_protocol_complete": true,
+  "all_usage_known": true,
+  "max_http_complete_seconds": 104.307414,
+  "first_checkpoint": {
+    "calls": 9,
+    "from_first_request_admission_seconds": 458.742279,
+    "from_first_physical_http_seconds": 443.539485,
+    "known_cost_eur": "2.0017107030900134348410210478"
+  },
+  "global_review": {
+    "outcome": "ok",
+    "calls": 47,
+    "from_first_request_admission_seconds": 2265.336161
+  },
+  "phases": {
+    "construction_intent": {
+      "calls": 1,
+      "known_cost_eur": "0.1942946708463949843260188088",
+      "input_tokens": 1819,
+      "output_tokens": 902,
+      "http_seconds": 46.707224
+    },
+    "construction_select": {
+      "calls": 3,
+      "known_cost_eur": "0.4156739811912225705329153605",
+      "input_tokens": 7130,
+      "output_tokens": 1390,
+      "http_seconds": 118.313818
+    },
+    "construction_implementation": {
+      "calls": 10,
+      "known_cost_eur": "2.5473802060008956560680698612",
+      "input_tokens": 80651,
+      "output_tokens": 2359,
+      "http_seconds": 376.264989
+    },
+    "construction_discovery": {
+      "calls": 8,
+      "known_cost_eur": "2.4939095387371249440214957455",
+      "input_tokens": 83941,
+      "output_tokens": 1479,
+      "http_seconds": 285.298944
+    },
+    "construction_draft": {
+      "calls": 21,
+      "known_cost_eur": "13.6297805642633228840125391847",
+      "input_tokens": 440043,
+      "output_tokens": 11202,
+      "http_seconds": 949.9321749999998
+    },
+    "construction_local_judge": {
+      "calls": 2,
+      "known_cost_eur": "0.7180385132109270040304523063",
+      "input_tokens": 22991,
+      "output_tokens": 622,
+      "http_seconds": 74.10472899999999
+    },
+    "replan": {
+      "calls": 1,
+      "known_cost_eur": "0.7654097626511419614867890730",
+      "input_tokens": 25522,
+      "output_tokens": 494,
+      "http_seconds": 39.94407
+    },
+    "construction_global_judge": {
+      "calls": 1,
+      "known_cost_eur": "0.4045230631437527989252127183",
+      "input_tokens": 13327,
+      "output_tokens": 288,
+      "http_seconds": 36.193932
+    }
+  },
+  "known_cost_eur": "21.1690103000447828034034930583",
+  "generated_review_ready": true,
+  "artifact_hash": "55a19d712e3b7b23d56e2e332a3bd7e71f40f4fa0c17257958d46cb4dd065fbe",
+  "approved": false,
+  "execution_started": false,
+  "live_business_oracle_passed": false,
+  "artifact_review_finding": "writer_rows_have_no_header",
+  "stopped": "cancelled",
+  "stopped_revision": 127,
+  "replay_allowed": false,
+  "http_metrics": [
+    {
+      "call": 1,
+      "phase": "construction_intent",
+      "complete_seconds": 46.707224,
+      "first_output_seconds": 36.625341,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej4wXdi83qPz7Rtz90AJ8P8Nxv2lN"
+    },
+    {
+      "call": 2,
+      "phase": "construction_select",
+      "complete_seconds": 48.296691,
+      "first_output_seconds": 34.339259,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej4xNvNHf7POVF9y1vfHuVKZKHJ2A"
+    },
+    {
+      "call": 3,
+      "phase": "construction_implementation",
+      "complete_seconds": 33.482245,
+      "first_output_seconds": 32.577831,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej4yE2iJCbe0rmEyLyYUfZe6l3b4P"
+    },
+    {
+      "call": 4,
+      "phase": "construction_implementation",
+      "complete_seconds": 35.797083,
+      "first_output_seconds": 30.841959,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej4yreZKaiMOSblSs1ujs0AoTe4tu"
+    },
+    {
+      "call": 5,
+      "phase": "construction_discovery",
+      "complete_seconds": 36.866865,
+      "first_output_seconds": 34.062289,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej4zahf4bji8PBQZbclNo8vo3dwmj"
+    },
+    {
+      "call": 6,
+      "phase": "construction_discovery",
+      "complete_seconds": 53.346185,
+      "first_output_seconds": 50.500949,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej50a0DTwRvUvCxAnDueXVGXr1fI8"
+    },
+    {
+      "call": 7,
+      "phase": "construction_discovery",
+      "complete_seconds": 33.33657,
+      "first_output_seconds": 33.151846,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej51DicwJeZxCWkd693XPbSm2NlnZ"
+    },
+    {
+      "call": 8,
+      "phase": "construction_discovery",
+      "complete_seconds": 37.984091,
+      "first_output_seconds": 36.901515,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej51z9GjsjIPdbcBSZAKPDJeS0ShX"
+    },
+    {
+      "call": 9,
+      "phase": "construction_draft",
+      "complete_seconds": 51.586471,
+      "first_output_seconds": 44.248614,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej530oqUGOT5C7VXLMyppHz3DUNvJ"
+    },
+    {
+      "call": 10,
+      "phase": "construction_draft",
+      "complete_seconds": 33.810447,
+      "first_output_seconds": 32.970678,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej53jaXWCHikHHxW115Rpk6vnkAOP"
+    },
+    {
+      "call": 11,
+      "phase": "construction_draft",
+      "complete_seconds": 104.307414,
+      "first_output_seconds": 93.604542,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej54NWQhfY8c0M6HIBwuJGg65muXF"
+    },
+    {
+      "call": 12,
+      "phase": "construction_draft",
+      "complete_seconds": 55.105472,
+      "first_output_seconds": 54.649379,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej56him6to1UQgcWGEwXYmjcTEcN5"
+    },
+    {
+      "call": 13,
+      "phase": "construction_draft",
+      "complete_seconds": 44.064235,
+      "first_output_seconds": 38.886884,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej57USz5NeREzWLumWCA4OrOkseuv"
+    },
+    {
+      "call": 14,
+      "phase": "construction_implementation",
+      "complete_seconds": 46.133755,
+      "first_output_seconds": 45.84712,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej58RwpZJGwZhsmFdo2pGCcW8ujAN"
+    },
+    {
+      "call": 15,
+      "phase": "construction_implementation",
+      "complete_seconds": 60.229436,
+      "first_output_seconds": 46.590212,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej59Sy0AylUFYvHWgLDxGTZu907T0"
+    },
+    {
+      "call": 16,
+      "phase": "construction_draft",
+      "complete_seconds": 46.158634,
+      "first_output_seconds": 40.464706,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5AafwcQtYsU6f2JQ0CjGj36Oa8Z"
+    },
+    {
+      "call": 17,
+      "phase": "construction_implementation",
+      "complete_seconds": 33.010229,
+      "first_output_seconds": 32.903647,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5BISd4nQIGGBRWkhoap2SY5iY8V"
+    },
+    {
+      "call": 18,
+      "phase": "construction_implementation",
+      "complete_seconds": 34.737867,
+      "first_output_seconds": 32.300749,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5BvpAkct4WLkXQAcyXR2hxz2liW"
+    },
+    {
+      "call": 19,
+      "phase": "construction_draft",
+      "complete_seconds": 62.348815,
+      "first_output_seconds": 60.552429,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5CcH5rMB0erWZNisZkvhUqwJHzQ"
+    },
+    {
+      "call": 20,
+      "phase": "construction_draft",
+      "complete_seconds": 52.953992,
+      "first_output_seconds": 51.883578,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5E1q8Zg4Nw6wTaTGMdkyot8Nmxf"
+    },
+    {
+      "call": 21,
+      "phase": "construction_draft",
+      "complete_seconds": 38.818745,
+      "first_output_seconds": 33.96986,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5Ej0uKDRXMtlzany40eQrPLN2Az"
+    },
+    {
+      "call": 22,
+      "phase": "construction_implementation",
+      "complete_seconds": 39.702017,
+      "first_output_seconds": 39.050389,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5FRmWGIw957acEPszbc1CMqapor"
+    },
+    {
+      "call": 23,
+      "phase": "construction_draft",
+      "complete_seconds": 70.601266,
+      "first_output_seconds": 31.706547,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5G9QYdxg8ccFtzkJLbEqkGSt8l5"
+    },
+    {
+      "call": 24,
+      "phase": "construction_local_judge",
+      "complete_seconds": 37.574652,
+      "first_output_seconds": 34.197006,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5HNqrN7anCYM4H5zVB2ZgbZNDT1"
+    },
+    {
+      "call": 25,
+      "phase": "construction_select",
+      "complete_seconds": 42.846232,
+      "first_output_seconds": 28.234598,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5I4fAgLyyARyK3TL35CPMeJHT6e"
+    },
+    {
+      "call": 26,
+      "phase": "construction_implementation",
+      "complete_seconds": 29.419931,
+      "first_output_seconds": 27.913591,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5Iq6L2f6M6y3CP2GKlmLloVND3i"
+    },
+    {
+      "call": 27,
+      "phase": "construction_implementation",
+      "complete_seconds": 33.942943,
+      "first_output_seconds": 30.465328,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5JPa3u065by63AhpQlL49YmO908"
+    },
+    {
+      "call": 28,
+      "phase": "construction_draft",
+      "complete_seconds": 32.190125,
+      "first_output_seconds": 28.64238,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5K2fSlxXSHqNP5jWLWEDtXpnFrw"
+    },
+    {
+      "call": 29,
+      "phase": "construction_implementation",
+      "complete_seconds": 29.809483,
+      "first_output_seconds": 29.586576,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5KdsvtB9mChyeZf5Aa9oYVl67hN"
+    },
+    {
+      "call": 30,
+      "phase": "construction_discovery",
+      "complete_seconds": 32.355096,
+      "first_output_seconds": 28.281374,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5LChhDZdDSxbnf2uWdXbDTiOVVW"
+    },
+    {
+      "call": 31,
+      "phase": "construction_discovery",
+      "complete_seconds": 30.959119,
+      "first_output_seconds": 30.739621,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5LosvKi1iritonvTh71KBC3gYam"
+    },
+    {
+      "call": 32,
+      "phase": "construction_discovery",
+      "complete_seconds": 31.304403,
+      "first_output_seconds": 28.822747,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5MPUOtTxAlvY757GFJPBZboQ4Uw"
+    },
+    {
+      "call": 33,
+      "phase": "construction_discovery",
+      "complete_seconds": 29.146615,
+      "first_output_seconds": 29.033451,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5MzdJtTH7mdXgFA0jAi6rvszARZ"
+    },
+    {
+      "call": 34,
+      "phase": "construction_draft",
+      "complete_seconds": 30.638531,
+      "first_output_seconds": 29.763887,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5NXu2eqfbztLGfnTuxloKLEizMq"
+    },
+    {
+      "call": 35,
+      "phase": "construction_draft",
+      "complete_seconds": 64.865211,
+      "first_output_seconds": 33.918662,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5O7cvRQHFfPFLJ34fCsDbrhIFOy"
+    },
+    {
+      "call": 36,
+      "phase": "construction_draft",
+      "complete_seconds": 31.736367,
+      "first_output_seconds": 31.716589,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5PGvT7SoPMfKndovQGhZlhoUMK4"
+    },
+    {
+      "call": 37,
+      "phase": "construction_draft",
+      "complete_seconds": 29.11777,
+      "first_output_seconds": 28.033131,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5Prj1HkxM2b3eKT5JZV40JPqt97"
+    },
+    {
+      "call": 38,
+      "phase": "construction_draft",
+      "complete_seconds": 38.071447,
+      "first_output_seconds": 33.96917,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5QSqGhbcijuVUTetGJw9PfaOe1z"
+    },
+    {
+      "call": 39,
+      "phase": "replan",
+      "complete_seconds": 39.94407,
+      "first_output_seconds": 34.257082,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5R6RblJDVHTDYU9NTNUfFKjgrQh"
+    },
+    {
+      "call": 40,
+      "phase": "construction_draft",
+      "complete_seconds": 28.754729,
+      "first_output_seconds": 27.770099,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5RpyeWjaIE0RRQvDoykT5xxku7E"
+    },
+    {
+      "call": 41,
+      "phase": "construction_draft",
+      "complete_seconds": 28.525391,
+      "first_output_seconds": 27.683638,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5SN2cK5apjLXBXo9WS94SJvGRPh"
+    },
+    {
+      "call": 42,
+      "phase": "construction_draft",
+      "complete_seconds": 29.879327,
+      "first_output_seconds": 29.147093,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5SvwMIbbMZU9BJFgGvzMgzdL4HX"
+    },
+    {
+      "call": 43,
+      "phase": "construction_draft",
+      "complete_seconds": 31.193669,
+      "first_output_seconds": 30.584355,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5TVE3FjG5j8e3PORoVTVlSuKnNW"
+    },
+    {
+      "call": 44,
+      "phase": "construction_draft",
+      "complete_seconds": 45.204117,
+      "first_output_seconds": 32.332354,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5U5pxtqqGlyJL4NSK5LqKeEcgFF"
+    },
+    {
+      "call": 45,
+      "phase": "construction_local_judge",
+      "complete_seconds": 36.530077,
+      "first_output_seconds": 33.020389,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5UtiCUCZt8PXUng9WydTCljD2iB"
+    },
+    {
+      "call": 46,
+      "phase": "construction_select",
+      "complete_seconds": 27.170895,
+      "first_output_seconds": 26.849979,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5VaXcsCEXJuGsn6AkueoTv9IPUM"
+    },
+    {
+      "call": 47,
+      "phase": "construction_global_judge",
+      "complete_seconds": 36.193932,
+      "first_output_seconds": 36.036956,
+      "protocol_complete": true,
+      "usage_known": true,
+      "status": 200,
+      "provider_response_id": "chatcmpl-Ej5W8fpX7bGbyWBbumOQqMLMM8sfZ"
+    }
+  ],
+  "private_evidence_sha256": {
+    "amazon-full-02-run.json": "b1ffaa436ecfa332a7a729c44da39530d18822dcf1babb909a4677c8a481131d",
+    "amazon-full-02-http.json": "12caf2bccca5be11128bd0bf755c210414cebf94056b98ec191a4381f4795bee",
+    "amazon-full-02-receipts.json": "65b1ea335aef78a2c95eae984292afa8d924948e0bd522007f37cfed9df043e5",
+    "amazon-full-02-requests.json": "a062b1f69bd7259db880c72a227ca31894382209d3926bdf9ff5ab2480ed5347",
+    "amazon-full-02-stop.json": "1a1ce61d4205788b9eed9029f58f44425ed706236230f7e1e131344f4946dba9"
+  }
+}

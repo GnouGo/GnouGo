@@ -1,0 +1,341 @@
+{
+  "source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "harness_source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "cohort": "compactra6bd5978colj12v11b",
+  "freeze_sha256": "b564ca421f1f53faedaa6da1260214e7a609aa53a691c484515588a416d2598c",
+  "configuration_experiment": {
+    "control_cohort": "compactra6bd5978colhighv11a",
+    "observed_rejected_estimated_input_tokens": 8004,
+    "control_input_limit": 8000,
+    "single_setting_changed": "review.maxInputTokens",
+    "source_schema_logic_instructions_reasoning_output_unchanged": true,
+    "comparison_limit": "Control stopped before execution; no early-termination efficiency claim."
+  },
+  "settings_other_than_judge_input_unchanged": true,
+  "artifact": {
+    "version": "synthetic-artifact-v1",
+    "artifact_hash": "358eec7bd28dd975ef5feee66db4f78b92bf96c5a97b7fc1465dff822a341152",
+    "passed": true,
+    "findings": []
+  },
+  "business_execution": {
+    "passed": true,
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "391.1113",
+        "error": null,
+        "effects": [],
+        "violations": []
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "4.982",
+        "error": null,
+        "effects": [],
+        "violations": []
+      }
+    ],
+    "no_observed_unwanted_effects": true,
+    "exact_order_and_duplicates_checked_by_unchanged_oracles": true,
+    "planning_interventions": 0,
+    "automatic_corrections": 0,
+    "review_origin": "delegated_test",
+    "human_review_claimed": false,
+    "artifact_bound_review_sha256": "556442242812f99608a976f8513ba04496da43e94df4ee61daaf0e6b7c8428ba",
+    "independent_review_spec_sha256": "6415d582ddae1fee7a1171e7cea3f6ee87f982e304b0f2c45df2b730e6938397",
+    "delegated_requirement_id_setup_error": "Initial local review metadata used descriptive obligation labels instead of frozen synthetic IDs; guard rejected it before receipt files, application-store writes, approval or execution. Only the ID mapping was corrected; no plan, expected result or oracle changed."
+  },
+  "accounting": {
+    "logical_planning_calls": 26,
+    "physical_attempts": 26,
+    "known_input_tokens": 88442,
+    "known_output_tokens": 30777,
+    "known_cost_eur": "1.2186702365015618027666220436",
+    "reserved_cost_eur": 0,
+    "usage_complete": true,
+    "planning_ms": 1057461
+  },
+  "reasoning_tokens_included_in_output": 24546,
+  "execution_added_model_calls_or_changed_planning_accounting": false,
+  "complete_business_units": 1,
+  "calls_per_complete_unit": 26,
+  "whole_case_unit_definition_sha256": "d328d4a2b7aa36061af69bbaa271e092e89e469ead63943f8f4938234b9f19a1",
+  "host_obligation_metrics": {
+    "unit": "distinct frozen business obligation covered by independently accepted planned artifact, with retained review uncertainty",
+    "obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "obligation_set_hash": "6ab079dce2f8e688b76d83445cbd16ff19772683c53d3b4b0a6af3012b77dd65",
+    "accepted_artifact_hash": "358eec7bd28dd975ef5feee66db4f78b92bf96c5a97b7fc1465dff822a341152",
+    "accepted_obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "accepted_obligations": 3,
+    "runtime_accepted": true,
+    "per_accepted_obligation": {
+      "logical_calls": "8.666666666666666666666666667",
+      "physical_attempts": "8.666666666666666666666666667",
+      "provider_input_tokens": "29480.666666666666666666666667",
+      "provider_output_tokens": 10259,
+      "provider_total_tokens": "39739.666666666666666666666667",
+      "cost_eur": "0.4062234121671872675888740145",
+      "planning_ms": 352487
+    },
+    "interpretation": "Artifact review establishes planned obligation coverage with its retained uncertainty; it does not prove execution. Runtime acceptance is reported independently. Zero/unknown coverage or unknown usage yields null ratios. Reasoning is already included in provider output tokens. No planner state, accounting or authority is changed."
+  },
+  "phase_measurements": {
+    "construction_draft": {
+      "requests": 8,
+      "complete_bytes": {
+        "p50": 21598.5,
+        "p95": 26243,
+        "maximum": 26243
+      },
+      "estimated_input_tokens": {
+        "p50": 7456.0,
+        "p95": 9004,
+        "maximum": 9004
+      },
+      "captured_limits": [
+        18000
+      ],
+      "all_components_reconcile": true,
+      "components": {
+        "construction_context": {
+          "serialized_bytes": 15393,
+          "estimated_tokens": 5134
+        },
+        "diagnostics": {
+          "serialized_bytes": 208,
+          "estimated_tokens": 72
+        },
+        "envelope": {
+          "serialized_bytes": 3598,
+          "estimated_tokens": 3251
+        },
+        "evidence": {
+          "serialized_bytes": 200,
+          "estimated_tokens": 72
+        },
+        "fragment": {
+          "serialized_bytes": 176,
+          "estimated_tokens": 64
+        },
+        "instructions": {
+          "serialized_bytes": 10184,
+          "estimated_tokens": 3400
+        },
+        "interfaces": {
+          "serialized_bytes": 9714,
+          "estimated_tokens": 3241
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 200,
+          "estimated_tokens": 72
+        },
+        "objective": {
+          "serialized_bytes": 1333,
+          "estimated_tokens": 446
+        },
+        "requirements": {
+          "serialized_bytes": 23553,
+          "estimated_tokens": 7855
+        },
+        "response_schema": {
+          "serialized_bytes": 108624,
+          "estimated_tokens": 36211
+        }
+      }
+    },
+    "construction_intent": {
+      "requests": 2,
+      "complete_bytes": {
+        "p50": 5586.5,
+        "p95": 8650,
+        "maximum": 8650
+      },
+      "estimated_input_tokens": {
+        "p50": 2118.5,
+        "p95": 3140,
+        "maximum": 3140
+      },
+      "captured_limits": [
+        12000
+      ],
+      "all_components_reconcile": true,
+      "components": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 872,
+          "estimated_tokens": 803
+        },
+        "instructions": {
+          "serialized_bytes": 2367,
+          "estimated_tokens": 789
+        },
+        "intent": {
+          "serialized_bytes": 1810,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5990,
+          "estimated_tokens": 1997
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      }
+    },
+    "construction_local_judge": {
+      "requests": 8,
+      "complete_bytes": {
+        "p50": 20739.0,
+        "p95": 26905,
+        "maximum": 26905
+      },
+      "estimated_input_tokens": {
+        "p50": 7169.5,
+        "p95": 9225,
+        "maximum": 9225
+      },
+      "captured_limits": [
+        12000
+      ],
+      "all_components_reconcile": true,
+      "components": {
+        "construction_context": {
+          "serialized_bytes": 34992,
+          "estimated_tokens": 11666
+        },
+        "diagnostics": {
+          "serialized_bytes": 208,
+          "estimated_tokens": 72
+        },
+        "envelope": {
+          "serialized_bytes": 3650,
+          "estimated_tokens": 3268
+        },
+        "evidence": {
+          "serialized_bytes": 200,
+          "estimated_tokens": 72
+        },
+        "fragment": {
+          "serialized_bytes": 4724,
+          "estimated_tokens": 1577
+        },
+        "instructions": {
+          "serialized_bytes": 50343,
+          "estimated_tokens": 16783
+        },
+        "interfaces": {
+          "serialized_bytes": 17830,
+          "estimated_tokens": 5946
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 200,
+          "estimated_tokens": 72
+        },
+        "objective": {
+          "serialized_bytes": 1333,
+          "estimated_tokens": 446
+        },
+        "requirements": {
+          "serialized_bytes": 23553,
+          "estimated_tokens": 7855
+        },
+        "response_schema": {
+          "serialized_bytes": 29341,
+          "estimated_tokens": 9783
+        }
+      }
+    },
+    "construction_select": {
+      "requests": 8,
+      "complete_bytes": {
+        "p50": 15797.5,
+        "p95": 19774,
+        "maximum": 19774
+      },
+      "estimated_input_tokens": {
+        "p50": 5522.0,
+        "p95": 6848,
+        "maximum": 6848
+      },
+      "captured_limits": [
+        12000
+      ],
+      "all_components_reconcile": true,
+      "components": {
+        "construction_context": {
+          "serialized_bytes": 14538,
+          "estimated_tokens": 4850
+        },
+        "envelope": {
+          "serialized_bytes": 3533,
+          "estimated_tokens": 3229
+        },
+        "instructions": {
+          "serialized_bytes": 30112,
+          "estimated_tokens": 10040
+        },
+        "interfaces": {
+          "serialized_bytes": 6395,
+          "estimated_tokens": 2136
+        },
+        "requirements": {
+          "serialized_bytes": 23553,
+          "estimated_tokens": 7855
+        },
+        "response_schema": {
+          "serialized_bytes": 48691,
+          "estimated_tokens": 16233
+        }
+      }
+    }
+  },
+  "percentile_method": "Median for p50; nearest rank for p95; complete serialized UTF-8 bytes and conservative v1 estimates, not billed component tokens.",
+  "judge_requests_over_old_8000_limit": 3,
+  "original_response_checks": {
+    "checked": 26,
+    "all_match_receipts": true,
+    "empty": 0,
+    "output_limit_markers": 0,
+    "outside_string_whitespace_bytes": 19,
+    "maximum_whitespace_run": 4,
+    "metadata_sha256": "aea4e6f100ab070ba15c3ed8c4b5f2910fe507e6e934e229260477511857261d"
+  },
+  "A": {
+    "propositions": 36,
+    "subject_acknowledgments": 0,
+    "broad_acknowledgments": 36,
+    "reuse_rows": 0,
+    "source_request_and_receipt_provenance_verified": true,
+    "live_saved_calls_claimed": false
+  },
+  "B": {
+    "transition_rows": 0,
+    "live_eliminated_calls_claimed": false
+  },
+  "harness_redundant_tasks": null,
+  "independent_artifact_review": "Exactly three contributive tasks: isolated arithmetic, group call, parallel traversal. No alias or redundant operation observed; not an automatic duplicate ban.",
+  "planning_record_sha256": "49c76a8cde7f46498439f290e17b94e7117f53394c0604a6fc13240fcd1438ab",
+  "execution_record_sha256": "6153160eb0eca2ce11b26ebc0a507991fb9d8d2a28c3ac5172c5c96afaaadf12",
+  "limitation": "One successful source-identical configuration diagnostic; the 8k control stopped before execution. No architecture-only causal, matched savings or two-run reproducibility claim. It does not qualify e44e08fd."
+}

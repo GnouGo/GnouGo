@@ -1,0 +1,29 @@
+{
+  "functional_source": "57f6b4f637379651c4dbf90f340e7253056a29cc",
+  "checked_at_utc": "2026-11-09 03:38:17 UTC",
+  "workflow_runs": [
+    {
+      "id": 42555725674,
+      "name": "Deterministic planner validation",
+      "status": "in_progress",
+      "conclusion": null,
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42555725674"
+    },
+    {
+      "id": 42555725689,
+      "name": "ProxyCopilot standalone validation",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42555725689"
+    },
+    {
+      "id": 42555725670,
+      "name": "Build ProxyCopilot Native AOT",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/42555725670"
+    }
+  ],
+  "all_passed": false,
+  "limitation": "The main planner integration workflow is still running. Local validation is reported separately; no remote pass is inferred."
+}

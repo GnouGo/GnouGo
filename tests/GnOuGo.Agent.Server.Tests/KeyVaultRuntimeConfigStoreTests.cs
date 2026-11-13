@@ -123,6 +123,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         RequestPolicy = new LLMProviderRequestPolicyOptions
                         {
                             BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions,
+                            BillingServiceTier = "fast",
+                            BillingRegionalProcessing = true,
+                            BillingCacheRetention = "12h",
                             UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
                             DefaultMaxOutputTokens = 4_096,
                             MaxOutputTokensCap = 8_192
@@ -157,7 +160,11 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
             Assert.Equal("top-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
+            Assert.Equal("gpt-4.1", await store.GetConfiguredModelAsync("OPENAI", CancellationToken.None));
             Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
+            Assert.Equal("fast", providerConfig.RequestPolicy.BillingServiceTier);
+            Assert.True(providerConfig.RequestPolicy.BillingRegionalProcessing);
+            Assert.Equal("12h", providerConfig.RequestPolicy.BillingCacheRetention);
             Assert.Equal(4_096, providerConfig.RequestPolicy.DefaultMaxOutputTokens);
             Assert.Equal(2, providerConfig.RetryPolicy.MaxAttempts);
             Assert.Equal(0, providerConfig.RetryPolicy.MaxUncertainRetries);
@@ -334,6 +341,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             ["provider"] = "Provider",
             ["model"] = "Model",
             ["reasoning_effort"] = "ReasoningEffort",
+            ["inference_transport"] = "InferenceTransport",
             ["use_logged_in_user"] = "UseLoggedInUser",
             ["request_timeout_seconds"] = "RequestTimeoutSeconds",
             ["managed_session_ttl_seconds"] = "ManagedSessionTtlSeconds"
@@ -350,7 +358,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         entry => entry.Key,
                         entry => new BundledMcpEditableFieldSettings
                         {
-                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}"
+                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}",
+                            Target = entry.Value == "InferenceTransport" ? "env:Code__Copilot__InferenceTransport" : null
                         },
                         StringComparer.OrdinalIgnoreCase)
                 }
@@ -385,6 +394,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                     ["Provider"] = "openai",
                     ["Model"] = "fallback-model",
                     ["ReasoningEffort"] = "medium",
+                    ["InferenceTransport"] = "gnougo-structured-tools-v1",
                     ["UseLoggedInUser"] = "false",
                     ["RequestTimeoutSeconds"] = "600",
                     ["ManagedSessionTtlSeconds"] = "300"
@@ -422,8 +432,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp", copilot.Command);
             Assert.Equal(["--stdio"], copilot.Args);
             var environment = Assert.IsType<Dictionary<string, string?>>(copilot.EnvironmentVariables);
-            Assert.Single(environment);
+            Assert.Equal(2, environment.Count);
             Assert.Equal(expectedDatabasePath, environment["KeyVault__DatabasePath"]);
+            Assert.Equal("gnougo-structured-tools-v1", environment["Code__Copilot__InferenceTransport"]);
 
             var configuredProvider = Assert.Contains("openai", effective.Models);
             Assert.Equal("provider-secret", configuredProvider.ApiKey);

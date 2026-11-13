@@ -1,0 +1,118 @@
+[
+  {
+    "source": "21a3d7c60e2ec160cf3e0996036481122b1c21dc",
+    "run": "convergence-local-20261108-02",
+    "session_id": "936620dc53d546679d9f0f3f3c63ad6f",
+    "scenario": "local",
+    "phase_policy_sha256": "f41151449ddee6e2decc39bfb527591db0b97c9cf166efd82871be5ec1811f41",
+    "artifact_hash": "ed6b14e39c469954472c5402d288fba58bac9a8cab77190b9ee1036535717a17",
+    "review_origin": "delegated_test_reviewed",
+    "logical_calls": 7,
+    "physical_attempts": 7,
+    "known_usage_tariff_estimate_eur": "0.4359605911330049261083743842",
+    "business_review_milestones": [
+      {
+        "purpose": "construction_local_judge",
+        "through_logical_call": 5,
+        "physical_attempts": 5,
+        "seconds_from_first_dispatch": 36.114283,
+        "known_usage_tariff_estimate_eur": "0.3650783699059561128526645768"
+      },
+      {
+        "purpose": "construction_global_judge",
+        "through_logical_call": 7,
+        "physical_attempts": 7,
+        "seconds_from_first_dispatch": 48.9887,
+        "known_usage_tariff_estimate_eur": "0.4359605911330049261083743842"
+      }
+    ],
+    "execution": {
+      "success": true,
+      "variants": [
+        {
+          "variant": "nominal",
+          "success": true,
+          "outputs": {
+            "result": 42
+          },
+          "oracle_passed": true
+        }
+      ]
+    },
+    "oracle": {
+      "version": "native-result42-v1",
+      "independent": true,
+      "passed": true
+    },
+    "seconds_through_saved_oracle_including_review_wait": 87.20986,
+    "saved_passing_oracle_at": "2026-11-08T09:12:34.159829+00:00",
+    "oracle_timestamp_basis": "Exact owned run record final publication; upper bound on oracle completion, including authorized artifact review wait.",
+    "raw_run_sha256": "f7792b7494406832d648ba48a5871315ff229075c3d051aa61194cf33a955159"
+  },
+  {
+    "source": "21a3d7c60e2ec160cf3e0996036481122b1c21dc",
+    "run": "convergence-collections-20261108-01",
+    "session_id": "77389e3105c145c59c5a156539c7e8e0",
+    "scenario": "collections",
+    "phase_policy_sha256": "f41151449ddee6e2decc39bfb527591db0b97c9cf166efd82871be5ec1811f41",
+    "artifact_hash": "5d9bbc0fcebe8bf87f2b5fbab8d2598545c4455ec4b3e27f080d18602f4449c6",
+    "review_origin": "delegated_test_reviewed",
+    "logical_calls": 26,
+    "physical_attempts": 26,
+    "known_usage_tariff_estimate_eur": "3.2100134348410210479175996420",
+    "business_review_milestones": [
+      {
+        "purpose": "construction_local_judge",
+        "through_logical_call": 22,
+        "physical_attempts": 22,
+        "seconds_from_first_dispatch": 193.953097,
+        "known_usage_tariff_estimate_eur": "2.9196596506941334527541424095"
+      },
+      {
+        "purpose": "construction_global_judge",
+        "through_logical_call": 26,
+        "physical_attempts": 26,
+        "seconds_from_first_dispatch": 232.46489,
+        "known_usage_tariff_estimate_eur": "3.2100134348410210479175996420"
+      }
+    ],
+    "execution": {
+      "success": true,
+      "variants": [
+        {
+          "variant": "nominal",
+          "success": true,
+          "outputs": {
+            "result": [
+              2,
+              4,
+              8
+            ]
+          },
+          "oracle_passed": true
+        },
+        {
+          "variant": "alternate",
+          "success": true,
+          "outputs": {
+            "result": [
+              6,
+              6,
+              -4
+            ]
+          },
+          "oracle_passed": true
+        }
+      ]
+    },
+    "oracle": {
+      "version": "collections-native-variants-v1",
+      "independent": true,
+      "passed": true
+    },
+    "seconds_through_saved_oracle_including_review_wait": 293.38698,
+    "saved_passing_oracle_at": "2026-11-08T09:18:28.370781+00:00",
+    "oracle_timestamp_basis": "Exact owned run record final publication; upper bound on oracle completion, including authorized artifact review wait.",
+    "raw_run_sha256": "0d8c7d5ee4f1900716fd6c6c82d9705f6c1a77bca6528ab706bdec36f04ff681"
+  }
+]

@@ -16,10 +16,6 @@ public sealed class GuardCompositionGuidanceTests
     {
         var runtime = new TestRuntime(); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
-        var request = new PlanningPrompt(state).Request();
-        Assert.Contains("Use inspected contracts, not names/types", request.Prompt);
-        // This fixture declares its own flags. The shared prompt supplies no
-        // conventional field names or prescribed acquisition sequence.
         var guard = new TaskValue { Kind = "predicate", Predicate = "and", Items = [
             new() { Kind = "output", Source = "p", Port = "success" },
             new() { Kind = "predicate", Predicate = "and", Items = [
@@ -34,19 +30,12 @@ public sealed class GuardCompositionGuidanceTests
                     Outputs = [new("result", new() { Kind = "string", Text = "accepted" })] }],
             Outputs = [new("result", new() { Kind = "output", Source = "consume", Port = "result" })]
         } };
-        runtime.Proposal.Plan = plan;
-        runtime.Proposal.Requirements = new() { Summary = "Assert all declared flags", Inputs = plan.Inputs,
-            Outcomes = [new("checked", "Publish only when all three flags hold")], Outputs = [new() { Name = "result", Type = new() }] };
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(TestRuntime.Response(runtime.Calls[0], runtime.Proposal).Json, runtime.Calls[0].StructuredOutputSchema!));
-        var result = await LookupCompilationTests.Execute(state.Yaml!, new JsonObject { ["success"] = success, ["available"] = available, ["complete"] = complete }, new WorkflowEngine());
+        var compiled = new TaskPlanCompiler().Compile(plan, state.Catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog);
+        var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["success"] = success, ["available"] = available, ["complete"] = complete }, new WorkflowEngine());
         Assert.Equal(success && available && complete, result.Success);
         if (!result.Success) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
-        Assert.Single(runtime.Calls);
-        var hint = Assert.Single(PlanningSchemaReferences.Walk(runtime.Calls[0].StructuredOutputSchema!.AsObject(), "", 0),
-            s => s.Schema["description"]?.ToString().Contains("requires: false fails", StringComparison.Ordinal) == true).Schema["description"]!.ToString();
-        Assert.Contains("and/or: binary; nest", hint);
-        Assert.Contains("field.port: exact property", hint);
+        Assert.Empty(runtime.Calls);
     }
 }

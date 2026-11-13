@@ -1,0 +1,361 @@
+{
+  "schema": "pr120_frozen_business_diagnostic_v1",
+  "captured_date_utc": "2026-10-29",
+  "public_production_source": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "private_execution_source": "034e9111f9198abe4c3accce0f9a7cf52a7e75ac",
+  "cohort": "compactle880124ecode11a",
+  "scenario": "Review PR",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_files": 568,
+  "result": {
+    "generation": "stopped_before_prospective_draft_dispatch_at_captured_input_ceiling",
+    "artifact": false,
+    "runtime": "not_started",
+    "business_success": false,
+    "qualifying_run": false,
+    "independently_satisfied_runtime_business_obligations": 0,
+    "calls_per_success": null
+  },
+  "metrics": {
+    "logical_requests": 28,
+    "physical_attempts": 28,
+    "received_responses": 28,
+    "judges": 0,
+    "charged_navigation_corrections": 1,
+    "charged_draft_corrections": 0,
+    "actual_executable_patches": 0,
+    "explicit_consumer_reselection_actions": 0,
+    "operator_interventions": 0,
+    "accepted_checkpoints": 6,
+    "accepted_task_count": 6,
+    "provider_input_tokens": 145013,
+    "provider_output_tokens": 75840,
+    "reasoning_tokens_included_in_output": 65763,
+    "provider_total_tokens": 220853,
+    "planning_ms": 1627091,
+    "runner_wall_seconds": "1654.583582666004",
+    "known_cost_eur": "2.6818245586315440509906327907",
+    "new_unknown_attempts": 0,
+    "new_unknown_reservation_eur": "0",
+    "prepared_request_measurements": 35,
+    "admitted_requests": 28,
+    "rejected_before_dispatch": 1,
+    "target_warnings": 31,
+    "provider_whitespace_metrics": null,
+    "provider_completion_reasons": null,
+    "phase_details": {
+      "construction_intent": {
+        "logical_requests": 6,
+        "physical_attempts": 6,
+        "provider_input_tokens": 8435,
+        "provider_output_tokens": 11113,
+        "reasoning_tokens_included_in_output": 9137,
+        "known_cost_eur": "0.3351762605979473449352967425",
+        "admitted_complete_request_bytes": {
+          "count": 6,
+          "p50": "7122.5",
+          "p95_nearest_rank": 11450,
+          "maximum": 11450
+        }
+      },
+      "construction_select": {
+        "logical_requests": 8,
+        "physical_attempts": 8,
+        "provider_input_tokens": 49315,
+        "provider_output_tokens": 49187,
+        "reasoning_tokens_included_in_output": 44911,
+        "known_cost_eur": "1.5406470397894461164517947835",
+        "admitted_complete_request_bytes": {
+          "count": 8,
+          "p50": "31140.5",
+          "p95_nearest_rank": 36521,
+          "maximum": 36521
+        }
+      },
+      "construction_discovery": {
+        "logical_requests": 8,
+        "physical_attempts": 8,
+        "provider_input_tokens": 41476,
+        "provider_output_tokens": 6211,
+        "reasoning_tokens_included_in_output": 5571,
+        "known_cost_eur": "0.3513699241410084783578759483",
+        "admitted_complete_request_bytes": {
+          "count": 8,
+          "p50": "26885.0",
+          "p95_nearest_rank": 33704,
+          "maximum": 33704
+        }
+      },
+      "construction_draft": {
+        "logical_requests": 6,
+        "physical_attempts": 6,
+        "provider_input_tokens": 45787,
+        "provider_output_tokens": 9329,
+        "reasoning_tokens_included_in_output": 6144,
+        "known_cost_eur": "0.4546313341031421112456653164",
+        "admitted_complete_request_bytes": {
+          "count": 6,
+          "p50": "39588.5",
+          "p95_nearest_rank": 50232,
+          "maximum": 50232
+        }
+      }
+    }
+  },
+  "demonstrated_trajectory": [
+    {
+      "requests": "21-26",
+      "evidence": "Accepted local review, exact-target checkout and command-validation operation nodes were added to one accepted sequence. These are planned operations; no command or external effect was executed."
+    },
+    {
+      "request": 27,
+      "classification": "received_invalid_reference_value",
+      "evidence": "The selected checkout-producer input used output},{. The exact issued prompt displayed output and contained no output},{ value; the emitted schema allows bounded port strings. Deterministic reference validation rejected the unavailable port in the same declared scope."
+    },
+    {
+      "request": 28,
+      "classification": "corrected_selection",
+      "evidence": "The next selection used output and existing accepted producers. This was a selection correction, not an explicit suspended-consumer reselectStep action."
+    },
+    {
+      "prospective_request": 29,
+      "classification": "local_complete_request_admission",
+      "evidence": "The complete draft was rejected before dispatch. The atomic binding probe left CurrentStep null and preserved accepted work, receipts and captured limits."
+    }
+  ],
+  "rejected_request": {
+    "request_hash": "ef260bc2c9749842ed1658045f4f6fa9380f2ebe9f6c49c9f982095adcbf4476",
+    "schema_hash": "89edc90e1230b13cf1563283e014cb713cf14f1ba3b019b8d21e27abb037b9de",
+    "complete_request_bytes": 68764,
+    "estimated_input_tokens": 23178,
+    "input_target": 8000,
+    "captured_input_maximum": 20000,
+    "admission": "rejected_before_dispatch",
+    "components": [
+      {
+        "component": "construction_context",
+        "serializedBytes": 7204,
+        "estimatedTokens": 2402
+      },
+      {
+        "component": "diagnostics",
+        "serializedBytes": 403,
+        "estimatedTokens": 135
+      },
+      {
+        "component": "envelope",
+        "serializedBytes": 507,
+        "estimatedTokens": 425
+      },
+      {
+        "component": "evidence",
+        "serializedBytes": 1301,
+        "estimatedTokens": 434
+      },
+      {
+        "component": "fragment",
+        "serializedBytes": 22,
+        "estimatedTokens": 8
+      },
+      {
+        "component": "instructions",
+        "serializedBytes": 1070,
+        "estimatedTokens": 357
+      },
+      {
+        "component": "interfaces",
+        "serializedBytes": 11330,
+        "estimatedTokens": 3777
+      },
+      {
+        "component": "mcp_contracts",
+        "serializedBytes": 17765,
+        "estimatedTokens": 5922
+      },
+      {
+        "component": "objective",
+        "serializedBytes": 584,
+        "estimatedTokens": 195
+      },
+      {
+        "component": "requirements",
+        "serializedBytes": 13226,
+        "estimatedTokens": 4409
+      },
+      {
+        "component": "response_schema",
+        "serializedBytes": 15352,
+        "estimatedTokens": 5118
+      }
+    ],
+    "components_reconcile": true
+  },
+  "offline_reconstruction": {
+    "provider_calls": 0,
+    "source": "Frozen e880 planner libraries; no production/profile edits.",
+    "selection28_byte_exact": true,
+    "selection28_bytes": 36521,
+    "draft29_complete_request_hash_exact": true,
+    "draft29_schema_hash_exact": true,
+    "prototype_not_production": true,
+    "request_local_sharing_arms": [
+      {
+        "name": "original",
+        "completeBytes": 68764,
+        "estimatedInputTokens": 23178,
+        "schemaBytes": 15352,
+        "savedBytes": 0,
+        "acceptedProgressEmbeddedBytes": 7460,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 12268,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": true
+      },
+      {
+        "name": "authoring-then-progress-repeat",
+        "completeBytes": 68764,
+        "estimatedInputTokens": 23178,
+        "schemaBytes": 15352,
+        "savedBytes": 0,
+        "acceptedProgressEmbeddedBytes": 7460,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 12268,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": true
+      },
+      {
+        "name": "progress-summary",
+        "completeBytes": 64847,
+        "estimatedInputTokens": 21872,
+        "schemaBytes": 15277,
+        "savedBytes": 3917,
+        "acceptedProgressEmbeddedBytes": 3618,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 8426,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": true
+      },
+      {
+        "name": "progress-summary-dedup",
+        "completeBytes": 64847,
+        "estimatedInputTokens": 21872,
+        "schemaBytes": 15277,
+        "savedBytes": 3917,
+        "acceptedProgressEmbeddedBytes": 3618,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 8426,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": true
+      },
+      {
+        "name": "contract-sharing-plus-progress-summary",
+        "completeBytes": 60155,
+        "estimatedInputTokens": 20308,
+        "schemaBytes": 15277,
+        "savedBytes": 8609,
+        "acceptedProgressEmbeddedBytes": 3618,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 8426,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": false
+      },
+      {
+        "name": "progress-checkpoint-links",
+        "completeBytes": 63397,
+        "estimatedInputTokens": 21389,
+        "schemaBytes": 15277,
+        "savedBytes": 5367,
+        "acceptedProgressEmbeddedBytes": 2168,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 6976,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": true
+      },
+      {
+        "name": "contract-sharing-plus-checkpoint-links",
+        "completeBytes": 58705,
+        "estimatedInputTokens": 19825,
+        "schemaBytes": 15277,
+        "savedBytes": 10059,
+        "acceptedProgressEmbeddedBytes": 2168,
+        "originalClauseEmbeddedBytes": 961,
+        "requirementsEmbeddedBytes": 6976,
+        "mandatoryContextUnchanged": true,
+        "requirementOriginalsAndStatusesUnchanged": true,
+        "checkpointRetrievalLinksRetained": true,
+        "checkpointFragmentsAndHashesLoadExactly": true,
+        "exactConsumedInterfacesUnchanged": false
+      }
+    ],
+    "irreducible_context_proven": false
+  },
+  "safeguards": {
+    "all_usage_receipts_present": true,
+    "provider_incident_observed": false,
+    "new_transport_uncertainty": false,
+    "captured_limits_unchanged": true,
+    "prior_reservations_preserved": true,
+    "supplement_reapplied": false,
+    "runtime_effects": false
+  },
+  "evidence_sha256": {
+    "exact_terminal_run": "b4552d5e38cbe91a6ccac2997fcbb13eb64c75d0fedf9c698a987177afff4fd6",
+    "terminal_inspection": "1ffe59826b94f3f9654aed1725cc0f8cf18e1fe8f4fcedde7400d258d72a01c0",
+    "issued_request27": "72f0596eca44cdac96d94bd600df3f79c228c65a9e854862523acb5ecae49266",
+    "issued_request28": "0c902e00451c0cb53c53370b061e5308582d44884e66acd7b94d139a74a3a471",
+    "reader_metadata": "bbfef2385f35072ecf3db96e8f351687c898afca232307a40e6fd8b2874a01b0",
+    "offline_measurement_program": "e011893f9a8763def8246b7428a55b7035090a9520a9d76c7f8941b83795e782",
+    "offline_reconstructed29": "ef260bc2c9749842ed1658045f4f6fa9380f2ebe9f6c49c9f982095adcbf4476",
+    "sharing_prototype_proof": "81acb135474c63435c8a58b7172aaa8a630c836b23ebd672691e406ca89ad650",
+    "navigation_arms": "ed6ed8755b0fcd23ee2230eb1f7c885236ed79cc93ec1386648f3b2296cc6d54"
+  },
+  "limitations": [
+    "No artifact, mandatory business review or runtime execution succeeded. Checkpoints do not establish business fulfillment.",
+    "The bad port is a received invalid reference value; the exact envelope does not establish a producer-port presentation omission.",
+    "Sharing/navigation arms are offline prototypes, not tested production corrections, live savings or proof of irreducibility.",
+    "Provider whitespace and finish reasons are unavailable here. Reasoning tokens remain included in provider output tokens.",
+    "No matched successful complete control supports causal efficiency or cost claims. This Review PR run does not qualify."
+  ],
+  "presentation_note": "Concise source-bound index; complete requests, receipts, component measurements and experiment proofs remain in their unchanged retained evidence."
+}

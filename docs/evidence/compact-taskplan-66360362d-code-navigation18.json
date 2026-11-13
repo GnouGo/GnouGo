@@ -1,0 +1,231 @@
+{
+  "version": 1,
+  "source": "66360362da0845513137178ff51752f61b4249ef",
+  "case": "code",
+  "cohort": "compactr66360362dcode20v6nv18",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "a66358ba09da3337decaabc5822519579446dbc21657417c101628b178019d32",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "medium",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 18000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "high",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 16000,
+        "outputTokens": 8192
+      }
+    }
+  },
+  "outcome": {
+    "session_status": "clarification",
+    "session_phase": "construction_intent",
+    "diagnostic_codes": [],
+    "termination_reason": null,
+    "corrections": 0,
+    "checkpoints": 0,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_started": false,
+    "execution_success": false,
+    "execution_status": "not_started",
+    "oracle_passed": null,
+    "planning_ms": 200980,
+    "elapsed_ms": null,
+    "runtime_ms": null,
+    "logical_dispatched": 6,
+    "physical_attempts": 6,
+    "receipts": 6
+  },
+  "requests": {
+    "identities_measured": 6,
+    "prepared_but_undispatched": 0,
+    "measured_admission_rejections": 0,
+    "receiptless_dispatched": 0,
+    "provider_http_status_counts": {
+      "200": 6
+    },
+    "provider_failure_kind_counts": {},
+    "rejected_identities": [],
+    "all_components_reconcile": true,
+    "admitted_requests_within_input_limits": true,
+    "complete_request_bytes_total": 42218,
+    "all_constructed_request_bytes": {
+      "count": 6,
+      "p50": "7033.5",
+      "p95": "11346",
+      "max": "11346"
+    },
+    "estimated_input_tokens_total": 15611,
+    "all_constructed_estimated_input_tokens": {
+      "count": 6,
+      "p50": "2601",
+      "p95": "4038",
+      "max": "4038"
+    },
+    "component_estimate_minus_complete_estimate": 7,
+    "normalized_response_bytes": "6740",
+    "empty_completed_response_projections": 0,
+    "receipted_logical_elapsed_ms": {
+      "count": 6,
+      "p50": "22001.6562",
+      "p95": "51843.1185",
+      "max": "51843.1185"
+    }
+  },
+  "usage_and_cost": {
+    "input_tokens": 8392,
+    "output_tokens": 8610,
+    "reasoning_tokens_within_output": 6671,
+    "reasoning_measured_calls": 6,
+    "visible_output_tokens_derived_where_reasoning_measured": "1939",
+    "known_cost_eur": "0.2679696564033913431503792950",
+    "retained_reservation_eur": 0,
+    "run_cost_upper_bound_eur": "0.2679696564033913431503792950",
+    "unknown_usage_attempts": 0,
+    "receiptless_dispatched_requests": 0,
+    "completed_logical_intervals_ms": "177067.3267",
+    "phase_completed_interval_sum_minus_terminal_aggregate_ms": {
+      "construction_intent": "2E-11"
+    },
+    "exact_money_source": "Original exact safe metrics and public terminal JSONL parsed with Decimal precision 80; original bytes retained."
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "constructed": 6,
+      "dispatched": 6,
+      "receipts": 6,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "6",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 6,
+        "p50": "7033.5",
+        "p95": "11346",
+        "max": "11346"
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": "2601",
+        "p95": "4038",
+        "max": "4038"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 6,
+        "p50": "22001.6562",
+        "p95": "51843.1185",
+        "max": "51843.1185"
+      },
+      "input_tokens": "8392",
+      "output_tokens": "8610",
+      "reasoning_tokens_within_output": "6671",
+      "known_cost_eur": "0.2679696564033913431503792950",
+      "retained_reservation_eur": "0"
+    }
+  },
+  "original_formatting": {
+    "version": 1,
+    "receipt_count": 6,
+    "nonempty_valid_json_texts": 6,
+    "empty_original_texts": 0,
+    "nonempty_non_json_texts": 0,
+    "original_utf8_bytes": 6472,
+    "outside_string_whitespace_bytes_in_valid_json": 0,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 0,
+    "normalized_response_bytes": 6740
+  },
+  "semantic_assessment": {
+    "phase": "construction_intent",
+    "current_candidate_sources": 1,
+    "complete_original_pages_supplied": 3,
+    "existing_public_inputs": [
+      "pullRequestUrl",
+      "reviewText"
+    ],
+    "existing_public_outputs": [
+      "feedback"
+    ],
+    "classification": "Unnecessary public-schema clarification despite supplied originals and an explicit no-public-interface route.",
+    "events": [
+      {
+        "request": 3,
+        "meaning": "The local report content clause was provisionally marked as an output candidate, not conclusively declared a public return."
+      },
+      {
+        "request": 4,
+        "meaning": "The two caller inputs and public feedback were declared."
+      },
+      {
+        "request": 5,
+        "meaning": "Clone arguments were resolved as no_public_interface without deleting their business constraints."
+      },
+      {
+        "request": 6,
+        "meaning": "The model asked for a public report schema, recommending a new public output while also offering artifact-only."
+      }
+    ],
+    "originals": "The current report-content clause and complete surrounding local-file obligations support no additional public output. Existing public feedback and all required local report contents remain obligations.",
+    "schema": "The exact issued schema permits empty new input/output arrays with one grounded no_public_interface disposition; it does not force the provisional output classification.",
+    "host_defect_demonstrated": false,
+    "causality": "No omitted original, contradictory instruction or missing resolution route was demonstrated. No model/settings benefit is inferred.",
+    "intervention": "Supplying the artifact-only answer would be explicit intervention and could not be counted as autonomous unchanged-input convergence. No answer or new recovery route is supplied by this evidence.",
+    "experiment": "A separately authorized v6 wording experiment restores the explicit caller-return definition; this is a hypothesis, not a demonstrated production repair.",
+    "artifact": false,
+    "runtime": false,
+    "fulfilled_business_obligation_ratio": null,
+    "ratio_reason": "No complete artifact or runtime oracle establishes fulfilled business obligations.",
+    "six_success_gate": {
+      "successful_fresh_runs": 1,
+      "required_fresh_runs": 6,
+      "successful_case": "Collections",
+      "runtime_variants_do_not_count_as_separate_runs": true
+    }
+  },
+  "retained_private_evidence": [
+    {
+      "name": "code-terminal-numeric-safe.json",
+      "sha256": "849e9055881be8ac11f26d78dd02e94e31959be13fcd5da3285068e1ab4f09f1"
+    },
+    {
+      "name": "code-original-formatting-safe.json",
+      "sha256": "09a46d6f251eef9e82e33edc8180904f12183b11c435b5b2e9a76790ce1a7429"
+    },
+    {
+      "name": "independent-numeric-format-review-safe.json",
+      "sha256": "27ed1bd8bc2792b72d7a54804a429dd91077b382dbf874f340ec7829840d3307"
+    },
+    {
+      "name": "source-assessment-safe.json",
+      "sha256": "3484e3d64aed465fd3c7fd6daeb2a1cfa3ac2693dc499df7061ede7cea27d46d"
+    },
+    {
+      "name": "code-interface-context-witness-safe.json",
+      "sha256": "2ccd25fd83f4b20a57e0ca7b6a67d12da95c3ef009f249c2081f7c6394680d09"
+    },
+    {
+      "name": "code-received-decisions-safe.json",
+      "sha256": "dca10be58e03b67342e12b0610a0e1e5307ef166d7e719d85e264694e9600fb9"
+    },
+    {
+      "name": "code-terminal-exact-metrics.json",
+      "sha256": "6762d9d1fd10b58bee896551ee38d58c722c4c98a787edccfbf8ab226cda02ea"
+    }
+  ],
+  "limits": [
+    "Source-bound saved-evidence projection only; exact prompts, originals and response objects remain private.",
+    "Formatting aggregates reuse the saved-counter/receipt peer; no raw-text rescan.",
+    "No output-exhaustion, runtime-success, avoided-correction, current-balance or causal-benefit claim."
+  ]
+}

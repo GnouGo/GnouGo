@@ -1,0 +1,23 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "capture": {
+    "process": 67511,
+    "session": "a8638aabc15f431c9e27ef84dde58d55",
+    "tenant": "default",
+    "snapshot": "4eb6f0c2d8c57bc89798cb9529ab55c4902acb0f6bbcd32b66deca30aa45da48",
+    "metadataReads": 1,
+    "pages": 4,
+    "llmCalls": 0
+  },
+  "continue": {
+    "process": 67538,
+    "session": "a8638aabc15f431c9e27ef84dde58d55",
+    "tenant": "default",
+    "snapshot": "4eb6f0c2d8c57bc89798cb9529ab55c4902acb0f6bbcd32b66deca30aa45da48",
+    "metadataReads": 0,
+    "pages": 6,
+    "llmCalls": 0
+  },
+  "metadata_source_unavailable_in_second_process": true,
+  "inference_dispatches": 0
+}

@@ -1,0 +1,40 @@
+{
+  "source": "b605ded48b45d49571b978430086ffa7ac31e05f",
+  "baseline_cd8951b7_all_three_passed": true,
+  "runs": [
+    {
+      "id": 43049418573,
+      "workflow": "Build ProxyCopilot Native AOT",
+      "conclusion": "failure",
+      "passed_platforms": [
+        "osx-x64",
+        "osx-arm64",
+        "win-x64",
+        "win-arm64"
+      ],
+      "failed_platforms": [
+        "linux-x64",
+        "linux-arm64"
+      ],
+      "cause": "Ubuntu package DNS resolution failed during native toolchain installation"
+    },
+    {
+      "id": 43049418550,
+      "workflow": "Deterministic planner validation",
+      "conclusion": "failure",
+      "cause": "Ubuntu package DNS resolution failed during browser dependency installation; planner tests not reached"
+    },
+    {
+      "id": 43049418643,
+      "workflow": "ProxyCopilot standalone validation",
+      "conclusion": "failure",
+      "cause": "Ubuntu package DNS resolution failed during browser dependency installation; UI tests and AOT publication passed"
+    }
+  ],
+  "production_regression_demonstrated": false,
+  "logs": {
+    "ci-aot-failed.log": "322e2898a10fe4aa651c3faec6a27abbb1ba513984b96b3659554290fa54a01c",
+    "ci-planning-failed.log": "714f5cee3585c17807c4f9e1c072417d16caae4692456ebf4bf6b7740c60c033",
+    "ci-standalone-failed.log": "082a343af6449c87003cf609c39ed693ab8d6921ca07bc441a0d5427f9ed581c"
+  }
+}

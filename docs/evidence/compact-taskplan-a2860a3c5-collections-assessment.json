@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "source": "a2860a3c5480391c3ccafc49e7db5394e46fc434",
+  "cohort": "compactra2860a3c5colhighv6",
+  "case": "collections",
+  "prepared_utc": "2026-10-25T12:47:57.966188+00:00",
+  "evidence": {
+    "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactra2860a3c5colhighv6/collections-group-closure-witness-safe.json": "e7fb2f464ee50e41cfe7eddb79b3a927bed9a8135f015a51a3f01ae47f6f468d",
+    "/private/tmp/gnougo-a286-group-boundary-peer-l6_4c1ip/independent-review-safe.json": "b7ee66036b7fe074b2db6afb8da8f7a28b5c3f9144bc3b808bd006b08c883126",
+    "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactra2860a3c5colhighv6/collections-original-formatting-safe.json": "844337e972b4daed4b37cc47b7389b2a04d2058bb371ee34aef150cad48efab1"
+  },
+  "assessment": {
+    "received_judge_reports": 3,
+    "grounded_adverse_reports": 1,
+    "independently_unsupported_findings": 1,
+    "specific_false_premise": "The reviewed reusable group remains open. Its candidate body boundary is closed and only root remains open; the separately presented group summary came from accepted state without a basis label.",
+    "verified_candidate_boundary": "/groups/doubleElement/body",
+    "candidate_export_type": "number",
+    "requirement_fulfillment": "Unverified; the false group-open premise does not establish the broader requirement or remaining root consumer work.",
+    "repair": "The received correction repeats the original closure; both normalized response hashes are identical.",
+    "normalized_original_and_correction_sha256": "2ce1c374b0915408fd8abd892a361bc22d8c7ae822b2dbff83e810674ef9b07b",
+    "corrections_avoided": null,
+    "independently_satisfied_business_obligations": 0,
+    "calls_per_satisfied_obligation": null,
+    "artifact": false,
+    "execution": false
+  },
+  "original_response_formatting": {
+    "receipt_count": 12,
+    "nonempty_valid_json_texts": 12,
+    "empty_original_texts": 0,
+    "original_utf8_bytes": 7774,
+    "outside_string_whitespace_bytes_in_valid_json": 10,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 2
+  },
+  "limitations": [
+    "No matched corrected live execution exists; no convergence benefit or avoided correction is claimed.",
+    "The retained responses were received, with no transport uncertainty or exhaustion.",
+    "Raw original text, parsed normalized response identity and persisted record hashes are separate domains."
+  ]
+}

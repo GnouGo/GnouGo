@@ -1,0 +1,22 @@
+// Exact read-only query used for retained-attempt-audit.json.
+// Execute in the existing ReadSession helper after its public workspace record store is opened.
+// No raw KeyVault SQL, provider calls, receipt settlement, budget writes or reservation releases.
+// Reservation classification mirrors tests/Shared/PlanningBenchmarkMeasurements.cs.
+if(args.Contains("--campaign-attempt-categories")) {
+ const string campaign="schema-portability-20261019-incremental", author="GnOuGo.Planning.Benchmark";
+ var rows=(await records.ListAsync("planning-evaluation-http-attempts","benchmark",author)).Where(r=>r.Key.StartsWith(campaign+":",StringComparison.Ordinal)).ToArray();
+ var items=new System.Text.Json.Nodes.JsonArray();
+ foreach(var row in rows) {
+  var key=row.Key[(campaign.Length+1)..];var j=System.Text.Json.Nodes.JsonNode.Parse(row.Value)!;
+  var attempts=j["transport"]!["Attempts"]!.AsArray(); var usage=j["usage"];var v2=j["effective_transport_policy"]?["version"]?.GetValue<int>()==2;
+  var heldAttempts=attempts.Where(a=>v2?usage is null||a?["Status"]?.GetValue<int>() is not(>=200 and <300):a?["Status"]?.GetValue<int>() is null or >=500 and <600 || usage is null&&a?["Status"]?.GetValue<int>() is >=200 and <300).ToArray();
+  if(heldAttempts.Length==0 && attempts.Count>0)continue;
+  var statuses=new System.Text.Json.Nodes.JsonObject();foreach(var a in heldAttempts) {var status=a?["Status"]?.ToString()??"unobserved";statuses[status]=(statuses[status]?.GetValue<int>()??0)+1;}
+  items.Add(new System.Text.Json.Nodes.JsonObject { ["requestId"]=key,["sessionId"]=key.Split(':')[0], ["recordHash"]=PlanningGraphCompiler.Fingerprint(row.Value),
+   ["updatedAtUtc"]=row.UpdatedAt,["httpAttempts"]=attempts.Count,["unresolvedAttempts"]=heldAttempts.Length,["unresolvedHttpStatuses"]=statuses,
+   ["verifiedUsagePresent"]=usage is not null,["serializedRequestBodyUtf8Bytes"]=j["transport"]?["RequestBody"] is { } rb?System.Text.Encoding.UTF8.GetByteCount(rb.ToString()):(int?)null,["reservationPerUnresolvedAttemptEur"]=j["cost_ceiling_eur"]?.DeepClone(),
+   ["reservedInputTokensPerAttempt"]=j["input_ceiling"]?.DeepClone(),["reservedOutputTokensPerAttempt"]=j["output_ceiling"]?.DeepClone(),
+   ["retainsAllHttpFailures"]=v2,["transportPolicyHash"]=j["effective_transport_policy"] is null?null:PlanningGraphCompiler.Fingerprint(j["effective_transport_policy"]!.ToJsonString()) });
+ }
+ Console.WriteLine(new System.Text.Json.Nodes.JsonObject { ["inspectedAtUtc"]=DateTimeOffset.UtcNow,["campaign"]=campaign,["modelDispatches"]=0,["historicalChanges"]=false,["requests"]=items }.ToJsonString());return;
+}

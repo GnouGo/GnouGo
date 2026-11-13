@@ -1,0 +1,308 @@
+{
+  "source": "9824b76288e5036fd47b01207e70dfa9792d717f",
+  "presentation_version": 10,
+  "cohort": "compactr9824b7628colhighv10a",
+  "case": "collections",
+  "role": "Frozen candidate diagnostic; no business acceptance credit.",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "ff059ef882068717d4085dd272059f7074f5446c8ee2b98afe0f18364bc0aa9e",
+  "benchmark_binary_sha256": "f4db280589e0a11dac33e43063bfb7652db8e5f2a9173541f3be572dcb4103f3",
+  "phase_policy_sha256": "00a182f8ad35c3ba488261fe845ef7840a790158f32ff2d933480c074fea4158",
+  "observation_utc": "2026-10-27T15:53:48.145415+00:00",
+  "planning": {
+    "logical_calls": 33,
+    "physical_attempts": 33,
+    "receipts": 33,
+    "corrections": 1,
+    "checkpoints": 8,
+    "planning_ms": 1285678,
+    "known_cost_eur": "1.9499553770638107987505577865",
+    "input_tokens": 112757,
+    "output_tokens": 54038,
+    "reasoning_tokens": 46658,
+    "unknown_attempts": 0,
+    "reserved_cost_eur": 0,
+    "usage_complete": true
+  },
+  "status": "stopped",
+  "pending_call_present": false,
+  "classification": {
+    "received_final_action": "evidenceRequests",
+    "host_terminal_code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+    "host_terminal_location": "/construction/candidate",
+    "host_terminal_message": "The fragment Judge requested unavailable or repeated evidence. No checkpoint or edit authority was created.",
+    "cause": "The schema-valid q33 batch contains six addresses but only two distinct identities. LoadEvidenceCore rejects the repeated entries before lookup; the review caller converts that exception into the generic inconclusive terminal.",
+    "explicit_model_inconclusive": false,
+    "reassessment_or_report_repair_exhaustion_established": false,
+    "provider_failure_records": 0,
+    "all_receipts_present": true,
+    "all_provider_finish_reasons_stop": true,
+    "output_exhaustion_or_unicode_length_rejection": false,
+    "http_status_codes": null
+  },
+  "correction": {
+    "charged": 1,
+    "rejected_sequence": 18,
+    "diagnostic": {
+      "calls": 18,
+      "repairs": 0,
+      "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+      "location": "/step/inputs/0",
+      "message": "Selected field port 'element' is unavailable in scope '/tasks/foreach_values/body'.",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    },
+    "corrected_selection": 19,
+    "draft_sequence": 20,
+    "received_binding": "field(item,\"element\")",
+    "corrected_binding": "item",
+    "group_input_binding": "double_current_item invokes double_element with element bound to the current item.",
+    "schema_conformance": "Exact q18,q19,q20 schemas all validate with zero findings; availability is an additional semantic selection check."
+  },
+  "review_trace": [
+    {
+      "sequence": 31,
+      "request_id": "92078c45ec0b8ee4a4087898375b5b1dacd5c2e8c9f744f743bcf23757afec1d:31:0b6b52aabfd4afdc30bbbf64503c1d52d53ca2cf91d55c66334540c37816fe88",
+      "request_sha256": "05b5d0bdff623ee0e095fac1832d80b34e274a471f3f6449a7dd12bc6877d3ed",
+      "schema_sha256": "714c33a22488f8130d7da24f65f6b8511e06f90554a8a8ba0e2b99d78f41a404",
+      "response_sha256": "a84220a1858915783ab41dbc1ddfe7be4c492f288e9092fb085c351bcc4693ed",
+      "validation_errors": 0,
+      "action": "evidenceRequests",
+      "addresses": [
+        "task:foreach_values",
+        "scope:/tasks/foreach_values/body",
+        "page:checkpoints:0",
+        "page:interfaces:0"
+      ],
+      "all_addresses_offered": true,
+      "address_bounds": {
+        "minItems": 1,
+        "maxItems": 8,
+        "uniqueItems": null
+      },
+      "received_uncertainty_codepoints": 256,
+      "received_uncertainty_utf16_units": 256,
+      "uncertainty_sha256": "27cfe07667cd43489972eac7d3e0871b001c6c58f0f4291d9954bef30481333f",
+      "ordinary_review": true,
+      "loaded_evidence_addresses": [],
+      "source_coverage": {
+        "version": 2,
+        "basisHash": "76778e04ea28684594d1df85e13ab83fb5c180ea8819ea481fc16f80220a9b0c",
+        "setHash": "d072f2ea8023465eaeba124e88e2a2c5415e40da9f3a1f359237143c403656d7",
+        "windowCount": 1,
+        "windowIndex": 0,
+        "windowHash": "221797e846e2e1ff344514c132601da2431d61d51691f358e67098e17eb379de",
+        "sourceIds": [
+          "requirement:req_0",
+          "requirement:req_1",
+          "global:request:0:clause:2"
+        ]
+      }
+    },
+    {
+      "sequence": 32,
+      "request_id": "92078c45ec0b8ee4a4087898375b5b1dacd5c2e8c9f744f743bcf23757afec1d:32:f786e7c5e7df930e53908917f8ef8c9fdafc87d71a460ee8bb31bb1a475e6b06",
+      "request_sha256": "9f36713503fa7c318283bf04a685233c5daf2634cec14831089fe64b7ec9681a",
+      "schema_sha256": "ada9587a83b39162a85b69f8e21804f06afef9ed92ea973547b7269e3beadfb7",
+      "response_sha256": "7733b055c44768ec6326600eec1db9cf6d44355049b43afeb0db1604d6f453cc",
+      "validation_errors": 0,
+      "action": "evidenceRequests",
+      "addresses": [
+        "page:interfaces:0"
+      ],
+      "all_addresses_offered": true,
+      "address_bounds": {
+        "minItems": 1,
+        "maxItems": 1,
+        "uniqueItems": null
+      },
+      "received_uncertainty_codepoints": 256,
+      "received_uncertainty_utf16_units": 256,
+      "uncertainty_sha256": "6efaec7c138abf25c48436825715ab624a1fcdd05650315bdf4f7266c2103e33",
+      "ordinary_review": true,
+      "loaded_evidence_addresses": [],
+      "source_coverage": {
+        "version": 2,
+        "basisHash": "76778e04ea28684594d1df85e13ab83fb5c180ea8819ea481fc16f80220a9b0c",
+        "setHash": "d072f2ea8023465eaeba124e88e2a2c5415e40da9f3a1f359237143c403656d7",
+        "windowCount": 1,
+        "windowIndex": 0,
+        "windowHash": "221797e846e2e1ff344514c132601da2431d61d51691f358e67098e17eb379de",
+        "sourceIds": [
+          "requirement:req_0",
+          "requirement:req_1",
+          "global:request:0:clause:2"
+        ]
+      }
+    },
+    {
+      "sequence": 33,
+      "request_id": "92078c45ec0b8ee4a4087898375b5b1dacd5c2e8c9f744f743bcf23757afec1d:33:fd2b47e1ca013daaa9de601fd5b44639cd2756c257f4f961a94b2e833ea67710",
+      "request_sha256": "91d463685623b93617a949fc76a741b9477b6274a5ac72008ca30775af8be3e9",
+      "schema_sha256": "90f75e688c52128020a8f8ff74ec22a82e9875323da6cc5bf409869ae613812c",
+      "response_sha256": "607a34de35426495f59dceb175d69ec41f386e72919373678848bfd1f28e91da",
+      "validation_errors": 0,
+      "action": "evidenceRequests",
+      "addresses": [
+        "requirement:req_1",
+        "page:requirements:0",
+        "page:requirements:0",
+        "page:requirements:0",
+        "page:requirements:0",
+        "page:requirements:0"
+      ],
+      "all_addresses_offered": true,
+      "address_bounds": {
+        "minItems": 1,
+        "maxItems": 8,
+        "uniqueItems": null
+      },
+      "received_uncertainty_codepoints": 256,
+      "received_uncertainty_utf16_units": 256,
+      "uncertainty_sha256": "7155bb3557b8d3486e1ac8e23a75eca17f14002cee9fe56421d314d6cfa9e1d0",
+      "ordinary_review": true,
+      "loaded_evidence_addresses": [
+        "page:interfaces:0"
+      ],
+      "source_coverage": {
+        "version": 2,
+        "basisHash": "55c02bf78133a14ce390bb97b0b2023de25a40533484cdfebf3de37aa212de64",
+        "setHash": "fc34bb1ea09d9a82b64668257a37af889e8146f72a18a25f6d85aee7e89ff5de",
+        "windowCount": 3,
+        "windowIndex": 0,
+        "windowHash": "88e151936800da652226618e425c17d975fabfa3c7050c33858ebb048db41fdb",
+        "sourceIds": [
+          "requirement:req_0"
+        ]
+      }
+    }
+  ],
+  "evidence_admission": {
+    "q31_requested_count": 4,
+    "rejected_next_request_bytes": 30967,
+    "rejected_next_estimated_tokens": 10579,
+    "captured_ceiling": 8000,
+    "diagnostic": {
+      "calls": 31,
+      "repairs": 1,
+      "code": "CONSTRUCTION_EVIDENCE_LIMIT",
+      "location": "/evidenceRequests",
+      "message": "The complete prospective construction_local_judge request needs 10579 estimated input tokens; its captured ceiling is 8000. Request a smaller coherent batch or exact separable view.",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    },
+    "q32_issued_max_addresses": 1,
+    "q32_requested": "page:interfaces:0",
+    "q33_admitted_bytes": 19963,
+    "q33_admitted_estimated_tokens": 6911,
+    "q33_issued_max_addresses": 8,
+    "interpretation": "The oversized batch was rejected atomically. The singleton interface directory was admitted; ordinary evidence remained available. Directory metadata contains links rather than the exact task/body/group/input originals. Evidence growth repartitioned coverage into three windows; q33 contains req_0, while req_1 remains offered by exact address. Mandatory review coverage remains incomplete."
+  },
+  "accepted_state": {
+    "checkpoints": 8,
+    "task_kind_counts": {
+      "foreach": 1,
+      "value": 2,
+      "call": 1
+    },
+    "closed_groups": 1,
+    "public_outputs": 1,
+    "structure": "The closed double_element group multiplies its element by2; foreach_values calls it for each input item and exports doubled values.",
+    "exact_local_alias": {
+      "task": "copy_result",
+      "depends_on": [
+        "foreach_values"
+      ],
+      "result_binding": {
+        "kind": "output",
+        "source": "foreach_values",
+        "port": "doubled"
+      },
+      "public_result_binding": {
+        "kind": "output",
+        "source": "copy_result",
+        "port": "result"
+      },
+      "interpretation": "An accepted value copy adds no computation or effect. This is established from bindings, not operation naming."
+    },
+    "candidate_plan_equal_to_accepted": true,
+    "candidate_delta": "Only root closure and req_1 completion are proposed; no task, output, group or choice additions.",
+    "candidate_extension": {
+      "scope": "/root",
+      "tasks": [],
+      "always": [],
+      "outputs": [],
+      "groups": [],
+      "choices": [],
+      "closeScopes": [
+        "/root"
+      ],
+      "requirementIds": [
+        "req_1"
+      ],
+      "complete": true
+    },
+    "accepted_checkpoint_acknowledgments": {
+      "broad": 37,
+      "subject": 0,
+      "scope": "Accepted-checkpoint occurrences only; not a deduplicated all-received proposition total."
+    },
+    "accepted_mechanical_transition_rows": 0
+  },
+  "business_outcome": {
+    "artifact": null,
+    "oracle": null,
+    "runtime": null,
+    "independently_completed_business_obligations": 0,
+    "logical_calls_per_completed_business_obligation": null,
+    "physical_attempts_per_completed_business_obligation": null,
+    "ratio_status": "Undefined because no business obligation was independently completed.",
+    "candidate_acceptance_credit": 0
+  },
+  "accounting_snapshot": {
+    "captured_utc": "2026-10-27T15:54:48.380866+00:00",
+    "inspection_sha256": "4dbfb2b954596f7957be2f44c94eaaa126799121205a7e46f058c6713da3db2c",
+    "evidence_hash": "0ed821e4201f1a1ac75266b462848287c1847266bdc1550d92827a4aa4544a2d",
+    "projection_sha256": "d35cbc63927e67c12672a9ebc5ca25e7c010d20cc78c3022c6e7b783644230dc",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "known_cost_eur": "241.71800608518376952818531445",
+    "reserved_cost_eur": "76.425463963737291653060299490",
+    "cost_upper_bound_eur": "318.14347004892106118124561394",
+    "available_eur_derived": "221.88663378378524336119933336",
+    "unknown_attempts": 94,
+    "unresolved_logical_count": null,
+    "interpretation": "Dated campaign-wide readback during the separate active Amazon9824 run. Available is ceiling minus saved upper bound at Decimal precision80. The active reservation must not be classified as a stopped Collections uncertainty. Logical closure arrays were not retained by this bounded projection; this is not admission authority."
+  },
+  "measurements": {
+    "file": "compact-taskplan-9824b762-collections-measurements.json",
+    "sha256": "fbb5634abdcccbb888f452eba3600995cb408ef24bb738f228c8abc16c787e7f",
+    "bytes": 17987
+  },
+  "evidence": {
+    "terminal_projection_sha256": "2091a28379f4ea0ec97c467c4e837f58104c65dfe9a68ccce67844df343fde12",
+    "inspection_sha256": "d5e87d6efdc91dce01cf723023ad62952aa52ff73e819016724d210c27d8e962",
+    "schema_validation_sha256": "9782452e44f97a5a845610bd20b6bf32e8312462ae5bfe811b19eac929043639",
+    "schema_validator_core_sha256": "da49936f020d8d2b6366f5e1187a75704a49f1570af2066170276a19c3dae669",
+    "bridge_binary_sha256": "85c821fa994a882bb288c35cd6926b433768cd9087a2056730d116a31653126a",
+    "schema_interpretation": "Unchanged previously qualified stdin-only bridge binary; exact9824 Core dependency. Public legacy-count validator is equivalent to issued Unicode counting for these exact responses because every response string has identical Unicode-scalar and UTF16 length. No original payload persisted, no build, provider/store code or network permitted in bridge.",
+    "source_references": [
+      {
+        "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+        "symbol": "LoadEvidenceCore",
+        "line": 192,
+        "sha256": "21489e0d52caef27a9ef5c4a702e1baf78cd3b0ac3a8b1b76fe088ed8272ddbf"
+      },
+      {
+        "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+        "line": 419,
+        "sha256": "bacff9ac77eda1d27b642769ea57dbeb81c8efebf2259bc4fa6d7956752ceabe"
+      }
+    ],
+    "source_reference_scope": "Frozen9824 bytes and line numbers, not a prospective working-tree correction."
+  },
+  "limitations": [
+    "Original prompts, clauses, contract text and receipts stayed in RAM; this record contains bounded technical projections only.",
+    "All33 texts are nonempty parseable JSON. Exact schema conformance is separately verified only for q18,q19,q20,q31,q32,q33.",
+    "No successful post-fix retrieval, avoided calls, runtime correctness or live convergence is inferred. Original failed evidence and prior archives remain unchanged."
+  ]
+}

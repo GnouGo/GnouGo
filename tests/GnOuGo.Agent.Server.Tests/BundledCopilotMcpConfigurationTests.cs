@@ -21,16 +21,21 @@ public sealed class BundledCopilotMcpConfigurationTests
         Assert.True(server.Listable);
         Assert.True(server.ReadsKeyVaultDirectly);
         Assert.Equal(
-            ["enable_approve_all", "enable_sandbox_bypass_grants", "managed_session_ttl_seconds", "model", "provider", "reasoning_effort", "request_timeout_seconds", "use_logged_in_user"],
+            ["enable_approve_all", "enable_sandbox_bypass_grants", "inference_transport", "managed_session_ttl_seconds", "model", "provider", "reasoning_effort", "request_timeout_seconds", "use_logged_in_user"],
             server.EditableFields.Keys.OrderBy(key => key, StringComparer.Ordinal).ToArray());
         Assert.All(server.EditableFields.Values, field =>
         {
             Assert.False(field.Sensitive);
             Assert.True(field.AllowInherit);
             Assert.StartsWith("LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--", field.SecretKey);
-            Assert.Null(field.Target);
+            if (field.SecretKey!.EndsWith("--InferenceTransport", StringComparison.Ordinal))
+                Assert.Equal("env:Code__Copilot__InferenceTransport", field.Target);
+            else
+                Assert.Null(field.Target);
         });
         Assert.Equal("llm_providers", server.EditableFields["provider"].OptionsSource);
+        Assert.Equal(["native", "gnougo-structured-tools-v1"], server.EditableFields["inference_transport"].Options);
+        Assert.Equal("native", server.EditableFields["inference_transport"].DefaultValue);
         Assert.Equal(["low", "medium", "high", "xhigh"], server.EditableFields["reasoning_effort"].Options);
         Assert.Equal(1, server.EditableFields["request_timeout_seconds"].MinValue);
         Assert.Equal(1, server.EditableFields["managed_session_ttl_seconds"].MinValue);

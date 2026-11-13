@@ -1,0 +1,19 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "1700",
+  "grants": 6,
+  "physical_attempts": 2098,
+  "known_cost_eur": "905.1195073891625615763547057",
+  "http_holds_eur": "419.6402955665024630541871923",
+  "retained_application_holds_eur": "78.429543670458514476397434969",
+  "historical_unknown_attempts": 50,
+  "arithmetic_headroom_eur": "296.810653373876460893060667031",
+  "new_supplement": false,
+  "provider_invoice": "unavailable",
+  "globally_available_funding": "unavailable",
+  "probe_receipt_cost_sum_eur": "0.9710165696372592924317062248",
+  "campaign_known_cost_delta_eur": "0.9710165696372592924317066",
+  "conservative_accumulation_difference_eur": "3.752E-25",
+  "delta_covers_probe_receipts": true,
+  "aggregation_basis": "BenchmarkHttpJournal.AccountingAsync folds monetary values through LLMUsageBudgetScope.SumCostConservatively; audited totals retain decimal rounding exposure."
+}

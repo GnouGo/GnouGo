@@ -1,0 +1,71 @@
+{
+  "fix_source": "466118d5",
+  "basis": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+  "kind": "fresh source prerequisite diagnostics; not workflow or workbook qualification",
+  "generic_fix_live_verified": true,
+  "diagnostic_factor": "Search-only route intersection in direct Browser host; all product/ad navigation denied. This diagnostic does not qualify the full granted execution profile.",
+  "retained_navigation": {
+    "source05_records": 1364,
+    "source06_records": 1429,
+    "complete_actual_search_get": true,
+    "capture_truncated": false,
+    "manifest_truncated": false
+  },
+  "actual_source06_sponsored_paths": {
+    "/clk/": 25,
+    "/clk": 4
+  },
+  "unknown_sponsored_link_records": 16,
+  "actual_dom_contexts": [
+    {
+      "tag": "DIV",
+      "role": null,
+      "data_asin": "",
+      "html_complete": true
+    },
+    {
+      "tag": "DIV",
+      "role": null,
+      "data_asin": "",
+      "html_complete": true
+    },
+    {
+      "tag": "DIV",
+      "role": null,
+      "data_asin": "",
+      "html_complete": true
+    }
+  ],
+  "independent_source_oracle": {
+    "version": "amazon-business-v7",
+    "passed": false,
+    "expected_product_count": 3,
+    "visited_product_count": 0,
+    "findings": [
+      "search_product_redirect_route_unapproved",
+      "search_product_context_unverified",
+      "first_product_visits_incomplete"
+    ]
+  },
+  "external_boundaries": [
+    "The exact /clk path is outside the approved /clk/ route. No normalization, URL substitution or visit is authorized.",
+    "Empty data-asin divs without navigation roles do not prove non-products; actual DOM agrees with recorded attributes. No product was omitted to pass the oracle."
+  ],
+  "full_granted_profile_source04": {
+    "returned_product_document_instead_of_search": true,
+    "oracle_findings": [
+      "requested_search_not_observed",
+      "first_product_visits_incomplete"
+    ],
+    "qualified": false
+  },
+  "permissions_changed": false,
+  "oracle_changed": false,
+  "full_amazon_started": false,
+  "private_evidence_sha256": {
+    "resume300b-amazon-source05-fixed-search-only.observation.json": "79a8ba3aef87f61fcadeae848d71ea9fd6a86c1c550f2fea6a396b043de872b8",
+    "resume300b-amazon-source06-fixed-context.observation.json": "f02a87fe4302bdc6ea1681029d2946546fa00dbceb418c6ce81e23232949d22f",
+    "resume300b-amazon-source06-fixed-context.contexts-dom.json": "c5280f771f536a57a9160b3119a9dd1b3a3fd72cc0112ab80c9e87a21cbbc1c6",
+    "resume300b-amazon-source06-fixed-context.oracle.json": "b22c0a97bf3a62c4996faf599b1d2636535bf8da4abaced16b0922862cd02715"
+  }
+}

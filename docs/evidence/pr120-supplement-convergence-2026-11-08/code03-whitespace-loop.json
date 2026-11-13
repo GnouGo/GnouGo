@@ -1,0 +1,63 @@
+{
+  "source_revision": "395b0ccea0e8d6cac655697cb7ba25dda14112bd",
+  "run": "code-qualification-20261108-03",
+  "session_id": "3c72e254535c4612a3c4cec4d78078f3",
+  "status": "stopped",
+  "logical_calls": 15,
+  "physical_attempts": 16,
+  "accepted_checkpoints": 0,
+  "business_boundary_exercised": false,
+  "approval": false,
+  "execution": false,
+  "attempts_for_last_request": [
+    {
+      "StartedAtUtc": "2026-11-08T16:46:00.31314+00:00",
+      "LastByteAtUtc": "2026-11-08T16:46:11.102122+00:00",
+      "CompletedAtUtc": "2026-11-08T16:51:10.852214+00:00",
+      "DeadlineAtUtc": "2026-11-08T16:56:00.31314+00:00",
+      "Failure": "transport",
+      "RetryDecision": "abandoned; independent tool-free generation retry",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "partial_sse_bytes": 1086,
+      "assembled_content_characters": 2,
+      "non_whitespace_characters": 2,
+      "complete_json": false
+    },
+    {
+      "StartedAtUtc": "2026-11-08T16:51:11.550852+00:00",
+      "LastByteAtUtc": "2026-11-08T17:01:09.378464+00:00",
+      "CompletedAtUtc": "2026-11-08T17:01:11.553508+00:00",
+      "DeadlineAtUtc": "2026-11-08T17:01:11.550852+00:00",
+      "Failure": "timeout",
+      "RetryDecision": "blocked; captured retry allowance exhausted",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "partial_sse_bytes": 8953990,
+      "assembled_content_characters": 34094,
+      "non_whitespace_characters": 59,
+      "complete_json": false
+    }
+  ],
+  "loop_observed": "A valid JSON prefix reached one offered evidence-address string, then repeated whitespace without closing its array/object. This is generated-content non-progress, not an accepted action.",
+  "auxiliary_stop_attempt": "The separate protected control host failed before startup because its native SQLite library was absent. It did not cancel the run. The original owner stopped at its captured attempt deadline. The private helper dependency was subsequently supplied for future controlled use.",
+  "permanent_retention": {
+    "evidence_hash": "e529db9e0f2faaa28d200d67b1b9cb6c0c03b036404cae50a548e2180322fd44",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true
+  },
+  "accounting_after_retention": {
+    "calls": "694",
+    "known_cost_eur": "287.97933721450962830273175342",
+    "reserved_cost_eur": "174.02125391849529780564263327",
+    "unknown_attempts": "26"
+  },
+  "external_reservation_eur": "2.4215763546798029556650246305",
+  "available_eur_after_all_holds": "335.5778325123152709359605886795",
+  "supplement_ceiling_eur": 800,
+  "additional_supplements": 0,
+  "partial_http_evidence_sha256": "4ba9d7f697ec6baeb549cb6b49e3162d0e9ea1a32806c7c7fa41635c08fdf003",
+  "next_hypothesis": "One exact-request independent probe will change only compact-JSON syntax guidance, with the same response schema, original context, reasoning and output allocation. No workflow success or causal claim is established."
+}

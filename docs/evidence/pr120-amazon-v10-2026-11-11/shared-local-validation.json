@@ -1,0 +1,15 @@
+{
+  "source": "1fd1f05a22d5b9ff9049ba567c2724d6214c430e",
+  "implementation_unchanged_through": "7aa38147b4e37b3c8b46340e2c101d47e006c434",
+  "server_passed": 2254,
+  "server_existing_skips": 1,
+  "exact_inventory_coverage": true,
+  "binaries_unchanged": true,
+  "shared_non_server_passed": 6701,
+  "shared_non_server_existing_skips": 12,
+  "total_passed": 8955,
+  "total_existing_skips": 13,
+  "failures": 0,
+  "warnaserror": true,
+  "coverage_sha256": "df88df3f4f46573e1347fe3d97324a329fce463a86cf4aea3b8d1e8fb4d4fc76"
+}

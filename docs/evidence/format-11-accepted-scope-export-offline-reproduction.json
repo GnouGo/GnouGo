@@ -1,0 +1,140 @@
+{
+  "schema": "pr120_offline_saved_evidence_batch_v1",
+  "captured_date_utc": "2026-10-29",
+  "control_public_production_source": "a18517450bcdb48ece64fd4ed552c7d07e6a5c7a",
+  "control_private_execution_source": "513367fd2eb39afb2b9fa78de838239c73d9edf7",
+  "control_cohort": "compactla1851745col11a",
+  "saved_request_ordinal": 16,
+  "candidate_source_file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ScopeInterfaces.cs",
+  "candidate_source_sha256": "a827cb5974f22a939e2e2b7450165023b49842909d4daffd0f78c59a13b04867",
+  "saved_snapshot_file": "monitor-20261029T003631091361Z-run-raw-private.json",
+  "saved_snapshot_sha256": "ce9a05108db9e284af61c23cfca27b71b3167b8b53c545200108c6c88cb5a0c5",
+  "saved_receipt_json_sha256": "6c42d352838db0e7d50288357aca356ecd2c32c89bd0e55f1b4131136aeb9488",
+  "same_request_map_hash": "9e3a647a6826f832c28f0be2df6f4a76f4f6b6403e353f9a1e6146867b31dd1e",
+  "same_request_hash": "e2b14c536c72d0c9d8e87b7e0af11f421ffcd206c1878f50f364931ba2b1d3e0",
+  "raw_issued_schema_validated_before_normalization": true,
+  "exact_saved_mapping_validated_before_loading": true,
+  "four_address_batch_unchanged": true,
+  "control": {
+    "outcome": "CONSTRUCTION_EVIDENCE_UNKNOWN",
+    "unavailable_evidence_kind": "accepted reusable-group scope exports",
+    "state_byte_exact_after_failed_batch": true,
+    "loaded_libraries": [
+      {
+        "component": "GnOuGo.Flow.Core",
+        "fileSha256": "70ee0ca0465a1ea84be1b7c095a39c52f175f48bb8650df22af81f991d12fd19"
+      },
+      {
+        "component": "GnOuGo.Flow.Planning",
+        "fileSha256": "22bebb7edd443a2af4bfa5a84e0197a5e673948c82a0fff8f18b0afe475ea06a"
+      }
+    ]
+  },
+  "candidate": {
+    "outcome": "all_four_original_addresses_loaded_atomically",
+    "current_step_remains_unselected": true,
+    "all_checks_pass": true,
+    "checks": {
+      "issuedMapAndRawSchemaValidated": true,
+      "sameSavedFourAddressBatch": true,
+      "planAndBindingsUnchanged": true,
+      "scopeStateUnchanged": true,
+      "modelCallsUnchanged": true,
+      "correctionChargeUnchanged": true,
+      "usageAccountingUnchanged": true,
+      "requirementsUnchanged": true,
+      "acceptedCheckpointsUnchanged": true,
+      "pendingCallNotRedispatched": true,
+      "privateInMemoryOnly": true,
+      "allFourExactEvidenceValuesLoaded": true
+    },
+    "loaded_libraries": [
+      {
+        "component": "GnOuGo.Flow.Core",
+        "fileSha256": "97c4623439736e5bed50b1fdd20e2b26becd4190ac3363461b2b37647addf805"
+      },
+      {
+        "component": "GnOuGo.Flow.Planning",
+        "fileSha256": "7ac6bbaa3369d98452deabab482c6d7430405220f16602b05435ec0bec7f4612"
+      }
+    ],
+    "complete_followup": {
+      "requestHash": "a07b55bc8616ca33ecec67de45ad6d0b65a5d56da1fd6c05fa1d51b550c39302",
+      "schemaHash": "14597f29580977455e41fd24251f38024ecac9b8579add9707b1ea5ce2069628",
+      "completeRequestBytes": 17982,
+      "estimatedInputTokens": 6250,
+      "inputLimit": 12000,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 913,
+          "estimatedTokens": 305
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 508,
+          "estimatedTokens": 426
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 2345,
+          "estimatedTokens": 782
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2922,
+          "estimatedTokens": 974
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 1691,
+          "estimatedTokens": 564
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 3755,
+          "estimatedTokens": 1252
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5848,
+          "estimatedTokens": 1950
+        }
+      ]
+    }
+  },
+  "safety": {
+    "offline_saved_receipt_only": true,
+    "provider_calls": 0,
+    "operational_reads": 0,
+    "persisted_state_or_financial_writes": 0,
+    "request_replay_or_continuation": false,
+    "effect_execution": false,
+    "model_calls_or_corrections_charged": 0
+  },
+  "validation": {
+    "helper_build_warnings": 0,
+    "helper_build_errors": 0,
+    "control_expected_failure_reproduced": true,
+    "candidate_complete_batch_and_followup_passed": true,
+    "negative_scope_candidate_uri_hash_and_isolation_guards": "Covered separately by the owning133focused cases; not recounted here."
+  },
+  "evidence_sha256": {
+    "Program.cs": "10d5d305682ecbf2a08cb9d99ce373d73130fe46050fc9a11c653a02395e7e02",
+    "build2.log": "4218c351563bb83256adb57623ace6cdb1c4386c50ec500c0824095dafaaf4da",
+    "control2.log": "7e3bd8449d5c76b3142db242d15b3c54ea660f814504ef8ff248168c77f8d845",
+    "candidate2.log": "b62419b4a8c6455a0ac9b4dd4ad972948413af086c8a339f1af3225a6280c0f6",
+    "output/control-result-private.json": "04b1d0ca56570901cb908e9000bddbbcfeff927bdf155aafcdafc1c4df7d9224",
+    "output/candidate-result-private.json": "1df0de50fc285f654dd67466d1e75ef27dfa01903efe7d878b0b5f0ad43b1d24",
+    "output/control-state-before-private.json": "ded945f873ad1a3e4c8b9e4df6b5ff5ff364f7751e13c289a687958dfa664abf",
+    "output/control-state-after-private.json": "ded945f873ad1a3e4c8b9e4df6b5ff5ff364f7751e13c289a687958dfa664abf",
+    "output/candidate-state-before-private.json": "ded945f873ad1a3e4c8b9e4df6b5ff5ff364f7751e13c289a687958dfa664abf",
+    "output/candidate-state-after-private.json": "5d107a6e20362b4675a2de832171a83dd864ac73e07fbe577b1e4421eb6e8aac",
+    "output/candidate-followup-private.json": "a07b55bc8616ca33ecec67de45ad6d0b65a5d56da1fd6c05fa1d51b550c39302"
+  },
+  "limitations": [
+    "This validates the saved four-address batch and prospective follow-up on in-memory clones; it does not resume or mutate the historical run.",
+    "No complete equivalent live traces establish eliminated LLM calls, corrections, runtime latency or cost savings.",
+    "The monitor-derived003653private JSON contains stringified timing values and was rejected by ordinary source-generated parsing. Its failed parse logs remain retained; the preserved numeric raw003631snapshot supplies the identical pending request/map/schema. No coercion or compatibility reader was introduced."
+  ]
+}

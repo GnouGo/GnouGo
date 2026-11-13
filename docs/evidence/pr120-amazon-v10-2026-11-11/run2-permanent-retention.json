@@ -1,0 +1,13 @@
+{
+  "evidence_hash": "d0204bad2b358c909e560b1598dd262f6d25d3e222c87059f232b0ad627171cf",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "retained_at": "2026-11-11T10:51:14.1119820+00:00",
+  "session_id": "dea7d3383ff04763b0d253a39ba3dad4",
+  "request_id": "dea7d3383ff04763b0d253a39ba3dad4:34:082e36a06a0414f44cf67451e50c59a666a53293c4b34604824ec9f35f727ee9:3e6d46f7a6dd79582e3695130126c6b51ffb4105ba3d54197a7475156bf2d59b",
+  "revision": 84,
+  "retention_kind": "cancelled-planning-request",
+  "outcome_evidence": "cancelled_reserved_attempt_without_persisted_outcome"
+}

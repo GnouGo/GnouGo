@@ -1,0 +1,31 @@
+{
+  "source": "71342c8e9c6a78566e3fd48e1f9f24eb25f54f0c",
+  "configuration": "Release",
+  "warnaserror": true,
+  "solution_build": {
+    "warnings": 0,
+    "errors": 0,
+    "elapsed_seconds": 38.52,
+    "log_sha256": "e3019666434efc2fa07565f0aaf6caba654a5f0e634f0327ed00b3839b13906b"
+  },
+  "nonserver": {
+    "projects": 32,
+    "passed": 6759,
+    "skipped": 12,
+    "manifest_sha256": "916457f3df2985f86edee95986851ecfee1a0e80652050a2811a98aa877cdfff"
+  },
+  "server": {
+    "passed": 2441,
+    "skipped": 1,
+    "workbook_cases": 218,
+    "exact_inventory": true,
+    "binaries_unchanged": true,
+    "coverage_sha256": "1117d40ed9f46f9992e1ad4f9c0fd0829787d502d2059e1aba206ecd124eccfd"
+  },
+  "total_passed": 9200,
+  "total_skipped": 13,
+  "failed": 0,
+  "model_calls": 0,
+  "live_workflow_qualification": false,
+  "initial_environment_failure": "Required existing NuGet files were absent. Ordinary declared-package restore completed; the unchanged source then built warning-free."
+}

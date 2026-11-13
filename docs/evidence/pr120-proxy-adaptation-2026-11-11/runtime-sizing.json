@@ -1,0 +1,25 @@
+{
+  "source": "c05b114f52486735f18b71b0ab67b2be326e4542",
+  "artifact_hash": "55a19d712e3b7b23d56e2e332a3bd7e71f40f4fa0c17257958d46cb4dd065fbe",
+  "offline_saved_source_fixture": true,
+  "live_source_or_authority_reused": false,
+  "external_tool_calls": 0,
+  "model_dispatches": 0,
+  "capture_callbacks": 1,
+  "mock_search_returns": 1,
+  "mock_close_returns": 1,
+  "saved_source_bytes": 1491113,
+  "request_captured": true,
+  "engine_success": false,
+  "error": {
+    "Code": "CANCELLED",
+    "Type": "",
+    "Message": "Workflow execution cancelled",
+    "Retryable": true,
+    "Details": null
+  },
+  "prompt_utf8_bytes": 1495112,
+  "schema_utf8_bytes": 579,
+  "runtime_reasoning": null,
+  "runtime_output_allocation": null
+}

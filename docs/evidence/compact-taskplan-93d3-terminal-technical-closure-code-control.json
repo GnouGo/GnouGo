@@ -1,0 +1,163 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-27T06:12:12.947458+00:00",
+  "scope": "Append-only update to earlier captures; historical results and original failures remain unchanged. Active candidate Code result is outside this record.",
+  "technical_terminal": {
+    "executed_source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+    "final_documentation_head": "19fd429ef5c8af68522c0a11729e630f6dea3048",
+    "documentation_only_successor": true,
+    "local_full_solution": {
+      "projects": 33,
+      "passed": 8810,
+      "skipped": 13,
+      "failed": 1,
+      "exit_code": 1,
+      "warning_as_error": true,
+      "compiler_diagnostics": [],
+      "result_sha256": "8d32b602faf9b7468fe6a83968eca9a0f88c66ede8d00137aea08f8af0d9766a",
+      "source_manifest_sha256": "7113036df405f4b986b727fbcc3ca68c9f07acffb9da160a05e112f1fe26fc03",
+      "log_sha256": "c26df8b76efb32ee0f416bd6875aee86d50463a650a85bbcc61c4fcebcc53077",
+      "original_failed_test": "GnOuGo.Cmd.Mcp.Tests.McpProtocolNegotiationTests.AllowlistedCommandsCannotReadTheMcpTransport",
+      "separate_unchanged_targeted_pass": 1,
+      "targeted_result_sha256": "05a57a381730fa606eaabfdb274883ab0beba143a5432c51527448adb2f2acca",
+      "targeted_pass_nonadditive": true,
+      "overall_local_pass": false
+    },
+    "ci": [
+      {
+        "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+        "workflows_passed": 3,
+        "jobs_passed": 8,
+        "terminal_sha256": "e72e748616ff40f1ee21f2045a75f605c85db47a481c89f8c186d63396b35604"
+      },
+      {
+        "source": "19fd429ef5c8af68522c0a11729e630f6dea3048",
+        "workflows_passed": 3,
+        "jobs_passed": 8,
+        "runs": [
+          {
+            "run_id": 40421667579,
+            "workflow": "Deterministic planner validation",
+            "terminal_sha256": "670e261a70fee8e462345a19e11d679e3e5e2809f0b055abcb68991014f37deb",
+            "log_sha256": "0874441a14e6400457e501f3412a1b268559537aca5a682e7b872811221d13bf"
+          },
+          {
+            "run_id": 40421663718,
+            "workflow": "ProxyCopilot standalone validation",
+            "terminal_sha256": "191793431e5f33f5c9686bcd99e0932617e4a351039fe006210b72557a8a4c8a",
+            "log_sha256": "22fb7c46f9f70f2da9aab11c6f8eafd2418d5817371bfadb7f29ab74c148e26f"
+          },
+          {
+            "run_id": 40421663730,
+            "workflow": "Build ProxyCopilot Native AOT",
+            "terminal_sha256": "61be4e62744f0d2a5ce7211b72817df2e0818b3311dc720310355a6f1c4c4d70",
+            "log_sha256": "9a563fc7223452fa0011287fcefc727d723a570877a25915f4fc2913e2d2ef39"
+          }
+        ]
+      }
+    ],
+    "pr120_draft_at_capture": true,
+    "publication": {
+      "fresh_stages": 8,
+      "reused_packages": 4,
+      "qualification_sha256": "f30c3aa3602682a9576efa2edc206ee658259c79ca0194467cf97d9cde0e39fc",
+      "attribution": "Previously qualified stable v9 overlay and four original executions; retained stamps and exact recursive-input/source qualification. No new publication execution."
+    },
+    "private_checkout_limitation": "The completed runner recorded all captured source hashes unchanged. Later inspection found3949 working files missing; all4681 saved hashes and the private Git tree still match93d. Cause unknown; no current complete-working-tree equality is claimed.",
+    "technical_record_sha256": "5e98d69fedb9d7b38895a18fa6d90aa4f7c17fe446ea826550cd8bba25b31cbe",
+    "independent_peer_sha256": "4de2e5fbde0e2516dd5234ab71dc0ded74382ac0f2fda598ce15f343d24be440"
+  },
+  "amazon_authorized_closure": {
+    "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+    "cohort": "compactr93d3e1c27amz22j20v9p9a",
+    "request_id": "compactr93d3e1c27amz22j20v9p9a-amazon-1:2:df250c6b6e6e41e7e5a38273fd3a9a6b4e06192ab81cb86853ccb0a06946988d",
+    "evidence_hash": "d786ed640aef511aaff809aa29451d52d6cf51ca08a1aaadaa397ec5a257e531",
+    "authorization_hash": "65f087deb00c969a5f48d6d5c3674c9d26836f38a87cb45dcf071a3f0e61fe66",
+    "applied": true,
+    "retained_at": "2026-10-27T05:38:57.7735860+00:00",
+    "idempotent_restart_equal": true,
+    "unknown_usage_remains_unverified": true,
+    "reservation_retained_eur": "2.7926104417670682730923694779",
+    "accounting_before_after_equal": true,
+    "funds_released": false,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "post_closure_capture": {
+      "closed_receiptless_requests": 34,
+      "unresolved_requests": 0,
+      "available_eur": "141.92513445312928619921807501",
+      "attribution": "Captured after exact closure and before subsequent Code diagnostics; not the current campaign balance."
+    },
+    "post_closure_sha256": "959a3514efcb2b3b9478dc586d8df2d5678d8050d939145c03915136d8dc14aa",
+    "application_sha256": "4ba71ab467fd757a60f8568a582a5496370a05aefc465abd04f02a64d33f08cb"
+  },
+  "review_pr_control": {
+    "source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+    "presentation_version": 8,
+    "cohort": "compactrd5a4cac23code20nhv8p9a",
+    "freeze_sha256": "292648ff1a64ec79d0bf3d3b0b34fc172f5a9a6ccf04d469277cf29b86c64249",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "high",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 18000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "high",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 20000,
+        "outputTokens": 8192
+      }
+    },
+    "status": "stopped",
+    "phase": "construction_select",
+    "diagnostic": "CONSTRUCTION_CONTRACT_LIMIT",
+    "logical_calls": 26,
+    "physical_attempts": 26,
+    "completion_receipts": 26,
+    "prepared_request_identities": 33,
+    "admitted_identities": 26,
+    "unissued_prepared_identities": 6,
+    "rejected_before_dispatch_identities": 1,
+    "corrections": 0,
+    "accepted_checkpoints": 3,
+    "planning_ms": 1276386,
+    "known_input_tokens": 196049,
+    "known_output_tokens": 64024,
+    "known_reasoning_tokens_included_in_output": 56466,
+    "known_cost_eur": "2.5889915216421240517626059799",
+    "unknown_usage_reservation_eur": "0",
+    "cost_upper_bound_eur": "2.5889915216421240517626059799",
+    "unknown_attempts": 0,
+    "unissued_draft": {
+      "request_id": "compactrd5a4cac23code20nhv8p9a-code-1:27:54a0d6d51a1a9ffee6857aec99382e7bbc31826c000443769f252c40813c15dd",
+      "request_hash": "b5c628d7393ad2783dca7dc8b65baeb6833a377f108bf8b1c181e5909ff53896",
+      "schema_hash": "a6d6e1b5f8399911df01ac2743f0135064be7e698fb76466fa14a40f12f3d0be",
+      "complete_request_bytes": 69935,
+      "estimated_input_tokens": 23568,
+      "captured_input_ceiling": 20000,
+      "physical_attempts": 0
+    },
+    "artifact_present": false,
+    "runtime_started": false,
+    "runtime_oracle_passed": null,
+    "independently_fulfilled_business_obligations": 0,
+    "calls_per_fulfilled_obligation": null,
+    "safe_metrics_sha256": "0ae8cea45019b9806b182df86cc55698853fd41c22e8d1523535df1bb70b07a0",
+    "canonical_state_sha256": "97839f27a0da9c6aecaceeb7ebbd3792f1bebdb418349cb7435121dc83aeb286"
+  },
+  "limitations": [
+    "Accepted planning checkpoints are not executed business work. No new runtime or business success is claimed.",
+    "Known completed usage is distinct from the unissued complete-request estimate and from the earlier unknown-usage Amazon reservations.",
+    "This record does not compare efficiency against the active candidate or infer model causality.",
+    "Qualification successes and subsequent18 comparisons remain incomplete; active candidate Code was not inspected."
+  ]
+}

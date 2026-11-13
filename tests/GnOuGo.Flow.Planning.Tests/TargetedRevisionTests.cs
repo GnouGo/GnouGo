@@ -6,54 +6,6 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TargetedRevisionTests
 {
-    [Fact]
-    public async Task ExplicitExtractionRevisionChangesOnlySelectedDeclarationsAcrossRestart()
-    {
-        var runtime = new TestRuntime();
-        runtime.Proposal.Plan = new() { Root = new() { Tasks = [new() { Id = "adapt", Kind = "transform", Objective = "Expose each supplied record",
-            Inputs = [new("records", new() { Kind = "array", Items = [new() { Kind = "object", Members = [new("text", Text("observed"))] }] })],
-            ResultType = new() { Kind = "object", Fields = [new() { Name = "rows", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields = [new() { Name = "text", Type = new() }] } } }] } }],
-            Outputs = [new("message", Text("retained"))] } };
-        var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        var baseline = Plan(state.Plan); var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, Revise(state, "/tasks/adapt/mode", "/tasks/adapt/each", "/tasks/adapt/resultType"), runtime, PlannerFixture.Ct);
-        var task = runtime.Proposal.Plan.Root.Tasks[0]; task.Mode = "extract"; task.Each = new("records", "rows"); task.ResultType!.Fields[0].Type.MinItems = 1;
-        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal("extract", state.Plan!.Root.Tasks[0].Mode); Assert.Equal(task.Each, state.Plan.Root.Tasks[0].Each);
-        Assert.Null(state.ApprovedHash); Assert.NotEqual(baseline, Plan(state.Plan));
-        Assert.Equal("retained", state.Plan.Root.Outputs[0].Value.Text);
-    }
-
-    [Theory]
-    [InlineData("0")][InlineData("length")]
-    public async Task InvalidArrayAccessInImmutableRequirementStopsBeforeUnrelatedRepair(string field)
-    {
-        var runtime = new TestRuntime(); var task = runtime.Proposal.Plan!.Root.Tasks[0];
-        task.Outputs.Add(new("rows", new() { Kind = "array", Items = [Text("observed")] }));
-        runtime.Proposal.Plan.Root.Tasks.Add(new() { Id = "consumer", Kind = "value", Objective = "Preserve the guarded business action",
-            Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [new() { Kind = "field", Port = field, Items = [Output(task.Id, "rows")] }, new()] },
-            Outputs = [new("unrelated", Output(task.Id, "invalid"))] });
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        var diagnostic = Assert.Single(state.Diagnostics, d => d.Code == "REVISION_REQUIRED" && d.Location == "/tasks/consumer/requires");
-        Assert.Contains("array", diagnostic.Message); Assert.Contains(task.Id, diagnostic.Message);
-    }
-
-    [Fact]
-    public async Task IssuedVersionEightKeepsItsUnextendedAuthorityAfterRestart()
-    {
-        var state = await PlannerFixture.RunAsync(new TestRuntime()); state.RevisionScope = ["/root/outputs/message"]; state.EditablePaths = ["/root/outputs/message"];
-        var template = PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false, arrayBounds: false);
-        var schema = PlanningRepairPatch.Schema(state, template, version: 8);
-        var request = new GnOuGo.Flow.Core.Runtime.LLMRequest { StructuredOutputSchema = schema,
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 8, ["authority"] = PlanningRepairPatch.Authority(state, version: 8) } }.ToJsonString() };
-        var original = schema.ToJsonString();
-        Assert.True(PlanningRepairPatch.Verify(PlannerFixture.Clone(state), request));
-        Assert.Equal(original, request.StructuredOutputSchema.ToJsonString());
-        Assert.NotEqual(PlanningRepairPatch.Authority(state, version: 8), PlanningRepairPatch.Authority(state));
-    }
-
     private static TaskValue Text(string text) => new() { Kind = "string", Text = text };
     private static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
     private static string Plan(TaskPlan? plan) => JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
@@ -62,6 +14,34 @@ public sealed class TargetedRevisionTests
         Kind = "revise", PreserveRequirements = true, ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
         Text = "Correct only the selected business bindings and guard; retain all other work.", EditablePaths = paths.ToList()
     };
+
+    [Fact]
+    public void ExtractionRevisionChangesOnlyAuthorizedDeclarations()
+    {
+        var original = new TaskPlan { Root = new() { Tasks = [new() { Id = "adapt", Kind = "transform", Mode = "interpret", Objective = "Expose each supplied record",
+            Inputs = [new("records", new() { Kind = "array", Items = [new() { Kind = "object", Members = [new("text", Text("observed"))] }] })],
+            ResultType = new() { Kind = "object", Fields = [new() { Name = "rows", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields = [new() { Name = "text", Type = new() }] } } }] } }],
+            Outputs = [new("message", Text("retained"))] } };
+        var corrected = PlanningConstruction.Clone(original); var task = corrected.Root.Tasks[0];
+        task.Mode = "extract"; task.Each = new("records", "rows"); task.ResultType!.Fields[0].Type.MinItems = 1;
+        string[] paths = ["/tasks/adapt/mode", "/tasks/adapt/each", "/tasks/adapt/resultType"];
+        Assert.Empty(TaskPlanRevisions.Validate(original, corrected, paths, editablePaths: paths));
+        corrected.Root.Outputs[0].Value.Text = "unrelated rewrite";
+        Assert.Contains(TaskPlanRevisions.Validate(original, corrected, paths, editablePaths: paths), diagnostic => diagnostic.Code == "REVISION_SCOPE_CHANGED");
+    }
+
+    [Theory]
+    [InlineData("0")][InlineData("length")]
+    public void InvalidArrayAccessInImmutableRequirementStopsUnrelatedRepair(string field)
+    {
+        var state = PlannerFixture.Session(); state.Catalog = new(); state.Plan = PlanningCorpus.Greeting();
+        var task = state.Plan.Root.Tasks[0]; task.Outputs.Add(new("rows", new() { Kind = "array", Items = [Text("observed")] }));
+        state.Plan.Root.Tasks.Add(new() { Id = "consumer", Kind = "value", Objective = "Preserve the guarded business action",
+            Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [new() { Kind = "field", Port = field, Items = [Output(task.Id, "rows")] }, new()] },
+            Outputs = [new("unrelated", Output(task.Id, "invalid"))] });
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        Assert.Contains(TaskPlanRevisions.UnrepairableRequirements(state), diagnostic => diagnostic.Code == "REVISION_REQUIRED" && diagnostic.Location == "/tasks/consumer/requires");
+    }
 
     [Theory]
     [InlineData("first_", "record")]
@@ -104,29 +84,26 @@ public sealed class TargetedRevisionTests
     [InlineData("beta", "résultat")]
     public async Task TargetedCorrectionPreservesUnrelatedTasksAndAccountingAcrossRestart(string id, string port)
     {
-        var runtime = new TestRuntime();
-        runtime.Proposal.Plan = new() { Root = new() { Tasks = [
+        var state = PlannerFixture.Session(); state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Plan = new() { Root = new() { Tasks = [
             new() { Id = id, Kind = "value", Objective = "Retain observed payload", Outputs = [new(port, Text("exact payload"))] },
             new() { Id = "consume", Kind = "transform", Mode = "interpret", Objective = "Interpret only compact observations", Inputs = [new("raw", Output(id, port))],
                 ResultType = new() { Kind = "object", Fields = [new() { Name = "text", Type = new() { Kind = "string" } }] } },
             new() { Id = "persist", Kind = "value", Objective = "Preserve this independent task", Outputs = [new("record", Output(id, port))] }
-        ], Outputs = [new("message", Output("consume", "text"))], Always = [new() { Id = "cleanup", Kind = "value", Objective = "Release after preservation" }] } };
-        var state = await PlannerFixture.RunAsync(runtime); Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        var previous = Plan(state.Plan); var hash = state.ComputeArtifactHash(); var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, Revise(state, "/tasks/consume/inputs", "/tasks/consume/requires"), runtime, PlannerFixture.Ct);
-        Assert.Equal(previous, Plan(state.Plan)); Assert.Equal(previous, Plan(state.Request.Baseline));
-        Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash); Assert.Equal(1, state.ModelCalls);
-        state = PlannerFixture.Clone(state);
-        runtime.Proposal.Plan.Root.Tasks[1].Inputs = [new("compact", Output(id, port))];
-        runtime.Proposal.Plan.Root.Tasks[1].Requires = new() { Kind = "present", Source = id };
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Null(state.EditablePaths);
-        Assert.NotEqual(hash, state.ComputeArtifactHash()); Assert.Null(state.ApprovedHash);
-        Assert.Equal(new[] { id, "consume", "persist" }, state.Plan!.Root.Tasks.Select(t => t.Id)); Assert.Single(state.Plan.Root.Always);
-        var request = runtime.Calls[1]; Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
-        Assert.DoesNotContain("plan", request.StructuredOutputSchema["properties"]!.AsObject().Select(p => p.Key));
-        Assert.Equal(PlanningRepairPatch.Version(state), PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
+        ], Outputs = [new("message", Output("consume", "text"))] } };
+        state.Requirements = new() { Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }] };
+        state.EditablePaths = state.RevisionScope = ["/tasks/consume/inputs", "/tasks/consume/requires"];
+        state.ModelCalls = 7; state.ReplanAttempts = 2;
+        var before = Plan(state.Plan); var request = RepairPatchTests.Request(state); var restored = PlannerFixture.Clone(state);
+        Assert.True(PlanningRepairPatch.Verify(restored, request));
+        var repaired = RepairPatchTests.Apply(restored,
+            RepairPatchTests.Edit(restored, "/tasks/consume/inputs", "replace", new JsonArray(new JsonObject { ["name"] = "compact", ["value"] = new JsonObject { ["kind"] = "output", ["source"] = id, ["port"] = port } })),
+            RepairPatchTests.Edit(restored, "/tasks/consume/requires", "replace", JsonNode.Parse($$"""{"kind":"present","source":"{{id}}"}""")));
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, restored.Catalog!).Diagnostics);
+        Assert.NotEqual(before, Plan(repaired)); Assert.Equal(before, Plan(restored.Plan));
+        Assert.Equal(7, restored.ModelCalls); Assert.Equal(2, restored.ReplanAttempts);
+        Assert.Equal(JsonSerializer.Serialize(state.Plan.Root.Tasks[2], PlanningJsonContext.Default.PlanTask), JsonSerializer.Serialize(repaired.Root.Tasks[2], PlanningJsonContext.Default.PlanTask));
+        Assert.Null(restored.ApprovedHash);
     }
 
     [Theory]
@@ -140,8 +117,8 @@ public sealed class TargetedRevisionTests
     [InlineData("intent")]
     public async Task InvalidRevisionAuthorityRejectsBeforeDispatchOrCheckpoint(string variant)
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        var path = "/root/outputs/message"; var command = Revise(state, path);
+        var runtime = new TestRuntime(); var state = await CurrentPlanningFixture.LiteralAsync("targeted-authority", null, null, PlannerFixture.Ct);
+        var path = "/root/outputs/result"; var command = Revise(state, path);
         command.EditablePaths = variant switch
         {
             "duplicate" => [path, path], "unknown" => ["/root/outputs/absent"], "overlap" => [path, path + "/value"],
@@ -152,7 +129,7 @@ public sealed class TargetedRevisionTests
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession); var count = runtime.Checkpoints.Count;
         await Assert.ThrowsAnyAsync<Exception>(() => new HybridWorkflowPlanner().AdvanceAsync(state, command, runtime, PlannerFixture.Ct));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
-        Assert.Single(runtime.Calls); Assert.Equal(count, runtime.Checkpoints.Count);
+        Assert.Empty(runtime.Calls); Assert.Equal(count, runtime.Checkpoints.Count);
     }
 
     [Theory]
@@ -160,55 +137,51 @@ public sealed class TargetedRevisionTests
     [InlineData("move")]
     [InlineData("objective")]
     [InlineData("guard")]
-    public async Task FullRegenerationOrUnrelatedChangeCannotReplaceScopedBaseline(string change)
+    public void UnrelatedChangeCannotReplaceScopedBaseline(string change)
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, Revise(state, "/root/outputs/message"), runtime, PlannerFixture.Ct);
-        var before = Plan(state.Plan); var task = runtime.Proposal.Plan!.Root.Tasks[0];
-        if (change == "delete") runtime.Proposal.Plan.Root.Tasks.Clear();
-        if (change == "move") { runtime.Proposal.Plan.Root.Tasks.Clear(); runtime.Proposal.Plan.Root.Always.Add(task); }
+        var original = PlanningCorpus.Greeting(); var updated = PlanningConstruction.Clone(original);
+        var task = updated.Root.Tasks[0];
+        if (change == "delete") updated.Root.Tasks.Clear();
+        if (change == "move") { updated.Root.Tasks.Clear(); updated.Root.Always.Add(task); }
         if (change == "objective") task.Objective = "Skip business work";
         if (change == "guard") task.Requires = new() { Kind = "boolean", Boolean = false };
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Equal(before, Plan(state.Plan)); Assert.Null(state.Yaml);
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Contains(TaskPlanRevisions.Validate(original, updated, ["/root/outputs/message"]), diagnostic => diagnostic.Code == "REVISION_SCOPE_CHANGED");
     }
 
     [Theory]
     [InlineData("gone", "file")]
     [InlineData("deleted_action", "résultat")]
-    public async Task MissingProducerStopsWithoutRepairOrLiteralSubstitution(string id, string port)
+    public void MissingProducerRequiresAuthorityWithoutLiteralSubstitution(string id, string port)
     {
-        var runtime = new TestRuntime(); runtime.Proposal.Plan!.Root.Outputs = [new("message", Output(id, port))];
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REVISION_REQUIRED" && d.Location == "/root/outputs/message");
-        Assert.Equal(id, state.Plan!.Root.Outputs[0].Value.Source); Assert.Null(state.Yaml);
+        var state = PlannerFixture.Session(); state.Plan = PlanningCorpus.Greeting(); state.Catalog = new();
+        state.Plan.Root.Outputs = [new("message", Output(id, port))];
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        Assert.Contains(TaskPlanRevisions.UnrepairableRequirements(state), diagnostic => diagnostic.Code == "REVISION_REQUIRED" && diagnostic.Location == "/root/outputs/message");
+        Assert.Equal(id, state.Plan.Root.Outputs[0].Value.Source);
     }
 
     [Fact]
-    public async Task BadPortRepairOffersOnlyCompatiblePortsOfTheExistingProducer()
+    public void BadPortRepairOffersOnlyCompatiblePortsOfTheExistingProducer()
     {
-        var runtime = new TestRuntime();
-        runtime.Proposal.Plan!.Root.Tasks[0].Outputs.Add(new("count", new() { Kind = "number", Number = 4 }));
-        var producer = runtime.Proposal.Plan.Root.Tasks[0].Id;
-        runtime.Proposal.Requirements!.Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }];
-        runtime.Proposal.Plan.Root.Outputs[0] = new("message", Output(producer, "wrong"));
-        var planner = new HybridWorkflowPlanner(); var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Generating, state.Status);
+        var state = PlannerFixture.Session(); state.Plan = PlanningCorpus.Greeting(); state.Catalog = new();
+        state.Requirements = new() { Outputs = [new() { Name = "message", Type = new() { Kind = "string" } }] };
+        state.Plan.Root.Tasks[0].Outputs.Add(new("count", new() { Kind = "number", Number = 4 }));
+        var producer = state.Plan.Root.Tasks[0].Id; state.Plan.Root.Outputs[0] = new("message", Output(producer, "wrong"));
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         var slot = Assert.Single(RepairPatchTests.Slots(state));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(Text("invented"), PlanningJsonContext.Default.TaskValue), slot.ValueSchema));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonSerializer.SerializeToNode(Output(producer, "count"), PlanningJsonContext.Default.TaskValue), slot.ValueSchema));
-        runtime.Proposal.Plan.Root.Outputs[0] = new("message", Output(producer, "message"));
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ReplanAttempts);
+        var repaired = RepairPatchTests.Apply(state, RepairPatchTests.Edit(state, "/root/outputs/message", "replace", JsonNode.Parse($$"""{"kind":"output","source":"{{producer}}","port":"message"}""")));
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog).Diagnostics);
     }
 
     [Fact]
     public async Task CompositeReferenceRepairCannotReuseASiblingLiteralAsMissingEvidence()
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        var source = state.Plan!.Root.Tasks[0].Id;
+        var state = PlannerFixture.Session(); state.Plan = PlanningCorpus.Greeting(); state.Catalog = new();
+        await Task.CompletedTask;
+        var source = state.Plan.Root.Tasks[0].Id;
         state.Plan.Root.Outputs[0] = new("message", new() { Kind = "object", Members = [
             new("observed", Output(source, "invalid")), new("label", Text("explicit label"))] });
         state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
@@ -228,33 +201,16 @@ public sealed class TargetedRevisionTests
     }
 
     [Fact]
-    public async Task ExplicitBusinessLiteralRevisionRemainsAvailableAndMissingFieldsStayOmitted()
+    public void ExplicitBusinessLiteralRevisionRemainsAvailableAndMissingFieldsStayOmitted()
     {
         Assert.DoesNotContain("editablePaths", JsonSerializer.Serialize(new PlanningCommand(), PlanningJsonContext.Default.PlanningCommand));
         Assert.DoesNotContain("editablePaths", JsonSerializer.Serialize(PlannerFixture.Session(), PlanningJsonContext.Default.PlanningSession));
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime); var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, Revise(state, "/root/outputs/message"), runtime, PlannerFixture.Ct);
-        runtime.Proposal.Plan!.Root.Outputs[0] = new("message", Text("explicit business literal"));
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal("explicit business literal", state.Plan!.Root.Outputs[0].Value.Text);
-    }
-
-    [Fact]
-    public async Task IssuedVersionSevenRetainsItsOriginalSchemaAndAuthority()
-    {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        state.Plan!.Root.Outputs[0] = new("message", Output("absent", "result"));
-        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog!).Diagnostics.ToList();
-        state.RevisionScope = ["/root/outputs/message"];
-        var schema = PlanningRepairPatch.Schema(state, PlanningSchemas.FullProposal(state, compact: false), version: 7);
-        var request = new GnOuGo.Flow.Core.Runtime.LLMRequest { StructuredOutputSchema = schema,
-            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 7, ["authority"] = PlanningRepairPatch.Authority(state, version: 7) } }.ToJsonString() };
-        var original = request.StructuredOutputSchema.ToJsonString();
-        var candidate = PlanningRepairPatch.Apply(PlannerFixture.Clone(state), new() { Edits = [new() { Slot = "s0", Action = "replace",
-            Value = JsonNode.Parse("""{"kind":"string","text":"historical literal"}""") }] }, request);
-        Assert.Equal("historical literal", candidate.Root.Outputs[0].Value.Text);
-        Assert.Equal(original, request.StructuredOutputSchema.ToJsonString());
-        Assert.Contains(TaskPlanRevisions.UnrepairableRequirements(state), d => d.Code == "REVISION_REQUIRED");
+        var state = PlannerFixture.Session(); state.Plan = PlanningCorpus.Greeting(); state.Catalog = new(); state.Requirements = PlannerFixture.Requirements();
+        state.EditablePaths = state.RevisionScope = ["/root/outputs/message"];
+        var repaired = RepairPatchTests.Apply(state, RepairPatchTests.Edit(state, "/root/outputs/message", "replace", JsonNode.Parse("""{"kind":"string","text":"explicit business literal"}""")));
+        Assert.Equal("explicit business literal", repaired.Root.Outputs[0].Value.Text);
+        Assert.Equal("Hello", state.Plan.Root.Tasks[0].Outputs[0].Value.Text);
+        Assert.Null(state.ApprovedHash);
     }
 
     [Theory]
@@ -263,27 +219,28 @@ public sealed class TargetedRevisionTests
     [InlineData("baseline")]
     public async Task PendingTargetedRequestCannotBeRebased(string change)
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, Revise(state, "/root/outputs/message"), runtime, PlannerFixture.Ct);
-        var request = new PlanningPrompt(state).Request();
+        var runtime = new TestRuntime(); var state = await CurrentPlanningFixture.LiteralAsync("pending-repair", null, null, PlannerFixture.Ct);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, Revise(state, "/root/outputs/result"), runtime, PlannerFixture.Ct);
+        var request = RepairPatchTests.Request(state);
         var restored = PlannerFixture.Clone(state);
         Assert.True(PlanningRepairPatch.Verify(restored, request));
         if (change == "tenant") restored.Request.TenantId = "other";
-        if (change == "paths") restored.EditablePaths!.Add("/tasks/greet/requires");
+        if (change == "paths") restored.RevisionScope.Add("/tasks/" + restored.Plan!.Root.Tasks[0].Id + "/objective");
         if (change == "baseline") restored.Plan!.Root.Tasks[0].Objective += " changed";
         Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(restored, request));
-        Assert.Single(runtime.Calls);
+        Assert.Empty(runtime.Calls);
     }
 
     [Fact]
     public async Task TargetedRevisionCannotReplenishTheCumulativeCallBudget()
     {
-        var runtime = new TestRuntime(); var state = PlannerFixture.Session(); state.Request.MaxModelCalls = 1;
-        state = await PlannerFixture.RunAsync(runtime, state); var planner = new HybridWorkflowPlanner();
-        Assert.Equal(PlanningStatus.FinalReview, state.Status);
+        var runtime = new TestRuntime(); var state = await CurrentPlanningFixture.LiteralAsync("revision-budget", null, null, PlannerFixture.Ct);
+        state.Request.MaxModelCalls = state.ModelCalls;
         var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => planner.AdvanceAsync(state, Revise(state, "/root/outputs/message"), runtime, PlannerFixture.Ct));
-        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession)); Assert.Single(runtime.Calls);
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
+            Revise(state, "/root/outputs/result"), runtime, PlannerFixture.Ct));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(runtime.Calls);
     }
+
 }

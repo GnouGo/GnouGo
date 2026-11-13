@@ -1,0 +1,254 @@
+{
+  "archive_version": 1,
+  "source": "365c83268a4cd5c4797377b2be9ebb59cbff3b95",
+  "cohort": "compacta365c8326",
+  "campaign": "schema-portability-20261019-incremental",
+  "snapshot_at": "2026-10-23T08:33:42.9571930+00:00",
+  "status": "incomplete_pending_exact_uncertainty_authorization",
+  "run": {
+    "scenario": "collections",
+    "run_key": "365c83268a4cd5c4797377b2be9ebb59cbff3b95:fixture:cohort:compacta365c8326:collections:1",
+    "run_hash": "ef60b06bb0329087e6b9a8cf975d71e35dbea4f659035022c85bdf876ab9705a",
+    "phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "calls": 2,
+    "receipts": 1,
+    "corrections": 0,
+    "checkpoints": 0,
+    "planning_ms": 323298,
+    "completed_call_stage_ms": "13383.5977",
+    "failed_attempt_ms": "306930.723",
+    "artifact_hash": null,
+    "judge_reviews": 0,
+    "execution_started": false,
+    "runtime_ms": null,
+    "useful_obligations_satisfied": 0,
+    "calls_per_useful_obligation": null
+  },
+  "other_scenarios": {
+    "amazon": "not_attempted_in_this_cohort",
+    "review_pr": "not_attempted_in_this_cohort"
+  },
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "guidance-singleton-medium",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "benchmark_binary_sha256": "aa21762cab6de33252cd650feb4e0fa542c094b0e8ef749a935dda1fe44ba6fe",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "mcp_files_verified": 568
+  },
+  "profile_change": {
+    "from_cohort": "compacta9246376d",
+    "settings_unchanged": true,
+    "source_change": "Intent guidance consolidated; exact schema and original context unchanged by source. Discovery unseen-evidence batch is restricted to one address only after existing oversized-batch diagnosis. No runtime, oracle, permission, accounting or model-setting changes.",
+    "comparison_limit": "Changes affect different phases. Compare extraction only when original context/schema are comparable; no architecture-only causality claim."
+  },
+  "phase_aggregates": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_requests": 2,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 5470,
+        "p95": 8528,
+        "maximum": 8528,
+        "total": 10940
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2079.5",
+        "p95": 3099,
+        "maximum": 3099,
+        "total": 4159
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 824,
+          "estimated_tokens": 787
+        },
+        "instructions": {
+          "serialized_bytes": 2355,
+          "estimated_tokens": 785
+        },
+        "intent": {
+          "serialized_bytes": 1811,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    }
+  },
+  "actual_usage_and_cost": {
+    "request_identities": 2,
+    "http_attempts": 2,
+    "receipts": 1,
+    "unknown_attempts": 1,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 377,
+    "known_output_tokens": 547,
+    "known_reasoning_tokens": 444,
+    "reasoning_measured_calls": 1,
+    "known_cost_eur": "0.0163275323516287371709058456",
+    "unknown_usage_reservation_eur": "0.4922088353413654618473895582",
+    "cost_upper_bound_eur": "0.5085363676929941990182954038"
+  },
+  "uncertain_request": {
+    "request_id": "925236f0b32617c8f3e71cced6534b6c9bd56ea84fae8e473acb540f5d0208a4:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+    "request_hash": "ed8f7a95ea04f08f70e78bde58960ac08cdaeda2b4b731a4895f996739bc8fbd",
+    "schema_hash": "93dc77bb8732de636b993623faa476d9c37cba83c46ae4fb0d3b1fe5b38478fb",
+    "http_status": 500,
+    "receipt_present": false,
+    "completion_status": null,
+    "record_hashes": {
+      "requests": "ed8f7a95ea04f08f70e78bde58960ac08cdaeda2b4b731a4895f996739bc8fbd",
+      "http-attempts": "85d78d24cae2061983ebffc28eaecf89a74a37bc8e24f577d60d460742b016fd",
+      "receipts": null,
+      "failures": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+      "closures": null
+    },
+    "retention_evidence_hash": "cf0e5f0b9b388b866dc7c1936086fc91043e58872372b63d195597c29896be7a",
+    "retention_state": "inspected_not_applied",
+    "authorization_state": "pending_for_this_exact_identity",
+    "full_reservation_eur": "0.4922088353413654618473895582",
+    "replay_performed": false,
+    "provider_termination_claimed": false
+  },
+  "extraction_request_comparison": {
+    "control_source": "9246376d49836bf71b2618f5eee8f088da33f772",
+    "control_safe_metrics_sha256": "1411ec16e46f82e79445b09c43e8bdcf3d47682715ab35185be266d7d06815e3",
+    "control_complete_bytes": 8699,
+    "candidate_complete_bytes": 8528,
+    "control_schema_hash": "fd9506061aac3e55b9cadbe42f7931077a4d461546e95be2f55f1175a96893fc",
+    "candidate_schema_hash": "93dc77bb8732de636b993623faa476d9c37cba83c46ae4fb0d3b1fe5b38478fb",
+    "schema_bytes_both": 5204,
+    "control_original_intent_component_bytes": 1328,
+    "candidate_original_intent_component_bytes": 1329,
+    "schema_identity_equal": false,
+    "context_identity_equal": false,
+    "interpretation": "Live extraction requests are not an exact schema/context-matched pair. Both have no extraction receipt. The 171-byte request reduction is descriptive only; no response, latency, reasoning, reliability or causality improvement is established."
+  },
+  "campaign_snapshot": {
+    "reserved_requests": 1450,
+    "completed_receipts": 1434,
+    "receiptless_requests": 16,
+    "permanently_closed_requests": 15,
+    "pending_receiptless_requests": 1,
+    "unknown_transport_attempts": 15,
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "46.942031074028035480885002132",
+    "reserved_cost_eur": "6.5480074711000761242785056510",
+    "cost_upper_bound_eur": "53.490038545128111605163507783",
+    "available_eur": "186.540065287578192937281439517",
+    "audit_evidence_hash": "47315a2f690e725780cfe19b8a807f8634b6f6dc1ca9b5d7a0235e808962aa66"
+  },
+  "validation": {
+    "frozen_limitation": "230 combined focused checks passed with warnings as errors. Full924 solution and earlier independent publication/AOT evidence remain attributed to their sources. Current business acceptance not established.",
+    "frozen_validation_files": {
+      "combined-presentation.trx": "210ee2958dcc9474b5db8edc09ad34390f74ef7b5ee591f9620e9b96d8b319cc"
+    },
+    "extraction_offline_manifest_sha256": "2fafb622821f4b41962523b54512bd991bc8f5f9413895df15ae6383554114f8",
+    "business_success": false
+  },
+  "safe_evidence_files": {
+    "collections-safe-metrics-verified.json": {
+      "bytes": 10272,
+      "sha256": "1078cccce72f1c2e7ef91da2702ab00d11429cac33b2c66c4f07cfb1461cf492"
+    },
+    "collections-retention-inspection.json": {
+      "bytes": 1919,
+      "sha256": "9c22070850d893fe979a79f6afafa90e6b58fdf3eddf404fbc5ac175bc9da603"
+    },
+    "campaign-after-collections-audit.json": {
+      "bytes": 4318,
+      "sha256": "2c945e756582a59f0c70707068d8d0818f37c81d7120482f2ebf76a12a03dae9"
+    },
+    "freeze.json": {
+      "bytes": 5246,
+      "sha256": "4db849999ba0bd1256c4562e0a3c3a247456416895da5fea31790061bbe401de"
+    },
+    "collections-response-format-safe.json": {
+      "bytes": 1093,
+      "sha256": "3efb4363f0b729d6b33d9e3ad9ca7624bc69b92bb0d5b92149a8a7f2ee0e9b8d"
+    }
+  },
+  "evidence_notes": [
+    "Only collections-safe-metrics-verified.json is used; the earlier empty metrics output from the reader dependency guard is excluded. The verified safe metrics identify the exact frozen benchmark binary.",
+    "No original prompt, receipt body, MCP schema, credential or encrypted record is reproduced. Complete per-request components remain in the hashed private metrics file.",
+    "Retention inspection describes the proposed outcome, not an applied closure. The campaign audit confirms fifteen older closures and this one pending identity.",
+    "HTTP 500 with no receipt does not establish an empty response, whitespace flood or reasoning exhaustion. Known output and reasoning totals cover only request1.",
+    "All request components reconcile and complete requests satisfied the captured12000-token navigation ceiling. Component estimates are not billed usage.",
+    "No Judge, artifact acceptance or runtime execution occurred; singleton discovery behavior and business-review improvements remain unmeasured."
+  ],
+  "response_format": {
+    "safe_file": "collections-response-format-safe.json",
+    "receipted_request": {
+      "request_id": "925236f0b32617c8f3e71cced6534b6c9bd56ea84fae8e473acb540f5d0208a4:1:0352f4e6116f8588f8c7f3efcb055e6c1cabec405817ea5460a750a363c8414e",
+      "raw_text_bytes": 427,
+      "raw_text_hash": "99afff0ff8fe650d26a8456004dd75964ba117e56dfc755a0951c09c1db86b88",
+      "raw_whitespace_characters": 35,
+      "longest_whitespace_run": 1
+    },
+    "extraction_receipt_present": false,
+    "extraction_format_classification": null,
+    "interpretation": "Counts include whitespace within strings. Missing extraction receipt prevents empty-response, whitespace or reasoning outcome classification."
+  },
+  "publication_validation": {
+    "source": "365c83268a4cd5c4797377b2be9ebb59cbff3b95",
+    "stages_passed": 11,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": [],
+    "manifest_sha256": "f3ce9b006cee73dc0947a7d515f312532fa57edb392e5c8f7aacb01bfaa8fe06",
+    "retained_safe_evidence": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-365c8326/publish/publication-safe.json",
+    "full_solution": "pending on earlier924; currentCI pending",
+    "business_acceptance": false
+  }
+}

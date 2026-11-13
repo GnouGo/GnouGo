@@ -1,0 +1,102 @@
+{
+  "base_revision": "be798a3a81aea8281d5477085e141875e2f4fd1e",
+  "source_scope": "Exact listed successor file bytes, independently copied into immutable validation snapshots; not a new execution attributed to be798.",
+  "source_sha256": {
+    "src/GnOuGo.Flow.Core/Runtime/JsonSchemaInstanceValidator.cs": "2ff7e0efd4b4097151e64428787048fcf353066b9c2800f49a9a58ce17647502",
+    "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs": "e388096460dba37e40576c935700ce577a6e8413b3f2c2ccbd2e2b19502ec205",
+    "src/GnOuGo.Flow.Planning/PlanningRepairPatch.cs": "a17c414ed4432da7214b03a42fa3921ddec8d5f4d67bdc212c69bd030a17eeb7",
+    "tests/GnOuGo.Flow.Tests/Runtime/JsonSchemaStringLengthTests.cs": "5d23d558a739373b5ff37b7e00a1e104c20e5525ac8aca8f1b5b74e0ac11dea3",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.Unicode.cs": "d310ab845eb026ef42d7a4adb312d0eb094b350a042e0a5a6eebd37ccf8aefb1",
+    "tests/GnOuGo.Flow.Planning.Tests/TypedRepairSchemaTests.cs": "74a145aa97bc9deaf0fc48167084942434fef66c5fa5aa8fcc7247b38a0ec1b7"
+  },
+  "runs": [
+    {
+      "scope": "Core focused Unicode and schema recursion",
+      "validation_snapshot": "5e4f2484da171c24f711fd3d6a68431b1c2e9d20",
+      "source_manifest_sha256": "517fdce648e6f6e83712c9983ee841ea7d8362e865b94a56b95a27fc75f59798",
+      "result_sha256": "71e060479f7c610393fc137dd1113e03b93bfa491499ce14b85547fbb245ee97",
+      "log_sha256": "5d037f96cf2552e8bd41789b377404fe7340408602aae321ae31d96079589198",
+      "trx_sha256": "2a8580eddda07354cd0fd8a57ea83883b8661149b64706069c9f47c73cbd3dda",
+      "counts": {
+        "Passed": 46
+      },
+      "elapsed_seconds": 10.494546332978643,
+      "warnings_as_errors": true,
+      "command_sha256": "a634a804e38763c935507cbab918c40a8b1d23fb29f2aeedc5646383d78caa86"
+    },
+    {
+      "scope": "Core full owning suite",
+      "validation_snapshot": "b8bc332604cae4efa6fd8d5d91da36fbb8b0f748",
+      "source_manifest_sha256": "ae84d6af602ce14fcbb48124b8a572effc9bd69ad5f1d3e76b0b6d78f41e9004",
+      "result_sha256": "d2d328fb41639e73f26f243bf43513e8cf835ef3c146786706e27dd211ddbfa0",
+      "log_sha256": "8bbbb4c6ffe530e4dce1b5326d528e5e88383ba327b087e2347a2687e3af1e69",
+      "trx_sha256": "4390e2dc36ecb5880532ce4eceb62e248d1d252036c63f31bc99b8947d0f2282",
+      "counts": {
+        "Passed": 1454
+      },
+      "elapsed_seconds": 17.696448542003054,
+      "warnings_as_errors": true,
+      "command_sha256": "9924d72f525cd0cce276867181596a441ecf20fd1636fd1eaede3847f8c64275"
+    },
+    {
+      "scope": "Planning review, recovery, compatibility and transport focus",
+      "validation_snapshot": "c9b669f5cde6b6b5faf3cbd723661ab9c000d191",
+      "source_manifest_sha256": "5eb97880dfddb859196a7650f9a41d5b7828cb06b165a6219de17349dfaac607",
+      "result_sha256": "8d903492c37ca67c38835ce0c5273326d15343517a78b97fb9e2697fa430a48d",
+      "log_sha256": "f29a546e8e756fc44eb4f37ba77846a0030c9ed00b3655ff8e63db13987241eb",
+      "trx_sha256": "b944075932cffa87d6dfcd5b59206b275a053d34dc8dd83a6a2fa8ac4af41873",
+      "counts": {
+        "Passed": 158
+      },
+      "elapsed_seconds": 28.12219725002069,
+      "warnings_as_errors": true,
+      "command_sha256": "8aeaa11942b8198230ef6aaed7ecb24790997d4c60eacf69ef8a0e359e1950ea"
+    },
+    {
+      "scope": "Planning full owning suite before final shared-helper extraction",
+      "validation_snapshot": "f86ab18056d178db7db572cf8e8838f1849d31c9",
+      "source_manifest_sha256": "467817d91364c7888090a2c599c8cb4ee93d4931944dc719ff5d90b4b0cc9bf4",
+      "result_sha256": "e8f2cadc0c3de01eb5a6d01da3b925840b4385df3d2477ef9f6a05b3d532ccfc",
+      "log_sha256": "c3c8583ef4dddfb0eba05958cb2c3ba4110ed9f4aeeb687819821900da4e262f",
+      "trx_sha256": "4a7d47ad7cfcdf448d38d36cf99df46672e3c8b351030dc00ce4b4a0dea0188a",
+      "counts": {
+        "Passed": 3617
+      },
+      "elapsed_seconds": 308.07205458398676,
+      "warnings_as_errors": true,
+      "command_sha256": "a1a951c33790176fbb82348bb07c4578c5f8283fa23eefc302bc0f20407d5df0"
+    },
+    {
+      "scope": "Final typed-repair suite including shared response validator",
+      "validation_snapshot": "bb99adab7448123b8b00aea3e9e84b87e40e6702",
+      "source_manifest_sha256": "ba8a52aacf8ec4d113405f08f257079c226f7fcb3a1ffe1635e8ccb5085ded5a",
+      "result_sha256": "c1f6e65527225f110be0f4d8286252b36f976b6e28a176433a0509bfe41a3767",
+      "log_sha256": "c6afba2b38fb2a77e3231b1dc7ba1b421cef54d8527f316b5b3c2cb2df0e8ad7",
+      "trx_sha256": "b371c6318dc6274de64595bfee2c5f27c4790636fb2a5ae14166af0e8008bab2",
+      "counts": {
+        "Passed": 26
+      },
+      "elapsed_seconds": 25.387655958009418,
+      "warnings_as_errors": true,
+      "command_sha256": "98461b8dc8c48bdc0f543495211e792c4a827c4fcb5f12ace834ac1601c37021"
+    }
+  ],
+  "counts_are_not_additive": true,
+  "retained_initial_failures": [
+    {
+      "log_sha256": "32e10bda6c8284c660536c5d50561c29c17dcf4b023089a2ed6afa5cb6a27adb",
+      "passed": 157,
+      "failed": 1,
+      "reason": "Recovery fixture selected the terminal cancelled checkpoint instead of the earlier issued Generating checkpoint; fixed fixture selection, no allowance change."
+    },
+    {
+      "archive": "wepl7vmm",
+      "passed": 41,
+      "failed": 5,
+      "reason": "Five scalar test strings lacked JSON quotation marks; fixture only, production validator not reached."
+    }
+  ],
+  "compatibility": "Only newly issued compact presentation10 schemas carry a standard $comment. Response and typed-repair reconstruction read that exact annotation. Unmarked issued requests, including earlier10, retain UTF16 semantics. Core/public runtime defaults unchanged.",
+  "business_result": "Not established by these tests. Stopped be798 cohort is retained; no replay or claimed avoided terminal failure.",
+  "specification": "https://json-schema.org/draft/2020-12/json-schema-validation#name-maxlength"
+}

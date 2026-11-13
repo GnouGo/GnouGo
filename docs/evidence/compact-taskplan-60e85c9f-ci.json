@@ -1,0 +1,19 @@
+{
+  "source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+  "run_id": 40345838259,
+  "url": "https://github.com/GnouGo/GnouGo/actions/runs/40345838259",
+  "status": "completed",
+  "conclusion": "failure",
+  "counts_from_exact_log": {
+    "passed": 7571,
+    "failed": 1,
+    "skipped": 1,
+    "projects": 12
+  },
+  "failure": "GnOuGo.Agent.Server.Tests.CompactConstructionHostTests.FreshCompactBackgroundPipelineRestoresEncryptedEvidenceWithoutApprovalOrEffects",
+  "classification": "Previously reproduced stale fresh-presentation host fixture; parent owns its fresh8 correction. Exact60 CI remains failed.",
+  "failed_job_log_sha256": "d35c0a991037fd19f2b3b9d9a7757a5041816934fa172ce3044289cef112052c",
+  "run_metadata_sha256": "e963688ce82c548e6312c35d16186729a6a6840463f92339e8a68a2c1e5674ab",
+  "later_package_aot_steps": "skipped after test failure",
+  "no_rerun": true
+}

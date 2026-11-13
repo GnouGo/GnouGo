@@ -1,0 +1,147 @@
+{
+  "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+  "cohort": "compactr9d25c65f9amz22j20v6",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "c901701dd8d4145f9ce127d53350b3a577fcbcf59057984865f911ba14a08678",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "high",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 22000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "medium",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 20000,
+        "outputTokens": 16384
+      }
+    }
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "logical_dispatched": 2,
+    "physical_attempts": 2,
+    "receipts": 1,
+    "receiptless_dispatched_requests": 1,
+    "unknown_usage_attempts": 1,
+    "automatic_corrections": 0,
+    "accepted_checkpoints": 0,
+    "Judge_requests": 0,
+    "artifact": null,
+    "runtime_started": false,
+    "verified_complete_business_units": 0,
+    "calls_per_complete_business_unit": null,
+    "candidate_gate_qualifying_runs_at_capture": 1,
+    "candidate_gate_required_runs": 6
+  },
+  "usage_and_cost": {
+    "known_input_tokens": 533,
+    "known_output_tokens": 1849,
+    "known_reasoning_tokens_within_output": 1536,
+    "known_visible_tokens_derived": 313,
+    "known_cost_eur": "0.0518830879071842927264614012",
+    "full_unknown_usage_reserve_eur": "0.9308701472556894243641231593",
+    "run_upper_eur": "0.9827532351628737170905845605",
+    "receiptless_request_usage": null,
+    "receiptless_request_response": null
+  },
+  "planning_ms": 358201,
+  "requests": {
+    "constructed": 2,
+    "admitted": 2,
+    "admission_rejected": 0,
+    "all_components_reconcile": true,
+    "complete_bytes": [
+      3085,
+      9420
+    ],
+    "estimated_input_tokens": [
+      1285,
+      3396
+    ],
+    "input_limit": 12000,
+    "received_statuses": [
+      200
+    ],
+    "receiptless_http_status": null,
+    "receiptless_failure_kind": "Transport"
+  },
+  "retention_inspection_at_capture": {
+    "evidence_hash": "91b380aab0459c1bda3e649af735e5766d61b1e76af175c9c6f5657dadda3441",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "permanent_closure_present": false,
+    "authorization_state": "Pending exact user authorization at root capture; inspection does not apply retention."
+  },
+  "campaign_accounting_at_capture": {
+    "known_eur": "195.58538225653584449471811229",
+    "reserve_eur": "58.837239956597621862788099577",
+    "upper_eur": "254.42262221313346635750621187",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "available_eur": "185.60748161957283818493873543",
+    "source": "Saved root inspection accounting plus separately root-reported unchanged campaign ceiling; not a new readiness check."
+  },
+  "original_formatting": null,
+  "source_evidence": [
+    {
+      "file": "freeze.json",
+      "sha256": "0e8623d1cde3f9399b8493e0d22a89090aa55f0dc017cd5cf0bdc5611ab1b8cf"
+    },
+    {
+      "file": "terminal-metrics-safe.json",
+      "sha256": "f781e101fcbc484f08751bee4f7c6a40cf9d4157ed8156d1be2a65a3ffd75aba"
+    },
+    {
+      "file": "terminal-state-safe.json",
+      "sha256": "64a42c9e65635c82f66cae7dbd42aee33cb7a50ba953816a8b82d165189228fd"
+    },
+    {
+      "file": "retention-inspect.json",
+      "sha256": "2b2bfa86119b2efee3d29d06231a8316eb37c6b66e8a98061601b1f0c119e35e"
+    },
+    {
+      "file": "amazon-planning.jsonl",
+      "sha256": "d04091466694561201999f174caed68c9d12013805343d114fff017c518b54fd"
+    },
+    {
+      "file": "amazon-exit.json",
+      "sha256": "213e949942f4c62e7939a60532a569d3eee5788e43f0c71def41e863e38069b1"
+    },
+    {
+      "file": "phase-policy.json",
+      "sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c"
+    },
+    {
+      "file": "reducer-preparation-safe.json",
+      "sha256": "a56820c60ed3c630e9f7b44db59a1129ad6353983612f5678e3ecf3e6d3dab22"
+    },
+    {
+      "file": "amazon20-terminal-numeric-safe.json",
+      "sha256": "035c57a8dbd032241731c19f4e369fa220815a8c271d6c8fbfe86d53e0324178"
+    },
+    {
+      "file": "numeric-uncertainty-review-safe.json",
+      "sha256": "bebd84b254d2818933fc424a1c215f2535861edb92802d9e9e61b1827f84af95"
+    }
+  ],
+  "limitations": [
+    "This input-ceiling experiment never reached Judge; no efficacy, business improvement or output-limit conclusion is supported.",
+    "Known usage is only the completed request. Receiptless usage and original response formatting remain unmeasured; absent text is not an empty completed answer.",
+    "Saved accounting and authorization status are capture-time facts. No current readiness, retention application, replay or store access by this projection."
+  ]
+}

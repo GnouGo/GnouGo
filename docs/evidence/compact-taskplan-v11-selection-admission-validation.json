@@ -1,0 +1,18 @@
+{
+  "classification": "Deterministic generic request fixture, no causal live savings",
+  "base": "057732030f891b3516516c671e3201c9c9378d96",
+  "exit_code": 0,
+  "counts": {
+    "Passed": 231
+  },
+  "elapsed_seconds": 24.39361995802028,
+  "source_unchanged": true,
+  "log_sha256": "78832ac67c6b3f1e494b893aea24cafab933605f5823e7fb9502424c1763c6aa",
+  "source_manifest_sha256": "dc053271a13eb0ece48e4a909947d7cc3feec7f94ea057a2f070dab4ec2b020c",
+  "measured_fixture": [
+    "presentation=10; original_tokens=4670; limit=4645; result_tokens=4670; result_bytes=13242",
+    "presentation=11; original_tokens=4670; limit=4645; result_tokens=4593; result_bytes=13009"
+  ],
+  "coverage": "One request-local page drives context and response domains; largest measured optional description first, stable identity ordering; explicit evidence/originals preserved; no state/cursor mutation; mandatory oversize retained for normal admission.",
+  "overlap_note": "Two logging cases overlap the owning 231-test suite."
+}

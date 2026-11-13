@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "source": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+  "captured_utc": "2026-10-25T01:51:26.692900+00:00",
+  "safe_sources": [
+    {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-ba86-terminal-campaign-audit-dzjg4elj/provider-readiness.jsonl",
+      "sha256": "8880e6421b5f8edea0a055572198f8241008668ae1687c5c56fff7462400ea2e",
+      "bytes": 8323
+    },
+    {
+      "path": "/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-ba86-terminal-campaign-audit-dzjg4elj/audit-safe.json",
+      "sha256": "56d72a4bf3dab20a8b6d3a746c882a8a27b07bf15b15a5ba8915bcb0f5b74816",
+      "bytes": 1151
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/freeze.json",
+      "sha256": "a4c7bb9c962ecef29050f2c4ee7cf37646da2b1dc0681051d0d008ebfbbef732",
+      "bytes": 20074
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-terminal-safe-metrics.json",
+      "sha256": "ce6204e6f96b651c62db8c49c11f1d4b6be8534f982ba8d330ce0345906fd424",
+      "bytes": 29238
+    },
+    {
+      "path": "/private/tmp/gnougo-ba86-code-terminal-safe/v2/compact-taskplan-ba86cf874-code.json",
+      "sha256": "79c4735b77cc131b7be019bf86d301222f2b7b399834268b272c684bab28fb4e",
+      "bytes": 7884
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/docs/evidence/compact-taskplan-40bd4a048-code-witness-supplement.json",
+      "sha256": "6edd82cf7c37b80dfef095f6288c1c207d13354f1f336b3ce57e0a07e1a84874",
+      "bytes": 9759
+    }
+  ],
+  "scope": "Separate exact post-Code campaign audit. The measured run archive and earlier balance snapshots remain unchanged.",
+  "campaign": "schema-portability-20261019-incremental",
+  "model": "gpt-5.5-2026-04-24",
+  "audit_evidence_hash": "4b935dfb987b2415ff91f08bad25262adc3917653c80dbd6f19e0586c6c29d6e",
+  "physical_attempts": 3149,
+  "known_cost_eur": "134.67805517041357764955970085",
+  "retained_reservation_eur": "39.373223892340593750338300383",
+  "recorded_upper_bound_eur": "174.05127906275417139989800123",
+  "ceiling_eur": "240.0301038327063045424449473",
+  "available_eur": "65.97882476995213314254694607",
+  "recorded_upper_minus_decimal_sum_eur": "-3E-27",
+  "unknown_physical_attempt_reservations": 53,
+  "receiptless_request_identities": 28,
+  "closed_receiptless_identities": 28,
+  "unresolved_receiptless_identities": 0,
+  "closure_identity_sets_equal": true,
+  "readiness_model_calls": 0,
+  "audit_session_calls": 0,
+  "code_logical_requests": 8,
+  "code_receipts": 8,
+  "code_new_receiptless_requests": 0,
+  "new_abandonment_needed_for_this_code_run": false,
+  "separate_prior_lost_ledger_exposure_eur": "159.96989616729369545755505266",
+  "cumulative_recorded_upper_including_prior_lost_ledger_eur": "334.02117523004786685745305389",
+  "qualification": "Exact aggregate retained rather than reconstructed from run costs. The -3E-27 CLR decimal rounding difference is disclosed. The prior lost-ledger exposure is historical and separately retained, not part of this campaign audit. This timestamped available amount is not a future balance or permission to dispatch. No store/operator/model call was made by this offline reconciliation."
+}

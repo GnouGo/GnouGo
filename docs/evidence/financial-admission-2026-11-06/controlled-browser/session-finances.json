@@ -1,0 +1,52 @@
+{
+  "currency": "EUR",
+  "forecastMode": "experimental_warning",
+  "trackedExposure": 0.113581,
+  "measuredUsageTariffEstimate": 0.000331,
+  "uncertainReservations": 0.11325,
+  "unpricedCompletedNominalReservations": 0,
+  "unattributedHistoricalExposure": 0,
+  "providerReportedCost": null,
+  "providerCostBasis": "Unavailable in budget snapshots; inspect exact provider receipts. Tariff estimates are not invoices.",
+  "historyComplete": false,
+  "pricingEvidenceComplete": true,
+  "unavailableReason": "unresolved_physical_attempts",
+  "availableForAdmission": null,
+  "allowance": 50,
+  "allowanceCurrency": "EUR",
+  "settledAttempts": 5,
+  "unpricedCompletedAttempts": 0,
+  "unresolvedAttempts": 1,
+  "indexedAttempts": 6,
+  "calls": 6,
+  "measuredInputTokens": 50,
+  "measuredOutputTokensIncludingReasoning": 25,
+  "forecastWarnings": [],
+  "basis": "Existing durable usage journal; unresolved reservations are retained. Empty or missing transport evidence alone does not release money.",
+  "applicationAllowance": {
+    "amount": 50,
+    "currency": "EUR"
+  },
+  "explicitWorkflowLimits": false,
+  "sessionId": "a73b5489b00c43f088392250abcab67f",
+  "tenantId": "default",
+  "source": "encrypted_budget_journal",
+  "capturedApplicationPolicy": {
+    "version": 1,
+    "mode": "limited",
+    "origin": "host_default",
+    "currency": "EUR",
+    "financialForecastMode": "experimental_warning",
+    "applicationOwnsLimits": true,
+    "planningLimits": {
+      "max_calls": 1,
+      "max_total_tokens": 1,
+      "max_elapsed_ms": 1,
+      "max_estimated_cost": {
+        "amount": 50,
+        "currency": "EUR"
+      }
+    }
+  },
+  "admissionFailures": []
+}

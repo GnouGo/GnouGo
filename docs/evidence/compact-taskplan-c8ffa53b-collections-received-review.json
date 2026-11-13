@@ -1,0 +1,111 @@
+{
+  "observed_at": "20261028T142444Z",
+  "key": "c8ffa53ba4422ca0316d6deec8a7d69a70ee4a07:fixture:cohort:compactfc8ffa53bcol11a:collections:1",
+  "status": "stopped",
+  "phase": "construction_local_judge",
+  "logical_requests": 15,
+  "corrections": 0,
+  "physical_attempt_delta": 16,
+  "known_cost_delta_eur": "0.81991967871485943775100402",
+  "reserved_cost_delta_eur": "0.93087014725568942436412316",
+  "available_eur": "152.97111392657863916664333156",
+  "pending_purpose": null,
+  "pending_identity": null,
+  "completed_receipts": 15,
+  "latest_complete_request_bytes": 7306,
+  "latest_input_estimate": 2692,
+  "latest_input_limit": 12000,
+  "accepted_checkpoints": 5,
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "location": "/construction/candidate"
+    }
+  ],
+  "runtime_status": null,
+  "business_acceptance": null,
+  "observed_independent_obligations": null,
+  "accepted_task_kind_counts": {
+    "foreach": 1,
+    "call": 1,
+    "value": 1
+  },
+  "accepted_group_count": 1,
+  "accepted_call_count": 1,
+  "accepted_foreach_count": 1,
+  "open_scope_count": 2,
+  "requirement_status_counts": {
+    "remaining": 1,
+    "in_progress": 1
+  },
+  "judge_prepared_requests": 1,
+  "judge_admitted_requests": 1,
+  "judge_peak_complete_request_bytes": 7306,
+  "judge_peak_admitted_complete_request_bytes": 7306,
+  "production_source": "c8ffa53ba4422ca0316d6deec8a7d69a70ee4a07",
+  "run_report": "received completed needs_change rejected for citation grounding",
+  "last_report": {
+    "decision": {
+      "verdict": "needs_change",
+      "reason": "The fragment’s call is governed by ancestor foreach task:double_values_foreach, which reads input:values but has maxItems:100. Req_1 requires doubling every element and preserving all items, including duplicates; an accepted numeric array with more than 100 elements would not have every element processed under that control. The reusable double_item call itself is coherent, and the missing root output is not a defect because the workflow is not claimed complete.",
+      "obligations": [
+        "req_1"
+      ],
+      "targets": [
+        "task:double_values_foreach",
+        "task:double_item_call"
+      ]
+    }
+  },
+  "last_report_usage": {
+    "input_tokens": 1083,
+    "output_tokens": 2721,
+    "total_tokens": 3804,
+    "benchmark_cost_eur": "0.0776840696117804551539491299",
+    "reasoning_tokens": 2560,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "last_diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "location": "/construction/candidate",
+      "message": "A defect must cite original obligations and concrete implementation IDs.",
+      "required": true,
+      "validationStage": "construction_local_judge",
+      "rule": null
+    }
+  ],
+  "calls_by_schema": {
+    "construction_intent": 2,
+    "construction_select": 6,
+    "construction_draft": 6,
+    "construction_local_judge": 1
+  },
+  "provider_usage": {
+    "input_tokens": 44676,
+    "output_tokens": 23178,
+    "reasoning_tokens": 19939,
+    "total_tokens": 67854
+  },
+  "evidence_version": 1,
+  "harness_source": "c8ffa53ba4422ca0316d6deec8a7d69a70ee4a07",
+  "cohort": "compactfc8ffa53bcol11a",
+  "qualification": "incomplete: received ungrounded review; no artifact or runtime execution",
+  "interpretation": [
+    "The host rejected the received needs_change report because req_1 was not the offered requirement:req_1 evidence identity. The emitted schema accepted arbitrary citation strings.",
+    "The separate finite-loop-capacity conclusion requires independent assessment; the input request provides no required cardinality.",
+    "The only Judge request was below the 13,197-byte Judge cap. Draft requests are outside that phase-specific cap.",
+    "Five checkpoints and the present group/call/foreach structure do not establish satisfied business obligations.",
+    "The retained reservation arose from the earlier eligible HTTP retry; the final received report has verified usage and no pending call."
+  ],
+  "frozen_profiles": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+    "source_manifest_sha256": "47948bed594d1126a7ac1a9098b030932a3101c8e31844f52f5544149b68144a"
+  }
+}

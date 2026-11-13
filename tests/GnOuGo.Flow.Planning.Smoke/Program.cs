@@ -31,17 +31,75 @@ var historicalNumber = JsonSerializer.Deserialize("""{"kind":"number","number":0
 if (JsonSerializer.SerializeToNode(historicalNumber, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString() != "0.1234567890123456789012345678")
     throw new InvalidOperationException("Historical numeric tokens changed during Native AOT serialization.");
 
-var historicalRequest = JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
+var sparseRequest = JsonSerializer.Deserialize("{}", PlanningJsonContext.Default.PlanningRequest)!;
 var freshRequest = new PlanningRequest();
 var sparseGeneration = JsonSerializer.Deserialize("""{"generation":{"maxOutputTokens":4096}}""", PlanningJsonContext.Default.PlanningRequest)!;
-if (historicalRequest.MaxModelCalls != 8 || historicalRequest.MaxReplanAttempts != 2 ||
-    historicalRequest.Generation.MaxInputTokensPerRequest != 12000 || historicalRequest.Generation.MaxOutputTokens != 8192 ||
-    sparseGeneration.Generation.MaxInputTokensPerRequest != 12000 || sparseGeneration.Generation.MaxOutputTokens != 4096 ||
-    freshRequest.MaxModelCalls != 12 || freshRequest.MaxReplanAttempts != 4 ||
+if (sparseRequest.MaxModelCalls != 64 || sparseRequest.MaxReplanAttempts != 4 ||
+    sparseRequest.Generation.MaxInputTokensPerRequest != 32000 || sparseRequest.Generation.MaxOutputTokens != 32768 ||
+    sparseGeneration.Generation.MaxInputTokensPerRequest != 32000 || sparseGeneration.Generation.MaxOutputTokens != 4096 ||
+    freshRequest.MaxModelCalls != 64 || freshRequest.MaxReplanAttempts != 4 ||
     freshRequest.Generation.MaxInputTokensPerRequest != 32000 || freshRequest.Generation.MaxOutputTokens != 32768 ||
-    historicalRequest.Options.ContainsKey("business_judge"))
-    throw new InvalidOperationException("Fresh creation defaults and historical missing fields were not kept distinct under Native AOT.");
-Console.WriteLine("planning defaults: fresh limits and sparse historical fallbacks survive source-generated serialization");
+    sparseRequest.Options.ContainsKey("business_judge"))
+    throw new InvalidOperationException("Current creation defaults failed under Native AOT.");
+Console.WriteLine("planning defaults: one current protocol survives source-generated serialization");
+var pageDirectory = Path.Combine(Path.GetTempPath(), "gnougo-aot-record-pages", Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(pageDirectory);
+try
+{
+    var path = Path.Combine(pageDirectory, "vault.db");
+    var pageStore = new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(path);
+    var pageText = new string('x', 32767) + "😀" + new string('y', 70000);
+    await pageStore.UpsertAsync("smoke", "tenant", "session:request", pageText, "smoke");
+    var page = await pageStore.ReadRangeAsync("smoke", "tenant", "session:request", "smoke", null, 0, 32768);
+    var metadataPage = await pageStore.QueryMetadataAsync("smoke", "tenant", "session:", "smoke");
+    var cursorJson = JsonSerializer.Serialize(metadataPage.Next, PagingSmokeJsonContext.Default.KeyVaultRecordCursor);
+    var cursor = JsonSerializer.Deserialize(cursorJson, PagingSmokeJsonContext.Default.KeyVaultRecordCursor);
+    var reopenedPages = new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(path);
+    if (page?.NextOffset != 32767 || metadataPage.Records.Count != 1 || cursor != metadataPage.Next ||
+        !cursorJson.Contains("\"updatedAtTicks\":\"", StringComparison.Ordinal) ||
+        (await reopenedPages.GetAsync("smoke", "tenant", "session:request", "smoke"))?.Value != pageText ||
+        (await reopenedPages.ReadRangeAsync("smoke", "other", "session:request", "smoke", null, 0, 100)) is not null ||
+        (await reopenedPages.QueryMetadataAsync("smoke", "tenant", "session:", "smoke", cursor)).Records.Count != 0)
+        throw new InvalidOperationException("Native AOT encrypted paging, exact cursors or replay failed.");
+    Console.WriteLine("encrypted record pages: exact replay, Unicode, restart, tenant ownership and source-generated cursors");
+}
+finally
+{
+    Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+    Directory.Delete(pageDirectory, recursive: true);
+}
+var tracking = LLMUsageBudgetScope.CreateTrackingOnly();
+await tracking.ReserveJournaledAttemptAsync("aot-uncertain", new() { Model = "private-deployment", MaxTokens = 128000 }, null,
+    16000, 128000, [128000, 128000], "smoke", CancellationToken.None);
+var trackingJson = JsonSerializer.Serialize(tracking.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+var trackingRestored = LLMUsageBudgetScope.CreateTrackingOnly(JsonSerializer.Deserialize(trackingJson, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+if (!trackingRestored.IsTrackingOnly || trackingRestored.Snapshot.Calls != 1 || trackingRestored.Snapshot.UncertainCalls != 1 ||
+    trackingRestored.Snapshot.CostEstimateAvailable || trackingRestored.Snapshot.CostUnavailableReason != "pricing_unavailable" ||
+    trackingRestored.Snapshot.JournaledAttempts!["aot-uncertain"].VerifiedUsage is not null)
+    throw new InvalidOperationException("Tracking-only uncertain accounting failed under Native AOT.");
+Console.WriteLine("tracking-only budget: unavailable pricing and uncertain reservations survive source-generated restore");
+var exhaustedHttp = new GnOuGo.AI.Core.LLMHttpRetryState { Attempts = [new()
+{
+    Id = "native-exhausted-generation", Failure = "timeout", PartialBody = "{partial:",
+    IndependentGenerationDurationExhausted = true,
+    ResponseHttpVersion = "1.1", CancellationSource = "attempt_deadline",
+    ReadTermination = new() { Observer = "native_reader", Outcome = "cancelled",
+        AtUtc = DateTimeOffset.Parse("2026-11-10T01:38:05Z"), ErrorType = "operation_cancelled" },
+    RetryDecision = "blocked; captured generation duration exhausted"
+}] };
+var restoredHttp = JsonSerializer.Deserialize(JsonSerializer.Serialize(exhaustedHttp,
+    GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState),
+    GnOuGo.AI.Core.LLMHttpRetryJsonContext.Default.LLMHttpRetryState)!;
+if (restoredHttp.Attempts.Single().IndependentGenerationDurationExhausted != true ||
+    restoredHttp.Attempts.Single().PartialBody != exhaustedHttp.Attempts.Single().PartialBody ||
+    restoredHttp.Attempts.Single().ResponseHttpVersion != "1.1" ||
+    restoredHttp.Attempts.Single().CancellationSource != "attempt_deadline" ||
+    restoredHttp.Attempts.Single().ReadTermination is not { Observer: "native_reader", Outcome: "cancelled", ErrorType: "operation_cancelled" } readEnd ||
+    readEnd.AtUtc != exhaustedHttp.Attempts.Single().ReadTermination!.AtUtc)
+    throw new InvalidOperationException("Native HTTP journal lost its exhausted generation or partial evidence.");
+Console.WriteLine("HTTP journal: fired generation deadline, read termination and retained partial evidence survive native serialization");
+
+await CompactConstructionSmoke.RunAsync();
 
 var committedIntent = new PlanningRequirements { Summary = "Retain contractual obligations", Outcomes =
     [new("report", "Return the producer location") { Commitments = [new("inspected-operation") { Result = new("location", "filePath") }] }] };
@@ -307,31 +365,6 @@ var restoredFailure = JsonSerializer.Deserialize(JsonSerializer.Serialize(taskFa
 if (restoredFailure.Failure?.Code != taskFailure.Failure.Code) throw new InvalidOperationException("Agent failure serialization failed");
 Console.WriteLine("agent failure: structured host diagnostic survives source-generated serialization");
 
-// Clarification is a response in the existing planning loop, not a separate model phase.
-var clarificationRuntime = new ClarificationRuntime(); var clarificationPlanner = new HybridWorkflowPlanner();
-var clarificationState = new PlanningSession { Request = new() { TenantId = "smoke", Mode = "auto", Prompt = "Return a value with the intended interface" } };
-clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new(), clarificationRuntime, CancellationToken.None);
-clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-if (clarificationState.Status != PlanningStatus.Clarification || clarificationState.Plan is not null || clarificationState.PendingQuestions?.Count != 1)
-    throw new InvalidOperationException("Early clarification did not survive Native AOT recovery.");
-clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { Kind = "answer", ExpectedRevision = clarificationState.Revision,
-    Answers = [new("interface", Text: "Use no caller inputs")] }, clarificationRuntime, CancellationToken.None);
-if (clarificationRuntime.Calls != 1 || clarificationState.AnswerHistory?.Single().Answers.Single().Text != "Use no caller inputs")
-    throw new InvalidOperationException("Answer was not retained before dispatch.");
-clarificationState = JsonSerializer.Deserialize(JsonSerializer.Serialize(clarificationState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-clarificationState = await clarificationPlanner.AdvanceAsync(clarificationState, new() { ExpectedRevision = clarificationState.Revision }, clarificationRuntime, CancellationToken.None);
-PlanningArtifactApproval.Verify(clarificationState);
-if (clarificationState.Status != PlanningStatus.FinalReview || clarificationState.ApprovedHash is not null || clarificationRuntime.Calls != 2)
-    throw new InvalidOperationException("Clarification bypassed review or lost accounting.");
-if (clarificationState.IntentVersion != 3 || clarificationState.OutcomeVersion is not null || clarificationState.OutcomeBindings is not null ||
-    !clarificationState.ValidationResults.Any(r => r.Id.StartsWith("coverage:", StringComparison.Ordinal) && r.Outcome == "unverified"))
-    throw new InvalidOperationException("Business planning profile did not survive Native AOT recovery.");
-var intentHash = clarificationState.ComputeArtifactHash();
-clarificationState.Requirements!.Summary += " revised";
-if (intentHash == clarificationState.ComputeArtifactHash()) throw new InvalidOperationException("Requirements were not bound to approval.");
-Console.WriteLine("business intent: persisted requirements and approval identity survive Native AOT serialization");
-Console.WriteLine("clarification: auto pause, custom answer, restart, unchanged budget and separate approval passed with deterministic inference");
-
 // A shared location is lowered to an approved literal without an agent dispatch.
 var workspacePlan = JsonSerializer.Deserialize("""
 {"root":{"tasks":[
@@ -373,27 +406,29 @@ Console.WriteLine("operation outputs: approved payload and partial envelope surv
 
 foreach (var name in PlanningCorpus.Names)
 {
-    var environment = new PlanningBenchmarkCases.Environment(name); var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
-    var runtime = new PlanningCorpus.Runtime(name, engine); var planner = new HybridWorkflowPlanner();
-    // The frozen stress corpus uses the same existing request limits as its live campaign.
-    var state = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = PlanningCorpus.Prompt(name), MaxModelCalls = 8, MaxReplanAttempts = 2,
-        Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } };
-    for (var i = 0; i < 20 && !PlanningStatus.IsWaiting(state.Status) && !PlanningStatus.IsTerminal(state.Status); i++)
+    var environment = new PlanningBenchmarkCases.Environment(name);
+    var engine = new WorkflowEngine { McpClientFactory = environment.Factory(), HumanInputProvider = new PlanningCorpus.Human() };
+    var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+    var catalog = await runtime.DiscoverAsync(new(), CancellationToken.None);
+    foreach (var source in await runtime.Capabilities.ListSourcesAsync(CancellationToken.None))
     {
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, CancellationToken.None);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
+        string? cursor = null;
+        do
+        {
+            var page = await runtime.Capabilities.ListAsync(source.Id, cursor, CancellationToken.None);
+            foreach (var capability in page.Capabilities)
+                catalog.Capabilities.Add(await runtime.Capabilities.ResolveAsync(capability, CancellationToken.None));
+            cursor = page.NextCursor;
+        } while (cursor is not null);
     }
-    if (state.Status != PlanningStatus.FinalReview || state.ModelCalls > state.Request.MaxModelCalls || environment.Effects.Count != 0) throw new InvalidOperationException(JsonSerializer.Serialize(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic));
-    if (state.Request.Options["planning_diagnostics_version"]?.ToString() != "1" ||
-        state.Request.Options["planning_input_review_version"]?.ToString() != "2" ||
-        state.Request.Options["business_judge_review_version"]?.ToString() != "2")
-        throw new InvalidOperationException("Fresh private validation profiles did not survive Native AOT checkpoint serialization.");
-    state = await planner.AdvanceAsync(state, new() { Kind = "approve", ReviewedRequirementIds = state.Requirements!.Outcomes.Select(r => r.Id).ToList(), ExpectedRevision = state.Revision, ArtifactHash = PlanningArtifactApproval.Hash(state) }, runtime, CancellationToken.None);
-    if (state.Status != PlanningStatus.Approved) throw new InvalidOperationException("Approval failed.");
-    var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+    var graph = PlanningCorpus.Graph(name, catalog);
+    PlanningConfirmationGuards.Apply(graph, catalog);
+    var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+    if (environment.Effects.Count != 0) throw new InvalidOperationException("Compilation performed an effect.");
+    var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
     var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], PlanningBenchmarkCases.Inputs(name, "nominal"), CancellationToken.None);
     if (!environment.Verify(result)) throw new InvalidOperationException("Independent result assertion failed: " + result.Error?.Message);
-    Console.WriteLine(name + ": passed, calls=" + state.ModelCalls + ", replans=" + state.ReplanAttempts + ", validations=" + state.ValidationResults.Count);
+    Console.WriteLine(name + ": static TaskPlan compiler/runtime oracle passed; no planning dispatch or approval was inferred.");
 }
 
 // Typed semantic transformations must survive source-generated serialization and AOT.
@@ -414,9 +449,9 @@ PlanningConfirmationGuards.Apply(productCompilation.Graph, productCatalog);
 var productDocument = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(productCompilation.Graph, productCatalog)));
 var productResult = await productEngine.ExecuteAsync(productDocument.Workflows[productDocument.Entrypoint!], new JsonObject { ["search"] = ProductTransformationFixture.SearchUrl }, CancellationToken.None);
 if (!productResult.Success || !products.VerifyText() || products.Effects.Last() != "close") throw new InvalidOperationException("Transform oracle failed: " + productResult.Error?.Message);
-var proposal = new PlanningProposal { DiscoveryRequests = [new("browser", Query: "inspect pages"), new("document")] };
-if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
-if (JsonSerializer.Deserialize(JsonSerializer.Serialize(proposal, PlanningJsonContext.Default.PlanningProposal), PlanningJsonContext.Default.PlanningProposal)!.DiscoveryRequests![0].Query != "inspect pages") throw new InvalidOperationException("Discovery query serialization failed");
+var discoveryBatch = new List<PlanningDiscoveryRequest> { new("browser", Query: "inspect pages"), new("document") };
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryBatch, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), PlanningJsonContext.Default.ListPlanningDiscoveryRequest)!.Count != 2) throw new InvalidOperationException("Discovery batch serialization failed");
+if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryBatch, PlanningJsonContext.Default.ListPlanningDiscoveryRequest), PlanningJsonContext.Default.ListPlanningDiscoveryRequest)![0].Query != "inspect pages") throw new InvalidOperationException("Discovery query serialization failed");
 var discoveryReceipt = new CapabilityPage("source", null, [], "rank:snapshot:8", Query: "inspect pages");
 var artifactReceipt = new CapabilityPage("source", null,
     [new("producer", "source", "declared", "", "mcp.call", "read", "v1", ArtifactContract: new(1, [new("evidence", "/value", "materialize")], []))],
@@ -434,20 +469,6 @@ if (JsonSerializer.Deserialize(JsonSerializer.Serialize(discoveryReceipt, Planni
 if (JsonSerializer.Deserialize(JsonSerializer.Serialize(focusedDiscovery, PlanningJsonContext.Default.CapabilityDiscoveryState), PlanningJsonContext.Default.CapabilityDiscoveryState)!.Inspections![0].OperationIds![0] != "selected_operation")
     throw new InvalidOperationException("Contract inspection selection serialization failed");
 Console.WriteLine("typed transforms: passed; mocked inference; ordered products and cleanup verified");
-
-// New plan-only requests and saved request schemas retain their distinct meanings in AOT.
-var bounded = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Return declared data", MaxModelCalls = 8, MaxReplanAttempts = 2 }, ModelCalls = 6 };
-bounded.Discovery.Sources.Add(new("declared", "Declared source"));
-var boundedSchema = PlanningSchemas.Proposal(bounded);
-var noPlan = new JsonObject { ["requirements"] = new JsonObject { ["summary"] = "Return data", ["outputs"] = new JsonArray(), ["outcomes"] =
-    new JsonArray(new JsonObject { ["id"] = "data", ["description"] = "Return declared data" }), ["inputs"] = null }, ["discoveryRequests"] = null, ["plan"] = null, ["clarifications"] = null };
-if (!PlanningSchemas.AllowsNoPlan(boundedSchema) || PlanningContractValidation.ValidateInstance(noPlan, boundedSchema).Count != 0)
-    throw new InvalidOperationException("Closed discovery must permit a safe no-plan response");
-bounded.PendingCall = new() { Id = "retained", Purpose = "tasks", Request = new() { StructuredOutputSchema = boundedSchema } };
-bounded = JsonSerializer.Deserialize(JsonSerializer.Serialize(bounded, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-if (!PlanningSchemas.AllowsNoPlan(bounded.PendingCall!.Request.StructuredOutputSchema) || bounded.ModelCalls != 6)
-    throw new InvalidOperationException("Saved discovery restriction or accounting changed");
-Console.WriteLine("bounded discovery: passed; issued no-plan schema and counters survive serialization");
 
 // Explicit finite domains and deterministic encoding use the existing runtime,
 // including source-generated serialization. No model or MCP client is supplied.
@@ -593,12 +614,18 @@ if (ownedRejection.Graph is not null || !ownedRejection.Diagnostics.Any(d => d.C
     throw new InvalidOperationException("Catalog override was accepted");
 Console.WriteLine("catalog-owned bindings: passed; host injection and explicit override rejection verified");
 
+LLMRequest RepairRequest(PlanningSession state) => new()
+{
+    Prompt = PlanningPrompt.RepairInstructions + "\n" + PlanningJsonTransport.Prompt(new JsonObject { ["repair"] = PlanningRepairContext.Build(state) }),
+    StructuredOutputSchema = PlanningSchemas.RepairSchema(state)
+};
+
 // Patch-only repair is a private wire contract, round-tripped through source generation.
 var repairState = new PlanningSession { Request = new() { TenantId = "smoke", Prompt = "Use the declared business text" },
-    IntentVersion = 2, Requirements = new() { Summary = "Use text", Inputs = [], Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
+    Phase = PlanningPhase.Replanning, Requirements = new() { Summary = "Use text", Inputs = [], Outcomes = [new("text", "Use business text")] }, Plan = ownedPlan, Catalog = ownedCatalog,
     Diagnostics = ownedRejection.Diagnostics.ToList(), RevisionScope = TaskPlanRevisions.Scope(ownedPlan, ownedRejection.Diagnostics).ToList() };
-var repairSchema = PlanningSchemas.Proposal(repairState);
-var repairRequest = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(repairState), StructuredOutputSchema = repairSchema };
+var repairRequest = RepairRequest(repairState);
+var repairSchema = repairRequest.StructuredOutputSchema!;
 var removeOwned = JsonNode.Parse("""{"discoveryRequests":null,"clarifications":null,"patch":{"edits":[{"slot":"s0","action":"remove"}]}}""")!;
 if (PlanningContractValidation.ValidateSchema(repairSchema, strict: true).Count != 0 || PlanningContractValidation.ValidateInstance(removeOwned, repairSchema).Count != 0)
     throw new InvalidOperationException("Typed repair schema failed");
@@ -616,8 +643,8 @@ repairState.Plan = repairedPlan;
 repairState.Plan.Root.Tasks[0].Operation = "unresolved_operation";
 repairState.Diagnostics = new TaskPlanCompiler().Compile(repairState.Plan, ownedCatalog).Diagnostics.ToList();
 repairState.RevisionScope = TaskPlanRevisions.Scope(repairState.Plan, repairState.Diagnostics).ToList();
-var structuralRequest = new PlanningPrompt(repairState).Request();
-var structuralSlot = PlanningRepairPatch.Slots(repairState, PlanningSchemas.FullProposal(repairState, compact: false)["$defs"]!.AsObject()).Single(s => s.Kind == "task");
+var structuralRequest = RepairRequest(repairState);
+var structuralSlot = PlanningRepairPatch.Slots(repairState, PlanningSchemas.TaskPlanGrammar(repairState)["$defs"]!.AsObject()).Single(s => s.Kind == "task");
 var structuralPatch = new RepairPatch { Edits = [new() { Slot = structuralSlot.Id, Action = "replace_task", Value = JsonNode.Parse("""
 {"id":"work","kind":"operation","objective":"Use the business text","dependsOn":[],"operation":"owned_operation","inputs":[{"name":"text","value":{"kind":"string","text":"business"}}]}
 """) }] };
@@ -633,7 +660,7 @@ repairState.EditablePaths = ["/tasks/work/inputs/text"];
 repairState.RevisionScope = [.. repairState.EditablePaths];
 TaskPlanRevisions.ValidateEditablePaths(repairState, repairState.EditablePaths);
 repairState = JsonSerializer.Deserialize(JsonSerializer.Serialize(repairState, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-var targetedRequest = new PlanningPrompt(repairState).Request();
+var targetedRequest = RepairRequest(repairState);
 var targetedPatch = JsonNode.Parse("""{"edits":[{"slot":"s0","action":"replace","value":{"kind":"string","text":"explicit revision"}}]}""")!
     .Deserialize(RepairJsonContext.Default.RepairPatch)!;
 var targetedPlan = PlanningRepairPatch.Apply(repairState, targetedPatch, targetedRequest);
@@ -680,6 +707,23 @@ if (!(await new WorkflowEngine { RunStore = adaptiveStore }.ResumeAsync("smoke",
     throw new InvalidOperationException("Native adaptive receipt recovery repeated inference.");
 Console.WriteLine("adaptive mappings: three source-grounded specializations, shared budget, ordered values and durable replay");
 
+var nativeModelOptions = new GnOuGo.AI.Core.LLMOptions
+{
+    DefaultProvider = "gateway", DefaultModel = "gpt-6-luna",
+    Models = { ["gateway"] = new() { Type = "openai", Url = "https://example.invalid/v1" } }
+};
+var nativeCreation = new PlanningRequest();
+GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capture(nativeCreation, nativeModelOptions);
+nativeCreation = JsonSerializer.Deserialize(JsonSerializer.Serialize(nativeCreation, PlanningJsonContext.Default.PlanningRequest), PlanningJsonContext.Default.PlanningRequest)!;
+var frozenModelOptions = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(nativeModelOptions, nativeCreation);
+nativeModelOptions.Models["gateway"].RequestPolicy.MaxOutputTokensCap = 1;
+var nativeMetadata = new GnOuGo.AI.Core.RoutingLLMClient(frozenModelOptions, []).ResolveDeclaredMetadata("gateway", "gpt-6-luna")!;
+if (nativeMetadata.MaxOutputTokens != 128000 || nativeMetadata.Pricing!.CachedInputPer1MTokens != .01m ||
+    nativeMetadata.Capabilities.ChatToolsReasoningEfforts is not { Count: 1 } || frozenModelOptions.Models["gateway"].RequestPolicy.MaxOutputTokensCap is not null ||
+    GnOuGo.AI.Core.ModelMetadataCatalog.EstimateUsageCost(nativeMetadata.Pricing, 1000, 100, 500) != .000105m)
+    throw new InvalidOperationException("Captured metadata, conditional capabilities or cached pricing changed through Native AOT serialization.");
+Console.WriteLine("captured metadata: exact deployment, conditional capabilities, frozen policy and cached pricing; no inference");
+
 sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
 {
     internal int Calls;
@@ -690,20 +734,6 @@ sealed class AdaptiveSmokeModel : ILLMClient, ILLMCapabilityResolver
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);
 }
 
-sealed class ClarificationRuntime : IPlanningRuntime
-{
-    private readonly WorkflowPlanningRuntime _inner = new(new(), (_, _) => Task.CompletedTask);
-    internal int Calls;
-    public ICapabilityCatalog Capabilities => _inner.Capabilities;
-    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => _inner.DiscoverAsync(request, ct);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => _inner.ValidateAsync(request, ct);
-    public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => _inner.ValidateCatalogAsync(catalog, ct);
-    public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;
-    public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-    {
-        var proposal = ++Calls == 1 ? new PlanningProposal { Clarifications = [new("interface", "Which caller interface?", [new("none", "No caller inputs"), new("value", "A caller-supplied value")], "none")] }
-            : new PlanningProposal { Requirements = PlanningCorpus.Requirements("local"), Plan = PlanningCorpus.LiteralResult() };
-        return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(proposal, PlanningJsonContext.Default.PlanningProposal),
-            request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-    }
-}
+[System.Text.Json.Serialization.JsonSourceGenerationOptions(PropertyNamingPolicy = System.Text.Json.Serialization.JsonKnownNamingPolicy.CamelCase)]
+[System.Text.Json.Serialization.JsonSerializable(typeof(GnOuGo.KeyVault.Core.Services.KeyVaultRecordCursor))]
+internal partial class PagingSmokeJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

@@ -35,8 +35,8 @@ public sealed class RepairPatchTests
     internal static IReadOnlyList<PlanningRepairPatch.Slot> Slots(PlanningSession state) => PlanningRepairPatch.Slots(state, PlanningRepairPatch.Template(state)["$defs"]!.AsObject());
     internal static LLMRequest Request(PlanningSession state) => new()
     {
-        StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state, clarifications: false)),
-        Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = PlanningRepairPatch.Version(state), ["authority"] = PlanningRepairPatch.Authority(state) } }.ToJsonString()
+        StructuredOutputSchema = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state))),
+        Prompt = PlanningPrompt.RepairInstructions + "\n" + new JsonObject { ["repair"] = PlanningRepairContext.Build(state) }.ToJsonString()
     };
     internal static JsonObject Edit(PlanningSession state, string path, string action, JsonNode? value = null)
     {
@@ -47,7 +47,7 @@ public sealed class RepairPatchTests
     internal static TaskPlan Apply(PlanningSession state, params JsonObject[] edits)
     {
         var request = Request(state);
-        var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(e => (JsonNode)e).ToArray()) } };
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray(edits.Select(e => (JsonNode)e).ToArray()) } };
         var errors = PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!);
         Assert.Empty(errors);
         return PlanningRepairPatch.Apply(state, response.Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!.Patch!, request);
@@ -87,7 +87,7 @@ public sealed class RepairPatchTests
             case "wrong-type": edit["value"] = "false"; break;
             case "required-removal": edit = Edit(state, "/tasks/consumer/inputs/text", "remove"); break;
         }
-        var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)edit) } };
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)edit) } };
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, Request(state).StructuredOutputSchema!));
     }
 
@@ -152,10 +152,10 @@ public sealed class RepairPatchTests
     [Fact]
     public void ALocalRepairDoesNotRepeatUnrelatedSubtreesOrSchemas()
     {
-        var state = State(); var before = HybridWorkflowPlanner.Prompt(state);
+        var state = State(); var before = PlanningRepairContext.Build(state).ToJsonString();
         state.Plan!.Groups.Add(new() { Id = "unrelated_group", Body = new() { Tasks = [new() { Id = "other", Kind = "value", Objective = new string('x', 100000) }] } });
         state.Discovery.Resolved.Add(new() { Id = "unrelated_capability", Description = new string('y', 100000), Version = "1", StepType = "mcp.call", InputSchema = new() { ["type"] = "object" } });
-        var after = HybridWorkflowPlanner.Prompt(state);
+        var after = PlanningRepairContext.Build(state).ToJsonString();
         Assert.DoesNotContain(new string('x', 50), after); Assert.DoesNotContain(new string('y', 50), after);
         Assert.Equal(before.Length, after.Length); // Only the fixed-length authority fingerprint changes.
         Assert.DoesNotContain("\"taskPlan\"", after);

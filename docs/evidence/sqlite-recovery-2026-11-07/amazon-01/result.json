@@ -1,0 +1,23 @@
+{
+  "source": "9d3a0089c11401ed1613a73e5272f3cc7e4ed210",
+  "session": "4aad13882bbb4232b92bc905b7d30772",
+  "status": "stopped",
+  "revision": 24,
+  "logicalCalls": 10,
+  "physicalHttpAttempts": 10,
+  "completedModelReceipts": 9,
+  "outputLimitModelReceipts": 1,
+  "draftOutputTokenAllocation": 8192,
+  "lastResponse": {
+    "outcome": "output_limit",
+    "finishReason": "length",
+    "visibleTextEmpty": true,
+    "reasoningTokens": 8192
+  },
+  "acceptedCheckpoints": 0,
+  "acceptedPlan": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "independentOracleRun": false,
+  "storageHostFailure": false
+}

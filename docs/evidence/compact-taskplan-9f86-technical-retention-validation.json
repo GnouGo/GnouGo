@@ -1,0 +1,79 @@
+{
+  "production_source": "9f86a8a63a6af76b35722447347630d0a31fa0a6",
+  "author_hint_change_source": "6531a83e2d94c27622a7f2b79507cab2d645253a",
+  "changes": [
+    "Version11 author hint distinguishes task presence from caller-input and field nullability; historical hints, Judge instructions and executable grammar are unchanged.",
+    "Existing benchmark-only unstarted retention admits matching pre-generation HTTP failures under exact administrative authority; no attempt, usage or reservation is invented."
+  ],
+  "validation": {
+    "hint_reproduction_before": {
+      "exit_code": 1,
+      "counts": {
+        "Failed": 2
+      },
+      "elapsed_seconds": 30.0678851249977,
+      "source_unchanged": true,
+      "log_sha256": "d50cef7c0366fe9163b9e28ca7b85d8f73f47ce6cdfa460a5210533f0005a4e7"
+    },
+    "affected_planning_after": {
+      "exit_code": 0,
+      "counts": {
+        "Passed": 146
+      },
+      "elapsed_seconds": 29.209447332948912,
+      "source_unchanged": true,
+      "log_sha256": "99b60ce6bfb00a27d37b4e527d301b38e822df45edb316a21d5e4929ec5f7a90"
+    },
+    "retention_reproduction_before": {
+      "exit_code": 1,
+      "counts": {
+        "Failed": 5,
+        "Passed": 2
+      },
+      "elapsed_seconds": 72.93588875001296,
+      "source_unchanged": true,
+      "log_sha256": "9fa8c1fc23f9a630ab0d025a85cd3dda72e8969b59b7c3020596fbd6cfb8db9c"
+    },
+    "retention_after": {
+      "exit_code": 0,
+      "counts": {
+        "Passed": 494
+      },
+      "elapsed_seconds": 73.8240760419867,
+      "source_unchanged": true,
+      "log_sha256": "761894051e55691d26acefb98d5b51a45e5e56940856daf86a545e41376771bc"
+    },
+    "full_planning_after": {
+      "exit_code": 0,
+      "counts": {
+        "Passed": 3707
+      },
+      "elapsed_seconds": 347.38448375003645,
+      "source_unchanged": true,
+      "log_sha256": "327956c785f44b739016abe53101f9aaaa1f0170344aff963fb310d8a18bf8ee"
+    },
+    "counts_overlap": true
+  },
+  "benchmark_build": {
+    "source": "9f86a8a63a6af76b35722447347630d0a31fa0a6",
+    "build_sha256": "9dd88a488bd9a459f89397f6d1665be1494aed8f018ec45aba4a744ec0cbbb0f",
+    "binary_sha256": "88b9736b05bb9fa51b65a0a58e9c6681d294278d7707ae343052c846fa9f44bf",
+    "mcp_pins_verified": 568,
+    "model_calls": 0
+  },
+  "live_acceptance": "Not established on this source; fresh Collections diagnostic dispatched under the unchanged profile. Previous6469 outcomes retain their own source attribution.",
+  "final_source_full_solution_packages_aot_ci": "Pending; the earlier6469 solution observer remains running and is not a pass for changed source.",
+  "retained_6469_full_solution": {
+    "production_source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+    "validation_snapshot_base": "c9d3135db95a52cb4558bf527cd50553625a59a3",
+    "exit_code": 0,
+    "counts": {
+      "Passed": 9039,
+      "NotExecuted": 13
+    },
+    "elapsed_seconds": 5796.691823749978,
+    "source_unchanged": true,
+    "log_sha256": "0a76f402c88bae4b6f5babf5d72509103b894154f8fb58a554b4178ae9328bfe",
+    "qualifies_later_changed_source": false
+  }
+}

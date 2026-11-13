@@ -1,0 +1,238 @@
+{
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compactr4e38426b3colcite",
+  "source": "4e38426b34165fcc3d0af840505bb4e1e2c620b4",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": null,
+  "run_hash": "6c7cdf52cb18df21662ab8608475ec51fea22d3582546cb7980074c43cc91d96",
+  "session_status": "stopped",
+  "session_phase": "construction_local_judge",
+  "calls": 11,
+  "corrections": 0,
+  "checkpoints": 2,
+  "construction_complete": false,
+  "artifact_hash": null,
+  "diagnostic_codes": [
+    "CONSTRUCTION_REVIEW_INCONCLUSIVE"
+  ],
+  "execution_started": false,
+  "execution_success": null,
+  "oracle_passed": false,
+  "planning_ms": 508198,
+  "runtime_ms": null,
+  "totals": {
+    "request_identities": 11,
+    "http_attempts": 12,
+    "receipts": 11,
+    "unknown_attempts": 1,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 18319,
+    "known_output_tokens": 7971,
+    "known_reasoning_tokens": 5957,
+    "reasoning_measured_calls": 11,
+    "known_cost_eur": "0.2951584114234716644355198573",
+    "unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+    "cost_upper_bound_eur": "1.2260285586791610887996430166"
+  },
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "medium",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "high",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 8000,
+      "outputTokens": 8192
+    }
+  },
+  "terminal_review": {
+    "request_id": "524f68e751c6826de102a9a54c43d4a0f8bd6563d9125b7c91573e9bc65f90d5:11:612bbbc6939882f83e11312e412c9faee7d56291a9d0965240dc6a919a5226c1",
+    "record_hashes": {
+      "requests": "b37342ec4785fb709e9b749546ee769dc8d20ea0283cc3fb7fd188fcb1a5f694",
+      "http-attempts": "3483acadf04824f4bafaa3d87a6743b3d2421a174ae62d33aba1ce4573d2ccf1",
+      "receipts": "34dcc9bd9e3362caa84d46f01b3fc3ce66df26b3efc427c94b82e2426346e5e9",
+      "failures": null,
+      "closures": null
+    },
+    "response_text_sha256": "23acff00625d1f4bd87f76d1390dc6133c5c65ba32f61dd485211f66490e7b47",
+    "parsed_text_equals_receipt_json": true,
+    "findings": null,
+    "evidenceRequests": null,
+    "inconclusive": null,
+    "uncertainty_characters": 256,
+    "uncertainty_sha256": "5e02e247dc9209248f27e0a507f454ac2653f3ef684ccbbea1bf89ed6bfdd400",
+    "uncertainty_summary": "Residual execution, later parallel invocation, whole-plan and array-level obligations remain unverified; this field supplies no review action.",
+    "action_count": 0,
+    "completion_status": null,
+    "output_tokens": 1109,
+    "reasoning_tokens": 1024,
+    "visible_output_tokens_derived": 85,
+    "request_measurement": {
+      "version": 1,
+      "inputLimit": 8000,
+      "completeRequestBytes": 10771,
+      "estimatedInputTokens": 3847,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "524f68e751c6826de102a9a54c43d4a0f8bd6563d9125b7c91573e9bc65f90d5:11:612bbbc6939882f83e11312e412c9faee7d56291a9d0965240dc6a919a5226c1",
+      "phase": "construction_local_judge",
+      "stepId": "step_3",
+      "admission": "admitted",
+      "requestHash": "b37342ec4785fb709e9b749546ee769dc8d20ea0283cc3fb7fd188fcb1a5f694",
+      "schemaHash": "ffbf79ec2bae11561e3360de25b3b4a8fbb9b039e63cc5dfd11f752022edcbe8",
+      "baselineHash": "028b4db704c29dd82244476ecb03ef355768c4bf73561b3a5d17aa3cbdce5f76",
+      "contracts": [],
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 2616,
+          "estimatedTokens": 872
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 453,
+          "estimatedTokens": 407
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 517,
+          "estimatedTokens": 173
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3153,
+          "estimatedTokens": 1051
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 1683,
+          "estimatedTokens": 561
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 103,
+          "estimatedTokens": 35
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 730,
+          "estimatedTokens": 244
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 1440,
+          "estimatedTokens": 480
+        }
+      ],
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    },
+    "issued_exact_one_action_instruction_present": true,
+    "residual_uncertainty_is_not_inconclusive_instruction_present": true,
+    "all_action_fields_nullable_in_issued_schema": true,
+    "citation_rule_on_evidence_field_present": true,
+    "classification": "Valid JSON with zero permitted review actions. The host rejected it before citation grounding; no valid explicit inconclusive or finding exists to reassess. Not an input/output admission failure or empty response.",
+    "host_guard_reference": "HybridWorkflowPlanner.ConstructionReview.cs:209-218",
+    "captured_review_output_tokens": 8192,
+    "output_allowance_basis": "Captured phase_policy.review.outputTokens in the exact-source safe metrics; no new store read."
+  },
+  "candidate": {
+    "base_hash": "028b4db704c29dd82244476ecb03ef355768c4bf73561b3a5d17aa3cbdce5f76",
+    "hash": "fa6298896cbd682337c83cce30af95aff6f1d02704e8dfa8a176edad492b347f",
+    "scope": "/groups/double_item/body",
+    "kind": "close",
+    "closeRequirementIds": [],
+    "plan_completion_claimed": false,
+    "draft_task_count": 0,
+    "draft_output_count": 1,
+    "closeScopes": [
+      "/groups/double_item/body"
+    ],
+    "output_binding": {
+      "kind": "output",
+      "source": "step_2",
+      "port": "doubled numeric item"
+    },
+    "consumed_interface_schema": {
+      "type": "number"
+    },
+    "scope_interface_basis": "tentative_candidate",
+    "scope_interface_open": false,
+    "scope_interface_consumable": false,
+    "exact_producer_evidence_address": "task:step_2",
+    "exact_producer_binding_supplied": false,
+    "required_original_clause_sha256": "852d8fda860175411158ff43d2aae6cd8a58a1eff42c39ae230c6efb3bbfa961",
+    "local_reviewed": false,
+    "intermediate_reviewed": false,
+    "candidate_diagnostic_count": 0,
+    "review_record_outcome": "inconclusive",
+    "accepted_open_scopes": [
+      "/groups/double_item/body",
+      "/root"
+    ],
+    "candidate_open_scopes": [
+      "/root"
+    ]
+  },
+  "limitations": [
+    "No complete artifact, approval, runtime or independently satisfied business-obligation claim.",
+    "This failed action does not test the relocated finding citation rule because no finding was returned.",
+    "Do not reinterpret null findings as empty findings or residual uncertainty as explicit inconclusive.",
+    "The broad nullable schema permits zero actions structurally; the retained host semantic guard correctly rejects it. Any future schema change requires separate design and compatibility validation.",
+    "Original prompts, reports and state remain encrypted; only bounded technical facts and hashes are retained."
+  ],
+  "retained_private_evidence": [
+    {
+      "name": "freeze.json",
+      "sha256": "8fb0b807960bde9d7cd016778a92b3b2b52b0011bbca95c5e36972236d61d1b8"
+    },
+    {
+      "name": "collections-safe-metrics.json",
+      "sha256": "38e2cd137b8dde01d6917d1600118b61126d01cc84a517f50078e9d1f147953a"
+    },
+    {
+      "name": "collections-failure-witness-safe.json",
+      "sha256": "9f5e5b9fe2ef8cc61122a716a96dac9445b8370983cb0dd1c80952dd57b7dc7c"
+    },
+    {
+      "name": "collections-failure-witness-safe-v2.json",
+      "sha256": "83f8683bc316f5cea007a2bff89f808bada60af6f8f5a5177b4ca765203a0962"
+    },
+    {
+      "name": "collections-response-format-metrics.json",
+      "sha256": "7e98173365cb8941de7ca150612f643fcf4361feda782b279c0ff78791ddcc47"
+    },
+    {
+      "name": "campaign-post-collections-audit.json",
+      "sha256": "1902fc09c242bb06742f53444a392aded54ca40b0d771614cb1e1fc20cddf625"
+    }
+  ],
+  "campaign_available_eur_at_inspection": "128.37207331970670699350633915",
+  "active_receiptless_requests_at_inspection": 0,
+  "permanently_closed_receiptless_requests": 23
+}

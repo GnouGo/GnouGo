@@ -1,0 +1,135 @@
+{
+  "version": 1,
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964dcode20v6",
+  "case": "code",
+  "verdict": "The terminal stop is a legitimate requested-original follow-up that fails the captured input ceiling before dispatch. The tentative clone has the exact specified branch and directory but has not passed all source windows or been accepted. No new missing-context or evidence-loader defect is demonstrated.",
+  "private_evidence": {
+    "assessment": {
+      "name": "source-assessment-safe.json",
+      "sha256": "1d46ca2d8276518906c0ef519dba3647a56cc51c7927cb8fa90771b304cb0742",
+      "bytes": 11157
+    },
+    "independent_peer": {
+      "name": "independent-review-safe.json",
+      "sha256": "694ecb9c0558a0db49d34af42bfc5f793f70281cc5df219553a0985c4f95f9cc",
+      "bytes": 5732
+    },
+    "safe_inputs": [
+      {
+        "role": "witness",
+        "name": "code-review-evidence-limit-witness-safe.json",
+        "sha256": "37724ce0ce7c4c13048492ac08526a928f7c030d14ee50c14546ebd802a9184e",
+        "bytes": 288528
+      },
+      {
+        "role": "metrics",
+        "name": "code-terminal-exact-metrics.json",
+        "sha256": "eee480d6659a32c42751cf6f950f5f71d67aae637c5be08eb08d82e64d36210d",
+        "bytes": 85663
+      },
+      {
+        "role": "freeze",
+        "name": "freeze.json",
+        "sha256": "2f34bd17005016a66a9072f68e337f82eba9960723fc7e10e0d787cb7edaaea4",
+        "bytes": 11799
+      },
+      {
+        "role": "numeric",
+        "name": "code-terminal-numeric-safe.json",
+        "sha256": "8a5eb8089d94cf241e2646b62fa8ba24611c70111b68ce5acc0c48e1beb9dafa",
+        "bytes": 17538
+      },
+      {
+        "role": "formatting",
+        "name": "code-original-formatting-safe.json",
+        "sha256": "a2796aab46da6123f05cf8f61fed94a533fa9d8092850a167a7d438799a71b09",
+        "bytes": 15612
+      }
+    ]
+  },
+  "source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.cs",
+      "sha256": "fc075b804c1a284e1b8ebf42ccf41773ca2467b5c037eb4c434c6f13f087a0b1",
+      "lines": "15-80 packing/admission;83-88 all-window acceptance;233-294 unique originals and requested-page co-location"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "sha256": "f62d3401d10be6b7f3e4b25ff45d1bd7704bbcda705b7394e1cdda8cb0785baf",
+      "lines": "36-69 cloned evidence resolution and full prepared follow-up admission"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "b300d294511d51efb7a76de7f5ef2aa2711f687542adec460cb657d2573aef32",
+      "lines": "381-414 evidence follow-up, one-address limit stop and no acceptance"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "93172615dc5542e9c7f3d65840a04ace23f7d29fb3ffe8b0c7b7e6c7ed7ed336",
+      "lines": "271-289 exact requirement/page resolver"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidenceChoices.cs",
+      "sha256": "b1ad4262b35aab96ffc2875ad044d675736650b3cf5492981c6df030c67c6dc8",
+      "lines": "8-33 displayed navigation addresses and retained-evidence exclusions"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd",
+      "lines": "258-277 whole same-original-page requirement paging"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs",
+      "sha256": "f3c41268c2588e7e0e60bdaf70bea7aee4edc6e1b67ecc92ae7c4120e2ab0703",
+      "lines": "330-375 full prose/bound schema closure;625-669 required sibling preservation"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs",
+      "sha256": "f79e99760b001982d6146492988d5fe7089d3de34297e6b7b689da1739d81561",
+      "lines": "204-249 exact source/disposition and typed-name mismatch validation"
+    }
+  ],
+  "outcome": {
+    "artifact": false,
+    "runtime_executed": false,
+    "verified_fulfilled_business_obligations": null,
+    "calls_per_fulfilled_obligation": null
+  },
+  "limitations": [
+    "Bounded saved witness analysis; omitted original reports and text cannot be inferred.",
+    "Partial clean reviews do not establish complete business fulfillment. No causal efficacy, avoided-correction, reliability or current campaign-balance claim.",
+    "All received logical calls have receipts. Failed physical-attempt usage stays reserved separately. No public artifact or runtime result exists for this run."
+  ],
+  "findings": [
+    {
+      "requests": [
+        4,
+        5
+      ],
+      "assessment": "The received interface response names reviewText in dispositions but omits its typed declaration. The exact diagnostic is supported; the next response supplies both input declarations and the output declaration."
+    },
+    {
+      "requests": [
+        13,
+        18
+      ],
+      "assessment": "The tentative clone uses the exact required branch and workspace-relative directory. Selection and draft display all12 original requirements and four globals. One prerequisite cites the wrong original clause despite repeating correct argument text; no causal effect is established."
+    },
+    {
+      "requests": [
+        19
+      ],
+      "assessment": "The Judge asks for the displayed page:requirements:7, containing the exact clone-argument clause outside current window0. The request is legitimate. The resulting whole follow-up fails admission; no adverse findings or clone acceptance result."
+    }
+  ],
+  "coverage": "The clone retains a three-window manifest but no clean window. Accepted work remains an empty cleanup sequence and the public input declarations. All window coverage is still mandatory.",
+  "capacity": {
+    "received_estimated_input_tokens": 11970,
+    "prospective_estimated_input_tokens": 12617,
+    "captured_review_limit": 12000,
+    "prospective_request_bytes": 37081,
+    "assessment": "Requested originals join the issued window on a cloned state; admission precedes evidence retention. Required sibling schemas repeat in exact closure views, but no semantics-preserving deduplication or measured replacement is established."
+  },
+  "recommendation": "Retain the failed control. Any reasoning or capacity experiment must be separately frozen with only its stated policy change; this record demonstrates neither a production fix nor future business success."
+}

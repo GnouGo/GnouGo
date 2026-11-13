@@ -1,0 +1,140 @@
+{
+  "public_production_source": "0801e3d3107a73874232c6d2cdc26f1b71b5e399",
+  "private_execution_source": "61ad121766db8e603450255afec909058f2bbad9",
+  "cohort": "compactm0801e3d3amz11a",
+  "case": "amazon",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "status": "stopped",
+  "logical_calls": 4,
+  "physical_attempts": 4,
+  "corrections": 0,
+  "planning_ms": 489621,
+  "diagnostics": [
+    {
+      "code": "MODEL_OUTPUT_LIMIT",
+      "location": "/phases/construction_draft",
+      "message": "The model response was truncated; no output limit escalation is performed.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "accounting": {
+    "logical_calls": 4,
+    "physical_attempts": 4,
+    "known_input_tokens": 7021,
+    "known_output_tokens": 22036,
+    "known_cost_eur": "0.6253345908560136531033863290",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "phase_usage": {
+    "construction_intent": {
+      "input_tokens": 2381,
+      "output_tokens": 4422,
+      "known_input_tokens": 2381,
+      "known_output_tokens": 4422,
+      "estimated_cost_eur": "0.1298526902003053983652205156",
+      "known_cost_eur": "0.1298526902003053983652205156",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "96929.7517",
+      "physical_attempts": 2
+    },
+    "construction_select": {
+      "input_tokens": 2546,
+      "output_tokens": 1230,
+      "known_input_tokens": 2546,
+      "known_output_tokens": 1230,
+      "estimated_cost_eur": "0.0445791790173358483786939729",
+      "known_cost_eur": "0.0445791790173358483786939729",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "40137.4202",
+      "physical_attempts": 1
+    },
+    "construction_draft": {
+      "input_tokens": 2094,
+      "output_tokens": 16384,
+      "known_input_tokens": 2094,
+      "known_output_tokens": 16384,
+      "estimated_cost_eur": "0.4509027216383724063594718405",
+      "known_cost_eur": "0.4509027216383724063594718405",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "321246.8541",
+      "physical_attempts": 1
+    }
+  },
+  "artifact": false,
+  "runtime_executed": false,
+  "completed_business_units": 0,
+  "calls_per_completed_business_unit": null,
+  "request_4": {
+    "phase": "construction_draft",
+    "complete_bytes": 11544,
+    "schema_bytes": 6246,
+    "provider_input_tokens": 2094,
+    "provider_output_tokens": 16384,
+    "provider_reasoning_tokens": 16384,
+    "visible_content_bytes": 0,
+    "status": "received_output_limit",
+    "attempts": 1,
+    "uncertain": false,
+    "request_sha256": "58e0b2d90b16bab6a6ca87d5058c8dae13e3cb0241a7f910d544198145973008"
+  },
+  "demonstrated_mechanical_dispatch": "The selected requirement-only closure had no tasks, outputs, imports, dependencies or changed bindings. Its extension schema offered only requirementIds. An evidence-linked prerequisite note alone blocked the existing unchanged-plan closure path.",
+  "narrow_correction": "Keep that note for review and remove its veto on preparing the already selected structural claim. All other preconditions, compiler validation, review and approval requirements remain.",
+  "reasoning_exhaustion_cause": "Not established. No unchanged failed-request retry or model/output tuning accompanies the source experiment.",
+  "raw_result_sha256": "18f9dc39eb0fc9dbd6b89200bfaa2b0896b3755a2efe8813c61b88894cf9fbe5",
+  "regression": {
+    "control_failures": 2,
+    "focused_warning_as_error_passes": 55,
+    "requirement_only_path": {
+      "draft_calls": 0,
+      "judge_calls": 0,
+      "requirement_business_status": "in_progress"
+    },
+    "completed_root_path": {
+      "draft_calls": 0,
+      "global_judge_calls": 1,
+      "artifact_approval": "still required"
+    },
+    "pending_issued_request_unchanged": true
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "readiness": {
+    "provider": "OpenAi",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "configuration_hash": "e35fb6e3703ce36db3974552d6d798b800ad36cead124960a2ca249a1f475bd4",
+    "structured_output_supported": true,
+    "medium_reasoning_supported": true,
+    "metadata_sources": {
+      "host_metadata_files": 0,
+      "host_overrides_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+      "persisted_user_config_available": true,
+      "persisted_override_count": 3,
+      "persisted_overrides_hash": "37393187f998dc1873c058b95e964faf769e2d25c34176a9c39cc8aebb53560e"
+    },
+    "declared_metadata_hash": "168d98a12926c08eccecfcdece4fd81cc72752008bba75d3ced2913c8c1b8d06",
+    "supports_reasoning_effort": true,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "max_input_tokens": 1050000,
+    "context_window_tokens": 1050000,
+    "max_output_tokens": 128000,
+    "planning_input_allowance": 96000,
+    "mapping_input_allowance": 96000,
+    "model_calls": 0,
+    "accounting": {
+      "ready": true,
+      "quote": {
+        "source_currency": "USD",
+        "target_currency": "EUR",
+        "rate": "0.8945343948474818856785043385",
+        "as_of_utc": "2026-11-03T00:00:00+00:00",
+        "source": "ecb_reference_rates"
+      },
+      "reservation_estimate_eur": "7.8524376062259593881384739244"
+    },
+    "ready": true,
+    "limitation": null
+  },
+  "compared_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "selection_checks": {
+    "accepted": true,
+    "configuration_exists": true,
+    "material_hash_matches": true,
+    "configuration_matches": true,
+    "host_fingerprint_matches": true,
+    "authorization_binding_matches": true,
+    "failed_checks": []
+  },
+  "configuration_sources": {
+    "provider": "campaign_provider_pin",
+    "model": "keyvault_provider_configuration",
+    "endpoint": "keyvault_provider_configuration",
+    "metadata": "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+    "environment": "not applied by the campaign loader; Server configuration providers are reported separately",
+    "historical_host_options": "unavailable",
+    "request_policy.BillingServiceTier": "code_default",
+    "request_policy.BillingRegionalProcessing": "code_default",
+    "request_policy.BillingCacheRetention": "code_default",
+    "request_policy.BackgroundProtocol": "keyvault_provider_configuration",
+    "request_policy.UnspecifiedOutputTokens": "code_default",
+    "request_policy.DefaultMaxOutputTokens": "code_default",
+    "request_policy.MaxOutputTokensCap": "code_default"
+  },
+  "differences": [],
+  "host_fingerprint_matches": true,
+  "metadata_fingerprint_matches": true,
+  "historical_host_options_available": false,
+  "historical_configuration_available": true,
+  "endpoint_matches": true,
+  "endpoint_differs_only_by_trailing_slash": true,
+  "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "rawEvidenceSha256": "beef84d4fb3e5995c028bb204b1ab760d12ef7a4dae985d1d5e1838f4df03415"
+}

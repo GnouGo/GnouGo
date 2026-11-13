@@ -1,0 +1,67 @@
+{
+  "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+  "passed": 8691,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "stabilized-context-final-full-remainder.log": "cb51a6eda9fcabebe12adcf0518920c16fffc985442ff642f31f8f62b9695739",
+    "stabilized-context-final-fixture-shard1.log": "68a31896e7831d5704461af2897ab35a323e1dc4c5d9044e287667c0d310b6f1",
+    "stabilized-context-final-fixture-shard2.log": "748792e1d1122e88359507a3a200b70aab707f05bc270b2c363028d8e5886e8e",
+    "stabilized-context-final-fixture-shard3.log": "8a1914e646c8c128f3cd51b725050bc754536b18d304c3772b01482ebdb6b39e",
+    "stabilized-context-final-fixture-shard4.log": "17ad426c3ced683521417a0387f4100d534b47f3502517f5c3ebfe0d86c02637",
+    "stabilized-context-final-release-build.log": "62116fdfba6f7cbf3584b90c8f3d4e109b265e5481e6229959a52ef2004ae2d3",
+    "stabilized-context-final-server-tests-build.log": "3d3446b0a3c91cf50c49be99158fbbe55309a19b1c961415f7116111b23f433a",
+    "stabilized-context-final-server-test-inventory.log": "40192bd7cf0a69353a7126d654f479befe2effc5f4fbd133cf95cbb36737730e",
+    "stabilized-context-final-frontend-build.log": "bd2dd02e782c27e4e79563362317b1b1132db404e999293cad27f6f5f794e990",
+    "stabilized-context-final-core-pack.log": "f8bf2df05753c1a5b417af52de7219b6c3527422a3ac3905e9dd24522a7c6b5f",
+    "stabilized-context-final-planning-pack.log": "2b542681da00f01b8e95fd0b49cfd987bc86345c73786083d30d1457e070742c",
+    "stabilized-context-final-aot-publish.log": "26c295d477e003ab0d8b5a462f01d717f88c0130f8f22310cd15ffb5a84cb841",
+    "stabilized-context-final-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification."
+  ]
+}

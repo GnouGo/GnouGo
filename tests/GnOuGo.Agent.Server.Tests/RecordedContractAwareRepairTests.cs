@@ -37,7 +37,7 @@ public sealed class RecordedContractAwareRepairTests
         var plan = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "ContractAwareRepair", "synthetic-minimal-repair.json")))!["proposal"]!["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
         var state = await RecordedPlanCompilation.CompileAsync(runtime.Recording, plan);
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
-        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
+        Assert.Empty(runtime.Identities); Assert.Null(state.ApprovedHash); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
         state.Plan!.Root.Tasks[0].Objective += " changed";
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
     }

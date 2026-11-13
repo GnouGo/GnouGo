@@ -114,10 +114,11 @@ internal sealed class CopilotCodeService(
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are a coding agent operating on a local project through a controlled session filesystem.");
-        sb.AppendLine("Implement the requested change by editing files directly when necessary.");
+        sb.AppendLine("Carry out the requested coding task. Inspect, review, run checks or edit only as requested and permitted by available tools and policy.");
+        sb.AppendLine("Do not assume a tool or command is available. Report missing, denied, failed or incomplete observations explicitly; do not invent command results or exit codes.");
         sb.AppendLine("Only create, update, rename, or delete files required by the task.");
         sb.AppendLine("Respect the project structure and avoid unrelated formatting changes.");
-        sb.AppendLine("When finished, return a concise summary and list the files changed.");
+        sb.AppendLine("When finished, summarize what was actually performed, any unverified work and the files changed.");
         sb.AppendLine();
         sb.AppendLine("[PROJECT ROOT]");
         sb.AppendLine(projectRoot);
@@ -128,7 +129,7 @@ internal sealed class CopilotCodeService(
         sb.AppendLine("[INITIAL CONTEXT FILES]");
         if (contextFiles.Count == 0)
         {
-            sb.AppendLine("No file context was provided. Inspect the project as needed before editing.");
+            sb.AppendLine("No file context was provided. Inspect the project as needed for the requested task.");
         }
         else
         {

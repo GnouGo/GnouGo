@@ -1,0 +1,34 @@
+{
+  "trigger": "Amazon10 rejected its first real content read: two observed GET200 responses for the same escaped terminal URL; current document query was plus-encoded.",
+  "historical_execution_passed": false,
+  "controlled_reproduction": {
+    "same_url_replacement_and_history": "NAVIGATION_EVIDENCE_INCOMPLETE",
+    "history_without_replacement": "Actual GET status was lost and returned null",
+    "red_failed": 2
+  },
+  "correction": {
+    "current_document": "Use only its current committed GET request and already observed response from the same explicit read and identical terminal URL.",
+    "history": "Retain actual method/status while recording the changed document address separately.",
+    "superseded_responses": "Keep earlier same-terminal-URL GET responses outside the real redirect chain; retain actual redirects.",
+    "no_replay_or_navigation_authority_change": true
+  },
+  "negative_cases": [
+    "Different-URL GET cannot borrow an earlier response.",
+    "POST cannot borrow an earlier GET; no interaction replay.",
+    "Existing redirect, host/path denial, fragment, cancellation and shared acquisition bounds remain tested."
+  ],
+  "validation": {
+    "all_browser_passed": 170,
+    "failed": 0,
+    "skipped": 0,
+    "new_cases": 5,
+    "sdk_or_amazon_live_qualification_established": false,
+    "release_publish_exit_code": 0
+  },
+  "private_evidence_sha256": {
+    "amazon10-document-owner-red.log": "94551a00dc51b525a22e42ac0d9badf2eac59da742943553b7e907b99e70ace0",
+    "amazon10-document-owner-browser-final.log": "2f6b37df922029b17fb183821dcf6b8da2e8a815f16e80dc617d8f18cdf97a29",
+    "amazon10-document-owner-browser-final-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+    "document-owner-browser-publish.log": "7149b2015b1784927d2099985f251ebe09ebcab49d6e5c1688bb4ad7ab204507"
+  }
+}

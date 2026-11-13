@@ -1,8 +1,12 @@
 # Dependency audit exceptions
 
-Last reviewed: 2026-08-02
+NuGet last reviewed: 2026-11-07. Frontend exceptions below were last reviewed on 2026-08-02.
 
-All direct NuGet and pnpm dependencies are on their latest stable releases. NuGet reports no deprecated or vulnerable packages, including transitive dependencies. `pnpm audit` reports the two upstream exceptions below.
+All 59 direct NuGet package IDs, including conditional Linux native references, were checked against the official NuGet registry. The refresh updates 51 IDs across 238 references in 63 projects to their latest stable releases. The .NET 10 target and pinned SDK policy remain unchanged. NuGet reports no deprecated or vulnerable packages, including transitive dependencies. Detailed versions and validation are recorded in [the .NET refresh report](docs/evidence/dotnet-dependency-update-2026-11-07/README.md).
+
+LLamaSharp and its CPU backend remain version-aligned, including native asset imports for package consumers. The Copilot SDK update uses its matching pinned CLI runtime, with the existing capability/permission allowlist. Existing encrypted records, EF compiled models and database schemas are retained; published persistence checks verify the new EF/SQLite runtime against them.
+
+The frontend dependencies were not changed or re-audited by this .NET-only refresh. The previously recorded `pnpm audit` exceptions are:
 
 | Advisory | Resolved dependency | Exposure in GnOuGo | Disposition |
 |---|---|---|---|

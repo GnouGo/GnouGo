@@ -1,0 +1,102 @@
+{
+  "commitments": [
+    {
+      "requirementId": "req_0",
+      "operation": "cap_490d9e16075cbdca5954ec27",
+      "result": null
+    },
+    {
+      "requirementId": "req_0",
+      "operation": "cap_bdb7ba9ab04b18783883fa86",
+      "result": null
+    }
+  ],
+  "extension": {
+    "tasks": [
+      {
+        "id": "amazon_search_url",
+        "kind": "value",
+        "objective": "Construire l’URL de recherche Amazon.fr à partir de l’unique entrée obligatoire query, sans fragment.",
+        "dependsOn": [],
+        "requires": null,
+        "outputs": [
+          {
+            "name": "url",
+            "value": {
+              "kind": "string_operation",
+              "text": "concat",
+              "items": [
+                {
+                  "kind": "string",
+                  "text": "https://www.amazon.fr/s?k="
+                },
+                {
+                  "kind": "string_operation",
+                  "text": "uri_component",
+                  "items": [
+                    {
+                      "kind": "input",
+                      "source": "query"
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "id": "amazon_search_observation",
+        "kind": "operation",
+        "objective": "Effectuer la lecture GET de recherche Amazon.fr autorisée par l’hôte et conserver intégralement son résultat, notamment les pages de records bruts ordonnés, les occurrences, les attributs de contexte, les preuves de navigation et les obstacles retournés. Cette acquisition ne qualifie aucun lien et ne constitue aucune visite produit métier ; propager toute erreur levée.",
+        "dependsOn": [],
+        "requires": null,
+        "operation": "cap_490d9e16075cbdca5954ec27",
+        "inputs": [
+          {
+            "name": "url",
+            "value": {
+              "kind": "output",
+              "source": "amazon_search_url",
+              "port": "url"
+            }
+          },
+          {
+            "name": "format",
+            "value": {
+              "kind": "string",
+              "text": "observation_complete"
+            }
+          },
+          {
+            "name": "waitUntil",
+            "value": {
+              "kind": "string",
+              "text": "domcontentloaded"
+            }
+          }
+        ]
+      }
+    ],
+    "always": [
+      {
+        "id": "close_amazon_browser",
+        "kind": "operation",
+        "objective": "Fermer le navigateur à la sortie du workflow racine, même en cas d’erreur, après ses consommateurs et les visites métier ultérieures ; la fermeture expire toute autorité de navigation.",
+        "dependsOn": [],
+        "requires": null,
+        "operation": "cap_bdb7ba9ab04b18783883fa86",
+        "inputs": []
+      }
+    ],
+    "closeScopes": [],
+    "requirementIds": [
+      "req_0"
+    ],
+    "completeBlock": false,
+    "continueInScope": "/root"
+  },
+  "clarifications": null,
+  "evidenceRequests": null,
+  "reselectStep": null
+}

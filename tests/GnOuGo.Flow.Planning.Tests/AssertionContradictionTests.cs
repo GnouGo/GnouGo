@@ -56,36 +56,4 @@ public sealed class AssertionContradictionTests
         var request = PlannerFixture.Session().Request; request.Options["planning_validation_profile"] = "explicit-assertions-v1";
         Assert.Empty(new TaskPlanCompiler().Compile(plan, await new TestRuntime().DiscoverAsync(new(), PlannerFixture.Ct), request).Diagnostics);
     }
-    [Theory]
-    [InlineData("boolean")]
-    [InlineData("literal")]
-    [InlineData("null")]
-    [InlineData("branch")]
-    public async Task FreshValidationDiagnosesExplicitContradictionsAndHistoricalCompilationRemainsAvailable(string variant)
-    {
-        var catalog = await new TestRuntime().DiscoverAsync(new(), PlannerFixture.Ct);
-        TaskValue Input() => new() { Kind = "input", Source = "value" };
-        TaskValue Equal(TaskValue value) => new() { Kind = "predicate", Predicate = "equal", Items = [Input(), value] };
-        var first = variant is "boolean" or "branch" ? Input() : Equal(new() { Kind = "string", Text = "a" });
-        var second = variant is "boolean" or "branch" ? new TaskValue { Kind = "predicate", Predicate = "not", Items = [Input()] }
-            : Equal(variant == "null" ? new() { Kind = "null" } : new() { Kind = "string", Text = "b" });
-        PlanTask AssertAt(string id, TaskValue value) => new() { Id = id, Kind = "value", Objective = "Validate the supplied value", Requires = value,
-            Outputs = [new("result", new() { Kind = "boolean", Boolean = true })] };
-        var plan = new TaskPlan { Inputs = [new() { Name = "value", Type = new() { Kind = variant is "boolean" or "branch" ? "boolean" : "string", Nullable = variant == "null" } }],
-            Root = new() { Tasks = [AssertAt("first", first), AssertAt("second", second)] } };
-        if (variant == "branch") plan.Root.Tasks = [new() { Id = "route", Kind = "conditional", Objective = "Select work", Condition = first, Body = new() { Tasks = [plan.Root.Tasks[1]] }, Otherwise = new() }];
-        var request = PlannerFixture.Session().Request;
-        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);
-        request.Options["planning_validation_profile"] = "explicit-assertions-v1";
-        var diagnostic = Assert.Single(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);
-        Assert.Equal("TASK_GUARD_CONTRADICTION", diagnostic.Code);
-        Assert.Equal("/tasks/second/requires", diagnostic.Location);
-        Assert.Contains(variant == "branch" ? "/tasks/route/condition" : "/tasks/first/requires", diagnostic.Message);
-        Assert.Contains("/inputs/value", diagnostic.Message);
-        plan.Root.Tasks = [new() { Id = "route", Kind = "conditional", Objective = "Select alternatives", Condition = first,
-            Body = new() { Tasks = [AssertAt("first", first)] }, Otherwise = new() { Tasks = [AssertAt("second", second)] } }];
-        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);
-        plan.Root.Tasks.Insert(0, AssertAt("before", first));
-        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog, request).Diagnostics);
-    }
 }

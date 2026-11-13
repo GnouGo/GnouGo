@@ -10,35 +10,34 @@ namespace GnOuGo.Flow.Planning;
 internal static class PlanningClarifications
 {
     private const string ContextKey = "clarification_context";
-    internal static bool PreservesIntent(PlanningSession state) => state.Request.Options["clarification_policy"]?.ToString() == "1";
-
     internal static void Suspend(PlanningSession state, List<PlanningQuestion> questions)
     {
-        ValidateQuestions(questions);
-        if (!PreservesIntent(state)) return;
+        var diagnostic = PlanningTokenThresholds.OptimizationAdvisory(state.Request);
+        ValidateQuestions(questions, diagnostic);
         if (state.AnswerHistory?.Any(batch => batch.Questions.Any(old => questions.Any(next =>
             old.Question == next.Question && old.Recommended == next.Recommended && old.Alternatives.SequenceEqual(next.Alternatives)))) == true)
             throw new WorkflowRuntimeException("CLARIFICATION_NO_PROGRESS", "An answered question was repeated. Retain the recorded decision; no additional question or allowance was created.");
-        if (PlanningModelCalls.RemainingCalls(state) == 0 || PlanningModelCalls.IsRepair(state) && PlanningModelCalls.RemainingRepairs(state) == 0)
+        if (!PlanningModelCalls.HasCallCapacity(state) || PlanningModelCalls.IsRepair(state) && !PlanningModelCalls.HasRepairCapacity(state))
             throw new WorkflowRuntimeException("CLARIFICATION_CONTINUATION_UNAVAILABLE", "The remaining planning allowance cannot use another answer. Review the retained diagnostics; answering cannot reset calls or correction attempts.");
+        if (diagnostic)
+        {
+            if (questions.Count > 3)
+                PlanningOptimizationThresholds.Record(state, "clarification", "clarification_questions", questions.Count, 3);
+            foreach (var (question, index) in questions.Select((question, index) => (question, index)))
+                if (question.Alternatives.Count > 3)
+                    PlanningOptimizationThresholds.Record(state, "clarification", "clarification_alternatives", question.Alternatives.Count, 3,
+                        new JsonObject { ["questionIndex"] = index });
+        }
         state.Request.Options[ContextKey] = new JsonObject
         {
             ["version"] = 1, ["baseline"] = Baseline(state), ["requirements"] = Requirements(state),
-            ["scope"] = Scope(state), ["action"] = state.Request.Options["automatic_correction_progress"]?["action"]?.DeepClone(),
-            ["resume"] = false
+            ["scope"] = Scope(state)
         };
         Activity.Current?.AddEvent(new("planning.clarification.requested", tags: new ActivityTagsCollection
         { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
             ["diagnostic.locations"] = string.Join(',', state.Diagnostics.Where(d => d.Required).Take(8)
-                .Select(d => d.Location[..Math.Min(d.Location.Length, 192)])),
-            ["correction.action"] = state.Request.Options[ContextKey]!["action"]?.ToString() }));
+                .Select(d => d.Location[..Math.Min(d.Location.Length, 192)])) }));
     }
-
-    internal static string? CorrectionContinuation(PlanningSession state) => PreservesIntent(state) &&
-        state.Request.Options[ContextKey]?["resume"]?.ToString() == "true"
-        ? state.Request.Options[ContextKey]?["action"]?.ToString() : null;
-
-    internal static void ConsumedContinuation(PlanningSession state) => state.Request.Options.Remove(ContextKey);
 
     private static string Baseline(PlanningSession state) => PlanningGraphCompiler.Fingerprint(
         JsonSerializer.Serialize(state.Plan ?? state.Request.Baseline, PlanningJsonContext.Default.TaskPlan));
@@ -51,22 +50,25 @@ internal static class PlanningClarifications
         ["diagnostics"] = JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)
     }.ToJsonString());
 
-    internal static void ValidateQuestions(List<PlanningQuestion> questions)
+    internal static void ValidateQuestions(List<PlanningQuestion> questions, bool diagnostic = false)
     {
-        if (questions.Count is < 1 or > 3 || questions.Any(q => q is null) ||
+        if (questions.Count < 1 || !diagnostic && questions.Count > 3 || questions.Any(q => q is null) ||
             questions.Select(q => q.Id).Distinct(StringComparer.Ordinal).Count() != questions.Count ||
             questions.Any(q => string.IsNullOrWhiteSpace(q.Id) || string.IsNullOrWhiteSpace(q.Question) || q.Alternatives is null ||
                 q.Alternatives.Any(a => a is null || string.IsNullOrWhiteSpace(a.Id) || string.IsNullOrWhiteSpace(a.Description)) ||
                 q.Alternatives.Select(a => a.Id).Distinct(StringComparer.Ordinal).Count() != q.Alternatives.Count ||
                 (q.Alternatives.Count == 0 ? q.Recommended is not null :
-                    q.Alternatives.Count is < 2 or > 3 || !q.Alternatives.Any(a => a.Id == q.Recommended))))
-            throw new PlanningResponseException([new("CLARIFICATION_INVALID", "/clarifications", "Ask one to three distinct questions; offer two or three distinct alternatives with one recommendation, or no alternatives for missing facts.")]);
+                    q.Alternatives.Count < 2 || !diagnostic && q.Alternatives.Count > 3 || !q.Alternatives.Any(a => a.Id == q.Recommended))))
+            throw new PlanningResponseException([new("CLARIFICATION_INVALID", "/clarifications", diagnostic
+                ? "Ask distinct nonblank questions; offer at least two distinct alternatives with one recommendation, or no alternatives for missing facts."
+                : "Ask one to three distinct questions; offer two or three distinct alternatives with one recommendation, or no alternatives for missing facts.")]);
     }
 
     internal static void Answer(PlanningSession state, PlanningCommand command)
     {
         if (state.Status != PlanningStatus.Clarification || state.PendingCall is not null)
             throw new PlanningConflictException("No clarification is awaiting an answer.");
+        var diagnostic = PlanningTokenThresholds.OptimizationAdvisory(state.Request);
         var questions = state.GetQuestions().ToList();
         var answers = command.Answers;
         if (questions.Count == 0 || answers is null || answers.Any(a => a is null) ||
@@ -77,34 +79,35 @@ internal static class PlanningClarifications
             var question = questions.Single(q => q.Id == answer.QuestionId);
             if ((answer.AlternativeId is null) == (answer.Text is null) ||
                 answer.AlternativeId is not null && !question.Alternatives.Any(a => a.Id == answer.AlternativeId) ||
-                answer.Text is not null && (string.IsNullOrWhiteSpace(answer.Text) || answer.Text.Length > 8192))
-                throw new ArgumentException("Select a declared alternative or supply a nonblank custom answer of at most 8192 characters.");
+                answer.Text is not null && (string.IsNullOrWhiteSpace(answer.Text) || !diagnostic && answer.Text.Length > 8192))
+                throw new ArgumentException(diagnostic ? "Select a declared alternative or supply a nonblank custom answer."
+                    : "Select a declared alternative or supply a nonblank custom answer of at most 8192 characters.");
         }
         // The existing choose command is the model-free path for finite literal selections.
         if (state.PendingQuestions is null && answers.All(a => a.Text is null))
             throw new ArgumentException("Use choose for declared literal alternatives.");
-        var context = PreservesIntent(state) ? state.Request.Options[ContextKey] as JsonObject : null;
-        if (PreservesIntent(state) && context is null && state.Requirements is not null)
+        var context = state.Request.Options[ContextKey] as JsonObject;
+        if (context is null)
             throw new PlanningConflictException("The clarification has no retained intent-preserving scope. Use an explicit revision; accepted requirements remain unchanged.");
-        if (context is not null && (context["version"]?.ToString() != "1" || context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
-            context["scope"]?.ToString() != Scope(state)))
+        if (context["version"]?.ToString() != "1" || context["baseline"]?.ToString() != Baseline(state) || context["requirements"]?.ToString() != Requirements(state) ||
+            context["scope"]?.ToString() != Scope(state))
             throw new PlanningConflictException("The clarification baseline or correction scope changed. Reload the current decision.");
         // A custom answer to a compiled literal choice can change its domain. Keep
         // that change on the explicit revision path instead of granting edit authority.
-        if (PreservesIntent(state) && state.PendingQuestions is null)
+        if (state.PendingQuestions is null)
             throw new PlanningConflictException("A different business alternative requires an explicit revision. The accepted requirements and choices remain unchanged.");
+        if (diagnostic)
+            foreach (var (answer, index) in answers.Select((answer, index) => (answer, index)))
+                if (answer.Text is { Length: > 8192 } text)
+                    PlanningOptimizationThresholds.Record(state, "clarification_answer", "clarification_answer_characters", text.Length, 8192,
+                        new JsonObject { ["answerIndex"] = index });
         state.AnswerHistory ??= [];
         state.AnswerHistory.Add(new(state.Revision, questions, [.. answers]));
-        if (context is null) Revise(state);
-        else
-        {
-            context["resume"] = true;
-            state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
-            state.Status = PlanningStatus.Generating;
-            Activity.Current?.AddEvent(new("planning.clarification.answered", tags: new ActivityTagsCollection
-            { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count,
-                ["correction.action"] = context["action"]?.ToString() }));
-        }
+        state.Request.Options.Remove(ContextKey);
+        state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
+        state.Status = PlanningStatus.Generating;
+        Activity.Current?.AddEvent(new("planning.clarification.answered", tags: new ActivityTagsCollection
+        { ["question.ids"] = string.Join(',', questions.Select(q => q.Id)), ["question.count"] = questions.Count }));
     }
 
     internal static void Revise(PlanningSession state, bool preserveRequirements = false, List<string>? editablePaths = null)
@@ -117,7 +120,6 @@ internal static class PlanningClarifications
         if (!preserveRequirements) state.Requirements = null;
         state.Request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         state.Request.Options["mapping_profile"] = TaskPlanCompiler.AdaptiveMappingProfile;
-        if (state.IntentVersion is not (2 or 3)) state.IntentVersion = 3; state.OutcomeVersion = null; state.OutcomeBindings = null;
         state.EditablePaths = editablePaths?.Order(StringComparer.Ordinal).ToList();
         if (editablePaths is null) state.Plan = null;
         state.Graph = null; state.PendingQuestions = null;
@@ -146,7 +148,7 @@ internal static class PlanningClarifications
         {
             var produced = actual.SingleOrDefault(o => o.Name == output.Name);
             if (produced is null && !output.Required) continue;
-            if (produced is null || !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(produced.Schema, state.Catalog!), TaskPlanCompiler.TypeSchema(output.Type)))
+            if (produced is null || !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(produced.Schema, state.Catalog!), TaskPlanCompiler.TypeSchema(output.Type, state.Request)))
                 findings.Add(new("REQUIREMENTS_OUTPUTS_CHANGED", "/outputs/" + output.Name, "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision."));
         }
         return findings;

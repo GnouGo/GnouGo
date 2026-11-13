@@ -39,7 +39,7 @@
 
 
   <ItemGroup>
-    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" GeneratePathProperty="true" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.30.0" GeneratePathProperty="true" />
     <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
 
@@ -245,7 +245,7 @@
       <_LlamaSharpNativeAsset Include="$(PkgLLamaSharp_Backend_Cpu)/LLamaSharpRuntimes/$(RuntimeIdentifier)/**/*" />
     </ItemGroup>
     <Error Condition="'@(_LlamaSharpNativeAsset)' == ''"
-           Text="LLamaSharp.Backend.Cpu 0.27.0 has no native assets for $(RuntimeIdentifier)." />
+           Text="LLamaSharp.Backend.Cpu 0.30.0 has no native assets for $(RuntimeIdentifier)." />
     <Copy SourceFiles="@(_LlamaSharpNativeAsset)"
           DestinationFiles="@(_LlamaSharpNativeAsset->'$(PublishDir)runtimes/$(RuntimeIdentifier)/%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />

@@ -37,17 +37,16 @@ public sealed class ArithmeticCompilationTests
     }
 
     [Fact]
-    public async Task NestedBusinessFormulaUsesOnePlanningCallAndNoRepair()
+    public async Task NestedBusinessFormulaCompilesAndExecutesWithoutRuntimeInference()
     {
-        var runtime = new TestRuntime();
-        runtime.Proposal = new() { Requirements = new() { Summary = "Compute (2 + 3) * 4", Inputs = [],
-            Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }], Outcomes = [new("result", "Return (2 + 3) * 4")] },
-            Plan = Plan(Formula("multiply", Formula("add", Number(2), Number(3)), Number(4))) };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status);
-        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        var result = await Execute(state.Yaml!);
-        Assert.True(result.Success, result.Error?.Message); Assert.Equal("20", result.Outputs!["result"]!.ToJsonString());
+        var catalog = await Catalog();
+        var compiled = new TaskPlanCompiler().Compile(Plan(Formula("multiply", Formula("add", Number(2), Number(3)), Number(4))), catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        Assert.DoesNotContain("llm.call", yaml);
+        var result = await Execute(yaml);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("20", result.Outputs!["result"]!.ToJsonString());
     }
 
     [Theory]
@@ -130,18 +129,6 @@ public sealed class ArithmeticCompilationTests
         Assert.False(result.Success); Assert.Equal(ErrorCodes.EvalError, result.Error!.Code);
     }
 
-    [Theory]
-    [InlineData("0.1234567890123456789012345678")]
-    [InlineData("1.00")]
-    [InlineData("1e20")]
-    public void HistoricalNumberTokensSurviveReadingWithoutChangingSerializedHashes(string token)
-    {
-        var task = JsonSerializer.Deserialize("{\"kind\":\"number\",\"number\":" + token + "}", PlanningJsonContext.Default.TaskValue)!;
-        var graph = JsonSerializer.Deserialize("{\"kind\":\"number\",\"number\":" + token + "}", PlanningJsonContext.Default.PlanningValue)!;
-        Assert.Equal(token, JsonSerializer.SerializeToNode(task, PlanningJsonContext.Default.TaskValue)!["number"]!.ToJsonString());
-        Assert.Equal(token, JsonSerializer.SerializeToNode(graph, PlanningJsonContext.Default.PlanningValue)!["number"]!.ToJsonString());
-        Assert.True(double.IsFinite(task.Number!.Value)); Assert.Equal(task.Number, graph.Number);
-    }
 
     private static TaskValue Number(double value) => new() { Kind = "number", Number = value };
     private static TaskValue Formula(string operation, params TaskValue[] operands) => new() { Kind = "arithmetic", Text = operation, Items = operands.ToList() };

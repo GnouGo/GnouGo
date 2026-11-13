@@ -1,0 +1,376 @@
+{
+  "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "cohort": "compactr93d3e1c27colhighv9p9a",
+  "freeze_sha256": "d2fa875f6c852c7d310b62857daa9bd304fc02e0380f10ffc89465471fff143d",
+  "metrics_sha256": "859d0c1e3bbb987fb95750e62df168f13cdd87639672f05d04d71d9c7a10d0c4",
+  "measurement_scope": "All 18 constructed request identities were admitted and have retained physical attempts. Phase sizes count complete requests once, including the final request with unknown usage; billed provider tokens cover only received usage.",
+  "quantiles": "p50 is the median; p95 uses nearest-rank; maximum and total retain their separate meaning.",
+  "estimator": "serialized_utf8_div3_plus256_v1",
+  "phases": [
+    {
+      "phase": "construction_intent",
+      "logical_requests": 2,
+      "physical_attempts": 3,
+      "receipts": 2,
+      "unknown_usage_attempts": 1,
+      "constructed_requests": 2,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "5499.5",
+        "p95": 8563,
+        "maximum": 8563,
+        "total": 10999
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2089.5",
+        "p95": 3111,
+        "maximum": 3111,
+        "total": 4179
+      },
+      "component_totals": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 872,
+          "estimated_tokens": 803
+        },
+        "instructions": {
+          "serialized_bytes": 2367,
+          "estimated_tokens": 789
+        },
+        "intent": {
+          "serialized_bytes": 1810,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "known_provider_tokens": {
+        "input_tokens": 1956,
+        "output_tokens": 2995,
+        "reasoning_tokens": 2471
+      },
+      "known_cost_eur": "0.0889156626506024096385542169",
+      "retained_reservation_eur": "0.9308701472556894243641231593",
+      "completed_receipt_call_elapsed_ms": "371761.1688"
+    },
+    {
+      "phase": "construction_select",
+      "logical_requests": 5,
+      "physical_attempts": 5,
+      "receipts": 5,
+      "unknown_usage_attempts": 0,
+      "constructed_requests": 5,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 5,
+        "p50": 14451,
+        "p95": 15665,
+        "maximum": 15665,
+        "total": 67893
+      },
+      "estimated_input_tokens": {
+        "count": 5,
+        "p50": 5073,
+        "p95": 5478,
+        "maximum": 5478,
+        "total": 23912
+      },
+      "component_totals": {
+        "construction_context": {
+          "serialized_bytes": 7551,
+          "estimated_tokens": 2519
+        },
+        "envelope": {
+          "serialized_bytes": 2207,
+          "estimated_tokens": 2017
+        },
+        "instructions": {
+          "serialized_bytes": 16825,
+          "estimated_tokens": 5610
+        },
+        "interfaces": {
+          "serialized_bytes": 2297,
+          "estimated_tokens": 769
+        },
+        "requirements": {
+          "serialized_bytes": 11986,
+          "estimated_tokens": 3998
+        },
+        "response_schema": {
+          "serialized_bytes": 27027,
+          "estimated_tokens": 9011
+        }
+      },
+      "known_provider_tokens": {
+        "input_tokens": 12988,
+        "output_tokens": 8547,
+        "reasoning_tokens": 7478
+      },
+      "known_cost_eur": "0.2867916108879964301651048639",
+      "retained_reservation_eur": "0",
+      "completed_receipt_call_elapsed_ms": "181815.4391"
+    },
+    {
+      "phase": "construction_draft",
+      "logical_requests": 5,
+      "physical_attempts": 5,
+      "receipts": 5,
+      "unknown_usage_attempts": 0,
+      "constructed_requests": 5,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 5,
+        "p50": 20042,
+        "p95": 22430,
+        "maximum": 22430,
+        "total": 99340
+      },
+      "estimated_input_tokens": {
+        "count": 5,
+        "p50": 6937,
+        "p95": 7733,
+        "maximum": 7733,
+        "total": 34394
+      },
+      "component_totals": {
+        "construction_context": {
+          "serialized_bytes": 10279,
+          "estimated_tokens": 3429
+        },
+        "diagnostics": {
+          "serialized_bytes": 130,
+          "estimated_tokens": 45
+        },
+        "envelope": {
+          "serialized_bytes": 2246,
+          "estimated_tokens": 2030
+        },
+        "evidence": {
+          "serialized_bytes": 125,
+          "estimated_tokens": 45
+        },
+        "fragment": {
+          "serialized_bytes": 110,
+          "estimated_tokens": 40
+        },
+        "instructions": {
+          "serialized_bytes": 6365,
+          "estimated_tokens": 2125
+        },
+        "interfaces": {
+          "serialized_bytes": 3466,
+          "estimated_tokens": 1157
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 125,
+          "estimated_tokens": 45
+        },
+        "objective": {
+          "serialized_bytes": 709,
+          "estimated_tokens": 238
+        },
+        "requirements": {
+          "serialized_bytes": 11986,
+          "estimated_tokens": 3998
+        },
+        "response_schema": {
+          "serialized_bytes": 63799,
+          "estimated_tokens": 21269
+        }
+      },
+      "known_provider_tokens": {
+        "input_tokens": 17842,
+        "output_tokens": 6109,
+        "reasoning_tokens": 5120
+      },
+      "known_cost_eur": "0.2431771530566711289602855868",
+      "retained_reservation_eur": "0",
+      "completed_receipt_call_elapsed_ms": "155316.5505"
+    },
+    {
+      "phase": "construction_local_judge",
+      "logical_requests": 5,
+      "physical_attempts": 5,
+      "receipts": 4,
+      "unknown_usage_attempts": 1,
+      "constructed_requests": 5,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 5,
+        "p50": 17015,
+        "p95": 21046,
+        "maximum": 21046,
+        "total": 89023
+      },
+      "estimated_input_tokens": {
+        "count": 5,
+        "p50": 5928,
+        "p95": 7272,
+        "maximum": 7272,
+        "total": 30956
+      },
+      "component_totals": {
+        "construction_context": {
+          "serialized_bytes": 21548,
+          "estimated_tokens": 7184
+        },
+        "diagnostics": {
+          "serialized_bytes": 130,
+          "estimated_tokens": 45
+        },
+        "envelope": {
+          "serialized_bytes": 2276,
+          "estimated_tokens": 2040
+        },
+        "evidence": {
+          "serialized_bytes": 125,
+          "estimated_tokens": 45
+        },
+        "fragment": {
+          "serialized_bytes": 2908,
+          "estimated_tokens": 970
+        },
+        "instructions": {
+          "serialized_bytes": 26788,
+          "estimated_tokens": 8931
+        },
+        "interfaces": {
+          "serialized_bytes": 5572,
+          "estimated_tokens": 1859
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 125,
+          "estimated_tokens": 45
+        },
+        "objective": {
+          "serialized_bytes": 709,
+          "estimated_tokens": 238
+        },
+        "requirements": {
+          "serialized_bytes": 11986,
+          "estimated_tokens": 3998
+        },
+        "response_schema": {
+          "serialized_bytes": 16856,
+          "estimated_tokens": 5621
+        }
+      },
+      "known_provider_tokens": {
+        "input_tokens": 12448,
+        "output_tokens": 5888,
+        "reasoning_tokens": 4609
+      },
+      "known_cost_eur": "0.2131905399375278893351182508",
+      "retained_reservation_eur": "0.3133422579205711735832217760",
+      "completed_receipt_call_elapsed_ms": "129500.1204"
+    },
+    {
+      "phase": "replan",
+      "logical_requests": 1,
+      "physical_attempts": 1,
+      "receipts": 1,
+      "unknown_usage_attempts": 0,
+      "constructed_requests": 1,
+      "prepared_only_requests": 0,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 1,
+        "p50": 22363,
+        "p95": 22363,
+        "maximum": 22363,
+        "total": 22363
+      },
+      "estimated_input_tokens": {
+        "count": 1,
+        "p50": 7711,
+        "p95": 7711,
+        "maximum": 7711,
+        "total": 7711
+      },
+      "component_totals": {
+        "construction_context": {
+          "serialized_bytes": 2779,
+          "estimated_tokens": 927
+        },
+        "diagnostics": {
+          "serialized_bytes": 252,
+          "estimated_tokens": 84
+        },
+        "envelope": {
+          "serialized_bytes": 451,
+          "estimated_tokens": 407
+        },
+        "evidence": {
+          "serialized_bytes": 25,
+          "estimated_tokens": 9
+        },
+        "fragment": {
+          "serialized_bytes": 22,
+          "estimated_tokens": 8
+        },
+        "instructions": {
+          "serialized_bytes": 1392,
+          "estimated_tokens": 464
+        },
+        "interfaces": {
+          "serialized_bytes": 1196,
+          "estimated_tokens": 399
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 25,
+          "estimated_tokens": 9
+        },
+        "objective": {
+          "serialized_bytes": 116,
+          "estimated_tokens": 39
+        },
+        "requirements": {
+          "serialized_bytes": 3691,
+          "estimated_tokens": 1231
+        },
+        "response_schema": {
+          "serialized_bytes": 12414,
+          "estimated_tokens": 4138
+        }
+      },
+      "known_provider_tokens": {
+        "input_tokens": 4008,
+        "output_tokens": 3273,
+        "reasoning_tokens": 3072
+      },
+      "known_cost_eur": "0.1055153949129852744310575636",
+      "retained_reservation_eur": "0",
+      "completed_receipt_call_elapsed_ms": "60968.777"
+    }
+  ],
+  "latency": {
+    "run_elapsed_ms": 1566293,
+    "planning_elapsed_ms": 1566293,
+    "completed_receipt_call_elapsed_sum_ms": "899362.0558",
+    "final_unknown_request_elapsed_ms": "616094.0676",
+    "note": "Receipt-call elapsed sums are not run latency; request estimates are not provider-billed tokens."
+  },
+  "components_reconcile": true,
+  "estimate_note": "Component estimates are independently rounded; their sum need not equal the complete-request estimate. Only serialized component bytes are required to reconcile exactly.",
+  "all_admitted_requests_within_captured_input_limits": true,
+  "reducer_phase_note": "The unchanged generic reducer hashes the unlisted replan phase into other_phase_sha256_9372d683a3c079112f6b8c696addf0715a703771e9ebca5071b1345e79761562; these rows preserve the exact saved phase name."
+}

@@ -1,0 +1,795 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T23:18:06.313626+00:00",
+  "production_harness_and_validation_source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+  "projection_commit": "d1886309",
+  "generic_regressions_commit": "31c73c3c",
+  "evidence_navigation_correction": "ed9a3a3e",
+  "architecture": {
+    "evidence_navigation_uses_existing_loader": true,
+    "off_page_evidence_grants_binding_authority": false,
+    "taskplan_format": 11,
+    "javascript_yaml_version": 15,
+    "selection_contract": 2,
+    "public_api_change": false,
+    "new_persisted_planning_state": false,
+    "additional_projection_model_calls": 0,
+    "transient_facts": [
+      "existing completion assessment",
+      "commitment coverage",
+      "existing reachability",
+      "original obligations and declarations",
+      "accepted contribution and review records"
+    ],
+    "business_block_lifecycle_change": false
+  },
+  "freeze": {
+    "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "source_tree": "50c8fd14871e8c874b0efe76ef324ffaa28609ff",
+    "source_clean": true,
+    "frozen_utc": "2026-11-04T22:05:14.227753+00:00",
+    "tree_ids": {
+      "src": "1c09a4b6ba7d219a2fc13ea86e70b1f082571d08",
+      "tests/Shared": "cea122656930eb2eb5e25197ad98df1530d35bae",
+      "tests/GnOuGo.Agent.Planning.Benchmark": "85fa6c659b8d3f8879e64b1c6d79db7a37f3eacc",
+      "tests/GnOuGo.Flow.Planning.Tests": "812b585a34db55257ba385fa4a8fe220815b7c73",
+      "build": "773982c4720653511d4209c76415fb121f7194e2"
+    },
+    "input_contract_oracle_files": {
+      "tests/Shared/PlanningBenchmarkCases.cs": "9268601bdbbedd987804eb1ee2efd6d6cb4c49e5e9d67a89321bfde2cd06e184",
+      "tests/Shared/PlanningCorpus.cs": "f6e0f407a60f90037c727a26cfebee7161537aa4bbfc2bfffe8738d0f2b70d7a",
+      "tests/Shared/PlanningBenchmarkMeasurements.cs": "3ea0364c5c826fb008300e2234a0b8259fc1b3b9673ee75f7ec01884223b76f6",
+      "tests/Shared/RealProductContracts.cs": "dc0faab70456b60287bbf89557c4dc82091484b7f09fb38dbf7aafa73da66d38",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "759c1130a92a64fc5c03e9780a08b3f447184ed1076416a4b3e34782866ceefa",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "0d8051d1a9d21b0697e55e25c347b17997eda636180a6cdb5c0652a344a9858c",
+      "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs": "32abc2cdc280b7c18a1e165e57261fdcaf3db46e5c591ad67477caf989ffa69f",
+      "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "139d1a597ff46757e2c9a4aeaf391c7072d9129e82e3004a3d8ece0e5cb70453"
+    },
+    "profiles": {
+      "amazon": {
+        "path": "/Users/a115vc/.codex/live/pr120-convergence-preparation/codex-resume-20261104/amazon-draft-output-32768-phase-policy-v1.json",
+        "sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c"
+      },
+      "code": {
+        "path": "/Users/a115vc/.codex/live/pr120-convergence-preparation/original-code-phase-policy.json",
+        "sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e"
+      },
+      "collections": {
+        "path": "/Users/a115vc/.codex/live/pr120-convergence-preparation/original-collections-phase-policy.json",
+        "sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074"
+      }
+    },
+    "selection_contract": 2,
+    "planning_format": 11,
+    "javascript_yaml_version": 15,
+    "model": "OpenAi / gpt-6.1-sol-2026-09-29",
+    "campaign_configuration": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+    "binary_hashes": {
+      "GnOuGo.Flow.Core": "9ad5a041e78c0bf75e42e72bffe183ece06113ebacff9691ab69e791ebf98c8f",
+      "GnOuGo.Flow.Planning": "c57033e390921a93b7dbd34086a8909805342ff21f8c81cdb86cf67df6b8a61c",
+      "GnOuGo.Agent.Planning.Benchmark": "8796272360afbc44a4f050e7247250d08eee6dd3220be14f9bb45cf62d2e25d4"
+    },
+    "physical_launcher_sha256": "81a0c0a61af0110bbc512530d4678e11f71d057bf347a20064a984f5c0a3073b",
+    "qualification_streaks": {
+      "amazon": 0,
+      "code": 0,
+      "collections": 0
+    },
+    "paid_dispatches": 0,
+    "dispatch_barriers": [
+      "retained provider failure",
+      "one unresolved request; no replay or new closure authority",
+      "current deployment fingerprint rejected by immutable amendment"
+    ],
+    "supersedes_projection_source": "31c73c3cee09419605fc395f7ce3161ee888bc87",
+    "reason": "Demonstrated progress evidence navigation corrected; no block lifecycle or response-contract migration."
+  },
+  "freeze_manifest": {
+    "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/freeze-ed9a3a3e.json",
+    "sha256": "12ff3ec5496e89575cdd484e3449eca69c6b991bb785b062bece44d5f64c031a"
+  },
+  "owning_planning": {
+    "validated_postimage_source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Flow.Planning.Tests",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true"
+    ],
+    "exit_code": 0,
+    "passed": 2707,
+    "failed": 0,
+    "skipped": 0,
+    "compiler_diagnostics": [],
+    "log_sha256": "561b0e73d622922a65c7d745c0108551a757ff3ed71acb95b0ea352be73340fb",
+    "trx_sha256": "284e2fb6c6e524e8cd9aec02a6e53e99052dfcefa9c476461b195ecd73c7bffb",
+    "regression_groups": {
+      "OverallProgressTests": {
+        "count": 10,
+        "passed": 10
+      },
+      "FunctionalResponsibilityVariationTests": {
+        "count": 6,
+        "passed": 6
+      },
+      "SameBlockTechnicalResumeTests": {
+        "count": 17,
+        "passed": 17
+      },
+      "SameBlockBoundaryTransitionTests": {
+        "count": 6,
+        "passed": 6
+      },
+      "GlobalReviewedInstructionRepairTests": {
+        "count": 6,
+        "passed": 6
+      },
+      "BusinessBlockGranularityTests": {
+        "count": 9,
+        "passed": 9
+      },
+      "CompactSuspendedConsumerTests": {
+        "count": 25,
+        "passed": 25
+      },
+      "BusinessSelectionCoverageContextTests": {
+        "count": 5,
+        "passed": 5
+      }
+    },
+    "limitation": "Owning run used the validated postimage before commit with the unrelated user solution edit unchanged; clean frozen full-solution capture verifies the committed source separately."
+  },
+  "affected_agent_server": {
+    "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Agent.Server.Tests",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-p:SkipBundledServerTools=true",
+      "--filter",
+      "FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkCampaignTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkDiscoveryVisibilityTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkMetadataTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkPermanentRetentionTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkPhasePolicyTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.BenchmarkQualificationTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.DelegatedTestReviewTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.FreshBenchmarkConstructionTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningConstructionFinancialAdmissionTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningHttpJournalTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningPhaseJournalTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningTraceUiTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.PlanningTransportBoundaryTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.RetainedRunnerReadinessTests|FullyQualifiedName~GnOuGo.Agent.Server.Tests.StabilizationBenchmarkTests",
+      "--logger",
+      "trx;LogFileName=affected.trx",
+      "--results-directory",
+      "/Users/a115vc/.codex/live/pr120-gpt61-implementation/affected-server-ed9a3a3e"
+    ],
+    "exit_code": 0,
+    "passed": 542,
+    "failed": 0,
+    "skipped": 0,
+    "compiler_diagnostics": [],
+    "elapsed_seconds": 125.516,
+    "run": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/affected-server-ed9a3a3e/run.json",
+      "sha256": "25cc7ae031d840d043fc39ecfaa6ae421ccc278f52a58b159e319796479e41c2"
+    },
+    "trx": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/affected-server-ed9a3a3e/affected.trx",
+      "sha256": "4a2d08ebb766e5154c99958bde353e6930ee2d030bc547b10bcb1f5ab5028d27"
+    },
+    "log": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/affected-server-ed9a3a3e/test.log",
+      "sha256": "d5c8d9ca592e04fe43a7ae5bac143fbfc0588914098036e383a9ff1db8fefc5a"
+    }
+  },
+  "full_solution": {
+    "summary": {
+      "exit_code": 0,
+      "source_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+      "source_unchanged": true,
+      "elapsed_seconds": 4417.571,
+      "assemblies": 33,
+      "expected_assemblies": 33,
+      "missing_assemblies": [],
+      "totals": {
+        "total": 7712,
+        "executed": 7699,
+        "passed": 7699,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "skipped": 13
+      },
+      "compiler_diagnostic_count": 0,
+      "capture": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z"
+    },
+    "command": [
+      "dotnet",
+      "test",
+      "GnOuGo.Agent.sln",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "--logger",
+      "trx;LogFilePrefix=full-solution",
+      "--logger",
+      "console;verbosity=normal",
+      "--results-directory",
+      "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/trx"
+    ],
+    "summary_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/summary.json",
+      "sha256": "f3d2e2679a51831cc93dd0c844ebe41a4e98825293c96f4506461e34d6ff9fe4"
+    },
+    "run_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/run.json",
+      "sha256": "4dea17ea646c3f1f2d7ba9063f29bb7e77431754d29fbd6f2b9246ebe7915168"
+    },
+    "results_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/results.json",
+      "sha256": "45d97954249f0d735d483a1ff0da4951bb7e7998189c85ed1f4f21427975a734"
+    },
+    "log": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/full-solution.log",
+      "sha256": "f4e2fd5725a7d0b3f427cba9259e92aec632bca88f7690fdb6f6c2d23b15c1e2"
+    },
+    "source_before": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/source-before.json",
+      "sha256": "adcb365b2f3af75df2b204fd36c5b76460e03393bfb9ac8e1430e5d035dbf2d0"
+    },
+    "source_after": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/ed9a3a3e570a-20261104T220241Z/source-after.json",
+      "sha256": "adcb365b2f3af75df2b204fd36c5b76460e03393bfb9ac8e1430e5d035dbf2d0"
+    },
+    "dependency_cache": {
+      "source": "/Users/a115vc/.codex/live/pr120-gpt61-5656ccdd/src/GnOuGo.GithubCopilot.Core/obj/Debug/net10.0/copilot-cli/1.0.88/darwin-arm64",
+      "version": "1.0.88",
+      "archive_sha256": "49f5caa0582945a04c5619f8ea81680b1c8c2765888290cf8acf903e2985315b",
+      "official_checksum_match": true,
+      "extracted_files_verified": 230
+    },
+    "skipped_tests": [
+      {
+        "assemblies": [
+          "gnougo.cmd.mcp.tests.dll"
+        ],
+        "tests": [
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"···, expected: \"namespace declaration\", exitCode: 0)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"···, expected: \"parameter default\", exitCode: 3)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          },
+          {
+            "test": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+            "outcome": "NotExecuted",
+            "message": "Requires native Windows PowerShell."
+          }
+        ]
+      },
+      {
+        "assemblies": [
+          "gnougo.agent.server.tests.dll"
+        ],
+        "tests": [
+          {
+            "test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+            "outcome": "NotExecuted",
+            "message": "Set PLAYWRIGHT_MODULE_PATH to run the isolated deterministic browser smoke."
+          }
+        ]
+      },
+      {
+        "assemblies": [
+          "gnougo.githubcopilot.e2e.tests.dll"
+        ],
+        "tests": [
+          {
+            "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+            "outcome": "NotExecuted",
+            "message": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+          },
+          {
+            "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+            "outcome": "NotExecuted",
+            "message": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+          },
+          {
+            "test": "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+            "outcome": "NotExecuted",
+            "message": "Set GNOU_GO_LIVE_PR_REVIEW_E2E=1 to create the disposable live GitHub fixture."
+          },
+          {
+            "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+            "outcome": "NotExecuted",
+            "message": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+          },
+          {
+            "test": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+            "outcome": "NotExecuted",
+            "message": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+          }
+        ]
+      }
+    ]
+  },
+  "publication": {
+    "manifest": {
+      "path": "/Users/a115vc/.codex/live/pr120-publication-validation/ed9a3a3e570a-20261104T220306Z/publication-validation.json",
+      "sha256": "eef23426c40b24cc4d9f5b5ff6c35c80462b1ccda61e04de479abfe20cc711e6"
+    },
+    "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "stages": [
+      {
+        "stage": "dotnet-info",
+        "exit_code": 0,
+        "elapsed_seconds": 0.192,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "44ee0b160fdde12bd88329b4f462a09e7c5db643daa74e05d7c74898424e60a2"
+      },
+      {
+        "stage": "core-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 11.588,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "f74fdac850cd99cb6967c3d30e9de60b9c2a7f3eab68226e4b56143336c85279"
+      },
+      {
+        "stage": "planning-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 14.584,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "d5810fa316b640cc9bd95a5e6479e710e447988f31e886f75fb5f501e814112d"
+      },
+      {
+        "stage": "integrations-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 7.483,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "d13e6df1d2712dfe6daa753356ad25f151da991ce12c1981154a408b0187ea76"
+      },
+      {
+        "stage": "copilot-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 3.373,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "a03c83a1b67e031293f71d2ed99ba75fc34112b82bc54ce5f0c147ba6da942b9"
+      },
+      {
+        "stage": "persistence-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 8.46,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "a239b28e039ee64f9a5b030cea5a1500454176a4677968b56a3c12e6f0f7e458"
+      },
+      {
+        "stage": "planning-native-publish",
+        "exit_code": 0,
+        "elapsed_seconds": 55.722,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "f2e2fa9748ea022e9ee1094afabf671826ba1bd490ef4a95c31ce4ac78853a93"
+      },
+      {
+        "stage": "planning-native-run",
+        "exit_code": 0,
+        "elapsed_seconds": 6.804,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "07de0402837bc030ba754cdfc923dedb26a5307ba7f0194c5c40a731536c9463"
+      },
+      {
+        "stage": "server-restore",
+        "exit_code": 0,
+        "elapsed_seconds": 3.097,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "795a187664fb7eaffbcf31aa042acc83d2b99df35813429529d999b6f2ef4a9a"
+      },
+      {
+        "stage": "server-trimmed-publish",
+        "exit_code": 0,
+        "elapsed_seconds": 72.072,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "3a870b446e6685a94ddfcd675b019c7227ca866621d3aabca2d759a7b5d03e61"
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "exit_code": 0,
+        "elapsed_seconds": 2.221,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+      }
+    ],
+    "packages": [
+      {
+        "file": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "sha256": "33ae23840a0aba416042416557e0e2143567414d77e211a68096db90da215a77",
+        "repository_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6"
+      },
+      {
+        "file": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "sha256": "b2f959a96de6fb2a43706d077cb20af8b2c725ba1f0bcdc68ea423d539f28605",
+        "repository_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6"
+      },
+      {
+        "file": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "sha256": "51291f50b5daeb0ce502ff78f55c75a00bb22e6b429af1ee4bd0912b83e7c0fb",
+        "repository_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6"
+      },
+      {
+        "file": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "sha256": "5d71978d0d27a68ed73c61f4899f74ca32339d739086b823be86e8eb25f409fe",
+        "repository_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6"
+      },
+      {
+        "file": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "sha256": "3b5034f67611a10afb9b1b5a312b87eebe7f793f30a8c284e6874a8ca2712c49",
+        "repository_commit": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6"
+      }
+    ],
+    "source_unchanged": true,
+    "limits": [
+      "Technical packaging/native/persistence checks only; no live business convergence claim.",
+      "Agent.Server publication skips frontend compilation and bundled-tool publication/staging.",
+      "The current existing smoke-project Jint publish-local IL2026/IL2104/IL3053 exceptions remain; no new suppression is added.",
+      "Agent.Server retains its documented existing partial-trim framework boundaries; no claim of full application Native AOT.",
+      "No remote release, package upload, CI completion or deployment is performed."
+    ]
+  },
+  "frozen_build": {
+    "manifest": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/build-ed9a3a3e/build.json",
+      "sha256": "568cfbecd9b7e0e5e8ef917740bee8dda50090229f44acf03c0bcd88139a317b"
+    },
+    "stages": [
+      {
+        "stage": "GnOuGo.Agent.Planning.Benchmark",
+        "exit_code": 0,
+        "elapsed_seconds": 65.71,
+        "log_sha256": "2dc5a110eb969098577f61ccd80d2dae1f34645e8f9fc7a1a2b5e361fb195cf5"
+      },
+      {
+        "stage": "GnOuGo.Cmd.Mcp",
+        "exit_code": 0,
+        "elapsed_seconds": 2.666,
+        "log_sha256": "462538619e7d484aeac1164d7a474577cce6960899ec5defd4c11960f6938725"
+      },
+      {
+        "stage": "GnOuGo.Git.Mcp",
+        "exit_code": 0,
+        "elapsed_seconds": 1.456,
+        "log_sha256": "1fe89ede93545165580031890907f5bbfa3c3e2e95232be8f31e02d22852d851"
+      },
+      {
+        "stage": "GnOuGo.GithubCopilot.Mcp",
+        "exit_code": 0,
+        "elapsed_seconds": 1.815,
+        "log_sha256": "286b239380390027fef135f8730f5879eb10fb306722e98339de439bfd6872c2"
+      },
+      {
+        "stage": "review-helper-build",
+        "exit_code": 0,
+        "elapsed_seconds": 1.298,
+        "log_sha256": "44525b2f62ea48b7b53cc46dd4b4ca825b9c1aaa21e60e18d2eb9e6da564e36f"
+      },
+      {
+        "stage": "review-helper-validation",
+        "exit_code": 0,
+        "elapsed_seconds": 3.378,
+        "log_sha256": "1bd7eebc6780af6f609650b8ac99b76bda6b31587514cff34fe296cd24bd2525"
+      }
+    ],
+    "synthetic_review_checks": {
+      "typed_rejections": 14,
+      "cli": 10,
+      "approves_real_artifact": false
+    }
+  },
+  "paired_generic_fixtures": {
+    "variants": 6,
+    "local_fixture_executions": 18,
+    "capability_layouts": [
+      "coarse",
+      "fine",
+      "repacked"
+    ],
+    "technical_fragment_sizes": [
+      1,
+      8
+    ],
+    "restart_after_each_advance": true,
+    "business_responsibility_immutable_within_run": true,
+    "cross_variant_assertions": [
+      "same original obligation",
+      "same independent numeric outcome for three inputs",
+      "exact permitted producer order",
+      "cleanup",
+      "final-only public output",
+      "global constraints in selection/drafting/review"
+    ],
+    "universal_block_count": false,
+    "live_qualification": false
+  },
+  "prior_projection_source_completed": {
+    "summary": {
+      "exit_code": 0,
+      "source_commit": "31c73c3cee09419605fc395f7ce3161ee888bc87",
+      "source_unchanged": true,
+      "elapsed_seconds": 4476.206,
+      "assemblies": 33,
+      "expected_assemblies": 33,
+      "missing_assemblies": [],
+      "totals": {
+        "total": 7708,
+        "executed": 7695,
+        "passed": 7695,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "skipped": 13
+      },
+      "compiler_diagnostic_count": 0,
+      "capture": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/31c73c3cee09-20261104T211458Z"
+    },
+    "summary_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/31c73c3cee09-20261104T211458Z/summary.json",
+      "sha256": "8676cbac6a0d18874259f2f81f1494f720dd13fda343427b60a8a747c9ad7ad8"
+    },
+    "run_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/31c73c3cee09-20261104T211458Z/run.json",
+      "sha256": "0c2f71fd73afeb96d3f4c4d5b92515175b9838c4c3610dc9f79cc7d87c0dc248"
+    },
+    "attributed_only_to_actual_source": true
+  },
+  "prior_source_completed": {
+    "summary": {
+      "exit_code": 0,
+      "source_commit": "de37711ffd5b9175982286a83cf1e8931ec79e85",
+      "source_unchanged": true,
+      "elapsed_seconds": 4576.808,
+      "assemblies": 33,
+      "expected_assemblies": 33,
+      "missing_assemblies": [],
+      "totals": {
+        "total": 7696,
+        "executed": 7683,
+        "passed": 7683,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "skipped": 13
+      },
+      "compiler_diagnostic_count": 0,
+      "capture": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/de37711ffd5b-20261104T193504Z"
+    },
+    "summary_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/de37711ffd5b-20261104T193504Z/summary.json",
+      "sha256": "84c5c05c8fc353d624099e9d468258bf911416ca2e4e63eb43acabeccb123dee"
+    },
+    "run_file": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/de37711ffd5b-20261104T193504Z/run.json",
+      "sha256": "bf1d1ac2b2ca6c886b79d4e3cdbb8ff84731cb2ef027ca05e772292cef6ac357"
+    },
+    "log": {
+      "path": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/de37711ffd5b-20261104T193504Z/full-solution.log",
+      "sha256": "a421b037e7ffa0cdbac4e9477c00827b1be1581fc7f006b81934d3030f529262"
+    },
+    "attributed_only_to_actual_source": true
+  },
+  "retained_failures": {
+    "diagnostic_manifest": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/retained-overall-diagnostics.json",
+      "sha256": "144d27fe74a9707c5752a13f60a198744c468f100827453e654a1dbd8a29e9fe"
+    },
+    "older_full_solution": [
+      "1f801c40: completed with seven approval fixture failures",
+      "5656ccdd: dependency acquisition EOF, 32 of 33 assemblies",
+      "b50de043: incomplete, never a pass"
+    ],
+    "paid_runs": [
+      "g611f801c40amz32a-amazon-1",
+      "g615656ccddamz32a-amazon-1"
+    ],
+    "historical_evidence_unchanged": true
+  },
+  "configuration_check": {
+    "prior_readonly_inspection": {
+      "current_source": "31c73c3cee09419605fc395f7ce3161ee888bc87",
+      "configuration_id": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+      "configured_provider": "OpenAi",
+      "configured_model": "gpt-6.1-sol-2026-09-29",
+      "expected_host_fingerprint": "b1522efe01b520ea880f493d30538758ce8fb0afdf4123a3daf75829972d7b98",
+      "current_host_fingerprint": "db1304325eec6ecacc08303682d0341275360fda7e41e5b66ed8b03203a7babc",
+      "declared_metadata_hash": "d561ae7d28d9ffddf457937a878dbbe4ca4f70e0116a89b81842bdbb16da21e1",
+      "unbound_metadata_ready": true,
+      "strict_configuration_admitted": false,
+      "provider_calls": 0,
+      "immutable_campaign_records_unchanged": true,
+      "retained_source_same_conflict": true,
+      "automatically_amended": false,
+      "diagnostic_files": [
+        {
+          "name": "provider-readiness-31c73c3c.private.stderr",
+          "sha256": "3262b3364ac8210d4e686863c42554db70dec1855fbd25c8db1d18c94617d27a"
+        },
+        {
+          "name": "provider-readiness-31c73c3c-positional.private.stderr",
+          "sha256": "5c8c20082af37bdf3721cac8589936b33755645a2eefed2d4beae3ad6623d764"
+        },
+        {
+          "name": "provider-readiness-recheck-5656ccdd.private.stderr",
+          "sha256": "3cfcd7ed1af9b37d5ad06fac851db817b4f146eeec7d215e7e06eba239091f9f"
+        }
+      ],
+      "limitation": "Unbound metadata readiness establishes configured capabilities/pricing only, not current backend availability or authorization under the immutable amendment. No paid provider probe or repair of effective settings."
+    },
+    "final_source_strict_check": {
+      "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+      "command": [
+        "dotnet",
+        "/Users/a115vc/.codex/live/pr120-gpt61-ed9a3a3e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+        "--schema-portability",
+        "provider-readiness",
+        "--workspace",
+        "/Users/a115vc/Desktop/GnOuGo",
+        "--campaign",
+        "schema-portability-20261019-incremental",
+        "--model",
+        "gpt-6.1-sol-2026-09-29",
+        "--campaign-configuration",
+        "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd"
+      ],
+      "exit_code": -6,
+      "immutable_configuration_conflict": true,
+      "provider_calls": 0,
+      "completed_utc": "2026-11-04T22:05:36.298256+00:00"
+    }
+  },
+  "live_qualification": {
+    "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "paid_dispatches": 0,
+    "generation": "not_attempted",
+    "deterministic_live_artifact_validation": "not_reached",
+    "global_business_review": "not_reached",
+    "exact_approval": "not_reached",
+    "execution": "not_attempted",
+    "independent_oracle": "not_attempted",
+    "streaks": {
+      "amazon": 0,
+      "code": 0,
+      "collections": 0
+    },
+    "qualified_generations": 0,
+    "required_generations": 6,
+    "both_collections_variants_required": true,
+    "barriers": [
+      "retained provider failure",
+      "one unresolved request; no replay or new closure authority",
+      "current deployment fingerprint rejected by immutable amendment"
+    ],
+    "manual_taskplan_edits": 0,
+    "historical_model_comparison_limitation": "GPT-5.5 comparisons cannot isolate code changes from the model switch."
+  },
+  "financial_snapshot": {
+    "inspection": {
+      "captured_utc": "2026-11-04T23:16:05.152542+00:00",
+      "source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+      "command": [
+        "dotnet",
+        "/Users/a115vc/.codex/live/pr120-gpt61-ed9a3a3e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+        "--inspect-campaign",
+        "--workspace",
+        "/Users/a115vc/Desktop/GnOuGo",
+        "--campaign",
+        "schema-portability-20261019-incremental"
+      ],
+      "exit_code": 0,
+      "elapsed_seconds": 32.63,
+      "ceiling_eur": "740.0301038327063045424449473",
+      "known_eur": "413.98214989055111712576930921",
+      "reserved_eur": "157.57430550399738390479699311",
+      "available_eur": "168.47364843815780351187864498",
+      "physical_attempts": 7035,
+      "unknown_attempts": 160,
+      "permanent_closures": 63,
+      "unresolved_requests": 1,
+      "evidence_hash": "79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501",
+      "unchanged_from_provider_stop": true,
+      "provider_calls_during_inspection": 0,
+      "record_writes": 0,
+      "raw_snapshot_sha256": "749ef80b94b6420b78d9471ad2d175077c8f606976320d9cd14c8e3e951e0fe0"
+    },
+    "known_input_tokens": 26974431,
+    "known_output_tokens": 10805980,
+    "reserved_input_tokens": 3252666,
+    "reserved_output_tokens": 4653056,
+    "evidence_hash": "79ca579fe0431c32f7c489b6bd76c6e637d4f32b68a19a76bfd19bfae872f501",
+    "ceiling_eur": "740.0301038327063045424449473",
+    "known_eur": "413.98214989055111712576930921",
+    "reserved_eur": "157.57430550399738390479699311",
+    "available_eur": "168.47364843815780351187864498",
+    "physical_attempts": 7035,
+    "unknown_attempts": 160,
+    "permanent_closures": 63,
+    "unresolved_requests": 1,
+    "unchanged_since_provider_stop": true,
+    "reservations_released": 0,
+    "new_closures": 0,
+    "ceiling_increase": 0
+  },
+  "unrelated_solution_edit_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+  "pr_state": "draft",
+  "merge_or_release": false,
+  "evidence_navigation_regression": {
+    "before_source": "31c73c3cee09419605fc395f7ce3161ee888bc87",
+    "before_exit_code": 1,
+    "before_expected_failure": "page:outputs:8 absent from offered evidence choices",
+    "before_log": {
+      "path": "/Users/a115vc/.codex/live/pr120-gpt61-implementation/progress-navigation-red.log",
+      "sha256": "a77256731647e3ae98dd103e0d54d4f8f3851e1ab32c3545b59adf0336e44964"
+    },
+    "after_source": "ed9a3a3e570a9a9deec60693b9dc3912209e3aa6",
+    "new_regression_cases": 4,
+    "after_passed": 4,
+    "off_page_binding_still_rejected": true
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "trigger": "Code18 observed HTTP400 on first SDK function-tool inference with medium reasoning.",
+  "new_option": "--sdk-chat-tools-reasoning none",
+  "scope": "Fresh explicit Server Code run and existing disposable Copilot prerequisite probe. Retained execution uses its original capture.",
+  "single_wire_factor": "reasoning_effort on Chat Completions requests with a nonempty tools array",
+  "historical_default": "medium",
+  "unchanged": [
+    "model",
+    "endpoint",
+    "tools",
+    "original business request",
+    "planning reasoning and phase allocations",
+    "Responses reasoning",
+    "text-only reasoning",
+    "output ceiling",
+    "single-attempt SDK transport",
+    "all permissions and sandbox",
+    "all oracle versions"
+  ],
+  "validation": {
+    "red": "One failing real assertion (none requested, medium observed); other two protocol/tool cases passed.",
+    "focused_passed": 253,
+    "focused_failed": 0,
+    "new_cases": 8,
+    "controlled_http": "Medium\u2192HTTP400 retains full hold; explicit none\u2192HTTP200 settles actual usage; exact saved responses read without another send; changed normalized request rejected."
+  },
+  "live_compatibility_yet_proved": false,
+  "private_logs_sha256": {
+    "code18-sdk-reasoning-red.log": "58b8dcacbbf88a0e8cbb48c5d3f3a6d6b25270a648815f13311115707d46fcba",
+    "code18-sdk-reasoning-verified.log": "cc9e779f6cb4bdc44909727bc14da6584b3c3ea66a26f99f21213e8c923d874b"
+  }
+}

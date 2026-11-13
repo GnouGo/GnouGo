@@ -23,7 +23,7 @@ curl --fail http://localhost:5300/health
 The image includes the planner and encrypted persistence dependencies. Its `URLS`
 setting binds the exposed port on all container interfaces.
 
-The planning runtime stores encrypted format-10 planning sessions and request receipts under the run ID.
+The planning runtime stores encrypted format-11 planning sessions and request receipts under the run ID.
 Reopening a planning call with that identity reuses completed requests and retained budgets.
 Execution uses `GnOuGo.Flow.Persistence`: encrypted KeyVault journal payloads and a rebuildable EF Core/SQLite index.
 

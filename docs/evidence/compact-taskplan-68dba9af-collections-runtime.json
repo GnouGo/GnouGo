@@ -1,0 +1,528 @@
+{
+  "production_source": "68dba9af2728110720e03e223aa1ae3852aa668b",
+  "execution_and_harness_source": "3242bbde50eae0f3a9cc92e7bef8171e884789a3",
+  "cohort": "compactm68dba9afcol11a",
+  "artifact_hash": "96d451022ea519f35060e6d191e396b4b16005b2cdb6181825b68e48c8fc05e2",
+  "independent_runtime_success": true,
+  "runtime_variants": [
+    {
+      "variant": "nominal",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": 322.101,
+      "error": null,
+      "effects": [],
+      "violations": []
+    },
+    {
+      "variant": "alternate",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": 2.3146,
+      "error": null,
+      "effects": [],
+      "violations": []
+    }
+  ],
+  "nominal_oracle_expected": [
+    2,
+    4,
+    8
+  ],
+  "alternate_duplicate_negative_oracle_expected": [
+    6,
+    6,
+    -4
+  ],
+  "runtime_inference_or_external_effects": false,
+  "planning_interventions": 0,
+  "actual_automatic_correction_charges": 1,
+  "correction": "One invalid array-field selection at request6; request7 supplies the correct root input. No business defect or plan repair is invented from this ordinary selection correction.",
+  "logical_requests": 20,
+  "physical_attempts": 20,
+  "calls_by_phase": {
+    "construction_intent": 1,
+    "construction_select": 10,
+    "construction_draft": 7,
+    "construction_local_judge": 1,
+    "construction_global_judge": 1
+  },
+  "judge_calls": 2,
+  "evidence_only_responses": 4,
+  "reconsideration_calls": 0,
+  "initial_intent_calls": 1,
+  "intent_model_latency_ms": 36829.5245,
+  "first_statically_correct_contributive_producer": {
+    "request": 5,
+    "task": "compute_doubled_item",
+    "behavior": "isolated numeric group input item multiplied by literal2",
+    "model_call_elapsed_ms_through_producer": 196519.1348,
+    "measurement_excludes_host_overhead": true,
+    "executed_only_after_artifact_review": true
+  },
+  "planning_ms": 1118396,
+  "known_cost_eur": "1.65461690469774544148028384",
+  "unknown_reservation_eur": "0",
+  "provider_input_tokens": 65525,
+  "provider_output_tokens": 50482,
+  "provider_reasoning_tokens_included_in_output": 47064,
+  "complete_request_bytes": {
+    "percentile_method": "nearest_rank",
+    "p50": 16995,
+    "p95": 23033,
+    "maximum": 55070
+  },
+  "judge_complete_request_bytes": [
+    7449,
+    8582
+  ],
+  "component_bytes_reconcile_all_issued_requests": true,
+  "issued_request_component_bytes_sum": {
+    "construction_context": 27238,
+    "diagnostics": 487,
+    "envelope": 10122,
+    "instructions": 42004,
+    "intent": 544,
+    "interfaces": 24908,
+    "response_schema": 147723,
+    "requirements": 51904,
+    "evidence": 49341,
+    "fragment": 3250,
+    "mcp_contracts": 175,
+    "objective": 1611
+  },
+  "requests": [
+    {
+      "ordinal": 1,
+      "phase": "construction_intent",
+      "complete_request_bytes": 6656,
+      "estimated_input_tokens": 2475,
+      "component_bytes": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 439,
+        "instructions": 1404,
+        "intent": 544,
+        "interfaces": 59,
+        "response_schema": 4155
+      },
+      "provider_input_tokens": 1058,
+      "provider_output_tokens": 1278,
+      "reasoning_tokens_in_output": 1024,
+      "elapsed_ms": 36829.5245
+    },
+    {
+      "ordinal": 2,
+      "phase": "construction_select",
+      "complete_request_bytes": 10593,
+      "estimated_input_tokens": 3787,
+      "component_bytes": {
+        "construction_context": 911,
+        "envelope": 506,
+        "instructions": 2968,
+        "interfaces": 515,
+        "requirements": 1304,
+        "response_schema": 4389
+      },
+      "provider_input_tokens": 2059,
+      "provider_output_tokens": 3256,
+      "reasoning_tokens_in_output": 3069,
+      "elapsed_ms": 58535.2443
+    },
+    {
+      "ordinal": 3,
+      "phase": "construction_draft",
+      "complete_request_bytes": 18904,
+      "estimated_input_tokens": 6558,
+      "component_bytes": {
+        "construction_context": 1007,
+        "diagnostics": 26,
+        "envelope": 512,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 25,
+        "mcp_contracts": 25,
+        "objective": 151,
+        "requirements": 1303,
+        "response_schema": 14664
+      },
+      "provider_input_tokens": 3501,
+      "provider_output_tokens": 594,
+      "reasoning_tokens_in_output": 512,
+      "elapsed_ms": 28095.1869
+    },
+    {
+      "ordinal": 4,
+      "phase": "construction_select",
+      "complete_request_bytes": 11682,
+      "estimated_input_tokens": 4150,
+      "component_bytes": {
+        "construction_context": 1477,
+        "envelope": 507,
+        "instructions": 2968,
+        "interfaces": 516,
+        "requirements": 1767,
+        "response_schema": 4447
+      },
+      "provider_input_tokens": 2232,
+      "provider_output_tokens": 681,
+      "reasoning_tokens_in_output": 512,
+      "elapsed_ms": 29265.2104
+    },
+    {
+      "ordinal": 5,
+      "phase": "construction_draft",
+      "complete_request_bytes": 18565,
+      "estimated_input_tokens": 6445,
+      "component_bytes": {
+        "construction_context": 1622,
+        "diagnostics": 26,
+        "envelope": 514,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 1149,
+        "mcp_contracts": 25,
+        "objective": 122,
+        "requirements": 1999,
+        "response_schema": 11917
+      },
+      "provider_input_tokens": 3390,
+      "provider_output_tokens": 2240,
+      "reasoning_tokens_in_output": 2048,
+      "elapsed_ms": 43793.9687
+    },
+    {
+      "ordinal": 6,
+      "phase": "construction_select",
+      "complete_request_bytes": 13207,
+      "estimated_input_tokens": 4659,
+      "component_bytes": {
+        "construction_context": 913,
+        "envelope": 506,
+        "instructions": 2968,
+        "interfaces": 1102,
+        "requirements": 2510,
+        "response_schema": 5208
+      },
+      "provider_input_tokens": 2579,
+      "provider_output_tokens": 1213,
+      "reasoning_tokens_in_output": 1024,
+      "elapsed_ms": 35737.3279
+    },
+    {
+      "ordinal": 7,
+      "phase": "construction_select",
+      "complete_request_bytes": 13487,
+      "estimated_input_tokens": 4752,
+      "component_bytes": {
+        "construction_context": 913,
+        "diagnostics": 279,
+        "envelope": 507,
+        "instructions": 2968,
+        "interfaces": 1102,
+        "requirements": 2510,
+        "response_schema": 5208
+      },
+      "provider_input_tokens": 2586,
+      "provider_output_tokens": 5874,
+      "reasoning_tokens_in_output": 5633,
+      "elapsed_ms": 89725.7641
+    },
+    {
+      "ordinal": 8,
+      "phase": "construction_draft",
+      "complete_request_bytes": 19935,
+      "estimated_input_tokens": 6901,
+      "component_bytes": {
+        "construction_context": 1443,
+        "diagnostics": 26,
+        "envelope": 512,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 395,
+        "mcp_contracts": 25,
+        "objective": 288,
+        "requirements": 2856,
+        "response_schema": 13199
+      },
+      "provider_input_tokens": 3612,
+      "provider_output_tokens": 669,
+      "reasoning_tokens_in_output": 512,
+      "elapsed_ms": 31167.9751
+    },
+    {
+      "ordinal": 9,
+      "phase": "construction_select",
+      "complete_request_bytes": 14599,
+      "estimated_input_tokens": 5123,
+      "component_bytes": {
+        "construction_context": 1436,
+        "envelope": 507,
+        "instructions": 2968,
+        "interfaces": 1102,
+        "requirements": 3049,
+        "response_schema": 5537
+      },
+      "provider_input_tokens": 2791,
+      "provider_output_tokens": 689,
+      "reasoning_tokens_in_output": 512,
+      "elapsed_ms": 31443.0181
+    },
+    {
+      "ordinal": 10,
+      "phase": "construction_draft",
+      "complete_request_bytes": 21745,
+      "estimated_input_tokens": 7505,
+      "component_bytes": {
+        "construction_context": 1886,
+        "diagnostics": 26,
+        "envelope": 515,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 1224,
+        "mcp_contracts": 25,
+        "objective": 228,
+        "requirements": 3626,
+        "response_schema": 13024
+      },
+      "provider_input_tokens": 3972,
+      "provider_output_tokens": 2761,
+      "reasoning_tokens_in_output": 2560,
+      "elapsed_ms": 53722.5835
+    },
+    {
+      "ordinal": 11,
+      "phase": "construction_local_judge",
+      "complete_request_bytes": 7449,
+      "estimated_input_tokens": 2739,
+      "component_bytes": {
+        "construction_context": 1338,
+        "envelope": 507,
+        "fragment": 1301,
+        "instructions": 1456,
+        "interfaces": 706,
+        "requirements": 642,
+        "response_schema": 1499
+      },
+      "provider_input_tokens": 1173,
+      "provider_output_tokens": 4766,
+      "reasoning_tokens_in_output": 4596,
+      "elapsed_ms": 80468.562
+    },
+    {
+      "ordinal": 12,
+      "phase": "construction_select",
+      "complete_request_bytes": 15951,
+      "estimated_input_tokens": 5573,
+      "component_bytes": {
+        "construction_context": 913,
+        "envelope": 507,
+        "instructions": 2968,
+        "interfaces": 1882,
+        "requirements": 3914,
+        "response_schema": 5767
+      },
+      "provider_input_tokens": 3088,
+      "provider_output_tokens": 2767,
+      "reasoning_tokens_in_output": 2560,
+      "elapsed_ms": 52586.5455
+    },
+    {
+      "ordinal": 13,
+      "phase": "construction_draft",
+      "complete_request_bytes": 22500,
+      "estimated_input_tokens": 7756,
+      "component_bytes": {
+        "construction_context": 2456,
+        "diagnostics": 26,
+        "envelope": 515,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 1230,
+        "mcp_contracts": 25,
+        "objective": 138,
+        "requirements": 4724,
+        "response_schema": 12195
+      },
+      "provider_input_tokens": 4087,
+      "provider_output_tokens": 664,
+      "reasoning_tokens_in_output": 512,
+      "elapsed_ms": 30586.2837
+    },
+    {
+      "ordinal": 14,
+      "phase": "construction_select",
+      "complete_request_bytes": 16995,
+      "estimated_input_tokens": 5921,
+      "component_bytes": {
+        "construction_context": 931,
+        "envelope": 507,
+        "instructions": 2968,
+        "interfaces": 2182,
+        "requirements": 4345,
+        "response_schema": 6062
+      },
+      "provider_input_tokens": 3227,
+      "provider_output_tokens": 4206,
+      "reasoning_tokens_in_output": 4069,
+      "elapsed_ms": 72545.3998
+    },
+    {
+      "ordinal": 15,
+      "phase": "construction_select",
+      "complete_request_bytes": 19186,
+      "estimated_input_tokens": 6652,
+      "component_bytes": {
+        "construction_context": 931,
+        "envelope": 508,
+        "evidence": 2247,
+        "instructions": 2968,
+        "interfaces": 2182,
+        "requirements": 4345,
+        "response_schema": 6005
+      },
+      "provider_input_tokens": 3832,
+      "provider_output_tokens": 4768,
+      "reasoning_tokens_in_output": 4612,
+      "elapsed_ms": 77730.1486
+    },
+    {
+      "ordinal": 16,
+      "phase": "construction_select",
+      "complete_request_bytes": 21813,
+      "estimated_input_tokens": 7527,
+      "component_bytes": {
+        "construction_context": 931,
+        "envelope": 508,
+        "evidence": 4934,
+        "instructions": 2968,
+        "interfaces": 2182,
+        "requirements": 4345,
+        "response_schema": 5945
+      },
+      "provider_input_tokens": 4227,
+      "provider_output_tokens": 2674,
+      "reasoning_tokens_in_output": 2561,
+      "elapsed_ms": 51875.0748
+    },
+    {
+      "ordinal": 17,
+      "phase": "construction_select",
+      "complete_request_bytes": 23033,
+      "estimated_input_tokens": 7934,
+      "component_bytes": {
+        "construction_context": 931,
+        "envelope": 508,
+        "evidence": 6184,
+        "instructions": 2968,
+        "interfaces": 2182,
+        "requirements": 4345,
+        "response_schema": 5915
+      },
+      "provider_input_tokens": 4174,
+      "provider_output_tokens": 2814,
+      "reasoning_tokens_in_output": 2559,
+      "elapsed_ms": 52481.977
+    },
+    {
+      "ordinal": 18,
+      "phase": "construction_draft",
+      "complete_request_bytes": 19355,
+      "estimated_input_tokens": 6708,
+      "component_bytes": {
+        "construction_context": 2720,
+        "diagnostics": 26,
+        "envelope": 515,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 2146,
+        "mcp_contracts": 25,
+        "objective": 342,
+        "requirements": 1839,
+        "response_schema": 10551
+      },
+      "provider_input_tokens": 3438,
+      "provider_output_tokens": 2675,
+      "reasoning_tokens_in_output": 2559,
+      "elapsed_ms": 52289.2614
+    },
+    {
+      "ordinal": 19,
+      "phase": "construction_draft",
+      "complete_request_bytes": 55070,
+      "estimated_input_tokens": 18613,
+      "component_bytes": {
+        "construction_context": 2720,
+        "diagnostics": 26,
+        "envelope": 515,
+        "evidence": 35826,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 2146,
+        "mcp_contracts": 25,
+        "objective": 342,
+        "requirements": 1839,
+        "response_schema": 10465
+      },
+      "provider_input_tokens": 9160,
+      "provider_output_tokens": 3689,
+      "reasoning_tokens_in_output": 3583,
+      "elapsed_ms": 63236.8239
+    },
+    {
+      "ordinal": 20,
+      "phase": "construction_global_judge",
+      "complete_request_bytes": 8582,
+      "estimated_input_tokens": 3117,
+      "component_bytes": {
+        "construction_context": 1730,
+        "envelope": 507,
+        "fragment": 1795,
+        "instructions": 1456,
+        "interfaces": 881,
+        "requirements": 642,
+        "response_schema": 1571
+      },
+      "provider_input_tokens": 1339,
+      "provider_output_tokens": 2204,
+      "reasoning_tokens_in_output": 2047,
+      "elapsed_ms": 48882.721
+    }
+  ],
+  "effect_authorization": {
+    "origin": "delegated_test",
+    "artifact_bound": true,
+    "human_review_claimed": false,
+    "compiler_or_judge_alone_authorized_execution": false,
+    "approval_hash": "e52bb09d47a63149cb725d92714709ff3334933fb83694f69a22fd94220ee27d",
+    "evidence_hash": "6cb5bc3ea9641e2c055e6fd839a61d6aa9c7d5730b718ff26e77f6b737895adb"
+  },
+  "reference": {
+    "source": "6469a1a3",
+    "logical_calls": 26,
+    "judge_calls": 8,
+    "peak_judge_complete_request_bytes": 26394,
+    "identical_profile_causality_established": false
+  },
+  "efficiency_indicators": {
+    "fewer_than_26_logical_calls": true,
+    "at_most_four_judges": true,
+    "at_most_13197_judge_bytes": true,
+    "indicators_are_not_qualification_gates": true
+  },
+  "accepted_result_aliases": 1,
+  "supported_redundant_effect_findings": 0,
+  "complete_scenario_successes_on_this_source_so_far": 1,
+  "two_consecutive_successes_per_all_three_scenarios": false,
+  "final_source_qualification_complete": false,
+  "retired_18_run_gate_restored": false,
+  "phase_policy_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+  "model": "gpt-5.5-2026-04-24",
+  "frozen_settings_changed": false
+}

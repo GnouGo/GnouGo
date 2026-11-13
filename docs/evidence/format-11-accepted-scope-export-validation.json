@@ -1,0 +1,110 @@
+{
+  "kind": "accepted_scope_export_navigation_validation",
+  "created_utc": "2026-10-29T01:18:29.272786+00:00",
+  "parent_commit": "09e80b70da60e023fb0349c9a572ba2366d0d3e5",
+  "tested_commit": null,
+  "tested_source_attribution": "Exact frozen uncommitted scope-export fix over09e80b70; source manifest binds all files. Public mapping must be added after commit.",
+  "source_manifest_sha256": "6995815440a0802c1b8fc744e45458373a51d1da94d39c969c70de4188edce11",
+  "tracked_source_files": 4771,
+  "changed_frozen_files_after_validation": [],
+  "main_code_test_files_compared": 1873,
+  "main_code_test_mismatches": [],
+  "scope_interface_production_sha256": "a827cb5974f22a939e2e2b7450165023b49842909d4daffd0f78c59a13b04867",
+  "scope_interface_fixture_sha256": "c8f1766bba99fd122cda0539644cfbc6397ed1122a889247fc2e486d29d1f593",
+  "red_baseline_revision": "a18517450bcdb48ece64fd4ed552c7d07e6a5c7a",
+  "red_proof_sha256": "e0d8ef3e80f0cb05254ef53d56e9c8d4186e75d60217034cf32ff485ab5e0c25",
+  "red_cases": {
+    "total": 5,
+    "passed": 3,
+    "failed": 2
+  },
+  "focused_133": {
+    "terminal": {
+      "exitCode": 0,
+      "seconds": 25.06727816700004
+    },
+    "total": 133,
+    "passed": 133,
+    "failed": 0,
+    "not_executed_results": 0,
+    "compiler_diagnostic_count": 0,
+    "trx_sha256": "1f76f1c8b86439221ff2200461686095403d21d9cf62df16f080efd1f7439e56",
+    "log_sha256": "f1d0f102a34c0916a59181694d4c6f4b5d723d1d5ed77cef5fe4cf4d0434611d",
+    "command_sha256": "8ed0fdf35f9f9e61bfceee3a276e9c3a0e00be693f96b12539ed750dd919eb6e",
+    "failures": []
+  },
+  "full_planning_2320": {
+    "terminal": {
+      "exitCode": 0,
+      "seconds": 173.11723887501284
+    },
+    "total": 2320,
+    "passed": 2320,
+    "failed": 0,
+    "not_executed_results": 0,
+    "compiler_diagnostic_count": 0,
+    "trx_sha256": "30973af9e60b5f151bb19c3176ecabbebd1ea3dd26b706c98038a1f499a8ca9d",
+    "log_sha256": "aee76afd634ba5ebecae34c84ba07652ba390af6659448d949cd8724451fc5ca",
+    "command_sha256": "bd1313204514b39029d1e7eb6f667bc887280d3d221ffefbd4bd159e245e77f6",
+    "failures": []
+  },
+  "affected_host_161": {
+    "terminal": {
+      "exit_code": 0,
+      "seconds": 78.758266458055,
+      "source_manifest_sha256": "6995815440a0802c1b8fc744e45458373a51d1da94d39c969c70de4188edce11",
+      "changed_source_files": [],
+      "log_sha256": "ea384012cf29cbf25498d6c9af60deaf6e018e41cd459373bbc5ccc6b8855a64"
+    },
+    "total": 161,
+    "passed": 161,
+    "failed": 0,
+    "not_executed_results": 0,
+    "compiler_diagnostic_count": 0,
+    "trx_sha256": "39370d84becf6ed5d942ae48d032e49fea7f4bbec0bd67d97d867bcff9e5f72f",
+    "log_sha256": "ea384012cf29cbf25498d6c9af60deaf6e018e41cd459373bbc5ccc6b8855a64",
+    "command_sha256": "dc9ae7a43be72d364a97d75c05b6acb0da65c3f1d2c142dd8481a86555c9bec3",
+    "failures": []
+  },
+  "new_regression_cases_included_in_full_planning": [
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactScopeInterfaceTests.CandidateGroupExportStillRequiresItsOwnCurrentCleanClosure(rejected: \"scope\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactScopeInterfaceTests.OfferedAcceptedGroupExportLoadsAcrossSelectionBoundariesWithoutGrantingBindings(selectedElsewhere: True)",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactScopeInterfaceTests.OfferedAcceptedGroupExportLoadsAcrossSelectionBoundariesWithoutGrantingBindings(selectedElsewhere: False)",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactScopeInterfaceTests.CandidateGroupExportStillRequiresItsOwnCurrentCleanClosure(rejected: \"claim\")",
+      "outcome": "Passed"
+    },
+    {
+      "test": "GnOuGo.Flow.Planning.Tests.CompactScopeInterfaceTests.CandidateGroupExportStillRequiresItsOwnCurrentCleanClosure(rejected: \"diagnostic\")",
+      "outcome": "Passed"
+    }
+  ],
+  "assertions": [
+    "A canonical host-offered accepted group-export link loads during selection with no CurrentStep.",
+    "The same accepted link loads while another scope is selected, without changing that step or adding imported binding authority.",
+    "Returned export schema and expressions remain exact and consumable:false.",
+    "Group-private producer output and undeclared caller-input capture remain compiler errors.",
+    "Candidate export evidence still requires current scope, a matching closure claim and clean diagnostics.",
+    "Existing canonical URI/hash/offset, stale-frontier and repeat guards remain covered by the unchanged fixtures."
+  ],
+  "binaries": {
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "7ac6bbaa3369d98452deabab482c6d7430405220f16602b05435ec0bec7f4612",
+    "tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll": "1396071c29b9750bf329a18b378781f02880c9a671dfd19abb7075db2726cf5d",
+    "tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0/GnOuGo.Agent.Server.Tests.dll": "04b630923567f0a6d202bf8429ab8f6d859d4ee1af8ebe7acd163fd84b4e22c1"
+  },
+  "counting": "133 focused tests and the five new cases are included in the2320 full Planning run and are not added again. Host161 is a separate affected assembly slice.",
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "live_session_or_existing_fullsolution_mutated": false,
+  "new_fullsolution_started": false,
+  "business_runtime_qualification_claimed": false
+}

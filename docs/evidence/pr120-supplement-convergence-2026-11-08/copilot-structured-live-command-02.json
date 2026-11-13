@@ -1,0 +1,50 @@
+{
+  "source": "e360e5ae76bd7957a56bb946a475876a57941b3e",
+  "campaign": "pr120-live-20261107-400",
+  "run": "resume300b-sdk-gnougo-20261109-02",
+  "kind": "actual SDK command prerequisite; not full Code qualification",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "transport": "gnougo-structured-tools-v1",
+  "passed": true,
+  "command": "python3 probe.py",
+  "command_count": 1,
+  "exit_code": 0,
+  "observed_output": "observed-resume300b-sdk-gnougo-20261109-02\n",
+  "report": {
+    "observed": "observed-resume300b-sdk-gnougo-20261109-02",
+    "exit_code": 0
+  },
+  "external_completion_observed": true,
+  "durable_task_receipt_reloaded": true,
+  "transport_receipt_verified": true,
+  "cleanup": true,
+  "model_http_attempts": 3,
+  "model_completion_receipts": 3,
+  "actual_wire": {
+    "response_format": "json_schema",
+    "native_tools": 0,
+    "reasoning_effort": "high",
+    "stream": false,
+    "endpoint_changed": false,
+    "permission_changed": false
+  },
+  "execution_ms": 286413,
+  "financial": {
+    "ceiling_eur": "1700",
+    "cost_upper_bound_eur": "1081.2999552171965965069413417",
+    "retained_application_reservations_eur": "44.588114643976712942230183612",
+    "remaining_after_retained_liabilities_eur": "574.111930138826690550828474688",
+    "provider_invoice": false
+  },
+  "private_evidence_sha256": {
+    "resume300b-sdk02-probe.json": "2327203f46a542fe3571869b662668d434866eb46cd9dbc1ad3c653069fbc34f",
+    "resume300b-sdk02-http.json": "b75114629dbef181ff4e811f49bcc44b5f22ee50b71d0c655d786639b26ac4ad",
+    "resume300b-sdk02-receipts.json": "8ea08294814e35742d6f5f0cdfb1c3989264f049124d4ee60791b5950fe42028",
+    "resume300b-sdk02-audit.json": "e32defdbb5b8e0bf367a27bbcf145158a8e2ae1b54b6f85b2bf3752bb6b9700e"
+  },
+  "qualification_limits": [
+    "Full Code review, checks, report and cleanup remain unqualified.",
+    "Amazon v7 business qualification remains unqualified."
+  ]
+}

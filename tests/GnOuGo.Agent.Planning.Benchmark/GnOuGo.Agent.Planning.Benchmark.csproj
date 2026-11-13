@@ -7,8 +7,8 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />
-    <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.0" />
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.1" />
+    <PackageReference Include="Microsoft.ML.Tokenizers.Data.O200kBase" Version="2.0.1" />
     <ProjectReference Include="../../src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />
@@ -18,4 +18,6 @@
   <ItemGroup><Compile Include="../Shared/PlanningCorpus.cs" Link="PlanningCorpus.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/PlanningBenchmarkCases.cs" Link="PlanningBenchmarkCases.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../Shared/RealProductContracts.cs" Link="RealProductContracts.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../Shared/BusinessReviewCorpus.cs" Link="BusinessReviewCorpus.cs" /></ItemGroup>
+  <Import Project="../../build/GnOuGo.BundledMcpTools.targets" />
 </Project>

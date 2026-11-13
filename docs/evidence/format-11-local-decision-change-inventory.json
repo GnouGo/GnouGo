@@ -1,0 +1,32 @@
+{
+  "schema": "compact_local_decisions_change_inventory_v1",
+  "base_revision": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+  "production_revision": null,
+  "removed_or_consolidated": [
+    "Removed unconditional all-requirement insertion and the global-first/above-hard-ceiling fallback from local request construction.",
+    "Selection, discovery and authoring reuse the existing measured navigation fitter toward targets, replacing the discovery bypass and hard-ceiling-only decision.",
+    "Reused the existing exact requirement-page equality check rather than repeating original rows already displayed in explicit evidence.",
+    "Removed host-fixed baseline/scope echoes, null-only unavailable actions, zero-capacity arrays and unreachable continuation/boundary guidance from draft envelopes.",
+    "Reused existing schema factoring after final domains; no second deduplication framework, compatibility adapter, evidence registry or planner was added."
+  ],
+  "necessary_additions": [
+    "Transient source/dependency relevance projection using current symbols, accepted checkpoint associations, originals and repair witnesses.",
+    "Encrypted issued-call evidence maps, canonical host clones, raw-response validation and exact request/review identity checks.",
+    "Nonblocking exact-request target warnings in the existing measurement journal.",
+    "One scope cursor reset when acceptance replaces its frontier and clears evidence."
+  ],
+  "line_delta": {
+    "production_csharp_files": 18,
+    "production_csharp_added": 725,
+    "production_csharp_removed": 103,
+    "test_csharp_files": 40,
+    "test_csharp_added": 1509,
+    "test_csharp_removed": 314
+  },
+  "limitations": [
+    "This change is a net source-code increase; no net deletion or new runtime-efficiency claim is made. The measured reduction concerns complete request and response-schema bytes.",
+    "Canonical-address pending archives are not converted. A required missing or conflicting map stops rather than reconstructing authority.",
+    "The prospective enlarged diagnostic policies do not alter existing sessions or the qualification profiles.",
+    "Production business qualification remains unproven until independently checked live execution."
+  ]
+}

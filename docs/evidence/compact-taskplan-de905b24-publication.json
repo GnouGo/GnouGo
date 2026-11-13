@@ -1,0 +1,121 @@
+{
+  "source": "de905b246bd23db5acfdede02beffa11be0d3d01",
+  "source_files": 4738,
+  "source_content_and_modes_match_git": true,
+  "stages": [
+    {
+      "stage": "managed-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 28.701,
+      "log_sha256": "3a2650cba3bd17db61eb4a7af1e6cc380bd8cd113aec15e9f6e64d7ea4679318"
+    },
+    {
+      "stage": "managed-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 3.469,
+      "log_sha256": "2c9c49966a627c7c0b9bd70ae28be452cdd3fe93c269c3f972f6be92ccdb629a"
+    },
+    {
+      "stage": "native-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 37.141,
+      "log_sha256": "930cc8c1e285b0ba1b6f6260c7ddd4f54eff33f2e286de2598407a5b75863de7"
+    },
+    {
+      "stage": "native-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 6.928,
+      "log_sha256": "3fa38761318308beba38b427501eda939f72a30b9a569b5e7b3102c88d45cd9b"
+    },
+    {
+      "stage": "pack-planning",
+      "exit_code": 0,
+      "elapsed_seconds": 1.047,
+      "log_sha256": "4b189aad263e83fee2c67e49fbc72a228f229ae3e9502a41bdfb947f4215b842"
+    },
+    {
+      "stage": "pack-integrations",
+      "exit_code": 0,
+      "elapsed_seconds": 1.725,
+      "log_sha256": "132d3df6fdf23227ce8c06347d2dfb039e23839a37419e860afe9884ce7bf2b6"
+    },
+    {
+      "stage": "pack-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.777,
+      "log_sha256": "425ce2733b10e4ee1d38c61871be79498f47473fb130dd995caab01e9a8ded05"
+    },
+    {
+      "stage": "pack-copilot",
+      "exit_code": 0,
+      "elapsed_seconds": 1.658,
+      "log_sha256": "adc8118e0617aae69b89bf7853270f97e22ea85f024cad5c1aca85aea3348ac6"
+    },
+    {
+      "stage": "pack-persistence",
+      "exit_code": 0,
+      "elapsed_seconds": 2.138,
+      "log_sha256": "6fcd774189e2a9fdc49ac3aec43c2fe78a5d1a0628fa764bbc73ea743c997daf"
+    },
+    {
+      "stage": "pack-ai-core",
+      "exit_code": 0,
+      "elapsed_seconds": 0.79,
+      "log_sha256": "591ff70dca882894d0fbfdb595f43a393b0cd81f6ebeb737b2f98759382172f3"
+    },
+    {
+      "stage": "server-publish",
+      "exit_code": 0,
+      "elapsed_seconds": 108.424,
+      "log_sha256": "54911fac2d76f308afc14296c99a14abc9f655197c3149f966703113882686d2"
+    },
+    {
+      "stage": "server-encrypted-storage-smoke",
+      "exit_code": 0,
+      "elapsed_seconds": 2.198,
+      "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5"
+    }
+  ],
+  "published_outputs_hash_verified": 213,
+  "packages": [
+    {
+      "name": "GnOuGo.AI.Core.1.0.0.nupkg",
+      "sha256": "2363dbb6c482c739a8ec7208f2a6980c8ca93f5c4ebc7d8f4c2d6d438264c673",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    },
+    {
+      "name": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+      "sha256": "d3173933d7bea5f2ec1b1d1543f53a2e80c7f581b9e3f706b5ad678a6c0861a3",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.1.0.0.nupkg",
+      "sha256": "018faf2d812dfbf2564bd2a3fd2c3b9a49b9119c203306feb9eb8771222827b8",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+      "sha256": "c41c0c975da7dd7665b24b85de2ddb62db75bd2cb7cabed192ea2e092a57aea4",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    },
+    {
+      "name": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+      "sha256": "8bdd851d337cf47d56d3840d7c942e2f68f7009c368e15c5ec33f2303301330c",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+      "sha256": "6b4418ad11c583736dbfcc04e5766a05098719548e773920cc3eeebfbf744466",
+      "repository_commit": "de905b246bd23db5acfdede02beffa11be0d3d01"
+    }
+  ],
+  "managed_and_native_smoke": "retained presentations 2-10, fresh11, exact request/receipt recovery and mock-runtime output",
+  "encrypted_storage": "published format10 persistence, encrypted recovery and tenant isolation; execution journal schema9 unchanged",
+  "server_publication_exclusions": [
+    "ClientApp",
+    "bundled-server-tool staging"
+  ],
+  "business_acceptance": false,
+  "private_qualification_sha256": "f24fe529e7086f9c0196dc8ff7bf5571bc9f9b11ae90673986b9bca44e3de342",
+  "attribution": "Exact de905b24 production and publication harness; independent git-blob/mode, output hash and package revision checks."
+}

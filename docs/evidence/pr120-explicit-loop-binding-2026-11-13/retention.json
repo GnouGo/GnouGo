@@ -1,0 +1,14 @@
+{
+  "evidence_hash": "5b72d3b60e359f6064ed53ff1d4fe8baa4c256b1eb4d4a01e3241dbc741a2f8c",
+  "retention_kind": "cancelled-planning-request",
+  "session_id": "c0f162de57b94712862e3890d9660bf1",
+  "revision": 160,
+  "request_id": "c0f162de57b94712862e3890d9660bf1:62:83991ae367ca1c5eec1bd5fec9417216de227ba65719e3475a98f59ff77821b8:c874f499e78c4c87d50b11b32864ee2294379ddbafbd3359b8c082e1ce162b83",
+  "outcome": "inconclusive",
+  "dispatch_certainty": "unknown",
+  "application_reservation_in_campaign_http": false,
+  "retained_application_reservation_eur": "10.965120476491291399693168486",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true
+}

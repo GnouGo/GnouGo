@@ -6,6 +6,7 @@ using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
@@ -22,6 +23,39 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests
 {
+    [Fact]
+    public async Task OfflineCompositionPreparationDoesNotAgeTheFreshExecutionBudget()
+    {
+        var clock = new CompositionClock(DateTimeOffset.UtcNow - TimeSpan.FromMinutes(3));
+        LLMUsageBudgetScope? captured = null;
+        await ExecuteTypedComposition("one", "compact-bindings-v15", designer: true,
+            executionClock: clock, beforeExecution: () => clock.Advance(TimeSpan.FromMinutes(3)),
+            observeExecutionBudget: scope => captured = scope);
+        Assert.NotNull(captured);
+        Assert.False(captured.IsTrackingOnly);
+        Assert.Equal(TimeSpan.FromMinutes(2), captured.Limits.MaxElapsed);
+        clock.Advance(TimeSpan.FromMinutes(2));
+        var expired = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => captured.EnsureAllowanceAsync(
+            new() { Model = "deterministic", MaxTokens = 1 }, null, 1, [1], "controlled.execution.expired", TestContext.Current.CancellationToken));
+        Assert.Equal(ErrorCodes.LlmBudgetExceeded, expired.Code);
+        Assert.Equal("elapsed_ms", expired.Details!["limit_kind"]!.ToString());
+    }
+
+    private sealed class CompositionClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
+        internal void Advance(TimeSpan amount) => now += amount;
+    }
+
+    private static LLMUsageBudgetScope StartFreshExecutionBudget(WorkflowEngine engine, TimeProvider? clock = null)
+    {
+        // These fixtures prepare catalogues and plans offline without inference.
+        // Create this new run's unchanged finite allowance only at execution;
+        // an existing scope or retained usage must never be replaced.
+        Assert.Null(engine.LLMUsageBudget);
+        return engine.LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }, timeProvider: clock);
+    }
+
     [Theory]
     [InlineData("complete")]
     [InlineData("repeated")]
@@ -34,7 +68,8 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task V10CompositionExecutesOriginalObservationsAndExactWorkbook(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v10");
 
-    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false, string? automaticCorrection = null, bool nullableGuards = false)
+    private async Task ExecuteTypedComposition(string variant, string profile, bool designer = false, bool approval = false, bool viaHost = false, bool producerStatus = false, bool guards = false, string? automaticCorrection = null, bool nullableGuards = false,
+        TimeProvider? executionClock = null, Action? beforeExecution = null, Action<LLMUsageBudgetScope>? observeExecutionBudget = null)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-v10-execution-").FullName;
@@ -92,7 +127,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
             var runMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new RunMetrics(store) : null;
             var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = (IWorkflowRunStore?)runMetrics ?? store,
-                LLMUsageBudget = new(new() { MaxElapsed = TimeSpan.FromMinutes(2) }), LlmDefaults = new() { Model = "deterministic" },
+                LlmDefaults = new() { Model = "deterministic" },
                 Limits = new() { TenantId = "local", RunId = "v10-" + variant } };
             var checkMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new CheckMetrics() : null;
             if (checkMetrics is not null) engine.Telemetry = checkMetrics;
@@ -102,15 +137,10 @@ public sealed partial class LocalProductOutcomeExecutionTests
             if (producerStatus) AddProducerStatus(proposal);
             var writerTask = proposal.Plan!.Root.Tasks.Single(t => t.Id == (designer || approval ? "write" : "save_products_xlsx"));
             if (variant == "denied") writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text = "../outside.xlsx";
-            var adapter = new ProposalRuntime(runtime, proposal);
-            var session = nullableGuards && variant != "denied" ? await NullableGuardRevision(catalog, runtime, proposal, ct) : automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, adapter, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, adapter, false, ct, profile);
+            var session = nullableGuards && variant != "denied" ? await NullableGuardRevision(catalog, runtime, proposal, ct) : automaticCorrection is not null ? await AutomaticCompositionSession(catalog, runtime, proposal, automaticCorrection, ct) : guards && variant != "denied" ? await GuardRevision(catalog, runtime, proposal, ct) : approval && variant == "denied" ? await V10PlanningSession(catalog, runtime, proposal, false, ct, profile) : approval ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single(), approval: true) : designer ? await DesignerRevision(catalog, runtime, proposal, ct, site.Urls.Single()) : await V10PlanningSession(catalog, runtime, proposal, false, ct, profile);
             Assert.True(session.Status == PlanningStatus.FinalReview, string.Join('\n', session.Diagnostics));
-            Assert.Equal(automaticCorrection == "initial_followup" ? 3 : nullableGuards && variant != "denied" ? 2 : automaticCorrection is not null ? 2 : designer || approval && variant != "denied" ? 4 : 1, session.ModelCalls);
-            Assert.Equal(automaticCorrection == "initial_followup" ? 2 : automaticCorrection is not null ? 1 : 0, session.ReplanAttempts);
-            Assert.Empty(visits); Assert.Empty(model.Requests);
-            session = await new HybridWorkflowPlanner().AdvanceAsync(session, new() { Kind = "approve", ExpectedRevision = session.Revision,
-                ArtifactHash = session.ComputeArtifactHash(), ReviewedRequirementIds = session.Requirements!.Outcomes.Select(o => o.Id).ToList() }, adapter, ct);
-            Assert.Equal(PlanningStatus.Approved, session.Status);
+            Assert.Equal(0, session.ModelCalls); Assert.Equal(0, session.ReplanAttempts);
+            Assert.Empty(visits); Assert.Empty(model.Requests); Assert.Null(session.ApprovedHash);
             Assert.Equal(profile, session.Request.Options["compilation_profile"]?.ToString());
             var document = WorkflowParser.Parse(session.Yaml!);
             var generatedSteps = document.Workflows.Values.SelectMany(w => V11Steps(w.Steps.Concat(w.Finally ?? []))).ToArray();
@@ -126,6 +156,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.Equal(profile == "compact-bindings-v10" ? 33 : 27, generatedSteps.Count(s => s.Type == "set"));
             }
             var workflow = new WorkflowCompiler().Compile(document);
+            beforeExecution?.Invoke();
             var allocated = GC.GetTotalAllocatedBytes(); var timer = Stopwatch.StartNew();
             var inputs = new JsonObject { [nullableGuards ? "query" : designer || approval ? "article" : "query"] = "observed lamps" };
             GnOuGo.Flow.Core.Models.RunResult result;
@@ -137,7 +168,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 Assert.DoesNotContain(execution, e => e.Type == "human_input_request");
                 result = (await store.ReadAsync("local", engine.Limits.RunId!, ct))!.Result!;
             }
-            else result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], inputs, ct);
+            else
+            {
+                var executionBudget = StartFreshExecutionBudget(engine, executionClock);
+                observeExecutionBudget?.Invoke(executionBudget);
+                result = await engine.ExecuteAsync(workflow.Workflows[workflow.Entrypoint!], inputs, ct);
+            }
             allocated = GC.GetTotalAllocatedBytes() - allocated;
             var journal = (await store.ReadAsync("local", engine.Limits.RunId, ct))!;
             Assert.True(journal.FinalizationCompleted, $"{result.Error?.Code}: {result.Error?.Message}; {result.Error?.Details}");

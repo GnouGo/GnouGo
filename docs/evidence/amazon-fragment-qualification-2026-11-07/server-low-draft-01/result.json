@@ -1,0 +1,46 @@
+{
+  "source": "79c4c852",
+  "session": "8227a8c68f3a4706b69dec086ec93789",
+  "revision": 26,
+  "status": "stopped",
+  "phase": "construction_draft",
+  "logicalCalls": 11,
+  "completedModelReceipts": 10,
+  "acceptedCheckpoints": 0,
+  "acceptedPlan": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "independentOracleRun": false,
+  "lastRequest": "8227a8c68f3a4706b69dec086ec93789:11:7daed91ab93b1610b31b33dc304db771231bb54bc185f70ec6aa535244be38ae:e2c696d146d55f970d6310532e6df9187168b909b7e8995ec6a8a5f86e07a9ba",
+  "lastAttempt": {
+    "RetryDecision": "blocked; uncertain outcome",
+    "StartedAtUtc": "2026-11-07T10:01:27.370759+00:00",
+    "CompletedAtUtc": "2026-11-07T10:06:27.815617+00:00",
+    "ResponseBodyComplete": false,
+    "Id": "8227a8c68f3a4706b69dec086ec93789:11:7daed91ab93b1610b31b33dc304db771231bb54bc185f70ec6aa535244be38ae:e2c696d146d55f970d6310532e6df9187168b909b7e8995ec6a8a5f86e07a9ba:d174af7abe3f4d67b26e3fd7982545f5",
+    "Status": null,
+    "ContentType": null,
+    "RetryAfter": null,
+    "Failure": "transport",
+    "NotBefore": null
+  },
+  "actualHttp": {
+    "model": "gpt-6.1-sol-2026-09-29",
+    "reasoningEffort": "low",
+    "maxCompletionTokens": 32768,
+    "tools": false,
+    "stream": null,
+    "attemptPolicy": {
+      "MaxAttempts": 3,
+      "MaxUncertainRetries": 0,
+      "AttemptTimeoutMilliseconds": 600000,
+      "BaseDelayMilliseconds": 1000,
+      "MaxDelayMilliseconds": 30000,
+      "MaxTotalDelayMilliseconds": 60000
+    }
+  },
+  "retentionApplied": true,
+  "requestRetryAllowed": false,
+  "reservationPerCampaignAttemptEur": "7.1396506941334527541424093147",
+  "retentionEvidenceHash": "2a6d7f5b736e989e85855dba2c57470c83ab5d3909eb9b65771621ef56422e13"
+}

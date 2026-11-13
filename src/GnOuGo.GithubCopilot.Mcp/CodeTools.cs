@@ -70,11 +70,11 @@ internal sealed class CodeTools
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
-    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs one bounded GitHub Copilot SDK coding task inside an existing project root. Requested work may include inspection, review, checks or edits; actual tools and command availability depend on the SDK and current host permission/sandbox policy. toolExecutions preserves observed tool and terminal results; a completed session does not prove commands or checks succeeded. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
-        [Description("Coding task to implement by editing files.")] string task,
+        [Description("Requested coding task, limited to actions permitted by the existing project scope, available SDK tools and host permission/sandbox policy.")] string task,
         [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         RequestContext<CallToolRequestParams>? requestContext = null,

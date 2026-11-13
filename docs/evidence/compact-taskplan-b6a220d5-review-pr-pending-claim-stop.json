@@ -1,0 +1,156 @@
+{
+  "production_source": "b6a220d532e2100f1686c6ed6255ccbcf61c4369",
+  "execution_source": "e527289737d5f6cd9f59e61657995a8207b3ace8",
+  "run": "compactmb6a220d5code11a-code-1",
+  "planning_format": 11,
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "settings_changed": false,
+  "operator_intervention": false,
+  "outcome": {
+    "status": "stopped",
+    "artifact_created": false,
+    "runtime_started": false,
+    "oracle_passed": false,
+    "independently_satisfied_business_obligations": 0,
+    "calls_per_satisfied_business_obligation": null
+  },
+  "initial_preparation_comparison": {
+    "control_source": "2d09aaee916a88caf39e4cf1df674d407c161a2d",
+    "same_model_profile_mcp_pins_inputs_and_oracle": true,
+    "cohort_directory_differs_for_isolation": true,
+    "control": {
+      "calls": 7,
+      "elapsed_ms": "433551.3296",
+      "provider_input_tokens": 10999,
+      "provider_output_tokens": 21361,
+      "known_cost_eur": "0.6250112278810742836611874607"
+    },
+    "candidate": {
+      "calls": 1,
+      "elapsed_ms": "34673.2754",
+      "complete_request_bytes": 8488,
+      "estimated_input_tokens": 3086,
+      "provider_input_tokens": 1499,
+      "provider_output_tokens": 1352,
+      "reasoning_tokens_included_in_output": 512,
+      "known_cost_eur": "0.0431644660019761070690739244",
+      "required_text_inputs": [
+        "pullRequestUrl",
+        "reviewText"
+      ],
+      "public_outputs": []
+    },
+    "scope_of_conclusion": "Measured preparation-phase improvement in this frozen diagnostic; no completed-workflow efficiency or repeatability conclusion."
+  },
+  "first_clone": {
+    "constructed_on_call": 7,
+    "repository_url": "https://github.com/AxaFrance/SmartGuide.git",
+    "branch": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+    "directory": "workflows/schema-portability-20261019-incremental/compactmb6a220d5code11a-code-1/repository",
+    "static_independent_argument_expectations_matched": true,
+    "runtime_provenance_verified": false,
+    "model_call_time_through_first_clone_ms": "233483.2208"
+  },
+  "demonstrated_internal_stop": {
+    "claimed_requirement": "req_6",
+    "original": "V\u00e9rifie explicitement node --version, pnpm --version et python --version avant les checks. ",
+    "accepted_pending_claim_call": 20,
+    "reselected_claim_call": 21,
+    "repeated_extension_call": 22,
+    "same_executable_plan": true,
+    "business_review_pending": true,
+    "host_can_claim_same_completion_again": false,
+    "issued_schema_still_offered_claim": true,
+    "diagnostics": [
+      {
+        "code": "REPLAN_NO_PROGRESS",
+        "location": "/root",
+        "message": "An extension must add work, declare an output or close an existing obligation.",
+        "required": true,
+        "validationStage": null,
+        "rule": null
+      }
+    ],
+    "correction": "Reuse CanClaimRequirementCompletion for closure-ID choices and scope-closure presentation; pending originals remain visible and unverified.",
+    "new_review_subsystem_or_authority": false
+  },
+  "remaining_unverified_business_work": [
+    "Actual command execution, report contents, provenance and cleanup have not run.",
+    "The review operation binds a literal task string; reviewText has no executable consumer in the stopped plan.",
+    "An always cleanup operation exists, but successful cleanup is not inferred from task presence."
+  ],
+  "metrics": {
+    "logical_calls": 22,
+    "physical_attempts": 22,
+    "correction_charges": 0,
+    "judge_calls": 0,
+    "provider_input_tokens": 157260,
+    "provider_output_tokens": 44655,
+    "provider_reasoning_tokens_included_in_output": 38573,
+    "known_cost_eur": "1.9095931015898679601185664240",
+    "unknown_reservation_eur": "0",
+    "planning_ms": 1185782,
+    "phase_request_sizes": {
+      "construction_intent": {
+        "requests": 1,
+        "prepared_requests": 1,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 1,
+        "peak_complete_request_bytes": 8488,
+        "p50_complete_request_bytes": 8488,
+        "p95_complete_request_bytes": 8488,
+        "peak_estimated_input_tokens": 3086
+      },
+      "construction_select": {
+        "requests": 6,
+        "prepared_requests": 6,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 6,
+        "peak_complete_request_bytes": 41787,
+        "p50_complete_request_bytes": "35100.5",
+        "p95_complete_request_bytes": 41787,
+        "peak_estimated_input_tokens": 14185
+      },
+      "construction_discovery": {
+        "requests": 9,
+        "prepared_requests": 13,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 13,
+        "peak_complete_request_bytes": 43674,
+        "p50_complete_request_bytes": 38312,
+        "p95_complete_request_bytes": 43674,
+        "peak_estimated_input_tokens": 14814
+      },
+      "construction_draft": {
+        "requests": 6,
+        "prepared_requests": 9,
+        "rejected_before_dispatch": 0,
+        "above_target_warnings": 9,
+        "peak_complete_request_bytes": 51623,
+        "p50_complete_request_bytes": 40200,
+        "p95_complete_request_bytes": 51623,
+        "peak_estimated_input_tokens": 17464
+      }
+    },
+    "all_request_components_reconcile": true,
+    "reconciled_prepared_requests": 22
+  },
+  "transport_uncertainty": false,
+  "retention_required": false,
+  "no_unchanged_failed_request_replayed": true,
+  "campaign_after_stop": {
+    "ceiling_eur": "640.0301038327063045424449473",
+    "known_cost_eur": "344.07110856967486424027719223",
+    "retained_unknown_eur": "112.70530038839036365543249377",
+    "available_eur": "183.25369487464107664673526130",
+    "supplement_reapplied": false
+  },
+  "evidence_sha256": {
+    "freeze": "f33cf8bb574fc80189f7c537c289a731b72cd3fb412994eb141189251971fb3c",
+    "terminal_snapshot": "2a27c5821733002b2b3bbfbf708a96669b351e9a005b3a86787cab2aa7553a56",
+    "terminal_result": "20fa146e4541cd1749eaf1194d759c879f0f7589314a85722a2f92dc5c636a73"
+  },
+  "comparison_limitation": "22 calls versus control41 is earlier termination, not complete-run savings.",
+  "qualification": "incomplete"
+}

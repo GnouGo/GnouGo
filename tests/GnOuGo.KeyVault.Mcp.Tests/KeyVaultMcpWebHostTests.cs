@@ -13,15 +13,16 @@ public sealed class KeyVaultMcpWebHostTests
     [Fact]
     public void ResolveDatabasePath_WhenUsingDefaultPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
+        var baseDirectory = Path.GetTempPath();
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             ".GnOuGo",
             "data",
             "gnougo-keyvault.db");
 
         var actual = KeyVaultDatabasePathResolver.Resolve(
             KeyVaultDatabasePathResolver.DefaultRelativePath,
-            AppContext.BaseDirectory);
+            baseDirectory);
 
         Assert.Equal(expected, actual);
     }

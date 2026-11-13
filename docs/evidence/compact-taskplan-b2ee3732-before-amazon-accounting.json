@@ -1,0 +1,37 @@
+{
+  "campaign": "schema-portability-20261019-incremental",
+  "before_cohort": "compactrb2ee37324amz22j20v11a",
+  "captured_at": "2026-10-28T08:09:04.859497+00:00",
+  "ceiling_eur": "540.0301038327063045424449473",
+  "available_eur": "169.26832053077319516842824909",
+  "transport_accounting": {
+    "calls": 5445,
+    "session_calls": 0,
+    "known_input_tokens": 18917417,
+    "known_output_tokens": 7164664,
+    "known_cost_eur": "276.07374905707131972898852723",
+    "reserved_input_tokens": 1760265,
+    "reserved_output_tokens": 3244032,
+    "reserved_cost_eur": "94.68803424486178964502817098",
+    "cost_upper_bound_eur": "370.76178330193310937401669821",
+    "unknown_attempts": 114
+  },
+  "permanently_closed_requests": 42,
+  "unresolved_requests": 0,
+  "readiness_sha256": "f8db0d175e4e65ee2b93f3eddbe305c0646618e9aa9053cb42b7391d8d3de150",
+  "supplement_reinspection": {
+    "campaign": "schema-portability-20261019-incremental",
+    "reference": "gnougo-pr120-2026-10-27-supplement-100-eur-once",
+    "matching_history_entries": 1,
+    "authorization_record_sha256": "a143390d715ee890326970dfa2d0ed9ec8b8372c53e6884cfabcaa7d66cd5199",
+    "matches_recorded_27_october_hash": true,
+    "ceiling_eur": "540.0301038327063045424449473",
+    "extension_applied": false,
+    "model_calls": 0,
+    "store_writes": 0
+  },
+  "supplement_reinspection_timing": "Read-only after the before-dispatch lease capture; exact authorization bytes still match27October. No extension operation invoked.",
+  "prior_reservations_released": false,
+  "historical_accounting_reset": false,
+  "future_balance_guaranteed": false
+}

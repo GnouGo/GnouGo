@@ -1,0 +1,17 @@
+{
+  "source": "3f38b8338e37808ac8193a9c99c6952ec2868ec4",
+  "passed": 8525,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "case_inventory_and_actual_counts_equal": true,
+  "scope": "Intermediate validation before optional-input reuse and sibling-hold retention fixes; no relabeling as final-source validation.",
+  "private_log_sha256": {
+    "continuation300-full-remainder.log": "64c500a3155613252ab26de16cd9332ea06ba4247bc34a2bedf903a4a1604d6f",
+    "continuation300-fixture-shard1.log": "6635c5e5cd47e48114b5c15f01194385092fcff22ecc04f1263b6fc931d14c6d",
+    "continuation300-fixture-shard2.log": "892adbe6a7036569afff31c138d4e9312dede5cc723959a7b9374b6997e5877b",
+    "continuation300-fixture-shard3.log": "207e2676a3c189a52d0985f0645d8f912c6b98a081479e7c4bb8fe9e20c25f5e",
+    "continuation300-fixture-shard4.log": "a4cebdcf07521d26265e0a78e93fb9c353424dd917ed2b734c5c1f8fece6f80d"
+  }
+}

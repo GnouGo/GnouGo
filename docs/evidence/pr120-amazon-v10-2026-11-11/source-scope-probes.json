@@ -1,0 +1,57 @@
+{
+  "source": "926b81314bd09129d9f139e70459f5f4809f0a30",
+  "producer_probe": {
+    "run": "amazon-source-scope-probe-20261111-01",
+    "request_id": "amazon-source-scope-probe-20261111-01:probe:3b717c84195e476a8cf7383e6cd142f6:7f2b4d62db798c97c84a6d2da059d5934dffde043222afc50d4d882129b82988",
+    "schema_valid": true,
+    "durable_receipt_reloaded": true,
+    "physical_attempts": 1,
+    "known_cost_eur": "0.5789341692789968652037617555",
+    "source_scope_hypothesis_validated": false,
+    "finding": "Response defers read eligibility to its later consumer and introduces minItems=maxItems=1 on six arrays. Issued prerequisite arrays have minItems=0 and no maximum. No fragment applied, compiled or accepted.",
+    "request_amendment": null
+  },
+  "consumer_probe": {
+    "run": "amazon-source-consumer-probe-20261111-01",
+    "request_id": "amazon-source-consumer-probe-20261111-01:probe:79f70864ec3a49e2b896bc0211b66787:8769e8490d80c66a6da7f4590a7b3e03fe054f2979af3c186199ec575197faac",
+    "hypothesis": "Replacing only the original policy sentence and consistent clause version corrects the actual source-read consumer draft. Other captured context and strict response schema remain unchanged.",
+    "transport": {
+      "ProviderResponseId": "chatcmpl-Ej0Gll9fLdj7uID98paeWmZ1PWzmF",
+      "StartedAtUtc": "2026-11-11T10:54:39.353824+00:00",
+      "FirstByteAtUtc": "2026-11-11T10:55:11.039798+00:00",
+      "LastByteAtUtc": "2026-11-11T10:55:11.039798+00:00",
+      "CompletedAtUtc": "2026-11-11T11:00:11.716384+00:00",
+      "DeadlineAtUtc": "2026-11-11T11:04:39.353824+00:00",
+      "ObservedStatus": 200,
+      "ResponseHttpVersion": "1.1",
+      "ResponseBodyComplete": false,
+      "ReadTermination": {
+        "Observer": "response_stream",
+        "Outcome": "exception",
+        "AtUtc": "2026-11-11T11:00:11.714987+00:00",
+        "ErrorType": "io",
+        "SocketError": "ConnectionReset"
+      },
+      "RetryDecision": "blocked; incomplete native stream; exact receipt recovery required"
+    },
+    "idle_seconds": 300.676586,
+    "elapsed_seconds": 332.36256,
+    "sse_data_envelopes": 2,
+    "useful_content_characters": 0,
+    "protocol_completed": false,
+    "usage_receipt": false,
+    "durable_completion_receipt": false,
+    "full_reservation_eur": "8.140868786386027765338110166",
+    "partial_body_sha256": "12e73171491dc1017143187d3534da07ed2e07064250b1d4257f82440668c382",
+    "hypothesis_validated": false,
+    "partial_output_applied": false,
+    "retry_count": 0
+  },
+  "full_workflow_launched_after_probes": false,
+  "qualification": {
+    "accepted_complete_plan": false,
+    "execution": false,
+    "independent_oracle": false
+  },
+  "remaining_cause": "The network reset origin remains unknown; no local timeout, provider or protocol change is justified by this evidence."
+}

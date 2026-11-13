@@ -1,0 +1,23 @@
+{
+  "observed_utc": "2026-10-26T16:59:06.086422+00:00",
+  "source": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+  "ceiling_eur": "440.0301038327063045424449473",
+  "known_cost_eur": "214.48958573712486725241556885",
+  "retained_reserve_eur": "64.191639778105877105983101810",
+  "upper_bound_eur": "278.68122551523074435839867066",
+  "available_eur": "161.34887831747556018404627664",
+  "available_basis": "exact Decimal ceiling minus saved upper bound",
+  "receiptless_identities": 32,
+  "permanently_closed": 32,
+  "unresolved": [],
+  "physical_calls": 4485,
+  "unknown_attempts": 80,
+  "campaign_evidence_hash": "6d98504aefacff0a26a6a98171de1729ac795f57aefa63ab3a540cda54599254",
+  "inspection_sha256": "5e8464dc2fa772cdbe6015eb3aaf2d061de65afb2614f9675b60a360d5230cc7",
+  "exit_code": 0,
+  "model_calls": 0,
+  "dispatch_started": false,
+  "retention_applied": false,
+  "accounting_mutated": false,
+  "note": "Public KeyVault reads may append access audits; no financial reservations, receipts, closures or settings changed."
+}

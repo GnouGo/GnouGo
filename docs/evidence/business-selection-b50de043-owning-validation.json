@@ -1,0 +1,60 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "b50de0435688d831e085566b297e98b703258600",
+  "observed_at_utc": "2026-11-04T17:08:30.021212+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+    "-m:1",
+    "-warnaserror",
+    "-p:SkipModelMetadataGeneration=true",
+    "--logger",
+    "trx;LogFileName=navigation-retirement-owning.trx",
+    "--results-directory",
+    "<isolated-results>"
+  ],
+  "counts": {
+    "total": "2678",
+    "executed": "2678",
+    "passed": "2678",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "compiler_diagnostic_count": 0,
+  "owning_exit_code": 0,
+  "source_postimages_unchanged": true,
+  "new_regression_cases": 6,
+  "focused_cases_passed": 6,
+  "focused_cases_overlap_owning_total": true,
+  "pre_fix_failing_cases": 1,
+  "pre_fix_passing_preservation_cases": 5,
+  "trx_sha256": "ce26be1e4be63f3b56f553996266bf9b791f32e79cf7621fa27af9a5a2bdc6ab",
+  "focused_green_trx_sha256": "1b2f6215babcf3a1abb7969216254e57ad67141d5763e92dc675aed5ab7ca16c",
+  "initial_red_trx_sha256": "20f5cd6bff66ab9954876e3f7ddade5371bc6c08b9c5af68fd2e5fbbc4e71e95",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs": "a19ad452df048a005ff0be611934fa968f94a4c9a2969da78fa87f57f707d221",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockNavigationRetirementTests.cs": "731047a7fdaff391d38cc87b28c40c1271cb004eb53ef2d59a4e6682b709ea9c",
+    ".agents/skills/gnougo-planning/SKILL.md": "f3ddd473bd728d06943215db0518954b11c5c7d3b8c290938cdc52a354de020a",
+    "docs/incremental-taskplan-construction.md": "b4fbdfc2930781b9549935586e72210b5d78c931ce9c64e530d7867eb530684c",
+    "src/GnOuGo.Flow.Planning/README.md": "2b5fa53e3f992fbf6ac34ffc63670327c505c3f6248a7656419cd396b230a5fc"
+  },
+  "limits": [
+    "Owning tests ran before commit creation on byte-identical committed source postimages.",
+    "Six focused cases overlap the owning total; the simulated path reaches ordinary final global review without artifact approval or execution.",
+    "Empty waiting navigation is abandoned only after successful same-block review; no typed prerequisite is fulfilled. Accepted partial consumers/ancestors, partial blocks, different blocks, cross-block parents and resuming cursors remain retained.",
+    "Exact-source full-solution, publication, matching live binaries and actual business qualification remain separate checks."
+  ]
+}

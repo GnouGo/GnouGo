@@ -1,0 +1,33 @@
+{
+  "before_source": "48de05991b215dc43a638d8e955ae90d6f000ff0",
+  "probe": "resume200-openai-sdk-20261109-01",
+  "failure_type": "System.OverflowException",
+  "first_cause": "Read-only campaign inspection concatenated all canonical evidence into one string before hashing; the retained history exceeded the single-string limit.",
+  "failed_stage": "LiveExecutionReadiness.CopilotAsync accounting_before, before saving the probe and starting SDK transport",
+  "probe_record_count": 0,
+  "provider_dispatches": 0,
+  "commands": 0,
+  "fix": "Read each owned payload once and hash the identical canonical JSON/LF byte stream with bounded UTF-8 buffers; retain only record-key directories.",
+  "canonical_hash_recipe_changed": false,
+  "financial_records_changed_by_fix": false,
+  "provider_or_endpoint_changed": false,
+  "regressions": {
+    "focused_passed": 5,
+    "affected_benchmark_passed": 624,
+    "failed": 0,
+    "aggregate_characters_tested": 2147975180,
+    "aggregate_sha256": "671c9197c42560dc037cdf751ea355db949401d9448df03504e6d5c49d28ceda",
+    "cases": [
+      "Legacy hash equality including control characters, Unicode, surrogate handling and buffer boundaries",
+      "Aggregate evidence beyond int.MaxValue characters without a combined string",
+      "Cancellation without a completed digest",
+      "Mixed collection/key ordinal ordering, exact owned budget, read-only inspection and exclusion of unrelated campaign records"
+    ]
+  },
+  "evidence_sha256": {
+    "resume200-openai-sdk01-live.log": "bbd0d6410c0110905abff001ce0f208dfc9869af9b9c4d55a416895ea4224af1",
+    "resume200-probe01-current.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "resume200-stream-inspection-focused.log": "2c6a5420e1f210a1164db25b9ebf16f20ed1bec290622d4f2677ee89dc32ab9c",
+    "resume200-stream-inspection-benchmark-all.log": "67253ad96113e4401c3b50527801bfe4036cdbc4205d9c959158a88de0cebe03"
+  }
+}

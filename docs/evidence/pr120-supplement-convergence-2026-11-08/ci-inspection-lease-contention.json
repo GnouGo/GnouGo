@@ -1,0 +1,23 @@
+{
+  "before_source": "ff66905a498e6668b8f54a6be8d42e5aa382b9d2",
+  "ci_run": "https://github.com/GnouGo/GnouGo/actions/runs/42557711656",
+  "ci_job_id": 128967039601,
+  "failed_test": "DiagnosticPlanningBrowserTests.ActualHostRecoversDiscoveryWithoutInferenceAndPreservesProtectedInspectionAndFiniteAdmission",
+  "observed_failure": "scripts/smoke-discovery-recovery.mjs:58; control-command response HTTP409 instead of HTTP200 after explicit resume.",
+  "controlled_reproduction": "Pause the exact request-receipt or discovery-journal read while it owns the short OS lease; submit configure_mode through the same local service. The command incorrectly finishes with a competing-owner conflict.",
+  "fix": "Read-only request/discovery eligibility inspection uses the existing local command gate without waiting for busy work; ordinary local commands wait for the short reader; the OS lease still rejects active or independent owners.",
+  "focused_validation": {
+    "passed": 25,
+    "failed": 0,
+    "new_regressions": 2,
+    "browser_smoke_passed": true,
+    "active_owner_cancellation_and_receipt_checks_preserved": true
+  },
+  "provider_dispatches_for_regression": 0,
+  "permissions_or_retry_policy_changed": false,
+  "private_log_sha256": {
+    "continuation300-recovery-before.log": "127107dd7bba653ec12bc1ca174ea8bb48d836f66f10ead69b89739cbdbbd9bd",
+    "continuation300-inspection-red.log": "5120239d3bc7a882fcbcb46ef5d3468f841b9df0353b449fd528742a46e555b2",
+    "continuation300-inspection-final-green.log": "d5dc514785f3e7b2432ee70200a94d31143496ada151548f4f44f1675ef9511d"
+  }
+}

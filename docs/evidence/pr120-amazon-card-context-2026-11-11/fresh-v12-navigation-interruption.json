@@ -1,0 +1,47 @@
+{
+  "identity": "amazon-v12-source-20261111-01",
+  "source": "9b598d752675c35f1916927c238741ce161132c6",
+  "approval": "user-amazon-inherited-store-list-20261111",
+  "policy": "amazon-observed-store-list-context-v8",
+  "record_count": 1336,
+  "source_search_success": true,
+  "source_search_truncated": false,
+  "failed_resolution_event_index": 1,
+  "requested_path": "https://sponsored-ads.amazon.fr/clk/",
+  "requested_url_sha256": "d159eb8df18a45cea6ae40362a6e0eaa95fdd4731923bdfdff7e6155d376629d",
+  "tool_error": true,
+  "success": false,
+  "error_code": "BROWSER_ERROR",
+  "error_message": "The Browser could not complete snapshot acquisition.",
+  "acquisition": {
+    "attempts": 0,
+    "invalidations": [],
+    "phase": "navigation",
+    "elapsedMilliseconds": 1901,
+    "timingsMilliseconds": {
+      "startup": 0,
+      "navigation": 1901
+    },
+    "failureCategory": "net::ERR_ABORTED"
+  },
+  "navigation_evidence_present": false,
+  "http_contact_and_partial_responses": "Unknown from this receipt; zero snapshot attempts is not zero HTTP contact.",
+  "source_prerequisite_qualified": false,
+  "business_execution": false,
+  "independent_business_oracle_passed": false,
+  "model_calls": 0,
+  "cold_report_identical": true,
+  "cleanup": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "retained_evidence_sha256": {
+    "admission.json": "efcb17f9f829b9660e170e8a20c98594ae3924374155b0cd356f9fe0efef20c0",
+    "events.json": "7e5d8ea04dff1412925b29343ddd7b581dd790b0641bb7163cf2d4c2e8ae48ef",
+    "selection.json": "521acf037b719ba4f844c3fbb9508feeed42a473a2942f96849fcc0c94c4a43b",
+    "cold-selection.json": "521acf037b719ba4f844c3fbb9508feeed42a473a2942f96849fcc0c94c4a43b",
+    "close.json": "bc039087349d1633f080975af570b5ba5076b9ba9ced91d03991fc4f0a6610bb"
+  },
+  "new_funding": false
+}

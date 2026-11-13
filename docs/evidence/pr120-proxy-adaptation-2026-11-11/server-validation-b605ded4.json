@@ -1,0 +1,15 @@
+{
+  "source": "b605ded48b45d49571b978430086ffa7ac31e05f",
+  "success": true,
+  "aggregate": {
+    "exact_coverage": true,
+    "missing": {},
+    "extra": {},
+    "invalid_outcomes": [],
+    "passed": 2257,
+    "skipped": [
+      "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+    ]
+  },
+  "binaries_unchanged": true
+}

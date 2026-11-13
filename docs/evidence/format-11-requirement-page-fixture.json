@@ -1,0 +1,57 @@
+{
+  "scope": "Test-only correction to a synthetic pagination fixture; production and captured limits unchanged.",
+  "control_revision": "2772ca7630164655203d529b35a74eff7af17514",
+  "candidate_revision": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+  "original_ci_failure": {
+    "run": 40741300501,
+    "test": "CompactRequirementPageTests.CardinalityAndOriginalPageBoundariesStayStableAsUnrelatedRequirementsGrow",
+    "conclusion": "failure",
+    "planning_passed": 2238,
+    "planning_failed": 1,
+    "log_sha256": "391243b23c078b84c497e893aadf9795fd53ba5cf26383d4f073157afebcfa2d"
+  },
+  "exact_source_reproduction": {
+    "capture": "Separate git archives with the same diagnostic-only test probe; original test unchanged and production unmodified.",
+    "original_fixture_control": "passed",
+    "original_fixture_candidate": "failed identically to CI before atomic evidence commit",
+    "captured_input_ceiling": 6000,
+    "page2_control": { "bytes": 17136, "estimated_input_tokens": 5968 },
+    "page2_candidate": { "bytes": 17268, "estimated_input_tokens": 6012 },
+    "requirements500_control": { "bytes": 17139, "estimated_input_tokens": 5969 },
+    "requirements500_candidate": { "bytes": 17271, "estimated_input_tokens": 6013 },
+    "schemas_and_contexts_identical": true,
+    "only_component_difference": "Navigation instructions add 132 bytes and 44 estimated tokens; fresh request identities also differ.",
+    "diagnosis": "The control fixture had only 32 estimated tokens of page2 headroom. Correct admission rejected the longer instruction; page boundaries, clauses and cardinality did not change."
+  },
+  "fixture_correction": {
+    "file": "tests/GnOuGo.Flow.Planning.Tests/CompactRequirementPageTests.cs",
+    "sha256": "970f7db7321675206122b6475bd762cd2d7bcf37e7dc873dee27c2b482d65566",
+    "synthetic_clause": "Preserve {index}: 界😀. ",
+    "preserved": [
+      "Ten indexed verbatim clauses, including Unicode and astral text",
+      "Eight plus two page cardinality, offsets and exact continuation links",
+      "Five hundred unrelated requirements and bounded complete followup",
+      "6000-token ceiling and atomic oversized-clause rejection"
+    ],
+    "strengthened": "Assert every exact original clause on both retrieved pages."
+  },
+  "corrected_validation": {
+    "owning_fixture_main": { "passed": 8, "failed": 0, "warnings": 0 },
+    "paired_private_runs": "Both arms passed all eight owning cases plus the same diagnostic-only probe; overlapping cases are not added to full-suite totals.",
+    "requirements500_control": { "bytes": 16819, "estimated_input_tokens": 5863 },
+    "requirements500_candidate": { "bytes": 16951, "estimated_input_tokens": 5907 },
+    "requirements500_schema_and_context_identical": true,
+    "page2_difference": "Control also displays the optional eleventh clause; candidate pages it behind page:requirements:10 to fit. Both retain all ten explicitly retrieved originals. These page2 schemas are not claimed identical.",
+    "warnings_as_errors": true,
+    "compiler_warnings": 0,
+    "paid_calls": 0,
+    "main_log_sha256": "19ccf81721ece99eec763f8289e57f070661f5204b7d4976b33b5e4fc0e1a5e8",
+    "control_log_sha256": "5525be88bb7a650c481da26390784cc054f9d9ac7334621a9a58d6a3e43585df",
+    "candidate_log_sha256": "ea74c07706761c4c791122f984d17f1a6ec81866446db5858fd7d87ce46ec0b5"
+  },
+  "limitations": [
+    "The original CI failure is retained; no workflow rerun was requested.",
+    "Initial private VSTest launches stopped before execution because sandbox IPC was denied; those logs remain archived. The identical built binaries then ran with authorized local IPC.",
+    "These synthetic regressions establish no live business or full-solution success."
+  ]
+}

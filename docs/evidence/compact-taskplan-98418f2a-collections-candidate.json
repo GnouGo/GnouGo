@@ -1,0 +1,262 @@
+{
+  "source": "98418f2a0b597208eb74d5fae3a08e5e88eb9d1a",
+  "presentation_version": 10,
+  "case": "collections",
+  "role": "Frozen candidate diagnostic; no business acceptance or runtime credit.",
+  "cohort": "compactr98418f2a0colhighv10a",
+  "run_key": "98418f2a0b597208eb74d5fae3a08e5e88eb9d1a:fixture:cohort:compactr98418f2a0colhighv10a:collections:1",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "596329631a89950e5b3d870a3d8c3c41f3201790aa971bf02442a06dadb56bd3",
+  "command_sha256": "7c0b296ffa07e382a01ebe07910ccecc1ebc5e3d17ea47d3bb0159efaa048698",
+  "benchmark_binary_sha256": "0b4cdbc246a73373c2e9d2e7c48cb3e2328f944413baac1cca5f459dad05f866",
+  "source_manifest_sha256": "e7afc4673ec82ec1be1a1f1e42d9bbb1ba048223a634419d5ea2e2d220bb1651",
+  "phase_policy_sha256": "00a182f8ad35c3ba488261fe845ef7840a790158f32ff2d933480c074fea4158",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 8000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "limits": {
+    "physical_calls": 64,
+    "corrections": 4,
+    "total_tokens": 15000000,
+    "active_milliseconds": 18000000
+  },
+  "observation_utc": "2026-10-27T17:01:44.794261+00:00",
+  "status": "stopped",
+  "classification": {
+    "terminal_code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+    "terminal_received_action": "evidenceRequests",
+    "terminal_received_request_number": 24,
+    "terminal_received_addresses": [
+      "requirement:req_1"
+    ],
+    "pending_response": false,
+    "new_uncertain_logical_request": false,
+    "new_retention_required": false,
+    "failure_kind": "Complete prospective Judge follow-up exceeds captured input ceiling.",
+    "received_output_exhaustion": false,
+    "duplicate_addresses_in_last_two_received_batches": 0
+  },
+  "planning": {
+    "logical_planning_calls": 24,
+    "physical_attempts": 25,
+    "repairs": 0,
+    "known_input_tokens": 76704,
+    "known_output_tokens": 24392,
+    "known_cost_eur": "0.9953413654618473895582329317",
+    "reserved_input_tokens": 12000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": "0.9308701472556894243641231593",
+    "usage_complete": false,
+    "usage_bounded": true,
+    "planning_ms": 1122427,
+    "receipts": 24,
+    "known_reasoning_tokens": 19156,
+    "unknown_physical_attempts": 1,
+    "unknown_attempt_request_number": 2,
+    "request2_physical_attempts": 2,
+    "logical_requests_without_receipts": 0,
+    "physical_attempt_http_statuses": null
+  },
+  "accepted_progress": {
+    "accepted_checkpoints": 6,
+    "checkpoint_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "accepted_task_kinds": {
+      "foreach": 1,
+      "call": 1,
+      "value": 1
+    },
+    "accepted_group_count": 1,
+    "accepted_root_output_names": [],
+    "open_scopes": [
+      "/tasks/iterate_values/body",
+      "/root"
+    ],
+    "closed_requirement_ids": [
+      "req_0"
+    ],
+    "requirements": [
+      {
+        "id": "req_0",
+        "status": "closed",
+        "checkpoints": [
+          1
+        ]
+      },
+      {
+        "id": "req_1",
+        "status": "in_progress",
+        "checkpoints": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ],
+    "candidate_present": true,
+    "complete": false,
+    "description": "One closed reusable group with a numeric value calculation, plus one foreach and one group call. The foreach body and root remain open; the proposed body export/closure is unaccepted and no public root output exists.",
+    "independently_completed_business_obligations": 0,
+    "business_unit": "collections_complete_ordered_doubling_v1",
+    "calls_per_completed_business_obligation": null
+  },
+  "review_observations": {
+    "received_judge_calls": 8,
+    "accepted_clean_findings_calls": 6,
+    "accepted_judge_request_numbers": [
+      5,
+      8,
+      11,
+      14,
+      17,
+      20
+    ],
+    "retained_v2_manifests": 6,
+    "received_request_proposition_pairs": 26,
+    "propositions_by_kind": {
+      "local_behavior": 12,
+      "global": 6,
+      "interaction": 6,
+      "completion": 2
+    },
+    "broad_acknowledgments": 26,
+    "subject_acknowledgments": 0,
+    "retained_reuse_events": 0,
+    "retained_transition_events": 0,
+    "interpretation": "Six accepted checkpoints and broad acknowledgments establish neither a complete business unit nor reusable subject proof. The two last Judge responses request evidence; neither is a clean review or provider inconclusive report."
+  },
+  "terminal_trajectory": [
+    {
+      "requests": [
+        21,
+        22
+      ],
+      "event": "Select and draft an explicit foreach-body export/closure for req_1; no new task, no completion claim. Existing group and call remain intact."
+    },
+    {
+      "request": 23,
+      "event": "Ordinary scoped Judge window0 of3 covers req_0. Response requests exact req_1 and the foreach objective. Prospective complete follow-up is24,422B/8,397 estimated tokens, above8,000; no retrieval is committed."
+    },
+    {
+      "request": 24,
+      "event": "Ordinary reissue retains window0/req_0 and the evidence-limit diagnostic. Response requests only req_1. Prospective follow-up is23,968B/8,246, still above8,000; host stops with CONSTRUCTION_REVIEW_INCONCLUSIVE."
+    }
+  ],
+  "coverage_boundary": {
+    "last_window_count": 3,
+    "last_window_index": 0,
+    "last_window_source_ids": [
+      "requirement:req_0"
+    ],
+    "fragment_requirement_ids": [
+      "req_1"
+    ],
+    "report_repair": false,
+    "reassessment": false,
+    "coverage_complete": false,
+    "interpretation": "Requesting a whole original absent from the current window is observed. The host retains other original windows and exact retrieval links; this report does not claim those future windows were reviewed or that new guidance will converge."
+  },
+  "corrections": {
+    "charged": 0,
+    "evidence_rejections_charge_taskplan_correction": false
+  },
+  "response_anomalies": {
+    "received_responses": 24,
+    "empty_received_texts": 0,
+    "empty_normalized_responses": 0,
+    "valid_original_json_responses": 24,
+    "original_response_utf8_bytes_total": 16346,
+    "outside_string_whitespace_bytes": 33,
+    "maximum_outside_string_whitespace_run": 10,
+    "responses_with_at_least_half_outside_string_whitespace": 0,
+    "provider_finish_reason_counts": {
+      "stop": 24
+    },
+    "received_output_exhaustion_markers": 0,
+    "ordinary_completion_status_available": 0,
+    "interface_extraction": {
+      "request_number": 2,
+      "original_utf8_bytes": 1200,
+      "outside_whitespace_bytes": 26,
+      "maximum_outside_whitespace_run": 10
+    },
+    "input_rejected_before_dispatch": 2,
+    "provider_input_rejections": null,
+    "http_outcome_codes": null,
+    "boundary": "All 24 received original texts are nonempty valid JSON and have provider finish_reason=stop. The public projection does not expose the earlier attempt HTTP outcome; its missing usage is not a received empty response. Whitespace uses the existing quote/escape-aware scanner; half-of-UTF8 is descriptive only."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "execution_variants": [],
+    "independent_oracle_pass": false,
+    "business_units": 0
+  },
+  "campaign_after_terminal": {
+    "observed_utc": "2026-10-27T17:01:44.794261+00:00",
+    "campaign": "schema-portability-20261019-incremental",
+    "known_cost_eur": "242.75180349705347055451284681",
+    "reserved_cost_eur": "77.982857984263842300092874233",
+    "cost_upper_bound_eur": "320.73466148131731285460572104",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "available_eur": "219.29544235138899168783922626",
+    "unknown_attempts": 96,
+    "receiptless_logical_requests": 37,
+    "retained_closed": 37,
+    "unresolved": 0,
+    "accounting_evidence_hash": "bf8ac63ac1bba4d094cdba920a45599f029914dafb7d4f39e3205af854be52ef",
+    "inspection_stdout_sha256": "00e6493e2592860dfaf2e0037edc3d2e33169f11951cb8e971eca8b5f8a3dd24",
+    "boundary": "Fresh read-only campaign snapshot before subsequent diagnostics. All37 receiptless logical identities have retained closure records. No reserve was released. Available is ceiling minus the captured CLR-decimal upper bound; its final rounding is preserved."
+  },
+  "comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_freeze_sha256": "e5ac6f144cb967412656cb75b5eebdccc066a0b74aec48eeda999846a33ad63b",
+    "same_frozen_profile_and_oracles": true,
+    "control_runtime_success": true,
+    "candidate_runtime_success": null,
+    "interpretation": "The control completed both variants at28 logical/30 physical calls. This candidate stopped at24/25 without an artifact. Unequal completion gives no savings or duplicate-batch mechanism benefit."
+  },
+  "measurements": {
+    "file": "compact-taskplan-98418f2a-collections-measurements.json",
+    "sha256": "f21406defc471cdd425bd975e1368c30b8dee6e2aeb9f57ef03ca471a0436518",
+    "bytes": 10826
+  },
+  "evidence": {
+    "public_inspection_sha256": "91eb8f2fd1e1caf75437b64f61c9264b07c9736f41b295d634e250c4e55ff484",
+    "inspection_with_receipts_sha256": "2019a31b5328a1653d7634187df221f3db43b18d360af00283a8aa587137bf4b",
+    "safe_reduction_sha256": "7e21d8c62a2208303f6dc50b35431150e75a4e842fa6df61ddcbf77bd492c8e7",
+    "received_action_supplement_sha256": "4dec4679ff4846ba8336df3ac1af231d1890a635a96f47f73b03c6d966c72ac0"
+  },
+  "limitations": [
+    "No provider call, replay, continuation, approval, runtime execution or retention mutation occurred in this reduction.",
+    "Original request/receipt payloads remained in RAM. Published records contain safe measurements, identities and structural summaries.",
+    "One earlier physical attempt with unknown usage at q2 retains its full reservation despite the later receipt. HTTP status and provider rejection classification are not available here.",
+    "The root is evaluating a prospective fresh-request guidance correction separately; no higher ceiling, retroactive request edit or live benefit is asserted."
+  ]
+}

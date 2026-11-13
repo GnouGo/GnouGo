@@ -1,0 +1,125 @@
+{
+  "source_snapshot": "ef6854e34bd4423999244dcb1bf617b1",
+  "source_records": 1495,
+  "contexts": [
+    {
+      "source_context_index": 0,
+      "retained_html_utf8_bytes": 89431,
+      "retained_html_sha256": "14f9fc966eabf64450ec6c461b4a45d8caa54589169daa2c4f7d3801ead9490f",
+      "root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "observed_links_with_this_nearest_empty_identity": 4,
+      "retained_dom_links_with_this_nearest_empty_identity": 6,
+      "descendant_nonempty_asin_elements": 3,
+      "observed_links_with_exact_href_alias_to_identified_product": 0,
+      "image_only_labels_missing_from_old_observation": [
+        {
+          "source_record": "ef6854e34bd4423999244dcb1bf617b1:record:70",
+          "href_sha256": "e4fdcbc9621f6ecfd82581de8efaef7021c08216760020ed58c0990b991e425a",
+          "aria_label": "Publicité sponsorisée à partir de BRUNO MARC. \"BRUNO MARC Chaussure homme ville.\" En savoir plus sur BRUNO MARC."
+        },
+        {
+          "source_record": "ef6854e34bd4423999244dcb1bf617b1:record:71",
+          "href_sha256": "6632c14dea2bbb9917150b337129acd1f868c1d90f0646a717fc018bba80cd08",
+          "aria_label": "Fond noir avec texte blanc affichant « BRUNO MARC » en majuscules, probablement un nom de marque ou un"
+        }
+      ],
+      "aria_headings": []
+    },
+    {
+      "source_context_index": 23,
+      "retained_html_utf8_bytes": 197315,
+      "retained_html_sha256": "64f60f7fb9ae5cb4848a0dd2942a513aebbf8b329db69fb8fc145a44d7d1ded8",
+      "root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "observed_links_with_this_nearest_empty_identity": 4,
+      "retained_dom_links_with_this_nearest_empty_identity": 6,
+      "descendant_nonempty_asin_elements": 10,
+      "observed_links_with_exact_href_alias_to_identified_product": 0,
+      "image_only_labels_missing_from_old_observation": [
+        {
+          "source_record": "ef6854e34bd4423999244dcb1bf617b1:record:375",
+          "href_sha256": "ada666e08c45d1247bfc18c76ad8f02e275bc397506739742c195ffcf721c76e",
+          "aria_label": "Publicité sponsorisée à partir de OSRAM. \"Lampes LED Osram.\" En savoir plus sur OSRAM."
+        },
+        {
+          "source_record": "ef6854e34bd4423999244dcb1bf617b1:record:376",
+          "href_sha256": "0c441dc6e273a75ad5fb060e5434e41c7a743e9d81b0dfec54dbe434c1df249d",
+          "aria_label": "OSRAM"
+        }
+      ],
+      "aria_headings": []
+    },
+    {
+      "source_context_index": 86,
+      "retained_html_utf8_bytes": 66135,
+      "retained_html_sha256": "ed8d4b20609ad4b108b76dce3736bd33d66b938be98511a28ef238a37937c12d",
+      "root": {
+        "tag": "div",
+        "data_asin": "",
+        "role": null
+      },
+      "observed_links_with_this_nearest_empty_identity": 9,
+      "retained_dom_links_with_this_nearest_empty_identity": 18,
+      "descendant_nonempty_asin_elements": 0,
+      "observed_links_with_exact_href_alias_to_identified_product": 0,
+      "image_only_labels_missing_from_old_observation": [],
+      "aria_headings": [
+        "Marques liées à votre recherche"
+      ]
+    }
+  ],
+  "base_head": "0719c65a8e8b7053faf3b00131d9019f7960f415",
+  "kind": "forensics of retained source plus controlled loopback structural reproduction",
+  "retained_source_sha256": "0445dda3f8172cbb855829f84296b9ce0d2f274ddc3ca7e9db5f32d8aebf83e5",
+  "retained_context_envelopes_sha256": "63715442580c6e0c83fe6ad83a3f74318a4a2289572675c4da2c006899bf1a97",
+  "sponsored_clk_slash_source_links": 65,
+  "sponsored_clk_without_slash_source_links": 0,
+  "retained_contexts_complete": true,
+  "whole_page_html_complete": false,
+  "new_live_source_acquisitions": 0,
+  "new_model_calls": 0,
+  "new_product_visits": 0,
+  "current_oracle_version": "amazon-business-v7",
+  "active_oracle_changed": false,
+  "permissions_changed": false,
+  "source_prerequisite_qualified": false,
+  "regressions": {
+    "observation_red": {
+      "total": 1,
+      "passed": 0,
+      "failed": 1,
+      "trx_sha256": "294f9361855f3aded37d97c5e526e6a0d2dace6a227b8ce01125d22abbec8197"
+    },
+    "observation_green": {
+      "total": 1,
+      "passed": 1,
+      "failed": 0,
+      "trx_sha256": "da5c4106418fbf190000cd7d085cf49aac60466c95ce87f53a8c59fda5e0959e"
+    },
+    "browser_all": {
+      "total": 181,
+      "passed": 181,
+      "failed": 0,
+      "trx_sha256": "8afe8417513fcd14eaa170bd61d27947aa78ad19312e43102c4e21bf53a53d8b"
+    },
+    "amazon_existing_negatives": {
+      "total": 98,
+      "passed": 98,
+      "failed": 0,
+      "trx_sha256": "d68ccc5bb385b6db8b143ebb2dc98c5db1eb5e325d1f90f3a7d4dcfdc2eb6a02"
+    }
+  },
+  "limitations": [
+    "Static HTML includes hidden carousel alternatives; raw DOM link counts are not a visible-record completeness test.",
+    "Synthetic local fixture preserves structural relations, not original scripts, CSS, layout or live DOM state.",
+    "Accessible labels and a wrapper heading do not establish product classification or a shared destination identity.",
+    "Versioned v8 proof design remains an unimplemented proposal; current v3 policy and v7 oracle remain active."
+  ]
+}

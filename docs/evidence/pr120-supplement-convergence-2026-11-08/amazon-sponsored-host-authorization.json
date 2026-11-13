@@ -1,0 +1,18 @@
+{
+  "authorized": true,
+  "user_reply": "Authorize this exact new-host extension",
+  "policy": "amazon-observed-sponsored-host-v2",
+  "approval_reference": "user-strict-amazon-sponsored-host-extension-20261109",
+  "oracle": "amazon-business-v6",
+  "scope": "Only exact literal HTTPS sponsored-ads.amazon.fr/clk/ entries with nonempty query from a complete successful same-live-Browser Amazon.fr search; each actual redirect hop obeys the explicit routes. Close or a new search, including an actual redirect search hop, expires old entry authority.",
+  "original_obligations_preserved": [
+    "first product occurrences including sponsored results",
+    "exact observed fields",
+    "workbook",
+    "cleanup",
+    "truthful outcomes"
+  ],
+  "no_additional_funding": true,
+  "previous_v1_grant_and_v4_v5_versions_preserved": true,
+  "live_execution_requires_separate_exact_artifact_review": true
+}

@@ -1,0 +1,96 @@
+{
+  "run": "code-qualification-20261111-24",
+  "session_id": "4fee0f5c8fbc42cdad72507ef1aa81a1",
+  "frozen_source": "316ac23fe477dae6febcae563ece8ed802eac900",
+  "request_id": "4fee0f5c8fbc42cdad72507ef1aa81a1:42:4419b7daffd2a7695014d8ea30f537292d8d9aed8a6c336dddb10959484c3673:df99e485ef94c472b6b11889ca00a5646b8a7ac368392f003b4b0f1fabf86819",
+  "provider_response_id": "chatcmpl-EiqPJzJgPETp2KBo68QshMxFlLtsA",
+  "http": {
+    "ObservedStatus": 200,
+    "ResponseHttpVersion": "1.1",
+    "StartedAtUtc": "2026-11-11T00:22:49.84269+00:00",
+    "FirstByteAtUtc": "2026-11-11T00:23:18.38979+00:00",
+    "LastByteAtUtc": "2026-11-11T00:23:18.38979+00:00",
+    "CompletedAtUtc": "2026-11-11T00:28:19.461433+00:00",
+    "DeadlineAtUtc": "2026-11-11T00:32:49.84269+00:00",
+    "ReadTermination": {
+      "Observer": "response_stream",
+      "Outcome": "exception",
+      "AtUtc": "2026-11-11T00:28:19.459742+00:00",
+      "ErrorType": "http_io",
+      "HttpError": "ResponseEnded"
+    },
+    "ResponseBodyComplete": false,
+    "RetryDecision": "blocked; incomplete native stream; exact receipt recovery required"
+  },
+  "idle_to_termination_seconds": 301.071643,
+  "remaining_client_deadline_seconds": 270.381257,
+  "initial_sse_events": 2,
+  "retained_body_bytes": 745,
+  "useful_content_deltas": 0,
+  "native_finish_events": 0,
+  "done_marker": false,
+  "usage_receipt": false,
+  "physical_attempts_for_failed_request": 1,
+  "failed_fragment_applied": false,
+  "state": "stopped",
+  "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+  "accepted_checkpoints": [
+    {
+      "sequence": 1,
+      "task_ids": [
+        "cleanup_clone",
+        "clone",
+        "qualification"
+      ]
+    },
+    {
+      "sequence": 2,
+      "task_ids": []
+    },
+    {
+      "sequence": 3,
+      "task_ids": [
+        "review",
+        "review_task"
+      ]
+    }
+  ],
+  "global_review_accepted": false,
+  "execution_started": false,
+  "oracle_passed": false,
+  "replayed": false,
+  "inspector": {
+    "source": "Encrypted journal \u2014 telemetry absent",
+    "request_id": "4fee0f5c8fbc42cdad72507ef1aa81a1:42:4419b7daffd2a7695014d8ea30f537292d8d9aed8a6c336dddb10959484c3673:df99e485ef94c472b6b11889ca00a5646b8a7ac368392f003b4b0f1fabf86819",
+    "status": "no_retained_completion",
+    "matching_read_termination": true,
+    "export_sha256": "fee1bc1eb953926fade4fffb329b9f52beaac1f06f48d65f27bbe336ffb5c17a",
+    "telemetry_trace_id": null,
+    "limitation": "Inspector reports encrypted journal source; no telemetry trace is supplied in this export."
+  },
+  "calls_and_funding": {
+    "planning_calls": 42,
+    "completed_receipts": 41,
+    "measured_usage_tariff_estimate_eur": "15.856148678907299596954769378",
+    "unresolved_reservation_eur": "8.197080161218092252575011196",
+    "campaign_ceiling_eur": "1700",
+    "campaign_known_cost_eur": "816.4876578593819973130318079",
+    "campaign_unresolved_reservations_eur": "407.92750559785042543663233336",
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "campaign_remainder_eur": "416.028858055317264736945128318",
+    "unresolved_attempts": 48,
+    "provider_invoice": null,
+    "global_available_funding": null,
+    "supplements_or_releases": false
+  },
+  "demonstrated_cause": "HTTP response stream ended unexpectedly with http_io/ResponseEnded before the client deadline. No native LLM completion or usage arrived.",
+  "remaining_hypothesis": "The initiating component (provider, intermediary, network path or local networking) is not identified. Similar 301-second timing suggests an idle boundary but does not locate it.",
+  "next_gate": "Authorized same-route silence/heartbeat comparison and per-hop log correlation, then a fresh representative complete response under unchanged policy before a new Code workflow. No replay of this stopped request.",
+  "private_artifact_sha256": {
+    "code24-final-run.json": "5002e798e693b7206eb448ee50928a952827c7f03742628f2d620af361b78137",
+    "code24-final-http.json": "34c49e06cf069f333730502f020db08c65792d5000b73ae310fc65be598e70ea",
+    "code24-final-receipts.json": "44d3e30bee6dee86c6b6cabd98f07deb196c66b40bfe4c35ff02db0dc876a162",
+    "code24-failure.json": "f24fb473436b2eafa68a1d565b086b61051ccdfbde7ed02b7640c9cd9e1598c1",
+    "after-code24-audit.json": "ab9117769ca7ce6c0bc1fbfb97d6a6c820a15cd6e96029c77a70b7d7b585414d"
+  }
+}

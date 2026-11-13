@@ -1,0 +1,190 @@
+{
+  "version": 1,
+  "scenario": "amazon",
+  "run": "biz56fd623camz01-amazon-1",
+  "source": "56fd623c89f455be58e697b5c3321ba153c61ebb",
+  "observed_at_utc": "20261030T124114Z",
+  "outcome": {
+    "process": "operator_stopped",
+    "stop_signal": "SIGKILL",
+    "runner_exit_code": 137,
+    "stop_time_utc": "2026-10-30T12:40:07.398232+00:00",
+    "reason": "Repeated host-only CONSTRUCTION_REVIEW_INCONCLUSIVE before another dispatch; SIGINT and SIGTERM did not stop the runner.",
+    "planning_operator_intervention": true,
+    "qualification_eligible": false,
+    "persisted_status": "generating",
+    "persisted_revision": 42,
+    "operational_records_edited": false,
+    "must_not_resume_or_replay": true,
+    "global_business_approval": false,
+    "execution_started": false,
+    "business_success": false
+  },
+  "final_state": {
+    "model_calls": 11,
+    "physical_attempts": 11,
+    "committed_usage_receipts": 11,
+    "pending_call": null,
+    "repair_attempts": 2,
+    "accepted_checkpoints": 0,
+    "nonproductive_model_calls": 1,
+    "candidate_recursive_tasks": 8,
+    "local_reviews": 2,
+    "local_review_verdicts": [
+      "needs_change",
+      "needs_change"
+    ],
+    "diagnostics": [
+      {
+        "code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+        "location": "/defectProgress",
+        "message": "More unresolved prior findings exist than this bounded review can assess."
+      }
+    ]
+  },
+  "presentation_and_fragments": {
+    "first_draft_request_sha256": "4484749887e17f9a8fa0e324f08da769088e5826924483edf19b4be71f639256",
+    "aggregate_max_tasks": 8,
+    "numeric_total_guidance_issued": true,
+    "partial_subset_guidance_issued": true,
+    "synthetic_all_selected_operation_commitments_absent": true,
+    "all_three_selected_contracts_preserved": true,
+    "both_original_requirements_preserved": true,
+    "request6": "evidence_only",
+    "fragments": [
+      {
+        "request": 7,
+        "recursive_tasks": 8,
+        "continue_in_scope": "/root",
+        "technical_result": "CONSTRUCTION_STEP_INPUT_INVALID /step/inputs"
+      },
+      {
+        "request": 8,
+        "recursive_tasks": 8,
+        "continue_in_scope": null,
+        "technical_result": "valid_candidate; new populated scopes closed; local review needs_change"
+      },
+      {
+        "request": 10,
+        "recursive_tasks": 8,
+        "continue_in_scope": null,
+        "technical_result": "valid_candidate; local review needs_change"
+      }
+    ],
+    "accepted_productive_block": false
+  },
+  "diagnosis": {
+    "continuation_validation": "Captured partial fragment validates against an empty session catalog while all three selected contracts remain in discovered resolved contracts; static call-order evidence indicates continuation interface validation precedes contract admission. No captured-run replay was performed.",
+    "judge_public_interface": {
+      "request_ordinal": 9,
+      "request_sha256": "7c661efd9e95a90d815b8d8f7199ceda99cdcdf19b7bd7dc8b1d9e7a84f381cd",
+      "schema_sha256": "2b3c28c484841f98cab6593a933692dfac7fdf68be35e56cb159aca6733eb441",
+      "projection_inputs_count": 0,
+      "required_query_declared_in_requirements_and_candidate_plan": true,
+      "applicable_original_sources": [
+        "request:0:clause:0",
+        "request:0:clause:2"
+      ],
+      "source_ownership": [
+        "applicable requirement req_0",
+        "global interface clause"
+      ],
+      "limitation": "The claim that the public input declaration was absent is unsupported by the actual plan. Actual executable use and declaration are distinct."
+    },
+    "valid_navigation_findings": "The search-page read has no URL binding from the public query and the per-product read has no URL binding from the loop item. Judge11 repeats these concrete defects without the public-declaration claim.",
+    "host_loop": "Both prior review finding sets remain unresolved; bounded review preparation rejects their count before dispatch. Revision advances through42 with calls fixed at11, no pending request, and no accepted checkpoint.",
+    "claims_not_established": [
+      "Live convergence",
+      "Business correctness",
+      "Runtime success",
+      "A semantic cause for previous output-limit incidents"
+    ]
+  },
+  "usage": {
+    "actual_input_tokens": 70220,
+    "actual_output_tokens": 25071,
+    "reasoning_tokens_included_in_output": 19272,
+    "known_cost_eur": "0.9909548190065570825473816583",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": "0",
+    "reasoning_not_added_to_output_twice": true
+  },
+  "phase_measurements": {
+    "construction_intent": {
+      "calls": 1,
+      "complete_request_bytes": 7283,
+      "estimated_input_tokens": 2684,
+      "actual_input_tokens": 1207,
+      "actual_output_tokens": 1919,
+      "reasoning_tokens_included_in_output": 1536
+    },
+    "construction_select": {
+      "calls": 1,
+      "complete_request_bytes": 12038,
+      "estimated_input_tokens": 4269,
+      "actual_input_tokens": 2484,
+      "actual_output_tokens": 3347,
+      "reasoning_tokens_included_in_output": 3072
+    },
+    "construction_discovery": {
+      "calls": 3,
+      "complete_request_bytes": 49988,
+      "estimated_input_tokens": 17432,
+      "actual_input_tokens": 9801,
+      "actual_output_tokens": 2404,
+      "reasoning_tokens_included_in_output": 2120
+    },
+    "construction_draft": {
+      "calls": 2,
+      "complete_request_bytes": 97632,
+      "estimated_input_tokens": 33056,
+      "actual_input_tokens": 20491,
+      "actual_output_tokens": 5039,
+      "reasoning_tokens_included_in_output": 3583
+    },
+    "replan": {
+      "calls": 2,
+      "complete_request_bytes": 119662,
+      "estimated_input_tokens": 40400,
+      "actual_input_tokens": 24504,
+      "actual_output_tokens": 8979,
+      "reasoning_tokens_included_in_output": 6054
+    },
+    "construction_local_judge": {
+      "calls": 2,
+      "complete_request_bytes": 67595,
+      "estimated_input_tokens": 23044,
+      "actual_input_tokens": 11733,
+      "actual_output_tokens": 3383,
+      "reasoning_tokens_included_in_output": 2907
+    }
+  },
+  "warning_inventory": {
+    "all_preparations": {
+      "input_target": 11
+    },
+    "dispatched": {
+      "input_target": 10
+    },
+    "prepared_only": {
+      "input_target": 1
+    }
+  },
+  "campaign_reconciliation": {
+    "evidence_hash": "bd5b1e597504d8e56ab9987e6899e95d8e0a54ac34b2dbaad330679b48b0a014",
+    "known_cost_eur": "390.86899772803289891197394973",
+    "reserved_cost_eur": "125.68706630952572698966405760",
+    "available_eur": "123.47403979514767864080693997",
+    "retained_inconclusive_requests": 57,
+    "unresolved_uncertain_requests": 0,
+    "historical_unknown_physical_attempts": 147,
+    "new_run_unknown_attempts": 0
+  },
+  "evidence": {
+    "final_state_file_sha256": "4fdf107ab571a20cb97416b081221fc22dd1be6a5a49e9438902d0da750e6264",
+    "final_ledger_file_sha256": "02c1c10367b7ff4e7813cf6f603a0d8f0fceaea2120e67959ba6f7a60c1746a2",
+    "raw_prompts_responses_and_private_paths_omitted": true
+  }
+}

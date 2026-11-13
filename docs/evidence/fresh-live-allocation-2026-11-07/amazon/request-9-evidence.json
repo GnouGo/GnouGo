@@ -1,0 +1,42 @@
+{
+  "planning-evaluation-requests": {
+    "present": true,
+    "sha256": "10fb4e43995278200d8438b839d6e1d83e101335c344eb3d1e6c0898132fbf67",
+    "httpAttempts": null,
+    "usagePresent": false
+  },
+  "planning-evaluation-receipts": {
+    "present": false,
+    "sha256": null,
+    "httpAttempts": null,
+    "usagePresent": false
+  },
+  "planning-evaluation-http-attempts": {
+    "present": true,
+    "sha256": "dcab4a4f1e88f1cc1f849915b5895609130792375aa21fad87b0671010bc7208",
+    "httpAttempts": 0,
+    "usagePresent": false
+  },
+  "planning-evaluation-failures": {
+    "present": true,
+    "sha256": "7a86d091721e48fe6aeeaf773ab910e5dee36d8cd35b1752b4ce29e882660f70",
+    "httpAttempts": null,
+    "usagePresent": false,
+    "stage": "dispatch",
+    "exception_type": "TaskCanceledException",
+    "kind": null,
+    "status_code": null
+  },
+  "planning-evaluation-closures": {
+    "present": false,
+    "sha256": null,
+    "httpAttempts": null,
+    "usagePresent": false
+  },
+  "serverPrimaryHttp": {
+    "present": true,
+    "sha256": "8c9ff76a43f07e5f8e5e70d1c0164acdeb91fe2b42c1df82010724a14342d166",
+    "attempts": [],
+    "receiptPresent": false
+  }
+}

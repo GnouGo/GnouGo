@@ -1,0 +1,72 @@
+{
+  "kind": "exact_user_authorized_permanent_retention",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T14:03:16.033393+00:00",
+  "source": "65b1a0d457b43f403bcc0d058f7bc1506af3e2f5",
+  "operator": "Codex",
+  "user_answer": "Authorize this exact closure and resume",
+  "campaign": "schema-portability-20261019-incremental",
+  "collection": "planning-schema-portability",
+  "run_key": "run:biz65b1a0d4amz32a-amazon-1",
+  "request_id": "biz65b1a0d4amz32a-amazon-1:8:3b072e2f319bc23afcab595d3ec644bcfa7cff2d4d81d5b96dacc40e0f85a6fe:d0f116cad358a60cba8f6a9d8c798cba1d7af0ea5938975be42fa3cf8cb227da",
+  "retention_kind": "exhausted-planning-retries",
+  "expected_evidence_hash": "6d1cf165ced0d655dc77d76ef320784519cc4e4b6d08e7d984785d0389116173",
+  "retained_at": "2026-11-04T14:02:49.8081610+00:00",
+  "closure_applied": true,
+  "original_record_count": 8,
+  "all_original_values_and_timestamps_unchanged": true,
+  "accounting_unchanged": true,
+  "ceiling_unchanged": true,
+  "budget_supplement_applied": false,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "request_reservation_retained_eur": "2.2408802218445299221755076482",
+  "campaign_accounting": {
+    "calls": 6930,
+    "session_calls": 0,
+    "known_input_tokens": 26414159,
+    "known_output_tokens": 10623528,
+    "known_cost_eur": "402.71175897902056877618526777",
+    "reserved_input_tokens": 2768187,
+    "reserved_output_tokens": 4423680,
+    "reserved_cost_eur": "130.92948038547157658750564325",
+    "cost_upper_bound_eur": "533.64123936449214536369091102",
+    "unknown_attempts": 153
+  },
+  "ceiling_eur": "740.0301038327063045424449473",
+  "available_eur": "206.38886446821415917875403628",
+  "permanent_closures": 63,
+  "unresolved_requests": 0,
+  "model_calls": 0,
+  "captures": {
+    "originals-before.private.json": "efd5400d946396caf0313deb69ebd4ab218dc352d5d7d58fd9bc90fadb7fa442",
+    "fresh-process-guard-proof.json": "87830c91b06b0a5ed4807abf9f05ba935ab68fdc95842e799eda700dd18f065e",
+    "originals-after.private.json": "efd5400d946396caf0313deb69ebd4ab218dc352d5d7d58fd9bc90fadb7fa442",
+    "closure-applied.private.json": "86fc39a1d93461104f1a74c1ce03d0f1df5fb18174213da95a567354ca724f5a",
+    "inspection-before.private.json": "9f2890cce04e8e404e73184a301d198ef5962a85a91c977744579964f9e84139",
+    "ledger-after.private.json": "f5fd57c4a119b8e1023c91e9c0d1362aa81ed9fb4457b9b5bdfddf0972403ea0",
+    "inspection-after.private.json": "6d526fef0c6e45749e887f4d442d04c317c0621fa7c910fbb0d74be69e592586",
+    "ledger-before.private.json": "d3914c7cb0fdc6040986e965bac89e9c5b7f6a5d136f3df480d87e5eb3182020",
+    "user-authorization.json": "c796ba20a1428e870169226760aa2ef4139b7f5faabf090bfdcf6a8373f0d49c"
+  },
+  "fresh_process_guards": {
+    "passed": true,
+    "readOnly": true,
+    "financialWrites": 0,
+    "modelCalls": 0,
+    "results": [
+      {
+        "session": "biz65b1a0d4amz32a-amazon-1",
+        "rejectedBeforePreflightOrDispatch": true
+      },
+      {
+        "session": "biz65b1a0d4amz32a-amazon-1-execution",
+        "rejectedBeforePreflightOrDispatch": true
+      },
+      {
+        "session": "biz65b1a0d4amz32a-amazon-1-copilot",
+        "rejectedBeforePreflightOrDispatch": true
+      }
+    ]
+  }
+}

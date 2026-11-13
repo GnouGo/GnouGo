@@ -1,0 +1,42 @@
+{
+  "evidence": {
+    "version": 1,
+    "campaign": "schema-portability-20261019-incremental",
+    "tenant": "benchmark",
+    "run_collection": "planning-evaluation-runs",
+    "run_key": "amazon-2a83-live-20261106-2001",
+    "session_id": "11386753f6ce4c4eb456deb20376e057",
+    "revision": 2,
+    "request_id": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+    "phase": "construction_intent",
+    "source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+    "run_hash": "60f4012bfca24ac4891fb8687b719ba7c2106ecdf3bc17a3575857bad930ec82",
+    "request_hash": "1b85c7a1f80fb3dd51710c157810eba3f5df7693ffbe90eac35873242a22deeb",
+    "http_journal_hash": "1481cc624b96f5d5e365c85f2ddcdfbbcb2e9786629feec1dbd3b19c3fd2b2f5",
+    "failure_hash": "e60514d6a02fce4c11d77dcb887bc650b5ec78092600cc1c4bfd86cc36b46198",
+    "session_policy_hash": "5ce10f2d803c3bf3e884d1f22e071c15f249cc71f8751790e3f7e80695c8645c",
+    "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+    "financial_admission_hash": "0e7a4501d863282803bfb76c130c4196c7f48312e65829a692d68a3399eebf9a",
+    "effective_transport_policy_hash": "f39b448373043117a0248a9d94787f3115b896e2e6d5ea9c526f13960c8aa44f",
+    "transport_policy_evidence": "captured_effective_request_policy",
+    "accounting": {
+      "calls": 7190,
+      "session_calls": 0,
+      "known_input_tokens": 28637874,
+      "known_output_tokens": 10909439,
+      "known_cost_eur": "475.28093332377412455040481684",
+      "reserved_input_tokens": 5287130,
+      "reserved_output_tokens": 4718592,
+      "reserved_cost_eur": "222.7236032944974286315167358",
+      "cost_upper_bound_eur": "698.00453661827155318192155264",
+      "unknown_attempts": 162
+    },
+    "retention_kind": "unstarted-planning-request",
+    "outcome_evidence": "no_reserved_physical_attempt"
+  },
+  "evidence_hash": "c2729580bee269c9936a85c7649c1af8f0007b96ac74e6859e62d38771d867ea",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true
+}

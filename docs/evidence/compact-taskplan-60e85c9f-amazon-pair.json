@@ -1,0 +1,391 @@
+{
+  "kind": "paired_amazon_control_candidate_summary",
+  "source_control": "e0c057b15e3c14a8bb160e8bf5ed49ebcd0b7b8b",
+  "source_candidate": "60e85c9fcf7f50c87cb906e6497ff9935b8c14c2",
+  "paired_counts": {
+    "order": [
+      "control_e0_presentation6",
+      "candidate60_presentation7"
+    ],
+    "logical_calls": [
+      43,
+      42
+    ],
+    "physical_attempts": [
+      44,
+      42
+    ],
+    "structured_received_responses": [
+      43,
+      42
+    ],
+    "automatic_corrections": [
+      4,
+      3
+    ],
+    "planning_ms": [
+      2068436,
+      1793298
+    ],
+    "known_cost_eur": [
+      "2.9654529228023203926818384653",
+      "3.1171976796073181615350290051"
+    ],
+    "retained_unknown_attempt_reserve_eur": [
+      "0.6197278000892458723784024989",
+      "0"
+    ],
+    "known_plus_reserve_eur": [
+      "3.5851807228915662650602409642",
+      "3.1171976796073181615350290051"
+    ],
+    "known_input_tokens": [
+      247978,
+      228128
+    ],
+    "known_output_tokens": [
+      69430,
+      78406
+    ],
+    "known_reasoning_tokens": [
+      59736,
+      69359
+    ],
+    "clean_local_judge_calls": [
+      [
+        7,
+        10
+      ],
+      [
+        5,
+        11,
+        18
+      ]
+    ],
+    "accepted_tasks": [
+      1,
+      2
+    ],
+    "accepted_operations": [
+      0,
+      0
+    ],
+    "verified_business_units": [
+      0,
+      0
+    ],
+    "calls_per_verified_unit": [
+      null,
+      null
+    ],
+    "status": [
+      "stopped after clarification allowance unavailable",
+      "clarification"
+    ]
+  },
+  "phases": {
+    "construction_intent": {
+      "control_logical_physical": [
+        2,
+        2
+      ],
+      "candidate_logical_physical": [
+        2,
+        2
+      ],
+      "candidate_cost_eur": "0.1684471218206157965194109773",
+      "candidate_input_output_reasoning": [
+        2355,
+        5899,
+        5121
+      ],
+      "candidate_admitted_peak_bytes_estimate": [
+        9533,
+        3434
+      ]
+    },
+    "construction_select": {
+      "control_logical_physical": [
+        7,
+        7
+      ],
+      "candidate_logical_physical": [
+        7,
+        7
+      ],
+      "candidate_cost_eur": "0.6981883087907184292726461402",
+      "candidate_input_output_reasoning": [
+        27824,
+        21440,
+        18774
+      ],
+      "candidate_admitted_peak_bytes_estimate": [
+        23966,
+        8245
+      ]
+    },
+    "construction_draft": {
+      "control_logical_physical": [
+        15,
+        16
+      ],
+      "candidate_logical_physical": [
+        11,
+        11
+      ],
+      "candidate_cost_eur": "0.9138598839803659080767514502",
+      "candidate_input_output_reasoning": [
+        103570,
+        16871,
+        13604
+      ],
+      "candidate_admitted_peak_bytes_estimate": [
+        64617,
+        21795
+      ]
+    },
+    "construction_local_judge": {
+      "control_logical_physical": [
+        2,
+        2
+      ],
+      "candidate_logical_physical": [
+        3,
+        3
+      ],
+      "candidate_cost_eur": "0.0814323962516733601070950469",
+      "candidate_input_output_reasoning": [
+        9045,
+        1534,
+        1302
+      ],
+      "candidate_admitted_peak_bytes_estimate": [
+        19124,
+        6631
+      ]
+    },
+    "construction_discovery": {
+      "control_logical_physical": [
+        17,
+        17
+      ],
+      "candidate_logical_physical": [
+        19,
+        19
+      ],
+      "candidate_cost_eur": "1.2552699687639446675591253905",
+      "candidate_input_output_reasoning": [
+        85334,
+        32662,
+        30558
+      ],
+      "candidate_admitted_peak_bytes_estimate": [
+        30038,
+        10269
+      ]
+    }
+  },
+  "comparison_boundary": {
+    "matched_frozen_fields": [
+      "model",
+      "phase_policy",
+      "transport_policy",
+      "configuration_hash",
+      "metadata_hash",
+      "max_model_calls",
+      "max_repairs",
+      "max_total_tokens",
+      "host_llm_usage_max_elapsed_ms",
+      "mcp_manifest_sha256",
+      "useful_business_obligations"
+    ],
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "high",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 22000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 20000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      }
+    },
+    "same_business_unit_definition": "d328d4a2b7aa36061af69bbaa271e092e89e469ead63943f8f4938234b9f19a1",
+    "source_difference": "Accepted-progress v7 and its stale-producer-contract safeguard; independent sessions, different generated fragments and review claims.",
+    "benchmark_pin_difference": "Eight of ten input/oracle/authority pins match. Measurements captures7 instead of6; benchmark model preserves captured6/7. The frozen exact capture normalization preserves the prior business-unit definition.",
+    "causal_or_business_benefit_claim": false
+  },
+  "candidate_output_evidence": {
+    "saved_content_bytes": 29572,
+    "empty_by_saved_content_bytes": 0,
+    "reasoning_usage_rows": 42,
+    "provider_completion_status_unknown_rows": 42,
+    "original_raw_text_valid_json_count": null,
+    "original_whitespace_bytes": null,
+    "original_maximum_outside_string_whitespace_run": null,
+    "qualification": "All42 saved parsed responses join admitted identities/phases. Original provider text/HTTP statuses were not scanned; original formatting remains unavailable. No received output-limit failure or new provider incident is evidenced."
+  },
+  "candidate_request_metrics": {
+    "rows": 55,
+    "admission_counts": {
+      "admitted": 42,
+      "prepared": 12,
+      "rejected_before_dispatch": 1
+    },
+    "single_rejected_prospective_draft": [
+      {
+        "requestId": "compactr60e85c9fcamz22j20v7p7a-amazon-1:24:4cc3d3fbb8adcc8bb94c97fdb4d9b9147513a26ff600e24d8d918b9cccfda6bd",
+        "requestHash": "5b39ad9a9a420e1639ff824ec8900e083e44ff904e4e0ee46cce50af53c1c55b",
+        "schemaHash": "f68210f89463ba5c4e967dbb7e7f04b93e27f64dda7ef9c5641bde38e142b860",
+        "completeRequestBytes": 65439,
+        "estimatedInputTokens": 22069,
+        "inputLimit": 22000
+      }
+    ],
+    "admitted_peak_bytes_estimate": [
+      64617,
+      21795
+    ],
+    "qualification": "Prepared estimates are not billed tokens. All component byte sums and estimator values reconcile; all admitted requests fit captured ceilings."
+  },
+  "candidate_accepted_plan": {
+    "input": "one required string query, no default",
+    "tasks": [
+      {
+        "id": "step_2",
+        "kind": "sequence",
+        "pointer": "/plan/root/tasks/0"
+      },
+      {
+        "id": "step_3",
+        "kind": "sequence",
+        "pointer": "/plan/root/tasks/0/body/tasks/0"
+      }
+    ],
+    "description": "Only two nested empty/open sequences; no operation, public export or cleanup task.",
+    "artifact": false,
+    "execution_status": "not_started",
+    "verified_business_units": 0,
+    "qualification": "Local clean reviews and structural checkpoints are not complete business acceptance."
+  },
+  "corrections": {
+    "calls": [
+      25,
+      30,
+      35
+    ],
+    "dispositions": [
+      "abandon",
+      "suspend",
+      "suspend"
+    ],
+    "cause": "Received drafts reject selected absolute-URL navigation as insufficient for runtime query-to-search construction or interaction. This is a model-authored mechanism judgment, not proof that all legal transforms were unavailable.",
+    "charge_validation": "Terminal stdout repairs increase exactly at25,30,35 and match retained reselectStep dispositions."
+  },
+  "observed_repetition": {
+    "exact_source_query_control_calls": [
+      12,
+      19,
+      26,
+      33
+    ],
+    "exact_source_query_candidate_calls": [
+      7,
+      13,
+      20,
+      27,
+      32,
+      37
+    ],
+    "same_operation_binding_control_calls": [
+      15,
+      22,
+      30,
+      36
+    ],
+    "same_operation_binding_candidate_calls": [
+      22,
+      29,
+      34,
+      39
+    ],
+    "candidate_nested_sequence_select_bind_draft_judge": [
+      [
+        6,
+        9,
+        10,
+        11
+      ],
+      [
+        12,
+        16,
+        17,
+        18
+      ]
+    ],
+    "candidate_selects_same_business_goal_again": 19,
+    "recorded_candidate_discovery_reads": 1,
+    "qualification": "Model-response repetitions, not repeated external executions. No accepted producer operation exists to duplicate. The saved responses establish no distinct need for the second boundary; this is not a universal container/duplicate ban."
+  },
+  "captured_context_findings": [
+    {
+      "call": 16,
+      "finding": "Discovery included parent scope owner, necessary-container guidance and transform extract/interpret semantics before another sequence was selected."
+    },
+    {
+      "call": 18,
+      "finding": "Judge included the parent sequence/objective link and unnecessary-work review with a future-obligation exception. It returned clean on open/incomplete-scope grounds. The specific necessary-container sentence belongs to selection/discovery, not this Judge block."
+    },
+    {
+      "call": 31,
+      "finding": "Selection included transform semantics and waiting-continuation eligibility. No producer binding was established; automatic resumption is not demonstrated to have been available."
+    },
+    {
+      "call": 42,
+      "finding": "Root exact-reader projection includes current scope owner, selected operation and waiting continuation. The received clarification requests extra URL-building/interaction capability or a scope revision."
+    }
+  ],
+  "candidate_dated_campaign_snapshot": {
+    "known_cost_eur": "211.52646213159162316495461393",
+    "retained_reserve_eur": "61.318708051198246583894748396",
+    "saved_upper_bound_eur": "272.84517018278986974884936233",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "remaining_eur": "167.18493364991643479359558497",
+    "candidate_new_unknown_attempts": 0,
+    "qualification": "Terminal snapshot only, not later readiness; historical reserves remain unchanged."
+  },
+  "conclusion": "Both runs failed to produce an artifact or verified business outcome. Repeated selection/rebinding persisted despite supplied context/guidance. No demonstrated host fact gap, provider incident, safely avoided correction, paired Judge efficacy, causal performance or business-benefit claim.",
+  "evidence_sha256": "7f6c994fa2dfb8da0340b86f036febc5ee4513c67bdcfa85c3411351c0073fde",
+  "captured_request_join": {
+    "request_ids_and_responses_match": [
+      16,
+      18,
+      31,
+      42
+    ],
+    "schema_hashes_match": [
+      16,
+      18,
+      31
+    ],
+    "q42_schema_representation_difference": {
+      "projection": "89e0da0839e0c1a5c06fb7fa2c28cbc307025cf8a78334ead0c662e67f9ddead",
+      "measurement": "5b5b606c40638fa1f5ddcf4f022b066a90c1fc24af3083b3436d7a83916b66e4"
+    },
+    "qualification": "Requests/responses16,18,31,42 are joined; schema hashes16,18,31 match. The q42 projection hashes Python JSON with ensure_ascii=True, whereas measurement hashes exact source-generated .NET schema bytes. Those representations are not directly comparable. Full original q42 schema was not retained in this projection, so object or full-envelope equivalence is not established; no schema defect is established by the differing hashes."
+  },
+  "measurement_boundary": "Provider output includes reasoning; prepared estimates and component estimates are not billed tokens. Neither arm produced a complete artifact or executed the independent runtime oracle. This single diagnostic pair is not one of the gated18 baseline56942f5 comparisons.",
+  "safe_projection": "Numeric results and bounded findings only; no raw prompts, provider secrets, executable authority or operational paths.",
+  "followup_evidence_sha256": "ed681c264f30bc295f2fdbcaaa5eb94010dd8436775c1e38346fcebd5aec4fb5",
+  "context_boundary": "Selection/discovery includes the necessary-container sentence; the Judge has the existing broader unnecessary-work guidance and open-scope exception. No proven host fact gap or efficacy claim follows from that wording asymmetry."
+}

@@ -79,6 +79,11 @@ public static class GnOuGoWorkspace
     /// </param>
     /// <returns>Absolute path to the resolved working directory.</returns>
     public static string ResolveDefaultWorkingDirectory(string? configuredPath = null)
+        => ResolveDefaultWorkingDirectory(configuredPath, ResolveDesktopDirectory);
+
+    // The resolver is injectable only inside the package so tests exercise the
+    // real default/relative-path logic without creating the operator's workspace.
+    internal static string ResolveDefaultWorkingDirectory(string? configuredPath, Func<string> desktopDirectory)
     {
         var normalized = string.IsNullOrWhiteSpace(configuredPath)
             ? DefaultSubfolder
@@ -91,7 +96,7 @@ public static class GnOuGoWorkspace
             return absolute;
         }
 
-        var desktopPath = ResolveDesktopDirectory();
+        var desktopPath = desktopDirectory();
         var resolvedPath = Path.GetFullPath(Path.Combine(desktopPath, normalized));
 
         if (!IsPathWithinRoot(resolvedPath, desktopPath))

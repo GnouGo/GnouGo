@@ -58,18 +58,21 @@ public static class ChatEndpoints
     public static async Task<IResult> CompleteAsync(
         ChatStreamRequestDto request,
         SmartFlowService smartFlow,
-        CancellationToken ct)
+        CancellationToken ct, HttpContext? context = null)
     {
         if ((request.Messages is null || request.Messages.Count == 0) && string.IsNullOrWhiteSpace(request.Prompt))
             return Results.BadRequest("messages is required.");
 
         try
         {
+            if (request.ThresholdMode is not (null or "strict" or "diagnostic")) throw new ArgumentException("Unknown threshold mode.");
+            var grant = context is not null ? (await context.RequestServices.GetRequiredService<LocalOperatorAccess>().ResolveAsync(request.ThresholdMode)).Grant
+                : request.ThresholdMode == "diagnostic" ? throw new UnauthorizedAccessException() : null;
             var lastUserMsg = ResolvePrompt(request);
 
             var conversationId = request.ConversationId;
             var text = "";
-            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, conversationId, ct).ConfigureAwait(false))
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, conversationId, ct, grant).ConfigureAwait(false))
             {
                 if (evt.Type is "conversation" && !string.IsNullOrWhiteSpace(evt.ConversationId))
                     conversationId = evt.ConversationId;
@@ -81,6 +84,7 @@ public static class ChatEndpoints
 
             return Results.Ok(new ChatCompletionResponseDto(text, conversationId));
         }
+        catch (UnauthorizedAccessException) { return Results.Forbid(); }
         catch (Exception ex)
         {
             return Results.Problem(ex.Message);
@@ -109,9 +113,10 @@ public static class ChatEndpoints
 
         try
         {
+            var grant = (await ctx.RequestServices.GetRequiredService<LocalOperatorAccess>().ResolveAsync(request.ThresholdMode)).Grant;
             var lastUserMsg = ResolvePrompt(request);
 
-            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, request.ConversationId, ct).ConfigureAwait(false))
+            await foreach (var evt in smartFlow.ExecuteAsync(lastUserMsg, correlationId: null, request.AgentName, request.FilesIds, workflowInputs: new System.Text.Json.Nodes.JsonObject { ["planning_mode"] = request.PlanningMode }, request.ConversationId, ct, grant).ConfigureAwait(false))
             {
                 var data = evt.Animation is null
                     ? evt.Text ?? ""

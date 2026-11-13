@@ -1,0 +1,25 @@
+# Current prerequisite outcomes
+
+Production code remains unchanged from `71342c8e`; the actual probes use evidence-only `9992a7a3`. **Full Code 0/2; full Amazon 0/2.** Final frozen Native/Collections qualification remains pending. Every stopped session and old positive reference remains immutable.
+
+## SDK prerequisite is now qualified
+
+[Fresh dependency06](sdk06.json) uses KeyVault OpenAi and `gnougo-structured-tools-v1`, real Node 24.20.0, pnpm 10.34.5 and Python/Python3 3.11.13. Exactly one fixed command runs; `uv sync --group tests` and `pnpm install --frozen-lockfile` both exit 0. The script, pinned head, requirements and terminal/file report match. The completed encrypted receipt is cold-reloaded and its checkout cleaned. Three actual HTTP 200 JSON responses terminate with known usage. Captured-tariff receipt sum: EUR1.2272087356736756610414222543; execution and verification: 321,124 ms. Per-HTTP timings are unavailable, not inferred. This qualifies dependency execution in the existing SDK sandbox, not the original review workflow, plan, target-repository checks or report oracle. No provider, endpoint, model, SDK network/bypass or saved configuration changes.
+
+## Batch delivery remains incomplete
+
+The [one actual batch probe](batch-cutoff.json) tests the complete retained 1,439-record source in a single tool-free runtime call, using the existing benchmark execution adapter's medium reasoning and 32,768-token reservation. It does not establish protected Server planning qualification. HTTP 200 delivers only initial SSE envelopes, then a network `ResponseEnded` exception occurs 299.320251 seconds after the last data and before the 600-second client deadline. No useful content, protocol completion or usage receipt is received. The actual new read diagnostics distinguish this exception from clean EOF and local cancellation; they do not identify the responsible hop. No fragment is applied. The full EUR58.860157025539211262521433082 HTTP reservation stays held, and the request is never repeated.
+
+The initial launcher inherited exhausted here-document stdin and failed its non-authorizing challenge before any session or reservation; an exact owned read confirms zero session records. Direct PTY launch fixes that wrapper error. There is only one physical model attempt. The [short route-owner packet](route-owner-message.md) is ready and unsent. No real-route silence/comment comparison has been performed. Existing timeouts, provider, transport, reasoning, retries and output allocations are unchanged. Any further experiment must test a distinct evidenced context/schema hypothesis and use the existing protected Server path; no identical long repeat is admitted.
+
+## Fresh source is blocked by retained offer navigation
+
+[Actual source06](source06.json) keeps 1,531 records over 72 pages, 19 complete own resolutions (three product, sixteen store), the approved aliases and all eight store-list members. An empty-ASIN product context also contains an unproved exact `/deals` link outside the navigation grant. No record is omitted; no observation loss is demonstrated. Cold v14 refusal agrees and Browser cleanup passes. Full Amazon planning stays gated. The [inactive source-only proposal](deals-source-only-proposal.md) requests separate approval for that single exact address; it adds no budget or verifier/workflow authority.
+
+The sanitized negative regression retains three own product proofs and an exact review alias while rejecting the extra unproved offer link. It preserves raw records, cold equality and the denied navigation boundary. All **434 affected Amazon policy tests pass** Release `-warnaserror`, zero skips. An earlier AAX-form fixture stopped at its earlier heading guard; the corrected fixture uses the actual retained sponsored `/clk` relationship. This is a boundary reproduction, not a demonstrated observation/compiler defect or a permissive oracle correction.
+
+## Validation and money
+
+The unchanged runtime's shared checks remain [9,200 passed, 13 existing skips, zero failures](../pr120-shared-sdk-prerequisite-2026-11-13/validation.json), including all 218 workbook cases. All three CI workflows are green on runtime commit `71342c8e`; later evidence/test-only HEAD status is tracked separately. The new negative test is additional targeted coverage, not a second full-suite claim.
+
+[Authoritative post-probe audit](financial.json): existing EUR1,700 ceiling and six grants; 2,175 physical attempts; known captured-tariff cost EUR936.5203402531204391487137338, unresolved HTTP reservations EUR478.50045259204167431670862539, retained application holds EUR89.39466414694980587609060346. Unknown attempts are 51, including the one new incomplete batch. Arithmetic headroom EUR195.58454300788808065848703734 is not invoiced/global available funding. No supplement, reset, Unlimited or release. Code23 still needs its owner's reconciliation; missing checkout files are not completion evidence. Next complete Code qualification uses a fresh identity and the proven SDK environment while Amazon awaits its independent source prerequisite.

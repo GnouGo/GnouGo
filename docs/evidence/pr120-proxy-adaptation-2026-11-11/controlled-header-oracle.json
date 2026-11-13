@@ -1,0 +1,24 @@
+[
+  {
+    "header": false,
+    "actual_native_writer": true,
+    "synthetic_business_events": true,
+    "product_rows": 3,
+    "passed": false,
+    "findings": [
+      "workbook_columns_missing"
+    ],
+    "model_calls": 0,
+    "live_business_execution": false
+  },
+  {
+    "header": true,
+    "actual_native_writer": true,
+    "synthetic_business_events": true,
+    "product_rows": 3,
+    "passed": true,
+    "findings": [],
+    "model_calls": 0,
+    "live_business_execution": false
+  }
+]

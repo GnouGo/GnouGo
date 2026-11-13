@@ -1,0 +1,37 @@
+{
+  "base": "f0a08ed51421bfb21d0610504df4edf1ce00387b",
+  "policy": "amazon-observed-resolved-store-context-v4",
+  "approval": "user-amazon-workflow-store-context-20261111",
+  "oracle": "amazon-business-v8",
+  "tests": {
+    "passed": 328,
+    "failed": 0,
+    "warnings_as_errors": true
+  },
+  "demonstrated_pre_fix_failure": "ResolvedStoreWorkflowAuthorityRequiresEveryExactResolutionAndExpires: invalid_provenance retained old entries",
+  "release_build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "retained_source_offline": {
+    "version": "amazon-business-v8",
+    "passed": false,
+    "source_prerequisite_qualified": true,
+    "source_resolution_count": 17,
+    "expected_product_count": 3,
+    "visited_product_count": 0,
+    "findings": [
+      "first_product_visits_incomplete"
+    ]
+  },
+  "real_workflow_execution": false,
+  "independent_business_oracle_qualified": false,
+  "model_calls_added": 0,
+  "evidence_sha256": {
+    "pre-revocation-tests.log": "08230157cc6c1b80828beda28880cb2650314df9252d8bc2af4fec235def8a92",
+    "final-affected-tests.log": "94beaa504f75440376b77b913ccbbef0847f718989dfb9f4811ee3b22fa17cf0",
+    "release-build.log": "a752d7c2c6df3a160a74857a67e1d7d4ce8439ad13cf80c5752cbfc4616e62ed",
+    "initial-audit.json": "ab9117769ca7ce6c0bc1fbfb97d6a6c820a15cd6e96029c77a70b7d7b585414d",
+    "offline-retained-source.json": "87897657bac1cc87217887842e0e7e73efd8f64c36361ca14284d300db09f126"
+  }
+}

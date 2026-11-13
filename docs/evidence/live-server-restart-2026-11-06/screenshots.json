@@ -1,0 +1,20 @@
+[
+  {
+    "file": "live-collections-active.png",
+    "evidence": "live-provider",
+    "sha256": "e468790bb58048ecfb6cf0a59c4d7b526d26decdc8c079466021361deb0efa1b",
+    "edited": false
+  },
+  {
+    "file": "live-native-shared-inspector-warning.png",
+    "evidence": "live-provider",
+    "sha256": "4ed71df390e49091588a760e51fcac002fbd9d34aa543394809200dc1c92b3d2",
+    "edited": false
+  },
+  {
+    "file": "controlled-llm-exchange.png",
+    "evidence": "controlled-provider",
+    "sha256": "2b4fce0e2778c7e87a2e8501e976309ed5657eff5592ecd94db0560e66924c59",
+    "edited": false
+  }
+]

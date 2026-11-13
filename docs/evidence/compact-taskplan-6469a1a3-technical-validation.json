@@ -1,0 +1,135 @@
+{
+  "production_source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+  "planning": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 3705
+    },
+    "elapsed_seconds": 347.20982295798603,
+    "source_unchanged": true,
+    "log_sha256": "dcde0519fc7c9299681f7c97d1c2a0740bd20a8a851f3fed9f65b7cbd1fb1e81"
+  },
+  "planning_source_manifest_sha256": "1a04fc611de05c152dac38513a33340e3bc82673ba951889475fdc5bf39653a4",
+  "targeted_counts_overlap": true,
+  "publication": {
+    "source": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64",
+    "exact_source_blobs_and_modes": 4781,
+    "source_manifest_sha256": "dea3947ba0184b1504aa1a2f686249bec3b7798feeb5c6460bdf5bf5a071664b",
+    "all_stages_passed": true,
+    "stages": [
+      {
+        "stage": "managed-publish",
+        "log_sha256": "5f7445351b1af25dddfa24f99c92ecc25826be037cb95cc560175c9328030c33",
+        "elapsed_seconds": 28.871
+      },
+      {
+        "stage": "managed-smoke",
+        "log_sha256": "2c9c49966a627c7c0b9bd70ae28be452cdd3fe93c269c3f972f6be92ccdb629a",
+        "elapsed_seconds": 3.643
+      },
+      {
+        "stage": "native-publish",
+        "log_sha256": "a1c1e7dcecc66caf9cff1b467162764c8570c0524d84e7506f9f5da2ca84c706",
+        "elapsed_seconds": 37.578
+      },
+      {
+        "stage": "native-smoke",
+        "log_sha256": "3fa38761318308beba38b427501eda939f72a30b9a569b5e7b3102c88d45cd9b",
+        "elapsed_seconds": 6.962
+      },
+      {
+        "stage": "pack-planning",
+        "log_sha256": "c14383e483dc3485db1eb1e34d0eeef71af6be07be2105328ef0f8f709899c5e",
+        "elapsed_seconds": 1.17
+      },
+      {
+        "stage": "pack-integrations",
+        "log_sha256": "76efecfd4742bc0238bc77778d06bee2fcf76a880794fe999a8a82af2ffdc0b2",
+        "elapsed_seconds": 1.814
+      },
+      {
+        "stage": "pack-core",
+        "log_sha256": "be3176b900b2ed1a1145057787d65214bd0f6a4308afc599ae244a4197ff2279",
+        "elapsed_seconds": 0.908
+      },
+      {
+        "stage": "pack-copilot",
+        "log_sha256": "ce35e3e926ee7979d8bc8392c28ae8c22651a8f21d3ef142be20647726924c59",
+        "elapsed_seconds": 1.898
+      },
+      {
+        "stage": "pack-persistence",
+        "log_sha256": "d69c805a45c97a388950aa0e6dffdefa41a11b2e4603178de27d620c9012e5df",
+        "elapsed_seconds": 2.679
+      },
+      {
+        "stage": "pack-ai-core",
+        "log_sha256": "d57f4c977b6e5d558ed74480853196cf429623e146013d173f2b38110cda2f07",
+        "elapsed_seconds": 0.975
+      },
+      {
+        "stage": "server-publish",
+        "log_sha256": "57030ce242e2b262d71f7681d915f3462a18c95b09eff39b3d529930ac2cb223",
+        "elapsed_seconds": 141.562
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "log_sha256": "7e3ebcc6e52949e24cd53cf518d48371066902ffe33e70d05446cfa36641fdf5",
+        "elapsed_seconds": 2.573
+      }
+    ],
+    "verified_output_files": 213,
+    "independent_package_builds": [
+      {
+        "file": "GnOuGo.Flow.Planning.1.0.0.nupkg",
+        "sha256": "0c0ffd961ab8c3f1d805fda6fad8251cf6340e7794eb6ce1153d225ac973ef03",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      },
+      {
+        "file": "GnOuGo.Flow.Integrations.1.0.0.nupkg",
+        "sha256": "e46cfbff36e50dacae4efb270eff5c91bb8efe57a2a9495a65aeb1eeac83607e",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      },
+      {
+        "file": "GnOuGo.Flow.Core.1.0.0.nupkg",
+        "sha256": "756f76b0be9d17704b96fd93b4a679a8c76811423fbd05eace8a9877e02a6d85",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      },
+      {
+        "file": "GnOuGo.AI.Core.1.0.0.nupkg",
+        "sha256": "0eaa98e5f08a292d4a5de252554cab97f56f71c9c42b9ceeb2bf9d37875ba1e2",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      },
+      {
+        "file": "GnOuGo.Flow.Copilot.1.0.0.nupkg",
+        "sha256": "3cb19668e8e675771e21fcb77c46e036e695a5dbf3dad041c0db1f6ed62a8406",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      },
+      {
+        "file": "GnOuGo.Flow.Persistence.1.0.0.nupkg",
+        "sha256": "c91dc129034b6dc10a2a3ba285383f4cd6b1f801171c41230b179ac72516df28",
+        "repository_commit": "6469a1a38b5ad645fa2777f8b699c01bd3f54e64"
+      }
+    ],
+    "managed_and_native_aot_smoke": true,
+    "fresh11_and_historical_2_to_10": true,
+    "exact_pending_recovery_and_mock_runtime": true,
+    "published_encryption_and_tenant_isolation": true,
+    "planning_calls": 0,
+    "business_acceptance": false,
+    "limitation": "Server packaging excludes existing ClientApp and bundled-tool staging; this validates publication and synthetic encrypted persistence, not business workflows."
+  },
+  "publication_qualification_sha256": "ab04a6bef9f63bc081e4f4b3a425548bf9311059a99cff2febbbb4c4b9bd4d58",
+  "isolated_benchmark_build": {
+    "sha256": "7c073aef0f5abc4892e27e2468dfd973be1c9b689689087159323a0fbe840756",
+    "binary_sha256": "b123c45bdc8e5386f594886d9a61ac4498aaebbec4ec47f0d5424b1704bb22fb",
+    "runtime_files": 435,
+    "mcp_pins_verified": 568
+  },
+  "full_solution": "Not yet run on6469; b2ee9037pass/13skip remains control-source evidence.",
+  "business_acceptance": false,
+  "limitations": [
+    "No new-source runtime success at capture.",
+    "The12 publication stages validate packages, native planning and synthetic encrypted storage, not live business outcomes."
+  ]
+}

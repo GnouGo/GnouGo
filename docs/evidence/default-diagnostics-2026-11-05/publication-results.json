@@ -1,0 +1,100 @@
+{
+  "source_commit": "51fed8a2a2dfd88ecb6034c04d70d5e7930b664f",
+  "commands": [
+    {
+      "name": "pack-shared",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Agent.Shared",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-defaults/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "51fed8a2a2dfd88ecb6034c04d70d5e7930b664f",
+      "started_utc": "2026-11-05T18:46:14.390694+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T18:46:14.956011+00:00"
+    },
+    {
+      "name": "restore-server",
+      "command": [
+        "dotnet",
+        "restore",
+        "src/GnOuGo.Agent.Server",
+        "-r",
+        "osx-arm64",
+        "-m:1",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "51fed8a2a2dfd88ecb6034c04d70d5e7930b664f",
+      "started_utc": "2026-11-05T18:46:14.956868+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T18:46:16.326061+00:00"
+    },
+    {
+      "name": "publish-server",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-m:1",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:TreatWarningsAsErrors=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "-o",
+        "artifacts/diagnostic-defaults/publish/agent-server",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "51fed8a2a2dfd88ecb6034c04d70d5e7930b664f",
+      "started_utc": "2026-11-05T18:46:16.326662+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T18:46:39.314724+00:00"
+    },
+    {
+      "name": "published-storage-smoke",
+      "command": [
+        "artifacts/diagnostic-defaults/publish/agent-server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "artifacts/diagnostic-defaults/final-published-storage"
+      ],
+      "source_commit": "51fed8a2a2dfd88ecb6034c04d70d5e7930b664f",
+      "started_utc": "2026-11-05T18:46:39.315784+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T18:46:41.714827+00:00"
+    }
+  ],
+  "artifacts": {
+    "artifacts/diagnostic-defaults/packages/GnOuGo.Agent.Shared.1.0.0.nupkg": {
+      "bytes": 75903,
+      "sha256": "71b1b58fa4e2308b47822ab721218d531d8b1ffb804bde2739a6fe82a46b59cc"
+    },
+    "artifacts/diagnostic-defaults/publish/agent-server/GnOuGo.Agent.Server": {
+      "bytes": 154071220,
+      "sha256": "fca5409431bf6b8239a29470e0b706cdcf21993e5e0aa164e387c0589f534d2d"
+    }
+  }
+}

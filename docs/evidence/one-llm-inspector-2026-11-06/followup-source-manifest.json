@@ -1,0 +1,14 @@
+{
+  "source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+  "base_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+  "files": {
+    "scripts/smoke-diagnostic-planning.mjs": "cc3e9ee416b7604fb9f3768c724725b7b99065a006f0fe7eadaaf9a09da4f199",
+    "src/GnOuGo.Agent.Server/Components/Tracing/LlmTraceDocument.razor": "98fb0f210f2bb485900c7b0c2d040ff5517ca7401278b485cd91ca7c5fe66d82",
+    "src/GnOuGo.Agent.Server/Telemetry/LlmCallProjection.cs": "053931d2d1aa0b64c22e22c948db801db6ea0d0db35f24f3dca5d612022103bb",
+    "src/GnOuGo.Agent.Server/Telemetry/LlmTraceContentStore.Calls.cs": "7ecf781da18d5dd06712c7ab4c05a405d4bd6c8cf2507ba9fc3bc2e819d3b74e",
+    "src/GnOuGo.Agent.Server/Telemetry/LlmTraceContentStore.Documents.cs": "426362c0e6b69d4a225d4eaa5f928454a87c25658c013e048f3d10790ff583f5",
+    "tests/GnOuGo.Agent.Server.Tests/LlmInspectorDocumentsTests.cs": "24efb80f64f064481cea8416d4c4438d4d7bdfaa628327ead1323382cf2b2968",
+    "tests/GnOuGo.Browser.Mcp.Tests/BrowserCompleteObservationTests.cs": "983f39fa5f02750619e082fdd7be696fd0671e9ad1dd215d7fc007f5565911fb"
+  },
+  "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd"
+}

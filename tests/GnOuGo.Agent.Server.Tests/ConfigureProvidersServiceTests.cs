@@ -1511,9 +1511,10 @@ public sealed partial class ConfigureProvidersServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("Background — Responses API", "Responses")]
-    [InlineData("Chat Completions — foreground", "ChatCompletions")]
-    public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance(string selection, string stored)
+    [InlineData("Background — Responses API", "Responses", "Auto")]
+    [InlineData("Chat Completions — foreground", "ChatCompletions", "Streaming")]
+    [InlineData("Chat Completions — foreground", "ChatCompletions", "NonStreaming")]
+    public async Task ExecuteAsync_LlmAdd_ValidationUsesSanitizedParametersAndSmallOutputAllowance(string selection, string stored, string transportMode)
     {
         var llm = new RecordingLlmClient();
         var keyVaultStore = new FakeKeyVaultRuntimeConfigStore();
@@ -1536,7 +1537,8 @@ public sealed partial class ConfigureProvidersServiceTests : IDisposable
                 JsonNode response = request.StepId switch
                 {
                     "llm_add.provider" => new JsonObject { ["response"] = "openai" },
-                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1", ["generation_protocol"] = selection },
+                    "llm_add.connection" => new JsonObject { ["url"] = "https://api.openai.com/v1", ["generation_protocol"] = selection, ["transport_mode"] = transportMode,
+                        ["streaming_support_ChatCompletions"] = "true", ["streaming_support_Responses"] = "true" },
                     "llm_add.auth_mode" => new JsonObject { ["response"] = "api_key" },
                     "llm.auth.api_key" => new JsonObject { ["api_key"] = "test-secret" },
                     "llm_model.select.openai" => new JsonObject { ["model"] = "gpt-5-search-api" },
@@ -1577,6 +1579,8 @@ public sealed partial class ConfigureProvidersServiceTests : IDisposable
         Assert.True(llm.LastRequest.UseBackgroundMode);
         var saved = await keyVaultStore.GetSecretValueAsync("LLM--Models--openai", token);
         Assert.Equal(stored, JsonNode.Parse(saved!)!["backgroundProtocol"]!.GetValue<string>());
+        Assert.Equal(transportMode, JsonNode.Parse(saved!)!["streamingMode"]!.GetValue<string>());
+        Assert.True(JsonNode.Parse(saved!)!["streamingSupport"]!["ChatCompletions"]!.GetValue<bool>());
         Assert.Contains(events, e => e.Text?.Contains(selection, StringComparison.Ordinal) == true);
         Assert.Contains(events, evt => evt.Type == "thinking:response" && evt.Text == "✅ Credentials validated. Provider 'openai' is ready.");
     }

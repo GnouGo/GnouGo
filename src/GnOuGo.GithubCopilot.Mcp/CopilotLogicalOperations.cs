@@ -49,6 +49,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
             state["tenant"] = original.Context.TenantId; state["objective"] = objective;
             state["workspace"] = original.Configuration.WorkingDirectory; state["deadline"] = deadline;
             state["agentId"] = original.Context.AgentId;
+            if (original.Configuration.InferenceTransport is { } transport) state["inferenceTransport"] = transport;
             state["phase"] = "admitted"; state["sessions"] = 0;
             state["inferenceAttempts"] = 0; state["reservedTokens"] = 0;
             state["denials"] = new JsonArray(); state["evidence"] = new JsonArray();

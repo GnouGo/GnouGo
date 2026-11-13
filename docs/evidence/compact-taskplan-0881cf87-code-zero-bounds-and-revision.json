@@ -1,0 +1,163 @@
+{
+  "production_and_harness_source": "0881cf87f2274720a99f0d4675ee4fbd9530d531",
+  "run": "compactm0881cf87code11a-code-1",
+  "snapshot": "original stopped run before the separately frozen operator revision",
+  "status": "received_business_findings_without_structural_repair_authority",
+  "logical_requests": 24,
+  "physical_attempts": 24,
+  "verified_completion_receipts": 24,
+  "judge_calls": 2,
+  "correction_charges": 0,
+  "operator_interventions_in_this_snapshot": 0,
+  "planning_ms": 1201871,
+  "known_cost_eur": "1.7850040420371867421180274859",
+  "retained_unknown_reservation_eur": "0",
+  "provider_tokens": {
+    "input_tokens": 147393,
+    "output_tokens": 41676,
+    "reasoning_tokens": 35783
+  },
+  "trajectory": {
+    "first_clone_draft": 7,
+    "clone_remote": "public PR-page input instead of repository Git remote",
+    "typed_summary_draft": 19,
+    "ten_array_maxima": 0,
+    "zeroes_present_in_original_provider_content": true,
+    "host_inserted_zeroes": false,
+    "issued_schema_permits_null_maximum": true,
+    "local_review": 22,
+    "same_evidence_reconsideration_action": 23,
+    "same_evidence_review": 24,
+    "repeated_grounded_findings": [
+      "clone remote meaning/provenance",
+      "closed summary cannot carry data with empty-only array types"
+    ],
+    "automatic_structural_authority_granted": false
+  },
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488,
+      "peak_components": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 427,
+        "instructions": 1404,
+        "intent": 2387,
+        "interfaces": 59,
+        "response_schema": 4156
+      }
+    },
+    "construction_select": {
+      "logical_calls": 5,
+      "p50_bytes": 25662,
+      "p95_bytes": 32613,
+      "maximum_bytes": 32613,
+      "peak_components": {
+        "construction_context": 2382,
+        "envelope": 498,
+        "evidence": 1145,
+        "instructions": 2968,
+        "interfaces": 6438,
+        "requirements": 11404,
+        "response_schema": 7778
+      }
+    },
+    "construction_discovery": {
+      "logical_calls": 9,
+      "p50_bytes": 33775,
+      "p95_bytes": 40461,
+      "maximum_bytes": 40461,
+      "peak_components": {
+        "construction_context": 2117,
+        "envelope": 497,
+        "evidence": 1551,
+        "instructions": 2240,
+        "interfaces": 2971,
+        "mcp_contracts": 9190,
+        "mcp_descriptors": 4448,
+        "objective": 306,
+        "requirements": 9279,
+        "response_schema": 7862
+      }
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "p50_bytes": 33666,
+      "p95_bytes": 42446,
+      "maximum_bytes": 42446,
+      "peak_components": {
+        "construction_context": 4763,
+        "diagnostics": 26,
+        "envelope": 505,
+        "evidence": 1145,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 2971,
+        "mcp_contracts": 9939,
+        "objective": 306,
+        "requirements": 7760,
+        "response_schema": 13865
+      }
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "p50_bytes": "27466.5",
+      "p95_bytes": 30254,
+      "maximum_bytes": 30254,
+      "peak_components": {
+        "construction_context": 6938,
+        "envelope": 497,
+        "fragment": 15145,
+        "instructions": 1456,
+        "interfaces": 304,
+        "requirements": 3939,
+        "response_schema": 1975
+      }
+    },
+    "replan": {
+      "logical_calls": 1,
+      "p50_bytes": 23817,
+      "p95_bytes": 23817,
+      "maximum_bytes": 23817,
+      "peak_components": {
+        "construction_context": 2491,
+        "envelope": 499,
+        "fragment": 15145,
+        "instructions": 357,
+        "interfaces": 304,
+        "requirements": 3939,
+        "response_schema": 1082
+      }
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_status": "not_started",
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "no_retention_needed": "Every request has a received completion; no uncertain replay.",
+  "qualification": false,
+  "subsequent_authorized_revision": {
+    "source": "0881cf87f2274720a99f0d4675ee4fbd9530d531",
+    "run": "compactm0881cf87code11a-code-1",
+    "operator_intervention": 1,
+    "initial_logical_calls": 24,
+    "repair_request": 25,
+    "renewed_review": 26,
+    "actual_correction_charges": 1,
+    "same_task_ids": true,
+    "clone_branch_and_directory_unchanged": true,
+    "type_changes_only_ten_zero_array_maxima_to_unspecified": true,
+    "unspecified_maximum_serialization": "nullable optional values may be absent; only the ten former zero maxima differ",
+    "other_task_owned_fields_unchanged": true,
+    "renewed_business_review_ok": true,
+    "workflow_complete": false,
+    "runtime_started": false,
+    "qualifies_intervention_free": false
+  },
+  "revision_outcome_limit": "The scope-limited patch and renewed reviews are demonstrated. The continuing workflow has not yet reached final approval or execution."
+}

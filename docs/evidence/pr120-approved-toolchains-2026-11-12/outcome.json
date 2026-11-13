@@ -1,0 +1,71 @@
+{
+  "source": "e4a3288e138c09b2761cadebfd0ae19561287c6e",
+  "identity": "code-toolchain-provisioned-20261112-02",
+  "execution_started_utc": "2026-11-12T20:47:50.3519590+00:00",
+  "execution_and_verification_elapsed_ms": 207244,
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "provider_fingerprint": "639aa02e771682cb4a6b86b6cf810685aa7796168e5f8b46eef81bcbeb21c935",
+  "sdk_transport": "gnougo-structured-tools-v1",
+  "sdk_handle": "cps_e19e742d166c455a9440fef891dcef83",
+  "sdk_session": "4c5c8b6a-bc5e-4261-9ad2-b9e319fa8d4c",
+  "command": "python3 probe.py",
+  "command_count": 1,
+  "script_unchanged": true,
+  "terminal_report_verified": true,
+  "pinned_toolchains_verified": true,
+  "versions": [
+    {
+      "name": "node",
+      "exit_code": 0,
+      "stdout": "v24.20.0\n",
+      "timed_out": false
+    },
+    {
+      "name": "pnpm",
+      "exit_code": 0,
+      "stdout": "10.34.5\n",
+      "timed_out": false
+    },
+    {
+      "name": "python",
+      "exit_code": 0,
+      "stdout": "Python 3.11.13\n",
+      "timed_out": false
+    },
+    {
+      "name": "python3",
+      "exit_code": 0,
+      "stdout": "Python 3.11.13\n",
+      "timed_out": false
+    }
+  ],
+  "receipt_reloaded": true,
+  "completion_verified": true,
+  "cleanup": true,
+  "passed": true,
+  "physical_attempts": 3,
+  "http_statuses": [
+    200,
+    200,
+    200
+  ],
+  "provider_finish_reasons": [
+    "stop",
+    "stop",
+    "stop"
+  ],
+  "all_usage_bounded": true,
+  "actual_receipt_tariff_sum_eur": "0.9488490819525302283922973577",
+  "sdk_network_permissions_changed": false,
+  "sandbox_bypass": false,
+  "full_code_prerequisite_qualified": false,
+  "complete_workflow_executed": false,
+  "independent_business_oracle_passed": false,
+  "per_http_start_end_timing": "unavailable in existing SDK capture; not inferred",
+  "private_log_sha256": {
+    "sdk-probe-final-retained.json": "1a83db2b4c58ac31c4f9b297eea7a8eb1fc620daf8d174b522c2fb50effec13c",
+    "sdk-http-attempts.json": "d29dc50a8e8a75301d95cee0ea249daad4233051b2d1f7dff27431f9e90c15ed",
+    "sdk-model-receipts.json": "57974a33b11929527bd56305dc0e3a864eeba739347ba4d40cde3318144afb37"
+  }
+}

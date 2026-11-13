@@ -14,7 +14,7 @@ public sealed class PlanningOutcomeExecutionTests
     [InlineData("alternate")]
     [InlineData("failure")]
     [InlineData("denied")]
-    public async Task GeneratedWorkflowPerformsObservedFileEffectsAndAlwaysCleansUp(string variant)
+    public async Task ValidatedWorkflowPerformsObservedFileEffectsAndAlwaysCleansUp(string variant)
     {
         var ct = TestContext.Current.CancellationToken;
         var parent = Path.Combine(Path.GetTempPath(), "gnougo-outcomes-" + Guid.NewGuid().ToString("N"));
@@ -51,7 +51,7 @@ public sealed class PlanningOutcomeExecutionTests
         try
         {
             var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(variant != "denied") };
-            var runtime = new TestRuntime(engine); var state = PlannerFixture.Session(); state.IntentVersion = 2;
+            var runtime = new TestRuntime(engine); var state = PlannerFixture.Session();
             state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual);
             PlanTask Op(string id, string method, bool consumes) => new() { Id = id, Objective = "Perform declared local work",
                 Operation = TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Method == method)).Id,
@@ -63,18 +63,16 @@ public sealed class PlanningOutcomeExecutionTests
                     Condition = PlanningCorpus.Business("input", "enabled"), Body = new() { Tasks = [Op("work", "beta", true)] }, Otherwise = new() }],
                     Always = [Op("cleanup", "gamma", true)], Outputs = [new("result", PlanningCorpus.String("completed"))] }
             };
-            runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Create, conditionally use and always remove a workspace", Inputs = plan.Inputs,
-                Outcomes = [PlanningOutcomeTests.Outcome("create"), PlanningOutcomeTests.Outcome("use", "execute", conditional: true), PlanningOutcomeTests.Outcome("clean", "lifecycle", always: true)] },
-                OutcomeBindings = [new("create", ["acquire"], []), new("use", ["work"], []), new("clean", ["cleanup"], [])] };
-            state = await PlannerFixture.RunAsync(runtime, state);
-            Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-            PlanningArtifactApproval.Verify(state);
-            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+            var compilation = new TaskPlanCompiler().Compile(plan, state.Catalog, state.Request);
+            Assert.Empty(compilation.Diagnostics);
+            PlanningConfirmationGuards.Apply(compilation.Graph!, state.Catalog);
+            var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, state.Catalog);
+            var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
             var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["enabled"] = variant != "alternate" }, ct);
             Assert.Equal(variant is "nominal" or "alternate", result.Success);
             Assert.False(Directory.Exists(directory));
             Assert.Equal(variant == "denied" ? [] : variant == "alternate" ? ["created", "deleted"] : new[] { "created", "copied-and-verified", "deleted" }, effects);
-            Assert.Single(runtime.Calls); // Execution never uses a model in this fixture.
+            Assert.Empty(runtime.Calls); // This independent compiler/runtime fixture uses no model.
         }
         finally { if (Directory.Exists(parent)) Directory.Delete(parent, true); }
     }

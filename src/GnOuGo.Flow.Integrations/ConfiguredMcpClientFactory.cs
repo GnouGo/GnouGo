@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Planning;
 using GnOuGo.Mcp.Core;
 using System.Collections.Concurrent;
 using System.Net;
@@ -23,7 +24,7 @@ namespace GnOuGo.Flow.Integrations;
 /// Reads configuration from a dictionary of <see cref="McpServerOptions"/>.
 /// Shared by both GnOuGo.Flow.Cli and GnOuGo.Flow.Server.
 /// </summary>
-public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutionHooks, IAsyncDisposable
+public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutionHooks, IAsyncDisposable, IMcpSourceConfigurationFingerprint
 {
     private const string ProgressEnvelopeMarker = "gnougo.mcp.progress";
     private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
@@ -62,6 +63,20 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
             })
             .ToList()
             .AsReadOnly();
+    }
+
+    public string SourceConfigurationFingerprint(string serverName)
+    {
+        if (!_serverConfigs.TryGetValue(serverName, out var value)) throw new ArgumentException("Unknown configured source.");
+        // Credentials affect connection identity, but only this digest leaves the configuration owner.
+        var document = new JsonObject { ["type"] = value.Type, ["url"] = value.Url, ["description"] = value.Description,
+            ["discoveryTimeout"] = value.DiscoveryTimeoutSeconds, ["callTimeout"] = value.CallTimeoutSeconds,
+            ["apiKey"] = value.ApiKey, ["issuer"] = value.Issuer, ["clientId"] = value.ClientId,
+            ["clientSecret"] = value.ClientSecret, ["scopes"] = value.Scopes, ["command"] = value.Command,
+            ["args"] = value.Args is null ? null : new JsonArray(value.Args.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()),
+            ["environment"] = value.EnvironmentVariables is null ? null : new JsonObject(value.EnvironmentVariables.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create(p.Value)))) };
+        return PlanningGraphCompiler.Fingerprint(document.ToJsonString());
     }
 
     public IReadOnlyList<McpServerMetadata> ServerMetadata => _serverMetadata;

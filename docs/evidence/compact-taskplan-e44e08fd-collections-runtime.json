@@ -1,0 +1,159 @@
+{
+  "production_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "harness_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "cohort": "compactre44e08fdcolj12v11a",
+  "freeze_sha256": "288d565cd72c0b4e288c3c8b9adb497d3d974a80840e73e6a2c50b2d6292e4bc",
+  "captured_profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "artifact_oracle": {
+    "version": "synthetic-artifact-v1",
+    "artifact_hash": "c12d7135dff18a36f1bf426a5a4c1787d9dc3fbd011010680c330f9adc71f2e3",
+    "passed": true,
+    "findings": []
+  },
+  "logical_calls": 27,
+  "physical_attempts": 27,
+  "automatic_corrections": 1,
+  "checkpoints": 8,
+  "provider_input_tokens": 91344,
+  "provider_output_tokens": 43151,
+  "provider_reasoning_tokens": 36490,
+  "known_cost_eur": "1.5629183400267737617135207495",
+  "unknown_reservations_eur": "0",
+  "planning_ms": 1147417,
+  "runtime_variants": [
+    {
+      "variant": "nominal",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "375.3764",
+      "error": null,
+      "effects": [],
+      "violations": []
+    },
+    {
+      "variant": "alternate",
+      "correct": true,
+      "runtime_success": true,
+      "elapsed_ms": "2.4391",
+      "error": null,
+      "effects": [],
+      "violations": []
+    }
+  ],
+  "business_success": true,
+  "planning_interventions": 0,
+  "automatic_correction": "Only add /root to closeScopes; tasks and values unchanged. Mandatory clean review follows.",
+  "repair_history_fix_exercised": false,
+  "independent_redundancy_observation": "One pure value alias forwards the foreach array unchanged; no unwanted effects.",
+  "comparison": "a6bd5978 control: 26 calls, zero corrections, EUR1.2186702365015618027666220436. Candidate: 27 calls, one correction, higher cost; no savings claim.",
+  "measurements": {
+    "construction_draft": {
+      "constructed": 8,
+      "admitted": 8,
+      "complete_bytes": {
+        "p50": 21216.0,
+        "p95": 25188,
+        "maximum": 25188
+      },
+      "estimated_input_tokens": {
+        "p50": 7328.5,
+        "p95": 8652,
+        "maximum": 8652
+      },
+      "components_reconciled": true
+    },
+    "construction_intent": {
+      "constructed": 2,
+      "admitted": 2,
+      "complete_bytes": {
+        "p50": 5587.0,
+        "p95": 8651,
+        "maximum": 8651
+      },
+      "estimated_input_tokens": {
+        "p50": 2118.5,
+        "p95": 3140,
+        "maximum": 3140
+      },
+      "components_reconciled": true
+    },
+    "construction_local_judge": {
+      "constructed": 8,
+      "admitted": 8,
+      "complete_bytes": {
+        "p50": 20298.5,
+        "p95": 25662,
+        "maximum": 25662
+      },
+      "estimated_input_tokens": {
+        "p50": 7022.5,
+        "p95": 8810,
+        "maximum": 8810
+      },
+      "components_reconciled": true
+    },
+    "construction_select": {
+      "constructed": 8,
+      "admitted": 8,
+      "complete_bytes": {
+        "p50": 15589.5,
+        "p95": 18889,
+        "maximum": 18889
+      },
+      "estimated_input_tokens": {
+        "p50": 5453.0,
+        "p95": 6553,
+        "maximum": 6553
+      },
+      "components_reconciled": true
+    },
+    "replan": {
+      "constructed": 1,
+      "admitted": 1,
+      "complete_bytes": {
+        "p50": 22907.0,
+        "p95": 22907,
+        "maximum": 22907
+      },
+      "estimated_input_tokens": {
+        "p50": 7892.0,
+        "p95": 7892,
+        "maximum": 7892
+      },
+      "components_reconciled": true
+    }
+  },
+  "retained_encrypted_run_sha256": "efc2468ab6d33b9f360d1fe09ad15f04cf7f92b72c564a123b632a7145730354",
+  "approval_origin": "delegated_test",
+  "authorization_hash": "24c8d06c64642c051d5d449218c8d16b87faa76c0d4b644d038d2d8d47be525e",
+  "review_evidence_hash": "05ae1f5a31cb595077b219eab4d6a46dd4f9e6d7fe036eeea9ea195b03301c0e",
+  "original_response_audit": {
+    "responses": 27,
+    "json_matches_receipts": 27,
+    "empty": 0,
+    "output_exhaustion": 0,
+    "outside_string_whitespace_bytes": 16,
+    "longest_whitespace_run_bytes": 2
+  },
+  "evidence_gap": "User removed external cohort directory after execution. Exact observed freeze hash retained; encrypted run/runtime outcomes reinspected. Old manifest not recreated; no repeat execution."
+}

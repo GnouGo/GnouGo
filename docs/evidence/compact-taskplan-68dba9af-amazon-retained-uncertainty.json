@@ -1,0 +1,49 @@
+{
+  "production_source": "68dba9af2728110720e03e223aa1ae3852aa668b",
+  "execution_and_harness_source": "3242bbde50eae0f3a9cc92e7bef8171e884789a3",
+  "run": "compactm68dba9afamz11a-amazon-1",
+  "status": "stopped",
+  "logical_requests": 12,
+  "received_completions": 11,
+  "physical_attempts": 12,
+  "provider_input_tokens_known": 34951,
+  "provider_output_tokens_known": 18542,
+  "reasoning_tokens_included_in_output": 16246,
+  "known_cost_eur": "0.6566199586813976466361268301",
+  "retained_unknown_reservation_eur": "1.0158717326866073834545944489",
+  "outcome": "Transport uncertainty, no HTTP outcome or completion receipt for request12. No uncertain retry or response invented.",
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "constructed_setup": [
+    "fixed run configuration",
+    "sequence opening"
+  ],
+  "search_read_constructed": false,
+  "settings_changed": false,
+  "retention": {
+    "authorized_by": "Existing delegated exact administrative retention after evidence verification; no new execution authority.",
+    "request_id": "compactm68dba9afamz11a-amazon-1:12:981e9a60baa532444cb9d036bf72a9af71405eb0af942194fa54912c9b18bdb6:687ce286e7dd9a745c2de0b8db47c789b3957dd8897bae0e1b4da1e9e6c80daf",
+    "evidence_hash": "d8f144e82d76827146368b72226ee93a94aeefae68a0e2bc42318a0500cd982d",
+    "authorization_hash": "fbeda615fb1f630d5f380263878c236f986553108073c3ab82f15dc2a8473a4a",
+    "original_six_records_and_timestamps_unchanged": true,
+    "idempotent_second_apply": true,
+    "read_only_restart_verification": {
+      "original_records_unchanged": true,
+      "run_rejected_after_restart": true,
+      "exact_issued_request_rejected_after_restart": true,
+      "preflight_calls": 0,
+      "provider_calls": 0,
+      "record_mutations": 0
+    },
+    "reservation_released": false,
+    "provider_termination_claimed": false,
+    "completion_receipt_manufactured": false
+  },
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "model": "gpt-5.5-2026-04-24",
+  "historical_evidence_changed": false,
+  "retired_18_run_gate_restored": false
+}

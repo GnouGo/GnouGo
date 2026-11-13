@@ -1,0 +1,12 @@
+{
+  "comparison_factor": "exclude already-loaded source evidence from the next selection response grammar",
+  "same_retained_session": true,
+  "same_prompt": true,
+  "before_logical_request_bytes": 13791,
+  "after_logical_request_bytes": 13458,
+  "before_schema_bytes": 2063,
+  "after_schema_bytes": 1730,
+  "known_original_text_retained": true,
+  "paid_calls": 0,
+  "limitation": "Deterministic response-choice comparison only; no provider time/cost improvement or live causal success is established."
+}

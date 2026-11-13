@@ -1,0 +1,15 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": 1700,
+  "known_cost_eur": "842.6023824451410658307210193",
+  "unresolved_http_reservations_eur": "419.6402955665024630541871923",
+  "retained_application_reservations_eur": "62.298969391677171796429788702",
+  "arithmetic_headroom_eur": "375.458352596679299318661999698",
+  "physical_attempts": 1946,
+  "unknown_attempts": 50,
+  "global_funding_available": null,
+  "provider_invoiced_cost": null,
+  "history_modified": false,
+  "reservations_released": false,
+  "audit_sha256": "4f6324661e6525594f0f15913c38fbb8b20668729f553f1c59c0049756acabb2"
+}

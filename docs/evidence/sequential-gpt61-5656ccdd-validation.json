@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T19:34:27.171643+00:00",
+  "production_and_live_harness_source": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+  "owning_planning": {
+    "counters": {
+      "total": 2691,
+      "executed": 2691,
+      "passed": 2691,
+      "failed": 0,
+      "error": 0,
+      "timeout": 0,
+      "aborted": 0,
+      "inconclusive": 0,
+      "passedButRunAborted": 0,
+      "notRunnable": 0,
+      "notExecuted": 0,
+      "disconnected": 0,
+      "warning": 0,
+      "completed": 0,
+      "inProgress": 0,
+      "pending": 0
+    },
+    "sha256": "95d962b5413e35dc481384f9df770079c57a2fb07c87b0e0f38242a3a55d0fe3"
+  },
+  "cleanup_regression": {
+    "before_fix_failed": 2,
+    "focused_after_fix_passed": 46,
+    "final_premature_body_reference_checks_passed": 2
+  },
+  "publication": {
+    "all_stages_passed": true,
+    "stages": [
+      {
+        "name": "dotnet-info",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "0123770bc388470ef8c22afb25229bed4c1402d209ae304d1c37f7d1df166072"
+      },
+      {
+        "name": "core-pack",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "5c12449ca44178779eee4953aa1ca97ea535966ae71806bc397635eef8a514bf"
+      },
+      {
+        "name": "planning-pack",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "e21ae198d6a54568dd6d3146bc6235da4636284db94fb04ff8a8e245a8a4284f"
+      },
+      {
+        "name": "integrations-pack",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "85960695972631e377e94765c17cfe15ae91bb1447b942660b5f263daa145086"
+      },
+      {
+        "name": "copilot-pack",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "a8eed575c4dfdde77e4491b33dbdd447160827e5f83fd5862db909c5f22c522c"
+      },
+      {
+        "name": "persistence-pack",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "fabd1545c25b42a47e2ccbefe094eb37bbbb4cfa10c0c6bf90cb3b97bbec13f4"
+      },
+      {
+        "name": "planning-native-publish",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "dbe507288acb03a79810d83509ac98e2620da35f4343325f5a5cfe6357de4512"
+      },
+      {
+        "name": "planning-native-run",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "07de0402837bc030ba754cdfc923dedb26a5307ba7f0194c5c40a731536c9463"
+      },
+      {
+        "name": "server-restore",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "98247eb7ff12f343a782c1cc306acebfee3d4b68b3109e7459d7b616227cce0e"
+      },
+      {
+        "name": "server-trimmed-publish",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "601da6f2c6c87a08e836d2b5903b95eaad33522a3e90333209d302dc8fa99cfe"
+      },
+      {
+        "name": "server-encrypted-storage-smoke",
+        "exit_code": 0,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+      }
+    ],
+    "manifest_sha256": "3d1ef161c8c738c4a38d3698196cc1426c2c0c83de736262b78838a1de5858b6",
+    "source_unchanged": true,
+    "limits": [
+      "Technical packaging/native/persistence checks only; no live business convergence claim.",
+      "Agent.Server publication skips frontend compilation and bundled-tool publication/staging.",
+      "The current existing smoke-project Jint publish-local IL2026/IL2104/IL3053 exceptions remain; no new suppression is added.",
+      "Agent.Server retains its documented existing partial-trim framework boundaries; no claim of full application Native AOT.",
+      "No remote release, package upload, CI completion or deployment is performed."
+    ]
+  },
+  "frozen_build": {
+    "all_passed": true,
+    "source_unchanged": true,
+    "binary_hashes": {
+      "GnOuGo.Flow.Core": "2aeffeea2afa7fa97b1e9430a5eb1e2646351c20a80613b899a41f149e16ed71",
+      "GnOuGo.Flow.Planning": "4e3e78c05b4e1980703de30d5d0fd286eda9f76615407191b907cb69448d0fea",
+      "GnOuGo.Agent.Planning.Benchmark": "ea22c966e8c6b996e980ffaf287147933f36ee59806ffcdcea5dfb326212d1cc"
+    },
+    "manifest_sha256": "879d3dcde82d0c8669d8e759ed5a87563082804e5f7dd0bb7d3c2124c1c728ca"
+  },
+  "full_solution_attempt": {
+    "summary": {
+      "exit_code": 1,
+      "source_commit": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+      "source_unchanged": true,
+      "elapsed_seconds": 528.97,
+      "assemblies": 32,
+      "expected_assemblies": 33,
+      "missing_assemblies": [
+        "GnOuGo.Agent.Server.Tests"
+      ],
+      "totals": {
+        "total": 6188,
+        "executed": 6176,
+        "passed": 6176,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0,
+        "skipped": 12
+      },
+      "compiler_diagnostic_count": 1,
+      "capture": "/Users/a115vc/.codex/validation/pr120-final-fullsolution/5656ccdd7fe7-20261104T192232Z"
+    },
+    "diagnostics": [
+      "/Users/a115vc/.nuget/packages/github.copilot.sdk/1.0.14/build/GitHub.Copilot.SDK.targets(133,5): error MSB3923: \u00c9chec de t\u00e9l\u00e9chargement du fichier \"https://github.com/github/copilot-cli/releases/download/v1.0.88/github-copilot-1.0.88-darwin-arm64.tgz\". Received an unexpected EOF or 0 bytes from the transport stream. [/Users/a115vc/.codex/validation/pr120-final-fullsolution/5656ccdd7fe7-20261104T192232Z/source/src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj]"
+    ],
+    "attribution": "GitHub Copilot CLI dependency download failed with unexpected EOF before Agent.Server tests could run. Other 32 assemblies completed; exit1 and missing assembly forbid a full-solution pass.",
+    "summary_sha256": "da398501acb10e8a316e55ec4fed9de2990345cc5bb3aec93898200f7ca0d1ce",
+    "run_sha256": "a5b882b5ca392d1b49a6ee63bc9ac082ea6c6b9c37c317d3f96c25048605c05e"
+  },
+  "approval_fixture_correction": {
+    "file": "tests/GnOuGo.Agent.Server.Tests/PlanningTraceUiTests.Approval.cs",
+    "postimage_sha256": "fc689fd1da7438702ef5b71fa627a5efc0af389d8bbf868b0fde26ee2a487e64",
+    "cause": "Fixture intercepted block at the retired top-level response path instead of action.block, leaving its second original obligation outside the selected block.",
+    "prior_1f_server_project": {
+      "passed": 1500,
+      "failed": 7,
+      "total": 1508,
+      "full_solution_pass_claimed": false
+    },
+    "approval_interaction_tests": {
+      "counters": {
+        "total": 36,
+        "executed": 36,
+        "passed": 36,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "sha256": "7d1e5ae4d2a2ca757e56464adadf20dc13c10f15ae91e319298233a2844ea2f7"
+    },
+    "affected_host_tests": {
+      "counters": {
+        "total": 542,
+        "executed": 542,
+        "passed": 542,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "sha256": "73afa9ad49e07734f1c28242fb0bc211c21704e783f23dab1763807085a0297c"
+    },
+    "vite_build": {
+      "exit_code": 0,
+      "log_sha256": "98f3eabe0282a331bf12c485985c46588dc577f5d7d2ca81cb0f1cc6cf13723e",
+      "lint_typecheck_and_package_test_scripts": "not provided by this frontend package"
+    },
+    "production_live_harness_oracle_profile_changes": false
+  },
+  "non_generative_readiness": {
+    "amazon": {
+      "exit_code": 0,
+      "source": "5656ccdd7fe7c625e42680d41bedff71690ecca8",
+      "model_calls": 0,
+      "log_sha256": "9cba5bbcdf66b548dbf4f47862be9a9a9625186d8a3c2d52542c7cbfdd4a3139"
+    }
+  },
+  "live_qualification": {
+    "qualified": 0,
+    "required": 6,
+    "active_run": "g615656ccddamz32a-amazon-1",
+    "outcome_not_yet_claimed": true
+  },
+  "limits": [
+    "Technical validation does not establish live business convergence.",
+    "The prior 1f capture and the failed 5656 dependency download remain evidence, never full-solution passes.",
+    "The historical b50 full-solution capture is not reported as passed.",
+    "The unrelated user solution-file edit remains excluded and unchanged."
+  ]
+}

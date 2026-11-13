@@ -1,0 +1,33 @@
+{
+  "original_production_and_harness": "7ab02766708b8ce29d84e2bd3466d84b5d91ffa7",
+  "operator_source": "c3eaf97ee62bcd9918a80a6fbb1adcf118527040",
+  "evidence_hash": "cdb7db750af9b00fd0655229bc13b75312e44a239b551ce160e86c2067604327",
+  "closure_record_sha256": "405145d6b80b3a66e7d405d2e2cf9940d4ca5c8e9ffba5a901ece08fdd8a8239",
+  "after_restart": {
+    "run_rejected": true,
+    "exact_request_rejected": true,
+    "original_hashes_unchanged": true,
+    "accounting_unchanged": true,
+    "provider_calls": 0,
+    "new_attempts": 0,
+    "ceiling_eur": "540.0301038327063045424449473",
+    "accounting": {
+      "calls": 5079,
+      "session_calls": 18,
+      "known_input_tokens": 17339925,
+      "known_output_tokens": 6554510,
+      "known_cost_eur": "252.69839876702223449918040592",
+      "reserved_input_tokens": 1509590,
+      "reserved_output_tokens": 2719744,
+      "reserved_cost_eur": "79.53228681068062052410001390",
+      "cost_upper_bound_eur": "332.23068557770285502328041982",
+      "unknown_attempts": 98
+    },
+    "available_eur": "207.79941825500344951916452748"
+  },
+  "guard_observation_sha256": "b4c961823abc6a1f124ee244c8333be5a37b086630b7e81084e16d6a21a45cc8",
+  "unique_supplement": "gnougo-pr120-2026-10-27-supplement-100-eur-once",
+  "supplement_recreated": false,
+  "new_reservation_or_usage_created": false,
+  "interpretation": "No journaled generation attempt for the exact logical request. Failure cause remains unproven; no provider termination inferred. All earlier unknown reservations remain unchanged."
+}

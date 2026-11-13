@@ -1,0 +1,19 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "authorization_reference": "pr120-supplement-20261109-100-01",
+  "user_authorization": "2026-11-09: continu I add 100 euros budget",
+  "previous_ceiling_eur": "800",
+  "new_ceiling_eur": "900",
+  "authorization_applied_once": true,
+  "authorization_history_count": 3,
+  "authorization_hash": "21730aebb1fd9d28e5a78605163063faad51cfe0abcfadf5f3a70fe79f17e4ce",
+  "known_usage_tariff_estimate_eur": "467.30222122704881325570981157",
+  "uncertain_http_reservations_eur": "310.83681146439767129422301845",
+  "retained_application_reservations_eur": "16.004818629646215853112404838",
+  "available_after_supplement_eur": "105.856148678907299596954765142",
+  "prior_accounting_unchanged": true,
+  "prior_application_reservations_unchanged": true,
+  "model_dispatches_for_registration": 0,
+  "old_abandoned_runs_remain_forbidden": true,
+  "globally_available_funding": null
+}

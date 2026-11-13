@@ -1,0 +1,71 @@
+{
+  "source": "0e10ea8ef7ce6d7c8c6074dfeb473822eae6f665",
+  "run": "convergence-code-20261108-03",
+  "logical_calls": 10,
+  "accepted_checkpoints": 0,
+  "global_review": false,
+  "approval": false,
+  "execution": false,
+  "discovery_code_capabilities": [
+    "code_agent_edit",
+    "code_project_summary",
+    "code_read_file",
+    "code_search_text"
+  ],
+  "native_attempts": [
+    {
+      "Id": "51edfa36e49a417b894a835d71404233:10:6cc56ed8a0bdb1feaef4ccb08c125bf5daf23db8d4388bf0eae5032bc4d98756:b000264e500a594d94f334adbe06380075812173e4587006983bfd9934050ebf:e36f565c787b4c4c8f87b0bd615a6605",
+      "StartedAtUtc": "2026-11-08T10:30:58.626947+00:00",
+      "DeadlineAtUtc": "2026-11-08T10:40:58.626947+00:00",
+      "CompletedAtUtc": "2026-11-08T10:36:11.251049+00:00",
+      "LastByteAtUtc": "2026-11-08T10:31:10.191554+00:00",
+      "Failure": "transport",
+      "RetryDecision": "abandoned; independent tool-free generation retry",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "last_byte_to_end_seconds": 301.059495,
+      "partial_bytes": 1086
+    },
+    {
+      "Id": "51edfa36e49a417b894a835d71404233:10:6cc56ed8a0bdb1feaef4ccb08c125bf5daf23db8d4388bf0eae5032bc4d98756:b000264e500a594d94f334adbe06380075812173e4587006983bfd9934050ebf:246cba7061b04a0aa5fbe24a570907b3",
+      "StartedAtUtc": "2026-11-08T10:36:12.068336+00:00",
+      "DeadlineAtUtc": "2026-11-08T10:46:12.068336+00:00",
+      "CompletedAtUtc": "2026-11-08T10:41:20.197622+00:00",
+      "LastByteAtUtc": "2026-11-08T10:36:19.772628+00:00",
+      "Failure": "transport",
+      "RetryDecision": "blocked; captured retry allowance exhausted",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "last_byte_to_end_seconds": 300.424994,
+      "partial_bytes": 1086
+    }
+  ],
+  "probe": {
+    "run": "code-discovery-schema-20261108-01",
+    "source": "0e10ea8ef7ce6d7c8c6074dfeb473822eae6f665",
+    "only_http_prompt_changed": true,
+    "schema_equal": true,
+    "wire_strict": true,
+    "original_prompt_bytes": 26906,
+    "presented_prompt_bytes": 34797,
+    "schema_valid": true,
+    "physical_attempts": 1,
+    "seconds_through_probe_report": 10.868228,
+    "usage": {
+      "input_tokens": 12034,
+      "output_tokens": 74,
+      "total_tokens": 12108,
+      "benchmark_cost_eur": "0.3352798925212718316166592029",
+      "reasoning_tokens": 26,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "candidate_applied": false,
+    "executed": false
+  },
+  "conclusion": "The real launcher correction restored code metadata. Two native streams still ended without a complete discovery response. Exact-schema prompt presentation succeeded in an isolated probe; it does not establish workflow convergence or causal proof."
+}

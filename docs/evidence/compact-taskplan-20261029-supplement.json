@@ -1,0 +1,17 @@
+{
+  "campaign": "schema-portability-20261019-incremental",
+  "operation": "extend-budget",
+  "authorization": "gnougo-pr120-2026-10-29-supplement-100-eur-once",
+  "operator_source": "e1152048",
+  "authorized_at": "2026-10-29T07:38:11.5091250+00:00",
+  "matching_entries": 1,
+  "previous_ceiling_eur": 540.0301038327063045424449473,
+  "ceiling_eur": 640.0301038327063045424449473,
+  "known_cost_eur": 315.79229782683825236567016805,
+  "retained_reserved_cost_eur": 105.19499768471660096792687982,
+  "available_eur": 219.04280832115145120884789943,
+  "physical_attempts": 5948,
+  "retained_unknown_attempts": 125,
+  "funds_released": false,
+  "provider_dispatches": 0
+}

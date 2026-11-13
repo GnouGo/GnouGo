@@ -1,0 +1,333 @@
+{
+  "kind": "retained_pre_v9_evidence",
+  "control_commit": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "runs": [
+    {
+      "source": "e3df8d62ca79dcaa469c5ebc42b12c2041d62bb4",
+      "cohort": "compactre3df8d62camz22j20v8p8b",
+      "case": "amazon",
+      "status": "stopped_before_dispatch_on_required_selection_context",
+      "artifact_available": false,
+      "runtime_started": false,
+      "runtime_success": false,
+      "business_unit": {
+        "id": "amazon_complete_observed_workbook_v1",
+        "complete_units_satisfied": 0,
+        "calls_per_complete_unit": null,
+        "denominator_basis": "Frozen independent complete observed workbook and cleanup outcome; checkpoints, aliases and requirement splits do not count."
+      },
+      "logical_requests": 33,
+      "physical_attempts": 33,
+      "receipts": 33,
+      "corrections": 3,
+      "accepted_checkpoints": 4,
+      "provider_input_tokens": 189738,
+      "provider_output_tokens": 47521,
+      "provider_reasoning_tokens": 39698,
+      "known_cost_eur": "2.1189825970548862115127175363",
+      "unknown_usage_reservation_eur": 0,
+      "planning_ms": 1231733,
+      "runtime_ms": null,
+      "empty_received_responses": 0,
+      "received_output_exhaustion": false,
+      "transport_uncertainty": false,
+      "http_status_counts": {
+        "200": 33
+      },
+      "admitted_complete_request_bytes": {
+        "count": 33,
+        "p50": 20923,
+        "p95_nearest_rank": 58548,
+        "maximum": 62578,
+        "total": 870176
+      },
+      "constructed_request_measurements": {
+        "count": 42,
+        "admission_counts": {
+          "admitted": 33,
+          "prepared": 7,
+          "rejected_before_dispatch": 2
+        },
+        "all_component_bytes_reconcile": true,
+        "not_all_measurements_are_provider_dispatches": true
+      },
+      "retained_numeric_evidence_sha256": "3427a39fe74c0c274209ab38f40b501e83910dfbd752e4bb9061daf2868b1a2c",
+      "phase_metrics": {
+        "construction_discovery": {
+          "logical_requests": 10,
+          "physical_attempts": 10,
+          "receipts": 10,
+          "provider_input_tokens": 42399,
+          "provider_output_tokens": 10401,
+          "provider_reasoning_tokens": 9516,
+          "known_cost_eur": "0.4676706827309236947791164656",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "288662.9080",
+          "complete_request_bytes": {
+            "count": 10,
+            "p50": 21522.5,
+            "p95_nearest_rank": 27128,
+            "maximum": 27128,
+            "total": 211780
+          }
+        },
+        "construction_draft": {
+          "logical_requests": 11,
+          "physical_attempts": 11,
+          "receipts": 11,
+          "provider_input_tokens": 102874,
+          "provider_output_tokens": 12628,
+          "provider_reasoning_tokens": 8956,
+          "known_cost_eur": "0.7971530566711289602855867915",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "324144.9844",
+          "complete_request_bytes": {
+            "count": 11,
+            "p50": 43808,
+            "p95_nearest_rank": 62578,
+            "maximum": 62578,
+            "total": 442384
+          }
+        },
+        "construction_intent": {
+          "logical_requests": 2,
+          "physical_attempts": 2,
+          "receipts": 2,
+          "provider_input_tokens": 2326,
+          "provider_output_tokens": 3349,
+          "provider_reasoning_tokens": 2561,
+          "known_cost_eur": "0.1000446229361892012494422133",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "64544.6292",
+          "complete_request_bytes": {
+            "count": 2,
+            "p50": 6258.0,
+            "p95_nearest_rank": 9425,
+            "maximum": 9425,
+            "total": 12516
+          }
+        },
+        "construction_local_judge": {
+          "logical_requests": 4,
+          "physical_attempts": 4,
+          "receipts": 4,
+          "provider_input_tokens": 20088,
+          "provider_output_tokens": 4688,
+          "provider_reasoning_tokens": 4330,
+          "known_cost_eur": "0.2151539491298527443105756358",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "129145.0395",
+          "complete_request_bytes": {
+            "count": 4,
+            "p50": 18706.0,
+            "p95_nearest_rank": 45922,
+            "maximum": 45922,
+            "total": 97681
+          }
+        },
+        "construction_select": {
+          "logical_requests": 6,
+          "physical_attempts": 6,
+          "receipts": 6,
+          "provider_input_tokens": 22051,
+          "provider_output_tokens": 16455,
+          "provider_reasoning_tokens": 14335,
+          "known_cost_eur": "0.5389602855867916108879964301",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "287381.5364",
+          "complete_request_bytes": {
+            "count": 6,
+            "p50": 18825.5,
+            "p95_nearest_rank": 20923,
+            "maximum": 20923,
+            "total": 105815
+          }
+        }
+      }
+    },
+    {
+      "source": "e3df8d62ca79dcaa469c5ebc42b12c2041d62bb4",
+      "cohort": "compactre3df8d62ccode20nhv8p8b",
+      "case": "code",
+      "status": "stopped_before_accepting_selected_implementation_binding_on_contract_draft_admission",
+      "artifact_available": false,
+      "runtime_started": false,
+      "runtime_success": false,
+      "business_unit": {
+        "id": "code_complete_pinned_local_review_v1",
+        "complete_units_satisfied": 0,
+        "calls_per_complete_unit": null,
+        "denominator_basis": "Frozen independent complete pinned review/checks/local-report/cleanup outcome; accepted tasks and checkpoints do not establish runtime fulfillment.",
+        "definition_sha256": "d328d4a2b7aa36061af69bbaa271e092e89e469ead63943f8f4938234b9f19a1"
+      },
+      "logical_requests": 24,
+      "physical_attempts": 24,
+      "receipts": 24,
+      "corrections": 0,
+      "accepted_checkpoints": 2,
+      "provider_input_tokens": 179743,
+      "provider_output_tokens": 54954,
+      "provider_reasoning_tokens": 48933,
+      "known_cost_eur": "2.2733913431503792949576082107",
+      "unknown_usage_reservation_eur": 0,
+      "planning_ms": 1130254,
+      "runtime_ms": null,
+      "empty_received_responses": 0,
+      "received_output_exhaustion": false,
+      "transport_uncertainty": false,
+      "http_status_counts": {
+        "200": 24
+      },
+      "admitted_complete_request_bytes": {
+        "count": 24,
+        "p50": 35243.0,
+        "p95_nearest_rank": 53566,
+        "maximum": 58934,
+        "total": 721362
+      },
+      "constructed_request_measurements": {
+        "count": 29,
+        "admission_counts": {
+          "admitted": 24,
+          "prepared": 4,
+          "rejected_before_dispatch": 1
+        },
+        "all_component_bytes_reconcile": true,
+        "not_all_measurements_are_provider_dispatches": true
+      },
+      "retained_numeric_evidence_sha256": "68e1c5589608eee8d33affdff7deec1548517e6b6977959a95f3622f5b7cf837",
+      "phase_metrics": {
+        "construction_discovery": {
+          "logical_requests": 8,
+          "physical_attempts": 8,
+          "receipts": 8,
+          "provider_input_tokens": 68716,
+          "provider_output_tokens": 8334,
+          "provider_reasoning_tokens": 7582,
+          "known_cost_eur": "0.5297634984381972333779562695",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "238373.4408",
+          "complete_request_bytes": {
+            "count": 8,
+            "p50": 39695.0,
+            "p95_nearest_rank": 49093,
+            "maximum": 49093,
+            "total": 283032
+          }
+        },
+        "construction_draft": {
+          "logical_requests": 3,
+          "physical_attempts": 3,
+          "receipts": 3,
+          "provider_input_tokens": 34355,
+          "provider_output_tokens": 2485,
+          "provider_reasoning_tokens": 1305,
+          "known_cost_eur": "0.2198348951360999553770638109",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "76238.0330",
+          "complete_request_bytes": {
+            "count": 3,
+            "p50": 39544,
+            "p95_nearest_rank": 53566,
+            "maximum": 53566,
+            "total": 130256
+          }
+        },
+        "construction_intent": {
+          "logical_requests": 6,
+          "physical_attempts": 6,
+          "receipts": 6,
+          "provider_input_tokens": 8452,
+          "provider_output_tokens": 12905,
+          "provider_reasoning_tokens": 10875,
+          "known_cost_eur": "0.3832307005800981704596162427",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "232764.0736",
+          "complete_request_bytes": {
+            "count": 6,
+            "p50": 7034.0,
+            "p95_nearest_rank": 11540,
+            "maximum": 11540,
+            "total": 42413
+          }
+        },
+        "construction_local_judge": {
+          "logical_requests": 3,
+          "physical_attempts": 3,
+          "receipts": 3,
+          "provider_input_tokens": 38727,
+          "provider_output_tokens": 7986,
+          "provider_reasoning_tokens": 7681,
+          "known_cost_eur": "0.3866265060240963855421686747",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "143841.5834",
+          "complete_request_bytes": {
+            "count": 3,
+            "p50": 50728,
+            "p95_nearest_rank": 58934,
+            "maximum": 58934,
+            "total": 149097
+          }
+        },
+        "construction_select": {
+          "logical_requests": 4,
+          "physical_attempts": 4,
+          "receipts": 4,
+          "provider_input_tokens": 29493,
+          "provider_output_tokens": 23244,
+          "provider_reasoning_tokens": 21490,
+          "known_cost_eur": "0.7539357429718875502008032129",
+          "unknown_usage_reservation_eur": "0",
+          "completed_model_elapsed_ms": "339091.3594",
+          "complete_request_bytes": {
+            "count": 4,
+            "p50": 26487.5,
+            "p95_nearest_rank": 46336,
+            "maximum": 46336,
+            "total": 116564
+          }
+        }
+      }
+    }
+  ],
+  "pagination_control": {
+    "qualification_sha256": "245e0e04e718738121a35fecf63d4e75fc256b810d0e0a532ed939839e36810a",
+    "validation": {
+      "owning": {
+        "Passed": 3457,
+        "Failed": 0,
+        "NotExecuted": 0
+      },
+      "focused_subset": {
+        "Passed": 172,
+        "Failed": 0,
+        "NotExecuted": 0
+      },
+      "counts_are_not_added": true,
+      "warning_as_error_build_exit": 0,
+      "compiler_warnings_or_errors": 0,
+      "source_and_owning_outputs_unchanged": true
+    },
+    "original": {
+      "completeRequestBytes": 36391,
+      "estimatedInputTokens": 12387,
+      "requestHash": "f33cf83662274b0711c796ae05ac95286b93b9547d3e5e4e117d276d96bc38f1",
+      "schemaHash": "40831202113b51caf4cc17fb04b7d6e506a04661973032df09712840f18decd1"
+    },
+    "prospective": {
+      "completeRequestBytes": 32879,
+      "estimatedInputTokens": 11216,
+      "requestHash": "a0113b7fa9fa46eb9fa1d3307d279721d404dcfb0852976ee2289ec91d19ab48",
+      "schemaHash": "f8da9eef6d113f595b781cc8559d05d62adc4842207ccd73eea0da193328db7b"
+    },
+    "all_19_ports_reconstruct": true,
+    "retained_addresses": 54,
+    "prospective_addresses": 55,
+    "schema_change": "Only the existing typed-next address in evidenceRequests; all other grammar identical."
+  },
+  "limitations": [
+    "These are e3df outcomes and an offline pagination qualification, not v9 executions.",
+    "The e3df Collections freeze was never dispatched and supplies no control execution evidence.",
+    "No business acceptance, saved model call, reasoning-exhaustion cause or v9 runtime benefit is established."
+  ]
+}

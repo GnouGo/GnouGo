@@ -1,0 +1,47 @@
+{
+  "status": "prepared_not_authorized_or_used_live",
+  "base_source": "f953f6a6",
+  "policy": "amazon-observed-sponsored-host-v2",
+  "required_user_grant_reference": "user-strict-amazon-sponsored-host-extension-20261109",
+  "new_oracle": "amazon-business-v6",
+  "previous_policy_and_verifiers_preserved": [
+    "amazon-observed-redirects-v1",
+    "amazon-business-v4",
+    "amazon-business-v5"
+  ],
+  "initial_controlled_regression": {
+    "failed": 1,
+    "cause": "Unknown captured policy before implementation; no compilation failure in the original red control."
+  },
+  "final_affected_tests": {
+    "passed": 186,
+    "failed": 0,
+    "skipped": 0
+  },
+  "release_benchmark_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "controls": [
+    "Exact host/route/scheme/port/credentials/fragment restrictions.",
+    "Separate explicit opt-in and exact grant; original grant and conflicting flags rejected.",
+    "Literal observed-entry membership, complete source evidence, expiration at close or a new search.",
+    "Saved Browser restrictions are not silently replaced.",
+    "Actual GET redirect chain, source occurrences, order and identity evidence required.",
+    "Missing navigation, wrong Location, loops, forbidden destinations, POST, invented links, decoded advertising target substitution and omitted sponsored product fail.",
+    "Missing or mismatched captured policy/grant rejected before transport.",
+    "Existing v4/v5 verdicts retained."
+  ],
+  "private_log_sha256": {
+    "amazon-sponsored-policy-red.log": "dbb7c0aba5f04117233db30a271c3f9a6ca356e5a3a789e3545fd8e9e4d46978",
+    "amazon-sponsored-policy-focused.log": "b63fdb85e89e56fe91890928796f66c1182f11ec63caf788b876ac697b1f2ec6",
+    "amazon-sponsored-policy-all-affected.log": "274950923422cb0b2372e78877044ec5e5911ae79edf732629984e3e3016f557",
+    "amazon-sponsored-policy-release-build.log": "302ae34caabcc339ecb2cb64a3f87e392005da106e4f3cc701be27823d347292"
+  },
+  "limitations": [
+    "Local controlled tests and warning-free build only. No outbound request to the new host was made.",
+    "The proposed grant has not been provided; the new live profile must not be used until explicit approval.",
+    "The complete main-source validation is independently pending and does not yet include this isolated opt-in."
+  ]
+}

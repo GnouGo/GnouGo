@@ -1,0 +1,44 @@
+{
+  "source": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+  "campaign": "pr120-live-20261107-400",
+  "configuration_id": "5341dae8fc9343a598475ca873ea5abdd917d6412118f91d028256436766d3c3",
+  "authorization": "pr120-copilot-structured-transport-20261110-01",
+  "amendment": "sdk_transport_only",
+  "parent_configuration_id": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+  "transport": "gnougo-structured-tools-v1",
+  "keyvault_mode_write": {
+    "source": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+    "secret_key": "LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--InferenceTransport",
+    "previous_mode": null,
+    "previous_key_present": false,
+    "new_mode": "gnougo-structured-tools-v1",
+    "provider_or_endpoint_changed": false,
+    "permission_changed": false,
+    "apply_requested": true,
+    "new_secret_version_written": true,
+    "model_dispatches": 0
+  },
+  "selection_checks": {
+    "accepted": true,
+    "configuration_exists": true,
+    "material_hash_matches": true,
+    "configuration_matches": true,
+    "host_fingerprint_matches": true,
+    "authorization_binding_matches": true,
+    "failed_checks": []
+  },
+  "endpoint_matches": true,
+  "host_fingerprint_matches": true,
+  "metadata_fingerprint_matches": true,
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "funding_changed": false,
+  "model_dispatches": 0,
+  "sdk_prerequisite": "copilot-structured-live-command-02.json",
+  "qualification_limit": "Full Code and Amazon business qualification remain separate from transport readiness.",
+  "private_evidence_sha256": {
+    "resume300b-mode-applied.mode-proof.json": "c1352258d16babc366cc5c19bf0dccc4c2b4ff3b86bdd9158b1a2d7b30de8ee2",
+    "resume300b-mode-amendment-applied.json": "ab9492f27cd13901b92a31b4471e7ad684bf39c5182f9462bf2f48ec024793a7",
+    "resume300b-mode-selection.json": "6186e3e6606b2f3e8b0a0d95c46af7fd0fa9b1fbf14c25558521f7f060989108"
+  }
+}

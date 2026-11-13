@@ -73,46 +73,7 @@ public sealed class IndexedProjectionCompilationTests(Xunit.ITestOutputHelper ou
         output.WriteLine($"items={count}; parallel={parallel}; YAML={Encoding.UTF8.GetByteCount(old)}->{Encoding.UTF8.GetByteCount(yaml)}; invocations={run.Invocations.Count}; journal={JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun).Length}");
     }
 
-    [Theory]
-    [InlineData("compact-bindings-v1")]
-    [InlineData("compact-bindings-v2")]
-    [InlineData(null)]
-    public async Task HistoricalProfileSnapshot(string? profile)
-    {
-        var (yaml, _) = await Compile(Plan(false), profile);
-        Assert.Contains("loop.sequential", yaml);
-        // Captured by the same fixture against untouched commit 65b1c315.
-        var expected = profile switch
-        {
-            "compact-bindings-v1" => "383d37741610f6f7c915873dfc8207fd1cb2685b2f70d5b5902945eb9861b873",
-            "compact-bindings-v2" => "053805dfc79b11618bde21d47b24c6c690a9d90372b79ec368b1ff4a8903cc04",
-            _ => "009a1466afb0ca54477f05ec0d5ed453d8ddcd55bb3b5d47dcc1271031f728c3"
-        };
-        Assert.Equal(expected, Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(yaml))));
-    }
 
-    [Fact]
-    public async Task HistoricalV7StillCompilesIndexedProjectionWithItsOriginalVocabulary()
-    {
-        var (historical, before) = await Compile(Plan(false), "compact-bindings-v7", true);
-        var (current, after) = await Compile(Plan(false), TaskPlanCompiler.CompactProfile, true);
-        Assert.Equal(JsonSerializer.Serialize(before.Graph, PlanningJsonContext.Default.PlanningGraph),
-            JsonSerializer.Serialize(after.Graph, PlanningJsonContext.Default.PlanningGraph));
-        Assert.DoesNotContain("loop.", historical);
-        Assert.Contains("checkedMapping(", historical);
-        Assert.DoesNotContain("expression_contracts", historical);
-        Assert.DoesNotContain("checkedMapping(", current);
-        Assert.Contains("expression_contracts", current);
-        var inputs = new JsonObject { ["observations"] = Records(1000) };
-        var oldResult = await LookupCompilationTests.Execute(historical, inputs, new());
-        var newResult = await LookupCompilationTests.Execute(current, inputs, new());
-        Assert.True(oldResult.Success, oldResult.Error?.Message);
-        Assert.True(newResult.Success, newResult.Error?.Message);
-        Assert.True(JsonNode.DeepEquals(oldResult.Outputs, newResult.Outputs));
-        var large = await LookupCompilationTests.Execute(current, new() { ["observations"] = Records(1602) }, new());
-        Assert.True(large.Success, large.Error?.Message);
-        Assert.Equal(1601, large.Outputs!["records"]![1601]!["identity"]!.GetValue<int>());
-    }
 
     [Theory]
     [InlineData(false)]

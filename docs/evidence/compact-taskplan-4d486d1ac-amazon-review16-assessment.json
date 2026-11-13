@@ -1,0 +1,202 @@
+{
+  "version": 1,
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "cohort": "compactr4d486d1acamz20v6j16",
+  "terminal": {
+    "logical_requests": 45,
+    "physical_attempts": 47,
+    "receipts": 45,
+    "corrections": 4,
+    "checkpoints": 2,
+    "artifact": false,
+    "execution": false,
+    "diagnostic": "CONSTRUCTION_ROLLBACK_SCOPE",
+    "received_http500_attempts": 2,
+    "receiptless_requests": 0
+  },
+  "accepted_structure": {
+    "revision": 46,
+    "artifact": false,
+    "accepted_task_count": 1,
+    "accepted_task_kinds": [
+      "sequence"
+    ],
+    "accepted_nonempty_business_tasks": 0,
+    "partial_checkpoints": 2
+  },
+  "assessment": [
+    {
+      "requests": [
+        3,
+        4
+      ],
+      "classification": "received_invalid_input_reference_corrected",
+      "finding": "Selection 3 used input:query as the input source rather than query; selection 4 removed the unnecessary import and closed the already-declared input. This is distinct from later prerequisite repetition."
+    },
+    {
+      "requests": [
+        6,
+        7,
+        9,
+        10
+      ],
+      "classification": "partial_acceptance_only",
+      "finding": "The two checkpoints accept the required string input declaration and an empty sequence opened for eventual cleanup. Both clean Judges explicitly limit their conclusions to those partial claims. No browser operation, URL producer, extraction, workbook or cleanup task is accepted; no runtime/artifact/business success follows."
+    },
+    {
+      "requests": [
+        17,
+        18,
+        23,
+        24,
+        30,
+        31
+      ],
+      "classification": "repeated_consumer_selection_despite_visible_prerequisite",
+      "finding": "Three reselectStep responses suspend a consumer for a runtime-query search prerequisite. Subsequent selections display the exact retained need/type/evidence, waiting status, no accepted producer checkpoints and canAttemptResume=false, but choose another broad search action with kind:null. No producer is accepted between these decisions. The need prose and expectedType:any are model-authored navigation, not authoritative requirements."
+    },
+    {
+      "requests": [
+        18,
+        19,
+        31,
+        35
+      ],
+      "classification": "local_transform_route_available",
+      "finding": "Exact selection and discovery schemas offer transform. Issued guidance distinguishes value (no URL encoding/concatenation) from interpret (derive typed data from supplied inputs through configured runtime LLM, no external actions). Nothing in the inspected grammar excludes a separately selected local transform producer. Availability does not prove a correct transformation or business result."
+    },
+    {
+      "requests": [
+        18,
+        19,
+        23,
+        31,
+        35
+      ],
+      "classification": "demonstrated_phase_presentation_omission",
+      "finding": "Selection and draft display the retained continuation; actual discovery 19 and 35 have no continuation/reselection keys. DiscoveryContext constructs neither field. After a deferred selection this loses the exact retained prerequisite and producer status during implementation choice. A minimal v6-only reuse of existing bounded continuation presentation is supported; repetition already occurred at selections with that context, so causality and efficacy remain unproven."
+    },
+    {
+      "requests": [
+        15,
+        22,
+        28,
+        35
+      ],
+      "classification": "same_contract_reselected",
+      "finding": "Each discovery sequence binds the same browser_get_content identity/version. Its exact full description at draft 23 says it navigates only when supplied an absolute HTTP/HTTPS URL, then returns content; it does not itself concatenate/encode the runtime article text or submit a search field. The missing-value concern is legitimate, while repeating the same consumer does not produce that value."
+    },
+    {
+      "requests": [
+        36,
+        37,
+        38,
+        39,
+        41,
+        42,
+        43,
+        44
+      ],
+      "classification": "bounded_followup_admission",
+      "finding": "Four broad evidence batches exceed the captured 20,000-token draft ceiling (21,815; 20,099; 21,025; 20,092). The next received requests retain typed limits and unchanged evidence until smaller reads succeed. These are prospective pre-dispatch rejections, not missing receipts or proof that the contract is inaccessible."
+    },
+    {
+      "requests": [
+        45
+      ],
+      "classification": "invalid_rollback_target_correctly_rejected",
+      "finding": "rollbackTask=step_6 names the unaccepted current selection; only step_2 exists in the accepted plan. Rollback.cs104 correctly rejects it. Exact issued rollbackTask is unrestricted nullable string, while accepted identities are known. This is a model/schema limitation; no enumeration change is proposed here, because a larger accepted inventory has an untested admission cost."
+    }
+  ],
+  "recommendation": {
+    "scope": "Private v6-only discovery continuation projection plus existing-fixture regression; no new state, cycle/duplicate heuristic, model setting or accepted-plan revision.",
+    "separate_syntax_issue": "Input-source spelling and rollback-target string domains remain separately recorded model/schema limitations; no global rollback enum is proposed.",
+    "limits": "No finding establishes the cause of repeated model choices, business success, correctness of future runtime interpretation, or a need to revise accepted effects. The admission >4 proposal is unrelated to this trace."
+  },
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "d60fe4ae28d7a2b442b00e56e7200aa74650dfd1e998935b5a11b84e429080a9",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs",
+      "sha256": "c03c577b904de1de6966233e098257ff91461679a0b75c3e40566ca6c29c7b49",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+      "sha256": "c11d7e11980514e07049135451c8881b1556f1dd99cc916eea4e53aa8cb007c2",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Discovery.cs",
+      "sha256": "18a1cc6d1daba1a5e9b35831a9d42344d9af2d39a09d8af714dc42f2df192ebc",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "93172615dc5542e9c7f3d65840a04ace23f7d29fb3ffe8b0c7b7e6c7ed7ed336",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+      "sha256": "8f0a22836204046cb2befc8be0ddc19c99ce8f8a36117c34171c8db24723eb43",
+      "committed_current_equal": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "sha256": "f62d3401d10be6b7f3e4b25ff45d1bd7704bbcda705b7394e1cdda8cb0785baf",
+      "committed_current_equal": true
+    }
+  ],
+  "verification": {
+    "safe_input_pins": 5,
+    "exact_source_blobs": 7,
+    "received_phase_and_receipt_joins": 45,
+    "supplement_record_rows": 8,
+    "original_text_or_full_envelope_reread_by_peer": false
+  },
+  "evidence_index": [
+    {
+      "sha256": "70dbc6a57937a39c75845dcf3dd88cb5275e7ce30fe230b7f1c62147b35a3c13",
+      "bytes": 23119,
+      "file": "source-assessment-safe.json"
+    },
+    {
+      "sha256": "f2d663a25a881c1066aba7d8a04ad35a125a003798ac6be8ec0bef86f8f4e3e1",
+      "bytes": 3369,
+      "file": "independent-review-safe.json"
+    },
+    {
+      "sha256": "f6658601703dd0e00926ae58debccebe90f84ad950fe394a22463b6e4ababbc0",
+      "bytes": 3620,
+      "file": "amazon-independent-numeric-review-safe.json"
+    },
+    {
+      "file": "amazon-state-witness-safe.json",
+      "sha256": "6aa5d6bd22527c3042a4c42211acd4b750febd4c6014bfc5afc610e7510da683"
+    },
+    {
+      "file": "amazon-received-decisions-safe.json",
+      "sha256": "d9cd03880d0c28357036e0b0f00d77ec40e0f6282913a8b8ff5992c4f8a0ae6c"
+    },
+    {
+      "file": "amazon-navigation-contract-witness-safe.json",
+      "sha256": "c7607ca9ce27ad38078be4fa815bc26138c79631ed3b04d494b95177d5f2df93"
+    },
+    {
+      "file": "amazon-prerequisite-presentation-witness-safe.json",
+      "sha256": "3016905c3a4d2ae983df62bb7c7c998aea5fce706748577fb4abaaed9bcb63b6"
+    },
+    {
+      "file": "amazon-terminal-exact-metrics.json",
+      "sha256": "af401b827fc32802b1c13230faa942b49bfe4110ebd9f46529927c200ec65103"
+    }
+  ],
+  "limitations": [
+    "Projection of the separately pinned source assessment; excludes full request identities, response text, prompt/context payloads and accepted task bodies.",
+    "Only the public input declaration and empty sequence were partially accepted; no accepted Browser operation, artifact or runtime result.",
+    "No causal, efficacy, avoided-correction, current balance, fulfilled-obligation ratio or runtime-timing claim."
+  ]
+}

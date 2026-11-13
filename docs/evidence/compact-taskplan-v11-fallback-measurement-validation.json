@@ -1,0 +1,30 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 147
+  },
+  "elapsed_seconds": 25.016812333022244,
+  "source_unchanged": true,
+  "log_sha256": "a386259f9446bd936be909446872419f183dd905b20433eeef12bf7023dffaf7",
+  "base": "654342460cf43b9315fc660e24b596efdf63076a",
+  "source_manifest_sha256": "4010fdfa2cac873b338b604b70178fe27a6d402b353dd4de4795dd7293509347",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs": "827e908506067074703c60ed0561e0aa6c1b6f3bccaf4817c628e0eb3d7a0dc2",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConvergentJudgeTests.EvidenceBatches.cs": "4652d53761da75ab4bc14e1c21d1802e1f5054b80c2c32c7ed5497a5cfd9dc91"
+  },
+  "reproduction": {
+    "passed": 3,
+    "failed": 1,
+    "log_sha256": "b1aba95fd28f80085babb7451b79cde13aa9f0ee05523d73961265904a358775",
+    "defect": "The bounded fallback diagnosis discarded the actual rejected request identity, byte/token measurement and captured ceiling."
+  },
+  "correction": "Correlate the exact prospective request with its existing rejected measurement, preserve its hash/bytes/estimate/limit in the bounded diagnosis, and admit the complete control before recovery.",
+  "boundaries": [
+    "No new metadata store or response grammar",
+    "No candidate or evidence mutation on failed control admission",
+    "No correction charge for evidence",
+    "Historical versions 2-10 and exact pending requests retain their paths"
+  ],
+  "business_acceptance": false,
+  "overlap_note": "The preceding 147-case verification overlaps this final focused run and is not added."
+}

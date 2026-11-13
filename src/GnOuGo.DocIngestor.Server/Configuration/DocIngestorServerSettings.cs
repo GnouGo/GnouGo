@@ -1,4 +1,4 @@
-﻿﻿﻿namespace DocIngestor.Server.Configuration;
+﻿﻿namespace DocIngestor.Server.Configuration;
 
 /// <summary>Typed settings for the DocIngestor Server, bound from appsettings.json "DocIngestor" section.</summary>
 public sealed class DocIngestorServerSettings
@@ -65,6 +65,7 @@ public sealed class RerankerSettings
 /// <summary>Typed settings for OpenAI / OIDC, bound from appsettings.json "OpenAi" section.</summary>
 public sealed class OpenAiSettings
 {
+    public GnOuGo.AI.Core.ModelProviderOptions? GenerationTransport { get; set; }
     public string EndpointUrl { get; set; } = "https://api.openai.com/v1";
     public string? ApiKey { get; set; }
     public string? Issuer { get; set; }
@@ -76,6 +77,7 @@ public sealed class OpenAiSettings
 /// <summary>Typed settings for Ollama local server, bound from appsettings.json "Ollama" section.</summary>
 public sealed class OllamaSettings
 {
+    public GnOuGo.AI.Core.ModelProviderOptions? GenerationTransport { get; set; }
     public bool Enabled { get; set; }
     public string BaseUrl { get; set; } = "http://localhost:11434";
     public string EmbeddingModel { get; set; } = "nomic-embed-text";

@@ -1,0 +1,31 @@
+{
+  "change": "Ground public-input completion in actual declaration evidence.",
+  "tested_base_commit": "68bcf83c5e3fdb90232a0dd172a974e94c0f2441",
+  "production_overlay_sha256": "008f4ea5f9f3f2288e13e57c9e27cff8633952fa64fbd5d462d5f4e035937cab",
+  "received_failure": {
+    "run": "compactfa7653f78amz11a-amazon-1",
+    "request": 5,
+    "complete_prompt_sha256": "27e6040ca874869ec420082c5ef5ce891b3f60ec96c4e13af339d083acf4f61c",
+    "finding": "Required public input existed in candidate.TaskPlan but was absent from its input-only completion review."
+  },
+  "deterministic_reproduction": {
+    "initial_cases": 9,
+    "baseline_failed": 8,
+    "baseline_passed": 1,
+    "note": "Fixture expanded after reproduction; these are not separate business executions."
+  },
+  "projection_only_focused_validation": {
+    "passed": 37,
+    "failed": 0,
+    "warnings_as_errors": true
+  },
+  "preserved": [
+    "Actual wrong/extra declarations remain visible.",
+    "Linked clauses under another requirement remain relevant.",
+    "Unrelated declarations stay omitted.",
+    "Isolated group access is unchanged.",
+    "Relevant nested defaults, enums and nullability remain visible."
+  ],
+  "live_benefit_verified": false,
+  "paid_calls": 0
+}

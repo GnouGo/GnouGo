@@ -1,0 +1,401 @@
+{
+  "recorded_at_utc": "2026-11-10T20:27:23.718199+00:00",
+  "base_commit": "21932defd5f39c4969f4e226283a5e86a78f5ff0",
+  "implementation_commits": [
+    "515356903e5a208b252203de35bcc90a06d00890",
+    "16d47f4a3a4e4b2afacd2efb8723828846f4bac0"
+  ],
+  "validated_code_commit": "16d47f4a3a4e4b2afacd2efb8723828846f4bac0",
+  "sdk": "10.0.403",
+  "runtime_identifier": "osx-arm64",
+  "code_files_match_frozen_commit": true,
+  "source_sha256": {
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "adbba43ed6d12f23c7cf9c526d700180f135dc341cdd661912ce4028ee34b2aa",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessBlocks.cs": "b31976ac4cabab87afa7182e1ad52402fd3ee7c63d6d2b8c7c7561d0a0c48fbd",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs": "113d38f69ec11a6e3b4b0d38c451140d56b8bd771ec036c080632e2917afc2e7",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "b422db72fc61750f0fc5c9401dec8b3d120dfdef794f1475f3b1c94a462dfa7c",
+    "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs": "ab21ec01f9e3670387e1088be12e3cd130767eb46d1ae63de9a7b3916070035b",
+    "tests/GnOuGo.Flow.Planning.Tests/TentativeContinuationRepairTests.cs": "08dc74d73df5344be08a54c738548e44a5c3a1c1a2d62c99fce830acceabe99c"
+  },
+  "checks": {
+    "initial_red_reproduction": {
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests --filter FullyQualifiedName~TentativeContinuationRepairTests -warnaserror --no-restore",
+      "exit_code": 1,
+      "log": "artifacts/tentative-repair-red.log",
+      "log_sha256": "efb1c1fa981cd0a506f992f6e61585929d7e4e8907b50858bcf0d74be4b08c74",
+      "expected_failures": 2
+    },
+    "staging_warning_red": {
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests --filter FullyQualifiedName~StagedWarningsRemainJournaled -warnaserror --no-restore",
+      "exit_code": 1,
+      "log": "artifacts/tentative-repair-warning-red.log",
+      "log_sha256": "565b81586aca53ed44d1e16f4dc255bbdeb447bd14c36375c7825fc1c863cd4b",
+      "expected_failures": 2
+    },
+    "targeted_regressions": {
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests --filter FullyQualifiedName~TentativeContinuationRepairTests -warnaserror --no-restore",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-focused-final.log",
+      "log_sha256": "4fcea2570a76a394228b3c7a9ddc3274e0d679756b4a4e3f2b0e59cd70adb54c",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0
+    },
+    "solution_build": {
+      "command": "dotnet build GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipClientBuild=true",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-build-final.log",
+      "log_sha256": "12c0236955c5e429ff28f055f8b10d1acb4562b84c458b970f8e18f78935daf0",
+      "warnings": 0,
+      "errors": 0
+    },
+    "shared_solution_without_server": {
+      "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror --no-build --no-restore --filter 'FullyQualifiedName!~GnOuGo.Agent.Server.Tests'",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-solution-final.log",
+      "log_sha256": "d8e2ad0006a510c896d02b51b080759ce7f22b4112fa75dd24d64287d3159803",
+      "projects": [
+        {
+          "project": "GnOuGo.DocIngestor.Tests",
+          "failed": 0,
+          "passed": 97,
+          "skipped": 0,
+          "total": 97
+        },
+        {
+          "project": "GnOuGo.Diff.Tests",
+          "failed": 0,
+          "passed": 52,
+          "skipped": 0,
+          "total": 52
+        },
+        {
+          "project": "GnOuGo.KeyVault.Core.Tests",
+          "failed": 0,
+          "passed": 23,
+          "skipped": 0,
+          "total": 23
+        },
+        {
+          "project": "GnOuGo.Flow.Tests",
+          "failed": 0,
+          "passed": 1535,
+          "skipped": 0,
+          "total": 1535
+        },
+        {
+          "project": "GnOuGo.Flow.Integrations.Tests",
+          "failed": 0,
+          "passed": 121,
+          "skipped": 0,
+          "total": 121
+        },
+        {
+          "project": "GnOuGo.AI.Core.Tests",
+          "failed": 0,
+          "passed": 388,
+          "skipped": 0,
+          "total": 388
+        },
+        {
+          "project": "GnOuGo.AI.Local.Tests",
+          "failed": 0,
+          "passed": 19,
+          "skipped": 0,
+          "total": 19
+        },
+        {
+          "project": "GnOuGo.Agent.Mcp.Tests",
+          "failed": 0,
+          "passed": 103,
+          "skipped": 0,
+          "total": 103
+        },
+        {
+          "project": "GnOuGo.Cmd.Mcp.Tests",
+          "failed": 0,
+          "passed": 93,
+          "skipped": 7,
+          "total": 100
+        },
+        {
+          "project": "GnOuGo.Browser.Mcp.Tests",
+          "failed": 0,
+          "passed": 181,
+          "skipped": 0,
+          "total": 181
+        },
+        {
+          "project": "GnOuGo.Document.Mcp.Tests",
+          "failed": 0,
+          "passed": 73,
+          "skipped": 0,
+          "total": 73
+        },
+        {
+          "project": "GnOuGo.KeyVault.Mcp.Tests",
+          "failed": 0,
+          "passed": 9,
+          "skipped": 0,
+          "total": 9
+        },
+        {
+          "project": "GnOuGo.Files.Server.Tests",
+          "failed": 0,
+          "passed": 10,
+          "skipped": 0,
+          "total": 10
+        },
+        {
+          "project": "GnOuGo.DocIngestor.Mcp.Tests",
+          "failed": 0,
+          "passed": 7,
+          "skipped": 0,
+          "total": 7
+        },
+        {
+          "project": "GnOuGo.OtlpCollector.Server.Tests",
+          "failed": 0,
+          "passed": 7,
+          "skipped": 0,
+          "total": 7
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.Mcp.Tests",
+          "failed": 0,
+          "passed": 259,
+          "skipped": 0,
+          "total": 259
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.Core.Tests",
+          "failed": 0,
+          "passed": 177,
+          "skipped": 0,
+          "total": 177
+        },
+        {
+          "project": "GnOuGo.GithubCopilot.E2E.Tests",
+          "failed": 0,
+          "passed": 7,
+          "skipped": 5,
+          "total": 12
+        },
+        {
+          "project": "GnOuGo.Observability.Core.Tests",
+          "failed": 0,
+          "passed": 3,
+          "skipped": 0,
+          "total": 3
+        },
+        {
+          "project": "GnOuGo.Git.Mcp.Tests",
+          "failed": 0,
+          "passed": 84,
+          "skipped": 0,
+          "total": 84
+        },
+        {
+          "project": "GnOuGo.Workspace.Tests",
+          "failed": 0,
+          "passed": 30,
+          "skipped": 0,
+          "total": 30
+        },
+        {
+          "project": "GnOuGo.Mcp.Core.Tests",
+          "failed": 0,
+          "passed": 49,
+          "skipped": 0,
+          "total": 49
+        },
+        {
+          "project": "GnOuGo.Flow.Mermaid.Tests",
+          "failed": 0,
+          "passed": 12,
+          "skipped": 0,
+          "total": 12
+        },
+        {
+          "project": "GnOuGo.Assets.Bears.Tests",
+          "failed": 0,
+          "passed": 91,
+          "skipped": 0,
+          "total": 91
+        },
+        {
+          "project": "GnOuGo.Assets.Animation.Tests",
+          "failed": 0,
+          "passed": 42,
+          "skipped": 0,
+          "total": 42
+        },
+        {
+          "project": "GnOuGo.Assets.Animation.Server.Tests",
+          "failed": 0,
+          "passed": 13,
+          "skipped": 0,
+          "total": 13
+        },
+        {
+          "project": "GnOuGo.Assets.Bears.Server.Tests",
+          "failed": 0,
+          "passed": 28,
+          "skipped": 0,
+          "total": 28
+        },
+        {
+          "project": "GnOuGo.Flow.Planning.Tests",
+          "failed": 0,
+          "passed": 2967,
+          "skipped": 0,
+          "total": 2967
+        },
+        {
+          "project": "GnOuGo.ProxyCopilot.Server.Tests",
+          "failed": 0,
+          "passed": 177,
+          "skipped": 0,
+          "total": 177
+        },
+        {
+          "project": "GnOuGo.Auth.Core.Tests",
+          "failed": 0,
+          "passed": 8,
+          "skipped": 0,
+          "total": 8
+        },
+        {
+          "project": "GnOuGo.Flow.Persistence.Tests",
+          "failed": 0,
+          "passed": 26,
+          "skipped": 0,
+          "total": 26
+        },
+        {
+          "project": "GnOuGo.Flow.Copilot.Tests",
+          "failed": 0,
+          "passed": 5,
+          "skipped": 0,
+          "total": 5
+        }
+      ],
+      "passed": 6696,
+      "skipped": 12,
+      "note": "All Server cases are checked separately by the existing inventory-verified partition runner."
+    },
+    "server_inventory_verified_partitions": {
+      "command": "python3 .github/scripts/test_server_partitions.py",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-server-final.log",
+      "log_sha256": "9781647dd5d4301cb5f5a3ec0f0323ef311c6e578bbdd07f6e0011bcaccb25dd",
+      "status": "passed",
+      "coverage": {
+        "exact_coverage": true,
+        "missing": {},
+        "extra": {},
+        "invalid_outcomes": [],
+        "passed": 2065,
+        "skipped": [
+          "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+        ]
+      },
+      "inventory_cases": 2066,
+      "coverage_artifact": "artifacts/server-tests/server-test-coverage.json",
+      "coverage_sha256": "5955964362efee1e16fd07c5c336af15a46c68cd262b68a89bb7826ca0af07b8",
+      "results_directory": "artifacts/server-tests/run-8f031eb60c5c4e45aabad73a4908dde3",
+      "binaries_unchanged": true,
+      "partitions": [
+        {
+          "name": "remainder",
+          "exit_code": 0,
+          "exact_coverage": true,
+          "passed": 1848,
+          "skipped": [
+            "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+          ],
+          "invalid_outcomes": []
+        },
+        {
+          "name": "part-1",
+          "exit_code": 0,
+          "exact_coverage": true,
+          "passed": 55,
+          "skipped": [],
+          "invalid_outcomes": []
+        },
+        {
+          "name": "part-2",
+          "exit_code": 0,
+          "exact_coverage": true,
+          "passed": 54,
+          "skipped": [],
+          "invalid_outcomes": []
+        },
+        {
+          "name": "part-3",
+          "exit_code": 0,
+          "exact_coverage": true,
+          "passed": 54,
+          "skipped": [],
+          "invalid_outcomes": []
+        },
+        {
+          "name": "part-4",
+          "exit_code": 0,
+          "exact_coverage": true,
+          "passed": 54,
+          "skipped": [],
+          "invalid_outcomes": []
+        }
+      ]
+    },
+    "release_pack": {
+      "command": "dotnet pack src/GnOuGo.Flow.Planning -c Release -warnaserror --no-restore",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-pack-final.log",
+      "log_sha256": "19b70a871e5c06c92c4cb74ce62aa480a675f75e53d20c45506db14c606cf6e5"
+    },
+    "native_aot_publish": {
+      "command": "dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 -m:1 -warnaserror --no-restore -o artifacts/tentative-repair-native-final",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-native-publish-final.log",
+      "log_sha256": "16c3736e13b6c5d3e4f2d2bd9fb76888661e34486acbbd5962589dd06dc8c552",
+      "note": "Existing publish-local Jint exceptions are unchanged; see tests/GnOuGo.Flow.Planning.Smoke/README.md."
+    },
+    "native_aot_smoke": {
+      "command": "artifacts/tentative-repair-native-final/GnOuGo.Flow.Planning.Smoke",
+      "exit_code": 0,
+      "log": "artifacts/tentative-repair-native-run-final.log",
+      "log_sha256": "126a1952b7eb023442be49f5b249841b473d3318461637593cc287ec1d5db462",
+      "binary_sha256": "c393adb291e4054d5c2c07359371c569324be5a25116c35e0ceb5a6f4b33baba"
+    }
+  },
+  "superseded_partial_check": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "exit_code": 1,
+    "log": "artifacts/tentative-repair-solution.log",
+    "log_sha256": "54da7ef52ac467ab4dbb7aabe741b2eb3b2063998eb85a8c63356217330196bb",
+    "status": "cancelled_to_validate_final_frozen_source",
+    "counted_as_complete": false
+  },
+  "qualification": {
+    "final_checks_complete": true,
+    "generic_correction_implemented": true,
+    "controlled_matrix_execution_verified": true,
+    "header_only_business_review": "controlled_needs_change",
+    "receipt_recovery": "source_generated_pending_request_and_serialized_synthetic_receipt_with_fresh_runtime",
+    "new_paid_provider_dispatches": 0,
+    "original_session_resumed_or_written": false,
+    "campaign_budget_or_journal_mutations": false,
+    "fresh_original_workflow_accepted": false,
+    "fresh_original_workflow_executed": false,
+    "independent_live_oracle_qualified": false
+  },
+  "aggregate_shared_test_outcomes": {
+    "passed": 8761,
+    "skipped": 13,
+    "failed": 0,
+    "note": "Targeted reruns and native smoke are not added to these shared-suite case counts."
+  }
+}

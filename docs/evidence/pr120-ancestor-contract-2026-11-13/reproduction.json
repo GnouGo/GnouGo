@@ -1,0 +1,37 @@
+{
+  "base_source": "8b28b254883854f8037436e1957a413cdfb5a665",
+  "cause": "Published nullable dictionary values were described as missing-ancestor nulls, but additionalProperties required an object. The compiler preserved that incorrect contract.",
+  "actual_retained_records": 1439,
+  "original_instance_findings": 253,
+  "first_original_findings": [
+    "$.observationSnapshot.pages[0].records[1].ancestorAttributes.data-asin: expected object",
+    "$.observationSnapshot.pages[0].records[2].ancestorAttributes.data-asin: expected object",
+    "$.observationSnapshot.pages[0].records[8].ancestorAttributes.data-asin: expected object"
+  ],
+  "original_schema_sha256": "f062de7d3368c475dd96831727a1d8d10a5810287d9a8ea259a5bc342c1be79b",
+  "corrected_published_schema_sha256": "9dc63b9fc3183e82ab258c2883e7fed0179b4d667b5dfafb14131c9b8ea436ad",
+  "unit_red": {
+    "passed": 2,
+    "failed": 1,
+    "skipped": 0,
+    "failure": "Actual serialized missing-ancestor null is absent from the published dictionary-value type."
+  },
+  "browser_release_warnaserror": {
+    "passed": 220,
+    "failed": 0,
+    "skipped": 0
+  },
+  "controlled_fixture_profile": "compact-bindings-v15",
+  "captured_mapping_profile": "adaptive-each-v1",
+  "earlier_default_profile_fixture": "terminated; not evidence of production performance and not counted as a pass",
+  "paid_model_calls": 0,
+  "actual_navigation_calls": 0,
+  "original_session_modified": false,
+  "full_workflow_qualified": false,
+  "logs_sha256": {
+    "ancestor-schema-red-02.log": "be26e12fc5dd0fc9fd07edeba321e9b9f497fee9f690819688b03cd38566e5d4",
+    "ancestor-schema-browser-green.log": "7e4d50f884b4d68a9a9a2bef73250ba917419aa99387552fb90df8dab5c7820c",
+    "controlled-batch-run-11.log": "5df62d3e1067606c03bcbbb59639fa8af8508030dea30c8c927e342f86316fea",
+    "controlled-batch-build-12.log": "1391a5b0954596c307ded0b3326ff8892e4fb045923c10d9e3730d65564d959f"
+  }
+}

@@ -40,6 +40,8 @@ public sealed partial class ExpressionEvaluator
             }
             var program = ContractExpression(selected);
             if (entry is not JsonObject contracts) { Invalid("Expression contracts must be literal objects."); continue; }
+            if (program.Length > MaxCheckedProgramLength)
+                Invalid($"Checked expression at contract pointer '{pointer}' contains {program.Length} characters; the runtime limit is {MaxCheckedProgramLength}.");
             var syntax = new Acornima.Parser().ParseExpression(program);
             if (HasLexicalValueContracts(contracts))
             {
@@ -112,7 +114,7 @@ public sealed partial class ExpressionEvaluator
             return EvaluateLexicalValues(program, context, contracts, allowance, observeCheck);
         if (readable && HasOrderedValueContracts(contracts))
             return EvaluateOrderedValues(program, context, contracts, allowance, observeCheck);
-        if (program.Length > 65536 || new Acornima.Parser().ParseExpression(program) is not
+        if (program.Length > MaxCheckedProgramLength || new Acornima.Parser().ParseExpression(program) is not
             CallExpression { Arguments.Count: 0, Callee: ArrowFunctionExpression { Params.Count: 0, Async: false, Body: BlockStatement body } } ||
             body.Body.Count < 2 || body.Body.Last() is not ReturnStatement { Argument: not null })
             throw new WorkflowRuntimeException(ErrorCodes.EvalError, "Invalid compiled binding sequence.");

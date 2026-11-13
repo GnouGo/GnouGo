@@ -1,0 +1,41 @@
+{
+  "tested_production_sha": "7ab02766708b8ce29d84e2bd3466d84b5d91ffa7",
+  "tested_harness_sha": "7ab02766708b8ce29d84e2bd3466d84b5d91ffa7",
+  "cohort": "compactr7ab027667colhighv11a",
+  "freeze_sha256": "53b93a9a893b5a4253d71e557737a9488424b98f3edb8669df9c313917992018",
+  "outcome": "stopped_before_a_journaled_generation_attempt_for_request_19",
+  "logical_requests": 19,
+  "physical_attempts": 18,
+  "accepted_checkpoints": 5,
+  "corrections": 0,
+  "known_input_tokens": 54214,
+  "known_output_tokens": 19298,
+  "known_cost_eur": "0.7585988398036590807675145025",
+  "new_unknown_attempts": 0,
+  "artifact": false,
+  "runtime_executed": false,
+  "completed_business_obligations": 0,
+  "calls_per_success": null,
+  "pending_request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:19:8c7284f7f0b9306b3d3ce428174cb2059591f02fe2ff539c76adf2521e52d16d",
+  "pending_journal": {
+    "fingerprint": "",
+    "attempts": 0,
+    "delay_ms": 0,
+    "prepared_cost_ceiling_eur": "0.5443596608656849620705042392",
+    "note": "Prepared per-attempt admission metadata; no physical attempt or usage reservation was recorded. No record or financial reservation is released."
+  },
+  "failure": {
+    "code": "MODEL_DISPATCH_UNVERIFIABLE",
+    "kind": "Unknown",
+    "retryable": false,
+    "status_code": null,
+    "cause": "unproven; original underlying exception was not retained"
+  },
+  "offline_checks": {
+    "exact_saved_payload_constructs": true,
+    "network_permitted": false,
+    "actual_oidc_configuration_with_mock_authentication_failure": "no generation journal load/save",
+    "mock_authentication_success_then_model_400": "one generation journal load, two saves, one model attempt; no real dispatch",
+    "causality_limit": "These routing experiments do not establish the historical exception cause."
+  }
+}

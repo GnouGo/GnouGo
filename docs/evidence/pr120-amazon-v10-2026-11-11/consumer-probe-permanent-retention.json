@@ -1,0 +1,11 @@
+{
+  "evidence_hash": "e5cbb6f2dc522727fb33119ea9d427d28695ead3e930cdd433f4cb29349cf21f",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "retained_at": "2026-11-11T11:02:14.2618590+00:00",
+  "request_id": "amazon-source-consumer-probe-20261111-01:probe:79f70864ec3a49e2b896bc0211b66787:8769e8490d80c66a6da7f4590a7b3e03fe054f2979af3c186199ec575197faac",
+  "retention_kind": "provider-probe",
+  "outcome_evidence": "recorded_transport_loss_without_completion_receipt"
+}

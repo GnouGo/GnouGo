@@ -1,0 +1,255 @@
+{
+  "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+  "commands": [
+    {
+      "name": "GnOuGo.AI.Core.pack-operator-fix",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.AI.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-planning/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:41:55.118965+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:41:55.881437+00:00"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.pack-operator-fix",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-planning/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:41:55.882441+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:41:56.598417+00:00"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.pack-operator-fix",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-planning/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:41:56.599730+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:41:57.382420+00:00"
+    },
+    {
+      "name": "GnOuGo.Flow.Integrations.pack-operator-fix",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Integrations",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-planning/packages",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:41:57.384239+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:41:58.473019+00:00"
+    },
+    {
+      "name": "planning-aot-operator-fix",
+      "command": [
+        "dotnet",
+        "publish",
+        "tests/GnOuGo.Flow.Planning.Smoke",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/diagnostic-planning/publish/planning-aot",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:41:58.475560+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:42:36.442567+00:00"
+    },
+    {
+      "name": "planning-aot-smoke-operator-fix",
+      "command": [
+        "artifacts/diagnostic-planning/publish/planning-aot/GnOuGo.Flow.Planning.Smoke"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:42:36.443537+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:42:42.529018+00:00"
+    },
+    {
+      "name": "server-restore-operator-fix",
+      "command": [
+        "dotnet",
+        "restore",
+        "src/GnOuGo.Agent.Server",
+        "-r",
+        "osx-arm64",
+        "-m:1",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:43:54.780953+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:43:56.670841+00:00"
+    },
+    {
+      "name": "server-publish-operator-fix",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-m:1",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:TreatWarningsAsErrors=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "-o",
+        "artifacts/diagnostic-planning/publish/agent-server",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:43:56.671344+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:44:26.574431+00:00"
+    },
+    {
+      "name": "published-storage-smoke-operator-fix",
+      "command": [
+        "artifacts/diagnostic-planning/publish/agent-server/GnOuGo.Agent.Server",
+        "--planning-persistence-smoke",
+        "artifacts/diagnostic-planning/operator-fix-published-storage"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:44:26.593371+00:00",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T13:44:29.328356+00:00"
+    }
+  ],
+  "preparation_attempts": [
+    {
+      "name": "server-publish-operator-fix",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Agent.Server",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-m:1",
+        "-p:PublishTrimmed=true",
+        "-p:PublishSingleFile=true",
+        "-p:TreatWarningsAsErrors=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipBundledServerTools=true",
+        "-o",
+        "artifacts/diagnostic-planning/publish/agent-server",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "7504ad9619338887a11d7e23091cae2997ea3e80",
+      "started_utc": "2026-11-05T13:42:42.529623+00:00",
+      "exit_code": 1,
+      "finished_utc": "2026-11-05T13:42:43.147944+00:00",
+      "reason": "NETSDK1047: net10.0/osx-arm64 was absent from project.assets.json; RID dependencies were restored before the successful publish."
+    }
+  ],
+  "artifacts": {
+    "artifacts/diagnostic-planning/packages/GnOuGo.Flow.Integrations.1.0.0.nupkg": {
+      "bytes": 63285,
+      "sha256": "1c42e175dbf6ee3e2f1633433063172bda5e1abcd38a6dba0c03613e7891acea"
+    },
+    "artifacts/diagnostic-planning/packages/GnOuGo.Flow.Core.1.0.0.nupkg": {
+      "bytes": 764011,
+      "sha256": "80b6ff3bac2bfc2150ea92358f030a6d86feba49183f598759810d495626ca55"
+    },
+    "artifacts/diagnostic-planning/packages/GnOuGo.Flow.Planning.1.0.0.nupkg": {
+      "bytes": 651073,
+      "sha256": "4da70957e723d2a998e6fa8dea128e7a7557d6eb115f60a442f021843a202784"
+    },
+    "artifacts/diagnostic-planning/packages/GnOuGo.AI.Core.1.0.0.nupkg": {
+      "bytes": 147957,
+      "sha256": "ed78c72570f01a46edb416adc2c737760c817760db78b6d10003d748eb6a31d8"
+    },
+    "artifacts/diagnostic-planning/publish/planning-aot/GnOuGo.Flow.Planning.Smoke": {
+      "bytes": 35718504,
+      "sha256": "46a56d5dd7e236ddd5e6a14f1dac688f5dd121c1ff7ef12b6bdff97a385f35a2"
+    },
+    "artifacts/diagnostic-planning/publish/agent-server/GnOuGo.Agent.Server": {
+      "bytes": 154058836,
+      "sha256": "d9ab1e88a87c04da6ead01b81513163629455a88e28434a5ed3f19e6b7c27f2f"
+    }
+  },
+  "server_publish_notice_policy": "Only the two existing exact EF Core Tasks experimental notices are accepted; no new warning suppression. Unchanged bundled tools were not republished."
+}

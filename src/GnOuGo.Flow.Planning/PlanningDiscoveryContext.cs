@@ -1,167 +1,21 @@
 using System.Text.Json;
-using GnOuGo.Flow.Core.Expressions;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
-using GnOuGo.Flow.Planning.Capabilities;
 
 namespace GnOuGo.Flow.Planning;
 
-// Transient presentation only: receipts and executable contracts remain authoritative.
+// Exact contract resolution and durable provider-page reads for the current step.
 internal static class PlanningDiscoveryContext
 {
-    internal static string Query(PlanningSession state) => CapabilityRelevance.Query(state.Request.Prompt + " " +
-        state.Requirements?.Summary + " " + string.Join(' ', state.Requirements?.Outcomes.Select(o => o.Description) ?? []));
-
-    // Source queries refine presentation without replacing accepted intent or
-    // transferring one source's focus to unrelated sources. Receipt cursors stay unchanged.
-    private static string SourceQuery(PlanningSession state, string source) => Query(state) + " " +
-        state.Discovery.Pages.LastOrDefault(p => p.SourceId == source && p.ProducedArtifactKind is null)?.Query;
-
-    internal static bool CanDiscover(PlanningSession state)
-    {
-        if (TaskPlanRevisions.FixedOperations(state)) return false;
-        var calls = PlanningModelCalls.RemainingCalls(state);
-        var repairs = PlanningModelCalls.RemainingRepairs(state);
-        if (PlanningModelCalls.IsRepair(state) && repairs <= 1) return false;
-        return calls > ReservedCalls(state);
-    }
-
-    // A clarification is a model response too. Leave room for it before the
-    // first proposal; answers release that reserve without granting another call.
-    internal static int ReservedCalls(PlanningSession state) => state.Plan is null
-        ? 1 + Math.Min(1, PlanningModelCalls.RemainingRepairs(state)) +
-            (state.Request.Baseline is null && state.AnswerHistory is not { Count: > 0 } &&
-             state.Request.Options["automatic_correction"] is JsonValue option && option.TryGetValue<bool>(out var enabled) && enabled ? 1 : 0)
-        : 1;
-
-    internal static List<CapabilitySummary> Candidates(PlanningSession state) => TaskPlanRevisions.FixedOperations(state) ? [] :
-        PrioritizePrerequisites(state, CapabilityRelevance.Rank(state.Discovery.Pages.SelectMany(p => p.Capabilities)
-            .Where(c => c.Operation is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
-                !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).GroupBy(c => c.Id, StringComparer.Ordinal)
-            .Where(group => group.Select(c => c.Version).Distinct(StringComparer.Ordinal).Count() == 1)
-            .Select(group => group.First()), c => SourceQuery(state, c.SourceId))).ToList();
-
-    internal static GnOuGo.Flow.Core.Runtime.McpArtifactContract? Artifacts(PlanningSession state, CapabilitySummary summary) =>
-        summary.ArtifactContract ?? state.Discovery.Resolved.Concat(state.Catalog!.Capabilities)
-            .FirstOrDefault(c => c.Id == summary.Id && c.Version == summary.Version)?.ArtifactContract;
-
-    internal static string[] Prerequisites(PlanningSession state) => state.Discovery.Pages.SelectMany(p => p.Capabilities)
-        .Where(c => state.Catalog!.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
-        .GroupBy(c => c.Id, StringComparer.Ordinal).Where(g => g.Select(c => c.Version).Distinct(StringComparer.Ordinal).Count() == 1)
-        .SelectMany(g => Artifacts(state, g.First())?.Consumes ?? []).Where(a => a.Required)
-        .Select(a => a.Kind).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-
-    private static IEnumerable<CapabilitySummary> PrioritizePrerequisites(PlanningSession state, IReadOnlyList<CapabilitySummary> ranked)
-    {
-        var kinds = Prerequisites(state).ToHashSet(StringComparer.Ordinal);
-        var matches = state.Discovery.Pages.Where(p => p.ProducedArtifactKind is { } kind && kinds.Contains(kind))
-            .SelectMany(p => p.Capabilities).Select(c => (c.Id, c.Version)).ToHashSet();
-        // Promote prerequisite search results, not every alternative producer of a
-        // kind whose producer was already visible. Keep relevance within each tier.
-        return ranked.OrderByDescending(c => matches.Contains((c.Id, c.Version)));
-    }
-
-    internal static List<PlanningOperation> Required(PlanningSession state)
-    {
-        var plan = state.Plan ?? state.Request.Baseline;
-        var used = plan is null ? [] : TaskPlanRevisions.Tasks(plan).Select(t => t.Operation).ToHashSet(StringComparer.Ordinal);
-        if (state.IntentVersion == 3)
-            used.UnionWith((state.Requirements?.Outcomes ?? []).SelectMany(r => r.Commitments ?? []).Select(c => c.Operation));
-        var operations = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
-            .Where(c => plan is not null || state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id))
-            .Where(c => c.Kind == "registered" || used.Contains(TaskOperations.Describe(c).Id) || plan is null && state.Catalog.Capabilities.Contains(c))
-            .Select(PlanningCapabilityArguments.Editable);
-        return operations.Concat(Inspected(state).Select(c => c.Operation!)).Concat(PlanningStructuralRepair.Operations(state)).DistinctBy(o => o.Id)
-            .OrderBy(o => o.Id, StringComparer.Ordinal).ToList();
-    }
-
-    internal static List<CapabilitySummary> Inspected(PlanningSession state)
-    {
-        if (TaskPlanRevisions.FixedOperations(state)) return [];
-        var selected = new List<CapabilitySummary>();
-        try
-        {
-            foreach (var request in state.Discovery.Inspections ?? [])
-            {
-                if (request.OperationIds is null || request.Cursor is not null || request.Query is not null || request.ProducedArtifactKind is not null ||
-                    !state.Discovery.Sources.Any(s => s.Id == request.SourceId) || state.Discovery.Inspections!.Count(i => i.SourceId == request.SourceId) != 1)
-                    throw new PlanningResponseException([new("DISCOVERY_SELECTION_INVALID", "/discoveryRequests", "The retained inspection selection is invalid.")]);
-                selected.AddRange(Inspection(state, request, "/discoveryRequests"));
-            }
-        }
-        catch (PlanningResponseException)
-        { throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("DISCOVERY_SELECTION_INVALID", "The retained contract inspection selection is no longer unambiguous and policy-allowed. Start a new planning session."); }
-        return selected;
-    }
-
-    internal static List<CapabilitySummary> Inspection(PlanningSession state, PlanningDiscoveryRequest request, string path)
-    {
-        var result = new List<CapabilitySummary>();
-        var ids = request.OperationIds!;
-        if (request.Cursor is not null || request.Query is not null || request.ProducedArtifactKind is not null || ids.Any(string.IsNullOrWhiteSpace) || ids.Distinct(StringComparer.Ordinal).Count() != ids.Count)
-            throw new PlanningResponseException([new("DISCOVERY_SELECTION_INVALID", path, "Use distinct discovered operation IDs with cursor, query and producedArtifactKind null.")]);
-        foreach (var id in ids)
-        {
-            var matches = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation?.Id == id).ToArray();
-            if (matches.Length == 0 || matches.Any(c => c.SourceId != request.SourceId) ||
-                matches.Select(c => (c.Id, c.Version)).Distinct().Count() != 1 ||
-                !state.Catalog!.AllowedStepTypes.Contains(matches[0].StepType) || state.Catalog.Policy.DeniedCapabilityIds.Contains(matches[0].Id))
-                throw new PlanningResponseException([new("DISCOVERY_SELECTION_INVALID", path + "/operationIds", "Choose an unambiguous, policy-allowed operation already discovered from this source.")]);
-            result.Add(matches[0]);
-        }
-        return result;
-    }
-
-    internal static JsonArray Coverage(PlanningSession state, IReadOnlySet<string> detailed, IReadOnlyList<CapabilitySummary> candidates) => new(state.Discovery.Sources.Select(source =>
-    {
-        var pages = state.Discovery.Pages.Where(p => p.SourceId == source.Id).ToArray();
-        var continuations = pages.Where(p => p.NextCursor is not null && !pages.Any(seen => seen.Cursor == p.NextCursor && seen.Query == p.Query && seen.ProducedArtifactKind == p.ProducedArtifactKind)).ToArray();
-        var summary = new JsonObject
-        {
-            ["sourceId"] = source.Id, ["pagesRead"] = pages.Length,
-            ["indexedCount"] = pages.SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)).Count()
-        };
-        if (pages.LastOrDefault()?.UnavailableReason is { } unavailable) summary["unavailable"] = unavailable;
-        if (TaskPlanRevisions.FixedOperations(state)) { summary["hasMore"] = continuations.Length > 0; return (JsonNode)summary; }
-        summary["hasMore"] = continuations.Length > 0;
-        if (CanDiscover(state))
-        {
-            summary["query"] = pages.LastOrDefault()?.Query;
-            summary["continuations"] = new JsonArray(continuations.Select(p =>
-            {
-                var continuation = new JsonObject { ["cursor"] = p.NextCursor, ["query"] = p.Query };
-                if (p.ProducedArtifactKind is not null) continuation["producedArtifactKind"] = p.ProducedArtifactKind;
-                return (JsonNode)continuation;
-            }).ToArray());
-        }
-        summary["omittedFromIndex"] = 0;
-        summary["index"] = new JsonArray(candidates.Where(c => c.SourceId == source.Id && !detailed.Contains(c.Operation!.Id)).Select(c =>
-        {
-            var inputs = EditableInputs(c).ToArray();
-            var item = new JsonObject { ["id"] = c.Operation?.Id ?? c.Id, ["name"] = c.Name,
-                ["inputs"] = Names(inputs), ["outputs"] = Names(c.Operation?.Outputs ?? []) };
-            var constraints = new JsonObject(inputs.Select(p => (p.Name, Domain: TaskOperations.FiniteDomain(p.Schema)))
-                .Where(p => p.Domain.Count > 0).Select(p => new KeyValuePair<string, JsonNode?>(p.Name, p.Domain)));
-            if (constraints.Count > 0) item["constraints"] = constraints;
-            if (TaskOperations.ArtifactPorts(c.Operation!, Artifacts(state, c)) is { Count: > 0 } artifacts) item["artifacts"] = artifacts;
-            return (JsonNode)item;
-        }).ToArray());
-        return (JsonNode)summary;
-
-        IEnumerable<OperationPort> EditableInputs(CapabilitySummary capability)
-        {
-            var exact = state.Catalog!.Capabilities.Concat(state.Discovery.Resolved)
-                .FirstOrDefault(c => c.Id == capability.Id && c.Version == capability.Version);
-            return exact is null ? capability.Operation?.Inputs ?? [] : PlanningCapabilityArguments.Editable(exact).Inputs;
-        }
-    }).ToArray());
-
-    private static JsonArray Names(IEnumerable<OperationPort> ports) => new(ports.Select(p => (JsonNode?)JsonValue.Create(p.Name)).ToArray());
-
     internal static async Task ResolveAsync(PlanningSession state, IPlanningRuntime runtime, CapabilitySummary summary, CancellationToken ct)
     {
         var cached = state.Discovery.Resolved.SingleOrDefault(c => c.Id == summary.Id && c.Version == summary.Version);
-        var resolved = cached ?? await runtime.Capabilities.ResolveAsync(summary, ct);
+        PlanningCapability resolved;
+        try { resolved = cached ?? await runtime.Capabilities.ResolveAsync(summary, ct); }
+        catch (PlanningConflictException ex) when (ex.Category is "catalog_changed" or "invalid_contract")
+        { throw RequiredContractFailure(ex.Category); }
+        catch (CapabilityDiscoveryException ex)
+        { throw RequiredContractFailure(ex.Category); }
         if (resolved.Id != summary.Id || resolved.Version != summary.Version ||
             summary.ArtifactContract is not null && !JsonNode.DeepEquals(
                 JsonSerializer.SerializeToNode(summary.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
@@ -175,73 +29,74 @@ internal static class PlanningDiscoveryContext
             throw new PlanningConflictException("The operation contract changed after discovery.");
         if (cached is null) state.Discovery.Resolved.Add(resolved);
         state.Discovery.ResolutionFailures?.RemoveAll(f => f.Id == summary.Id && f.Version == summary.Version);
-    }
-    internal static async Task DiscoverPrerequisitesAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
-    {
-        if (TaskPlanRevisions.FixedOperations(state)) return;
-        // Snapshot the frontier: no recursive expansion in one advance. Read at most
-        // one page per inspected source; receipts cache empty/unavailable source/kind pairs.
-        var visible = PlanningDiscoveryContext.Candidates(state);
-        var relevant = new PlanningPrompt(state).Shortlist().Concat(Inspected(state)).Select(c => c.Operation!.Id)
-            .Concat(Required(state).Select(o => o.Id))
-            .Concat(state.Plan is null ? [] : TaskPlanRevisions.Tasks(state.Plan).Select(t => t.Operation).OfType<string>()).ToHashSet(StringComparer.Ordinal);
-        var kinds = state.Discovery.Pages.SelectMany(p => p.Capabilities).Where(c => c.Operation is not null && relevant.Contains(c.Operation.Id))
-            .SelectMany(c => Artifacts(state, c)?.Consumes ?? []).Where(a => a.Required).Select(a => a.Kind).Distinct(StringComparer.Ordinal)
-            .Order(StringComparer.Ordinal).Where(kind => !visible.Any(c =>
-            PlanningDiscoveryContext.Artifacts(state, c)?.Produces.Any(a => a.Kind == kind) == true)).ToArray();
-        var sources = state.Discovery.Pages.Select(p => p.SourceId).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        foreach (var source in sources)
-            if (kinds.FirstOrDefault(kind => !state.Discovery.Pages.Any(p => p.SourceId == source && p.ProducedArtifactKind == kind)) is { } kind)
-                await DiscoverPageAsync(state, runtime, source, null, ct, PlanningDiscoveryContext.Query(state), kind);
-    }
 
-    internal static async Task ResolveShortlistAsync(PlanningSession state, IPlanningRuntime runtime, CancellationToken ct)
-    {
-        foreach (var summary in PlanningDiscoveryContext.Inspected(state))
+        GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException RequiredContractFailure(string category)
         {
-            try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch
-            {
-                var limitation = summary.Id + ": the requested inspection contract could not be resolved.";
-                if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
-                throw new WorkflowRuntimeException("DISCOVERY_CONTRACT_UNAVAILABLE", limitation);
-            }
-        }
-        var admitted = new List<CapabilitySummary>();
-        var presentation = new PlanningPrompt(state);
-        foreach (var summary in presentation.OptionalCandidates)
-        {
-            if (state.Discovery.ResolutionFailures?.Any(f => f.Id == summary.Id && f.Version == summary.Version) == true) continue;
-            if (!presentation.TryAdmit(admitted, summary)) continue;
-            try { await PlanningDiscoveryContext.ResolveAsync(state, runtime, summary, ct); }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-            catch
-            {
-                admitted.Remove(summary);
-                (state.Discovery.ResolutionFailures ??= []).Add(new(summary.Id, summary.Version));
-                var limitation = summary.Id + ": the candidate contract could not be resolved.";
-                if (!state.Discovery.Limitations.Contains(limitation, StringComparer.Ordinal)) state.Discovery.Limitations.Add(limitation);
-            }
+            category = category is "catalog_changed" or "invalid_contract" or "access_denied" or "timeout" or "cursor_incompatible"
+                ? category : "transport_unavailable";
+            if (!state.Discovery.Sources.Any(s => s.Id == summary.SourceId))
+                return new("DISCOVERY_OWNERSHIP_INVALID", "The selected contract does not belong to an owned metadata source.");
+            var step = state.Construction!.Compact!.CurrentStep!;
+            var focus = PlanningDiscoveryFocus.Choices(state)[0];
+            var page = state.Discovery.Pages.LastOrDefault(p => p.SourceId == summary.SourceId && p.Capabilities.Any(c => c.Id == summary.Id && c.Version == summary.Version));
+            var failure = new CapabilityDiscoveryFailure(Guid.NewGuid().ToString("N"), summary.SourceId, focus.Id, focus.Query, page?.Cursor,
+                category, "The selected operation contract could not be verified; no implementation binding was accepted.",
+                page?.SnapshotVersion, state.RequestMeasurements?.LastOrDefault()?.RequestId, null, DateTimeOffset.UtcNow)
+                { StepId = step.Id, CapabilityId = summary.Id, OperationId = summary.Operation?.Id, ContractVersion = summary.Version };
+            (state.Discovery.Failures ??= []).Add(failure);
+            PlanningInspection.Record(state, PlanningCompactConstruction.DiscoveryPurpose, "blocked", failure.Message, failure.RequestId,
+                new(failure.SourceId, failure.FocusId, null, failure.SnapshotVersion, failure.Cursor, category, failure.Id));
+            var code = category switch { "catalog_changed" => "DISCOVERY_REQUIRED_CONTRACT_CHANGED", "invalid_contract" => "DISCOVERY_REQUIRED_CONTRACT_INVALID", _ => "DISCOVERY_REQUIRED_CONTRACT_UNAVAILABLE" };
+            return new(code, failure.Message + " Explicit metadata recovery is required before a new binding decision.");
         }
     }
-
-    internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null)
+    internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null,
+        PlanningConstructionDiscoveryContinuation? action = null, PlanningDiscoveryRequest? selection = null)
     {
         CapabilityPage page;
+        var focused = action?.Id is not null;
         try
         {
-            page = await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            page = focused ? await PlanningDiscoverySnapshots.ReadAsync(state, runtime, action!, selection!, ct)
+                : await runtime.Capabilities.ListAsync(source, cursor, ct, query, producedArtifactKind);
+            if (focused && (page.SourceId != source || page.Capabilities.Any(c => c.SourceId != source)))
+                throw new GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException("DISCOVERY_OWNERSHIP_INVALID", "The metadata page belongs to another source.");
             if (page.SourceId != source || page.Cursor != cursor || page.ProducedArtifactKind != producedArtifactKind ||
                 producedArtifactKind is not null && page.Capabilities.Any(c => c.ArtifactContract?.Produces.Any(a => a.Kind == producedArtifactKind) != true) || page.Query is not null && page.Query != query || page.Capabilities.Any(c => c.SourceId != source) ||
                 page.Capabilities.Select(c => c.Id).Distinct(StringComparer.Ordinal).Count() != page.Capabilities.Count)
                 page = new(source, cursor, [], null, "The source returned an ambiguous discovery contract.");
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
-        catch { page = new(source, cursor, [], null, "This source is unavailable; its capabilities have not been inspected."); }
-        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind };
+        catch (PlanningConflictException) when (focused) { throw; }
+        catch (GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException) when (focused) { throw; }
+        catch (CapabilityDiscoveryException ex) when (focused)
+        { page = new(source, cursor, [], null, ex.Message) { FailureId = RecordFailure(ex.Category), FailureCategory = ex.Category }; }
+        catch (Exception ex) when (!focused)
+        {
+            var failure = Capabilities.CapabilityDiscovery.ProviderFailure(ex);
+            page = new(source, cursor, [], null, failure.Message) { FailureCategory = failure.Category };
+        }
+        if (focused && page.UnavailableReason is not null && page.FailureId is null)
+            page = page with { FailureId = RecordFailure(page.FailureCategory ?? "invalid_contract"), FailureCategory = page.FailureCategory ?? "invalid_contract" };
+        page = page with { Query = query, ProducedArtifactKind = producedArtifactKind, FocusId = selection?.FocusId, ActionId = action?.Id };
         state.Discovery.Pages.Add(page);
         if (page.UnavailableReason is { } reason) state.Discovery.Limitations.Add(source + ": " + reason);
+        if (focused)
+            PlanningInspection.Record(state, PlanningCompactConstruction.DiscoveryPurpose, page.UnavailableReason is null ? "succeeded" : "warning",
+                page.UnavailableReason is null ? "Metadata page retained; contract validation and business review remain separate." : "Exploratory source unavailable — continuing with other sources.",
+                state.RequestMeasurements?.LastOrDefault()?.RequestId,
+                new(source, selection?.FocusId, selection?.Justification, page.SnapshotVersion, cursor,
+                    page.FailureId is { } failure ? state.Discovery.Failures!.Single(f => f.Id == failure).Category : "received", page.FailureId));
+
+        string RecordFailure(string category)
+        {
+            var failure = new CapabilityDiscoveryFailure(Guid.NewGuid().ToString("N"), source, selection?.FocusId, query!, cursor,
+                category, "The source metadata is unavailable; incomplete inspection proves no absence.",
+                action?.Snapshots?.GetValueOrDefault(source)?.Version, state.RequestMeasurements?.LastOrDefault()?.RequestId,
+                selection?.Justification, DateTimeOffset.UtcNow) { StepId = state.Construction?.Compact?.CurrentStep?.Id };
+            (state.Discovery.Failures ??= []).Add(failure);
+            return failure.Id;
+        }
     }
 
 }

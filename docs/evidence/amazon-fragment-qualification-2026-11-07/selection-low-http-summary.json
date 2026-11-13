@@ -1,0 +1,18 @@
+{
+  "requestId": "selection-low-20261107-01:probe:77f03a19b91d4b19859bf13742023df8:8dc8c6cf4a999317a2a3e438c5b72b7fd5f464c2d2d7831aac5a1388a814ec14",
+  "physicalAttemptId": "selection-low-20261107-01:probe:77f03a19b91d4b19859bf13742023df8:8dc8c6cf4a999317a2a3e438c5b72b7fd5f464c2d2d7831aac5a1388a814ec14:eba56f9eda5a4fafbce9fb5819f6ca77",
+  "startedUtc": "2026-11-07T12:15:37.777148+00:00",
+  "completedUtc": "2026-11-07T12:15:45.228609+00:00",
+  "durationSeconds": 7.451461,
+  "httpStatus": 200,
+  "responseBodyComplete": true,
+  "actualWireBodyChangesOnlyReasoningEffort": true,
+  "actualEndpointUnchanged": true,
+  "reasoningEffort": "low",
+  "outputAllocation": 32768,
+  "maxAttempts": 1,
+  "attemptTimeoutMilliseconds": 600000,
+  "originalSourceRequestReplayed": false,
+  "candidateApplied": false,
+  "toolsExecuted": false
+}

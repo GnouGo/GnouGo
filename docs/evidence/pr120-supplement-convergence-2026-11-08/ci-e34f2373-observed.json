@@ -1,0 +1,86 @@
+{
+  "headRefOid": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+  "isDraft": true,
+  "statusCheckRollup": [
+    {
+      "__typename": "CheckRun",
+      "completedAt": "0001-01-01T00:00:00Z",
+      "conclusion": "",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897822/job/129290639227",
+      "name": "validate",
+      "startedAt": "2026-11-09T16:27:08Z",
+      "status": "IN_PROGRESS",
+      "workflowName": "Deterministic planner validation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:28:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290640179",
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "startedAt": "2026-11-09T16:27:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:29:33Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654898053/job/129290640123",
+      "name": "standalone",
+      "startedAt": "2026-11-09T16:27:09Z",
+      "status": "COMPLETED",
+      "workflowName": "ProxyCopilot standalone validation"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:29:12Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290639947",
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "startedAt": "2026-11-09T16:27:11Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:30:09Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290639505",
+      "name": "ProxyCopilot AOT (win-x64)",
+      "startedAt": "2026-11-09T16:27:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:30:32Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290639266",
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "startedAt": "2026-11-09T16:27:09Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:31:04Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290639856",
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "startedAt": "2026-11-09T16:27:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "__typename": "CheckRun",
+      "completedAt": "2026-11-09T16:29:58Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/42654897846/job/129290639529",
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "startedAt": "2026-11-09T16:27:10Z",
+      "status": "COMPLETED",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    }
+  ]
+}

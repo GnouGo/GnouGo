@@ -1,0 +1,105 @@
+{
+  "session": "25048d22727046a5aaea6f80789648b3",
+  "status": "cancelled",
+  "revision": 76,
+  "issued_model_calls": 31,
+  "checkpoints": 2,
+  "diagnostics": [],
+  "phase_counts": {
+    "construction_intent": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.2287147335423197492163009404"
+    },
+    "construction_select": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.1497716077026421854008060905"
+    },
+    "construction_implementation": {
+      "issued": 11,
+      "physical_attempts": 11,
+      "complete": 11,
+      "known_usage": 11,
+      "known_cost_eur": "2.5779310344827586206896551723"
+    },
+    "construction_discovery": {
+      "issued": 7,
+      "physical_attempts": 7,
+      "complete": 7,
+      "known_usage": 7,
+      "known_cost_eur": "2.1486341244961934617107030899"
+    },
+    "construction_draft": {
+      "issued": 11,
+      "physical_attempts": 10,
+      "complete": 10,
+      "known_usage": 10,
+      "known_cost_eur": "4.5559695476936856247201074787"
+    }
+  },
+  "physical_attempts": 30,
+  "complete_attempts": 30,
+  "known_usage_attempts": 30,
+  "max_complete_http_seconds": 48.751702,
+  "known_cost_eur": "9.6610210479175996417375727718",
+  "recent_attempts": [
+    {
+      "StartedAtUtc": "2026-11-11T20:55:01.755842+00:00",
+      "CompletedAtUtc": "2026-11-11T20:55:32.399717+00:00",
+      "FirstOutputAtUtc": "2026-11-11T20:55:31.055358+00:00",
+      "ProtocolComplete": true,
+      "UsageKnown": true,
+      "TerminationStatus": "stop",
+      "phase": "construction_implementation",
+      "duration_seconds": 30.643875,
+      "first_output_seconds": 29.299516
+    },
+    {
+      "StartedAtUtc": "2026-11-11T20:55:37.704966+00:00",
+      "CompletedAtUtc": "2026-11-11T20:56:09.107323+00:00",
+      "FirstOutputAtUtc": "2026-11-11T20:56:08.894737+00:00",
+      "ProtocolComplete": true,
+      "UsageKnown": true,
+      "TerminationStatus": "stop",
+      "phase": "construction_implementation",
+      "duration_seconds": 31.402357,
+      "first_output_seconds": 31.189771
+    }
+  ],
+  "first_checkpoint": {
+    "session": "25048d22727046a5aaea6f80789648b3",
+    "source": "39d567bb473c8cbd37d072f069ae6302f9f22c1c",
+    "checkpoint_sequence": 1,
+    "task_ids": [
+      "amazon_search",
+      "close_browser"
+    ],
+    "accepted_at_utc": "2026-11-11T20:42:34.14751+00:00",
+    "calls": 9,
+    "known_cost_eur": "2.5373578145991939095387371249",
+    "seconds_from_run_start": 377.204994,
+    "seconds_from_first_http_dispatch": 360.209698,
+    "first_http_dispatch_utc": "2026-11-11T20:36:33.937812+00:00",
+    "business_execution": false,
+    "global_review": false,
+    "oracle_qualification": false
+  },
+  "global_review": false,
+  "execution": false,
+  "independent_oracle_qualification": false,
+  "financial_audit": {
+    "calls": 2047,
+    "known_cost_eur": "880.7949484997760859829825563",
+    "reserved_cost_eur": "419.6402955665024630541871923",
+    "unknown_attempts": 50,
+    "external_application_holds_eur": "73.522237118827347045823156187",
+    "ceiling_eur": 1700,
+    "headroom_eur": "326.042518814894103917007095213"
+  },
+  "retention_evidence_hash": "e1057c67ba84c94f19677d9898aca53e7b0efcaf15742255822d8415377af1a1"
+}

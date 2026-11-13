@@ -6,7 +6,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Planning</PackageId>
-    <PackageReleaseNotes>Typed add/subtract/multiply/divide/remainder/negate formulas lower to JavaScript only after contract closure. Retired numeric executors require revision and fresh approval. Numeric literal APIs use double; historical serialized tokens and planning format 10 remain unchanged.</PackageReleaseNotes>
+    <PackageReleaseNotes>Replace historical planning and proposition/window review protocols with format-11 incremental construction, coherent business-block review and mandatory global review before approval. Retain exact recovery, scoped typed repairs, original MCP contracts and deterministic JavaScript/YAML v15 lowering.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Provider-neutral, resumable typed workflow planning and deterministic YAML generation.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>

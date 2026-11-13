@@ -1,0 +1,325 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-10-24T09:02:13.601774+00:00",
+  "source": "361bb7139ee9e12acb699e97c88c667252587187",
+  "cohort": "compactr361bb7139colv5",
+  "campaign": "schema-portability-20261019-incremental",
+  "source_frozen": true,
+  "freeze": {
+    "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/freeze.json",
+    "sha256": "aa412b046e4d31f1b274035cfb3062481211c29178363f79206346b5819d2adc"
+  },
+  "status": "artifact_retained_approval_verification_failed",
+  "artifact_hash": "44afd86116d7c3e1cbcd8c2f6666711b8a4e9ba282e474065bc7abb2d552d62a",
+  "artifact_oracle": {
+    "version": "synthetic-artifact-v1",
+    "artifact_hash": "44afd86116d7c3e1cbcd8c2f6666711b8a4e9ba282e474065bc7abb2d552d62a",
+    "passed": true,
+    "findings": []
+  },
+  "runtime_executed": false,
+  "delegated_review_issued": false,
+  "business_acceptance": false,
+  "logical_requests": 41,
+  "physical_attempts": 41,
+  "corrections": 3,
+  "accepted_checkpoints": 11,
+  "accepted_business_obligations": null,
+  "calls_per_accepted_business_obligation": null,
+  "planning_ms": 910990,
+  "runtime_ms": null,
+  "tokens_and_cost": {
+    "request_identities": 41,
+    "http_attempts": 41,
+    "receipts": 41,
+    "unknown_attempts": 0,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 94793,
+    "known_output_tokens": 37189,
+    "known_reasoning_tokens": 30362,
+    "reasoning_measured_calls": 41,
+    "known_cost_eur": "1.4186836233824185631414547077",
+    "unknown_usage_reservation_eur": 0,
+    "cost_upper_bound_eur": "1.4186836233824185631414547077"
+  },
+  "provider_visible_output_tokens_derived": 6827,
+  "review_metadata": {
+    "construction_local_judge": {
+      "logical_request_identities": 13,
+      "receipts": 13,
+      "retained_http_attempts": 13,
+      "request_context_unavailable": 0,
+      "report_correction_requests": 0,
+      "reassessment_requests": 0,
+      "received_finding_count": 0,
+      "reported_resolved": 0,
+      "reported_still_present": 0,
+      "reported_invalidated_by_evidence": 0
+    }
+  },
+  "phase_measurements": {
+    "construction_intent": {
+      "requests": 2,
+      "p50_complete_request_bytes": 5474.5,
+      "p95_complete_request_bytes": 8511,
+      "max_complete_request_bytes": 8511,
+      "p50_estimated_input_tokens": 2081,
+      "p95_estimated_input_tokens": 3093,
+      "max_estimated_input_tokens": 3093,
+      "components_reconcile": true,
+      "within_captured_limits": true
+    },
+    "construction_select": {
+      "requests": 12,
+      "p50_complete_request_bytes": 11113.0,
+      "p95_complete_request_bytes": 12333,
+      "max_complete_request_bytes": 12333,
+      "p50_estimated_input_tokens": "3960.5",
+      "p95_estimated_input_tokens": 4367,
+      "max_estimated_input_tokens": 4367,
+      "components_reconcile": true,
+      "within_captured_limits": true
+    },
+    "construction_draft": {
+      "requests": 12,
+      "p50_complete_request_bytes": 16973.0,
+      "p95_complete_request_bytes": 18260,
+      "max_complete_request_bytes": 18260,
+      "p50_estimated_input_tokens": 5914,
+      "p95_estimated_input_tokens": 6343,
+      "max_estimated_input_tokens": 6343,
+      "components_reconcile": true,
+      "within_captured_limits": true
+    },
+    "construction_local_judge": {
+      "requests": 13,
+      "p50_complete_request_bytes": 12003,
+      "p95_complete_request_bytes": 16900,
+      "max_complete_request_bytes": 16900,
+      "p50_estimated_input_tokens": 4257,
+      "p95_estimated_input_tokens": 5890,
+      "max_estimated_input_tokens": 5890,
+      "components_reconcile": true,
+      "within_captured_limits": true
+    },
+    "replan": {
+      "requests": 2,
+      "p50_complete_request_bytes": 17320.5,
+      "p95_complete_request_bytes": 17436,
+      "max_complete_request_bytes": 17436,
+      "p50_estimated_input_tokens": "6029.5",
+      "p95_estimated_input_tokens": 6068,
+      "max_estimated_input_tokens": 6068,
+      "components_reconcile": true,
+      "within_captured_limits": true
+    }
+  },
+  "phase_usage": {
+    "construction_intent": {
+      "input_tokens": 1962,
+      "output_tokens": 1385,
+      "known_input_tokens": 1962,
+      "known_output_tokens": 1385,
+      "estimated_cost_eur": "0.0458366800535475234270414994",
+      "known_cost_eur": "0.0458366800535475234270414994",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "31451.0271",
+      "physical_attempts": 2,
+      "reasoning_measured_calls": 2,
+      "known_reasoning_tokens": 755,
+      "visible_output_tokens_derived": 630
+    },
+    "construction_select": {
+      "input_tokens": 25125,
+      "output_tokens": 8530,
+      "known_input_tokens": 25125,
+      "known_output_tokens": 8530,
+      "estimated_cost_eur": "0.3404953145917001338688085675",
+      "known_cost_eur": "0.3404953145917001338688085675",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 12,
+      "elapsed_ms": "206378.2574",
+      "physical_attempts": 12,
+      "reasoning_measured_calls": 12,
+      "known_reasoning_tokens": 5999,
+      "visible_output_tokens_derived": 2531
+    },
+    "construction_draft": {
+      "input_tokens": 35808,
+      "output_tokens": 10032,
+      "known_input_tokens": 35808,
+      "known_output_tokens": 10032,
+      "estimated_cost_eur": "0.4283801874163319946452476573",
+      "known_cost_eur": "0.4283801874163319946452476573",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 12,
+      "elapsed_ms": "220957.495",
+      "physical_attempts": 12,
+      "reasoning_measured_calls": 12,
+      "known_reasoning_tokens": 7819,
+      "visible_output_tokens_derived": 2213
+    },
+    "construction_local_judge": {
+      "input_tokens": 25640,
+      "output_tokens": 15916,
+      "known_input_tokens": 25640,
+      "known_output_tokens": 15916,
+      "estimated_cost_eur": "0.5405443998215082552431950023",
+      "known_cost_eur": "0.5405443998215082552431950023",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 13,
+      "elapsed_ms": "363284.11679999996",
+      "physical_attempts": 13,
+      "reasoning_measured_calls": 13,
+      "known_reasoning_tokens": 14846,
+      "visible_output_tokens_derived": 1070
+    },
+    "replan": {
+      "input_tokens": 6258,
+      "output_tokens": 1326,
+      "known_input_tokens": 6258,
+      "known_output_tokens": 1326,
+      "estimated_cost_eur": "0.0634270414993306559571619812",
+      "known_cost_eur": "0.0634270414993306559571619812",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "31653.2821",
+      "physical_attempts": 2,
+      "reasoning_measured_calls": 2,
+      "known_reasoning_tokens": 943,
+      "visible_output_tokens_derived": 383
+    }
+  },
+  "retained_failures": [
+    {
+      "calls": 25,
+      "repairs": 0,
+      "code": "TASK_IDENTITY_INVALID",
+      "location": "/tasks/foreach_values/id",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    },
+    {
+      "calls": 37,
+      "repairs": 2,
+      "code": "CONSTRUCTION_INCOMPLETE",
+      "location": "/",
+      "category": "invalid_intent",
+      "classification_status": "provisional"
+    }
+  ],
+  "findings": [
+    {
+      "classification": "confirmed_host_integration_defect",
+      "description": "Combined local/intermediate scoped reviews were retained with local purpose and explicit combined coverage, but artifact approval still required separate purpose records. Existing approval failed before a receipt or execution. Checkpoints 4,7,8,10,11 were affected; requirement closure at checkpoint11 triggered the first guard."
+    },
+    {
+      "classification": "confirmed_redundant_pure_work",
+      "description": "Two parallel foreach containers consume the same caller array and call the same deterministic doubling group. Only the second contributes public result. Selection24 could see the closed first loop and doubled port; close/export-only grammar was legal. Draft25 reused its ID, repair26 renamed it. The directory omitted compiled port type and parallel fields; no causal model explanation is inferred."
+    },
+    {
+      "classification": "no_false_positive_claim",
+      "description": "All13 received Judge reports contain no findings. No output-exhausted or empty response, report correction or reassessment occurred. Successful checkpoints and the static oracle do not establish runtime success or avoided corrections."
+    }
+  ],
+  "evidence": {
+    "metrics": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/collections-pre-review-safe-metrics-v2.json",
+      "sha256": "8b7654edc1386dccea75f4b350098ffe36fbfd20ef702b40ee9d6b7057e6d7cc"
+    },
+    "planning_output": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/collections-planning.jsonl",
+      "sha256": "5e5054d4302343cb2c14b8bc484caaa52ee16aeaac78ad1c801ed52aa30052d5"
+    },
+    "selection_witness": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/review-inspection/selection-safe.json",
+      "sha256": "6821c86320816c8fe8233ebcdd96ebcfe0a8b156f732f9b48823634e02dc6257"
+    },
+    "approval_failure": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/review-inspection/coalesced-approval-failure-safe.json",
+      "sha256": "35f615c26a67e452b6433418213d42bcaa668e956dcca754ba3fc9537c627f26"
+    },
+    "private_review_validation": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/review-inspection/review-validation-safe.json",
+      "sha256": "ac315904c89962cef6085050705a4575183fdbc52b35926353c61fb8e0ef477a"
+    },
+    "read_only_metrics_fix": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139colv5/review-inspection/reader-fix-validation-safe.json",
+      "sha256": "68b3362088f41cb40cd1886df228a389ab678ee64f1f92fe1fe4191f329e5588"
+    }
+  },
+  "accounting_audit": {
+    "evidence": {
+      "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr361bb7139amzv5/provider-readiness.jsonl",
+      "sha256": "7542ff2665592870a6de68a27395679f827e183b3a3c500d829bfe80a31c29fb"
+    },
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "transport_accounting": {
+      "calls": 2390,
+      "session_calls": 0,
+      "known_input_tokens": 6063404,
+      "known_output_tokens": 2581852,
+      "known_cost_eur": "96.01625240379153391908223549",
+      "reserved_input_tokens": 338326,
+      "reserved_output_tokens": 581632,
+      "reserved_cost_eur": "17.060461732590482192997827383",
+      "cost_upper_bound_eur": "113.07671413638201611208006287",
+      "unknown_attempts": 28
+    },
+    "available_eur": "126.95338969632428843036488443",
+    "receiptless_requests": 23,
+    "permanently_closed_requests": 23,
+    "unresolved_requests": 0,
+    "prior_lost_historical_exposure_eur": "159.96989616729369545755505266",
+    "cumulative_spending_and_reservation_upper_bound_eur": "273.04661030367571156963511553"
+  },
+  "limitations": [
+    "No current-source execution or paired baseline/candidate acceptance; Amazon361 was frozen but not dispatched after the approval defect was identified.",
+    "The first safe metrics export reserialized JSON decimals through binary floats; it remains immutable. Referenced v2 preserves the exact reader output and full decimal amounts. Neither inspection changed the ledger.",
+    "The private metrics reader originally failed on typed JSON int-to-long extraction in v5 aggregation. A copied reader reproduced and corrected this projection-only defect with28 offline checks; production and retained responses were unchanged.",
+    "Whitespace-heavy responses were not independently quantified by this reader; absence of an empty response is not that measurement.",
+    "Baseline comparisons remain gated on all three final candidate executions; settings differ from historical sources and do not establish architecture-only causality."
+  ],
+  "technical_validation": {
+    "source": "361bb7139ee9e12acb699e97c88c667252587187",
+    "publication_stages_passed": 12,
+    "publication_stages_failed": 0,
+    "full_solution": "still_running_at_this_observation",
+    "evidence": {
+      "publish/publication-safe.json": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-361bb713/publish/publication-safe.json",
+        "sha256": "560a52b11aea3ba5d4fb6b9ed37e743299feec316a4bcb9215e8dafe9047922d"
+      },
+      "publish/publication-terminal-verification-safe.json": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-361bb713/publish/publication-terminal-verification-safe.json",
+        "sha256": "1ae7042acebfa0bf7c0f724072fe4c417305a4a79a19f437bf9b9a6ca3e41168"
+      },
+      "copy-safe.json": {
+        "file": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-361bb713/copy-safe.json",
+        "sha256": "ed391a5e4057f3ab3d42fdf4963839e874d7ab54a7faa95a1fbf5542506937f1"
+      }
+    },
+    "interpretation": "These exact361 checks do not cover the subsequent approval correction or establish live execution."
+  }
+}

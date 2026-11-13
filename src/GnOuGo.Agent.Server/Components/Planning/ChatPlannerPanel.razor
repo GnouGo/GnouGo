@@ -9,6 +9,7 @@
         <div class="gnougo-chat__bubble">
             <strong>Planning: @session.Name</strong>
             <p aria-live="polite">@session.Status.Replace('_', ' ') · @session.Phase</p>
+            <p>@(session.EffectivePolicy?["applicationBudget"]?["mode"]?.ToString() == "unlimited" ? "Unlimited — usage and costs tracked" : "Captured finite planning limits") · <a href="/settings/llm-budget">Application LLM budget</a></p>
             @if (session.Status == PlanningStatus.FinalReview)
             { <p>The graph is ready for review. Execution requires approval of its stages, scopes, evidence requirements and budgets.</p> }
             @if (session.Status == PlanningStatus.Clarification)
@@ -39,6 +40,7 @@
     {
         var conversation = ConversationId;
         if (Service is not { } service || string.IsNullOrWhiteSpace(conversation)) return;
+        if (Services.GetService<GnOuGo.Agent.Server.Planning.LocalOperatorAccess>() is { } access && !await access.CanInspectAsync()) return;
         try { var sessions = await service.ListAsync(conversation, _lifetime.Token); if (conversation == ConversationId) _sessions = sessions; }
         catch (OperationCanceledException) when (_lifetime.IsCancellationRequested) { }
         catch (Exception) { _error = "Planning history could not be loaded. Retry shortly."; }

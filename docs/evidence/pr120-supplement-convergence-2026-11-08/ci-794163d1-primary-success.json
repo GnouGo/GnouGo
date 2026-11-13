@@ -1,0 +1,15 @@
+{
+  "conclusion": "success",
+  "head_sha": "794163d1fcb39673b368a5a0640384b3126de5e8",
+  "html_url": "https://github.com/GnouGo/GnouGo/actions/runs/42615868789",
+  "id": 42615868789,
+  "name": "Deterministic planner validation",
+  "status": "completed",
+  "updated_at": "2026-11-09T13:33:18Z",
+  "scope": "Primary deterministic planner validation only.",
+  "limitations": [
+    "Separate local full794 run remains failed; this CI success does not relabel it.",
+    "The separate794 AOT macOS ARM64 job was not acquired by a hosted runner; other AOT matrix jobs passed.",
+    "Final-source460a35de CI remains in progress."
+  ]
+}

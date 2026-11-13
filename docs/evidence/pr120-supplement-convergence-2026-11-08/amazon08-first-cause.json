@@ -1,0 +1,78 @@
+{
+  "source": "3f38b8338e37808ac8193a9c99c6952ec2868ec4",
+  "run": "amazon-qualification-20261109-08",
+  "session_id": "cb32f54a06de44a4b45487e05652a720",
+  "status": "cancelled_and_permanently_retained",
+  "known_receipts": 30,
+  "stopped_pending_call": 31,
+  "measured_planning_tariff_estimate_eur": "9.1644693237796686072548141511",
+  "prior_campaign_transport_reservation_eur": "7.2139991043439319301388266904",
+  "cancelled_external_application_reservation_eur": "7.7712494402149574563367666814",
+  "retention_evidence_hash": "45e1cf745f1d0e3984794eb5f5d5ec3087e0c336c332efd404ae05d6a3a96ec8",
+  "retention_has_accounted_sibling_proof": true,
+  "all_reservations_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "search_block_review_call": 14,
+  "checkpoints": [
+    {
+      "sequence": 1,
+      "tasks": [
+        "amazon_search",
+        "close_amazon_browser"
+      ],
+      "plan_hash": "5773ae7da2ae594a54d9ecaa95021c2e54cf54030030ab3c3ac9d86ec0bb5085"
+    },
+    {
+      "sequence": 2,
+      "tasks": [
+        "select_search_products",
+        "validated_search_selection"
+      ],
+      "plan_hash": "f713845f6fa36037c5c67a555e7e725e8a327b24107af9cf5c5b94b322ff6ead"
+    }
+  ],
+  "first_cause": {
+    "original_browser_arguments_optional": true,
+    "accepted_search_selected_fields": [
+      "url",
+      "waitUntil",
+      "format"
+    ],
+    "later_cursor_28_selected_fields": [],
+    "later_input_projection": {
+      "type": "object",
+      "properties": {}
+    },
+    "optional_evidence_links_remained_available": true,
+    "model_reselected_after_empty_argument_projection": true,
+    "fix": "Reuse only selected input fields used by an unchanged accepted producer at the same operation version; preserve values, contracts, scope and review authority.",
+    "regression": "New generic current/version/changed-producer/invalidated cases: one failed before the fix; all four pass after it.",
+    "financial_incident": "The former single-uncertain-attempt predicate rejected a cancelled request after an earlier campaign-covered transport hold. Verify every sibling request, receipt, attempt and bound instead; retain all money."
+  },
+  "validation_after_fixes": {
+    "planning_passed": 2910,
+    "benchmark_focused_passed": 595,
+    "focused_contract_passed": 73,
+    "warnings": 0
+  },
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_qualified": false,
+  "available_after_retention_eur": "281.490497089117778772951181476",
+  "retained_external_reservations_eur": "33.673622928795342588446036724",
+  "private_evidence_sha256": {
+    "amazon08-final.json": "a885dcb9373c9f880f7d7d578922060705c6300d68b831c7365bc4dcec08f5cf",
+    "amazon08-final-receipts.json": "f8ca91c7bffc6c7bf13683451b9eb3a22abc9c9de1400ed3e93d22fec82e5a3d",
+    "amazon08-call28-request.json": "4cd6d777579b6f2956af6caf64eadae2debe4b8cdd27e7c48c045960cd06cf93",
+    "amazon08-protected-stop.log": "d16848944e5384aaa6b6d2e1ef0f1ea55aa7208e08a89fca834881bfc8b54ebd",
+    "amazon08-retention-preview.stderr": "1d2626814fb25f2a5b692ac68ecb1e306651955b5eae97cfecd0031c53a787ca",
+    "amazon08-retention-fixed-preview.json": "9b02c69ea4246acae3c1b8729c558122898d7fcdcfd906ea552a0ec17fa9368e",
+    "amazon08-retention-applied.json": "31a342da02e05f685531a04d1a11f9582c7e865fc2c82cfaa016df8859a410f8",
+    "amazon08-retained-final-audit.json": "bb2519c5508b90e1ae8d86a796cde543334fad887372bd21eefdb3f12331b265",
+    "amazon08-optional-reuse-red.log": "d618d46ba481108ae6f1a3b30ea48b35b3d61e56ca70d5059bf2b7f8bf2b6c91",
+    "amazon08-optional-reuse-green.log": "dc08a95dbc66e78de6c8a6bd2cdb3d40e4933ad5d017a2134eef981735816d87",
+    "amazon08-optional-reuse-planning-all.log": "963659d07a4ba9d339bc3b3cb4b2166fbe9c5c1be4bf28d35ad4d88fd84fd7f7",
+    "amazon08-sibling-holds-benchmark-all.log": "187d2c91e8f6c4ad71d2d5163167590630e69b2670a5cdcc55f40270b82a45b3"
+  }
+}

@@ -1,0 +1,308 @@
+{
+  "description": "Offline grammar witness and optional route-owner probe input. Not a completed model response.",
+  "schema": {
+    "type": "object",
+    "properties": {
+      "resultType": {
+        "$ref": "#/$defs/2"
+      }
+    },
+    "required": [
+      "resultType"
+    ],
+    "additionalProperties": false,
+    "$defs": {
+      "2": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/a"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "object"
+                ]
+              },
+              "fields": {
+                "$ref": "#/$defs/23"
+              }
+            },
+            "required": [
+              "kind",
+              "fields"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "$ref": "#/$defs/f"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean"
+                ]
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "array"
+                ]
+              },
+              "items": {
+                "$ref": "#/$defs/2"
+              },
+              "minItems": {
+                "$ref": "#/$defs/1f"
+              },
+              "maxItems": {
+                "$ref": "#/$defs/1f"
+              },
+              "nullable": {
+                "$ref": "#/$defs/27"
+              }
+            },
+            "required": [
+              "kind",
+              "items",
+              "minItems",
+              "maxItems",
+              "nullable"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "object"
+                ]
+              },
+              "fields": {
+                "$ref": "#/$defs/23"
+              },
+              "nullable": {
+                "$ref": "#/$defs/27"
+              }
+            },
+            "required": [
+              "kind",
+              "fields",
+              "nullable"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "$ref": "#/$defs/d"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean"
+                ]
+              },
+              "nullable": {
+                "$ref": "#/$defs/27"
+              }
+            },
+            "required": [
+              "kind",
+              "nullable"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      },
+      "27": {
+        "type": "boolean",
+        "enum": [
+          true
+        ]
+      },
+      "d": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "string"
+            ]
+          },
+          "enum": {
+            "$ref": "#/$defs/24"
+          },
+          "nullable": {
+            "$ref": "#/$defs/27"
+          }
+        },
+        "required": [
+          "kind",
+          "enum",
+          "nullable"
+        ],
+        "additionalProperties": false
+      },
+      "24": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1
+      },
+      "23": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/3"
+        }
+      },
+      "3": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/26"
+          },
+          "type": {
+            "$ref": "#/$defs/2"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "additionalProperties": false
+      },
+      "26": {
+        "type": "string",
+        "pattern": "\\S"
+      },
+      "1f": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "f": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "string"
+            ]
+          },
+          "enum": {
+            "$ref": "#/$defs/24"
+          }
+        },
+        "required": [
+          "kind",
+          "enum"
+        ],
+        "additionalProperties": false
+      },
+      "a": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "array"
+            ]
+          },
+          "items": {
+            "$ref": "#/$defs/2"
+          },
+          "minItems": {
+            "$ref": "#/$defs/1f"
+          },
+          "maxItems": {
+            "$ref": "#/$defs/1f"
+          }
+        },
+        "required": [
+          "kind",
+          "items",
+          "minItems",
+          "maxItems"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "witness": {
+    "resultType": {
+      "kind": "object",
+      "fields": [
+        {
+          "name": "ready",
+          "type": {
+            "kind": "boolean"
+          }
+        },
+        {
+          "name": "items",
+          "type": {
+            "kind": "array",
+            "items": {
+              "kind": "object",
+              "fields": [
+                {
+                  "name": "ordinal",
+                  "type": {
+                    "kind": "integer"
+                  }
+                },
+                {
+                  "name": "label",
+                  "type": {
+                    "kind": "string"
+                  }
+                },
+                {
+                  "name": "source",
+                  "type": {
+                    "kind": "string",
+                    "nullable": true
+                  }
+                }
+              ]
+            },
+            "minItems": 0,
+            "maxItems": null
+          }
+        }
+      ]
+    }
+  }
+}

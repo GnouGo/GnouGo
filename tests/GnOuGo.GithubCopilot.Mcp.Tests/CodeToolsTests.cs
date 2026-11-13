@@ -135,6 +135,44 @@ public sealed class CodeToolsTests : IDisposable
 		Assert.Equal(_root, options.WorkingDirectory);
 	}
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task BoundedCodingTaskPreservesReadOnlyIntentAndReportsUnavailableCommands(bool unavailable)
+    {
+        var settings = CreateSettings(); settings.AllowWrites = true;
+        var assistant = new CopilotTestHost(settings, _root);
+        var task = unavailable ? "Run the configured checks and report observed exits; do not edit code." :
+            "Review this project without editing files; report the observed findings.";
+        var original = File.ReadAllText(Path.Combine(_root, "src", "Program.cs"));
+        assistant.OnSend = (_, handle, request, _) =>
+        {
+            return Task.FromResult(new GnOuGo.GithubCopilot.Core.CopilotSendResult(handle, "bounded-task",
+                unavailable ? "Command tool unavailable; no command ran." : "Read-only review completed.", "fake-model", [])
+                { Completed = !unavailable });
+        };
+        var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
+        using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new JsonObject
+            { ["gnougo"] = new JsonObject { ["tenantId"] = "test" } }));
+        var result = await tools.AgentEditAsync(".", task, ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Contains(task, assistant.LastRequest!.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Implement the requested change", assistant.LastRequest.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("before editing", assistant.LastRequest.Prompt, StringComparison.Ordinal);
+        Assert.Equal(task, result.Task);
+        Assert.Equal(!unavailable, result.Success);
+        Assert.Empty(result.ModifiedFiles);
+        Assert.Empty(result.ToolExecutions);
+        Assert.Equal(original, File.ReadAllText(Path.Combine(_root, "src", "Program.cs")));
+        Assert.True(assistant.AgentEditCalled);
+        Assert.Equal(1, assistant.Sends); Assert.Equal(1, assistant.DisposedSessions);
+        if (unavailable) Assert.Equal("COPILOT_TURN_FAILED", result.ErrorCode);
+        var description = Assert.IsType<System.ComponentModel.DescriptionAttribute>(Attribute.GetCustomAttribute(
+            typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!, typeof(System.ComponentModel.DescriptionAttribute))).Description;
+        Assert.Contains("coding task", description, StringComparison.Ordinal);
+        Assert.Contains("permission", description, StringComparison.Ordinal);
+        Assert.Contains("does not prove", description, StringComparison.Ordinal);
+    }
+
 	[Fact]
 	public async Task SuggestChangeAsync_ResolvesRelativeProjectRootUnderDefaultWorkingDirectory()
 	{

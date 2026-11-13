@@ -1,0 +1,22 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "reference": "pr120-supplement-20261109-300-01",
+  "amount_eur": "300",
+  "previous_ceiling_eur": "900",
+  "new_ceiling_eur": "1200",
+  "registration_count": 1,
+  "authorization_hash": "d72da6f1c5cb2ea7ed23cfa7a25cda7d30acbe22653e417924a644ccedd3f777",
+  "history_before": 3,
+  "history_after": 4,
+  "old_charges_and_reservations_unchanged": true,
+  "available_after_supplement_eur": "305.640214957456336766681589158",
+  "retained_application_reservations_eur": "25.902373488580385132109270042",
+  "global_available_funding": null,
+  "provider_invoice_total": null,
+  "no_reset_or_unlimited": true,
+  "private_evidence_sha256": {
+    "supplement300-before-audit.json": "4ad6c9ccbbe8089b91461274209fdb6d2d5b3f0c92903402f0f21e57aca0b44c",
+    "supplement300-applied.json": "2c4042870c4c887258aa9cd05edbd9d9698b71136c510dd8aab114d59c3ab08e",
+    "supplement300-after-audit.json": "c06ccce9136b780c87210ecaa899910b456b77c6eeafd785714e2fb96b0e8dc4"
+  }
+}

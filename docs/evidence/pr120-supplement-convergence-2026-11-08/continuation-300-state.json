@@ -1,0 +1,29 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "supplement_reference": "pr120-supplement-20261109-300-01",
+  "supplement_applied_once": true,
+  "ceiling_eur": "1200",
+  "ceiling_history_entries": 4,
+  "known_campaign_tariff_estimate_eur": "593.1459740259740259740259795",
+  "campaign_uncertain_reservations_eur": "330.84225705329153605015673992",
+  "campaign_cost_upper_bound_eur": "923.9882310792655620241827195",
+  "campaign_unknown_attempts": 36,
+  "retained_application_reservations_eur": "42.286833855799373040752351099",
+  "available_after_code16_retention_eur": "233.724935064935064935064929401",
+  "global_available_funding": null,
+  "provider_invoices": null,
+  "all_previous_reservations_preserved": true,
+  "no_old_permanently_retained_run_resumed": true,
+  "latest_complete_local_validation": {
+    "source": "d52e07a0bcccac2a44feb4b7d34b5051b1c02909",
+    "passed": 8548,
+    "skipped": 12,
+    "failed": 0,
+    "assemblies": 33
+  },
+  "new_batch_fix_full_solution_pending": true,
+  "live_code_and_amazon_end_to_end_qualified": false,
+  "final_source_consecutive_success_cohorts_qualified": false,
+  "no_convergence_improvement_claimed": true,
+  "audit_private_sha256": "9359e06f92a9fd4d23fe089d527a63e8aad9488c44459753adfe89be7dae3a85"
+}

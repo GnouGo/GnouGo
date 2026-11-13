@@ -1,0 +1,72 @@
+{
+  "run": "convergence-code-20261108-04",
+  "before": {
+    "source_snapshot_sha256": "4538fc5e0b576c501d5acd8ffc2fa0f70290715e4eee1284d669dcb1e44aaf46",
+    "planning_assembly_sha256": "a89bd0565a268c14dc8b1aa90f90f91bf604b4a433838d13fb4797a4a8b24ceb",
+    "plan_hash_before": "37e53faab049b44e3771fac507435241864228622f4190c5a195573c2a1da48b",
+    "plan_hash_after": "37e53faab049b44e3771fac507435241864228622f4190c5a195573c2a1da48b",
+    "status": "cancelled",
+    "pending_call_preserved": true,
+    "close_offered": false,
+    "accepted_checkpoints": 6,
+    "model_dispatches": 0,
+    "candidate_applied": false,
+    "persistent_changes": false
+  },
+  "after": {
+    "source_snapshot_sha256": "4538fc5e0b576c501d5acd8ffc2fa0f70290715e4eee1284d669dcb1e44aaf46",
+    "planning_assembly_sha256": "531381cdf7d8cc391f3e8ca24db464ac7b969f23144404ff23eb2822b827d5f2",
+    "plan_hash_before": "37e53faab049b44e3771fac507435241864228622f4190c5a195573c2a1da48b",
+    "plan_hash_after": "37e53faab049b44e3771fac507435241864228622f4190c5a195573c2a1da48b",
+    "status": "cancelled",
+    "pending_call_preserved": true,
+    "close_offered": true,
+    "accepted_checkpoints": 6,
+    "model_dispatches": 0,
+    "candidate_applied": false,
+    "persistent_changes": false
+  },
+  "only_schema_delta_is_local_completion_choice": true,
+  "added_choice": {
+    "type": "object",
+    "properties": {
+      "kind": {
+        "type": "string",
+        "enum": [
+          "close"
+        ]
+      },
+      "operationIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 0,
+        "maxItems": 0
+      },
+      "groupId": {
+        "type": "null"
+      },
+      "closeScopes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "minItems": 0,
+        "maxItems": 0
+      }
+    },
+    "required": [
+      "kind",
+      "operationIds",
+      "groupId",
+      "closeScopes"
+    ],
+    "additionalProperties": false
+  },
+  "does_not_close_workflow_or_requirements": true,
+  "does_not_grant_review_or_execution": true,
+  "diagnostic_only": true,
+  "regression_before": "The positive regression fails on frozen f87bbdbe because no close choice is offered. Five ownership/progress negative cases pass.",
+  "regression_after": "Seven cases pass, including stale baseline rejection and the full discovery -> unchanged candidate -> mandatory local review path."
+}

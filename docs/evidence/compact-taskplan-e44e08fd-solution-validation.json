@@ -1,0 +1,16 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 9033,
+    "NotExecuted": 13
+  },
+  "elapsed_seconds": 5464.446675291983,
+  "source_unchanged": true,
+  "log_sha256": "587926807ddc58552b8a1b3b4e792859676228a3255676a69820656561433669",
+  "execution_base": "3a36e692c35b31c6c66b1f4e96550e74282fb8b3",
+  "production_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "source_manifest_sha256": "e9fff7d4efcdf709df1e06b19c87bac758bf98b32221cc324dabb6a6d3601014",
+  "command_sha256": "4dd4b3312666b128b0a58d91b4a9e965aeab2b53e0d49a40f5e24cabbe45c53a",
+  "browser_fixture": "Predates76bc3ae7 test-only warmup;142 focused tests separate, not added.",
+  "overlapping_counts_summed": false
+}

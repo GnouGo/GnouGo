@@ -1,0 +1,161 @@
+{
+  "production_and_harness_source": "72c7724eaa320de074ed054d5dfbaa0e482d1ee6",
+  "run": "compactm72c7724eamz11out32a-amazon-1",
+  "status": "received_semantic_type_failure_after_four_charged_reselections",
+  "comparison": {
+    "control_run": "compactm72c7724eamz11a-amazon-1",
+    "only_changed_setting": "draft.outputTokens",
+    "control": 16384,
+    "experiment": 32768,
+    "source_model_reasoning_inputs_contracts_permissions_and_oracles_unchanged": true,
+    "different_trajectories_preclude_matched_payload_causality": true,
+    "largest_received_output_tokens": 6270,
+    "larger_output_allowance_used_beyond_control_limit": false,
+    "benefit_demonstrated": false
+  },
+  "logical_requests": 31,
+  "physical_attempts": 33,
+  "received_completions": 31,
+  "judge_calls": 0,
+  "correction_charges": 4,
+  "actual_plan_repairs": 0,
+  "planning_ms": 2392986,
+  "known_cost_eur": "2.4197431060810203898320308990",
+  "retained_unknown_reservation_eur": "2.0336117847839755681307823587",
+  "unknown_physical_attempts": 2,
+  "provider_tokens": {
+    "input_tokens": 124066,
+    "output_tokens": 69119,
+    "reasoning_tokens": 62755
+  },
+  "received_http_errors": [
+    {
+      "request": 15,
+      "statuses": [
+        500,
+        200
+      ],
+      "retained_unknown_reservation_eur": "0.9887855923830054792059642504"
+    },
+    {
+      "request": 27,
+      "statuses": [
+        500,
+        200
+      ],
+      "retained_unknown_reservation_eur": "1.0448261924009700889248181083"
+    }
+  ],
+  "failed_reservations_released": false,
+  "all_successful_receipts_persisted": true,
+  "independently_reviewed_trajectory": {
+    "accepted_executable_nodes": [
+      "derive_amazon_fr_search_url",
+      "read_amazon_fr_search_results_page"
+    ],
+    "first_url_producer_draft": 22,
+    "first_browser_operation_draft": 28,
+    "operations_executed": 0,
+    "selection_23": "proposed URL string does not fit the retained candidate-object prerequisite",
+    "selection_29": "proposed whole Browser response does not fit the retained candidate-object prerequisite",
+    "draft_31": "richer object and listing-facts fields do not fit the exact retained closed prerequisite type",
+    "existing_local_computation_guidance_present_before_discovery_reselections": true,
+    "new_production_guidance_added_for_that_claim": false
+  },
+  "terminal_diagnostics": [
+    {
+      "code": "CONSTRUCTION_CONTINUATION_INVALID",
+      "location": "/extension/continuationBinding/binding",
+      "message": "The proposed producer must provide the prerequisite's exact accessible typed interface.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 7305,
+      "p95_bytes": 7305,
+      "maximum_bytes": 7305,
+      "maximum_conservative_input_estimate": 2691,
+      "peak_components": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 433,
+        "instructions": 1404,
+        "intent": 1199,
+        "interfaces": 59,
+        "response_schema": 4155
+      }
+    },
+    "construction_select": {
+      "logical_calls": 9,
+      "p50_bytes": 17281,
+      "p95_bytes": 27065,
+      "maximum_bytes": 27065,
+      "maximum_conservative_input_estimate": 9278,
+      "peak_components": {
+        "construction_context": 2052,
+        "diagnostics": 274,
+        "envelope": 506,
+        "evidence": 1371,
+        "instructions": 2968,
+        "intent": 4001,
+        "interfaces": 3390,
+        "requirements": 4410,
+        "response_schema": 8093
+      }
+    },
+    "construction_discovery": {
+      "logical_calls": 14,
+      "p50_bytes": 20814,
+      "p95_bytes": 27738,
+      "maximum_bytes": 27738,
+      "maximum_conservative_input_estimate": 9502,
+      "peak_components": {
+        "construction_context": 1452,
+        "envelope": 503,
+        "evidence": 4153,
+        "instructions": 2240,
+        "intent": 3931,
+        "interfaces": 2698,
+        "mcp_descriptors": 2047,
+        "objective": 278,
+        "requirements": 3365,
+        "response_schema": 7071
+      }
+    },
+    "construction_draft": {
+      "logical_calls": 7,
+      "p50_bytes": 21478,
+      "p95_bytes": 54490,
+      "maximum_bytes": 54490,
+      "maximum_conservative_input_estimate": 18420,
+      "peak_components": {
+        "construction_context": 4965,
+        "diagnostics": 26,
+        "envelope": 511,
+        "evidence": 1371,
+        "fragment": 22,
+        "instructions": 1144,
+        "intent": 6218,
+        "interfaces": 10279,
+        "mcp_contracts": 12423,
+        "objective": 534,
+        "requirements": 2143,
+        "response_schema": 14854
+      }
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "empty_received_text_count": 0,
+  "phase_policy_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "no_retention_needed": "All logical requests have received receipts; two confirmed HTTP 500 attempt reservations remain unknown and retained. No uncertain request is replayed.",
+  "qualifying_success": false
+}

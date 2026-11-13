@@ -1,0 +1,113 @@
+{
+  "production_and_harness_source": "5e0bc6d8f8d4374a1837aa22d48518ba0a2347d6",
+  "run": "compactm5e0bc6d8code11a-code-1",
+  "status": "stopped_on_received_business_defects_after_correction_exhaustion",
+  "logical_requests": 46,
+  "physical_attempts": 46,
+  "received_completions": 46,
+  "judge_calls": 3,
+  "correction_charges": 4,
+  "operator_planning_interventions": 0,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "planning_ms": 2753380,
+  "known_cost_eur": "5.0563998922123416868768526005",
+  "retained_unknown_reservation_eur": "0",
+  "provider_input_tokens": 381576,
+  "provider_output_tokens": 124047,
+  "provider_reasoning_tokens_included_in_output": 110974,
+  "received_empty_responses": 0,
+  "received_output_exhaustion": 0,
+  "source_rejection_reason_fix_exercised": false,
+  "confirmed_earlier_work_repair": {
+    "production_source": "5e0bc6d8f8d4374a1837aa22d48518ba0a2347d6",
+    "run": "compactm5e0bc6d8code11a-code-1",
+    "business_defect": "PR-page URL bound to Git repository remote",
+    "original_finding_request": 22,
+    "typed_repair_request": 23,
+    "renewed_scoped_review_request": 24,
+    "only_clone_arguments_changed": true,
+    "pin_and_directory_unchanged": true,
+    "other_executable_content_unchanged": true,
+    "duplicate_clone_added": false,
+    "actual_correction_charges": 1,
+    "operator_planning_intervention": false,
+    "runtime_verified": false,
+    "artifact_created": false,
+    "whole_workflow_success_claimed": false
+  },
+  "other_corrections": [
+    {
+      "request": 34,
+      "diagnostic": "TASK_ARTIFACT_BINDING",
+      "result": "Literal project-root argument replaced by a provenance-bearing clone reference; technical validity does not establish correct report location or cleanup semantics."
+    },
+    {
+      "request": 37,
+      "diagnostic": "TASK_ARTIFACT_BINDING",
+      "result": "Literal project-root argument replaced by a provenance-bearing clone reference; technical validity does not establish correct report location or cleanup semantics."
+    },
+    {
+      "request": 40,
+      "diagnostic": "TASK_ARTIFACT_BINDING",
+      "result": "Literal project-root argument replaced by a provenance-bearing clone reference; technical validity does not establish correct report location or cleanup semantics."
+    }
+  ],
+  "remaining_business_defects": [
+    "Report path is relative to the clone instead of its required sibling destination.",
+    "Cleanup instructions assume a parent directory while the actual argument identifies the clone."
+  ],
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488
+    },
+    "construction_select": {
+      "logical_calls": 12,
+      "p50_bytes": 34111,
+      "p95_bytes": 56441,
+      "maximum_bytes": 56441
+    },
+    "construction_discovery": {
+      "logical_calls": 14,
+      "p50_bytes": 37374,
+      "p95_bytes": 48197,
+      "maximum_bytes": 48197
+    },
+    "construction_draft": {
+      "logical_calls": 12,
+      "p50_bytes": 41016,
+      "p95_bytes": 95381,
+      "maximum_bytes": 95381
+    },
+    "construction_local_judge": {
+      "logical_calls": 3,
+      "p50_bytes": 24796,
+      "p95_bytes": 46077,
+      "maximum_bytes": 46077
+    },
+    "replan": {
+      "logical_calls": 4,
+      "p50_bytes": 61320,
+      "p95_bytes": 99747,
+      "maximum_bytes": 99747
+    }
+  },
+  "judge_request_bytes": [
+    23980,
+    24796,
+    46077
+  ],
+  "all_issued_components_reconcile": true,
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "model": "gpt-5.5-2026-04-24",
+  "settings_changed": false,
+  "current_source_qualification": false,
+  "semantic_repair_is_not_runtime_success": true,
+  "no_abandonment_required": "All logical requests have received receipts."
+}

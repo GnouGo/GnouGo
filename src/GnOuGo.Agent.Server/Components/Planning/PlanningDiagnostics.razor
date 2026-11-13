@@ -1,0 +1,103 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using GnOuGo.Agent.Server.Planning
+@using GnOuGo.Agent.Server.Components.Tracing
+@using GnOuGo.Agent.Shared
+@using GnOuGo.Agent.Server.Telemetry
+@inject IServiceProvider Services
+@if (!_canInspect) { <PlanningDebugHelp /> }
+<section class="planning-diagnostics" aria-label="Planning progress and model calls">
+    <h3>Generation timeline</h3>
+    <p><strong>@(Session.ThresholdMode == "diagnostic" ? "Diagnostic — thresholds are warnings" : "Strict thresholds")</strong> · Generation and approval; execution is a separate operation.</p>
+    @if (Session.ThresholdMode == "diagnostic") { <p>@LlmInspectionLabels.DiagnosticThresholdExplanation</p> }
+    <p>Waiting → active → succeeded / warning / correction / blocked / cancelled. Repeated occurrences show actual loops; no completion percentage is inferred.</p>
+    @if (_events.Count == 0) { <p role="status">No historical transition timestamps were recorded for this session. Current phase: @Label(Session.Phase).</p> }
+    else
+    {
+        <ol class="planning-timeline" aria-live="polite">
+            @foreach (var occurrence in Occurrences)
+            {
+                var last = occurrence.Last(); var first = occurrence.First();
+                <li @key="first.Sequence" class="phase-@last.State">
+                    <strong>@Label(first.Phase)</strong> <span class="phase-state">@(last.State == "succeeded" && Session.ThresholdWarnings.Any(w => w.RequestId is not null && w.RequestId == last.RequestId) ? "warning (completed)" : LlmInspectionLabels.State(last.State))</span>
+                    <small>@first.TimestampUtc.ToString("u") · @Duration(first.TimestampUtc, last.TimestampUtc, last.State)</small>
+                    <p>@last.Reason</p>
+                    @if (last.State == "blocked" && last.Reason.Split(',', StringSplitOptions.TrimEntries).Contains("MODEL_OUTPUT_LIMIT", StringComparer.Ordinal))
+                    { <p class="planning-output-limit">@LlmInspectionLabels.OutputLimitExplanation</p> }
+                    @if (last.Discovery is { } discovery)
+                    { <p>Metadata source <strong>@(discovery["sourceLabel"] ?? discovery["sourceId"])</strong> · focus <code>@discovery["focusId"]</code> · @discovery["outcome"]</p> }
+                    @if (_canInspect && last.RequestId is { } requestId)
+                    { <button type="button" @onclick="() => InspectRequest.InvokeAsync(requestId)">Inspect LLM exchange</button> }
+                    @if (last.BlockId is not null) { <p>Business responsibility <code>@last.BlockId</code>: @last.Objective<br />Implementation fragment <code>@last.StepId</code> · checkpoint @last.Checkpoint</p> }
+                </li>
+            }
+        </ol>
+    }
+    @if (Session.OverallProgress is { } progress)
+    {
+        <details class="overall-progress" open>
+            <summary>Overall progress — expected results, accepted contributions and remaining obligations</summary>
+            <p>Accepted declarations, business review and observed execution are separate facts.</p>
+            <dl>
+                <dt>Expected results</dt><dd>@Describe(progress["expectedResults"])</dd>
+                <dt>Accepted contributions</dt><dd>@Describe(progress["acceptedContributions"])</dd>
+                <dt>Result connections</dt><dd>@Describe(progress["declaredResults"])</dd>
+                <dt>Remaining obligations</dt><dd>@Describe(progress["remainingObligations"])</dd>
+                <dt>Missing public bindings</dt><dd>@Describe(progress["missingDeliverableBindings"])</dd>
+                <dt>Composition findings</dt><dd>@Describe(progress["compositionFindings"])</dd>
+                <dt>Global review current</dt><dd>@progress["globalReviewCurrent"]</dd>
+            </dl>
+            <p>Large result indexes retain their exact totals and continuation links in the complete progress record.</p>
+            <pre>@progress.ToJsonString(Pretty)</pre>
+        </details>
+    }
+    @if (Session.ThresholdWarnings.Count > 0)
+    {
+        <h4>Advisory thresholds exceeded</h4>
+        <p>Showing @Math.Min(_warningCount, Session.ThresholdWarnings.Count) of @Session.ThresholdWarnings.Count recorded warnings. Each exchange retains its complete linked warnings.</p>
+        <ul class="planning-warnings">@foreach (var warning in Session.ThresholdWarnings.Take(_warningCount))
+        {
+            <li><strong>Warning: @warning.Kind</strong> — observed @warning.Current; target @warning.Threshold.<br />
+                Origin: @warning.Origin · phase @Label(warning.Stage) · <code>@(warning.RequestId ?? "preparation/admission before an issued call")</code><br />@warning.Consequence</li>
+        }</ul>
+        @if (_warningCount < Session.ThresholdWarnings.Count) { <button type="button" @onclick="() => _warningCount += 20">Show next 20 warnings</button> }
+    }
+    <details><summary>Captured model, phase allocations and restriction origins</summary><pre>@Session.EffectivePolicy?.ToJsonString(Pretty)</pre></details>
+</section>
+@code {
+    [Parameter, EditorRequired] public PlanningSessionDto Session { get; set; } = null!;
+    [Parameter] public bool Workflow { get; set; }
+    private static readonly System.Text.Json.JsonSerializerOptions Pretty = new(PlanningInspectionJsonContext.Default.Options) { WriteIndented = true };
+    private readonly List<PlanningInspectionEventDto> _events = [];
+    private string? _eventSession;
+    private int _warningCount = 20;
+    private bool _canInspect;
+    private IEnumerable<IEnumerable<PlanningInspectionEventDto>> Occurrences
+    {
+        get
+        {
+            var indexed = new List<(string Key, PlanningInspectionEventDto Event)>();
+            string? previousPhase = null, previousRequest = null; var key = "";
+            foreach (var item in _events)
+            {
+                if (item.PhaseOccurrence > 0) key = "occurrence:" + item.PhaseOccurrence;
+                else if (item.RequestId is not null) key = item.Phase + ":" + item.RequestId;
+                else if (previousPhase != item.Phase || previousRequest is not null) key = item.Phase + ":" + item.Sequence;
+                indexed.Add((key, item)); previousPhase = item.Phase; previousRequest = item.RequestId;
+            }
+            return indexed.GroupBy(item => item.Key).Select(group => group.Select(item => item.Event));
+        }
+    }
+    [Parameter] public EventCallback<string> InspectRequest { get; set; }
+    protected override async Task OnParametersSetAsync()
+    {
+        _canInspect = Services.GetService<LocalOperatorAccess>() is { } access && await access.CanInspectAsync();
+        if (_eventSession != Session.Id) { _events.Clear(); _eventSession = Session.Id; }
+        var after = _events.LastOrDefault()?.Sequence ?? 0;
+        _events.AddRange(Session.Events.Where(e => e.Sequence > after));
+    }
+    private static string Describe(JsonNode? value) => value is null ? "Unavailable" : value.ToJsonString();
+    private static string Duration(DateTimeOffset start, DateTimeOffset end, string state) =>
+        ((state is "active" or "received" ? DateTimeOffset.UtcNow : end) - start).TotalSeconds.ToString("0.0") + "s";
+    private static string Label(string phase) => GnOuGo.Agent.Server.Telemetry.LlmInspectionLabels.Phase(phase);
+}

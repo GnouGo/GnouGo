@@ -37,6 +37,9 @@ public interface ILLMCapabilityResolver
 /// </summary>
 public interface IModelUsageCostEstimator
 {
+    /// <summary>Optional provider-reported cache/tier detail. The default retains existing estimators.</summary>
+    ModelUsageCostEstimate? EstimateReportedCostWithCurrency(string? model, long inputTokens, long outputTokens,
+        JsonNode? usage, string? providerType = null) => EstimateCostWithCurrency(model, inputTokens, outputTokens, providerType);
     decimal? EstimateCost(
         string? model,
         long? inputTokens = null,
@@ -113,6 +116,10 @@ public sealed class LLMRequest
     public bool RequireOutputTokenLimit { get; set; }
     /// <summary>The caller journals and budgets individual attempts; do not retry inference invisibly.</summary>
     public bool DisableTransportRetries { get; set; }
+
+    /// <summary>Host-only reserved construction review calls; omitted on historical requests.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public int? RequiredReviewCalls { get; set; }
 
 }
 
@@ -295,6 +302,12 @@ public sealed class McpServerMetadata
     /// Slow LLM-backed tools can require more time before returning a response.
     /// </summary>
     public int? CallTimeoutSeconds { get; set; }
+}
+
+/// <summary>Optional connection identity digest. Credential values never leave the configuration owner.</summary>
+public interface IMcpSourceConfigurationFingerprint
+{
+    string SourceConfigurationFingerprint(string serverName);
 }
 
 /// <summary>

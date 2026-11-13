@@ -1,0 +1,11 @@
+{
+  "original_prompt_bytes": 57117,
+  "adapted_prompt_bytes": 54990,
+  "original_schema_bytes": 22767,
+  "adapted_schema_bytes": 22766,
+  "original_prompt_hash": "2168cd013df9bed787d6ab2a1a807ef1769826369ba4b2913372c0d8d3b9c47e",
+  "adapted_prompt_hash": "7a6b32ab810f240352121f8c9231bc1c960340f8099e0ab3114f83b398dce88d",
+  "source_modified": false,
+  "reasoning": "low",
+  "output_allocation": 32768
+}

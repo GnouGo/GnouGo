@@ -1,0 +1,158 @@
+[
+  {
+    "trial": 1,
+    "lastRequestId": "4aad13882bbb4232b92bc905b7d30772:10:7608e8dd54d75313a247ba953aa5cdde9fd1d643360f53ec00f1b4053e74ddbc:7fea42ea2862ec37202062a226c8b7fb82ef1ffe4f980ee5f2fd1626656be795",
+    "phase": "construction_draft",
+    "logicalReasoning": "medium",
+    "actualHttpReasoningEffort": "medium",
+    "actualHttpModel": "gpt-6.1-sol-2026-09-29",
+    "actualHttpOutputAllocation": 8192,
+    "actualHttpTopLevelKeys": [
+      "model",
+      "max_completion_tokens",
+      "reasoning_effort",
+      "messages",
+      "response_format"
+    ],
+    "actualHttpProtocol": "chat/completions foreground JSON",
+    "settings": {
+      "model": "gpt-6.1-sol-2026-09-29",
+      "provider": "OpenAi",
+      "maxTokens": 8192,
+      "reasoning": "medium",
+      "temperature": null,
+      "useBackgroundMode": false,
+      "requestTimeoutSeconds": null
+    },
+    "transportPolicy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "outputAllocation": 8192,
+    "completionStatus": "output_limit",
+    "logicalPromptUtf8Bytes": 40105,
+    "logicalSchemaBytes": 25213
+  },
+  {
+    "trial": 2,
+    "lastRequestId": "72a367d537d74885aca51d074ac3e293:11:16551aab7c44ea73686de43410c2306dd9ee95a09ab9d08258add2bdd18d2bf7:079436ef422fa95824715bdf772270f92decd47502ff7916b2e32f8441f877f1",
+    "phase": "construction_draft",
+    "logicalReasoning": "medium",
+    "actualHttpReasoningEffort": "medium",
+    "actualHttpModel": "gpt-6.1-sol-2026-09-29",
+    "actualHttpOutputAllocation": 16384,
+    "actualHttpTopLevelKeys": [
+      "model",
+      "max_completion_tokens",
+      "reasoning_effort",
+      "messages",
+      "response_format"
+    ],
+    "actualHttpProtocol": "chat/completions foreground JSON",
+    "settings": {
+      "model": "gpt-6.1-sol-2026-09-29",
+      "provider": "OpenAi",
+      "maxTokens": 16384,
+      "reasoning": "medium",
+      "temperature": null,
+      "useBackgroundMode": false,
+      "requestTimeoutSeconds": null
+    },
+    "transportPolicy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "outputAllocation": 16384,
+    "completionStatus": "output_limit",
+    "logicalPromptUtf8Bytes": 43550,
+    "logicalSchemaBytes": 28507
+  },
+  {
+    "trial": 3,
+    "lastRequestId": "ed724bc7829b46988851371be967a9e7:11:d92d4b00255096d2cd5884c557fab384bf1dde3e0cf01b53432ca6af60e1050f:c875bb660aea3d97d3815aaed7ae83840ffa0efe8aa9c3101f5a69f313ba1a03",
+    "phase": "construction_draft",
+    "logicalReasoning": "medium",
+    "actualHttpReasoningEffort": "medium",
+    "actualHttpModel": "gpt-6.1-sol-2026-09-29",
+    "actualHttpOutputAllocation": 32768,
+    "actualHttpTopLevelKeys": [
+      "model",
+      "max_completion_tokens",
+      "reasoning_effort",
+      "messages",
+      "response_format"
+    ],
+    "actualHttpProtocol": "chat/completions foreground JSON",
+    "settings": {
+      "model": "gpt-6.1-sol-2026-09-29",
+      "provider": "OpenAi",
+      "maxTokens": 32768,
+      "reasoning": "medium",
+      "temperature": null,
+      "useBackgroundMode": false,
+      "requestTimeoutSeconds": null
+    },
+    "transportPolicy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "outputAllocation": 32768,
+    "completionStatus": null,
+    "logicalPromptUtf8Bytes": 42848,
+    "logicalSchemaBytes": 28073
+  },
+  {
+    "trial": 4,
+    "lastRequestId": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb",
+    "phase": "construction_draft",
+    "logicalReasoning": "medium",
+    "actualHttpReasoningEffort": "medium",
+    "actualHttpModel": "gpt-6.1-sol-2026-09-29",
+    "actualHttpOutputAllocation": 32768,
+    "actualHttpTopLevelKeys": [
+      "model",
+      "max_completion_tokens",
+      "reasoning_effort",
+      "messages",
+      "response_format"
+    ],
+    "actualHttpProtocol": "chat/completions foreground JSON",
+    "settings": {
+      "model": "gpt-6.1-sol-2026-09-29",
+      "provider": "OpenAi",
+      "maxTokens": 32768,
+      "reasoning": "medium",
+      "temperature": null,
+      "useBackgroundMode": false,
+      "requestTimeoutSeconds": null
+    },
+    "transportPolicy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "outputAllocation": 32768,
+    "completionStatus": null,
+    "logicalPromptUtf8Bytes": 32636,
+    "logicalSchemaBytes": 24985
+  }
+]

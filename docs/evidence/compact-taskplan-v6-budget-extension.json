@@ -1,0 +1,28 @@
+{
+  "campaign": "schema-portability-20261019-incremental",
+  "before_ceiling_eur": "240.0301038327063045424449473",
+  "after_ceiling_eur": "440.0301038327063045424449473",
+  "available_eur": "238.97197068695347183063262214",
+  "accounting_unchanged": true,
+  "unresolved_requests": 0,
+  "unknown_attempts": 60,
+  "closed_receiptless_requests": 30,
+  "evidence": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v6-validation-20261025/budget-extension/gnougo-budget-extension-20261025-before.json",
+      "sha256": "c5df07b2233c7390013c4950d5bdcbdef52c33cf2795cecb964f90b2be57d75a"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v6-validation-20261025/budget-extension/gnougo-budget-extension-20261025-after.json",
+      "sha256": "cf8deb5ea6a16e4710c5d257995f57b57dae3c55493dcca68eb34d9ccd6afbe9"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v6-validation-20261025/budget-extension/gnougo-budget-extension-20261025-applied.json",
+      "sha256": "23db485562f696559a3d9be18a889d5c270c6fc608c46e4f956e073a1cb5202f"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v6-validation-20261025/budget-extension/gnougo-budget-extension-20261025-readiness.jsonl",
+      "sha256": "b5037497df8358d00ae07e6bad756b5862485ef3b5b09e114c15ab2824d16741"
+    }
+  ]
+}

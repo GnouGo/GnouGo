@@ -1,0 +1,141 @@
+{
+  "source": "7ab02766708b8ce29d84e2bd3466d84b5d91ffa7",
+  "cohort": "compactr7ab027667colhighv11a",
+  "observation_sha256": "b80c8fd707fb3c930f958db57ff797e088c54455effdb97261470dd1a0feefec",
+  "checkpoints": [
+    {
+      "checkpoint": 1,
+      "eligibility": {
+        "requirement:req_0": "no_unique_structural_subject",
+        "requirement:req_1": "conservation_not_proven",
+        "global:request:0:clause:2": "global"
+      },
+      "reuse_disposition": {
+        "requirement:req_0": "no_subject",
+        "requirement:req_1": "no_subject",
+        "global:request:0:clause:2": "no_subject"
+      },
+      "reused_count": 0,
+      "receipts": [
+        {
+          "request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:5:114ac6d0bf85fc1178797be03ecafbc40f991c1499539beddd8b4c425073b20d",
+          "request_hash_matches": true,
+          "raw_receipt_matches": true,
+          "raw_response_hash_matches": true,
+          "offered_subjects": 0,
+          "acknowledgments": {
+            "broad": 5
+          }
+        }
+      ]
+    },
+    {
+      "checkpoint": 2,
+      "eligibility": {
+        "requirement:req_0": "no_unique_structural_subject",
+        "requirement:req_1": "conservation_not_proven",
+        "global:request:0:clause:2": "global"
+      },
+      "reuse_disposition": {
+        "requirement:req_0": "no_subject",
+        "requirement:req_1": "no_subject",
+        "global:request:0:clause:2": "no_subject"
+      },
+      "reused_count": 0,
+      "receipts": [
+        {
+          "request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:8:fd022e973e0652135e22b1d8b31740f39584c567972d1f078564d124b2bdcb25",
+          "request_hash_matches": true,
+          "raw_receipt_matches": true,
+          "raw_response_hash_matches": true,
+          "offered_subjects": 0,
+          "acknowledgments": {
+            "broad": 4
+          }
+        }
+      ]
+    },
+    {
+      "checkpoint": 3,
+      "eligibility": {
+        "requirement:req_0": "conservation_not_proven",
+        "requirement:req_1": "conservation_not_proven",
+        "global:request:0:clause:2": "global"
+      },
+      "reuse_disposition": {
+        "requirement:req_0": "no_subject",
+        "requirement:req_1": "no_subject",
+        "global:request:0:clause:2": "no_subject"
+      },
+      "reused_count": 0,
+      "receipts": [
+        {
+          "request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:11:e5dac92e8331ad7ff2d27508af883772424b8b8edeb19fa7343848bbe6e72ea6",
+          "request_hash_matches": true,
+          "raw_receipt_matches": true,
+          "raw_response_hash_matches": true,
+          "offered_subjects": 0,
+          "acknowledgments": {
+            "broad": 4
+          }
+        }
+      ]
+    },
+    {
+      "checkpoint": 4,
+      "eligibility": {
+        "requirement:req_0": "offered",
+        "requirement:req_1": "offered",
+        "global:request:0:clause:2": "global"
+      },
+      "reuse_disposition": {
+        "requirement:req_0": "claim_requires_fresh_coverage",
+        "requirement:req_1": "claim_requires_fresh_coverage",
+        "global:request:0:clause:2": "no_subject"
+      },
+      "reused_count": 0,
+      "receipts": [
+        {
+          "request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:14:de0ef3b255b0fe8e02134222daa1bd6b2b4de2611a12fe9ca9d945c83ac1511d",
+          "request_hash_matches": true,
+          "raw_receipt_matches": true,
+          "raw_response_hash_matches": true,
+          "offered_subjects": 2,
+          "acknowledgments": {
+            "broad": 5
+          }
+        }
+      ]
+    },
+    {
+      "checkpoint": 5,
+      "eligibility": {
+        "requirement:req_0": "no_unique_structural_subject",
+        "requirement:req_1": "conservation_not_proven",
+        "global:request:0:clause:2": "global"
+      },
+      "reuse_disposition": {
+        "requirement:req_0": "no_subject",
+        "requirement:req_1": "no_subject",
+        "global:request:0:clause:2": "no_subject"
+      },
+      "reused_count": 0,
+      "receipts": [
+        {
+          "request_id": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:17:cd93a6d47573c57cf0d7920d87089f998ac77789058d54224bf3dad3d45c7d83",
+          "request_hash_matches": true,
+          "raw_receipt_matches": true,
+          "raw_response_hash_matches": true,
+          "offered_subjects": 0,
+          "acknowledgments": {
+            "broad": 4
+          }
+        }
+      ]
+    }
+  ],
+  "applied_transition_records": 0,
+  "a_verdict": "No live reuse realized in this incomplete run; two legitimate subjects were offered and acknowledged broad. No presentation or conservation defect established by these rows.",
+  "b_verdict": "No established transition application recorded; no equivalent completed trace or eliminated-call claim.",
+  "business_acceptance": false
+}

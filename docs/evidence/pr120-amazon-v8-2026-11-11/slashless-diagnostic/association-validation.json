@@ -1,0 +1,11 @@
+{
+  "controlled_checks_passed": 48,
+  "model_calls": 0,
+  "network_calls": 0,
+  "workflow_qualification": false,
+  "association_analysis_only": true,
+  "build_warnings": 0,
+  "build_errors": 0,
+  "workflow_policy_modified": false,
+  "source_classification_modified": false
+}

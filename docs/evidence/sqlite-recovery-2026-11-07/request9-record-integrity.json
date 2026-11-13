@@ -1,0 +1,44 @@
+{
+  "session": "d5f12d9d59f54bda9fefe441d19c0834",
+  "revision": 21,
+  "method": "Public record APIs; parsed JSON equality with exact decimal numbers. No request contents published.",
+  "records": {
+    "session": {
+      "unchanged": true,
+      "absent": false
+    },
+    "planning-evaluation-runs": {
+      "unchanged": true,
+      "absent": false
+    },
+    "planning-evaluation-http-attempts": {
+      "unchanged": true,
+      "absent": false
+    },
+    "planning-evaluation-failures": {
+      "unchanged": true,
+      "absent": false
+    },
+    "planning-evaluation-session-policy": {
+      "unchanged": true,
+      "absent": false
+    },
+    "agent-planning-model-http-v11": {
+      "unchanged": true,
+      "absent": false
+    },
+    "agent-planning-model-requests-v11": {
+      "unchanged": true,
+      "absent": false
+    },
+    "agent-planning-model-receipts-v11": {
+      "unchanged": true,
+      "absent": true
+    },
+    "agent-planning-budgets-v11": {
+      "unchanged": true,
+      "absent": false
+    }
+  },
+  "allUnchanged": true
+}

@@ -83,23 +83,9 @@ public sealed class TaskPlanStabilizationTests
     }
 
     [Fact]
-    public void ExhaustedDiscoverySchemaForbidsRetainedMixedActions()
-    {
-        var fixture = Fixture("review_french-1");
-        var state = PlannerFixture.Session();
-        state.Discovery.Sources = [new("source", "Source")];
-        state.Discovery.Pages = [new("source", null, [], null)];
-        var schema = PlanningSchemas.Proposal(state);
-        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        Assert.Equal("null", schema["properties"]!["discoveryRequests"]!["type"]!.ToString());
-        foreach (var response in fixture["responses"]!.AsArray().Where(r => r?["proposal"]?["sourceId"] is not null))
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response!["proposal"], schema));
-    }
-
-    [Fact]
     public void InputSchemaRequiresDefaultsWithoutRequiringDefaultsForOptionalObjectFields()
     {
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
         var inputSchema = PlanningSchemas.Ref("input"); inputSchema["$defs"] = schema["$defs"]!.DeepClone();
         var input = JsonNode.Parse("""{"name":"value","type":{"kind":"string"},"required":false,"default":null}""")!;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(input, inputSchema));
@@ -172,34 +158,4 @@ public sealed class TaskPlanStabilizationTests
         Assert.Equal("Hello", result.Outputs["result"]!["messages"]![0]!["text"]!.ToString());
     }
 
-    [Fact]
-    public void DiscoverySchemaAdvertisesOnlyUnconsumedPages()
-    {
-        var state = PlannerFixture.Session();
-        state.Discovery.Sources = [new("complete", "Complete"), new("paged", "Paged"), new("unseen", "Unseen")];
-        state.Discovery.Pages = [new("complete", null, [], null), new("paged", null, [], "next")];
-        var schema = PlanningSchemas.Proposal(state);
-        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, true));
-        var batch = schema["properties"]!["discoveryRequests"]!.DeepClone().AsObject();
-        batch["$defs"] = schema["$defs"]!.DeepClone();
-        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""[{"sourceId":"paged","cursor":"next","query":null,"operationIds":null},{"sourceId":"unseen","cursor":null,"query":null,"operationIds":null}]"""), batch));
-        foreach (var invalid in new[] { """[{"sourceId":"complete","cursor":null}]""", """[{"sourceId":"unseen","cursor":"next"}]""", """[{"sourceId":"paged","cursor":"invented"}]""" })
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonNode.Parse(invalid), batch));
-    }
-
-    [Fact]
-    public async Task PendingRequestRetainsItsSchemaWhenDiscoveryChanges()
-    {
-        var runtime = new TestRuntime { Respond = (_, _) => throw new IOException("Interrupted") };
-        var state = await PlannerFixture.RunAsync(runtime);
-        var pending = state.PendingCall!;
-        var schema = pending.Request.StructuredOutputSchema!.ToJsonString();
-        state.Discovery.Sources.Add(new("new-source", "New source"));
-        runtime.Respond = (request, _) => TestRuntime.Response(request, runtime.Proposal);
-        state.Status = PlanningStatus.Generating;
-        state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Equal(1, state.ModelCalls);
-        Assert.Equal(pending.Id, runtime.Calls[^1].ClientRequestId);
-        Assert.Equal(schema, runtime.Calls[^1].StructuredOutputSchema!.ToJsonString());
-    }
 }

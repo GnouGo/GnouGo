@@ -45,13 +45,14 @@ public sealed partial class PlanningGraphCompiler
     internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches)
         => Compile(graph, catalog, name, descriptions, fuseBindings, consumerBindings, directProjections, nativeMappings, readableMappings, leanMappings, compactProjections, inlineConsumers, directValues, checkedControls, readableBranches, false);
 
-    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches, bool simplifiedLocals)
+    internal string Compile(PlanningGraph graph, PlanningCatalog catalog, string name, bool descriptions, bool fuseBindings, bool consumerBindings, bool directProjections, bool nativeMappings, bool readableMappings, bool leanMappings, bool compactProjections, bool inlineConsumers, bool directValues, bool checkedControls, bool readableBranches, bool simplifiedLocals, bool advisoryOptimization = false)
     {
         ArgumentNullException.ThrowIfNull(graph);
-        var diagnostics = PlanningExecutableValidation.Validate(graph, catalog);
+        var diagnostics = PlanningExecutableValidation.Validate(graph, catalog, advisoryOptimization);
         if (diagnostics.Count != 0) throw new InvalidOperationException(string.Join("; ", diagnostics.Select(d => d.Code + " at " + d.Location + ": " + d.Message)));
-        if (graph.Workflows.Count == 0 || graph.Workflows.Count > 100)
-            throw new InvalidOperationException("A planning graph must contain between 1 and 100 workflows.");
+        var limits = PlanningGraphLimits.From(catalog.Policy);
+        if (graph.Workflows.Count == 0 || !advisoryOptimization && graph.Workflows.Count > limits.Workflows)
+            throw new InvalidOperationException("A planning graph must contain between 1 and " + limits.Workflows + " workflows.");
         EnsureUnique(graph.Workflows.Select(w => w.Key), "workflow");
         if (!graph.Workflows.Any(w => w.Key == graph.Entrypoint))
             throw new InvalidOperationException("The graph entrypoint is missing.");
@@ -63,7 +64,7 @@ public sealed partial class PlanningGraphCompiler
         {
             var allNodes = Enumerate(workflow.Steps).Concat(Enumerate(workflow.Finally)).ToArray();
             EnsureUnique(allNodes.Select(n => n.Key), "node");
-            if (allNodes.Length > 300) throw new InvalidOperationException("A workflow exceeds the 300-node planning limit.");
+            if (!advisoryOptimization && allNodes.Length > limits.StepsPerWorkflow) throw new InvalidOperationException("A workflow exceeds the " + limits.StepsPerWorkflow + "-node planning limit.");
             var nodeIds = allNodes.ToDictionary(n => n.Key, n => "n_" + Fingerprint(n.Key)[..16], StringComparer.Ordinal);
             var scope = new LoweringScope(catalog, nodeIds, workflowIds, workflow.Inputs.Select(p => p.Name).ToHashSet(StringComparer.Ordinal), allNodes.ToDictionary(n => n.Key, n => n.Type, StringComparer.Ordinal), LoopVariables(allNodes), allNodes.ToDictionary(n => n.Key, StringComparer.Ordinal), graph.Workflows.ToDictionary(w => w.Key, StringComparer.Ordinal), descriptions) { DirectProjections = directProjections, NativeMappings = nativeMappings, ReadableMappings = readableMappings, LeanMappings = leanMappings, CompactProjections = compactProjections, InlineConsumers = inlineConsumers, DirectValues = directValues, CheckedControls = checkedControls, ReadableBranches = readableBranches, SimplifiedLocals = simplifiedLocals };
             if (compactProjections) PrepareCopyProjections(workflow, scope);
@@ -364,13 +365,13 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "flatten" or "present" } computed &&
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "string_operation" or "flatten" or "present" } computed &&
                 PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
                 paths.Items[0] is { Kind: "array", Items.Count: 0 }:
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -449,6 +450,14 @@ public sealed partial class PlanningGraphCompiler
             var script = LookupExpression("source.records", "source.selected", value.Text!);
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + ProgramLiteral(script, scope) + ",({records:" + ExpressionBody(value.Items[0]) + ",selected:" + ExpressionBody(value.Items[1]) + "}))";
+        }
+        else if (value.Kind == "string_operation")
+        {
+            var names = Enumerable.Range(0, value.Items.Count).Select(index => "s" + index.ToString(CultureInfo.InvariantCulture)).ToArray();
+            expression = "((" + string.Join(',', names) + ")=>{if(" + string.Join("||", names.Select(name => "typeof " + name + "!=='string'")) +
+                ")throw new Error('String operands must be nonnullable strings.');return " +
+                (value.Text == "uri_component" ? "encodeURIComponent(s0)" : string.Join('+', names)) + ";})(" +
+                string.Join(',', value.Items.Select(ExpressionBody)) + ")";
         }
         else if (value.Kind == "arithmetic")
         {
