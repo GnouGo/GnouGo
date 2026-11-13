@@ -79,7 +79,9 @@ internal sealed partial class BenchmarkCampaign
             if (closure["reason"]?.ToString() != PermanentRetentionReason) continue;
             ValidatePermanentClosure(closure, row.Key[(Id.Length + 1)..]);
             var abandoned = closure["evidence"]!["session_id"]!.ToString();
-            if (sessionId == abandoned || sessionId == abandoned + "-execution" || sessionId == abandoned + "-copilot")
+            var runtimeRoot = closure["evidence"]?["retention_kind"]?.ToString() == RuntimeDiagnosticRetention ? closure["evidence"]?["run_key"]?.ToString() : null;
+            if (sessionId == abandoned || sessionId == abandoned + "-execution" || sessionId == abandoned + "-copilot" ||
+                runtimeRoot is not null && (sessionId == runtimeRoot || sessionId == runtimeRoot + "-execution" || sessionId == runtimeRoot + "-copilot"))
                 throw new InvalidOperationException("This planning run is permanently retained as inconclusive and cannot be continued or executed.");
         }
     }
@@ -106,6 +108,8 @@ internal sealed partial class BenchmarkCampaign
         }
         if (retentionKind == ProviderProbeRetention)
             return await InspectProviderProbeRetentionAsync(collection, runKey, requestId, ct);
+        if (retentionKind == RuntimeDiagnosticRetention)
+            return await InspectRuntimeDiagnosticRetentionAsync(collection, runKey, requestId, ct);
         if (retentionKind is not (InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention))
             throw new InvalidOperationException("New closures require the active captured-transport retention mode; historical closures remain immutable.");
         var run = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("No retained planning run.");
@@ -360,8 +364,9 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or ProviderProbeRetention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention) ||
             evidence["retention_kind"]?.ToString() == ProviderProbeRetention && !ValidProviderProbeEvidence(evidence) ||
+            evidence["retention_kind"]?.ToString() == RuntimeDiagnosticRetention && !ValidRuntimeDiagnosticEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() == CancelledBeforeCampaignRetention && !ValidBeforeCampaignServerEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() == CancelledPlanningRetention &&
                 (evidence["outcome_evidence"]?.ToString() != "cancelled_reserved_attempt_without_persisted_outcome" ||
@@ -409,7 +414,7 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or ProviderProbeRetention))
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention))
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 

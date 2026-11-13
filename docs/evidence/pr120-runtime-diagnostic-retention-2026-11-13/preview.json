@@ -1,0 +1,14 @@
+{
+  "status": "preview_only_not_applied",
+  "evidence_hash": "5414e42ac9704ca82c9feb23e6a1d7c3003cfadf6ec248d65aea94df4e320473",
+  "kind": "tool-free-runtime-diagnostic",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "replay_forbidden": true,
+  "continuation_forbidden": true,
+  "actual_request": "amazon-source-batch-20261113-01-execution:1:3ec3bc83bf8a59f57fa4450cca2dd9fac9a6d8a9061645c2a4ac5c462e382a7d",
+  "retained_http_reservation_eur": "58.860157025539211262521433082",
+  "new_spending_grant": false,
+  "money_released": false,
+  "original_records_rewritten": false
+}

@@ -14,6 +14,128 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("none")] [InlineData("receipt")] [InlineData("usage")] [InlineData("response")]
+    [InlineData("navigation")] [InlineData("business")] [InlineData("candidate")] [InlineData("artifact")]
+    [InlineData("session")] [InlineData("owner")] [InlineData("configuration")] [InlineData("harness")]
+    [InlineData("wire-tools")] [InlineData("wire-output")] [InlineData("wire-model")] [InlineData("wire-schema")]
+    [InlineData("wire-prompt")] [InlineData("sdk-mode")] [InlineData("policy")] [InlineData("attempt-count")]
+    [InlineData("attempt-body")] [InlineData("attempt-protocol")] [InlineData("attempt-usage")] [InlineData("window")]
+    [InlineData("wire-legacy-tools")] [InlineData("wire-conflicting-output")]
+    public async Task ToolFreeRuntimeDiagnosticRetentionSealsTheRunWithoutChangingItsHoldOrHistory(string defect)
+    {
+        var records = new Records(); var campaign = new BenchmarkCampaign(records, "runtime-diagnostic-campaign");
+        const string runId = "independent-runtime-diagnostic";
+        const string kind = "tool-free-runtime-diagnostic";
+        var request = LiveWorkflowEvaluation.ExecutionRequest(new LLMRequest
+        {
+            Provider = "OpenAi", Model = "model", Prompt = "Interpret retained source data without tools.", MaxTokens = 64,
+            StructuredOutputStrict = true, StructuredOutputSchema = new JsonObject
+            {
+                ["type"] = "object", ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" } },
+                ["required"] = new JsonArray("ok"), ["additionalProperties"] = false
+            }
+        }, runId, 1);
+        request.DisableTransportRetries = true;
+        var requestNode = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.AsObject();
+        var id = request.ClientRequestId!;
+        var config = new JsonObject { ["provider"] = "OpenAi", ["model"] = "model", ["endpoint"] = "https://gateway.invalid/v1" };
+        await campaign.PinAsync(config, Ct);
+        var registration = await campaign.RegisterConfigurationAsync(config, new string('a', 64), new string('b', 64),
+            PlanningGraphCompiler.Fingerprint(config.ToJsonString()), "fixture exact deployment", true, Ct);
+        var policy = new JsonObject { ["version"] = 2, ["mode"] = "runtime_single_attempt", ["disable_transport_retries"] = true,
+            ["allow_http_recovery"] = true, ["request_hash"] = PlanningGraphCompiler.Fingerprint(requestNode.ToJsonString()),
+            ["effective_retry_policy"] = JsonSerializer.SerializeToNode(new LLMProviderRetryPolicyOptions { MaxAttempts = 1, MaxUncertainRetries = 0 }, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions) };
+        var body = System.Text.Encoding.UTF8.GetString(ChatRequestBuilder.OpenAiFull("model", request.Prompt,
+            structuredOutputSchema: request.StructuredOutputSchema, structuredOutputStrict: true, reasoning: "medium", maxOutputTokens: 64));
+        var journal = new BenchmarkHttpJournal(campaign, id, 4096, 64, 3m, effectiveTransportPolicy: policy);
+        await journal.PrepareAsync(Ct, new JsonObject { ["source"] = "fixture" });
+        await journal.SaveAsync(new() { Fingerprint = new string('c', 64), RequestMethod = "POST", Endpoint = "https://gateway.invalid/v1/chat/completions", RequestBody = body,
+            Attempts = [new() { Id = id + ":attempt", StartedAtUtc = DateTimeOffset.UtcNow.AddMinutes(-1), CompletedAtUtc = DateTimeOffset.UtcNow, Failure = "transport", ResponseBodyComplete = false }] }, Ct);
+        await campaign.SaveAsync("planning-evaluation-requests", id, requestNode, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", id, new() { ["stage"] = "dispatch", ["kind"] = "Transport", ["attempt_count"] = 1 }, Ct);
+        var run = new JsonObject { ["source"] = new string('a', 40), ["phase"] = "isolated_source_consumer", ["run"] = runId,
+            ["campaign_configuration"] = registration["configuration_id"]!.DeepClone(), ["request"] = requestNode.DeepClone(),
+            ["passed"] = false, ["started_utc"] = DateTimeOffset.UtcNow.AddMinutes(-2), ["finished_utc"] = DateTimeOffset.UtcNow,
+            ["durable_receipt_reloaded"] = false, ["actual_navigation"] = 0, ["business_execution"] = false,
+            ["fragment_applied"] = false, ["full_workflow_oracle_passed"] = false, ["original_session_modified"] = false,
+            ["harness_sha256"] = new string('d', 64), ["input_template_sha256"] = new string('e', 64),
+            ["exception_type"] = typeof(LLMClientException).FullName };
+        if (defect == "receipt") await campaign.SaveAsync("planning-evaluation-receipts", id, new(), Ct);
+        if (defect == "response") run["response"] = new JsonObject { ["text"] = "received" };
+        if (defect == "navigation") run["actual_navigation"] = 1;
+        if (defect == "business") run["business_execution"] = true;
+        if (defect == "candidate") run["fragment_applied"] = true;
+        if (defect == "artifact") run["artifact_hash"] = "approved";
+        if (defect == "session") run["session_id"] = "planning-session";
+        if (defect == "owner") run["request"]!["clientRequestId"] = "another-run:1";
+        if (defect == "configuration") run["campaign_configuration"] = new string('f', 64);
+        if (defect == "harness") run["harness_sha256"] = "not-a-hash";
+        if (defect == "window") run["finished_utc"] = DateTimeOffset.UtcNow.AddHours(-1);
+        if (defect is "usage" or "sdk-mode" or "policy" or "attempt-count" or "attempt-body" or "attempt-protocol" or "attempt-usage" || defect.StartsWith("wire-", StringComparison.Ordinal))
+        {
+            var changed = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, id, Ct))!;
+            if (defect == "usage") changed["usage"] = new JsonObject { ["input_tokens"] = 1 };
+            if (defect == "sdk-mode") changed["effective_transport_policy"]!["mode"] = "sdk_proxy_single_attempt";
+            if (defect == "policy") changed["effective_transport_policy"]!["effective_retry_policy"]!["MaxAttempts"] = 2;
+            if (defect is "sdk-mode" or "policy") changed["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(changed["effective_transport_policy"]!.ToJsonString());
+            if (defect == "attempt-count") changed["transport"]!["Attempts"] = new JsonArray();
+            if (defect == "attempt-body") changed["transport"]!["Attempts"]![0]!["Body"] = "received output";
+            if (defect == "attempt-protocol") changed["transport"]!["Attempts"]![0]!["ProtocolComplete"] = true;
+            if (defect == "attempt-usage") changed["transport"]!["Attempts"]![0]!["UsageKnown"] = true;
+            if (defect.StartsWith("wire-", StringComparison.Ordinal))
+            {
+                var actual = JsonNode.Parse(body)!;
+                if (defect == "wire-tools") actual["tools"] = new JsonArray(new JsonObject { ["type"] = "function", ["name"] = "business-effect" });
+                if (defect == "wire-legacy-tools") actual["functions"] = new JsonArray(new JsonObject { ["name"] = "business-effect" });
+                if (defect == "wire-output") actual["max_completion_tokens"] = 65;
+                if (defect == "wire-conflicting-output") actual["max_tokens"] = 65;
+                if (defect == "wire-model") actual["model"] = "other";
+                if (defect == "wire-schema") actual["response_format"]!["json_schema"]!["schema"] = new JsonObject();
+                if (defect == "wire-prompt") actual["messages"]![0]!["content"] = "changed";
+                changed["transport"]!["RequestBody"] = actual.ToJsonString();
+            }
+            await campaign.SaveAsync(BenchmarkHttpJournal.Collection, id, changed, Ct);
+        }
+        await campaign.SaveAsync("planning-evaluation-runs", runId, run, Ct);
+        if (defect != "none")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", runId, id, Ct, kind));
+            Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", id, Ct));
+            return;
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", runId, id, Ct, BenchmarkCampaign.ProviderProbeRetention));
+        var originals = new Dictionary<string, string>();
+        foreach (var collection in new[] { "planning-evaluation-runs", "planning-evaluation-requests", "planning-evaluation-failures", BenchmarkHttpJournal.Collection })
+            originals[collection] = (await campaign.LoadAsync(collection, collection == "planning-evaluation-runs" ? runId : id, Ct))!.ToJsonString();
+        var accounting = (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)).ToJsonString();
+        Assert.True(await campaign.HasUncertainRequestAsync(Ct));
+        var preview = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", runId, id, Ct, kind);
+        run["hypothesis"] = "changed after preview";
+        await campaign.SaveAsync("planning-evaluation-runs", runId, run, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", runId, id,
+            preview["evidence_hash"]!.ToString(), "operator", "retain the complete diagnostic hold and forbid all old replay", Ct, kind));
+        Assert.Null(await campaign.LoadAsync("planning-evaluation-closures", id, Ct));
+        await campaign.SaveAsync("planning-evaluation-runs", runId, JsonNode.Parse(originals["planning-evaluation-runs"])!.AsObject(), Ct);
+        var closure = await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", runId, id, preview["evidence_hash"]!.ToString(),
+            "operator", "retain the complete diagnostic hold and forbid all old replay", Ct, kind);
+        Assert.Equal("inconclusive", closure["outcome"]!.ToString());
+        Assert.True(closure["reservation_retained"]!.GetValue<bool>());
+        Assert.False(await campaign.HasUncertainRequestAsync(Ct));
+        var retainedBefore = (await campaign.LoadAsync("planning-evaluation-closures", id, Ct))!.ToJsonString();
+        await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", runId, id, preview["evidence_hash"]!.ToString(),
+            "operator", "retain the complete diagnostic hold and forbid all old replay", Ct, kind);
+        Assert.Equal(retainedBefore, (await campaign.LoadAsync("planning-evaluation-closures", id, Ct))!.ToJsonString());
+        Assert.Equal(accounting, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)).ToJsonString());
+        foreach (var original in originals)
+            Assert.Equal(original.Value, (await campaign.LoadAsync(original.Key, original.Key == "planning-evaluation-runs" ? runId : id, Ct))!.ToJsonString());
+        var cold = new BenchmarkCampaign(records, campaign.Id);
+        foreach (var scope in new[] { runId, runId + "-execution", runId + "-copilot" })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => cold.RequireRunNotRetainedAsync(scope, Ct));
+        await cold.RequireRunNotRetainedAsync("independent-fresh-run", Ct);
+        Assert.Equal(3m, (await BenchmarkHttpJournal.AccountingAsync(cold, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+    }
+
+    [Theory]
     [InlineData("none")] [InlineData("permission")] [InlineData("endpoint")]
     [InlineData("price")] [InlineData("retry")] [InlineData("metadata")] [InlineData("other-server")]
     public async Task SdkWireAmendmentPreservesFundingAndRejectsUnrelatedChanges(string defect)
