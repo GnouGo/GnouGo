@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
@@ -9,6 +11,50 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserToolsStructuredOutputTests
 {
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("empty")]
+    [InlineData("matching")]
+    public void PublishedAncestorContractAcceptsTheActualNullableDictionaryValue(string variant)
+    {
+        var record = new BrowserObservationRecord("link", "a", "main a", "main", "Observed", "https://example.invalid/item", null)
+        {
+            AncestorAttributes = new Dictionary<string, BrowserObservationAncestorAttribute?>
+            {
+                ["data-code"] = variant == "missing" ? null : new(variant == "empty" ? "" : "observed", "div", null, 0)
+            }
+        };
+        var wire = JsonSerializer.SerializeToNode(record, BrowserMcpJsonContext.Default.BrowserObservationRecord)!;
+        Assert.True(wire["ancestorAttributes"]!.AsObject().ContainsKey("data-code"));
+        if (variant == "missing") Assert.Null(wire["ancestorAttributes"]!["data-code"]);
+        else Assert.Equal(variant == "empty" ? "" : "observed", wire["ancestorAttributes"]!["data-code"]!["value"]!.ToString());
+        foreach (var schema in PublishedRecordSchemas())
+        {
+            var contextSchema = schema["properties"]!["ancestorAttributes"]!["additionalProperties"]!;
+            var types = contextSchema["type"] is JsonArray list ? list.Select(item => item!.ToString()).ToArray() : [contextSchema["type"]!.ToString()];
+            Assert.Contains(wire["ancestorAttributes"]!["data-code"] is null ? "null" : "object", types);
+            Assert.Equal(new[] { "value", "tag", "role", "index" }, contextSchema["required"]!.AsArray().Select(item => item!.ToString()));
+            Assert.Equal("string", contextSchema["properties"]!["value"]!["type"]!.ToString());
+            Assert.Equal("string", contextSchema["properties"]!["tag"]!["type"]!.ToString());
+            Assert.Equal("integer", contextSchema["properties"]!["index"]!["type"]!.ToString());
+        }
+    }
+
+    private static JsonNode[] PublishedRecordSchemas()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IOptions<BrowserServerSettings>>(Options.Create(new BrowserServerSettings()));
+        services.AddSingleton<PlaywrightBrowserHost>();
+        services.AddTransient<BrowserTools>();
+        services.AddMcpServer().WithTools<BrowserTools>(BrowserMcpJson.SerializerOptions);
+        using var provider = services.BuildServiceProvider();
+        var descriptor = provider.GetServices<McpServerTool>().Single(tool => tool.ProtocolTool.Name == "browser_get_content");
+        var schema = JsonNode.Parse(BrowserMcpJson.ContentSchema(descriptor.ProtocolTool.OutputSchema!.Value).GetRawText())!;
+        return [schema["properties"]!["observation"]!["properties"]!["records"]!["items"]!.DeepClone(),
+            schema["properties"]!["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"]!["items"]!.DeepClone()];
+    }
+
     [Fact]
     public void AllBrowserMcpTools_DeclareStructuredOutputSchemas()
     {

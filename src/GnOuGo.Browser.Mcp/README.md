@@ -381,3 +381,10 @@ attribute is requested by default. Names are bounded to 64 characters; values ov
 1,024 characters or ancestry beyond 64 levels mark the capture incomplete. Existing
 record/page/byte limits apply. This metadata records source DOM facts and performs
 no business classification or URL construction.
+
+The published record contract permits a null dictionary value for a requested
+attribute with no matching ancestor, alongside a strictly typed context object.
+The object's `value`, `tag`, `role` and `index` remain required; an observed empty
+attribute stays an empty string. Observation and complete-snapshot records publish
+the same contract. Refresh discovery for the corrected schema fingerprint; saved
+payloads, old catalogues and permissions are unchanged.

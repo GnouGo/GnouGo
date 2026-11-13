@@ -18,6 +18,9 @@ internal static class BrowserMcpJson
         var records = properties["observation"]!["properties"]!["records"]!;
         records["items"]!["properties"]!["actions"]!["items"] = new JsonObject
             { ["type"] = "string", ["enum"] = new JsonArray("activate", "follow", "fill", "select", "press") };
+        // The SDK loses nullable dictionary-value annotations. Missing ancestor
+        // context is emitted as null; preserve the object's existing constraints.
+        records["items"]!["properties"]!["ancestorAttributes"]!["additionalProperties"]!["type"] = new JsonArray("object", "null");
         properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"] =
             properties["observation"]!["properties"]!["records"]!.DeepClone();
         using var document = JsonDocument.Parse(schema.ToJsonString());

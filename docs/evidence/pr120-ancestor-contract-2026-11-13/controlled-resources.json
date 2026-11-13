@@ -1,0 +1,9 @@
+{
+  "exit_code": 0,
+  "elapsed_seconds": 9.705,
+  "peak_rss_kib": 446080,
+  "stop_reason": null,
+  "captured_compilation_profile": "compact-bindings-v15",
+  "model_calls": 0,
+  "source_contacts": 0
+}
