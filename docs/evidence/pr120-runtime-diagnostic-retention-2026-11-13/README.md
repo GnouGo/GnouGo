@@ -18,4 +18,8 @@ Only a new administrative closure is written. Every old run/request/failure/HTTP
 
 The combined sample retains one empty-ASIN context with three own product proofs, the existing exact review alias and its own exact `/deals` proof. This avoids cross-snapshot borrowing. All raw records remain; workflow and verifier activation remain **unauthorized and inactive** under the source-only grant. V10/v14 stay unchanged. A later explicit, versioned amendment would need controlled positive/negative coverage before another actual-profile source preflight and paid Amazon workflow.
 
-Full Amazon **0/2**, Code **0/2**. The qualified SDK environment remains available for a fresh complete Code run once the retention guard and required validation are satisfied. All old stopped sessions, costs, holds and grants remain.
+### Applied closure and cold verification
+
+After the clean `b501dc14` build, the existing preview/apply operation wrote the [permanent closure](applied.json). A separate-process public KeyVault read exactly matches the applied record. All missing-receipt requests now have a closure; the inspector still truthfully lists their absent receipts. Every physical accounting field matches the pre-closure audit, including 51 unknown HTTP attempts and the complete diagnostic reservation. No money was released, history rewritten, model call made or funding added. The independently computed remaining headroom is approximately EUR195.58; provider invoices and global funding remain unavailable.
+
+Full Amazon **0/2**, Code **0/2**. The qualified SDK environment remains available for a fresh complete Code run once required validation is satisfied. All old stopped sessions, costs, holds and grants remain.

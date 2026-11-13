@@ -1220,3 +1220,16 @@ explicitly captured schema-presentation experiments without changing source sess
 provider, model, endpoint, tool authority, retries or historical requests. The probe
 still applies no fragment; compiler, continuation and business validation remain
 separate from JSON-schema conformance.
+
+### Inactive exact auxiliary-listing proposal
+
+`AnalyzeAmazonDealsContextProposal` is an offline evidence helper only. It is absent
+from workflow policy capture, Browser configuration, planning facts and business
+oracle dispatch. The separately authorized source-only diagnostic resolved exact
+observed `https://www.amazon.fr/deals` occurrences. This helper checks each own
+ordered complete capture and the narrow empty-ASIN product-card relationship; it
+never qualifies a source, grants navigation or claims business completion. V10/v14
+remain unchanged. See the [versioned activation proposal and controlled/retained
+evidence](../../docs/evidence/pr120-amazon-deals-proposal-2026-11-13/proposal.md).
+Separate explicit approval is required before implementation and activation of
+the proposed policy v11/verifier v15.
