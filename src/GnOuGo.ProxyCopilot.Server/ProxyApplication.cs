@@ -5,6 +5,7 @@ using GnOuGo.Observability.Core;
 using GnOuGo.ProxyCopilot.Server.Configuration;
 using GnOuGo.ProxyCopilot.Server.Protocols;
 using GnOuGo.ProxyCopilot.Server.Traffic;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace GnOuGo.ProxyCopilot.Server;
 
@@ -25,6 +26,7 @@ public static class ProxyApplication
         builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = options.MaxRequestBytes);
         builder.Services.ConfigureHttpJsonOptions(json => json.SerializerOptions.TypeInfoResolverChain.Insert(0, ProxyJsonContext.Default));
         builder.Services.AddSingleton(options);
+        builder.Services.TryAddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IModelRegistry>(registry);
         builder.Services.AddSingleton<CredentialRedactor>();
         builder.Services.AddSingleton<ITrafficStore, TrafficStore>();
@@ -172,9 +174,10 @@ public static class ProxyApplication
         if (context.Response.HasStarted) { context.Abort(); return; }
         context.Response.StatusCode = error.StatusCode;
         context.Response.ContentType = "application/json; charset=utf-8";
-        var body = new JsonObject { ["error"] = new JsonObject {
+        await context.Response.WriteAsync(ErrorBody(error).ToJsonString(ProxyJsonContext.Default.Options), context.RequestAborted);
+    }
+
+    internal static JsonObject ErrorBody(ProxyException error) => new() { ["error"] = new JsonObject {
             ["message"] = error.Message, ["type"] = error.StatusCode < 500 ? "invalid_request_error" : "api_error", ["code"] = error.Code
         } };
-        await context.Response.WriteAsync(body.ToJsonString(ProxyJsonContext.Default.Options), context.RequestAborted);
-    }
 }

@@ -2,6 +2,15 @@
 
 All notable changes to this project are documented in this file.
 
+## v0.20.0 - 2026-10-02
+
+- feat: publish ProxyCopilot to Homebrew (#118) (release) (ed2c6df2)
+- fix(proxy): add rate limiter (#116) (fa56e07b)
+- Replace multi-stage workflow planning with a unified hybrid planner (#113) (7288b699)
+- fix(proxy): claude-sampling (#115) (37331537)
+- feat(proxy): add live prices- #114 (#114) (bf90eb6d)
+- refactor: remove host-specific review publication (#111) (46c2c77f)
+
 ## v0.19.3 - 2026-09-24
 
 - Add planner decisions and unify Copilot execution through Core (#108) (release) (27759e76)
@@ -257,9 +266,6 @@ All notable changes to this project are documented in this file.
 ## v0.4.5 - 2026-05-02
 
 - fix(mpc): dotnet mcp cannot be trimmed (release) (1f3ce1c8)
-
-## v0.4.4 - 2026-05-02
-
 - fix(agent): mcp not found (release) (393048b3)
 - fix(agent): mcp browser not found (release) (6bcd0e3d)
 - fix(collector): add wwwroot to release (5b92b4d3)

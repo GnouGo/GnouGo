@@ -75,7 +75,37 @@ The native Anthropic adapter explicitly sends `thinking: {"type": "disabled"}`. 
 
 OpenAI-compatible and Copilot providers send output limits as `max_completion_tokens`, including when the client supplies `max_tokens` or the proxy supplies a configured default. Only one field is forwarded; conflicting client limits are rejected. This follows the [OpenAI Chat Completions contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), where `max_tokens` is deprecated and the completion limit includes reasoning tokens. For a legacy endpoint that accepts only `max_tokens`, add `"max_completion_tokens"` to that model's `Metadata.Capabilities.UnsupportedRequestParameters`. The proxy then translates either client field to `max_tokens`. If both fields are declared unsupported, a request requiring an output limit fails before dispatch. No model-name detection or retry after HTTP 400 is involved.
 
-Retries default to one attempt. Set `RetryPolicy.MaxAttempts` to enable bounded retries of HTTP **429** or **503** rejections. `Retry-After` is honored within `MaxTotalDelayMilliseconds`; exceeding that budget returns the rejection. `MaxUncertainRetries` must remain zero. Connection failures and started streams are never replayed. `AttemptTimeoutMilliseconds` covers authentication, sending, and reading an attempt; client cancellation cancels the upstream request.
+Retries default to one attempt. The examples enable up to **10 total attempts** and **30 minutes of cumulative waiting** per client request, using `Connection.RetryPolicy`:
+
+```json
+"RetryPolicy": {
+  "MaxAttempts": 10,
+  "MaxUncertainRetries": 0,
+  "AttemptTimeoutMilliseconds": 600000,
+  "MaxTotalDelayMilliseconds": 1800000
+}
+```
+
+Only explicit upstream HTTP **429** and **503** rejections are retried. `Retry-After: 150` waits at least 150 seconds; HTTP dates are supported too. Missing or malformed headers use exponential backoff with jitter (`BaseDelayMilliseconds`, capped by `MaxDelayMilliseconds`). That cap never shortens a valid provider delay. If the next delay would exceed `MaxTotalDelayMilliseconds`, or all attempts have been used, the request fails explicitly. These limits do not guarantee that the provider's quota will recover. Defaults remain unchanged when these settings are omitted.
+
+`AttemptTimeoutMilliseconds` covers authentication, sending, and reading each attempt, independently of retry waits. Authentication is reapplied on every attempt, allowing expired OIDC tokens to refresh. Cancellation or shutdown interrupts waiting immediately. `MaxUncertainRetries` must remain zero: uncertain connection failures and interrupted generation streams are never replayed. Waiting requests count toward the existing concurrent-request limit; one model's quota rejection does not pause unrelated requests.
+
+For streaming clients, the proxy starts SSE keep-alive comments when a retry is scheduled and repeats them every 15 seconds through waits and subsequent connection attempts. VS Code ignores these comments; they do not create assistant text, tools, usage, or first-token timing. Once headers have started, a terminal failure is an SSE `data: {"error": ...}` envelope, followed by closure without `[DONE]`, because HTTP 200 can no longer be changed. Failures before streaming starts retain their HTTP error status. Non-streaming clients wait for the eventual JSON response and must configure a sufficiently long client timeout.
+
+The dashboard keeps one traffic record per client request and shows **Waiting to retry**, the next attempt/countdown, last rejection status, and accumulated waiting time. Retry information remains visible after completion. Intermediate rejection bodies appear separately under **Rejected attempts**; the final upstream response remains separate. All captures retain the usual redaction, truncation, and memory limits. Operational telemetry includes `gnougo.proxy.retries`, `gnougo.proxy.retry_wait`, and `upstream.retry_wait` trace events, without prompt or response bodies.
+
+To validate a real VS Code Agent session after a controlled rate limit, start a real configured proxy on an alternate port and a separate published binary with no private configuration:
+
+```bash
+python3 scripts/smoke-proxy-copilot-retry.py \
+  --binary /path/to/published/GnOuGo.ProxyCopilot.Server \
+  --target http://127.0.0.1:5098 --model-id '<provider>/<model-alias>' \
+  --retry-after 150 --port 5099
+PROXY_SMOKE_URL=http://127.0.0.1:5099 PROXY_AGENT_MODEL_ID=retry/model \
+  node scripts/smoke-proxy-copilot-agent.mjs
+```
+
+The first command stays running until Ctrl+C. It injects exactly one rejection, verifies that the retry is not early, then forwards to the real local proxy; it never fabricates model output or executes Agent tools. Credentials remain in the real proxy. Use the Agent smoke's isolated window for its scoped approvals, inspect the waiting countdown at `http://127.0.0.1:5099/ui/`, and stop the harness afterward. The harness records wait/forwarding evidence in its printed temporary directory. The Agent script additionally saves tool execution evidence and a screenshot.
 
 ## Estimated costs
 
@@ -134,6 +164,57 @@ Only loopback listen addresses and same-origin browser requests are accepted. Co
 `ProxyCopilot.TenantId` defaults to `local`. Enable optional OpenTelemetry through the shared `OpenTelemetry` section. The proxy emits request status, duration, model/provider, and tenant metadata, without prompt/response bodies or authentication HTTP traces. Nothing is persisted by the application.
 
 ## Test and publish
+
+### Homebrew (macOS)
+
+Install the standalone server on Apple Silicon or Intel Macs (macOS Monterey 12
+or later), without installing the desktop application or a .NET SDK/runtime:
+
+```bash
+brew update
+brew install gnougo/tap/gnougo-proxy-copilot
+# To run ProxyCopilot (foreground; Ctrl+C to stop)
+gnougo-proxy-copilot
+```
+
+If Homebrew asks you to trust the third-party formula, review
+[`Formula/gnougo-proxy-copilot.rb`](https://github.com/GnouGo/homebrew-tap/blob/main/Formula/gnougo-proxy-copilot.rb)
+and run `brew trust --formula gnougo/tap/gnougo-proxy-copilot` before retrying.
+
+If macOS blocks the executable because it is quarantined, first verify that it
+came from the official tap, then remove the quarantine attribute from that
+installed binary only and run it again:
+
+```bash
+xattr -d com.apple.quarantine "$(brew --prefix gnougo-proxy-copilot)/libexec/GnOuGo.ProxyCopilot.Server"
+gnougo-proxy-copilot
+```
+
+No `sudo` is needed. From another terminal, open the dashboard:
+
+```bash
+open http://127.0.0.1:5087/ui/
+```
+
+The server runs in the foreground and listens only on loopback; no service starts
+automatically. Stop it with Ctrl+C.
+It starts with no configured providers. Supply provider settings using
+`ProxyCopilot__Providers__...` environment variables, as described in
+[Configure providers](#configure-providers). Included examples are under
+`$(brew --prefix gnougo-proxy-copilot)/libexec/examples`.
+Do not edit the installed `appsettings.json` or place private settings in the
+Homebrew Cellar: upgrades replace the versioned installation directory.
+
+```bash
+brew update
+brew upgrade gnougo/tap/gnougo-proxy-copilot
+# Remove the package when no longer needed:
+brew uninstall gnougo-proxy-copilot
+```
+
+The stable GitHub release workflow updates this formula and the existing desktop
+cask together, using separate SHA-256 checksums for the ARM64 and x64 archives.
+Alpha, beta, and development builds do not update the formula.
 
 ### GitHub release binaries
 
