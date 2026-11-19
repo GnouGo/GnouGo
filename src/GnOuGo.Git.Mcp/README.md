@@ -46,6 +46,8 @@ Every `git_clone.targetDirectory` must be a purpose-specific, workspace-relative
 
 The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. An absent or empty destination is accepted; creating it first is unnecessary. `git_get_policy` is optional inspection, not a required preliminary operation.
 
+When `branch` is a full commit ID, a successful clone has already checked out that commit in the worktree.
+
 Declare a creation location once and reuse the same business binding for clone and cleanup. A failed clone may leave partial content, so cleanup must retain that location without depending on clone success. Use the returned `projectRootRelative` for subsequent repository operations. Do not independently regenerate a path in an inference task or hardcode a different cleanup directory. Choose a location owned by this workflow; these checks do not allocate concurrent run directories.
 
 Deploy the updated bundled MCP, refresh capability discovery, then revise/regenerate and explicitly approve affected workflows. Existing encrypted records, failed runs and approvals are not rewritten. The contract fingerprint changes through normal discovery. See [the retained clone-path regression](../../docs/clone-path-contracts.md).
