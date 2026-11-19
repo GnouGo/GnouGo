@@ -7,6 +7,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactDraftNavigationTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void DraftSeparatesTheSelectedPrerequisiteFromTheBusinessBlocksFinalResults(bool inherited)
+    {
+        var state = State();
+        var block = PlanningCompactConstruction.CurrentBlock(state)!;
+        var step = state.Construction!.Compact!.CurrentStep!;
+        const string need = "Resolve the caller's record and retain its revision for a later comparison.";
+        step.Prerequisites = [new() { Need = need, EvidenceAddresses = ["requirement:req"] }];
+        step.Objective = inherited ? block.Objective : "Resolve the input record.";
+        step.ExpectedOutputs = inherited ? block.ExpectedResults.ToList() : ["The resolved revision."];
+        var context = Context(PlanningConstruction.DraftRequest(state, repair: false));
+        var selected = context["step"]!;
+        Assert.Equal(need, Assert.Single(selected["prerequisites"]!.AsArray())!["need"]!.ToString());
+        Assert.Equal(block.Objective, context["block"]!["objective"]!.ToString());
+        Assert.Equal(block.ExpectedResults, context["block"]!["expectedResults"]!.AsArray().Select(v => v!.ToString()));
+        if (inherited)
+        {
+            Assert.Null(selected["objective"]);
+            Assert.Null(selected["expectedOutputs"]);
+            Assert.Equal(block.Objective, step.Objective);
+            Assert.Equal(block.ExpectedResults, step.ExpectedOutputs);
+        }
+        else
+        {
+            Assert.Equal(step.Objective, selected["objective"]!.ToString());
+            Assert.Equal(step.ExpectedOutputs, selected["expectedOutputs"]!.AsArray().Select(v => v!.ToString()));
+        }
+    }
+
     [Fact]
     public void EmptyRootEvidenceIsAlreadyPresentDuringSelectionAndDraftWithoutChangingTheSession()
     {

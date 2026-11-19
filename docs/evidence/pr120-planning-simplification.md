@@ -64,6 +64,20 @@ Three captured responses identify independently reproducible defects.
   cursors returned for a two-file page. Larger directories preserve the
   existing single-cursor fallback.
 
+Calls 35 and 38 also requested the same five-operation directory after a
+change of control hid its fifth operation. Reselection now presents one
+bounded, current page containing a previously bound operation from that
+scope. The regression selects the fifth operation twice using just the two
+selection calls. A change of scope or a policy denial still excludes it.
+
+In fresh session `9390b48f84214ed28c0bafb72b0002c7`, call 9 abandoned a
+read because it could not perform later business work. The captured draft
+put the exact block objective and final expected results in the technical
+step a second time, beside the narrower selected prerequisite. Drafting now
+presents inherited goals once in the block and preserves independently
+authored step objectives, results and prerequisite evidence. It can return a
+partial executable contribution with the business obligations still open.
+
 [Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 

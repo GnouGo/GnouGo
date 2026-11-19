@@ -9,6 +9,11 @@ internal static partial class PlanningConstruction
     internal static LLMRequest DraftRequest(PlanningSession state, bool repair)
     {
         var context = PlanningCompactConstruction.Context(state);
+        if (context["step"] is JsonObject step && context["block"] is JsonObject block)
+        {
+            if (JsonNode.DeepEquals(step["objective"], block["objective"])) step.Remove("objective");
+            if (JsonNode.DeepEquals(step["expectedOutputs"], block["expectedResults"])) step.Remove("expectedOutputs");
+        }
         var schema = PlanningCompactConstruction.DraftSchema(state);
         PlanningCompactConstruction.ConstrainDraftEvidence(state, context, schema);
         var instructions = PlanningCompactConstruction.DraftGuidance(state) + (repair
