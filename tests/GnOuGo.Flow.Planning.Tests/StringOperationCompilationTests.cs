@@ -38,6 +38,37 @@ public sealed class StringOperationCompilationTests
     }
 
     [Theory]
+    [InlineData("tea", false)]
+    [InlineData(null, false)]
+    [InlineData("tea", true)]
+    [InlineData(null, true)]
+    public async Task ARequiredNonNullOperandCanBeUsedInTheGuardedTask(string? query, bool producerOutput)
+    {
+        TaskValue Operand() => producerOutput ? new() { Kind = "output", Source = "read", Port = "name" } : Input();
+        var requirement = new TaskValue { Kind = "predicate", Predicate = "and", Items = [
+            new() { Kind = "boolean", Boolean = true },
+            new() { Kind = "predicate", Predicate = "not_equal", Items = [Operand(), new() { Kind = "null" }] }] };
+        var plan = Plan(new() { Kind = "output", Source = "assemble", Port = "text" });
+        plan.Inputs[0].Type.Nullable = true;
+        if (producerOutput) plan.Root.Tasks.Add(new() { Id = "read", Kind = "value", Objective = "Retain the observed name.",
+            Outputs = [new("name", Input())] });
+        plan.Root.Tasks.Add(new() { Id = "assemble", Kind = "value", Objective = "Use the required input.",
+            Requires = requirement, Outputs = [new("text", Operation("concat", Text("prefix:"), Operand()))] });
+        var catalog = await Catalog();
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph!, catalog));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var run = await new WorkflowEngine().ExecuteAsync(document.Workflows["main"], new JsonObject { ["query"] = query }, PlannerFixture.Ct);
+        Assert.Equal(query is not null, run.Success);
+        if (query is not null) Assert.Equal("prefix:" + query, run.Outputs!["result"]!.ToString());
+
+        plan.Root.Outputs = [new("result", Operation("concat", Text("outside:"), Operand()))];
+        var outside = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Contains(outside.Diagnostics, d => d.Code == "TASK_STRING_OPERATION_INVALID" && d.Location == "/root/outputs/result");
+    }
+
+    [Theory]
     [InlineData("string", true)]
     [InlineData("number", false)]
     [InlineData("any", false)]

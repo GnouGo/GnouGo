@@ -291,8 +291,10 @@ public sealed partial class TaskPlanCompiler
                 }
                 InspectScope(body, child, path + "/" + role); return child;
             }
+            TaskValue? provenRequirement = null;
             if (task.Requires is not null && Read(task.Requires, scope, path + "/requires") is { } required)
-                Check(path + "/requires", () => RequireBoolean(required));
+                Check(path + "/requires", () => { RequireBoolean(required); provenRequirement = task.Requires; });
+            using var requirementFacts = EnterRequirement(scope, provenRequirement);
             switch (task.Kind)
             {
                 case "transform":

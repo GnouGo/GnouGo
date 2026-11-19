@@ -59,7 +59,7 @@ public sealed partial class TaskPlanCompiler
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
-        public IReadOnlySet<string>? NonNullReferences { get; init; }
+        public IReadOnlySet<string>? NonNullReferences { get; set; }
         public bool FailurePath { get; init; }
         public Dictionary<string, Bound> FailureCaptures { get; } = new(StringComparer.Ordinal);
         public Bound? Item { get; set; }
@@ -292,6 +292,7 @@ public sealed partial class TaskPlanCompiler
                 OutputSchema = Contract(ObjectSchema([("value", new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(true) })])) });
             _location = "/tasks/" + task.Id;
         }
+        using var requirementFacts = EnterRequirement(scope, task.Requires);
         Dictionary<string, Bound> outputs;
         switch (task.Kind)
         {
@@ -591,6 +592,23 @@ public sealed partial class TaskPlanCompiler
             Fits(bound, expected, "TASK_GROUP_INPUT_TYPE");
             return new PlanningMember(a.Name, bound.Value);
         }));
+    }
+
+    private sealed class RequirementFacts(Scope scope, IReadOnlySet<string>? previous) : IDisposable
+    {
+        public void Dispose() => scope.NonNullReferences = previous;
+    }
+
+    private static RequirementFacts? EnterRequirement(Scope scope, TaskValue? requirement)
+    {
+        if (requirement is null) return null;
+        var established = NonNullReferences(requirement, true);
+        if (established.Count == 0) return null;
+        var previous = scope.NonNullReferences;
+        // The assertion executes before this task's inputs and body. Siblings and
+        // outer finalizers can still observe a failure before that assertion passed.
+        scope.NonNullReferences = previous is null ? established : previous.Concat(established).ToHashSet(StringComparer.Ordinal);
+        return new(scope, previous);
     }
 
     private static IReadOnlySet<string> NonNullReferences(TaskValue? condition, bool whenTrue)
