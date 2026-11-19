@@ -76,26 +76,18 @@ internal static partial class PlanningCompactConstruction
             var roots = owner is null ? available : available.Where(item => resumeContract is not null &&
                 PlanningContractCompatibility.Fits(item.Schema, resumeContract)).ToArray();
             var branches = ReferenceBranches(roots);
-            if (owner is null)
+            // A direct scalar or array port remains available as a whole input.
+            // Only object-producing roots can start a recursive field projection.
+            var anchors = available.Where(item => TaskPlanCompiler.HasFieldInterface(item.Schema) &&
+                (owner is null || PlanningContractCompatibility.Fits(item.Schema, PlanningSchemas.Type("object")) &&
+                    !PlanningContractCompatibility.Fits(item.Schema, emptyObject))).ToArray();
+            if (anchors.Length > 0)
             {
-                if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
-                branches.Add((JsonNode)Field(state, name));
-            }
-            else
-            {
-                // A whole result may not fit while one declared member does.
-                // Preserve that existing field language without offering the
-                // incompatible root as a completed prerequisite binding.
-                var anchors = available.Where(item => !PlanningContractShapes.IsOpaque(item.Schema) &&
-                    PlanningContractCompatibility.Fits(item.Schema, PlanningSchemas.Type("object")) &&
-                    !PlanningContractCompatibility.Fits(item.Schema, emptyObject)).ToArray();
-                if (anchors.Length > 0)
-                {
-                    var fieldName = name + "_fields";
-                    var fields = ReferenceBranches(anchors); fields.Add((JsonNode)Field(state, fieldName));
-                    definitions[fieldName] = new JsonObject { ["anyOf"] = fields };
-                    branches.Add((JsonNode)Field(state, fieldName));
-                }
+                var fieldName = name + "_fields";
+                var fields = ReferenceBranches(anchors);
+                fields.Add((JsonNode)Field(state, fieldName));
+                definitions[fieldName] = new JsonObject { ["anyOf"] = fields };
+                branches.Add((JsonNode)Field(state, fieldName));
             }
             if (branches.Count == 0) return PlanningSchemas.Array(PlanningSchemas.String(), 0, 0);
             definitions[name] = new JsonObject { ["anyOf"] = branches };

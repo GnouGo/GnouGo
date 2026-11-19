@@ -5,6 +5,20 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TaskPlanCompiler
 {
+    private static bool DeclaresObject(JsonObject contract)
+    {
+        var type = contract["type"];
+        return !PlanningContractShapes.IsOpaque(contract) && (type?.ToString() == "object" || type is JsonArray types &&
+            types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null"));
+    }
+
+    internal static bool HasFieldInterface(JsonObject contract)
+    {
+        if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
+            return alternatives.Count > 0 && alternatives.All(a => a is JsonObject branch && HasFieldInterface(branch));
+        return DeclaresObject(contract) && contract["properties"] is JsonObject { Count: > 0 };
+    }
+
     private Bound SelectField(TaskValue value, Scope scope, bool consume)
     {
         if (value.Items.Count != 1 || string.IsNullOrWhiteSpace(value.Port) || value.Source is not null ||
@@ -32,9 +46,7 @@ public sealed partial class TaskPlanCompiler
             // A nullable object still declares its fields. The checked projection fails
             // on a null container; it never supplies a default or establishes success.
             var type = contract["type"];
-            var isObject = type?.ToString() == "object" || type is JsonArray types &&
-                types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null");
-            if (!isObject || PlanningContractShapes.IsOpaque(contract))
+            if (!DeclaresObject(contract))
                 Fail("TASK_FIELD_TYPE", "Field '" + value.Port + "' requires a declared object; received " +
                     (type?.ToJsonString() ?? "opaque") + " from " + Origin() +
                     ". Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");

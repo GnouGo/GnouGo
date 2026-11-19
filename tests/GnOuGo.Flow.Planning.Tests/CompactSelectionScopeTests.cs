@@ -38,6 +38,24 @@ public sealed class CompactSelectionScopeTests
         Assert.Equal("/root", PlanningCompactConstruction.InterfaceDirectory(state, null, 0)[0]!["scope"]!.ToString());
     }
 
+    [Fact]
+    public async Task SelectionOffersAnAcceptedArrayPortDirectlyWithoutOfferingAFieldOnTheArray()
+    {
+        var state = await Ready();
+        var array = new TaskType { Kind = "array", Items = new() { Kind = "string" } };
+        state.Plan!.Inputs[0].Type = array;
+        state.Requirements!.Inputs![0].Type = array;
+        var schema = PlanningCompactConstruction.ImplementationSchema(state);
+        var response = Response(state, Step("/root"));
+        response["step"]!["kind"] = "value";
+        var binding = new JsonObject { ["kind"] = "output", ["source"] = "copied", ["port"] = "value" };
+        response["step"]!["inputs"] = new JsonArray((JsonNode)binding.DeepClone());
+        Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
+        response["step"]!["inputs"] = new JsonArray((JsonNode)new JsonObject { ["kind"] = "field",
+            ["port"] = "value", ["items"] = new JsonArray((JsonNode)binding) });
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+    }
+
     [Theory]
     [InlineData("input", "/groups/isolated/body")]
     [InlineData("output", "/groups/isolated/body")]

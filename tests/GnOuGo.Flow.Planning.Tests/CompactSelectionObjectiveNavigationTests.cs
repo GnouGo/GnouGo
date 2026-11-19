@@ -376,7 +376,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         {
             var value = Import(kind);
             Assert.Empty(PlanningContractValidation.ValidateInstance(value, schema));
-            Assert.Empty(PlanningContractValidation.ValidateInstance(Field(value), schema));
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Field(value), schema));
         }
         foreach (var kind in new[] { "output", "present", "choice", "item", "index" })
         {
@@ -409,7 +409,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         foreach (var kind in new[] { "output", "present" })
         {
             Assert.Equal(placement == "root", PlanningContractValidation.ValidateInstance(Import(kind), schema).Count == 0);
-            Assert.Equal(placement == "root", PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema).Count == 0);
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Field(Import(kind)), schema));
         }
         // Offered syntax never grants access to a different task identity.
         var invalid = new PlanningConstructionStep { Scope = "/root", Kind = "value", Objective = "Use the supplied value.",
@@ -484,11 +484,16 @@ public sealed class CompactSelectionObjectiveNavigationTests
                 node = schema["$defs"]![reference.ToString()[8..]];
             return node;
         }
-        var names = schema["$defs"]!.AsObject().Where(definition => Resolve(definition.Value)?["anyOf"] is JsonArray alternatives &&
-            alternatives.Any(alternative => Resolve(Resolve(alternative)?["properties"]?["kind"])?["enum"] is JsonArray kinds &&
-                kinds.Any(kind => kind?.ToString() == "field"))).Select(definition => definition.Key).ToArray();
-        if (names.Length == 0) return PlanningSchemas.Type("null");
-        return new() { ["anyOf"] = new JsonArray(names.Select(name => (JsonNode)new JsonObject { ["$ref"] = "#/$defs/" + name }).ToArray()),
+        IEnumerable<JsonNode> Inputs(JsonNode? node)
+        {
+            var step = Resolve(node);
+            if (step?["anyOf"] is JsonArray variants) return variants.SelectMany(Inputs);
+            var inputs = Resolve(step?["properties"]?["inputs"]);
+            return inputs?["items"] is { } item && inputs["maxItems"]?.ToString() != "0" ? [item] : [];
+        }
+        var items = Inputs(schema["properties"]!["step"]).DistinctBy(i => i.ToJsonString()).ToArray();
+        if (items.Length == 0) return PlanningSchemas.Type("null");
+        return new() { ["anyOf"] = new JsonArray(items.Select(item => item.DeepClone()).ToArray()),
             ["$defs"] = schema["$defs"]!.DeepClone() };
     }
 
