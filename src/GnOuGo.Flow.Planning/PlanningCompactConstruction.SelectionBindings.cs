@@ -112,7 +112,8 @@ internal static partial class PlanningCompactConstruction
                 foreach (var scope in branch!["properties"]!["scope"]!["enum"]!.AsArray().Select(item => item!.ToString()))
                 {
                     var selected = branch.DeepClone(); selected["properties"]!["scope"] = PlanningSchemas.Enum(scope);
-                    selected["properties"]!["inputs"] = Imports(scope); narrowed.Add(selected);
+                    if (selected["properties"]!["inputs"] is not null) selected["properties"]!["inputs"] = Imports(scope);
+                    narrowed.Add(selected);
                 }
             var container = steps!.First(node => node?["anyOf"] is JsonArray)!;
             container["anyOf"] = narrowed;

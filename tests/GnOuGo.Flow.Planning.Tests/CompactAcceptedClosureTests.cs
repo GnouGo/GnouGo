@@ -225,6 +225,106 @@ public sealed class CompactAcceptedClosureTests
         ["dependencies"] = new JsonArray(), ["successCriteria"] = new JsonArray("The associated original obligations are satisfied")
     });
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ClosingAnAcceptedLeafKeepsTheBusinessBlockOpen(bool reuseScopeOutputs)
+    {
+        const string scope = "/tasks/outer/body";
+        var state = await State(2, nested: true);
+        foreach (var requirement in state.Construction!.Requirements) requirement.Status = "in_progress";
+        SelectBlock(state, ["req_0"]);
+        var block = state.Construction.Compact!.CurrentBlockId;
+        var accepted = state.Construction.Checkpoints[0];
+        accepted.Step!.BlockId = block;
+        accepted.ClosedRequirementIds = [];
+        accepted.Fragment["completeBlock"] = false;
+        accepted.Fragment["businessReviewPending"] = true;
+        var original = PlanningConstruction.Hash(state.Plan);
+        var runtime = new TestRuntime { Respond = (request, purpose) =>
+        {
+            var schema = request.StructuredOutputSchema!.AsObject();
+            JsonObject response;
+            if (purpose == PlanningCompactConstruction.ImplementationPurpose)
+            {
+                var selection = new JsonObject { ["kind"] = "close", ["scope"] = scope, ["closeScopes"] = new JsonArray(scope) };
+                if (reuseScopeOutputs)
+                {
+                    Assert.Contains("reuseScopeOutputs", schema.ToJsonString());
+                    selection["reuseScopeOutputs"] = true;
+                }
+                else
+                {
+                    selection["inputs"] = new JsonArray();
+                    selection["outputNames"] = new JsonArray();
+                    selection["operationIds"] = new JsonArray();
+                    selection["dependencyTaskIds"] = new JsonArray();
+                    selection["closeRequirementIds"] = new JsonArray();
+                    selection["prerequisites"] = null;
+                    selection["groupId"] = null;
+                }
+                response = new() { ["baseHash"] = original, ["step"] = selection, ["evidenceRequests"] = null, ["clarifications"] = null };
+                if (reuseScopeOutputs) return new() { Json = response };
+            }
+            else
+            {
+                Assert.False(reuseScopeOutputs);
+                Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+                response = new() { ["baseHash"] = original, ["extension"] = PlanningConstruction.Node(
+                    new PlanningConstructionExtension { Scope = scope, RequirementIds = ["req_0"],
+                        CloseScopes = [scope], CompleteBlock = false }, PlanningJsonContext.Default.PlanningConstructionExtension) };
+            }
+            return new() { Json = PlanningCorpus.Transport(response, schema, schema)! };
+        } };
+        for (var tick = 0; tick < 6 && state.Construction!.Checkpoints.Count == 1; tick++)
+            state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
+        Assert.Equal(reuseScopeOutputs ? 1 : 2, runtime.Calls.Count);
+        Assert.Equal(2, state.Construction!.Checkpoints.Count);
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(["/root"], state.Construction.OpenScopes);
+        Assert.Equal(block, state.Construction.Compact!.CurrentBlockId);
+        Assert.Null(PlanningCompactConstruction.CurrentBlock(state)!.CompletionCheckpoint);
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("in_progress", requirement.Status));
+        Assert.Null(state.ApprovedHash);
+        Assert.Equal([scope], state.Construction.Checkpoints[1].ClosedScopes);
+        Assert.Empty(state.Construction.Checkpoints[1].TaskIds);
+        Assert.True(state.Construction.Checkpoints[1].Fragment["businessReviewPending"]!.GetValue<bool>());
+        if (reuseScopeOutputs)
+        {
+            var transition = Assert.Single(state.Construction.Checkpoints[1].Reviews, row => row["outcome"]?.ToString() == "selected_scope_closure");
+            Assert.Equal(accepted.Sequence, transition["checkpoint"]!.GetValue<int>());
+        }
+    }
+
+    [Theory]
+    [InlineData("no_exports")]
+    [InlineData("suspended_consumer")]
+    [InlineData("different_block")]
+    [InlineData("invalidated")]
+    public async Task ExistingScopeOutputsNeedACurrentBlockContribution(string reason)
+    {
+        const string scope = "/tasks/outer/body";
+        var state = await State(nested: true);
+        state.Construction!.Requirements[0].Status = "in_progress";
+        SelectBlock(state, ["req_0"]);
+        var compact = state.Construction!.Compact!;
+        var accepted = state.Construction.Checkpoints[0];
+        accepted.Step!.BlockId = compact.CurrentBlockId;
+        switch (reason)
+        {
+            case "no_exports": state.Plan!.Root.Tasks[0].Body!.Outputs.Clear(); break;
+            case "suspended_consumer": compact.SuspendedSteps = [new() { Status = "waiting" }]; break;
+            case "different_block": accepted.Step.BlockId = "previous"; break;
+            case "invalidated": accepted.InvalidatedTaskIds.Add("producer"); break;
+        }
+        var step = new PlanningConstructionStep { BlockId = compact.CurrentBlockId, Scope = scope, Kind = "close",
+            CloseScopes = [scope], ReuseScopeOutputs = true, DiscoveryComplete = true, BaseHash = PlanningConstruction.Hash(state.Plan) };
+        compact.CurrentStep = step;
+        Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelectedCloseScopes(state, step));
+        Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
+        Assert.Contains(scope, state.Construction.OpenScopes);
+    }
+
     [Fact]
     public async Task AParentCannotCloseWhileItsChildRemainsOpen()
     {

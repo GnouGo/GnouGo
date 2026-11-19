@@ -101,20 +101,38 @@ internal static partial class PlanningCompactConstruction
         return probe;
     }
 
+    private static PlanningConstructionCheckpoint? AcceptedScopeCheckpoint(PlanningSession state, string path)
+    {
+        var compact = State(state);
+        if (path == "/root" || state.Plan is not { } plan || CurrentBlock(state) is not { CompletionCheckpoint: null } ||
+            state.EditablePaths is not null || state.Diagnostics.Any(item => item.Required) ||
+            compact.ReplacementScope is not null || compact.ResumingStepId is not null || compact.SuspendedSteps?.Any(Active) == true ||
+            compact.PendingCommitments.Any(item => item.Value.Count > 0) || state.Construction!.RebuildTasks.Count > 0 ||
+            !state.Construction.OpenScopes.Contains(path, StringComparer.Ordinal)) return null;
+        var symbols = new TaskPlanSymbols(plan);
+        var scope = symbols.Scopes.SingleOrDefault(scope => scope.Path == path);
+        if (scope is null || scope.Source.Outputs.Count == 0 || OpenDescendants(state, symbols, path) != 0) return null;
+        return BusinessBlockCheckpoints(state).LastOrDefault(checkpoint =>
+            checkpoint.Step!.Scope == path || scope.Owner is { } owner && checkpoint.TaskIds.Contains(owner.Id));
+    }
+
     private static PlanningSession? PrepareSelectedBusinessBlockClosure(PlanningSession state)
     {
         var construction = state.Construction!; var compact = State(state);
-        if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes.Count: 0 } step ||
-            !CanClaimCurrentBlockCompletion(state) || step.CloseRequirementIds.Count > 0 ||
+        if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
+            step.BaseHash != PlanningConstruction.Hash(state.Plan) || step.CloseRequirementIds.Count > 0 ||
             compact.ReplacementScope is not null || compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
             compact.PendingCommitments.Any(item => item.Value.Count > 0) || construction.RebuildTasks.Count > 0)
             return null;
+        var checkpoint = step.ReuseScopeOutputs ? AcceptedScopeCheckpoint(state, step.Scope)
+            : step.CloseScopes.Count == 0 && CanClaimCurrentBlockCompletion(state) ? BusinessBlockCheckpoints(state).Last() : null;
+        if (checkpoint is null) return null;
         ValidateSelectedCloseScopes(state, step);
-        var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),
-            PlanningJsonContext.Default.PlanningSession)!;
+        var probe = CloneTransitionState(state);
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
-            Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(), CompleteBlock = true
+            Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(),
+            CloseScopes = step.CloseScopes.ToList(), CompleteBlock = !step.ReuseScopeOutputs
         });
         // Selecting an existing public output does not change its binding.
         // Missing or ambiguous bindings still require an ordinary draft.
@@ -123,17 +141,23 @@ internal static partial class PlanningCompactConstruction
         if (probe.Construction.Candidate.Hash != step.BaseHash) return null;
         probe.Construction.Candidate.Reviews.Add(new JsonObject
         {
-            ["purpose"] = "construction_transition", ["outcome"] = "selected_business_block_completion",
-            ["reason"] = "The explicit block-completion claim preserves accepted work and requires ordinary business review. No workflow scope or original requirement is closed.",
+            ["purpose"] = "construction_transition", ["outcome"] = step.ReuseScopeOutputs ? "selected_scope_closure" : "selected_business_block_completion",
+            ["reason"] = step.ReuseScopeOutputs ? "The selection preserves the accepted leaf exports and keeps the business block open for review." :
+                "The explicit block-completion claim preserves accepted work and requires ordinary business review. No workflow scope or original requirement is closed.",
             ["baseline"] = step.BaseHash, ["scope"] = step.Scope, ["block"] = step.BlockId,
             ["requirements"] = new JsonArray(step.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
-            ["checkpoint"] = BusinessBlockCheckpoints(state).Last().Sequence
+            ["checkpoint"] = checkpoint.Sequence
         });
         return probe;
     }
 
     internal static void ValidateSelectedCloseScopes(PlanningSession state, PlanningConstructionStep step)
     {
+        if (step.ReuseScopeOutputs && (step.Kind != "close" || step.CloseScopes is not { Count: 1 } ||
+            step.CloseScopes[0] != step.Scope || step.OutputNames.Count > 0 || step.Inputs.Count > 0 ||
+            step.DependencyTaskIds.Count > 0 || step.CloseRequirementIds.Count > 0 || step.Prerequisites?.Count > 0 ||
+            step.BlockId != State(state).CurrentBlockId || AcceptedScopeCheckpoint(state, step.Scope) is null))
+            PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/step/reuseScopeOutputs", "Select an accepted leaf of the current block with its existing exports.");
         if (step.Kind != "close")
         {
             if (step.CloseScopes is not null)

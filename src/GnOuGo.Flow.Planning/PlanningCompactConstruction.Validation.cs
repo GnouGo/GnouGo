@@ -77,7 +77,7 @@ internal static partial class PlanningCompactConstruction
                     "An explicit scoped revision cannot continue or expand the selected business block.");
             return []; // The existing typed patch verifier owns this explicit revision boundary.
         }
-        if (candidate.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition")) return [];
+        if (!step.ReuseScopeOutputs && candidate.Reviews.Any(row => row["purpose"]?.ToString() == "construction_transition")) return [];
         if (step.BlockId is null || CurrentBlock(state)?.Id != step.BlockId || candidate.Extension.CompleteBlock is null)
             PlanningConstruction.Fail("CONSTRUCTION_BLOCK_INVALID", "/extension/completeBlock", "Every new fragment belongs to the retained business block and explicitly states whether it claims business completion.");
         if (candidate.Extension.Complete && candidate.Extension.CompleteBlock != true)

@@ -14,6 +14,13 @@ Use `flatten` on a singleton header matrix and the collected matrix when the
 deliverable calls for a header. Extraction and business interpretation remain
 separate operations wherever the original observations require them.
 
+An implementation selection can close a non-root leaf with
+`reuseScopeOutputs: true` when the current block has an accepted contribution at
+that boundary and the scope already exports its results. The host preserves the
+exact plan hash and bindings, validates the closure and records the contributing
+checkpoint. The block stays open for business review. An ordinary close selection
+still allows a draft to add a missing export.
+
 Repair progress compares a cited consumer with its exact retained review. A changed
 upstream argument, value or executable transform instruction can change the meaning
 of an otherwise unchanged consumer. The existing dependency-invalidation closure

@@ -28,7 +28,7 @@ internal static partial class PlanningCompactConstruction
         Bind caller inputs at runtime; discover interfaces, not sample values. Unknown capabilities need kind:null; offered inspected operationIds bind operation. Local/structural kinds need no discovery. Containers need control/reuse/cleanup/exports; controls capture ancestors. {ReusableGroupSemantics}
         {ValueSemantics} transform extract preserves observations; interpret derives typed data from supplied inputs with the configured runtime LLM. Neither invents facts/effects; contracts are not observations. Obtain external facts through authorized operations.
         Resolve input/dependency hints; prerequisites are executable data producers citing original evidence, never future tasks. Inspect metadata via evidence/discovery. expectedOutputs are provisional assumptions, not obligations; reselect unsupported mechanisms. outputNames names public root results. Preserve original results/cleanup and concrete objectives/literals.
-        Close only fulfilled obligations: closeScopes:[] closes requirements, [scope] that offered boundary, otherwise null. Return one step, offered resumeStep, evidenceRequests or missing-business-fact clarifications; others null. Evidence grants no edit/execution authority.
+        Close only fulfilled obligations: closeScopes:[] closes requirements, [scope] that offered boundary, otherwise null. When offered, reuseScopeOutputs closes a leaf with its existing exports and keeps the business block open. Return one step, offered resumeStep, evidenceRequests or missing-business-fact clarifications; others null. Evidence grants no edit/execution authority.
         """;
 
     internal static string DiscoveryGuidance(PlanningSession state) => (PlanningDiscoveryFocus.Enabled(state)
@@ -288,6 +288,10 @@ internal static partial class PlanningCompactConstruction
                     ? PlanningSchemas.Array(PlanningSchemas.Enum(scope), 0, 1) : EmptyArray();
                 AddSelectionFields(close, EmptyArray(), target);
                 choices.Add((JsonNode)close);
+                if (AcceptedScopeCheckpoint(state, scope) is not null)
+                    choices.Add((JsonNode)PlanningSchemas.Object(("scope", PlanningSchemas.Enum(scope)), ("kind", PlanningSchemas.Enum("close")),
+                        ("closeScopes", PlanningSchemas.Array(PlanningSchemas.Enum(scope), 1, 1)),
+                        ("reuseScopeOutputs", new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(true) })));
             }
             if (!completionOnly && known.Length > 0)
             {
