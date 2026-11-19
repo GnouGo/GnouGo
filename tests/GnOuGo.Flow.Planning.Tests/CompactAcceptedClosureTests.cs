@@ -250,7 +250,7 @@ public sealed class CompactAcceptedClosureTests
                 var selection = new JsonObject { ["kind"] = "close", ["scope"] = scope, ["closeScopes"] = new JsonArray(scope) };
                 if (reuseScopeOutputs)
                 {
-                    Assert.Contains("reuseScopeOutputs", schema.ToJsonString());
+                    Assert.Contains("keeps the business block open", schema["description"]!.ToString());
                     selection["reuseScopeOutputs"] = true;
                 }
                 else
