@@ -645,6 +645,21 @@ public sealed class DelegatedTestReviewTests
         Assert.Throws<PlanningConflictException>(() => authority.RequireRuntimeRequest(request));
     }
 
+    [Fact]
+    public async Task ServerRuntimeResolvesTheSameDelegatedReviewOnApprovalAndSave()
+    {
+        var (state, runtime, authorization, evidence, receipt) = await Fixture();
+        var authority = Authority(authorization, evidence, receipt, authorization.Scenario);
+        var reviews = new DelegatedTestReviewAuthority.Runtime(runtime, authority);
+        var adapter = new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask) { ApprovalReviews = reviews };
+        Assert.Equal(receipt, await adapter.ResolveApprovalReviewAsync(state, receipt.Id, Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => adapter.ResolveApprovalReviewAsync(state, "other", Ct));
+        var approved = await new HybridWorkflowPlanner().AdvanceAsync(state, authority.Command(), new DelegatedTestReviewAuthority.Runtime(runtime, authority), Ct);
+        Assert.Equal(PlanningStatus.Approved, approved.Status);
+        await PlanningArtifactApproval.VerifyAsync(approved, reviews, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => PlanningArtifactApproval.VerifyAsync(approved, null, Ct));
+    }
+
     private static async Task<(DelegatedTestReviewAuthority, PlanningSession)> RuntimeFixture()
     {
         var (state, _, authorization, evidence, receipt) = await Fixture();

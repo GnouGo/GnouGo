@@ -137,6 +137,7 @@ internal static class PlanningEndpoints
                     RequestId = request.RequestId,
                     DiscoveryRecovery = request.DiscoveryRecovery is { } recovery ? new(recovery.FailureId, recovery.Resolution) : null,
                     ReviewedRequirementIds = request.ReviewedRequirementIds?.ToList(),
+                    ApprovalReviewId = request.ApprovalReviewId,
                     Text = request.Text,
                     PreserveRequirements = request.PreserveRequirements,
                     EditablePaths = request.EditablePaths?.ToList(),

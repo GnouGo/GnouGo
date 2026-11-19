@@ -30,7 +30,8 @@ public sealed partial class PlanningSessionService(
     IOptions<TypedWorkflowPlanningSettings> settings,
     IOptions<OpenTelemetrySettings> telemetrySettings,
     ILogger<PlanningSessionService> logger,
-    PlanningHostPolicy? hostPolicy = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? discoveryRecoveryGuards = null) : BackgroundService
+    PlanningHostPolicy? hostPolicy = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? discoveryRecoveryGuards = null,
+    IPlanningApprovalReviewProvider? approvalReviews = null) : BackgroundService
 {
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -471,7 +472,7 @@ public sealed partial class PlanningSessionService(
             state.UpdatedAtUtc = DateTimeOffset.UtcNow;
             if (!await store.TrySaveAsync(state, revision, token)) throw new PlanningConflictException("A newer planning revision was saved.");
             revision = state.Revision;
-        }, capabilities: null, capabilitySnapshots: new GnOuGo.Flow.Integrations.Planning.PlanningCapabilitySnapshotJournal(records));
+        }, capabilities: null, capabilitySnapshots: new GnOuGo.Flow.Integrations.Planning.PlanningCapabilitySnapshotJournal(records)) { ApprovalReviews = approvalReviews };
         var updated = await planner.AdvanceAsync(current, command, adapter, ct);
         activity?.SetTag("gnougo.planning.status", updated.Status);
         activity?.SetTag("gnougo.planning.calls", updated.ModelCalls);
@@ -488,7 +489,7 @@ public sealed partial class PlanningSessionService(
         if (state.Status == PlanningStatus.Saved && command.ArtifactHash == state.ApprovedHash) return state;
         if (state.Status is not (PlanningStatus.Approved or PlanningStatus.Saving) || string.IsNullOrEmpty(state.Yaml) || PlanningArtifactApproval.Hash(state) != command.ArtifactHash || state.ApprovedHash != PlanningArtifactApproval.Hash(state))
             throw new PlanningConflictException("Saving requires approval of this exact validated artifact.");
-        PlanningArtifactApproval.Verify(state);
+        await PlanningArtifactApproval.VerifyAsync(state, approvalReviews, ct);
         await using var runtime = await runtimeFactory.CreateAsync(ct);
         var validation = new WorkflowPlanningRuntime(runtime.ConfigureAgentRunners(new WorkflowEngine { McpClientFactory = runtime.McpClientFactory, PlanningPolicy = state.Request.Options[PlanningHostPolicy.CaptureOption] is not null ? state.Request.Policy : CreatePolicy(CapturedPreset(state)) }), (_, _) => Task.CompletedTask);
         var errors = await validation.ValidateCatalogAsync(state.Catalog!, ct);

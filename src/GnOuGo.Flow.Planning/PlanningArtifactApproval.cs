@@ -6,6 +6,13 @@ public static class PlanningArtifactApproval
 {
     public static string? Hash(PlanningSession state) => state.ComputeArtifactHash();
     public static void Verify(PlanningSession state) => Verify(state, null);
+    public static async Task VerifyAsync(PlanningSession state, IPlanningApprovalReviewProvider? authority, CancellationToken ct)
+    {
+        var review = state.ApprovalReview is { } saved && authority is not null
+            ? await authority.ResolveApprovalReviewAsync(state, saved.Id, ct) : null;
+        Verify(state, review);
+    }
+
     // Only the coordinator and isolated test host may supply a provider-resolved receipt.
     internal static void Verify(PlanningSession state, PlanningApprovalReview? trustedReview)
     {

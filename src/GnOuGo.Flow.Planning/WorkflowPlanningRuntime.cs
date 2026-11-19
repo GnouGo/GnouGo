@@ -9,8 +9,14 @@ using GnOuGo.Flow.Planning.Capabilities;
 namespace GnOuGo.Flow.Planning;
 
 /// <summary>Provider-neutral catalog, model, runtime validation, and checkpoint effects.</summary>
-public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstructionAdmission
+public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstructionAdmission, IPlanningApprovalReviewProvider
 {
+    public IPlanningApprovalReviewProvider? ApprovalReviews { private get; init; }
+
+    public Task<PlanningApprovalReview> ResolveApprovalReviewAsync(PlanningSession session, string reviewId, CancellationToken ct)
+        => ApprovalReviews?.ResolveApprovalReviewAsync(session, reviewId, ct)
+            ?? throw new PlanningConflictException("This host does not authorize delegated test review.");
+
     private readonly WorkflowEngine _engine;
     public ICapabilityCatalog Capabilities { get; }
     public IPlanningCapabilitySnapshotJournal? CapabilitySnapshots { get; }
