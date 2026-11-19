@@ -26,7 +26,7 @@ internal sealed record DelegatedTestReviewDocument(PlanningApprovalReview Receip
 internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
-    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null)
+    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null)
 {
     private string? _confirmationPrompt;
     private string? _confirmationStep;
@@ -62,6 +62,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal static string[] Obligations(string scenario) => scenario switch
     {
         "amazon" => ["search", "observed_product_order", "exact_product_fields", "workbook", "cleanup", "truthful_result"],
+        PublishedReviewQualification.Scenario => ["pinned_checkout", "repository_checks", "requested_review", "published_verdict", "inline_comments", "cleanup", "truthful_result"],
         "code" => ["pinned_checkout", "repository_checks", "requested_review", "local_report", "cleanup", "truthful_result"],
         "synthetic" => ["exact_outputs", "declared_effects", "cleanup"],
         PlanningBenchmarkCases.ReadGroupProofCase => ["exact_outputs", "reusable_group_calls", "single_seed_read", "unchanged_workspace"],
@@ -152,6 +153,8 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     {
         "amazon" => server == "GnOuGo.Browser.Mcp" && tool is "browser_get_content" or "browser_close" ||
             server == "GnOuGo.Document.Mcp" && tool == "document_write",
+        PublishedReviewQualification.Scenario => server == "Github" && tool is "pull_request_read" or "pull_request_review_write" or "add_comment_to_pending_review" ||
+            server != "GnOuGo.Document.Mcp" && AllowsTool("code", server, tool),
         "code" => server == "GnOuGo.Git.Mcp" && tool is "git_clone" or "git_repository_info" or "git_status" or "git_diff" or "git_compare_refs" or "git_log" or "git_branches" or "git_checkout" or "git_fetch" ||
             server == "GnOuGo.GithubCopilot.Mcp" && tool is "code_project_summary" or "code_read_file" or "code_search_text" or "code_agent_edit" ||
             server == "GnOuGo.Cmd.Mcp" && tool == "cmd_run" || server == "GnOuGo.Document.Mcp" && tool == "document_write",
@@ -201,12 +204,20 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                         throw new PlanningConflictException("A URL-less read requires an exact cursor issued by the current authorized Amazon observation.");
             }
         }
-        if (scenario == "code")
+        if (scenario is "code" or PublishedReviewQualification.Scenario)
         {
+            if (scenario == PublishedReviewQualification.Scenario && reviewTarget is null)
+                throw new PlanningConflictException("The publication grant requires the captured pull request and commits.");
+            if (server == "Github")
+            {
+                if (reviewTarget?.Allows(tool, args) != true) throw new PlanningConflictException("Outside the reviewed PR or publication scope.");
+                return;
+            }
+            var expectedHead = reviewTarget?.Head ?? LiveWorkflowEvaluation.Head;
             if (tool == "git_clone")
             {
                 if (args["remoteUrl"]?.ToString() is not ("https://github.com/AxaFrance/SmartGuide" or "https://github.com/AxaFrance/SmartGuide.git") ||
-                    args["branch"]?.ToString() != LiveWorkflowEvaluation.Head)
+                    args["branch"]?.ToString() != expectedHead)
                     throw new PlanningConflictException("The repository is not the frozen review target.");
                 RequirePath(args["targetDirectory"]?.ToString(), relative + "/repository", exact: true);
             }
@@ -216,7 +227,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                 RequirePath(args["parameters"]?["path"]?.ToString(), relative + "/repository", exact: true);
             }
             else if (tool != "document_write") RequirePath(args["projectRoot"]?.ToString(), relative + "/repository", exact: true);
-            if (tool == "git_checkout" && (args["branchOrCommit"]?.ToString() != LiveWorkflowEvaluation.Head || args["createBranch"]?.GetValue<bool>() == true))
+            if (tool == "git_checkout" && (args["branchOrCommit"]?.ToString() != expectedHead || args["createBranch"]?.GetValue<bool>() == true))
                 throw new PlanningConflictException("Checkout must identify the frozen review head.");
             if (tool == "git_fetch" && args["remoteName"]?.ToString() is not (null or "origin"))
                 throw new PlanningConflictException("Fetch must use the frozen clone's origin remote.");
@@ -296,7 +307,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             request.Context is null && request.Fields is null && request.AllowAbandon &&
             request.Choices is { Count: 2 } choices && choices.SequenceEqual(["approve", "reject"]))
             return true; // The unmodified host-owned gate for this reviewed artifact and single execution.
-        if (request.RunId != run || scenario != "code" || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
+        if (request.RunId != run || scenario is not ("code" or PublishedReviewQualification.Scenario) || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
             !_runtimeInvocationSuffixes.Any(s => request.ParentInvocationId.EndsWith(s, StringComparison.Ordinal)) ||
             !request.StepId.StartsWith(request.ParentInvocationId + "/human/", StringComparison.Ordinal) ||
             request.StepId.Length <= request.ParentInvocationId.Length + "/human/".Length || !Active(request) ||

@@ -390,6 +390,12 @@ internal static class LiveWorkflowEvaluation
                 clone.EnvironmentVariables["Code__Copilot__InferenceProxyEndpoint"] = inferenceEndpoint;
             result.Add(key, clone);
         }
+        if (scenario == PublishedReviewQualification.Scenario)
+        {
+            if (!configured.TryGetValue("Github", out var github) || github.Type is not ("http" or "sse"))
+                throw new InvalidOperationException("The configured GitHub review MCP is unavailable.");
+            result.Add("Github", github);
+        }
         return result;
     }
 
@@ -449,6 +455,12 @@ internal static class LiveWorkflowEvaluation
         var builds = new JsonObject();
         foreach (var (name, configuration) in configurations)
         {
+            if (name == "Github" && configuration.Type is "http" or "sse")
+            {
+                builds[name] = new JsonObject { ["transport"] = configuration.Type,
+                    ["configuration_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(configuration)) };
+                continue;
+            }
             if (configuration.Type != "stdio" || configuration.Command != "dotnet" || configuration.Args is not { Count: 1 })
                 throw new PlanningConflictException("The benchmark requires an exact managed MCP binary before admission.");
             var path = configuration.Args[0];

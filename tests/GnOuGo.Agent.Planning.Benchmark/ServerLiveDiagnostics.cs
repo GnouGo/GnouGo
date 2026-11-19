@@ -44,6 +44,7 @@ internal static class ServerLiveDiagnostics
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var discoveryScenario = delegatedScenario == "code" ? PublishedReviewQualification.Scenario : delegatedScenario;
         var browserObservationPolicy = AmazonObservedRedirectPolicy.Capture(args, delegatedScenario ?? "");
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
@@ -123,9 +124,9 @@ internal static class ServerLiveDiagnostics
                     IMcpClientFactory? discovery = null;
                     if (delegatedScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, delegatedScenario, null, "Release", browserObservationPolicy: browserObservationPolicy);
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy);
                         var policyHash = DelegatedDiscoveryPolicyHash();
-                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), delegatedScenario, policyHash,
+                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), discoveryScenario!, policyHash,
                             async ct =>
                             {
                                 // Resolve after Server has bound its mounted HTTP listener. Never
@@ -546,8 +547,8 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedProductPolicy.Id ? LiveWorkflowOracles.AmazonResolvedProductVersion :
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
-                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : LiveWorkflowOracles.CodeBusinessVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.Version;
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
