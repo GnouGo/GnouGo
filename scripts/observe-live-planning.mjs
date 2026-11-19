@@ -1,8 +1,8 @@
-// Read-only observation of an actual live Agent.Server session. Bootstrap arrives on stdin, never argv/logs.
+// Observe planning and submit typed inputs to a saved workflow on the local Agent.Server. Bootstrap arrives on stdin, never argv/logs.
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
-const { launch, url, session, output, mode } = JSON.parse(input);
+const { launch, url, session, output, mode, agent, inputs } = JSON.parse(input);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -24,6 +24,28 @@ try {
     assert.deepEqual(errors, []);
     await writeFile(`${output}/frontend-readiness.json`, JSON.stringify({ evidence: 'actual Agent.Server; browser readiness only; no inference',
       assetsDelivered: true, helperRegistered: true, interactiveCircuit: true, errors }, null, 2));
+  } else if (mode === 'execute') {
+    await page.goto(url);
+    await page.getByTitle('Select a GnOuGo agent', { exact: true }).click();
+    await page.getByRole('menuitemradio', { name: agent, exact: true }).click();
+    const form = page.getByLabel('Workflow inputs', { exact: true });
+    await form.waitFor();
+    assert.equal(await form.locator('[id^="workflowInput_"]').count(), Object.keys(inputs).length);
+    for (const [name, value] of Object.entries(inputs)) {
+      await form.locator('[id="workflowInput_' + name + '"]').fill(value);
+    }
+    const submit = page.getByRole('button', { name: 'Run workflow', exact: true });
+    const previous = await page.getByLabel('Your message', { exact: true }).count();
+    await submit.click();
+    const message = page.getByLabel('Your message', { exact: true }).nth(previous);
+    await message.waitFor();
+    const run = await message.getAttribute('data-correlation-id');
+    assert.match(run ?? '', /^[0-9a-f]{32}$/);
+    await writeFile(output + '/form-invocation.tmp', JSON.stringify({ agent, run }), { flag: 'wx' });
+    await rename(output + '/form-invocation.tmp', output + '/form-invocation.json');
+    // Keep the Blazor circuit alive through all runtime confirmations.
+    await submit.waitFor({ timeout: 0 });
+    assert.deepEqual(errors, []);
   } else {
   await page.goto(`${url}/planning/${session}`);
   await page.locator('#planningReview[data-interactive="true"]').waitFor();

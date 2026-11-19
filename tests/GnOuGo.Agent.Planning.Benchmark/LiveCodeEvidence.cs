@@ -12,8 +12,10 @@ internal static class LiveCodeEvidence
     {
         var repository = Path.GetFullPath(Path.Combine(root, run["workspace_relative"]!.ToString(), "repository"));
         if (!Directory.Exists(Path.Combine(repository, ".git"))) return;
+        var expectedBase = run["target_base"]?.ToString() ?? LiveWorkflowEvaluation.Base;
+        var expectedHead = run["target_head"]?.ToString() ?? LiveWorkflowEvaluation.Head;
         run["checkout_head"] = await Git(repository, "rev-parse", "HEAD");
-        run["checkout_base"] = await Git(repository, "rev-parse", LiveWorkflowEvaluation.Base + "^{commit}");
+        run["checkout_base"] = await Git(repository, "rev-parse", expectedBase + "^{commit}");
         if (run["repository_manifest"] is not null) return;
         var manifest = new JsonObject();
         foreach (var file in new[] { "AGENTS.md", ".nvmrc", ".python-version", "package.json", "pyproject.toml", ".github/workflows/quality_pipeline.yml" })
@@ -23,7 +25,7 @@ internal static class LiveCodeEvidence
         }
         // Only pin instructions from the requested head, never from an initial
         // default branch that the workflow has not checked out yet.
-        if (run["checkout_head"]?.ToString() == LiveWorkflowEvaluation.Head) run["repository_manifest"] = manifest;
+        if (run["checkout_head"]?.ToString() == expectedHead) run["repository_manifest"] = manifest;
     }
 
     internal static JsonArray Commands(JsonObject run, string repository)
@@ -54,8 +56,8 @@ internal static class LiveCodeEvidence
         bool Version(string command, string expected) => commands.Any(c => c!["command"]!.ToString() == command && c["exit_code"]!.GetValue<long>() == 0 && c["output"]?.ToString().Trim().TrimStart('v') == expected);
         var checks = new JsonObject
         {
-            ["pinned_head"] = run["checkout_head"]?.ToString() == LiveWorkflowEvaluation.Head,
-            ["pinned_base"] = run["checkout_base"]?.ToString() == LiveWorkflowEvaluation.Base,
+            ["pinned_head"] = run["checkout_head"]?.ToString() == (run["target_head"]?.ToString() ?? LiveWorkflowEvaluation.Head),
+            ["pinned_base"] = run["checkout_base"]?.ToString() == (run["target_base"]?.ToString() ?? LiveWorkflowEvaluation.Base),
             ["manifest_observed"] = run["repository_manifest"] is not null,
             ["node_toolchain"] = Version("node --version", "24.20.0"),
             ["pnpm_toolchain"] = Version("pnpm --version", "10.34.5"),
@@ -66,6 +68,13 @@ internal static class LiveCodeEvidence
             ["python_tests"] = Executed("uv run pytest", "uv run pytest -v", "uv run pytest --junitxml=test-results.xml"),
             ["node_tests"] = Executed("pnpm test", "pnpm recursive run test")
         };
+        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version)
+        {
+            var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
+            var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];
+            checks["integration_tests"] = scripts?["e2e"] is not null && Executed("pnpm e2e", "pnpm run e2e", "pnpm exec playwright test");
+            checks["python_format"] = Executed("uv run ruff format --check .", "uv tool run ruff==0.15.22 format --check .");
+        }
         run["observed_commands"] = commands; run["verified_checks"] = checks;
         run["required_checks_verified"] = checks.All(p => p.Value!.GetValue<bool>());
         return checks;

@@ -260,6 +260,7 @@
 
                         <article @key="messageRenderKey"
                                  class="gnougo-chat__message @(isUser ? "gnougo-chat__message--user" : "gnougo-chat__message--assistant") @(isPlaceholder ? "gnougo-chat__message--placeholder" : "") @(isTypingResponse ? "gnougo-chat__message--typing" : "")"
+                                 data-correlation-id="@msg.CorrelationId"
                                  aria-label="@(isUser ? "Your message" : "GnOuGo.Agent response")">
                             <div class="gnougo-chat__bubble">
                                 @if (isUser)

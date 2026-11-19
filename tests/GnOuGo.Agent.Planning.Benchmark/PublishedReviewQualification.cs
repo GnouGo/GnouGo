@@ -49,6 +49,25 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
             throw new PlanningConflictException("The reviewed head or base changed before publication.");
     }
 
+    internal async Task CheckWriteAsync(string tool, JsonObject args, JsonArray events, CancellationToken ct)
+    {
+        if (!Allows(tool, args)) throw new PlanningConflictException("The GitHub operation is outside the reviewed target.");
+        if (tool == "pull_request_read") return;
+        await CheckCurrentAsync(ct);
+        var pending = (await ReadAsync(Api + "/reviews?per_page=100", ct, paginate: true)).AsArray()
+            .SelectMany(page => page!.AsArray()).OfType<JsonObject>().Where(r => r["state"]?.ToString() == "PENDING").ToArray();
+        var creates = Writes(events, "pull_request_review_write", "create");
+        if (tool == "pull_request_review_write" && args["method"]?.ToString() == "create")
+        {
+            if (pending.Length != 0 || creates.Length != 0)
+                throw new PlanningConflictException("A pending or previously created review already exists.");
+        }
+        else if (pending.Length != 1 || creates.Length != 1 || ReceiptId(creates[0]) is not { } id ||
+            pending[0]["id"]?.ToString() != id || pending[0]["commit_id"]?.ToString() != Head ||
+            Writes(events, "pull_request_review_write", "submit_pending").Length != 0)
+            throw new PlanningConflictException("A write requires the pending review created by this execution.");
+    }
+
     internal async Task<JsonObject> ReadBackAsync(JsonArray events, CancellationToken ct)
     {
         var submissions = Writes(events, "pull_request_review_write", "submit_pending");

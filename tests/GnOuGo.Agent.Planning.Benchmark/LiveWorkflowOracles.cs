@@ -149,6 +149,27 @@ internal static partial class LiveWorkflowOracles
                 run["workbook_rows"] = new JsonArray(rows.Select(r => (JsonNode)new JsonArray(r.Select(v => (JsonNode)JsonValue.Create(v)).ToArray())).ToArray());
             }
         }
+        else if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version)
+        {
+            var repository = Path.Combine(folder, "repository");
+            var target = await PublishedReviewQualification.CaptureAsync(run["inputs"]!["pullRequestUrl"]!.GetValue<string>(), CancellationToken.None);
+            if (run["target_head"]?.ToString() != target.Head || run["target_base"]?.ToString() != target.Base)
+                findings.Add("reviewed_head_or_base_changed");
+            LiveCodeEvidence.Verify(run, repository);
+            if (run["required_checks_verified"]?.GetValue<bool>() != true) findings.Add("repository_required_checks_not_independently_verified");
+            var clones = events.Where(e => e["tool"]?.ToString() == "git_clone").ToArray();
+            if (clones.Length != 1 || clones[0]["error"]?.GetValue<bool>() != false || clones[0]["result"]?["success"]?.GetValue<bool>() != true ||
+                clones[0]["arguments"]?["branch"]?.ToString() != target.Head) findings.Add("single_pinned_clone_not_observed");
+            if (Directory.Exists(repository) || !events.Any(e => e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
+                e["arguments"]?["commandName"]?.ToString() == "delete_directory" && e["error"]?.GetValue<bool>() == false))
+                findings.Add("repository_not_cleaned_by_workflow");
+            var readback = await target.ReadBackAsync(run["events"]!.AsArray(), CancellationToken.None);
+            run["github_readback"] = readback;
+            findings.AddRange(readback["findings"]!.AsArray().Select(f => f!.ToString()));
+            if (run["observed_commands"]!.AsArray().Any(c => c!["exit_code"]!.GetValue<long>() != 0) &&
+                events.Any(e => e["arguments"]?["method"]?.ToString() == "submit_pending" && e["arguments"]?["event"]?.ToString() == "APPROVE"))
+                findings.Add("approval_after_failed_check");
+        }
         else
         {
             if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or CodeBusinessVersion))

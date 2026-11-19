@@ -16,7 +16,7 @@ using GnOuGo.Flow.Persistence;
 using GnOuGo.Planning.Examples;
 
 // Explicit live test host. It never changes a saved workflow or host permission
-// policy and never connects the GitHub publication server.
+// policy. Fresh published-review runs use the explicitly scoped GitHub MCP.
 internal static class LiveWorkflowEvaluation
 {
     internal const string AmazonPrompt = "En entrée accepte un article a rechercher, puis va sur amazon pour rechercher l’article en question, (ex: chaussure geox homme 45) liste les articles, ensuite navigue sur la page de chaque article et extraits dans un fichier Excel: le nom, description et prix que tu sauvegarde sur le disque.";
@@ -40,7 +40,7 @@ internal static class LiveWorkflowEvaluation
 
     internal static string CodeEvaluationPrompt(string relative) => CodePrompt +
         "\nDeux entrées texte obligatoires, sans valeur par défaut : pullRequestUrl et reviewText. " +
-        "Résous la PR depuis pullRequestUrl à chaque exécution et applique reviewText au diff de sa base et de sa tête. " +
+        "Résous la PR depuis pullRequestUrl à chaque exécution et transmets les consignes reviewText intégrales à Copilot pour la revue du diff de sa base et de sa tête. " +
         "Clone sa révision une seule fois dans " + relative + "/repository. Rapporte les commandes, les codes de sortie et les vérifications incomplètes. " +
         "Après confirmation et revérification de la tête, publie réellement sur cette PR la décision GitHub d’approbation ou de demande de changements, " +
         "sa justification et les commentaires sur les lignes modifiées. Ancre au moins une observation vérifiée dans le diff.";
@@ -585,11 +585,12 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null) : IMcpClientFactory, IMcpExecutionHooks
+    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null, Func<string, string, JsonObject, CancellationToken, Task>? beforeCall = null) : IMcpClientFactory, IMcpExecutionHooks
     {
         private readonly Func<JsonObject, Task> _save = save;
         private readonly DelegatedTestReviewAuthority? _authority = authority;
         private readonly string? _discoveryScenario = discoveryScenario;
+        private readonly Func<string, string, JsonObject, CancellationToken, Task>? _beforeCall = beforeCall;
         internal int DiscoveryReads;
         public IDisposable BeginCall(McpCallExecutionContext context)
         {
@@ -629,7 +630,12 @@ internal static class LiveWorkflowEvaluation
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {
-                try { owner._authority?.RequireTool(ServerName, toolName, arguments); }
+                try
+                {
+                    owner._authority?.RequireTool(ServerName, toolName, arguments);
+                    if (owner._beforeCall is not null)
+                        await owner._beforeCall(ServerName, toolName, arguments as JsonObject ?? new(), ct);
+                }
                 catch (PlanningConflictException)
                 {
                     // This guard runs before transport. Publish its own known local failure,

@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -47,6 +48,21 @@ public sealed class PublishedReviewQualificationTests
         }
         var result = Target.Verify(events, review, comments);
         Assert.True(passed == result["passed"]!.GetValue<bool>(), result.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData("literal")]
+    [InlineData("unused")]
+    [InlineData("optional")]
+    public void DeclaredOrEchoedReviewInstructionsCannotSubstituteForCallerInput(string variant)
+    {
+        var inputs = new JsonObject { ["reviewText"] = "Review the changed behavior." };
+        var plan = new TaskPlan { Inputs = [new() { Name = "reviewText", Type = new() { Kind = "string" }, Required = variant != "optional" }] };
+        var input = new TaskValue { Kind = "input", Source = "reviewText" };
+        plan.Root.Outputs.Add(new("text", variant == "literal" ? new() { Kind = "string", Text = inputs["reviewText"]!.ToString() } : input));
+        if (variant == "unused") plan.Root.Outputs.Clear();
+        Assert.Throws<PlanningConflictException>(() => ServerBusinessExecution.RequireInputs(plan, inputs));
+        Assert.False(ServerBusinessExecution.ReviewInstructionsObserved([], inputs["reviewText"]!.GetValue<string>()));
     }
 
     [Fact]

@@ -28,6 +28,14 @@ internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
     DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null)
 {
+    private string? _boundExecutionId;
+    private string ExecutionId => _boundExecutionId ?? run;
+    internal void BindServerRun(string executionId)
+    {
+        if (_boundExecutionId is not null && _boundExecutionId != executionId)
+            throw new PlanningConflictException("This authorization is already bound to another execution.");
+        _boundExecutionId = executionId;
+    }
     private string? _confirmationPrompt;
     private string? _confirmationStep;
     private List<string> _runtimeInvocationSuffixes = [];
@@ -43,7 +51,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     {
         var call = context.Correlation;
         if (call.ServerName != "GnOuGo.GithubCopilot.Mcp" || call.MethodName != "code_agent_edit") return new CallRegistration(() => { });
-        if (call.TenantId != "benchmark" || call.RunId != run || call.StepType != "mcp.call" || call.StepId is null ||
+        if (call.TenantId != "benchmark" || call.RunId != ExecutionId || call.StepType != "mcp.call" || call.StepId is null ||
             !_runtimeInvocationSuffixes.Any(s => call.StepId.EndsWith(s, StringComparison.Ordinal)))
             throw new PlanningConflictException("The concrete invocation is outside the reviewed isolated artifact.");
         lock (_activeCalls)
@@ -302,12 +310,12 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
 
     internal bool RequireRuntimeRequest(HumanInputRequest request)
     {
-        if (_confirmationStep is not null && request.RunId == run && request.StepId == _confirmationStep &&
+        if (_confirmationStep is not null && request.RunId == ExecutionId && request.StepId == _confirmationStep &&
             request.ParentInvocationId is null && request.Mode == HumanInputContract.ModeConfirm && request.Prompt == _confirmationPrompt &&
             request.Context is null && request.Fields is null && request.AllowAbandon &&
             request.Choices is { Count: 2 } choices && choices.SequenceEqual(["approve", "reject"]))
             return true; // The unmodified host-owned gate for this reviewed artifact and single execution.
-        if (request.RunId != run || scenario is not ("code" or PublishedReviewQualification.Scenario) || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
+        if (request.RunId != ExecutionId || scenario is not ("code" or PublishedReviewQualification.Scenario) || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
             !_runtimeInvocationSuffixes.Any(s => request.ParentInvocationId.EndsWith(s, StringComparison.Ordinal)) ||
             !request.StepId.StartsWith(request.ParentInvocationId + "/human/", StringComparison.Ordinal) ||
             request.StepId.Length <= request.ParentInvocationId.Length + "/human/".Length || !Active(request) ||
