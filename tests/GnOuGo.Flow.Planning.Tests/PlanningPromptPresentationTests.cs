@@ -97,6 +97,26 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void DiscoveredBranchUsesItsExactOriginalSchemaInsideTheDisplayedAncestor()
+    {
+        var schema = new JsonObject { ["type"] = "string", ["description"] = new string('x', 2000) };
+        var row = new JsonObject { ["id"] = "read", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["pointer"] = "/output/oneOf/1", ["schema"] = schema.DeepClone(),
+            ["ancestors"] = new JsonArray(new JsonObject { ["pointer"] = "/output", ["constraints"] = new JsonObject
+                { ["oneOf"] = new JsonArray(new JsonObject { ["type"] = "null" }, schema.DeepClone()) } }) };
+        var other = row.DeepClone(); other["schema"]!["description"] = "Different original constraint.";
+        var context = new JsonObject { ["evidence"] = new JsonObject { ["schema:read@v1:/output/oneOf/1"] = row,
+            ["schema:read@v1:/output/oneOf/0"] = other } };
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_discovery",
+            "Inspect the returned branches.\n" + context.ToJsonString(), new JsonObject { ["type"] = "object" }, null, null);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+        var evidence = shown["evidence"]!.AsObject().Select(p => p.Value!).ToArray();
+        Assert.Null(evidence[0]["schema"]);
+        Assert.Equal(schema.ToJsonString(), PlanningSchemaReferences.Read(shown, evidence[0]["schemaPresentedAt"]!.ToString())!.ToJsonString());
+        Assert.Equal(other["schema"]!.ToJsonString(), evidence[1]["schema"]!.ToJsonString());
+    }
+
+    [Fact]
     public void SharedSchemaRetainsExactSourceCoordinatesAncestorsClosuresAndDiagnostics()
     {
         var original = Context(); var frozen = original.ToJsonString();

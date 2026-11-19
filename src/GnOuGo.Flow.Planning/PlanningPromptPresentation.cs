@@ -256,25 +256,34 @@ public static class PlanningPromptPresentation
         for (var i = 0; i < operations.Count; i++)
         {
             if (operations[i] is not JsonObject operation || !Identity(operation, out var id, out var version, out var hash)) continue;
-            Add(operation["inputSchema"] as JsonObject, "/input", $"/operations/{i}/inputSchema");
+            Add(id, version, hash, operation["inputSchema"] as JsonObject, "/input", $"/operations/{i}/inputSchema");
             foreach (var name in new[] { "selectedInputs", "selectedOutputs" })
                 if (operation[name] is JsonArray selected)
                     for (var j = 0; j < selected.Count; j++)
                         if (Text(selected[j]?["pointer"]) is { Length: > 0 } pointer)
-                            Add(selected[j]?["schema"] as JsonObject, pointer, $"/operations/{i}/{name}/{j}/schema");
-
-            void Add(JsonObject? schema, string original, string presented)
-            {
-                if (schema is null) return;
-                foreach (var entry in PlanningSchemaReferences.Walk(schema, original, 0))
-                    schemas.TryAdd((id, version, hash, entry.Path, entry.Schema.ToJsonString()), presented + entry.Path[original.Length..]);
-            }
+                            Add(id, version, hash, selected[j]?["schema"] as JsonObject, pointer, $"/operations/{i}/{name}/{j}/schema");
+        }
+        foreach (var (address, value) in evidence)
+        {
+            if (value is not JsonObject row || row["ancestors"] is not JsonArray ancestors ||
+                !Identity(row, out var id, out var version, out var hash)) continue;
+            for (var i = 0; i < ancestors.Count; i++)
+                if (ancestors[i] is JsonObject ancestor && Text(ancestor["pointer"]) is { Length: > 0 } pointer)
+                    Add(id, version, hash, ancestor["constraints"] as JsonObject, pointer,
+                        $"/evidence/{PlanningSchemaReferences.Escape(address)}/ancestors/{i}/constraints");
+        }
+        void Add(string id, string version, string hash, JsonObject? schema, string original, string presented)
+        {
+            if (schema is null) return;
+            foreach (var entry in PlanningSchemaReferences.Walk(schema, original, 0))
+                schemas.TryAdd((id, version, hash, entry.Path, entry.Schema.ToJsonString()), presented + entry.Path[original.Length..]);
         }
         foreach (var row in evidence.Select(p => p.Value).OfType<JsonObject>())
             if (Identity(row, out var id, out var version, out var hash) && Text(row["pointer"]) is { Length: > 0 } pointer &&
                 row["schema"] is JsonObject schema && !row.ContainsKey("schemaPresentedAt") &&
                 schemas.TryGetValue((id, version, hash, pointer, schema.ToJsonString()), out var presented))
             {
+                if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
         if (!shared && !sharedTasks && !sharedAncestors) return prompt;
