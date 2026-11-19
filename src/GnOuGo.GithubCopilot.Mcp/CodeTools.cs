@@ -54,7 +54,7 @@ internal sealed class CodeTools
         => Execute("code_search_text", () => _projectService.Search(projectRoot, query, glob, caseSensitive));
 
     [McpServerTool(Name = "code_suggest_change", UseStructuredContent = true, OutputSchemaType = typeof(CodeSuggestionResult)), Description("Asks GitHub Copilot/GitHub Models for a code-change plan or patch suggestion inside an existing project root. This tool does not write files." + RequiredProjectRootToolSuffix)]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to perform.")] string task,
@@ -71,7 +71,7 @@ internal sealed class CodeTools
         });
 
     [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs one bounded GitHub Copilot SDK coding task inside an existing project root. Requested work may include inspection, review, checks or edits; actual tools and command availability depend on the SDK and current host permission/sandbox policy. toolExecutions preserves observed tool and terminal results; a completed session does not prove commands or checks succeeded. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Requested coding task, limited to actions permitted by the existing project scope, available SDK tools and host permission/sandbox policy.")] string task,
