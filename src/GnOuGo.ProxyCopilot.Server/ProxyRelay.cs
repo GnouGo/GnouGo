@@ -93,10 +93,15 @@ public sealed class ProxyRelay : IDisposable
         {
             var adapter = _adapters[route.Type];
             byte[] upstreamBody;
+            bool upstreamStreaming;
             try
             {
                 var prepared = ChatContract.PrepareRequest(request, route);
-                upstreamBody = Encoding.UTF8.GetBytes(adapter.CreateRequest(prepared, route).ToJsonString(ProxyJsonContext.Default.Options));
+                if (route.UsesStructuredTools && prepared["tools"] is JsonArray { Count: > 0 })
+                    adapter = new StructuredToolAdapter(adapter, prepared, callId);
+                var upstream = adapter.CreateRequest(prepared, route);
+                upstreamStreaming = ChatContract.Bool(upstream["stream"]);
+                upstreamBody = Encoding.UTF8.GetBytes(upstream.ToJsonString(ProxyJsonContext.Default.Options));
             }
             catch (Exception ex) when (ex is InvalidOperationException or ArgumentException or JsonException or FormatException)
             { throw new ProxyException(400, "invalid_request", "The chat request contains invalid fields."); }
@@ -120,7 +125,7 @@ public sealed class ProxyRelay : IDisposable
                     using var outgoing = new HttpRequestMessage(HttpMethod.Post, adapter.Endpoint(route));
                     outgoing.Content = new ByteArrayContent(upstreamBody);
                     outgoing.Content.Headers.ContentType = new("application/json");
-                    outgoing.Headers.Accept.Add(new(streaming && route.Type != "ollama" ? "text/event-stream" : "application/json"));
+                    outgoing.Headers.Accept.Add(new(upstreamStreaming && route.Type != "ollama" ? "text/event-stream" : "application/json"));
                     await _authentication.Apply(outgoing, route, callId, ct);
                     // No client credentials, cookies, forwarding headers, or arbitrary URLs
                     // are inherited from the incoming request. Redirects are disabled.
@@ -173,7 +178,7 @@ public sealed class ProxyRelay : IDisposable
                 await StopHeartbeat();
                 if (response is null) throw WireReader.Invalid("No upstream response was received.");
                 var mediaType = response.Content.Headers.ContentType?.MediaType;
-                if (streaming && route.Type != "ollama" && mediaType != "text/event-stream")
+                if (upstreamStreaming && route.Type != "ollama" && mediaType != "text/event-stream")
                     throw WireReader.Invalid("The upstream did not return an SSE stream.");
                 PrepareResponse(context, streaming);
                 await using var stream = await response.Content.ReadAsStreamAsync(ct);

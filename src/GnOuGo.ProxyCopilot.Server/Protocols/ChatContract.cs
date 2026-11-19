@@ -20,6 +20,22 @@ public static class ChatContract
         Validate(request, route);
         var capabilities = route.Model.Metadata.Capabilities;
         JsonObject? prepared = null;
+        if (route.UsesStructuredTools)
+        {
+            if (request["functions"] is not null || request["function_call"] is not null)
+                throw Unsupported("legacy functions");
+            if (request["tools"] is not JsonArray { Count: > 0 })
+            {
+                if (!AllowsTextReply(request["tool_choice"])) throw Unsupported("tool_choice without tools");
+                if (request.ContainsKey("tools") || request.ContainsKey("tool_choice") || request.ContainsKey("parallel_tool_calls"))
+                {
+                    prepared = (JsonObject)request.DeepClone();
+                    prepared.Remove("tools");
+                    prepared.Remove("tool_choice");
+                    prepared.Remove("parallel_tool_calls");
+                }
+            }
+        }
         foreach (var field in new[] { "temperature", "top_p" })
         {
             if (!request.ContainsKey(field) || !(field == "temperature" && capabilities.SupportsTemperature == false
@@ -46,6 +62,9 @@ public static class ChatContract
         }
         if (request["n"] is not null && Integer(request["n"], "n") != 1) throw Unsupported("n (only 1 is supported)");
         if (request["messages"] is not JsonArray { Count: > 0 } messages) throw Unsupported("messages");
+        // Copilot retains completed tool exchanges when switching models mid-conversation.
+        var acceptsToolHistory = route.SupportsTools || (route.Type is "openai" or "copilot"
+            && request["functions"] is null && AllowsTextReply(request["function_call"]) && AllowsTextReply(request["tool_choice"]));
         var pending = new Dictionary<string, string>(StringComparer.Ordinal);
         var ids = new HashSet<string>(StringComparer.Ordinal);
         foreach (var item in messages)
@@ -64,7 +83,7 @@ public static class ChatContract
             }
             if (message["tool_calls"] is JsonArray calls)
             {
-                if (role != "assistant" || !route.SupportsTools) throw Unsupported("tool_calls");
+                if (role != "assistant" || !acceptsToolHistory) throw Unsupported("tool_calls");
                 foreach (var call in calls)
                 {
                     var id = Text(call?["id"], "tool call ID");
@@ -88,6 +107,9 @@ public static class ChatContract
         }
         foreach (var name in route.Model.Metadata.Capabilities.UnsupportedRequestParameters ?? [])
         {
+            // On a structured tool turn these client fields are consumed locally.
+            if (route.UsesStructuredTools && request["tools"] is JsonArray { Count: > 0 }
+                && name is "tools" or "tool_choice" or "parallel_tool_calls" or "stream_options") continue;
             // PrepareRequest omits unsupported sampling hints after validating values.
             if (name is "temperature" or "top_p") continue;
             // The OpenAI-compatible adapter translates these two client aliases and
@@ -109,6 +131,9 @@ public static class ChatContract
                     "The requested reasoning_effort is not enabled for this model. Refresh the client model configuration from /api/setup and select a configured level.");
         }
     }
+
+    private static bool AllowsTextReply(JsonNode? choice) =>
+        choice is null || choice is JsonValue value && value.TryGetValue<string>(out var mode) && mode is "auto" or "none";
 
     public static void ValidateNative(JsonObject request, bool anthropic)
     {

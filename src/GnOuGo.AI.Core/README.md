@@ -17,6 +17,8 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `Anthropic` | `anthropic` | Anthropic Claude Messages API                  |
 | `Local`     | `local`   | Embedded runtime supplied by `GnOuGo.AI.Local`   |
 
+`StructuredToolSelection` provides the shared Chat Completions tool-selection contract for ProxyCopilot and GithubCopilot.Mcp. It builds a strict JSON schema from the functions offered for one request, includes their complete declarations in the conversation, and converts a completed decision into a Chat Completions reply or stream. Tool names, required selections and parallel-call limits are checked before any call reaches the client. The client owns argument validation, permissions and execution.
+
 ## Model Catalog Behavior
 
 `ILLMModelCatalog` returns the provider-discovered catalog enriched with GnOuGo model metadata.

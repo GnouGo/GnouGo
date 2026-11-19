@@ -103,6 +103,56 @@ public sealed class ReasoningSetupTests
     }
 
     [Theory]
+    [InlineData("openai")]
+    [InlineData("copilot")]
+    public async Task TextOnlyTurnCanUseCompletedToolHistoryAtExtraHigh(string type)
+    {
+        var received = new List<JsonObject>();
+        await using var upstream = await TestHost.Upstream(async context =>
+        {
+            received.Add((await JsonNode.ParseAsync(context.Request.Body))!.AsObject());
+            await ProtocolRoundTripTests.Write(context, ProtocolRoundTripTests.Fixture(type, true, false), "text/event-stream");
+        });
+        await using var proxy = await TestHost.Proxy(upstream.Url, type, new()
+        {
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:Capabilities:SupportsTools"] = "false",
+            ["ProxyCopilot:Providers:test:Models:model:Metadata:Capabilities:SupportedReasoningEfforts:0"] = "xhigh"
+        });
+        var request = ProtocolRoundTripTests.Request(true);
+        var toolDefinitions = request["tools"]!;
+        request.Remove("tools");
+        request["reasoning_effort"] = "xhigh";
+        var messages = request["messages"]!.AsArray();
+        messages.Add(JsonNode.Parse("""
+            {"role":"assistant","content":null,"tool_calls":[{"id":"past","type":"function","function":{"name":"lookup","arguments":"{}"}}]}
+            """));
+        messages.Add(new JsonObject { ["role"] = "tool", ["tool_call_id"] = "past", ["content"] = "Paris" });
+        messages.Add(new JsonObject { ["role"] = "user", ["content"] = "Which city did the tool return?" });
+
+        Task<HttpResponseMessage> Send() => proxy.Client.PostAsync("/v1/chat/completions", TestHost.Json(request.ToJsonString()), TestContext.Current.CancellationToken);
+        using var success = await Send();
+        Assert.Equal(HttpStatusCode.OK, success.StatusCode);
+        Assert.Contains("[DONE]", await success.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        var forwarded = Assert.Single(received);
+        Assert.True(JsonNode.DeepEquals(messages, forwarded["messages"]));
+        Assert.Equal("xhigh", forwarded["reasoning_effort"]!.GetValue<string>());
+        Assert.False(forwarded.ContainsKey("tools"));
+
+        request["tools"] = toolDefinitions;
+        using var activeTools = await Send();
+        Assert.Equal(HttpStatusCode.BadRequest, activeTools.StatusCode);
+        request.Remove("tools");
+        request["tool_choice"] = "required";
+        using var forcedCall = await Send();
+        Assert.Equal(HttpStatusCode.BadRequest, forcedCall.StatusCode);
+        request.Remove("tool_choice");
+        messages[^2]!["tool_call_id"] = "unmatched";
+        using var invalidHistory = await Send();
+        Assert.Equal(HttpStatusCode.BadRequest, invalidHistory.StatusCode);
+        Assert.Single(received);
+    }
+
+    [Theory]
     [InlineData("openai", false, "high")] [InlineData("openai", true, "high")]
     [InlineData("copilot", false, "high")] [InlineData("copilot", true, "high")]
     [InlineData("openai", false, "none")] [InlineData("openai", true, "none")]
