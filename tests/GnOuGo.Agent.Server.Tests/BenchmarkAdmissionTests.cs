@@ -16,6 +16,33 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BenchmarkAdmissionTests
 {
+    [Fact]
+    public async Task ElapsedBusinessTestTargetWarnsAndStillObservesCompletion()
+    {
+        var warning = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completionObserved = false;
+        await ServerBusinessExecution.ObserveExecutionAsync(async token =>
+        {
+            await warning.Task.WaitAsync(TimeSpan.FromSeconds(3), token);
+            token.ThrowIfCancellationRequested();
+            completionObserved = true;
+        }, TimeSpan.Zero, () => warning.SetResult(), TestContext.Current.CancellationToken);
+        Assert.True(completionObserved);
+    }
+
+    [Fact]
+    public async Task ExecutionObserverPropagatesAnActualToolTimeoutAndHostCancellation()
+    {
+        var timeout = new TimeoutException("The tool failed to return its receipt.");
+        var actual = await Assert.ThrowsAsync<TimeoutException>(() => ServerBusinessExecution.ObserveExecutionAsync(
+            _ => Task.FromException(timeout), TimeSpan.FromMinutes(1), () => Assert.Fail("Unexpected elapsed warning."), TestContext.Current.CancellationToken));
+        Assert.Same(timeout, actual);
+        using var stopped = new CancellationTokenSource();
+        await stopped.CancelAsync();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => ServerBusinessExecution.ObserveExecutionAsync(
+            token => Task.FromCanceled(token), TimeSpan.FromMinutes(1), () => Assert.Fail("Unexpected elapsed warning."), stopped.Token));
+    }
+
     [Theory]
     [InlineData("LLM_BUDGET_EXCEEDED", true)]
     [InlineData("LLM_BUDGET_UNVERIFIABLE", false)]

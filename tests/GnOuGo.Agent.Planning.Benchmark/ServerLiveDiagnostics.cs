@@ -874,9 +874,10 @@ internal static class ServerLiveDiagnostics
         if (business is not null)
         {
             await lease.DisposeAsync();
-            using var executionDeadline = CancellationTokenSource.CreateLinkedTokenSource(app.Lifetime.ApplicationStopping);
-            executionDeadline.CancelAfter(TimeSpan.FromMinutes(30));
-            await business.ExecuteAsync(app, client, campaign, model, state, authority, report, workspace, output, executionDeadline.Token);
+            await ServerBusinessExecution.ObserveExecutionAsync(
+                token => business.ExecuteAsync(app, client, campaign, model, state, authority, report, workspace, output, token),
+                TimeSpan.FromMinutes(30), () => Console.Error.WriteLine("Warning: execution exceeded 30 minutes. Waiting for the Server journal and cleanup."),
+                app.Lifetime.ApplicationStopping);
             return true;
         }
         var sourceRoot = report["working_directory"]!.ToString();

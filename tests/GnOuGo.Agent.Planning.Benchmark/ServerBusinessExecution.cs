@@ -64,6 +64,18 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     public string FormatFailureDiagnostics(string serverName, Exception error) =>
         _execution?.FormatFailureDiagnostics(serverName, error) ?? error.GetType().Name;
 
+    internal static async Task ObserveExecutionAsync(Func<CancellationToken, Task> execute, TimeSpan elapsedTarget,
+        Action warn, CancellationToken stopping)
+    {
+        var execution = execute(stopping);
+        try { await execution.WaitAsync(elapsedTarget); }
+        catch (TimeoutException)
+        {
+            if (!execution.IsCompleted) warn();
+            await execution;
+        }
+    }
+
     internal static bool IsExecutionBudgetOverrun(WorkflowRun journal) =>
         journal.Status == WorkflowRunStatus.Failed && journal.FinalizationCompleted &&
         journal.Result is { Success: false, Error.Code: ErrorCodes.LlmBudgetExceeded } result &&

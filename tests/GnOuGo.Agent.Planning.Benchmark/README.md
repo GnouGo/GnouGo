@@ -1252,7 +1252,9 @@ it reads the submitted review and inline comments back from GitHub by review ID.
 Each new business session captures its draft-phase output allowance for runtime
 model calls and the Copilot inference proxy. A smaller allowance requested by
 the caller is retained. The Server profile uses 4,096 output tokens for drafting
-and 2,048 for business review.
+and 2,048 for business review. At 30 minutes, the live business execution observer
+emits a warning and continues waiting for the terminal journal and cleanup
+evidence. Operator cancellation and tool failures still propagate.
 
 Diagnostic call, token and timing targets produce warnings. A session can
 continue across those targets. The campaign still enforces its spending
