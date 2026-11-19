@@ -383,7 +383,9 @@ internal static partial class PlanningCompactConstruction
     internal static string[] SelectionOperationIds(PlanningSession state)
     {
         var pages = KnownOperationPages(state);
-        return pages.Where((page, index) => index == 0 || JsonNode.DeepEquals(state.Construction!.Evidence?[page.Address], page.Page))
+        var replacement = ReplacementOperationPage(state, pages);
+        return pages.Where((page, index) => index == 0 || page.Address == replacement?.Address ||
+                JsonNode.DeepEquals(state.Construction!.Evidence?[page.Address], page.Page))
             .SelectMany(page => page.Page["items"]!.AsArray()).Select(item => item!["id"]!.ToString()).Distinct(StringComparer.Ordinal).ToArray();
     }
 
@@ -400,7 +402,22 @@ internal static partial class PlanningCompactConstruction
                 PlanningConstruction.Fail("DISCOVERY_SELECTION_INVALID", "/operationIds", "The selected cached contract no longer matches the exact identity presented in this selection request.");
     }
 
-    private static JsonObject? KnownOperations(PlanningSession state) => KnownOperationPages(state).FirstOrDefault().Page;
+    // A repair can change a control while keeping its already inspected operations.
+    // Include one small canonical continuation in the request without recording a read.
+    private static (string Address, JsonObject Page)? ReplacementOperationPage(PlanningSession state,
+        List<(string Address, JsonObject Page)> pages)
+    {
+        if (pages.Count < 2 || ReselectionContext(state) is null ||
+            State(state).RejectedSteps[^1]["step"]?["operationIds"] is not JsonArray { Count: > 0 } previous)
+            return null;
+        var ids = previous.Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal);
+        foreach (var page in pages.Skip(1))
+            if (state.Construction!.Evidence?.ContainsKey(page.Address) != true &&
+                page.Page["items"]!.AsArray().Any(row => ids.Contains(row!["id"]!.ToString())) &&
+                System.Text.Encoding.UTF8.GetByteCount(page.Page.ToJsonString()) <= ContractDescriptionPageSize)
+                return page;
+        return null;
+    }
 
     private static JsonNode? LoadKnownOperationPage(PlanningSession state, string address) =>
         KnownOperationPages(state).FirstOrDefault(page => page.Address == address).Page;
@@ -525,7 +542,13 @@ internal static partial class PlanningCompactConstruction
             context["completionOnly"] = CompletionOnly(state);
             context["continuation"] = ContinuationContext(state);
         }
-        context["knownOperations"] = KnownOperations(state);
+        var operationPages = KnownOperationPages(state);
+        context["knownOperations"] = operationPages.FirstOrDefault().Page;
+        if (ReplacementOperationPage(state, operationPages) is { } replacementPage)
+        {
+            context["evidence"] ??= new JsonObject();
+            context["evidence"]![replacementPage.Address] = replacementPage.Page;
+        }
         AddNavigationCompositions(state, context, known: true);
         {
             context["nextDecision"] = SelectionDecision(state, context["continuation"] as JsonObject);

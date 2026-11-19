@@ -208,6 +208,44 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(state.Construction!.Checkpoints); Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
     }
 
+    [Fact]
+    public async Task ReplacementSelectionCanRebindItsPreviouslySelectedCachedContractWithoutPagingAgain()
+    {
+        var (state, runtime) = ReadyKnown();
+        for (var index = 0; index < 5; index++)
+        {
+            var contract = Contract();
+            contract.Id = contract.Method = "read_" + index;
+            AddContract(state, contract);
+        }
+        var page = PlanningCompactConstruction.ImplementationContext(state)["knownOperations"]!["next"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [page]);
+        runtime.Respond = (_, _) => new() { Json = SelectKnown(state, "operation", "read_4") };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        state.Diagnostics = [new("CONSTRUCTION_RESELECTION", "/step", "This connected work needs an enclosing scope.")];
+        PlanningCompactConstruction.Reselect(state, "Change the control and reuse the inspected operation.");
+        state = PlannerFixture.Clone(state);
+
+        Assert.Null(state.Construction!.Evidence);
+        Assert.Contains("read_4", PlanningCompactConstruction.SelectionOperationIds(state));
+        var presented = PlanningCompactConstruction.ImplementationContext(state);
+        Assert.Equal("read_4", Assert.Single(presented["evidence"]![page]!["items"]!.AsArray())!["id"]!.ToString());
+        Assert.Null(state.Construction.Evidence);
+        var unrelated = PlannerFixture.Clone(state);
+        unrelated.Construction!.Compact!.ReplacementScope = "/different";
+        Assert.DoesNotContain("read_4", PlanningCompactConstruction.SelectionOperationIds(unrelated));
+        var denied = PlannerFixture.Clone(state);
+        denied.Catalog!.Policy.DeniedCapabilityIds.Add("read_4");
+        Assert.DoesNotContain("read_4", PlanningCompactConstruction.SelectionOperationIds(denied));
+
+        runtime.Respond = (request, _) => Wire(request, SelectKnown(state, "sequence", "read_4"));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(new[] { "read_4" }, state.Construction!.Compact!.CurrentStep!.OperationIds);
+        Assert.Equal(2, state.ModelCalls);
+    }
+
     [Theory]
     [InlineData("denied")]
     [InlineData("step_type")]
