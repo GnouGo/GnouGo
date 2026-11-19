@@ -612,6 +612,9 @@ internal static class ServerLiveDiagnostics
                 {
                     var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None)
                         ?? throw new PlanningConflictException("The live Server session disappeared.");
+                    if (business is not null && report["execution_model_output_limit"] is null)
+                        report["execution_model_output_limit"] = Math.Min(32768,
+                            PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_draft").OutputTokens);
                     if (state.Revision != revision)
                     {
                         revision = state.Revision;

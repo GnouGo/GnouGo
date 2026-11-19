@@ -12,7 +12,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
     internal bool Ready { get; private set; }
     internal bool ExecutionEnabled { get; set; }
     internal static async Task<CampaignInferenceProxy> StartAsync(KeyVaultBenchmarkModel model, string run, string? chatToolsReasoningEffort = null,
-        string? wireApi = null, string? inferenceTransport = null)
+        string? wireApi = null, string? inferenceTransport = null, int outputLimit = 32768)
     {
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(chatToolsReasoningEffort);
         ValidateWireApi(wireApi);
@@ -32,7 +32,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             var body = await reader.ReadToEndAsync(context.RequestAborted);
             try
             {
-                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort, wireApi, inferenceTransport);
+                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort, wireApi, inferenceTransport, outputLimit);
                 context.Response.StatusCode = result.Status;
                 context.Response.ContentType = result.ContentType;
                 await context.Response.WriteAsync(result.Body, context.RequestAborted);

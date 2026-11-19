@@ -504,12 +504,18 @@ internal static class LiveWorkflowEvaluation
             throw new PlanningConflictException("The interaction preflight did not receive its exact non-authorizing challenge.");
     }
 
-    internal static LLMRequest ExecutionRequest(LLMRequest request, string run, int call)
+    internal static LLMRequest ExecutionRequest(LLMRequest request, string run, int call, int outputLimit = 32768)
     {
         var copy = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
         copy.ClientRequestId = run + "-execution:" + (request.ClientRequestId ?? call + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt));
-        copy.Reasoning = "medium"; copy.MaxTokens = Math.Min(copy.MaxTokens ?? 32768, 32768);
+        copy.Reasoning = "medium"; copy.MaxTokens = BoundExecutionOutput(copy.MaxTokens, outputLimit);
         return copy;
+    }
+
+    internal static int BoundExecutionOutput(int? requested, int outputLimit)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(outputLimit);
+        return Math.Min(requested ?? outputLimit, Math.Min(outputLimit, 32768));
     }
 
     internal static void RecordExecutionOracle(JsonObject run, PlanningSession session, JsonObject oracle)
@@ -570,7 +576,7 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run) : ILLMClient, ILLMCapabilityResolver
+    internal sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run, int outputLimit = 32768) : ILLMClient, ILLMCapabilityResolver
     {
         public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct)
             => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
@@ -581,7 +587,7 @@ internal static class LiveWorkflowEvaluation
         private int _calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls)), ct);
+            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls), outputLimit), ct);
         }
     }
 

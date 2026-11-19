@@ -1558,6 +1558,22 @@ public sealed class BenchmarkCampaignTests
         foreach (var invalid in new[] { "{\"model\":\"other\"}", "{\"model\":\"pinned\",\"n\":2}", "{\"model\":\"pinned\",\"conversation\":\"hidden\"}", "{\"model\":\"pinned\",\"messages\":[{\"type\":\"input_image\"}]}" })
             Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(JsonNode.Parse(invalid)!.AsObject(), "pinned", path));
     }
+    [Theory]
+    [InlineData(null, 4096)]
+    [InlineData(512, 512)]
+    [InlineData(32768, 4096)]
+    public void ServerRuntimeAndSdkCallsHonorTheCapturedDraftOutputAllowance(int? requested, int expected)
+    {
+        var original = new LLMRequest { Prompt = "Use the completed checks", MaxTokens = requested };
+        Assert.Equal(expected, LiveWorkflowEvaluation.ExecutionRequest(original, "run", 1, outputLimit: 4096).MaxTokens);
+        var sdk = new JsonObject { ["model"] = "pinned", ["reasoning_effort"] = "low" };
+        if (requested is not null) sdk["max_tokens"] = requested.Value;
+        var wire = KeyVaultBenchmarkModel.PrepareProxyPayload(sdk, "pinned", "/chat/completions", preserveSdkReasoning: true, outputLimit: 4096);
+        Assert.Equal(expected, wire["max_completion_tokens"]!.GetValue<int>());
+        Assert.Equal("low", wire["reasoning_effort"]!.ToString());
+        Assert.Equal(requested, original.MaxTokens);
+    }
+
     [Fact]
     public void ExplicitStructuredSdkTransportRetainsReasoningAndItsActualStructuredWireBody()
     {

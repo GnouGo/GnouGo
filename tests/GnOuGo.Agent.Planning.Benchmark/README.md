@@ -1249,6 +1249,11 @@ and `reviewText` to the composer and captures the current PR head and base.
 It checks the clone, completed Copilot commands and cleanup. After publication,
 it reads the submitted review and inline comments back from GitHub by review ID.
 
+Each new business session captures its draft-phase output allowance for runtime
+model calls and the Copilot inference proxy. A smaller allowance requested by
+the caller is retained. The Server profile uses 4,096 output tokens for drafting
+and 2,048 for business review.
+
 Diagnostic call, token and timing targets produce warnings. A session can
 continue across those targets. The campaign still enforces its spending
 authorization and preserves outstanding reservations. A funding refusal or

@@ -856,7 +856,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
     internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct,
-        string? chatToolsReasoningEffort = null, string? wireApi = null, string? inferenceTransport = null)
+        string? chatToolsReasoningEffort = null, string? wireApi = null, string? inferenceTransport = null, int outputLimit = 32768)
     {
         await _dispatchGate.WaitAsync(ct);
         try
@@ -878,7 +878,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             var incoming = JsonNode.Parse(body)!.AsObject();
             if (preserveSdkReasoning && (!upstream.AbsolutePath.EndsWith("/chat/completions", StringComparison.Ordinal) || incoming["tools"] is JsonArray { Count: > 0 }))
                 throw new InvalidOperationException("The actual SDK request differs from the captured structured transport.");
-            var payload = PrepareProxyPayload(incoming, Model, upstream.AbsolutePath, chatToolsReasoningEffort, preserveSdkReasoning);
+            var payload = PrepareProxyPayload(incoming, Model, upstream.AbsolutePath, chatToolsReasoningEffort, preserveSdkReasoning, outputLimit);
             body = payload.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
             var output = (payload["max_completion_tokens"] ?? payload["max_tokens"] ?? payload["max_output_tokens"])?.GetValue<int>();
             if (output is null || output <= 0 || output > 32768) throw new InvalidOperationException("Execution inference lacks a bounded output allowance.");
@@ -958,7 +958,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         finally { _dispatchGate.Release(); }
     }
     internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path, string? chatToolsReasoningEffort = null,
-        bool preserveSdkReasoning = false)
+        bool preserveSdkReasoning = false, int outputLimit = 32768)
     {
         if (original["model"]?.ToString() != model || original["n"] is { } n && n.GetValue<int>() != 1 ||
             original["previous_response_id"] is not null || original["conversation"] is not null || !TextOnly(original))
@@ -970,7 +970,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         var field = responses ? "max_output_tokens" : "max_completion_tokens";
         var requested = (result[field] ?? result["max_tokens"])?.GetValue<int>() ?? 32768;
         if (requested <= 0) throw new InvalidOperationException("Invalid inference output ceiling.");
-        result.Remove("max_tokens"); result[field] = Math.Min(requested, 32768);
+        result.Remove("max_tokens"); result[field] = LiveWorkflowEvaluation.BoundExecutionOutput(requested, outputLimit);
         if (responses) { result["reasoning"] ??= new JsonObject(); result["reasoning"]!["effort"] = "medium"; }
         else
         {

@@ -127,8 +127,9 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         report["execution_artifact_hash"] = saved.ApprovedHash;
         report["review_origin"] = "delegated_test_reviewed";
         model.CaptureTokenPolicy(state.Request);
+        var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
-            report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString());
+            report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
         if (scenario == "code")
         {
             configurations["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"] = proxy.Endpoint;
@@ -192,7 +193,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         report["execution_started"] = DateTimeOffset.UtcNow;
         await Save();
         proxy.ExecutionEnabled = true;
-        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId);
+        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId, outputLimit);
         _execution = observed;
         using var browser = ServerLiveDiagnostics.StartObserver(app, report["working_directory"]!.ToString(), client.BaseAddress!.ToString(),
             state.Request.SessionId, report["run"]!.ToString(), _agentName, report["inputs"]!.AsObject());
