@@ -152,6 +152,42 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void DiscoveryShowsTheTypeOfTwoIndependentResultsFromTheSameContractOnce()
+    {
+        var schema = new JsonObject { ["type"] = "string", ["description"] = new string('a', 1200) };
+        var rows = new JsonArray();
+        JsonObject Row(string result, string version, string? port)
+        {
+            var producer = new JsonObject { ["id"] = result, ["scope"] = "/root", ["phase"] = "tasks",
+                ["task"] = new JsonObject { ["id"] = result, ["objective"] = "Produce " + result },
+                ["contract"] = new JsonObject { ["id"] = "read", ["version"] = version, ["hash"] = new string('c', 64) } };
+            return new JsonObject { ["value"] = new JsonObject { ["kind"] = "output", ["source"] = result, ["port"] = port },
+                ["schema"] = schema.DeepClone(), ["producers"] = new JsonArray(producer) };
+        }
+        rows.Add(Row("read_first", "v1", null));
+        rows.Add(Row("read_second", "v1", null));
+        rows.Add(Row("other_version", "v2", null));
+        rows.Add(Row("other_port", "v1", "records"));
+        var narrowed = Row("narrower", "v1", null);
+        narrowed["schema"]!["maxLength"] = 64;
+        rows.Add(narrowed);
+        var original = new JsonObject { ["interfaces"] = rows };
+        var prompt = "Inspect these results.\n" + original.ToJsonString();
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_discovery", prompt,
+            new JsonObject { ["type"] = "object" }, null, null);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var interfaces = shown["interfaces"]!.AsArray();
+        Assert.Null(interfaces[1]!["schema"]);
+        var pointer = interfaces[1]!["schemaPresentedAt"]!.ToString();
+        Assert.Equal("/interfaces/0/schema", pointer);
+        Assert.Equal(schema.ToJsonString(), PlanningSchemaReferences.Read(shown, pointer)!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(rows[1]!["value"], interfaces[1]!["value"]));
+        Assert.True(JsonNode.DeepEquals(rows[1]!["producers"], interfaces[1]!["producers"]));
+        foreach (var index in new[] { 0, 2, 3, 4 })
+            Assert.True(JsonNode.DeepEquals(rows[index]!["schema"], interfaces[index]!["schema"]));
+    }
+
+    [Fact]
     public void SharedSchemaRetainsExactSourceCoordinatesAncestorsClosuresAndDiagnostics()
     {
         var original = Context(); var frozen = original.ToJsonString();

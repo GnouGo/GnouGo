@@ -248,6 +248,7 @@ public static class PlanningPromptPresentation
         // each schema independently; never substitute one owner's contract for
         // another or detach the original schema's reference scope.
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
+        var sharedResults = ShareRepeatedOutputSchemas(context);
         var sharedTasks = ShareRepeatedTaskViews(context);
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
@@ -308,7 +309,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedAncestors) return prompt;
+        if (!shared && !sharedTasks && !sharedAncestors && !sharedResults) return prompt;
+        if (sharedResults)
+            context["interfaceSchemaPresentation"] = "An interface's schemaPresentedAt points to its complete, identical output schema in this context. Each result retains its own binding, producer and arguments.";
         if (sharedAncestors)
             context["ancestorPresentation"] = "ancestorsPresentedAt points to the exact ancestor constraints shared by schema views of this operation and version.";
         if (shared)
@@ -316,6 +319,33 @@ public static class PlanningPromptPresentation
         if (sharedTasks)
             context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareRepeatedOutputSchemas(JsonObject context)
+    {
+        if (context["interfaces"] is not JsonArray interfaces) return false;
+        var originals = new Dictionary<(string Id, string Version, string Hash, string Scope, string Phase, string Port, string Schema), string>();
+        var changed = false;
+        for (var index = 0; index < interfaces.Count; index++)
+        {
+            if (interfaces[index] is not JsonObject row || row["schema"] is not JsonObject schema ||
+                row["value"] is not JsonObject binding || Text(binding["kind"]) != "output" ||
+                row["producers"] is not JsonArray { Count: 1 } producers || producers[0] is not JsonObject producer ||
+                Text(binding["source"]) is not { Length: > 0 } source || Text(producer["id"]) != source ||
+                Text(producer["scope"]) is not { Length: > 0 } scope || Text(producer["phase"]) is not ("tasks" or "always") ||
+                producer["contract"] is not JsonObject contract || !Identity(contract, out var id, out var version, out var hash)) continue;
+            var exact = schema.ToJsonString();
+            if (exact.Length < 320) continue;
+            var key = (id, version, hash, scope, Text(producer["phase"]), Text(binding["port"]), exact);
+            if (originals.TryGetValue(key, out var pointer))
+            {
+                row.Remove("schema");
+                row["schemaPresentedAt"] = pointer;
+                changed = true;
+            }
+            else originals.Add(key, $"/interfaces/{index}/schema");
+        }
+        return changed;
     }
 
     private static bool ShareEvidenceAncestors(JsonObject evidence)
