@@ -111,6 +111,49 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Fact]
+    public async Task CollectionFragmentBindsProjectedFieldsAtTheConsumerInOneDraft()
+    {
+        var (state, runtime) = ReadyKnown();
+        var sink = Contract();
+        sink.Id = sink.Method = "store_grid";
+        sink.InputSchema = JsonNode.Parse("""{"type":"object","required":["cells"],"properties":{"cells":{"type":"array","items":{"type":"array","items":{"type":"string"}}}}}""")!.AsObject();
+        state.Catalog!.Capabilities.Add(sink);
+        state.Catalog.AllowedStepTypes.AddRange(["set", "workflow.call", "loop.sequential"]);
+        runtime.Respond = (request, _) => Wire(request, SelectKnown(state, "foreach", sink.Id));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.StructuredOutputSchema!["description"]!.ToString());
+            var label = new TaskValue { Kind = "string", Text = "  repeated\tlabel  " };
+            var record = new TaskValue { Kind = "object", Members = [new("label", label)] };
+            var field = new TaskValue { Kind = "field", Port = "label", Items = [new() { Kind = "item" }] };
+            var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], CompleteBlock = false, Tasks =
+            [
+                new() { Id = "project", Kind = "foreach", Objective = "Preserve each original label in order.",
+                    Items = new() { Kind = "array", Items = [record, record] }, MaxItems = 2,
+                    Body = new() { Outputs = [new("row", new() { Kind = "array", Items = [field] })] } },
+                new() { Id = "store", Kind = "operation", Operation = sink.Id, Objective = "Store the ordered cells.",
+                    Inputs = [new("cells", new() { Kind = "output", Source = "project", Port = "row" })] }
+            ] };
+            var response = Draft(state);
+            response["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            return Wire(request, response);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var plan = Assert.IsType<PlanningConstructionCandidate>(state.Construction!.Candidate).Plan;
+        var compiled = new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog!);
+        Assert.Contains("store_grid", yaml);
+        Assert.DoesNotContain("llm.call", yaml);
+        Assert.DoesNotContain("mapping.dynamic", yaml);
+        Assert.Equal(2, runtime.Calls.Count);
+    }
+
+    [Fact]
     public void KnownKnownOperationsHaveBoundedExactPagesAndRejectStalePages()
     {
         var (state, _) = ReadyKnown();

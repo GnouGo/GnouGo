@@ -19,6 +19,7 @@ public sealed class NestedControlGuidanceTests
         var schema = PlanningCompactConstruction.DraftSchema(state);
         Assert.Contains(Objects(schema), node => node["properties"]?["kind"]?["enum"] is JsonArray values && values.Any(value => value?.ToString() == "foreach"));
         var guidance = schema["description"]!.ToString();
+        Assert.Contains(PlanningCompactConstruction.ValueSemantics, guidance, StringComparison.Ordinal);
         Assert.Contains("Each foreach body output becomes an array on the enclosing task", guidance, StringComparison.Ordinal);
         Assert.Contains("array-valued outputs remain nested", guidance, StringComparison.Ordinal);
         Assert.Contains("preserving input order and repetitions", guidance, StringComparison.Ordinal);

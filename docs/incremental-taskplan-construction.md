@@ -7,6 +7,13 @@ one of the lower-level tools. For resources with failure cleanup, bind creation 
 cleanup to one declared destination and bind later consumers to the materialized
 artifact returned by the producer.
 
+Drafts can bind a consumer input directly to an earlier output or assemble it from
+typed fields. A `foreach` body can export an array of selected fields. The enclosing
+output then supplies an ordered matrix, including repeated rows and null cells.
+Use `flatten` on a singleton header matrix and the collected matrix when the
+deliverable calls for a header. Extraction and business interpretation remain
+separate operations wherever the original observations require them.
+
 Repair progress compares a cited consumer with its exact retained review. A changed
 upstream argument, value or executable transform instruction can change the meaning
 of an otherwise unchanged consumer. The existing dependency-invalidation closure

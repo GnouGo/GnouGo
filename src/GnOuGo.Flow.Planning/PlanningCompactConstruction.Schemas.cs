@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal const string ValueSemantics = "value copies, projects or assembles typed values using declared arithmetic, predicates, lookup, flatten, JSON encoding and string_operation concat or uri_component. It has no implicit formatting or interpolation; its objective adds no computation.";
+    internal const string ValueSemantics = "Bind typed results directly at the consumer. Use field, object and array to project or assemble them; use lookup, flatten, json, declared arithmetic, predicates and string_operation concat or uri_component for explicit conversions. A value objective adds no computation. Reserve transform for extraction or interpretation.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
     internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 
@@ -279,7 +279,7 @@ internal static partial class PlanningCompactConstruction
             hints.Add("Later tasks in the same scope can bind ordinary task results directly; no scope export is needed. outputs export values across the enclosing task/group boundary; /root outputs are public results. Outside consumers cannot bind hidden child tasks directly. Open containers expose no consumable results.");
         if (nestedControls)
             hints.Add("For newly supplied child scopes, declare their output port names in body.outputs or branch outputs. The compiler derives each enclosing task's output contract from those declarations; a future task has no accepted interface to retrieve before it is declared. A later consumer binds that task's declared output port. Do not invent an implicit collection port or bypass the scope boundary.");
-        if (step.Kind == "value") hints.Add(ValueSemantics);
+        if (kinds.Contains("value")) hints.Add(ValueSemantics);
         if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (step.Kind == "operation")
@@ -294,7 +294,7 @@ internal static partial class PlanningCompactConstruction
             hints.Add("Use a finite supported capacity; the TaskPlan default maxItems=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
         }
         if (controls.Contains("foreach") || scope?.Owner?.Kind == "foreach")
-            hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Within the body, item and index refer to the current iteration.");
+            hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Export an ordered array of fields per item for a matrix consumer. Prepend a required header by flattening [single-row matrix, collected matrix] one level. Within the body, item and index refer to the current iteration.");
         if (controls.Contains("conditional") || scope?.Owner?.Kind == "conditional")
             hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path.");
         if (controls.Contains("parallel") || scope?.Owner?.Kind == "parallel")
