@@ -579,7 +579,16 @@ internal static class ServerLiveDiagnostics
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
-                started.EnsureSuccessStatusCode();
+                if (!started.IsSuccessStatusCode)
+                {
+                    var detail = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(await started.Content.ReadAsStringAsync());
+                    report["result"] = new JsonObject { ["status"] = "start_refused", ["http_status"] = (int)started.StatusCode,
+                        ["detail"] = detail, ["execution_status"] = "not_started", ["execution_correct"] = false };
+                    report["passed"] = false;
+                    report["finished_utc"] = DateTimeOffset.UtcNow;
+                    await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                    throw new PlanningConflictException($"Server planning start returned HTTP {(int)started.StatusCode}. {detail}");
+                }
                 var dto = await started.Content.ReadFromJsonAsync<JsonObject>(); var id = dto!["id"]!.ToString();
                 report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
                 Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
