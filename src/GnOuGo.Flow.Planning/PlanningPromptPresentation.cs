@@ -258,10 +258,32 @@ public static class PlanningPromptPresentation
             if (operations[i] is not JsonObject operation || !Identity(operation, out var id, out var version, out var hash)) continue;
             Add(id, version, hash, operation["inputSchema"] as JsonObject, "/input", $"/operations/{i}/inputSchema");
             foreach (var name in new[] { "selectedInputs", "selectedOutputs" })
-                if (operation[name] is JsonArray selected)
-                    for (var j = 0; j < selected.Count; j++)
-                        if (Text(selected[j]?["pointer"]) is { Length: > 0 } pointer)
-                            Add(id, version, hash, selected[j]?["schema"] as JsonObject, pointer, $"/operations/{i}/{name}/{j}/schema");
+            {
+                if (operation[name] is not JsonArray selected) continue;
+                var metadata = name + "SharedSchemaMetadata";
+                var prefix = $"/operations/{i}/{metadata}/ancestors/";
+                if (operation[metadata]?["ancestors"] is JsonArray ancestors)
+                    for (var index = 0; index < ancestors.Count; index++)
+                        if (ancestors[index] is JsonObject ancestor && Text(ancestor["pointer"]) is { Length: > 0 } origin)
+                            Add(id, version, hash, ancestor["constraints"] as JsonObject, origin, $"{prefix}{index}/constraints");
+                for (var j = 0; j < selected.Count; j++)
+                {
+                    if (selected[j] is not JsonObject row || Text(row["pointer"]) is not { Length: > 0 } pointer ||
+                        row["schema"] is not JsonObject schema) continue;
+                    if (row["id"] is { } owner && Text(owner) != id ||
+                        row["version"] is { } revision && Text(revision) != version ||
+                        row["hash"] is { } digest && Text(digest) != hash) continue;
+                    var exact = schema.ToJsonString();
+                    if (schemas.TryGetValue((id, version, hash, pointer, exact), out var presented) &&
+                        presented.StartsWith(prefix, StringComparison.Ordinal) && exact.Length > presented.Length + (shared ? 24 : 320))
+                    {
+                        row.Remove("schema");
+                        row["schemaPresentedAt"] = presented;
+                        shared = true;
+                    }
+                    else Add(id, version, hash, schema, pointer, $"/operations/{i}/{name}/{j}/schema");
+                }
+            }
         }
         foreach (var (address, value) in evidence)
         {

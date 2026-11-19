@@ -117,6 +117,41 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void DraftReusesExactSelectedBranchesAlreadyInsideTheirSharedAncestor()
+    {
+        var branch = new JsonObject { ["type"] = "string", ["description"] = new string('x', 1800) };
+        var different = new JsonObject { ["type"] = "string", ["description"] = new string('y', 1800) };
+        var closure = new JsonObject { ["#/$defs/value"] = new JsonObject { ["type"] = "string" } };
+        var operation = new JsonObject
+        {
+            ["id"] = "read", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["selectedOutputs"] = new JsonArray(
+                new JsonObject { ["pointer"] = "/output/oneOf/0", ["schema"] = branch.DeepClone() },
+                new JsonObject { ["pointer"] = "/output/oneOf/1", ["schema"] = different.DeepClone() },
+                new JsonObject { ["id"] = "another", ["pointer"] = "/output/oneOf/1", ["schema"] = branch.DeepClone() }),
+            ["selectedOutputsSharedSchemaMetadata"] = new JsonObject
+            {
+                ["ancestors"] = new JsonArray(new JsonObject { ["pointer"] = "/output",
+                    ["constraints"] = new JsonObject { ["oneOf"] = new JsonArray(branch.DeepClone(), branch.DeepClone()) } }),
+                ["referenceClosure"] = closure.DeepClone()
+            }
+        };
+        var context = new JsonObject { ["operations"] = new JsonArray(operation) };
+        var prompt = "Draft the selected operation.\n" + context.ToJsonString();
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_draft", prompt,
+            new JsonObject { ["type"] = "object" }, null, null);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var selected = shown["operations"]![0]!["selectedOutputs"]!;
+        Assert.Null(selected[0]!["schema"]);
+        Assert.Equal("/output/oneOf/0", selected[0]!["pointer"]!.ToString());
+        Assert.Equal(branch.ToJsonString(), PlanningSchemaReferences.Read(shown, selected[0]!["schemaPresentedAt"]!.ToString())!.ToJsonString());
+        Assert.Equal(different.ToJsonString(), selected[1]!["schema"]!.ToJsonString());
+        Assert.Equal(branch.ToJsonString(), selected[2]!["schema"]!.ToJsonString());
+        Assert.True(JsonNode.DeepEquals(closure, shown["operations"]![0]!["selectedOutputsSharedSchemaMetadata"]!["referenceClosure"]));
+        Assert.True(shown.ToJsonString().Length < context.ToJsonString().Length - 1000);
+    }
+
+    [Fact]
     public void SharedSchemaRetainsExactSourceCoordinatesAncestorsClosuresAndDiagnostics()
     {
         var original = Context(); var frozen = original.ToJsonString();
