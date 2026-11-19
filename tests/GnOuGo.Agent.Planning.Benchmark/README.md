@@ -1233,3 +1233,23 @@ remain unchanged. See the [versioned activation proposal and controlled/retained
 evidence](../../docs/evidence/pr120-amazon-deals-proposal-2026-11-13/proposal.md).
 Separate explicit approval is required before implementation and activation of
 the proposed policy v11/verifier v15.
+
+## Fresh Server business qualifications
+
+Use `server-live-plan --case amazon` or `--case code` with
+`--await-delegated-review` and the existing campaign, model and permission
+settings. Each attempt needs a new run name. A business pass requires a saved
+reviewed agent, a typed chat submission and a completed Server run journal.
+The benchmark stores the planning session ID and execution ID separately.
+
+Amazon requires ten ordered product visits, ten verified workbook rows under
+the headers `Nom`, `Description` and `Prix`, a workflow close receipt and an
+independent browser closure probe. The GitHub check supplies `pullRequestUrl`
+and `reviewText` to the composer and captures the current PR head and base.
+It checks the clone, completed Copilot commands and cleanup. After publication,
+it reads the submitted review and inline comments back from GitHub by review ID.
+
+Diagnostic call, token and timing targets produce warnings. A session can
+continue across those targets. The campaign still enforces its spending
+authorization and preserves outstanding reservations. A funding refusal or
+planning-only result cannot qualify a business case.
