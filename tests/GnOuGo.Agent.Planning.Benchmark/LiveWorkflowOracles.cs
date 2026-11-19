@@ -65,6 +65,11 @@ internal static partial class LiveWorkflowOracles
                 throw new InvalidOperationException("The AAX verifier requires its separately captured workflow grant.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
+            var exactTen = run["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
+            if (exactTen && (productLimit != LiveWorkflowEvaluation.QualificationProductCount ||
+                events.LastOrDefault(e => e["server"]?.ToString() == "GnOuGo.Browser.Mcp" || e["tool"]?.ToString()?.StartsWith("browser_", StringComparison.Ordinal) == true) is not { } closed ||
+                closed["tool"]?.ToString() != "browser_close" || closed["error"]?.GetValue<bool>() != false || closed["result"]?["success"]?.GetValue<bool>() != true))
+                findings.Add("workflow_browser_close_receipt_or_ten_product_contract_missing");
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
             var cleanup = hostClosureProbe is null
                 ? await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None)
@@ -80,6 +85,13 @@ internal static partial class LiveWorkflowOracles
                 var part = workbook.WorkbookPart!;
                 var rows = part.WorksheetParts.SelectMany(w => w.Worksheet!.Descendants<Row>())
                     .Select(row => row.Elements<Cell>().Select(c => CellText(c, part)).ToArray()).ToArray();
+                if (exactTen)
+                {
+                    if (part.WorksheetParts.Count() != 1 || rows.Length != LiveWorkflowEvaluation.QualificationProductCount + 1 ||
+                        rows.Any(r => r.Length != 3) || !rows[0].SequenceEqual(["Nom", "Description", "Prix"]))
+                        findings.Add("exact_ten_product_workbook_required");
+                    run["workbook_sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+                }
                 if (rows.Length < 2 || rows.Length > productLimit + 1 || rows.Any(r => r.Length < 3)) findings.Add("workbook_row_shape_or_product_bound");
                 else
                 {

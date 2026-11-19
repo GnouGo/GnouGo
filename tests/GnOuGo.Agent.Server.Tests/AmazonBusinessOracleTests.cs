@@ -1,4 +1,8 @@
 using System.Text.Json.Nodes;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
@@ -176,6 +180,66 @@ public sealed class AmazonBusinessOracleTests
         var historical = LiveWorkflowOracles.VerifyAmazonSelection(events, 2, Query, LiveWorkflowOracles.AmazonBusinessVersion3);
         Assert.True(historical["passed"]!.GetValue<bool>(), historical.ToJsonString());
         Assert.Equal(LiveWorkflowOracles.AmazonBusinessVersion3, historical["version"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("complete", true)]
+    [InlineData("three", false)]
+    [InlineData("substituted", false)]
+    [InlineData("swapped", false)]
+    [InlineData("unsupported", false)]
+    [InlineData("open", false)]
+    [InlineData("missing_close", false)]
+    [InlineData("headers", false)]
+    public async Task TenProductQualificationReopensWorkbookAndChecksWorkflowClosure(string variant, bool expected)
+    {
+        using var root = new TemporaryWorkbookDirectory();
+        var path = Path.Combine(root.Path, "products.xlsx");
+        var products = Enumerable.Range(1, variant == "three" ? 3 : 11).ToArray();
+        string Address(int n) => $"https://www.amazon.fr/dp/B{n:D9}";
+        var search = Snapshot(Search, products.Select(n => new JsonObject
+        {
+            ["href"] = Address(n), ["text"] = $"Product {n}", ["group"] = $"main > article:nth-of-type({n})"
+        }).ToArray());
+        var events = new JsonArray(search);
+        var rows = new List<string[]> { variant == "headers" ? ["name", "description", "price"] : ["Nom", "Description", "Prix"] };
+        foreach (var n in products.Take(10))
+        {
+            var k = variant == "substituted" && n == 4 ? 11 : n;
+            string[] fields = [$"Product {k}", $"Description {k}", $"{k},00 €"];
+            events.Add(Snapshot(Address(k), fields.Select(value => new JsonObject { ["text"] = value }).ToArray()));
+            rows.Add(fields);
+        }
+        if (variant == "swapped") (rows[3], rows[4]) = (rows[4], rows[3]);
+        if (variant == "unsupported") rows[6][2] = "999,95 €";
+        using (var workbook = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook))
+        {
+            var part = workbook.AddWorkbookPart();
+            part.Workbook = new Workbook();
+            var sheet = part.AddNewPart<WorksheetPart>();
+            sheet.Worksheet = new Worksheet(new SheetData(rows.Select(row => new Row(row.Select(value =>
+                new Cell { DataType = CellValues.String, CellValue = new CellValue(value) })))));
+            part.Workbook.Append(new Sheets(new Sheet { Id = part.GetIdOfPart(sheet), SheetId = 1, Name = "Products" }));
+        }
+        events.Add(new JsonObject { ["tool"] = "document_write", ["error"] = false, ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } });
+        if (variant != "missing_close") events.Add(new JsonObject { ["tool"] = "browser_close", ["error"] = false, ["result"] = new JsonObject { ["success"] = true } });
+        var transport = new InMemoryMcpClientFactory();
+        transport.RegisterServer("GnOuGo.Browser.Mcp", new MockMcpServerConfig { ToolHandlers = new()
+        {
+            ["browser_get_content"] = _ => new() { IsError = variant != "open", Content = new JsonObject { ["message"] = variant == "open" ? "Still open" : "No active page" } },
+            ["browser_close"] = _ => new() { Content = new JsonObject { ["success"] = true } }
+        } });
+        var run = new JsonObject { ["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile, ["workspace_relative"] = ".",
+            ["oracle_version"] = LiveWorkflowOracles.AmazonBusinessVersion, ["max_products"] = 10,
+            ["inputs"] = new JsonObject { ["query"] = Query }, ["execution"] = new JsonObject { ["success"] = true }, ["events"] = events };
+        var oracle = await LiveWorkflowOracles.VerifyAsync("amazon", root.Path, run, transport);
+        Assert.True(expected == oracle["passed"]!.GetValue<bool>(), oracle.ToJsonString());
+    }
+
+    private sealed class TemporaryWorkbookDirectory : IDisposable
+    {
+        public string Path { get; } = Directory.CreateTempSubdirectory().FullName;
+        public void Dispose() => Directory.Delete(Path, true);
     }
 
     private static List<JsonObject> Events() =>
