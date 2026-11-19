@@ -1,5 +1,40 @@
 # PR 120 planning simplification
 
+## Fresh ten-product and published-review qualification, 19 November 2026
+
+The ten-product Server attempt `bef26286efd94475bff02326756f3c60`
+stopped during planning. Two fresh Browser MCP captures independently reproduced
+the source prerequisite under the approved v10/v14 policy. Both reloaded with
+identical findings and both closed the browser. The second MCP probe in each case
+reported that there was no active page.
+
+| Source capture | Ordered observations | Unclassified heading | Bare auxiliary link | Product visits |
+| --- | ---: | ---: | ---: | ---: |
+| First | 1,616 | 512 | 516 | 0 |
+| Second | 1,623 | 518 | 522 | 0 |
+
+The empty-ASIN card in each capture contains an observed `/deals` link.
+The active grant requires evidence for each unresolved occurrence across the
+captured search. The independent verifier returned
+`search_heading_context_unaccounted` and `source_resolutions_incomplete`.
+Neither capture produced a workbook. The full Server attempt recorded 21 HTTP
+attempts with measured usage, estimated at EUR 8.31965 using campaign tariffs.
+Its separate application reservation of EUR 1.77437 remains held.
+[Active workflow permission](pr120-aax-workflow-2026-11-12/README.md) ·
+[Separate source-only experiment and inactive amendment](pr120-amazon-deals-proposal-2026-11-13/proposal.md)
+
+The review session `4c961e2da593431fb092672d3eb522e3` stopped after its eighth
+successful planning response. It incurred EUR 2.05557 at campaign tariffs.
+The live GitHub MCP returned the expected PR head and advertised message-only
+responses for review writes. The verifier now reads back the authenticated
+actor's newly created pending review ID and uses it for the submitted verdict
+and inline comments. Discovery also exposed seven sibling branches duplicating
+the same parent constraints. The planner now presents one copy with resolvable
+references. No GitHub review was published by this session.
+[Review read-back regressions](../../tests/GnOuGo.Agent.Server.Tests/PublishedReviewQualificationTests.cs) ·
+[Planning prompt regressions](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte
