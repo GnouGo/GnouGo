@@ -9,10 +9,17 @@ public sealed class PublishedReviewQualificationTests
 
     [Theory]
     [InlineData("complete", true)]
+    [InlineData("message_with_owned_pending_id", true)]
+    [InlineData("message_without_pending_readback", false)]
+    [InlineData("message_for_different_pending", false)]
     [InlineData("local_only", false)]
     [InlineData("other_head", false)]
     [InlineData("other_review", false)]
     [InlineData("other_pr", false)]
+    [InlineData("other_submit_head", false)]
+    [InlineData("other_thread", false)]
+    [InlineData("conflicting_receipt", false)]
+    [InlineData("malformed_receipt", false)]
     [InlineData("other_verdict", false)]
     [InlineData("no_inline", false)]
     [InlineData("other_line", false)]
@@ -37,9 +44,20 @@ public sealed class PublishedReviewQualificationTests
         var comments = new JsonArray(comment);
         switch (variant)
         {
+            case "message_with_owned_pending_id":
+            case "message_without_pending_readback":
+            case "message_for_different_pending":
+                foreach (var evt in events.OfType<JsonObject>()) evt["result"] = new JsonObject { ["message"] = "Success" };
+                if (variant != "message_without_pending_readback")
+                    events[0]!["observed_pending_review_id"] = variant == "message_for_different_pending" ? "1002" : "1001";
+                break;
             case "local_only": events.Clear(); break;
             case "other_head": review["commit_id"] = "different"; break;
             case "other_review": comment["pull_request_review_id"] = 1000; break;
+            case "other_submit_head": submit["commitID"] = "other"; break;
+            case "other_thread": submit["threadId"] = "other"; break;
+            case "conflicting_receipt": events[0]!["observed_pending_review_id"] = "1001"; events[0]!["result"]!["id"] = 1002; break;
+            case "malformed_receipt": events[2]!["result"] = "unexpected"; break;
             case "other_pr": submit["pullNumber"] = 610; break;
             case "other_verdict": review["state"] = "CHANGES_REQUESTED"; break;
             case "no_inline": comments.Clear(); break;

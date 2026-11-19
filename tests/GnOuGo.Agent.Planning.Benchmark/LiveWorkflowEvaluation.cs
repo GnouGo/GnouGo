@@ -591,6 +591,7 @@ internal static class LiveWorkflowEvaluation
         private readonly DelegatedTestReviewAuthority? _authority = authority;
         private readonly string? _discoveryScenario = discoveryScenario;
         private readonly Func<string, string, JsonObject, CancellationToken, Task>? _beforeCall = beforeCall;
+        private readonly SemaphoreSlim _reviewWrites = new(1);
         internal int DiscoveryReads;
         public IDisposable BeginCall(McpCallExecutionContext context)
         {
@@ -629,6 +630,15 @@ internal static class LiveWorkflowEvaluation
                 ? inner.ListPromptsAsync(ct) : Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
             public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => inner.GetPromptAsync(name, arguments, ct);
             public async Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+            {
+                if (owner._beforeCall is null || ServerName != "Github" || toolName == "pull_request_read")
+                    return await DispatchAsync(toolName, arguments, ct);
+                await owner._reviewWrites.WaitAsync(ct);
+                try { return await DispatchAsync(toolName, arguments, ct); }
+                finally { owner._reviewWrites.Release(); }
+            }
+
+            private async Task<McpCallResult> DispatchAsync(string toolName, JsonNode? arguments, CancellationToken ct)
             {
                 try
                 {

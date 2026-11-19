@@ -145,8 +145,12 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             try
             {
                 events.Add(evt);
-                if (scenario == "code") await LiveCodeEvidence.ObserveCheckoutAsync(workspace, report);
-                await Save();
+                try
+                {
+                    if (Target is not null) await Target.ObserveCreatedReviewAsync(evt, ct);
+                    if (scenario == "code") await LiveCodeEvidence.ObserveCheckoutAsync(workspace, report);
+                }
+                finally { await Save(); }
             }
             finally { eventLock.Release(); }
         }, authority, grant, async (server, tool, args, token) =>
@@ -155,13 +159,23 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             {
                 if (tool != "pull_request_read" && string.IsNullOrWhiteSpace(_runId))
                     throw new PlanningConflictException("A publication requires a bound Server execution.");
+                JsonArray githubEvents;
+                bool instructionsObserved;
+                await eventLock.WaitAsync(token);
+                try
+                {
+                    githubEvents = new JsonArray(events.OfType<JsonObject>().Where(e => e["server"]?.ToString() == "Github")
+                        .Select(e => e.DeepClone()).ToArray());
+                    instructionsObserved = ReviewInstructionsObserved(events, inputs["reviewText"]!.GetValue<string>());
+                }
+                finally { eventLock.Release(); }
                 if (tool == "pull_request_review_write" && args["method"]?.ToString() == "submit_pending")
                 {
-                    if (!ReviewInstructionsObserved(events, inputs["reviewText"]!.GetValue<string>()))
+                    if (!instructionsObserved)
                         throw new PlanningConflictException("The requested review instructions did not reach a completed Copilot operation.");
                     var confirmation = new JsonObject { ["mode"] = "confirm", ["prompt"] = "Submit this exact review for " + inputs["pullRequestUrl"],
                         ["choices"] = new JsonArray("approve", "reject"), ["review"] = args.DeepClone(), ["head"] = Target!.Head,
-                        ["inline"] = new JsonArray(events.OfType<JsonObject>().Where(e => e["tool"]?.ToString() == "add_comment_to_pending_review")
+                        ["inline"] = new JsonArray(githubEvents.OfType<JsonObject>().Where(e => e["tool"]?.ToString() == "add_comment_to_pending_review" && e["error"]?.GetValue<bool>() == false)
                             .Select(e => e["arguments"]!.DeepClone()).ToArray()) };
                     Console.WriteLine(confirmation.ToJsonString());
                     var answer = await LiveWorkflowEvaluation.ReadHumanAnswerAsync(confirmation, Console.In, Console.Out, token);
@@ -170,7 +184,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                     await campaign.SaveAsync("planning-evaluation-dialogs", state.Request.SessionId + ":github-submit", new()
                     { ["payload"] = confirmation, ["answer"] = answer.DeepClone(), ["artifact_hash"] = saved.ApprovedHash, ["execution_id"] = _runId }, token);
                 }
-                await Target!.CheckWriteAsync(tool, args, events, token);
+                await Target!.CheckWriteAsync(tool, args, githubEvents, token);
             }
         });
         foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);

@@ -27,13 +27,14 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     {
         if (!string.Equals(args["owner"]?.ToString(), Owner, StringComparison.OrdinalIgnoreCase) ||
             !string.Equals(args["repo"]?.ToString(), Repository, StringComparison.OrdinalIgnoreCase) ||
-            args["pullNumber"]?.ToString() != Number.ToString(CultureInfo.InvariantCulture)) return false;
+            args["pullNumber"]?.ToString() != Number.ToString(CultureInfo.InvariantCulture) || args["threadId"] is not null) return false;
         return method switch
         {
             "pull_request_read" => args["method"]?.ToString() is "get" or "get_diff" or "get_files" or "get_reviews" or "get_review_comments",
             "pull_request_review_write" when args["method"]?.ToString() == "create" =>
                 args["commitID"]?.ToString() == Head && args["event"] is null,
             "pull_request_review_write" when args["method"]?.ToString() == "submit_pending" =>
+                (args["commitID"] is null || args["commitID"]?.ToString() == Head) &&
                 args["event"]?.ToString() is "APPROVE" or "REQUEST_CHANGES" && !string.IsNullOrWhiteSpace(args["body"]?.ToString()),
             "add_comment_to_pending_review" => args["subjectType"]?.ToString() == "LINE" &&
                 args["side"]?.ToString() is "LEFT" or "RIGHT" && args["line"]?.GetValue<int>() > 0 &&
@@ -54,24 +55,52 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
         if (!Allows(tool, args)) throw new PlanningConflictException("The GitHub operation is outside the reviewed target.");
         if (tool == "pull_request_read") return;
         await CheckCurrentAsync(ct);
-        var pending = (await ReadAsync(Api + "/reviews?per_page=100", ct, paginate: true)).AsArray()
-            .SelectMany(page => page!.AsArray()).OfType<JsonObject>().Where(r => r["state"]?.ToString() == "PENDING").ToArray();
+        var pending = await PendingAsync(ct);
         var creates = Writes(events, "pull_request_review_write", "create");
         if (tool == "pull_request_review_write" && args["method"]?.ToString() == "create")
         {
-            if (pending.Length != 0 || creates.Length != 0)
+            if (pending.Length != 0 || Attempts(events, "pull_request_review_write", "create").Any())
                 throw new PlanningConflictException("A pending or previously created review already exists.");
         }
-        else if (pending.Length != 1 || creates.Length != 1 || ReceiptId(creates[0]) is not { } id ||
+        else if (pending.Length != 1 || creates.Length != 1 || CreatedId(creates[0]) is not { } id ||
             pending[0]["id"]?.ToString() != id || pending[0]["commit_id"]?.ToString() != Head ||
-            Writes(events, "pull_request_review_write", "submit_pending").Length != 0)
+            args["method"]?.ToString() == "submit_pending" && Writes(events, "add_comment_to_pending_review").Length == 0 ||
+            Attempts(events, "pull_request_review_write", "submit_pending").Any())
             throw new PlanningConflictException("A write requires the pending review created by this execution.");
     }
+
+    private async Task<JsonObject[]> PendingAsync(CancellationToken ct) =>
+        (await ReadAsync(Api + "/reviews?per_page=100", ct, paginate: true)).AsArray()
+            .SelectMany(page => page!.AsArray()).OfType<JsonObject>().Where(r => r["state"]?.ToString() == "PENDING").ToArray();
+
+    internal async Task ObserveCreatedReviewAsync(JsonObject evt, CancellationToken ct)
+    {
+        if (evt["server"]?.ToString() != "Github" || evt["tool"]?.ToString() != "pull_request_review_write" ||
+            evt["arguments"]?["method"]?.ToString() != "create" || evt["error"]?.GetValue<bool>() != false) return;
+        var actor = await ReadAsync("user", ct);
+        var pending = await PendingAsync(ct);
+        if (pending.Length != 1 || actor["id"] is null || pending[0]["user"]?["id"]?.ToString() != actor["id"]!.ToString() ||
+            pending[0]["commit_id"]?.ToString() != Head || NumericId(pending[0]["id"]) is not { } id ||
+            ReceiptId(evt) is { } reported && reported != id)
+            throw new PlanningConflictException("The newly created pending review could not be attributed to this execution.");
+        evt["observed_pending_review_id"] = id;
+    }
+
+    private static string? CreatedId(JsonObject evt)
+    {
+        var observed = NumericId(evt["observed_pending_review_id"]);
+        var reported = ReceiptId(evt);
+        return observed is not null && reported is not null && observed != reported ? null : observed ?? reported;
+    }
+    private static bool MatchesSubmission(JsonObject evt, string id) =>
+        ReceiptId(evt) is { } reported ? reported == id :
+            evt["result"] is JsonObject result && result["message"] is JsonValue message && message.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text);
 
     internal async Task<JsonObject> ReadBackAsync(JsonArray events, CancellationToken ct)
     {
         var submissions = Writes(events, "pull_request_review_write", "submit_pending");
-        if (submissions.Length != 1 || ReceiptId(submissions[0]) is not { } id)
+        var creates = Writes(events, "pull_request_review_write", "create");
+        if (creates.Length != 1 || CreatedId(creates[0]) is not { } id || submissions.Length != 1 || !MatchesSubmission(submissions[0], id))
             return Verdict(["unique_submitted_review_receipt_missing"]);
         var review = await ReadAsync($"{Api}/reviews/{id}", ct);
         var pages = await ReadAsync($"{Api}/reviews/{id}/comments?per_page=100", ct, paginate: true);
@@ -90,7 +119,7 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
         var submissions = Writes(events, "pull_request_review_write", "submit_pending");
         var inline = Writes(events, "add_comment_to_pending_review");
         var id = review["id"]?.ToString();
-        if (id is null || creates.Length != 1 || submissions.Length != 1 || ReceiptId(creates[0]) != id || ReceiptId(submissions[0]) != id ||
+        if (id is null || creates.Length != 1 || submissions.Length != 1 || CreatedId(creates[0]) != id || !MatchesSubmission(submissions[0], id) ||
             !Allows("pull_request_review_write", creates[0]["arguments"]!.AsObject()) ||
             !Allows("pull_request_review_write", submissions[0]["arguments"]!.AsObject()) ||
             review["commit_id"]?.ToString() != Head || review["submitted_at"] is null ||
@@ -116,13 +145,21 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     internal static string? ReceiptId(JsonObject evt)
     {
         if (evt["result"] is not JsonObject data) return null;
-        var id = (data["id"] ?? (data["review"] as JsonObject)?["id"])?.ToString();
+        return NumericId(data["id"] ?? (data["review"] as JsonObject)?["id"]);
+    }
+
+    private static string? NumericId(JsonNode? value)
+    {
+        var id = value?.ToString();
         return long.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out var numeric) && numeric > 0 ? id : null;
     }
 
     private static JsonObject[] Writes(JsonArray events, string tool, string? method = null) =>
+        Attempts(events, tool, method).Where(e => e["error"]?.GetValue<bool>() == false).ToArray();
+
+    private static IEnumerable<JsonObject> Attempts(JsonArray events, string tool, string? method) =>
         events.OfType<JsonObject>().Where(e => e["server"]?.ToString() == "Github" && e["tool"]?.ToString() == tool &&
-            e["error"]?.GetValue<bool>() == false && (method is null || e["arguments"]?["method"]?.ToString() == method)).ToArray();
+            e["dispatched"]?.GetValue<bool>() != false && (method is null || e["arguments"]?["method"]?.ToString() == method));
 
     private static JsonObject Verdict(IEnumerable<string> findings)
     {
