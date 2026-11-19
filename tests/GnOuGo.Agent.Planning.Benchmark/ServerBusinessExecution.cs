@@ -73,7 +73,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     internal static bool ReviewInstructionsObserved(JsonArray events, string instructions) =>
         !string.IsNullOrWhiteSpace(instructions) && events.OfType<JsonObject>().Any(e =>
             e["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && e["tool"]?.ToString() == "code_agent_edit" &&
-            e["error"]?.GetValue<bool>() == false && e["arguments"]?["task"]?.ToString()?.Contains(instructions, StringComparison.Ordinal) == true);
+            e["error"]?.GetValue<bool>() == false && e["result"]?["success"]?.GetValue<bool>() == true && e["arguments"]?["task"]?.ToString()?.Contains(instructions, StringComparison.Ordinal) == true);
 
     internal static void RequireInputs(TaskPlan? plan, JsonObject inputs)
     {
@@ -168,21 +168,28 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 if (tool != "pull_request_read" && string.IsNullOrWhiteSpace(_runId))
                     throw new PlanningConflictException("A publication requires a bound Server execution.");
                 JsonArray githubEvents;
-                bool instructionsObserved;
+                var submitting = tool == "pull_request_review_write" && args["method"]?.ToString() == "submit_pending";
+                JsonObject? checks = null;
                 await eventLock.WaitAsync(token);
                 try
                 {
                     githubEvents = new JsonArray(events.OfType<JsonObject>().Where(e => e["server"]?.ToString() == "Github")
                         .Select(e => e.DeepClone()).ToArray());
-                    instructionsObserved = ReviewInstructionsObserved(events, inputs["reviewText"]!.GetValue<string>());
+                    if (submitting)
+                    {
+                        if (!ReviewInstructionsObserved(events, inputs["reviewText"]!.GetValue<string>()))
+                            throw new PlanningConflictException("The requested review instructions did not reach a completed Copilot operation.");
+                        var repository = Path.GetFullPath(Path.Combine(workspace, report["workspace_relative"]!.ToString(), "repository"));
+                        checks = LiveCodeEvidence.Verify(report, repository);
+                        if (report["required_checks_verified"]?.GetValue<bool>() != true)
+                            throw new PlanningConflictException("The required repository checks have no verified execution receipts.");
+                    }
                 }
                 finally { eventLock.Release(); }
-                if (tool == "pull_request_review_write" && args["method"]?.ToString() == "submit_pending")
+                if (submitting)
                 {
-                    if (!instructionsObserved)
-                        throw new PlanningConflictException("The requested review instructions did not reach a completed Copilot operation.");
                     var confirmation = new JsonObject { ["mode"] = "confirm", ["prompt"] = "Submit this exact review for " + inputs["pullRequestUrl"],
-                        ["choices"] = new JsonArray("approve", "reject"), ["review"] = args.DeepClone(), ["head"] = Target!.Head,
+                        ["choices"] = new JsonArray("approve", "reject"), ["review"] = args.DeepClone(), ["head"] = Target!.Head, ["verified_checks"] = checks!.DeepClone(),
                         ["inline"] = new JsonArray(githubEvents.OfType<JsonObject>().Where(e => e["tool"]?.ToString() == "add_comment_to_pending_review" && e["error"]?.GetValue<bool>() == false)
                             .Select(e => e["arguments"]!.DeepClone()).ToArray()) };
                     Console.WriteLine(confirmation.ToJsonString());

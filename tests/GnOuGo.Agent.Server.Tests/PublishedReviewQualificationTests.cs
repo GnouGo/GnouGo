@@ -69,6 +69,20 @@ public sealed class PublishedReviewQualificationTests
     }
 
     [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(null, false)]
+    public void SubmissionRequiresTheCopilotBusinessReceiptToConfirmCompletion(bool? completed, bool allowed)
+    {
+        const string instructions = "Check behavior on the changed line.";
+        var result = new JsonObject();
+        if (completed.HasValue) result["success"] = completed.Value;
+        var events = new JsonArray(new JsonObject { ["server"] = "GnOuGo.GithubCopilot.Mcp", ["tool"] = "code_agent_edit",
+            ["error"] = false, ["arguments"] = new JsonObject { ["task"] = instructions }, ["result"] = result });
+        Assert.Equal(allowed, ServerBusinessExecution.ReviewInstructionsObserved(events, instructions));
+    }
+
+    [Theory]
     [InlineData("literal")]
     [InlineData("unused")]
     [InlineData("optional")]
