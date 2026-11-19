@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Security.Cryptography;
 using System.Text.Json.Nodes;
 
-// Independent evidence for the authorized pinned public checkout. No commands
+// Independent evidence for the authorized pinned checkout. No commands
 // are executed here except read-only git identity checks; workflow observations
 // must establish dependency installation and the repository's own checks.
 internal static class LiveCodeEvidence

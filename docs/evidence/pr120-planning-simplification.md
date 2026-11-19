@@ -78,6 +78,18 @@ presents inherited goals once in the block and preserves independently
 authored step objectives, results and prerequisite evidence. It can return a
 partial executable contribution with the business obligations still open.
 
+The same session's calls 18 and 20 displayed two of four valid focuses
+for an already inspected provider. A focused regression reproduces the extra
+read for the third focus. A small set of source actions with no continuation
+cursor is now presented together, up to the existing eight-entry and
+2,048-byte navigation bounds. Ordinary provider cursor pages retain their
+versioned continuation. The session eventually accepted a two-task
+contribution to parse the URL and read the PR. It stopped after 28 provider
+responses, with a maximum recorded response time of 61.02 seconds and a
+measured tariff estimate of EUR 12.27410. Request 29 retained a separate
+EUR 4.97263 application reservation. No clone or GitHub review existed on
+independent read-back after the stop.
+
 [Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 
