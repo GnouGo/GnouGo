@@ -126,13 +126,13 @@ public sealed class CompactDeferredBindingTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.StructuredOutputSchema!["description"]!.ToString());
-            var label = new TaskValue { Kind = "string", Text = "  repeated\tlabel  " };
-            var record = new TaskValue { Kind = "object", Members = [new("label", label)] };
+            static TaskValue Record(string label) => new() { Kind = "object", Members = [new("label", new() { Kind = "string", Text = label })] };
+            var repeated = Record("  repeated\tlabel  ");
             var field = new TaskValue { Kind = "field", Port = "label", Items = [new() { Kind = "item" }] };
             var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], CompleteBlock = false, Tasks =
             [
                 new() { Id = "project", Kind = "foreach", Objective = "Preserve each original label in order.",
-                    Items = new() { Kind = "array", Items = [record, record] }, MaxItems = 2,
+                    Items = new() { Kind = "array", Items = [repeated, Record("middle"), repeated] }, MaxItems = 3,
                     Body = new() { Outputs = [new("row", new() { Kind = "array", Items = [field] })] } },
                 new() { Id = "store", Kind = "operation", Operation = sink.Id, Objective = "Store the ordered cells.",
                     Inputs = [new("cells", new() { Kind = "output", Source = "project", Port = "row" })] }
@@ -151,6 +151,19 @@ public sealed class CompactDeferredBindingTests
         Assert.DoesNotContain("llm.call", yaml);
         Assert.DoesNotContain("mapping.dynamic", yaml);
         Assert.Equal(2, runtime.Calls.Count);
+
+        var writes = new List<JsonNode>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer(sink.Server!, new() { Tools = [new() { Name = sink.Method!, InputSchema = sink.InputSchema,
+            OutputSchema = sink.OutputSchema }], ToolHandlers = new() { [sink.Method!] = args =>
+            {
+                writes.Add(args!["cells"]!.DeepClone());
+                return new() { Content = new JsonObject() };
+            } } });
+        var execution = await LookupCompilationTests.Execute(yaml, new JsonObject(), new() { McpClientFactory = factory });
+        Assert.True(execution.Success, execution.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(new JsonArray(new JsonArray("  repeated\tlabel  "), new JsonArray("middle"),
+            new JsonArray("  repeated\tlabel  ")), Assert.Single(writes)));
     }
 
     [Fact]
