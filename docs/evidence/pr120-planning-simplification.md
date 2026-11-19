@@ -38,6 +38,36 @@ No GitHub review was published by this session.
 [Planning prompt regressions](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
 
+The next review session, `66b317828ad04e2293e1a347647a6d32`, used the production
+Server with the 4,096-token planning allocations. The first two technical
+checkpoints preserved the runtime URL, resolved PR revisions and review
+instructions. The 49 received responses took at most 72.45 seconds each and
+incurred EUR 21.10388 at campaign tariffs. The stop following response 49
+raced with the Server reservation for request 50. Its EUR 1.76086 application
+reservation is accounted for separately. The run ended before cloning or
+publishing.
+
+Three captured responses identify independently reproducible defects.
+
+- Call 13 requested a Git catalogue page and an already listed operation's
+  contract from the same provider. Batch validation treated them as duplicates.
+  The regression distinguishes the two reads while preserving the rejection of
+  genuinely overlapping requests.
+- Call 19 repeated exact branches through their ancestor views. Sharing only
+  byte-identical branches at the same contract coordinates reduced that request
+  from 51,184 to 45,088 estimated input tokens and from 98,164 to 88,636
+  prompt bytes. All six references resolved to the originals. The measurement
+  used zero provider calls.
+- Calls 34, 37 and 47 abandoned a selection around checkout and pagination.
+  Git discovery now specifies when a full commit ID materializes the worktree.
+  A real Git regression reopens all five changed files using the two remaining
+  cursors returned for a two-file page. Larger directories preserve the
+  existing single-cursor fallback.
+
+[Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
+[Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
+
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte
