@@ -251,6 +251,7 @@ public static class PlanningPromptPresentation
         var sharedTasks = ShareRepeatedTaskViews(context);
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
+        var sharedAncestors = ShareEvidenceAncestors(evidence);
         var schemas = new Dictionary<(string Id, string Version, string Hash, string Pointer, string Schema), string>();
         for (var i = 0; i < operations.Count; i++)
         {
@@ -276,12 +277,36 @@ public static class PlanningPromptPresentation
             {
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks) return prompt;
+        if (!shared && !sharedTasks && !sharedAncestors) return prompt;
+        if (sharedAncestors)
+            context["ancestorPresentation"] = "ancestorsPresentedAt points to the exact ancestor constraints shared by schema views of this operation and version.";
         if (shared)
             context["schemaPresentation"] = "schemaPresentedAt is a JSON pointer within this same context to the byte-identical schema for the retained operation id/version/hash and original pointer. Evidence retains its original ancestor constraints and reference closure. This presentation link grants no binding, contract or execution authority.";
         if (sharedTasks)
             context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareEvidenceAncestors(JsonObject evidence)
+    {
+        var originals = new Dictionary<(string Id, string Version, string Hash, string Ancestors), string>();
+        var changed = false;
+        foreach (var (address, value) in evidence)
+        {
+            if (value is not JsonObject row || row["schema"] is not JsonObject || row["ancestors"] is not JsonArray { Count: > 0 } ancestors ||
+                row.ContainsKey("ancestorsPresentedAt") || !Identity(row, out var id, out var version, out var hash)) continue;
+            var exact = ancestors.ToJsonString();
+            var key = (id, version, hash, exact);
+            if (!originals.TryGetValue(key, out var at))
+                originals.Add(key, "/evidence/" + PlanningSchemaReferences.Escape(address) + "/ancestors");
+            else if (exact.Length > at.Length + 32)
+            {
+                row.Remove("ancestors");
+                row["ancestorsPresentedAt"] = at;
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     private static bool ShareRepeatedTaskViews(JsonObject context)

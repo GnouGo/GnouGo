@@ -64,6 +64,39 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void DiscoveryUnionBranchesShareExactAncestorsThroughIssuedEvidenceAddresses()
+    {
+        var evidence = new JsonObject();
+        var constraints = new JsonArray(new JsonObject { ["pointer"] = "/output", ["constraints"] = new JsonObject
+            { ["oneOf"] = new JsonArray(new JsonObject { ["description"] = new string('x', 11_000) }) } });
+        for (var index = 0; index < 9; index++)
+        {
+            var pointer = "/output/oneOf/" + index;
+            var ancestors = constraints.DeepClone();
+            if (index == 8) ancestors[0]!["constraints"]!["oneOf"]![0]!["description"] = "A different constraint";
+            var id = index == 7 ? "other" : "read";
+            evidence["schema:" + id + "@v1:" + pointer] = new JsonObject { ["id"] = id, ["version"] = "v1",
+                ["hash"] = new string('a', 64), ["pointer"] = pointer, ["schema"] = new JsonObject { ["const"] = index },
+                ["ancestors"] = ancestors, ["referenceClosure"] = new JsonObject() };
+        }
+        var prompt = "Inspect the original branches.\n" + new JsonObject { ["evidence"] = evidence }.ToJsonString();
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_discovery", prompt,
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }, null, null, out var map);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!.AsObject();
+        Assert.True(request.Prompt.Length < prompt.Length - 60_000);
+        foreach (var (address, node) in shown["evidence"]!.AsObject())
+        {
+            var row = node!.AsObject();
+            var expected = evidence[map!.Addresses[address]]!;
+            var actual = row["ancestors"] ?? PlanningSchemaReferences.Read(shown, row["ancestorsPresentedAt"]!.ToString());
+            Assert.Equal(expected["ancestors"]!.ToJsonString(), actual!.ToJsonString());
+            Assert.Equal(expected["schema"]!.ToJsonString(), row["schema"]!.ToJsonString());
+            if (expected["id"]!.ToString() == "other" || expected["pointer"]!.ToString().EndsWith("/8", StringComparison.Ordinal))
+                Assert.Null(row["ancestorsPresentedAt"]);
+        }
+    }
+
+    [Fact]
     public void SharedSchemaRetainsExactSourceCoordinatesAncestorsClosuresAndDiagnostics()
     {
         var original = Context(); var frozen = original.ToJsonString();
