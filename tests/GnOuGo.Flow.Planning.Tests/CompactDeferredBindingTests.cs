@@ -148,6 +148,7 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(compiled.Diagnostics);
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog!);
         Assert.Contains("store_grid", yaml);
+        Assert.DoesNotContain("template.render", yaml);
         Assert.DoesNotContain("llm.call", yaml);
         Assert.DoesNotContain("mapping.dynamic", yaml);
         Assert.Equal(2, runtime.Calls.Count);
