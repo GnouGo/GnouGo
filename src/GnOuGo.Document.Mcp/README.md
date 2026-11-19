@@ -21,7 +21,7 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 |--------|------|-------|
 | PDF    | ✅ (text extraction via PdfPig) | ✅ (plain text or auto-detected Markdown) |
 | DOCX   | ✅ (paragraphs, tables, headings) | ✅ (plain text or auto-detected Markdown) |
-| XLSX   | ✅ (sheets → markdown tables) | ✅ (from TSV/CSV text) |
+| XLSX   | ✅ (sheets → markdown tables) | ✅ (ordered rows or legacy delimited text) |
 | PPTX   | ✅ (slides → markdown) | ❌ |
 | TXT, MD, CSV, JSON, XML, YAML | ✅ | ✅ |
 
@@ -34,13 +34,13 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 | `document_read` | Reads a document, returns structured sections (markdown or plain) |
 | `document_write` | Writes or appends content to a file, creating missing parent directories inside allowed roots (generates DOCX/XLSX for Office formats) |
 
-`document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. This lets clients choose valid target paths without a separate hardcoded allowlist.
+`document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. Use those values when selecting a target. Read policy separately when the workflow needs additional or refreshed settings. For XLSX, pass ordered arrays of exact strings or null cells to `rows`, with any requested header as the first row.
 
 Document paths may target normal visible content below the configured workspace, including workflow-owned output below `workflows/<purpose-specific-name>`. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected for reads and writes. Recursive `document_list` results omit that reserved tree.
 
 ### Incremental writes for LLM workflows
 
-`document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. For long MCP workflows, prefer this pattern:
+`document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. When sections become available incrementally, use the following sequence. If all rows are ready, submit them in one write.
 
 1. Call `document_write` once with `append=false` to initialize the target document.
 2. Call `document_write` repeatedly with `append=true` as each section is produced.
@@ -52,7 +52,7 @@ Append support by format:
 | Format | Append behavior |
 |--------|-----------------|
 | DOCX | Appends new Markdown/plain-text content to the existing document body |
-| XLSX | Appends parsed rows to the first worksheet |
+| XLSX | Appends rows to the first worksheet |
 | PDF | Regenerates a readable PDF from existing extracted text plus new content |
 | TXT, MD, CSV, JSON, XML, YAML | Appends text exactly as provided |
 

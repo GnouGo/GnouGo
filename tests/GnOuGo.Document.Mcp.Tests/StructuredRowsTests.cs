@@ -70,7 +70,11 @@ public sealed class StructuredRowsTests : IDisposable
             WorkingDirectory = _root, Name = "exact-rows",
             EnvironmentVariables = new Dictionary<string, string?> { ["Document__DefaultWorkingDirectory"] = _root, ["OpenTelemetry__Enabled"] = "false" }
         }), cancellationToken: ct);
-        var tool = Assert.Single(await client.ListToolsAsync(cancellationToken: ct), t => t.Name == "document_write");
+        var tools = await client.ListToolsAsync(cancellationToken: ct);
+        var tool = Assert.Single(tools, t => t.Name == "document_write");
+        Assert.Contains("bind ordered rows directly", tool.Description);
+        Assert.Contains(_root, tool.Description);
+        Assert.DoesNotContain("Call this first", Assert.Single(tools, t => t.Name == "document_get_policy").Description);
         Assert.True(tool.JsonSchema.TryGetProperty("oneOf", out var alternatives)); Assert.Equal(2, alternatives.GetArrayLength());
         Assert.True(tool.JsonSchema.GetProperty("properties").TryGetProperty("rows", out _));
         var result = await client.CallToolAsync("document_write", new Dictionary<string, object?> { ["filePath"] = "observed.xlsx", ["rows"] = Values }, cancellationToken: ct);
