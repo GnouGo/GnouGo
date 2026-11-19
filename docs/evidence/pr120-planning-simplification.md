@@ -128,6 +128,18 @@ and needs no additional checked projection. Runtime regressions cover both calle
 producer outputs. Text succeeds, null fails, and an unguarded use outside the
 task still fails compilation. [Compiler regression](../../tests/GnOuGo.Flow.Planning.Tests/StringOperationCompilationTests.cs)
 
+The local business judge accepted the evaluation block at call 42. At call 51
+the planner abandoned the selected GitHub publication operations to find a
+confirmation provider. The original qualification request had assigned that
+responsibility to the workflow. The Server test host already displays the
+concrete submission, inline comments and check receipts, records the operator's
+answer and verifies the current GitHub head before forwarding the submission.
+The fresh request now names that owner. The run stopped after 57 provider
+responses, eight checkpoints and EUR 32.55524 of measured usage. The longest
+observed provider wait was 69.98 seconds. GitHub returned zero reviews and
+the clone path was absent. The terminal audit added no outstanding reservation
+for this run. [Publication request regression](../../tests/GnOuGo.Agent.Server.Tests/LiveWorkflowReviewTests.cs)
+
 [Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 
