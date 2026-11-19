@@ -90,6 +90,24 @@ measured tariff estimate of EUR 12.27410. Request 29 retained a separate
 EUR 4.97263 application reservation. No clone or GitHub review existed on
 independent read-back after the stop.
 
+Session `53d2b87b977d485b94b936360abc0da9` accepted three tasks in its
+first checkpoint. They parse the caller's URL and retain the PR and diff
+as separate observations. Re-rendering two captured requests produced the
+following measurements without a provider call.
+
+| Request | Duplicated content | Estimated input tokens before → after | Prompt bytes before → after |
+| --- | --- | ---: | ---: |
+| Draft 12 | Six selected branches already present at their original coordinates in the operation's shared union | 31,754 → 25,826 | 47,011 → 37,809 |
+| Discovery 15 | Two distinct accepted results with an identical output type from the same operation version and port | 30,172 → 24,771 | 53,386 → 44,747 |
+
+Every replacement pointer resolved to the exact original schema bytes.
+The bound values and producer tasks remained distinct. On call 16 all five
+provider actions and source description links were visible, yet the response
+requested their directory. Calls 17–19 requested further provider or source
+pages. Fresh diagnostic requests omit those directory reads when the entire
+current menu is already present. The original description links and
+incomplete directory continuations remain available.
+
 [Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 
