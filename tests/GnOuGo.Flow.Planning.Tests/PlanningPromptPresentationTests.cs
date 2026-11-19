@@ -187,6 +187,20 @@ public sealed class PlanningPromptPresentationTests
             Assert.True(JsonNode.DeepEquals(rows[index]!["schema"], interfaces[index]!["schema"]));
     }
 
+    [Theory]
+    [InlineData("construction_draft")]
+    [InlineData("replan")]
+    public void FreshAuthoringSeparatesBoundedInterpretationFromLosslessPayloadTransfer(string phase)
+    {
+        var state = PlannerFixture.Session();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var request = PlanningModelCalls.PrepareRequest(state, phase, "Use the observed records.\n{}",
+            new JsonObject { ["type"] = "object" }, null, null);
+        Assert.Contains("one bounded model response", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("original producer", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("deterministic extraction", request.Prompt, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void SharedSchemaRetainsExactSourceCoordinatesAncestorsClosuresAndDiagnostics()
     {

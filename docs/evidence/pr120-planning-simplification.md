@@ -144,6 +144,16 @@ for this run. [Publication request regression](../../tests/GnOuGo.Agent.Server.T
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 
 
+The second ten-product Server session, `f1c82849b1114de3aeedc04783e43ca5`,
+drafted a model transform that would repeat every observed URL. The successful
+source capture contained 835 links with 404,248 characters in their URLs alone.
+The earlier review draft similarly requested the entire 247,256-byte PR diff
+from a single interpretation. Draft and repair instructions now keep the original
+payload at its producer, use typed bindings for lossless transfer and request
+compact judgments or source positions from each model response. These sizes
+describe the input evidence. Neither draft had executed the transform.
+[Draft and repair regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte
