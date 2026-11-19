@@ -12,8 +12,9 @@ reported that there was no active page.
 | --- | ---: | ---: | ---: | ---: |
 | First | 1,616 | 512 | 516 | 0 |
 | Second | 1,623 | 518 | 522 | 0 |
+| Third | 1,579 | None | None requiring proof | 0 |
 
-The empty-ASIN card in each capture contains an observed `/deals` link.
+The empty-ASIN card in each of the first two captures contains an observed `/deals` link.
 The active grant requires evidence for each unresolved occurrence across the
 captured search. The independent verifier returned
 `search_heading_context_unaccounted` and `source_resolutions_incomplete`.
@@ -22,6 +23,14 @@ attempts with measured usage, estimated at EUR 8.31965 using campaign tariffs.
 Its separate application reservation of EUR 1.77437 remains held.
 [Active workflow permission](pr120-aax-workflow-2026-11-12/README.md) ·
 [Separate source-only experiment and inactive amendment](pr120-amazon-deals-proposal-2026-11-13/proposal.md)
+
+At 22:38 UTC, fresh capture `amazon-ten-source-20261119-03` on
+`b47d9afa` passed the same v10/v14 source verifier. Browser MCP retained
+1,579 ordered records in 74 pages and completed 14 source resolutions.
+Cold reload produced the same selection of ten expected products. Closing the
+browser succeeded and the subsequent probe found no active page. This cleared
+the source prerequisite for a new Server run. The only remaining finding in
+that source-only capture was `first_product_visits_incomplete`.
 
 The review session `4c961e2da593431fb092672d3eb522e3` stopped after its eighth
 successful planning response. It incurred EUR 2.05557 at campaign tariffs.
