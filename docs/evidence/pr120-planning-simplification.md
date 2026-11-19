@@ -154,6 +154,15 @@ compact judgments or source positions from each model response. These sizes
 describe the input evidence. Neither draft had executed the transform.
 [Draft and repair regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+Call 32 accepted the source-selection block. Its business review showed the
+same Browser operation description and ports twice. The two actions used
+different arguments and scopes. Measuring the captured request with shared
+contract details reduced the prompt from 49,887 to 43,802 bytes and its full
+input estimate from 22,112 to 19,780 tokens. The presentation link resolved
+to the exact original description and ports. The measurement made zero model
+calls. Runtime coverage and the workbook still require execution.
+[Local and global review regressions](../../tests/GnOuGo.Flow.Planning.Tests/BusinessReviewProtocolTests.cs)
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte

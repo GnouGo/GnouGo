@@ -250,6 +250,7 @@ public static class PlanningPromptPresentation
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
         var sharedResults = ShareRepeatedOutputSchemas(context);
         var sharedTasks = ShareRepeatedTaskViews(context);
+        var sharedReviewContracts = ShareReviewedOperationDetails(context);
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
         var sharedAncestors = ShareEvidenceAncestors(evidence);
@@ -309,7 +310,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedAncestors && !sharedResults) return prompt;
+        if (!shared && !sharedTasks && !sharedAncestors && !sharedResults && !sharedReviewContracts) return prompt;
+        if (sharedReviewContracts)
+            context["reviewContractPresentation"] = "contractDetailsAt points to the action with the identical operation meaning and ports. Each action retains its own arguments, controls and results.";
         if (sharedResults)
             context["interfaceSchemaPresentation"] = "An interface's schemaPresentedAt points to its complete, identical output schema in this context. Each result retains its own binding, producer and arguments.";
         if (sharedAncestors)
@@ -346,6 +349,30 @@ public static class PlanningPromptPresentation
             else originals.Add(key, $"/interfaces/{index}/schema");
         }
         return changed;
+    }
+
+    private static bool ShareReviewedOperationDetails(JsonObject context)
+    {
+        if (Text(context["review"]) is not ("current_block" or "completed_workflow") || context["actions"] is not JsonArray actions)
+            return false;
+        var originals = new Dictionary<(string Operation, string Contract, string Meaning, string Ports), int>();
+        var shared = false;
+        for (var index = 0; index < actions.Count; index++)
+        {
+            if (actions[index] is not JsonObject action || Text(action["kind"]) != "operation" ||
+                Text(action["operation"]) is not { Length: > 0 } operation || Text(action["contract"]) is not { Length: > 0 } contract ||
+                Text(action["meaning"]) is not { Length: > 0 } meaning || action["ports"] is not JsonArray ports)
+                continue;
+            var exactPorts = ports.ToJsonString();
+            if (meaning.Length + exactPorts.Length < 256) continue;
+            var key = (operation, contract, meaning, exactPorts);
+            if (originals.TryAdd(key, index)) continue;
+            action.Remove("meaning");
+            action.Remove("ports");
+            action["contractDetailsAt"] = $"/actions/{originals[key]}";
+            shared = true;
+        }
+        return shared;
     }
 
     private static bool ShareEvidenceAncestors(JsonObject evidence)

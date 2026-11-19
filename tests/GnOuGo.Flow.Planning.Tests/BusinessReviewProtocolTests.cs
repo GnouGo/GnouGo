@@ -9,6 +9,39 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class BusinessReviewProtocolTests
 {
+    [Theory]
+    [InlineData("current_block")]
+    [InlineData("completed_workflow")]
+    public void RepeatedOperationMeaningAndPortsAreShownOnceInTheIssuedReview(string review)
+    {
+        JsonObject Action(string id, string version, string port) => new()
+        {
+            ["id"] = id, ["kind"] = "operation", ["operation"] = "read", ["contract"] = "contract:read@" + version,
+            ["meaning"] = new string('m', 600), ["ports"] = new JsonArray(new JsonObject { ["name"] = port }),
+            ["arguments"] = new JsonObject { ["path"] = id }, ["scope"] = id + "-scope"
+        };
+        var actions = new JsonArray(Action("first", "v1", "value"), Action("second", "v1", "value"),
+            Action("differentPort", "v1", "extra"), Action("otherVersion", "v2", "value"));
+        var context = new JsonObject { ["review"] = review, ["actions"] = actions };
+        var original = "Review the actions.\n" + context.ToJsonString();
+        var prompt = PlanningPromptPresentation.ShareDuplicateContractSchemas(original);
+        var shown = JsonNode.Parse(prompt[(prompt.IndexOf('\n') + 1)..])!;
+        var second = shown["actions"]![1]!;
+        Assert.Equal("/actions/0", (string?)second["contractDetailsAt"]);
+        var source = PlanningSchemaReferences.Read(shown.AsObject(), second["contractDetailsAt"]!.ToString())!;
+        foreach (var field in new[] { "meaning", "ports" })
+        {
+            Assert.Null(second[field]);
+            Assert.True(JsonNode.DeepEquals(actions[1]![field], source[field]));
+        }
+        foreach (var field in new[] { "id", "scope", "operation", "contract", "arguments" })
+            Assert.True(JsonNode.DeepEquals(actions[1]![field], second[field]));
+        foreach (var index in new[] { 0, 2, 3 })
+            Assert.True(JsonNode.DeepEquals(actions[index], shown["actions"]![index]));
+        Assert.Equal(prompt, PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt));
+        Assert.True(prompt.Length < original.Length);
+    }
+
     [Fact]
     public async Task PartialContributionsKeepOriginalClosuresOpenWithinTheSelectedBusinessBlock()
     {
