@@ -143,14 +143,17 @@ internal static partial class PlanningCompactConstruction
     {
         var values = available.Select(item => item.Value).ToArray();
         var branches = new JsonArray();
-        foreach (var group in values.Where(value => value.Kind == "output").GroupBy(value => value.Source))
+        var outputs = values.Where(value => value.Kind == "output").GroupBy(value => value.Source).Select(group =>
         {
-            var names = group.Where(value => value.Port is not null).Select(value => value.Port!).Distinct().ToArray();
+            var names = group.Where(value => value.Port is not null).Select(value => value.Port!)
+                .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
             var port = names.Length == 0 ? PlanningSchemas.Type("null") : group.Any(value => value.Port is null)
                 ? PlanningSchemas.Nullable(PlanningSchemas.Enum(names)) : PlanningSchemas.Enum(names);
+            return (Source: group.Key!, Port: port);
+        });
+        foreach (var group in outputs.GroupBy(output => output.Port.ToJsonString(), StringComparer.Ordinal))
             branches.Add((JsonNode)PlanningSchemas.Object(("kind", PlanningSchemas.Enum("output")),
-                ("source", PlanningSchemas.Enum(group.Key!)), ("port", port)));
-        }
+                ("source", PlanningSchemas.Enum(group.Select(output => output.Source).ToArray())), ("port", group.First().Port)));
         foreach (var kind in new[] { "present", "input", "choice" })
         {
             var sources = values.Where(value => value.Kind == kind).Select(value => value.Source!).Distinct().ToArray();
