@@ -22,17 +22,19 @@ internal static class AgentMcpYamlContext
 
     private static void AppendBlock(StringBuilder builder, string name, string value)
     {
-        if (string.IsNullOrEmpty(value) || !value.Contains('\n'))
+        if (!value.Contains('\n') || value.Contains('\r'))
         {
             AppendScalar(builder, name, value);
             return;
         }
 
-        builder.Append(name).AppendLine(": |-");
-        foreach (var line in value.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        var keepFinalBreaks = value.EndsWith('\n');
+        builder.Append(name).AppendLine(keepFinalBreaks ? ": |+" : ": |-");
+        var content = keepFinalBreaks ? value[..^1] : value;
+        foreach (var line in content.Split('\n'))
             builder.Append("  ").AppendLine(line);
     }
 
     private static string Quote(string value)
-        => "\"" + value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal) + "\"";
+        => System.Text.Json.JsonSerializer.Serialize(value, AgentMcpJsonContext.Default.String);
 }

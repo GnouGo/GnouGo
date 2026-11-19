@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Hosting;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
@@ -67,6 +68,40 @@ public sealed class FrontendStartupBrowserTests
         Assert.Equal(count, await db.Sessions.CountAsync(ct));
         var retained = (await service.GetAsync(state.Request.SessionId, ct))!;
         Assert.Equal(0, retained.ModelCalls); Assert.Null(retained.PendingCall);
+        await app.StopAsync(ct);
+    }
+
+    [Fact]
+    public async Task TypedComposerSubmissionIdentifiesTheSavedWorkflowAndItsExecutedInputs()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "GnOuGo.Agent.sln"))) root = root.Parent;
+        Assert.NotNull(root);
+        var run = "form-" + Guid.NewGuid().ToString("N");
+        var args = TelemetryTestHostArgs.Create("--OtlpCollector:Enabled=false", "--Logging:LogLevel:Default=Warning",
+            "--TypedWorkflowPlanning:BackgroundProcessingEnabled=false");
+        await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root.FullName, "src/GnOuGo.Agent.Server"), false);
+        await app.StartAsync(ct);
+        var yaml = await File.ReadAllTextAsync(Path.Combine(root.FullName,
+            "docs/evidence/compact-bindings-v12-2026-10-12/checked-outputs-v12.yaml"), ct);
+        var repository = app.Services.GetRequiredService<GnOuGo.Agent.Mcp.Services.IAgentRepository>();
+        var saved = await repository.AddAgentAsync(run, yaml, ct: ct);
+        var input = new JsonObject { ["observationPages"] = """[[{"key":"x","text":"typed form"}]]""", ["selectedKeys"] = """["x"]""" };
+        var url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!;
+        using var browser = ServerLiveDiagnostics.StartObserver(app, root.FullName, url, null, run, run, input);
+        try { await browser.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(100), ct); }
+        finally { if (!browser.HasExited) browser.Kill(entireProcessTree: true); }
+        Assert.Equal(0, browser.ExitCode);
+        var output = Path.Combine(root.FullName, "artifacts/live-server-20261106", run);
+        var receipt = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "form-invocation.json"), ct))!;
+        Assert.Equal(run, receipt["agent"]!.ToString());
+        var journal = await app.Services.GetRequiredService<WorkflowRunService>().ReadAsync(receipt["run"]!.ToString(), ct);
+        Assert.NotNull(journal);
+        Assert.Equal(saved.Id, Guid.Parse(journal.Limits.AgentId!));
+        Assert.Equal(yaml, journal.WorkflowYaml);
+        Assert.Equal(WorkflowRunStatus.Completed, journal.Status);
+        foreach (var value in input) Assert.True(JsonNode.DeepEquals(JsonNode.Parse(value.Value!.ToString()), journal.Inputs![value.Key]));
         await app.StopAsync(ct);
     }
 
