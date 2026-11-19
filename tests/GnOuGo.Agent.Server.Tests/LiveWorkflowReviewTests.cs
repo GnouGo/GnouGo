@@ -25,6 +25,8 @@ public sealed class LiveWorkflowReviewTests
         Assert.DoesNotContain("github.com/", prompt);
         Assert.Contains("publie", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("review.json", prompt);
+        Assert.Contains("l’hôte demande la confirmation", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("revérifie la tête", prompt, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
