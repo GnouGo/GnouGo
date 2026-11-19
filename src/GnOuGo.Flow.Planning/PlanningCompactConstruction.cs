@@ -499,7 +499,7 @@ internal static partial class PlanningCompactConstruction
             ["scopes"] = ScopeDirectory(state),
             ["interfaces"] = state.Construction.Evidence?.ContainsKey("page:interfaces:" + compact.InterfaceOffset) == true ? null : InterfaceDirectory(state, null, compact.InterfaceOffset),
             ["nextInterfaces"] = NextInterfacePage(state, compact.InterfaceOffset, skipRetained: true),
-            ["publicOutputs"] = state.Construction.Evidence?.ContainsKey("page:outputs:" + compact.OutputOffset) == true ? null : OutputDirectory(state),
+            ["publicOutputs"] = UnseenOutputDirectory(state),
             ["evidence"] = state.Construction.Evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics),
             ["rebuild"] = state.Construction.RebuildTasks.Count > 0 ? RebuildDirectory(state) : null,
@@ -563,6 +563,9 @@ internal static partial class PlanningCompactConstruction
 
     private static IEnumerable<TaskInput> OutputPage(PlanningSession state) => (state.Requirements?.Outputs ?? []).Skip(State(state).OutputOffset).Take(8);
 
+    private static JsonObject? UnseenOutputDirectory(PlanningSession state) =>
+        state.Construction!.Evidence?.ContainsKey("page:outputs:" + State(state).OutputOffset) == true ? null : OutputDirectory(state);
+
     internal static JsonObject OutputDirectory(PlanningSession state)
     {
         var offset = State(state).OutputOffset;
@@ -621,6 +624,7 @@ internal static partial class PlanningCompactConstruction
             ["block"] = CurrentBlock(state) is { } businessBlock ? BusinessBlockContext(businessBlock) : null,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds.Concat(EvidenceRequirementIds(state))),
+            ["publicOutputs"] = state.Requirements?.Outputs is null ? null : UnseenOutputDirectory(state),
             ["globalConstraints"] = Sources(state, compact.GlobalSourceIds), ["instructions"] = state.Request.Policy.Instructions,
             ["interfaces"] = actualImports ? ActualImportedInterfaces(state, verified) : ImportedInterfaces(state, step),
             ["operations"] = ContractViews(state, useCandidate),
@@ -753,6 +757,7 @@ internal static partial class PlanningCompactConstruction
         {
             ["step"] = DiscoveryStep(state),
             ["requirements"] = RequirementNodes(state, step.RequirementIds),
+            ["publicOutputs"] = state.Requirements?.Outputs is null ? null : UnseenOutputDirectory(state),
             ["globalConstraints"] = Sources(state, State(state).GlobalSourceIds),
             ["instructions"] = state.Request.Policy.Instructions,
             ["sources"] = null,

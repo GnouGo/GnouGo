@@ -163,6 +163,15 @@ to the exact original description and ports. The measurement made zero model
 calls. Runtime coverage and the workbook still require execution.
 [Local and global review regressions](../../tests/GnOuGo.Flow.Planning.Tests/BusinessReviewProtocolTests.cs)
 
+The writer was present by checkpoint ten. Call 53 then abandoned the writer to
+look for a delivery interface, even though the original asked for a file on disk
+and declared zero caller outputs. Call 56 selected closure, and call 58 repeated
+the delivery search with the same accepted plan. The implementation selection
+could see the empty output directory. Its following draft and discovery requests
+could not. Those requests now carry the same paged declarations or reuse their
+existing evidence. Historical requests with an unknown output interface preserve
+that distinction. [Output directory regressions](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs)
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte

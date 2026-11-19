@@ -10,6 +10,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DraftAndDiscoveryCanSeeWhetherTheCallerRequestedAnAdditionalResult(bool returnsReceipt)
+    {
+        var (state, _) = await Ready();
+        state.Requirements!.Outputs = returnsReceipt ? [new TaskInput { Name = "receipt" }] : [];
+        foreach (var context in new[] { PlanningCompactConstruction.Context(state), PlanningCompactConstruction.DiscoveryContext(state) })
+        {
+            var directory = Assert.IsType<JsonObject>(context["publicOutputs"]);
+            Assert.Equal(returnsReceipt ? 1 : 0, (int?)directory["total"]);
+            var items = directory["items"]!.AsArray();
+            if (returnsReceipt)
+                Assert.Equal("receipt", Assert.Single(items)!["name"]!.ToString());
+            else
+                Assert.Empty(items);
+        }
+        state.Requirements.Outputs = null;
+        Assert.Null(PlanningCompactConstruction.Context(state)["publicOutputs"]);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["publicOutputs"]);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]
