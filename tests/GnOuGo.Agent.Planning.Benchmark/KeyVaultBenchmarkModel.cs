@@ -61,6 +61,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal IReadOnlyDictionary<string, McpServerOptions> McpServers => _options.McpServers;
     internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
         JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
+    internal IReadOnlyDictionary<string, LLMModelMetadata>? PersistedModelOverrides { get; private init; }
     internal JsonObject MetadataSources { get; private init; } = new();
     internal bool AdvisoryFinancialForecasts { get; set; }
     internal JsonObject ConfigurationSources { get; private init; } = new();
@@ -450,7 +451,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (entry.ContainsKey("retryPolicy")) providerSources["retry_policy"] = "keyvault_provider_configuration";
         }
         var provenance = DescribeConfigurationSources(host, providerName, providerSources);
-        var result = new KeyVaultBenchmarkModel(campaign, options) { MetadataSources = sources, ConfigurationSources = provenance };
+        var result = new KeyVaultBenchmarkModel(campaign, options) { MetadataSources = sources, ConfigurationSources = provenance, PersistedModelOverrides = userOverrides };
         if (!pinConfiguration && campaignConfiguration is null) return result;
         try
         {

@@ -6,6 +6,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.AI.Core;
 using GnOuGo.Planning.Examples;
 using Microsoft.Extensions.Logging;
@@ -169,6 +170,12 @@ internal static class ServerLiveDiagnostics
                 { context.Response.StatusCode = 403; return; }
                 await next(context);
             });
+        if (business is not null && !retained && model.PersistedModelOverrides is { Count: > 0 } overrides)
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            var isolatedUser = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
+            await isolatedUser.SetAsync(new(null, null, null, ModelOverrides: overrides));
+        }
         var options = await app.Services.GetRequiredService<LlmDefaultsResolver>().ResolveAsync();
         if (options.DefaultProvider != model.Provider || options.DefaultModel != model.Model ||
             options.ResolveProvider(model.Provider)!.Url != model.CampaignConfiguration()["endpoint"]!.ToString() ||
