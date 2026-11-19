@@ -59,7 +59,8 @@ public sealed partial class TaskPlanCompiler
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
         public HashSet<(string Kind, string Source, string Port)> Blocked { get; } = [];
-        public IReadOnlySet<string>? NonNullReferences { get; set; }
+        public IReadOnlySet<string>? NonNullReferences { get; init; }
+        public IReadOnlySet<string>? RequirementNonNullReferences { get; set; }
         public bool FailurePath { get; init; }
         public Dictionary<string, Bound> FailureCaptures { get; } = new(StringComparer.Ordinal);
         public Bound? Item { get; set; }
@@ -596,7 +597,7 @@ public sealed partial class TaskPlanCompiler
 
     private sealed class RequirementFacts(Scope scope, IReadOnlySet<string>? previous) : IDisposable
     {
-        public void Dispose() => scope.NonNullReferences = previous;
+        public void Dispose() => scope.RequirementNonNullReferences = previous;
     }
 
     private static RequirementFacts? EnterRequirement(Scope scope, TaskValue? requirement)
@@ -604,10 +605,10 @@ public sealed partial class TaskPlanCompiler
         if (requirement is null) return null;
         var established = NonNullReferences(requirement, true);
         if (established.Count == 0) return null;
-        var previous = scope.NonNullReferences;
+        var previous = scope.RequirementNonNullReferences;
         // The assertion executes before this task's inputs and body. Siblings and
         // outer finalizers can still observe a failure before that assertion passed.
-        scope.NonNullReferences = previous is null ? established : previous.Concat(established).ToHashSet(StringComparer.Ordinal);
+        scope.RequirementNonNullReferences = established;
         return new(scope, previous);
     }
 
@@ -651,13 +652,14 @@ public sealed partial class TaskPlanCompiler
         return schema;
     }
 
-    private Bound Value(TaskValue value, Scope scope, bool consume = true)
+    private Bound Value(TaskValue value, Scope scope, bool consume = true, bool requireNonNull = false)
     {
         var bound = ValueCore(value, scope, consume);
         if (!consume || value.Kind is not ("input" or "output" or "field")) return bound;
         var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
-            if (ancestor.NonNullReferences?.Contains(identity) == true && WithoutNull(bound.Schema) is { } schema &&
+            if ((ancestor.NonNullReferences?.Contains(identity) == true ||
+                 requireNonNull && ancestor.RequirementNonNullReferences?.Contains(identity) == true) && WithoutNull(bound.Schema) is { } schema &&
                 !JsonNode.DeepEquals(schema, bound.Schema))
             {
                 // Keep captured contracts intact; check the refined value in the selected branch.
@@ -807,7 +809,7 @@ public sealed partial class TaskPlanCompiler
         if (value.Source is not null || value.Port is not null || value.Predicate is not null || value.Number is not null ||
             value.Boolean is not null || value.Members.Count != 0)
             Fail("TASK_STRING_OPERATION_INVALID", "String operation contains unsupported fields.");
-        var operands = value.Items.Select(item => Value(item, scope)).ToArray();
+        var operands = value.Items.Select(item => Value(item, scope, requireNonNull: true)).ToArray();
         var computation = new PlanningValue { Kind = "string_operation", Text = value.Text, Items = operands.Select(operand => operand.Value).ToList() };
         try { return new(computation, PlanningValues.ComputationContract(computation, operand => operands.First(item => ReferenceEquals(item.Value, operand)).Schema)); }
         catch (InvalidOperationException error) { Fail("TASK_STRING_OPERATION_INVALID", error.Message); throw; }
