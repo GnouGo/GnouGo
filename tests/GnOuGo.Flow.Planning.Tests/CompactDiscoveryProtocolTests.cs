@@ -10,6 +10,25 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Fact]
+    public async Task DiscoveryShowsSameSourceCompositionAlongsideTheOriginalDirectory()
+    {
+        var (state, _) = await Ready();
+        AddOperations(state, 2);
+        var summaries = state.Discovery.Pages.Single().Capabilities;
+        summaries[0] = summaries[0] with { Composition = new(1, "complete_operation", [new("tool", summaries[1].Name)]) };
+        var page = PlanningCompactConstruction.ContractDescriptorPage(state);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.True(JsonNode.DeepEquals(page, context["descriptors"]));
+        var entry = Assert.Single(context["operationCompositions"]!.AsArray())!;
+        Assert.Equal(summaries[0].Id, entry["id"]!.ToString());
+        Assert.Equal(summaries[0].SourceId, entry["source"]!.ToString());
+        Assert.Equal(summaries[1].Name, entry["composition"]!["encapsulates"]![0]!["method"]!.ToString());
+        Assert.Empty(state.Discovery.Resolved);
+        state.Catalog!.Policy.DeniedCapabilityIds.Add(summaries[0].Id);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["operationCompositions"]);
+    }
+
+    [Fact]
     public async Task BoundOperationKeepsCompanionRetrievalNavigationWithoutGrantingContractAuthority()
     {
         var (state, _) = await BoundOperations(2);

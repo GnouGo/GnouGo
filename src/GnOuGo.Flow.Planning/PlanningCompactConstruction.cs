@@ -516,6 +516,7 @@ internal static partial class PlanningCompactConstruction
             context["continuation"] = ContinuationContext(state);
         }
         context["knownOperations"] = KnownOperations(state);
+        AddNavigationCompositions(state, context, known: true);
         {
             context["nextDecision"] = SelectionDecision(state, context["continuation"] as JsonObject);
             // Keep the exact need once, as the immediate semantic target. The
@@ -742,6 +743,7 @@ internal static partial class PlanningCompactConstruction
         AddRequirementNavigation(state, context);
         context["continuation"] = ContinuationContext(state);
         if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
+        AddNavigationCompositions(state, context, known: false);
         if (LocalComputationEligibility(state) is { } local) context["localComputations"] = local;
         if (ScopeOwnerNavigation(state) is { } owner)
             context["scopeOwner"] = owner;

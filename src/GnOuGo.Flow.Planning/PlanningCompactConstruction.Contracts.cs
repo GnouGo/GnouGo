@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning.Capabilities;
 
 namespace GnOuGo.Flow.Planning;
@@ -16,6 +17,42 @@ internal static partial class PlanningCompactConstruction
     private const int CompactContractDescriptorPageSize = 4;
     private const int SourceDirectoryPageSize = 2;
     private const int ContractDescriptionPageSize = 2048;
+
+    // Keep canonical directory bytes and their issued continuation addresses intact.
+    // Composition describes one provider's implementation, never an invocation grant.
+    private static void AddNavigationCompositions(PlanningSession state, JsonObject context, bool known)
+    {
+        var pages = new[] { context[known ? "knownOperations" : "descriptors"], context["describedOperations"] }
+            .Concat((context["evidence"] as JsonObject ?? []).Where(p => p.Key.StartsWith("page:operations:", StringComparison.Ordinal)).Select(p => p.Value));
+        var visible = pages.SelectMany(page => page?["items"] as JsonArray ?? []).OfType<JsonObject>()
+            .ToLookup(row => (row["id"]?.ToString(), row["version"]?.ToString()), row => row["hash"]?.ToString());
+        if (visible.Count == 0) return;
+        var entries = new JsonArray();
+        if (known)
+        {
+            foreach (var capability in (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
+                         .Where(c => c.Composition is not null && state.Catalog!.AllowedStepTypes.Contains(c.StepType) &&
+                             !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).DistinctBy(c => (c.Id, c.Version)))
+            {
+                var operation = TaskOperations.Describe(capability);
+                if (visible[(operation.Id, operation.Version)].Contains(ContractHash(capability)))
+                    Add(operation, capability.Server, capability.Composition);
+            }
+        }
+        else
+        {
+            foreach (var summary in DescriptorCandidates(state, PlanningDiscoveryFocus.VisiblePages(state)))
+                Add(summary.Operation!, summary.SourceId, summary.Composition);
+        }
+        if (entries.Count > 0) context["operationCompositions"] = entries;
+
+        void Add(PlanningOperation operation, string? source, McpCapabilityComposition? composition)
+        {
+            if (composition is null || !visible.Contains((operation.Id, operation.Version))) return;
+            entries.Add((JsonNode)new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version, ["source"] = source,
+                ["composition"] = JsonSerializer.SerializeToNode(composition, PlanningJsonContext.Default.McpCapabilityComposition) });
+        }
+    }
 
     internal static JsonObject SourceDescriptors(PlanningSession state, int offset = 0)
     {
@@ -125,9 +162,11 @@ internal static partial class PlanningCompactConstruction
             ? ranked.Where(capability => earlier.Contains((capability.Id, capability.Operation!.Id, capability.Operation.Version)))
                 .Select(CachedDescription).OfType<JsonObject>().ToArray() : [];
         var accepted = AcceptedProducerOperationChoices(state).ToArray();
-        var choices = accepted.Concat(cached).Concat(described.Select(capability => new JsonObject
+        var choices = accepted.Concat(cached).Concat(described.Select(capability =>
         {
-            ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind
+            var row = new JsonObject { ["id"] = capability.Operation!.Id, ["name"] = capability.Name, ["effect"] = capability.EffectKind };
+            if (capability.Composition is not null) row["version"] = capability.Operation.Version;
+            return row;
         })).DistinctBy(item => item["id"]!.ToString(), StringComparer.Ordinal).ToArray();
         if (choices.Length == 0) return null;
         var items = new JsonArray();
@@ -215,7 +254,13 @@ internal static partial class PlanningCompactConstruction
         "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture);
 
     internal static JsonArray ContractViews(PlanningSession state, bool useCandidate = false)
-        => new(SelectedContracts(state).Select(c => (JsonNode)ContractView(state, c, useCandidate)).ToArray());
+        => new(SelectedContracts(state).Select(capability =>
+        {
+            var view = ContractView(state, capability, useCandidate);
+            if (capability.Composition is { } composition)
+                view["composition"] = JsonSerializer.SerializeToNode(composition, PlanningJsonContext.Default.McpCapabilityComposition);
+            return (JsonNode)view;
+        }).ToArray());
 
     internal static JsonArray RepairContractEvidence(PlanningSession authority, PlanningRepairContext.Selection selected)
     {

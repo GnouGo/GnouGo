@@ -1,5 +1,12 @@
 # Incremental TaskPlan construction
 
+When an offered MCP declares `complete_operation`, selection and drafting can see the
+lower-level actions it encapsulates at that provider. Use the complete operation once
+for its result. A separate session or independent responsibility can still require
+one of the lower-level tools. For resources with failure cleanup, bind creation and
+cleanup to one declared destination and bind later consumers to the materialized
+artifact returned by the producer.
+
 Repair progress compares a cited consumer with its exact retained review. A changed
 upstream argument, value or executable transform instruction can change the meaning
 of an otherwise unchanged consumer. The existing dependency-invalidation closure

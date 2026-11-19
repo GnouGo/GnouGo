@@ -43,6 +43,7 @@ public sealed class CompactDeferredBindingTests
     {
         var (state, runtime) = ReadyKnown();
         var capability = Contract();
+        capability.Composition = new(1, "complete_operation", [new("tool", "open_record"), new("tool", "close_record")]);
         if (catalogContract) state.Catalog!.Capabilities.Add(capability); else AddContract(state, capability);
         var pages = new Pages(); runtime.Capabilities = pages;
         var baseline = PlanningConstruction.Hash(state.Plan);
@@ -51,6 +52,10 @@ public sealed class CompactDeferredBindingTests
             Assert.Equal(PlanningCompactConstruction.ImplementationPurpose, purpose);
             var descriptor = Assert.Single(OriginalContext(request)["knownOperations"]!["items"]!.AsArray())!;
             Assert.Equal("read", descriptor["id"]!.ToString());
+            var composed = Assert.Single(OriginalContext(request)["operationCompositions"]!.AsArray())!;
+            Assert.Equal("read", composed["id"]!.ToString());
+            Assert.Equal(capability.Version, composed["version"]!.ToString());
+            Assert.Equal("open_record", composed["composition"]!["encapsulates"]![0]!["method"]!.ToString());
             if (descriptor["description"] is { } text) Assert.Equal(capability.Description, text.ToString());
             else Assert.NotNull(descriptor["descriptionEvidence"]);
             return new LLMResponse { Json = SelectKnown(state, "operation", "read") };
@@ -66,6 +71,8 @@ public sealed class CompactDeferredBindingTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             var view = Assert.Single(OriginalContext(request)["operations"]!.AsArray())!;
+            Assert.Equal("complete_operation", view["composition"]!["kind"]!.ToString());
+            Assert.Equal("close_record", view["composition"]!["encapsulates"]![1]!["method"]!.ToString());
             Assert.Contains("target", view["inputSchema"]!["required"]!.AsArray().Select(value => value!.ToString()));
             var response = Draft(state);
             var extension = new PlanningConstructionExtension { CompleteBlock = false, RequirementIds = ["req_0"], Tasks = [new()

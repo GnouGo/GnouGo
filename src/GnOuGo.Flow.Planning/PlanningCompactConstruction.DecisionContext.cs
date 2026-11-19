@@ -12,6 +12,10 @@ internal static partial class PlanningCompactConstruction
     {
         if (purpose is not (ImplementationPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
+        if (context["operationCompositions"] is not null || (context["operations"] as JsonArray ?? []).Any(op => op?["composition"] is not null))
+            instructions += "\nA complete_operation performs its listed same-provider phases. Bind it once for that result and reuse its outputs. Schedule lower-level operations only for independent work or an explicitly required session lifecycle.";
+        if ((context["operations"] as JsonArray ?? []).Any(op => op?["artifacts"]?["produces"] is JsonArray { Count: > 0 }))
+            instructions += "\nFor a resource that requires cleanup, declare its destination once in the owning scope, use that binding for creation and failure cleanup, and bind successful consumers to the returned artifact. Include setup only when required by the contract.";
         // Original applicability is derived before packing, independently of
         // whether the unrelated originals would happen to fit this request.
         AddOriginalDecisionContext(state, context);
