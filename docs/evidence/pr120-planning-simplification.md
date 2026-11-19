@@ -108,6 +108,16 @@ pages. Fresh diagnostic requests omit those directory reads when the entire
 current menu is already present. The original description links and
 incomplete directory continuations remain available.
 
+In the same session, candidate 25 bound a nullable producer output to string
+concatenation after explicitly asserting that the output was non-null.
+Preflight reported `TASK_STRING_OPERATION_INVALID` at
+`/tasks/clone_review_revision/inputs/remoteUrl`. The planner suspended
+that binding and produced three additional tasks at call 29. The compiler now
+applies exact non-null facts established by a task's successful `requires`
+assertion within that task. Runtime regressions cover both caller inputs and
+producer outputs. Text succeeds, null fails, and an unguarded use outside the
+task still fails compilation. [Compiler regression](../../tests/GnOuGo.Flow.Planning.Tests/StringOperationCompilationTests.cs)
+
 [Discovery batch validation](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs) ·
 [Git comparison regressions](../../tests/GnOuGo.Git.Mcp.Tests/GitRepositoryServiceTests.cs)
 
