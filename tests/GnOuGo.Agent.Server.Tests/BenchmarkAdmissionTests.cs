@@ -16,6 +16,18 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class BenchmarkAdmissionTests
 {
+    [Theory]
+    [InlineData("LLM_BUDGET_EXCEEDED", true)]
+    [InlineData("LLM_BUDGET_UNVERIFIABLE", false)]
+    [InlineData("MODEL_DISPATCH_UNVERIFIABLE", false)]
+    public void AMeasuredBudgetOverrunWarnsWhileUnverifiableAccountingFails(string code, bool warning)
+    {
+        var diagnostic = new PlanningDiagnostic(code, "/", "Captured budget outcome")
+        { BudgetFailure = new("planning_session", "captured_planning_request", "elapsed_ms", 1000, 1001, null, "not_started") };
+        Assert.Equal(warning, ServerLiveDiagnostics.IsBudgetOverrun([diagnostic]));
+        Assert.False(ServerLiveDiagnostics.IsBudgetOverrun([diagnostic, new("INVALID_CONTRACT", "/", "A required contract failed")]));
+    }
+
     [Fact]
     public async Task DiagnosticExecutionCannotExceedProviderCapacityOrReserveHttpAttempt()
     {

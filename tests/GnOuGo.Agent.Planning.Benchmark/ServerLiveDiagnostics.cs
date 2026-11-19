@@ -30,6 +30,12 @@ using Microsoft.EntityFrameworkCore;
 // No credentials or bootstrap links are exported. The campaign lease is held by the caller.
 internal static class ServerLiveDiagnostics
 {
+    internal static bool IsBudgetOverrun(IEnumerable<PlanningDiagnostic> diagnostics)
+    {
+        var required = diagnostics.Where(d => d.Required).ToArray();
+        return required.Length > 0 && required.All(d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded);
+    }
+
     internal static bool RequiresInteraction(string[] args)
         => args.ElementAtOrDefault(1) == "server-live-execute" ||
             args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
@@ -634,11 +640,10 @@ internal static class ServerLiveDiagnostics
                         await campaign.SaveAsync("planning-evaluation-runs", run, report);
                         if (!planningPassed)
                         {
-                            if (state.Diagnostics.Any(d => d.BudgetFailure is not null) &&
-                                state.Diagnostics.Where(d => d.Required).All(d => d.BudgetFailure is not null))
+                            if (IsBudgetOverrun(state.Diagnostics))
                             {
                                 report["result"]!["budget_blocked"] = true;
-                                Console.Error.WriteLine("Warning: the captured funding policy stopped admission. The run is unqualified.");
+                                Console.Error.WriteLine("Warning: the captured budget was exceeded. The run is unqualified.");
                                 await campaign.SaveAsync("planning-evaluation-runs", run, report);
                             }
                             else Environment.ExitCode = 1;
