@@ -28,6 +28,18 @@ public sealed class BenchmarkAdmissionTests
         Assert.False(ServerLiveDiagnostics.IsBudgetOverrun([diagnostic, new("INVALID_CONTRACT", "/", "A required contract failed")]));
     }
 
+    [Theory]
+    [InlineData("LLM_BUDGET_EXCEEDED", null, true)]
+    [InlineData("LLM_BUDGET_EXCEEDED", "CLEANUP_FAILED", false)]
+    [InlineData("LLM_BUDGET_UNVERIFIABLE", null, false)]
+    public void JournalKeepsExecutionBudgetWarningsDistinctFromCleanupAndAccountingErrors(string error, string? other, bool warning)
+    {
+        var journal = new WorkflowRun { Status = WorkflowRunStatus.Failed, FinalizationCompleted = true,
+            Result = new RunResult { Success = false, Error = new() { Code = error } } };
+        if (other is not null) journal.Invocations["cleanup"] = new() { Id = "cleanup", Error = new() { Code = other } };
+        Assert.Equal(warning, ServerBusinessExecution.IsExecutionBudgetOverrun(journal));
+    }
+
     [Fact]
     public async Task DiagnosticExecutionCannotExceedProviderCapacityOrReserveHttpAttempt()
     {

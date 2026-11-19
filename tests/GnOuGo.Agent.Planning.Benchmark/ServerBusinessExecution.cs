@@ -2,6 +2,7 @@ using System.Net.Http.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Agent.Server.Planning;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
@@ -62,6 +63,12 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     }
     public string FormatFailureDiagnostics(string serverName, Exception error) =>
         _execution?.FormatFailureDiagnostics(serverName, error) ?? error.GetType().Name;
+
+    internal static bool IsExecutionBudgetOverrun(WorkflowRun journal) =>
+        journal.Status == WorkflowRunStatus.Failed && journal.FinalizationCompleted &&
+        journal.Result is { Success: false, Error.Code: ErrorCodes.LlmBudgetExceeded } result &&
+        result.StepResults.All(s => s.Error is null || s.Error.Code == ErrorCodes.LlmBudgetExceeded) &&
+        journal.Invocations.Values.All(i => i.Error is null || i.Error.Code == ErrorCodes.LlmBudgetExceeded);
 
     internal static bool ReviewInstructionsObserved(JsonArray events, string instructions) =>
         !string.IsNullOrWhiteSpace(instructions) && events.OfType<JsonObject>().Any(e =>
@@ -243,7 +250,12 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
             report["result"]!["execution_status"] = journal.Status;
             report["passed"] = report["oracle"]!["passed"]!.DeepClone();
-            if (!report["passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
+            if (IsExecutionBudgetOverrun(journal))
+            {
+                report["result"]!["budget_blocked"] = true;
+                Console.Error.WriteLine("Warning: the execution budget was exceeded. The run is unqualified.");
+            }
+            else if (!report["passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
         }
         finally
         {
