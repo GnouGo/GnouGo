@@ -27,13 +27,26 @@ internal static class LiveWorkflowEvaluation
     {
         AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, "amazon");
         return AmazonPrompt +
-        "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, au maximum les " + productLimit +
+        "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, " + (productLimit == QualificationProductCount ? "exactement" : "au maximum") + " les " + productLimit +
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
         "/products.xlsx. Fournis une ligne d’en-tête Nom, Description, Prix, puis toutes les lignes produit dans leur ordre. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
         (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy));
     }
 
-    internal static string CodeEvaluationPrompt(string relative) => CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". L’unique git_clone autorisé doit définir explicitement branch=\"" + Head + "\" et targetDirectory=\"" + relative + "/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
+    internal const int QualificationProductCount = 10;
+    internal const string QualificationProfile = "server-business-outcomes-v1";
+    internal const string ReviewUrl = "https://github.com/AxaFrance/SmartGuide/pull/718";
+    internal const string ReviewInstructions = "Review correctness, regressions and test coverage across the pull-request diff. Anchor each inline comment to a concrete finding or a verified behavior on a changed line.";
+
+    internal static string CodeEvaluationPrompt(string relative) => CodePrompt +
+        "\nDeux entrées texte obligatoires, sans valeur par défaut : pullRequestUrl et reviewText. " +
+        "Résous la PR depuis pullRequestUrl à chaque exécution et applique reviewText au diff de sa base et de sa tête. " +
+        "Clone sa révision une seule fois dans " + relative + "/repository. Rapporte les commandes, les codes de sortie et les vérifications incomplètes. " +
+        "Après confirmation et revérification de la tête, publie réellement sur cette PR la décision GitHub d’approbation ou de demande de changements, " +
+        "sa justification et les commentaires sur les lignes modifiées. Ancre au moins une observation vérifiée dans le diff.";
+
+    // Retained comparison runs use their original local-report scenario.
+    private static string LocalReportPrompt(string relative) => CodePrompt + "\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head " + Head + " et base " + Base + ". L’unique git_clone autorisé doit définir explicitement branch=\"" + Head + "\" et targetDirectory=\"" + relative + "/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans " + relative + "/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.";
 
     internal static async Task RunAsync(string[] args, string phase, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
@@ -215,7 +228,7 @@ internal static class LiveWorkflowEvaluation
         var relative = "workflows/" + campaign.Id + "/" + label;
         var prompt = scenario == "amazon"
             ? AmazonEvaluationPrompt(relative, productLimit)
-            : CodeEvaluationPrompt(relative);
+            : LocalReportPrompt(relative);
         if (phase != "revise")
         {
             run["max_products"] = productLimit;

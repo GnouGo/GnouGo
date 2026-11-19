@@ -527,13 +527,14 @@ internal static class ServerLiveDiagnostics
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
                     ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
-                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, 3, browserObservationPolicy),
+                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 report["workspace_relative"] = relative;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" } : scenario == "code"
-                    ? new JsonObject { ["pullRequestUrl"] = "https://github.com/AxaFrance/SmartGuide/pull/610", ["reviewText"] = "Review correctness, regressions, security and test coverage of the pinned pull-request diff. Report checks truthfully and keep proposed comments local." } : new JsonObject();
-                report["max_products"] = 3;
+                    ? new JsonObject { ["pullRequestUrl"] = LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
+                if (scenario == "amazon") report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
+                if (scenario is "amazon" or "code") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
                 if (scenario is "amazon" or "code")
                 {
                     report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :

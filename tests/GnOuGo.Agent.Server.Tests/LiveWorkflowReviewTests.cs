@@ -10,6 +10,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class LiveWorkflowReviewTests
 {
     [Fact]
+    public void TenProductQualificationRequestsAllTen()
+    {
+        var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/run", 10);
+        Assert.Contains("exactement les 10 premiers produits", prompt);
+    }
+
+    [Fact]
+    public void PublicationQualificationTakesItsTargetAndInstructionsAtRuntime()
+    {
+        var prompt = LiveWorkflowEvaluation.CodeEvaluationPrompt("workflows/campaign/run");
+        Assert.Contains("pullRequestUrl", prompt);
+        Assert.Contains("reviewText", prompt);
+        Assert.DoesNotContain("github.com/", prompt);
+        Assert.Contains("publie", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("review.json", prompt);
+    }
+
+    [Fact]
     public void WorkbookFormatCriterionIsPresentBeforeGenerationForEveryPolicy()
     {
         foreach (var policy in new string?[] { null, AmazonObservedRedirectPolicy.Id, AmazonReviewProofPolicy.Id })
@@ -92,7 +110,7 @@ public sealed class LiveWorkflowReviewTests
         const string relative = "workflows/campaign/fresh-run";
         var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, productLimit);
         Assert.StartsWith(LiveWorkflowEvaluation.AmazonPrompt, prompt, StringComparison.Ordinal);
-        Assert.Contains("au maximum les " + productLimit + " premiers produits", prompt, StringComparison.Ordinal);
+        Assert.Contains("les " + productLimit + " premiers produits", prompt, StringComparison.Ordinal);
         Assert.Contains(relative + "/products.xlsx", prompt, StringComparison.Ordinal);
         Assert.Contains("query", prompt, StringComparison.Ordinal);
         Assert.Contains("Ferme le navigateur même en cas d’échec", prompt, StringComparison.Ordinal);
