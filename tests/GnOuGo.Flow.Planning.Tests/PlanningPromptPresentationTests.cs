@@ -198,7 +198,8 @@ public sealed class PlanningPromptPresentationTests
             new JsonObject { ["type"] = "object" }, null, null);
         Assert.Contains("one bounded model response", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("original producer", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("deterministic extraction", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("typed value bindings", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("opaque extraction can call the model", request.Prompt, StringComparison.Ordinal);
     }
 
     [Fact]
