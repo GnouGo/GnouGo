@@ -29,8 +29,11 @@ The live GitHub MCP returned the expected PR head and advertised message-only
 responses for review writes. The verifier now reads back the authenticated
 actor's newly created pending review ID and uses it for the submitted verdict
 and inline comments. Discovery also exposed seven sibling branches duplicating
-the same parent constraints. The planner now presents one copy with resolvable
-references. No GitHub review was published by this session.
+the same parent constraints. Remeasuring that exact captured request against
+commit `a1bd411c` reduced the complete estimate from 66,206 to 28,602 input
+tokens and the prompt from 112,579 to 52,006 UTF-8 bytes. All six references
+resolved to the original constraints. This measurement used zero model calls.
+No GitHub review was published by this session.
 [Review read-back regressions](../../tests/GnOuGo.Agent.Server.Tests/PublishedReviewQualificationTests.cs) ·
 [Planning prompt regressions](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
