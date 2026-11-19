@@ -172,6 +172,20 @@ could not. Those requests now carry the same paged declarations or reuse their
 existing evidence. Historical requests with an unknown output interface preserve
 that distinction. [Output directory regressions](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs)
 
+Call 67 inspected the Browser provider for a delivery consumer. The Server
+policy now identifies a successful write at the requested path as file delivery,
+keeps explicitly requested caller results and assigns execution status reporting
+to the host. [Host policy regression](../../tests/GnOuGo.Agent.Server.Tests/Planning/AgentPlanningPolicyTests.cs)
+
+The session stopped before approval at revision 178 with ten technical
+checkpoints. It recorded 69 provider receipts costing EUR 37.40469 at campaign
+tariffs. Request 70 had an application reservation but no campaign request,
+HTTP attempt or receipt. Its entire EUR 1.97967 reservation remains held.
+The 64-call threshold emitted warnings. The longest received call took 69.31
+seconds. No workflow executed, product was visited or workbook produced by
+this session. After retention the campaign had EUR 71.38389 available under
+its EUR 1,700 ceiling.
+
 ## Execution baselines
 
 The Amazon03 YAML matches the execution journal's `workflowYaml` byte for byte
