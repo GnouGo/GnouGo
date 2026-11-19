@@ -361,11 +361,19 @@ internal static partial class PlanningCompactConstruction
             var selected = options.Skip(offset).TakeWhile(option => option.SourceId == sourceId).ToArray();
             // The exact description remains the sole evidence view. Retain only
             // its current actionable identities, not another directory's prose.
+            var items = new JsonArray(selected.Take(2).Select(option => (JsonNode)ProviderRequestIdentity(option)).ToArray());
+            if (selected.Length is > 2 and <= ContractDirectoryPageSize &&
+                selected.All(option => option.FocusId is not null && option.Cursor is null))
+            {
+                var focuses = new JsonArray(selected.Select(option => (JsonNode)ProviderRequestIdentity(option)).ToArray());
+                if (System.Text.Encoding.UTF8.GetByteCount(focuses.ToJsonString()) <= ContractDescriptionPageSize)
+                    items = focuses;
+            }
             yield return new JsonObject
             {
                 ["version"] = ProviderRequestVersion(state), ["sourceId"] = sourceId, ["total"] = selected.Length,
-                ["items"] = new JsonArray(selected.Take(2).Select(option => (JsonNode)ProviderRequestIdentity(option)).ToArray()),
-                ["next"] = selected.Length > 2 ? ProviderRequestAddress(state, offset + 2) : null
+                ["items"] = items,
+                ["next"] = selected.Length > items.Count ? ProviderRequestAddress(state, offset + items.Count) : null
             };
         }
     }

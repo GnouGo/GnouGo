@@ -11,6 +11,29 @@ public sealed class FocusedDiscoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public async Task SmallFocusDirectoryOnAnInspectedSourceAllowsDirectPrerequisiteDiscovery()
+    {
+        var source = new Source("stored-records", 1);
+        var (state, runtime) = Ready(source);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Prerequisites = [new() { Need = "Resolve the record identifier.", EvidenceAddresses = ["requirement:req_0"] },
+            new() { Need = "Read the corresponding revision.", EvidenceAddresses = ["requirement:req_0"] },
+            new() { Need = "Retrieve the revision history.", EvidenceAddresses = ["requirement:req_0"] }];
+        var address = PlanningCompactConstruction.ProviderRequestPage(state, 0)["items"]![0]!["descriptionEvidence"]!.ToString();
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var focuses = PlanningDiscoveryFocus.Choices(state);
+        var menu = PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!;
+        Assert.Equal(focuses.Select(focus => focus.Id), menu["items"]!.AsArray().Select(row => row!["focusId"]!.ToString()));
+        Assert.Null(menu["next"]);
+        runtime.Respond = (request, _) => Discover(request, state, [source.Id], focuses[2].Id);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(focuses[2].Id, Assert.Single(state.Discovery.Pages).FocusId);
+        Assert.Single(runtime.Calls);
+    }
+
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
