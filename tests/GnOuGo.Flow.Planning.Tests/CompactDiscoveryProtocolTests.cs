@@ -309,6 +309,29 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
 
+    [Theory]
+    [InlineData(5, true)]
+    [InlineData(10, false)]
+    public async Task IssuedDiscoveryOnlyOffersDirectoryReadsForFactsOutsideTheDisplayedProviderMenu(int count, bool complete)
+    {
+        var (state, _) = await Ready();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        for (var i = 1; i < count; i++)
+            state.Discovery.Sources.Add(new("provider-" + i, "Independent source " + i));
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        var issued = Context(request);
+        var items = issued["providerRequests"]!["items"]!.AsArray();
+        Assert.Equal(Math.Min(count, 8), items.Count);
+        Assert.All(items, item => Assert.NotNull(item!["descriptionEvidence"]));
+        Assert.Equal(complete, issued["directoryEvidence"]?["providers"] is null);
+        Assert.Equal(complete, issued["directoryEvidence"]?["sources"] is null);
+        Assert.Equal(complete, !request.StructuredOutputSchema!.ToJsonString().Contains("page:sources:0", StringComparison.Ordinal));
+        Assert.Equal(complete, !request.StructuredOutputSchema!.ToJsonString().Contains(PlanningCompactConstruction.ProviderRequestAddress(state, 0), StringComparison.Ordinal));
+        Assert.Empty(state.Construction!.EvidenceRequests);
+    }
+
     [Fact]
     public async Task ConsumedProviderPagesAdvanceWithoutGrantingOldVersionRereads()
     {

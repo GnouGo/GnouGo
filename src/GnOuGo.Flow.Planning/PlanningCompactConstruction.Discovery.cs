@@ -128,6 +128,22 @@ internal static partial class PlanningCompactConstruction
         return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction!.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
     }
 
+    private static JsonObject OmitDisplayedDirectoryReads(PlanningSession state, JsonObject context)
+    {
+        if (context["providerRequests"] is not JsonObject page || page["items"] is not JsonArray { Count: > 0 } items ||
+            page["total"]?.GetValue<int>() != items.Count || page["next"] is not null ||
+            !JsonNode.DeepEquals(page, ProviderRequestPage(state, 0, items.Count))) return context;
+
+        // Each current action is already on screen with its exact source description link.
+        // Keep the original canonical pages available to previously issued requests.
+        var displayed = context.DeepClone().AsObject();
+        var directory = displayed["directoryEvidence"]!.AsObject();
+        directory.Remove("providers");
+        var sources = items.Select(item => item!["sourceId"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        if (state.Discovery.Sources.All(source => sources.Contains(source.Id))) directory.Remove("sources");
+        return displayed;
+    }
+
     private static string? SourceDirectoryContinuation(PlanningSession state) =>
         UnconsumedDirectory(state, "page:sources:", state.Discovery.Sources.Count, SourceDirectoryPageSize);
 

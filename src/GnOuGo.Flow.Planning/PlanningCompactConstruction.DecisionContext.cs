@@ -24,7 +24,10 @@ internal static partial class PlanningCompactConstruction
         // A diagnostic token target cannot remove useful context or force an
         // evidence round trip. Exact duplicate metadata can still share a view.
         if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+        {
+            if (purpose == DiscoveryPurpose) displayed = OmitDisplayedDirectoryReads(state, displayed);
             return Render(purpose == SelectPurpose ? displayed : CompactSelectedProducerContractMetadata(displayed));
+        }
         var request = Render(displayed);
         var target = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens;
         if (ModelRequestAdmission.EstimateTokens(PlanningModelCalls.PrepareRequest(state, purpose, request.Prompt,
