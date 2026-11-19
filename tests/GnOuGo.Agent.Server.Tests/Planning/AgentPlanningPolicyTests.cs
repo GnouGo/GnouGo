@@ -34,4 +34,13 @@ public sealed class AgentPlanningPolicyTests
         Assert.DoesNotContain("workflow.execute", policy.AllowedStepTypes);
         Assert.Contains("mcp.call", policy.AllowedStepTypes);
     }
+
+    [Fact]
+    public void HostPolicyExplainsFileDeliveryAndSeparatelyRequestedCallerResults()
+    {
+        var instructions = AgentPlanningPolicy.Create().Instructions;
+        Assert.Contains("successful write at the requested path delivers the file", instructions);
+        Assert.Contains("original request also asks for a caller result", instructions);
+        Assert.Contains("The host reports execution status", instructions);
+    }
 }
