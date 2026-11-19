@@ -9,6 +9,25 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
+    [Theory]
+    [InlineData("catalogue_and_contract", true)]
+    [InlineData("two_catalogues", false)]
+    [InlineData("overlapping_contracts", false)]
+    [InlineData("disjoint_contracts", true)]
+    public void DiscoveryDistinguishesCataloguePagesFromContractReadsAtTheSameFocus(string variant, bool expected)
+    {
+        var catalogue = new PlanningDiscoveryRequest("provider") { FocusId = "focus", Justification = "Locate additional operations." };
+        var contract = catalogue with { OperationIds = ["clone"], Justification = "Inspect the selected operation's arguments." };
+        var reads = variant switch
+        {
+            "catalogue_and_contract" => new[] { contract, catalogue },
+            "two_catalogues" => [catalogue, catalogue],
+            "overlapping_contracts" => [contract, contract with { OperationIds = ["clone", "info"] }],
+            _ => [contract, contract with { OperationIds = ["info"] }]
+        };
+        Assert.Equal(expected, HybridWorkflowPlanner.DistinctDiscoveryReads(reads));
+    }
+
     [Fact]
     public async Task DiscoveryShowsSameSourceCompositionAlongsideTheOriginalDirectory()
     {
