@@ -332,6 +332,10 @@ invalid for continuation.
 Page boundaries are frozen at capture time. The existing per-response character
 and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
 lower the hard 100-page ceiling. The manifest itself obeys the response allowance.
+The output schema publishes `maxItems` for both manifests and complete snapshots
+(100 pages) and for each returned page (200 records). Size planning for the full
+collection must account for both dimensions. Request or host settings can reduce
+the number of pages or records returned.
 
 This fits an ordinary bounded `foreach`: capture, read every listed page, collect
 the observations, then navigate. The manifest describes available pages; it does

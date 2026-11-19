@@ -286,7 +286,7 @@ public sealed partial class PlaywrightBrowserHost
                 };
             }
         }
-        if (ObservationLimit(characters) < 1024 || Math.Min(records ?? 200, _settings.MaxObservationRecords) < 1 || _settings.MaxObservationPages < 1)
+        if (ObservationLimit(characters) < 1024 || Math.Min(records ?? BrowserServerSettings.ObservationRecordsPerPageCeiling, _settings.MaxObservationRecords) < 1 || _settings.MaxObservationPages < 1)
             throw new BrowserObservationException("INVALID_INPUT", "Observation limits require at least 1024 characters, one record and one page.", new(0, []));
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var timeout = NormalizeTimeout(timeoutMs, url is null ? _settings.DefaultTimeoutMs : _settings.NavigationTimeoutMs);
@@ -378,7 +378,7 @@ public sealed partial class PlaywrightBrowserHost
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
                         Acquisition = Acquisition(), NavigationEvidence = NavigationEvidenceFor(page)
                     };
-                    var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, 100));
+                    var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, BrowserServerSettings.ObservationPageCeiling));
                     if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
                     token.ThrowIfCancellationRequested();
                     result = result with { Acquisition = Acquisition() };
@@ -512,8 +512,8 @@ public sealed partial class PlaywrightBrowserHost
     private BrowserContentResult ObservationManifest(ObservationSnapshot snapshot, int? characters, int? records, CancellationToken ct)
     {
         var limit = ObservationLimit(characters);
-        var maximum = Math.Min(_settings.MaxObservationPages, 100);
-        if (maximum < 1 || limit < 1024 || Math.Min(records ?? 200, _settings.MaxObservationRecords) < 1)
+        var maximum = Math.Min(_settings.MaxObservationPages, BrowserServerSettings.ObservationPageCeiling);
+        if (maximum < 1 || limit < 1024 || Math.Min(records ?? BrowserServerSettings.ObservationRecordsPerPageCeiling, _settings.MaxObservationRecords) < 1)
             throw new InvalidOperationException("Observation limits require at least 1024 characters, one record and one page.");
         var descriptors = new List<BrowserObservationPage>();
         var offset = 0;
@@ -550,7 +550,7 @@ public sealed partial class PlaywrightBrowserHost
     private BrowserContentResult ObservationPage(ObservationSnapshot snapshot, int offset, int? characters, int? records, CancellationToken ct)
     {
         var limit = ObservationLimit(characters);
-        var count = Math.Min(records ?? 200, Math.Min(_settings.MaxObservationRecords, 200));
+        var count = Math.Min(records ?? BrowserServerSettings.ObservationRecordsPerPageCeiling, Math.Min(_settings.MaxObservationRecords, BrowserServerSettings.ObservationRecordsPerPageCeiling));
         if (limit < 1024 || count < 1) throw new InvalidOperationException("Observation limits require at least 1024 characters and one record.");
         var selected = new List<BrowserObservationRecord>();
         BrowserContentResult Page() => snapshot.Result with

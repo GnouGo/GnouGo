@@ -16,13 +16,16 @@ internal static class BrowserMcpJson
         var schema = JsonNode.Parse(generated.GetRawText())!.AsObject();
         var properties = schema["properties"]!.AsObject();
         var records = properties["observation"]!["properties"]!["records"]!;
+        records["maxItems"] = BrowserServerSettings.ObservationRecordsPerPageCeiling;
         records["items"]!["properties"]!["actions"]!["items"] = new JsonObject
             { ["type"] = "string", ["enum"] = new JsonArray("activate", "follow", "fill", "select", "press") };
         // The SDK loses nullable dictionary-value annotations. Missing ancestor
         // context is emitted as null; preserve the object's existing constraints.
         records["items"]!["properties"]!["ancestorAttributes"]!["additionalProperties"]!["type"] = new JsonArray("object", "null");
-        properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"] =
-            properties["observation"]!["properties"]!["records"]!.DeepClone();
+        var pages = properties["observationSnapshot"]!["properties"]!["pages"]!;
+        pages["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
+        pages["items"]!["properties"]!["records"] = records.DeepClone();
+        properties["observationManifest"]!["properties"]!["pages"]!["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         using var document = JsonDocument.Parse(schema.ToJsonString());
         return document.RootElement.Clone();
     }

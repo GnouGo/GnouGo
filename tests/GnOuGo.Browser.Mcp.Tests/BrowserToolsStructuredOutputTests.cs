@@ -40,7 +40,25 @@ public sealed class BrowserToolsStructuredOutputTests
         }
     }
 
+    [Fact]
+    public void PublishedObservationBoundsDistinguishPagesFromRecordsPerPage()
+    {
+        var properties = PublishedContentProperties();
+        var snapshotPages = properties["observationSnapshot"]!["properties"]!["pages"]!;
+        Assert.Equal(100, (int?)snapshotPages["maxItems"]);
+        Assert.Equal(100, (int?)properties["observationManifest"]!["properties"]!["pages"]!["maxItems"]);
+        Assert.Equal(200, (int?)properties["observation"]!["properties"]!["records"]!["maxItems"]);
+        Assert.Equal(200, (int?)snapshotPages["items"]!["properties"]!["records"]!["maxItems"]);
+    }
+
     private static JsonNode[] PublishedRecordSchemas()
+    {
+        var properties = PublishedContentProperties();
+        return [properties["observation"]!["properties"]!["records"]!["items"]!,
+            properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"]!["items"]!];
+    }
+
+    private static JsonNode PublishedContentProperties()
     {
         var services = new ServiceCollection();
         services.AddLogging();
@@ -51,8 +69,7 @@ public sealed class BrowserToolsStructuredOutputTests
         using var provider = services.BuildServiceProvider();
         var descriptor = provider.GetServices<McpServerTool>().Single(tool => tool.ProtocolTool.Name == "browser_get_content");
         var schema = JsonNode.Parse(BrowserMcpJson.ContentSchema(descriptor.ProtocolTool.OutputSchema!.Value).GetRawText())!;
-        return [schema["properties"]!["observation"]!["properties"]!["records"]!["items"]!.DeepClone(),
-            schema["properties"]!["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"]!["items"]!.DeepClone()];
+        return schema["properties"]!;
     }
 
     [Fact]
