@@ -105,10 +105,14 @@ public sealed class GitToolsTests : IDisposable
             tool.ProtocolTool.Name));
         var compare = Assert.Single(tools, static tool =>
             string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
+        var outputSchema = JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText());
+        var cursorDirectory = outputSchema!["properties"]!["remainingPageCursors"];
+        Assert.Equal("string", cursorDirectory!["items"]!["type"]!.GetValue<string>());
+        Assert.Contains("remainingPageCursors", compare.ProtocolTool.Description, StringComparison.Ordinal);
         var artifactValidation = McpArtifactContractParser.ParseAndValidate(
             compare.ProtocolTool.Meta,
             JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText()),
-            JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText()));
+            outputSchema);
         Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
     }
 

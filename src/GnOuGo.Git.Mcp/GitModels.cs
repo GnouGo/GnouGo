@@ -54,6 +54,8 @@ public sealed record GitCompareRefsResult(
     [property: JsonPropertyName("error_code")] string? ErrorCode = null,
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
+    [Description("All ordered cursors after this page for the returned baseSha, headSha, comparison mode and pageSize. Empty on the last page. If the directory exceeds Git:MaxComparePageSize, follow nextCursor instead.")]
+    public IReadOnlyList<string>? RemainingPageCursors { get; init; }
     public bool Ok => Success;
 }
 

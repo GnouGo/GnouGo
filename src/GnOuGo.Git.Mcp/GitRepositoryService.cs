@@ -101,7 +101,8 @@ public sealed class GitRepositoryService
 
         var comparedFrom = compareFromMergeBase ? mergeBase! : baseCommit;
         var offset = ParseCompareCursor(cursor);
-        var boundedPageSize = Math.Clamp(pageSize, 1, Math.Max(1, _settings.MaxComparePageSize));
+        var pageLimit = Math.Max(1, _settings.MaxComparePageSize);
+        var boundedPageSize = Math.Clamp(pageSize, 1, pageLimit);
         using var patch = repository.Diff.Compare<Patch>(
             comparedFrom.Tree,
             headCommit.Tree,
@@ -139,6 +140,7 @@ public sealed class GitRepositoryService
 
         var nextOffset = offset + files.Count;
         var hasMore = nextOffset < allEntries.Length;
+        var remainingPages = hasMore ? 1 + (allEntries.Length - nextOffset - 1) / boundedPageSize : 0;
         var totalPatchCharacters = files.Sum(static file => file.Patch.Length);
         var truncatedCount = files.Count(static file => file.Truncated);
         var output = $"Resolved base {baseCommit.Sha}, head {headCommit.Sha}, merge-base {mergeBase?.Sha ?? "none"}; returned {files.Count} of {allEntries.Length} changed file(s) from offset {offset}.";
@@ -162,7 +164,14 @@ public sealed class GitRepositoryService
             totalPatchCharacters,
             truncatedCount,
             ToWorkspaceRelativePath(repositoryRoot),
-            output);
+            output)
+        {
+            RemainingPageCursors = remainingPages <= pageLimit
+                ? Enumerable.Range(0, remainingPages)
+                    .Select(page => (nextOffset + page * boundedPageSize).ToString(System.Globalization.CultureInfo.InvariantCulture))
+                    .ToArray()
+                : null
+        };
     }
 
     public GitLogResult GetLog(string projectRoot, int maxCount = 20)

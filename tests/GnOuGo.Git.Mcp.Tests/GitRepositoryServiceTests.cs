@@ -475,6 +475,32 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void CompareRefsReturnsTheCompleteBoundedPageDirectoryForPinnedRevisions()
+    {
+        var service = CreateService(maxComparePageSize: 2);
+        var basis = WriteCommit(service, "base.txt", "base", "base");
+        var files = Enumerable.Range(0, 5).Select(i => $"file-{i}.txt").ToArray();
+        foreach (var file in files) File.WriteAllText(Path.Combine(_root, file), file);
+        service.Stage(".", files);
+        var head = service.Commit(".", "five changes", "Test User", "test@example.local");
+        var first = service.CompareRefs(".", basis.Sha, head.Sha, pageSize: 8);
+        Assert.Equal(2, first.PageSize);
+        Assert.Equal(new[] { "2", "4" }, first.RemainingPageCursors);
+        var visited = new List<string>(first.Files.Select(f => f.Path));
+        foreach (var cursor in first.RemainingPageCursors!)
+        {
+            var page = service.CompareRefs(".", first.BaseSha, first.HeadSha, cursor: cursor, pageSize: first.PageSize);
+            visited.AddRange(page.Files.Select(f => f.Path));
+        }
+        Assert.Equal(files, visited);
+        var last = service.CompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2);
+        Assert.Empty(last.RemainingPageCursors!);
+        var many = service.CompareRefs(".", basis.Sha, head.Sha, pageSize: 1);
+        Assert.Null(many.RemainingPageCursors);
+        Assert.Equal("1", many.NextCursor);
+    }
+
+    [Fact]
     public void CompareRefs_ReportsPerFileTruncation()
     {
         var service = CreateService(maxComparePatchCharactersPerFile: 80);
@@ -528,7 +554,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return service.Commit(".", message, "Test User", "test@example.local");
     }
 
-    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000)
+    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000, int maxComparePageSize = 100)
     {
         var settings = new GitServerSettings
         {
@@ -537,6 +563,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
             AllowMutations = allowMutations,
             AllowNetworkOperations = allowNetwork,
             MaxComparePatchCharactersPerFile = maxComparePatchCharactersPerFile,
+            MaxComparePageSize = maxComparePageSize,
             RequireCleanWorkingTreeForMerge = true,
             DefaultAuthorName = "Test User",
             DefaultAuthorEmail = "test@example.local"
