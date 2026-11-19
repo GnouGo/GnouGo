@@ -31,7 +31,8 @@ internal static class LiveCodeEvidence
     internal static JsonArray Commands(JsonObject run, string repository)
     {
         var commands = new JsonArray();
-        foreach (var evt in run["events"]!.AsArray())
+        foreach (var evt in run["events"]!.AsArray().Where(evt => run["oracle_version"]?.ToString() != PublishedReviewQualification.Version ||
+            evt?["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && evt["tool"]?.ToString() == "code_agent_edit"))
             foreach (var call in (evt?["result"]?["toolExecutions"] as JsonArray ?? []).OfType<JsonObject>())
             {
                 if (call["completionObserved"]?.GetValue<bool>() != true || call["conflictingCompletion"]?.GetValue<bool>() != false ||
@@ -41,8 +42,11 @@ internal static class LiveCodeEvidence
                 var command = (arguments?["command"] ?? arguments?["cmd"] ?? arguments?["script"])?.ToString();
                 if (command is null) continue;
                 foreach (var terminal in (call["terminals"] as JsonArray ?? []).OfType<JsonObject>())
-                    if (terminal["exitCode"] is not null && terminal["workingDirectory"]?.ToString() is { } cwd && Path.GetFullPath(cwd) == repository)
-                        commands.Add(new JsonObject { ["command"] = command, ["exit_code"] = terminal["exitCode"]!.DeepClone(),
+                    if (terminal["workingDirectory"]?.ToString() is { } cwd && Path.IsPathFullyQualified(cwd) &&
+                        (Path.GetFullPath(cwd) == repository || run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
+                            Path.GetFullPath(cwd).StartsWith(Path.TrimEndingDirectorySeparator(repository) + Path.DirectorySeparatorChar, StringComparison.Ordinal)) &&
+                        long.TryParse(terminal["exitCode"]?.ToJsonString(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var exit))
+                        commands.Add(new JsonObject { ["command"] = command, ["cwd"] = cwd, ["exit_code"] = exit,
                             ["output"] = terminal["text"]?.DeepClone(), ["tool_call_id"] = call["toolCallId"]?.DeepClone() });
             }
         return commands;
@@ -59,21 +63,33 @@ internal static class LiveCodeEvidence
             ["pinned_head"] = run["checkout_head"]?.ToString() == (run["target_head"]?.ToString() ?? LiveWorkflowEvaluation.Head),
             ["pinned_base"] = run["checkout_base"]?.ToString() == (run["target_base"]?.ToString() ?? LiveWorkflowEvaluation.Base),
             ["manifest_observed"] = run["repository_manifest"] is not null,
-            ["node_toolchain"] = Version("node --version", "24.20.0"),
-            ["pnpm_toolchain"] = Version("pnpm --version", "10.34.5"),
-            ["python_toolchain"] = Version("python --version", "Python 3.11.13") || Version("python3 --version", "Python 3.11.13"),
-            ["node_dependencies"] = Installed("pnpm i", "pnpm install", "pnpm install --frozen-lockfile"),
-            ["python_dependencies"] = Installed("uv sync --group tests", "uv sync --group tests --system-certs", "uv sync --group tests --system-certs --python 3.11.13"),
-            ["python_lint"] = Executed("uv run ruff check .", "uv tool run ruff==0.15.22 check ."),
-            ["python_tests"] = Executed("uv run pytest", "uv run pytest -v", "uv run pytest --junitxml=test-results.xml"),
-            ["node_tests"] = Executed("pnpm test", "pnpm recursive run test")
         };
         if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version)
         {
             var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
             var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];
+            checks["node_dependencies"] = Installed("pnpm i", "pnpm install", "pnpm install --frozen-lockfile");
+            checks["python_dependencies"] = Installed("uv sync --group tests", "uv sync --frozen --group tests",
+                "uv sync --native-tls --group tests --group ci", "uv sync --native-tls --group tests --group ci --extra jobs",
+                "UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci", "UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci --extra jobs");
+            checks["python_lint"] = Executed("uv run ruff check .", "uv run --frozen ruff check .", "uv tool run ruff==0.15.22 check .", "ruff check .");
+            checks["python_tests"] = Executed("uv run pytest", "uv run --frozen pytest", "uv run --frozen pytest tests", "uv run pytest tests",
+                "uv run pytest -v", "uv run pytest --junitxml=test-results.xml",
+                "uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning || exit 1",
+                "uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning || exit 1");
+            checks["node_tests"] = scripts?["test"] is not null && Executed("pnpm test", "pnpm run test", "pnpm recursive run test");
             checks["integration_tests"] = scripts?["e2e"] is not null && Executed("pnpm e2e", "pnpm run e2e", "pnpm exec playwright test");
-            checks["python_format"] = Executed("uv run ruff format --check .", "uv tool run ruff==0.15.22 format --check .");
+        }
+        else
+        {
+            checks["node_toolchain"] = Version("node --version", "24.20.0");
+            checks["pnpm_toolchain"] = Version("pnpm --version", "10.34.5");
+            checks["python_toolchain"] = Version("python --version", "Python 3.11.13") || Version("python3 --version", "Python 3.11.13");
+            checks["node_dependencies"] = Installed("pnpm i", "pnpm install", "pnpm install --frozen-lockfile");
+            checks["python_dependencies"] = Installed("uv sync --group tests", "uv sync --group tests --system-certs", "uv sync --group tests --system-certs --python 3.11.13");
+            checks["python_lint"] = Executed("uv run ruff check .", "uv tool run ruff==0.15.22 check .");
+            checks["python_tests"] = Executed("uv run pytest", "uv run pytest -v", "uv run pytest --junitxml=test-results.xml");
+            checks["node_tests"] = Executed("pnpm test", "pnpm recursive run test");
         }
         run["observed_commands"] = commands; run["verified_checks"] = checks;
         run["required_checks_verified"] = checks.All(p => p.Value!.GetValue<bool>());

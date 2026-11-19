@@ -132,6 +132,30 @@ public sealed class CodeReportOracleTests
         finally { Directory.Delete(root, recursive: true); }
     }
 
+    [Theory]
+    [InlineData("pnpm run e2e", "browser", true)]
+    [InlineData("echo pnpm run e2e", "browser", false)]
+    [InlineData("pnpm run e2e", "../unrelated", false)]
+    [InlineData("pnpm run e2e --help", "browser", false)]
+    public void PublishedReviewUsesThePinnedProjectsChecksAndCompletedCommands(string integration, string directory, bool expected)
+    {
+        var run = Run();
+        run["oracle_version"] = PublishedReviewQualification.Version;
+        run["repository_manifest"] = new JsonObject { ["package.json"] = new JsonObject {
+            ["content"] = new JsonObject { ["scripts"] = new JsonObject { ["e2e"] = "playwright test", ["test"] = "pnpm recursive run test" } }.ToJsonString() } };
+        run["events"]![1]!["server"] = "GnOuGo.GithubCopilot.Mcp";
+        var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
+        calls.Clear();
+        foreach (var command in new[] { "pnpm install --frozen-lockfile", "uv sync --native-tls --group tests --group ci",
+                     "uv tool run ruff==0.15.22 check .", "uv run --frozen pytest tests", "pnpm run test" })
+            calls.Add(Call(command, command, 0, "Completed."));
+        var last = Call("integration", integration, 0, "Completed.");
+        last["terminals"]![0]!["workingDirectory"] = Path.GetFullPath(Path.Combine(Repository, directory));
+        calls.Add(last);
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.Equal(expected, run["required_checks_verified"]!.GetValue<bool>());
+    }
+
     private static JsonObject Run() => new()
     {
         ["workspace_relative"] = "workflows/test",
