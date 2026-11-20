@@ -198,6 +198,15 @@ still rejects a genuinely oversized global judgment before dispatch.
 | 12 | 77 / 1,616 | 1 | 0 | 0 | Yes |
 | 13 | 0 / 0 | 1 | 0 | 0 | Yes |
 | 14 | 78 / 1,606 | 21 | 10 | 0 | Yes |
+| 15 | 79 / 1,632 | 21 | 10 | 0 | Yes |
+
+Captures 14 and 15 independently produced the ordered ten-product source
+selection. Capture 15 received HTTP 200 for its fresh search and made
+20 source-resolution reads, three resolving to products and 17 to stores.
+Cold verification matched the warm result. Browser closure was verified.
+The SHA-256 of its 22 raw events was `c9e7f7111d08b3f47bd108fdf22ecb8345957020ddd4faca9991923eaf3c3712`.
+These measurements cover the navigation prerequisite. Detail visits and
+workbook verification still require a complete Server execution.
 
 Captures 09 and 10 each resolved 20 occurrences under the active grant.
 Three reads returned product evidence and 17 returned store evidence. Cold
