@@ -108,8 +108,9 @@ internal static partial class PlanningCompactConstruction
                 .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
             {
                 var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
-                if (!contribution.Values.Values.Any(site => site.Value is { Kind: "output", Source: { } source, Port: { } port } &&
-                    controlExports.Contains((source, port))))
+                if (!contribution.Values.Values.SelectMany(site => TaskPlanCompiler.Values(site.Value))
+                    .Any(value => value is { Kind: "output", Source: { } source, Port: { } port } &&
+                        controlExports.Contains((source, port))))
                     PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id,
                         "A further control at this scope must consume an exported result of the accepted control in this step.");
             }

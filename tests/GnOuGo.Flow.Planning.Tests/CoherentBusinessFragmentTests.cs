@@ -440,8 +440,10 @@ public sealed class CoherentBusinessFragmentTests
         Assert.False(state.Construction.Evidence?.ContainsKey("scope:/root") == true);
     }
 
-    [Fact]
-    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope(bool predicateOperand)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Compact!.CurrentStep!.Kind = "conditional";
@@ -461,7 +463,12 @@ public sealed class CoherentBusinessFragmentTests
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         var consumer = Value(2);
-        consumer.Outputs[0] = new("result", new() { Kind = "output", Source = "choose", Port = "result" });
+        consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
+        var accepted = new TaskValue { Kind = "output", Source = "choose", Port = "result" };
+        if (predicateOperand)
+            consumer.Requires = new() { Kind = "predicate", Predicate = "not_equal",
+                Items = [accepted, new() { Kind = "number", Number = -1 }] };
+        else consumer.Outputs[0] = new("result", accepted);
         var extension = new PlanningConstructionExtension
         {
             Scope = "/root", RequirementIds = ["work"], CompleteBlock = false,
@@ -473,6 +480,7 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
             candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
         Assert.Equal(2, candidate.Plan.Root.Tasks.Count);
+        consumer.Requires = null;
         consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
         Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
             PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
