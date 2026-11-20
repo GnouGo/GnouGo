@@ -220,6 +220,9 @@ Each record also exposes its outer semantic `occurrence` (selector, tag, role an
 Explicit content reads return `navigationEvidence` only for a response bound to
 the actual committed main document. It records the requested URL, actual final
 URL and ordered observed HTTP response hops, including raw Location headers.
+`terminalResponse` exposes the last hop directly when the chain is complete
+and its URL matches the final URL. It preserves the actual HTTP status,
+including failure statuses. Partial reads omit the field.
 Each GET is sent once without transport retries or automatic redirects. The host
 checks a resolved observed redirect destination before contacting it and starts
 the next browser navigation under the same deadline. Loops and more than twenty

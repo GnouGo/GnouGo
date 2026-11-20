@@ -8,6 +8,11 @@ public sealed record BrowserNavigationHop(string Url, string Method, int StatusC
 public sealed record BrowserNavigationEvidence(string RequestedUrl, string? FinalUrl,
     IReadOnlyList<BrowserNavigationHop> Hops, bool Complete)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [Description("The actual last HTTP response of a complete chain whose URL matches finalUrl. Bind its url, method and statusCode directly. HTTP error statuses are preserved.")]
+    public BrowserNavigationHop? TerminalResponse => Complete && FinalUrl is not null && Hops is { Count: > 0 } &&
+        Hops[^1].Url == FinalUrl ? Hops[^1] : null;
+
     // History changes the document address without creating an HTTP response.
     [Description("Current document address after a history-only change, when different from the last observed HTTP response URL in FinalUrl. This address is not an additional HTTP hop.")]
     public string? DocumentUrl { get; init; }

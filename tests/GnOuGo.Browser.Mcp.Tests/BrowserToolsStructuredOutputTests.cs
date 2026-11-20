@@ -12,6 +12,35 @@ namespace GnOuGo.Browser.Mcp.Tests;
 public sealed class BrowserToolsStructuredOutputTests
 {
     [Theory]
+    [InlineData("complete", 200)]
+    [InlineData("http_failure", 404)]
+    [InlineData("incomplete", null)]
+    [InlineData("wrong_final", null)]
+    [InlineData("no_hops", null)]
+    public void PublishedNavigationReceiptExposesItsOwnTerminalHttpResponse(string variant, int? status)
+    {
+        const string source = "https://example.invalid/source", final = "https://example.invalid/item";
+        var terminal = new BrowserNavigationHop(final, "GET", variant == "http_failure" ? 404 : 200, null);
+        var evidence = new BrowserNavigationEvidence(source, variant == "wrong_final" ? source : final,
+            variant == "no_hops" ? [] : [new(source, "GET", 302, final), terminal], variant != "incomplete")
+        {
+            DocumentUrl = final + "?view=history", SupersededResponses = [new(final, "GET", 503, null)]
+        };
+        var wire = JsonSerializer.SerializeToNode(evidence, BrowserMcpJsonContext.Default.BrowserNavigationEvidence)!;
+        var properties = PublishedContentProperties()["navigationEvidence"]!["properties"]!;
+        var receiptSchema = properties["terminalResponse"];
+        Assert.NotNull(receiptSchema);
+        Assert.Equal("integer", (string?)receiptSchema["properties"]?["statusCode"]?["type"]);
+        Assert.Equal("string", (string?)receiptSchema["properties"]?["method"]?["type"]);
+        if (status.HasValue)
+        {
+            Assert.True(JsonNode.DeepEquals(wire["hops"]![1], wire["terminalResponse"]));
+            Assert.Equal(status.Value, (int?)wire["terminalResponse"]!["statusCode"]);
+        }
+        else Assert.Null(wire["terminalResponse"]);
+    }
+
+    [Theory]
     [InlineData("missing")]
     [InlineData("empty")]
     [InlineData("matching")]

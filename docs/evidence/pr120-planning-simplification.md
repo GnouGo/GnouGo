@@ -15,6 +15,13 @@ existing byte budget. None was offered for another read. The original plan
 hash and selected operations were unchanged in each replay. A separate
 scope, an isolated group and a moved declaration fail the retention check.
 
+Amazon 16's request 28 generated another full collection pass to get the
+last HTTP method, URL and status from the ordered hops. The Browser MCP now
+publishes this original hop directly as `navigationEvidence.terminalResponse`
+when a complete chain matches its final URL. The native contract and actual
+browser tests cover completed and partial reads, history changes, superseded
+responses and HTTP failures. This supplies a typed binding for fresh planners.
+
 Review 25 (Server session `aeef260c181a4104bf2533ef088722d6`) retained
 the required report, a single clone operation and root cleanup in its draft.
 Calls 18, 21 and 24 had already inspected two, two and one operation-directory

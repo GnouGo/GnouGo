@@ -298,6 +298,7 @@ public sealed class BrowserSemanticOccurrenceTests
         Assert.Equal(site.Origin + "/search?q=hello+world", result.NavigationEvidence.DocumentUrl);
         Assert.Equal(redirect ? new[] {302, 200} : new[] {200}, result.NavigationEvidence.Hops.Select(hop => hop.StatusCode));
         Assert.Equal(initial, result.NavigationEvidence.Hops[^1].Url);
+        Assert.Same(result.NavigationEvidence.Hops[^1], result.NavigationEvidence.TerminalResponse);
         Assert.Null(result.NavigationEvidence.Hops[^1].Location);
         Assert.Equal(reload ? 1 : 0, result.NavigationEvidence.SupersededResponses?.Count ?? 0);
         if (reload) Assert.Equal(initial, Assert.Single(result.NavigationEvidence.SupersededResponses!).Url);
@@ -452,6 +453,7 @@ public sealed class BrowserSemanticOccurrenceTests
         Assert.False(result.NavigationEvidence!.Complete);
         Assert.Null(result.NavigationEvidence.FinalUrl);
         Assert.Equal(302, Assert.Single(result.NavigationEvidence.Hops).StatusCode);
+        Assert.Null(result.NavigationEvidence.TerminalResponse);
     }
 
     [Theory]
