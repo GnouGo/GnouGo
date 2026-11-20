@@ -95,6 +95,15 @@ Every branch schema and complete ancestor array matched its original bytes
 after pointer resolution. Both replays used zero provider calls.
 [Schema presentation regressions](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+Requests 17, 19, 21 and 23 asked for accepted task declarations immediately
+after technical checkpoints. For example, request 19 displayed the clone
+declaration and requested the previously accepted checks, new diff read and
+cleanup. The ordinary 1 KiB preview had omitted all three declarations.
+On an advisory run, an oversized continued scope can use its existing 8 KiB
+preview allowance for up to three complete operation declarations. The most
+recent checkpoint and its scope's cleanup have priority. The complete scope
+remains retrievable. [Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

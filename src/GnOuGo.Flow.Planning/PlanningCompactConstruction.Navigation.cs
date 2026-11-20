@@ -289,12 +289,17 @@ internal static partial class PlanningCompactConstruction
     private static string ObjectiveTextCompleteField(PlanningSession state) =>
         "objectiveTextComplete";
 
-    private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries)
+    private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries,
+        PlanningConstructionCheckpoint? continued = null)
     {
         if (state.Plan is null) return;
         var accepted = new TaskPlanSymbols(state.Plan);
         var rows = entries.ToArray();
         AddAcceptedProducerPorts(state, rows, ImportedProducerIds(context["interfaces"] as JsonArray ?? []));
+        var maximumBytes = continued is null ? 1024 : ContinuedScopePreviewBytes;
+        if (continued is not null)
+            rows = rows.OrderByDescending(row => continued.TaskIds.Contains(row["task"]!.ToString(), StringComparer.Ordinal))
+                .ThenByDescending(row => row["phase"]?.ToString() == "always").ToArray();
         var added = new JsonObject();
         foreach (var entry in rows)
         {
@@ -310,7 +315,7 @@ internal static partial class PlanningCompactConstruction
             if (added.Count < 3)
             {
                 added[address] = original;
-                if (Encoding.UTF8.GetByteCount(added.ToJsonString()) <= 1024) continue;
+                if (Encoding.UTF8.GetByteCount(added.ToJsonString()) <= maximumBytes) continue;
                 added.Remove(address);
             }
             // A partial projection must never occupy an original task address.

@@ -714,7 +714,18 @@ internal static partial class PlanningCompactConstruction
             .Concat(draft?.Extension.Choices.Select(c => c.Id) ?? []).ToHashSet(StringComparer.Ordinal);
         if (choiceIds.Count > 0)
             context["choices"] = PlanningConstruction.Node(((draft?.Plan ?? state.Plan)?.Choices ?? []).Where(c => choiceIds.Contains(c.Id)).ToList(), PlanningJsonContext.Default.ListPlanningChoice);
-        AddTaskEvidence(state, context, useCandidate);
+        PlanningConstructionCheckpoint? continued = null;
+        if (!useCandidate && draft is null && construction.Checkpoints.LastOrDefault() is { Step: { } previous } checkpoint &&
+            previous.Id == step.Id && previous.BlockId == step.BlockId && previous.Scope == step.Scope &&
+            checkpoint.Fragment["continueInScope"]?.ToString() == step.Scope && checkpoint.PlanHash == step.BaseHash &&
+            context["evidence"]?["scope:" + step.Scope] is null && PlanningConstruction.ScopeEvidence(state, step.Scope) is { } scope)
+        {
+            if (System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString()) <= ContinuedScopePreviewBytes)
+                context["scopeContext"] = scope;
+            else if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+                continued = checkpoint;
+        }
+        AddTaskEvidence(state, context, useCandidate, continued);
         if (!useCandidate)
         {
             context["scopeEvidence"] = "scope:" + step.Scope;
@@ -788,17 +799,6 @@ internal static partial class PlanningCompactConstruction
         if (!useCandidate && PlanningConstruction.PriorRepairObservations(state) is { } history)
             context["priorRepairObservations"] = history;
         AddDecisionContext(state, context);
-        if (!useCandidate && draft is null && construction.Checkpoints.LastOrDefault() is { Step: { } previous } checkpoint &&
-            previous.Id == step.Id && previous.BlockId == step.BlockId && previous.Scope == step.Scope &&
-            checkpoint.Fragment["continueInScope"]?.ToString() == step.Scope && checkpoint.PlanHash == step.BaseHash &&
-            context["evidence"]?["scope:" + step.Scope] is null && PlanningConstruction.ScopeEvidence(state, step.Scope) is { } scope)
-        {
-            // Small continued fragments often need both the original operands and their cleanup.
-            // Larger scopes retain the existing task and scope directories.
-            const int continuedScopePreviewBytes = 8192;
-            if (System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString()) <= continuedScopePreviewBytes)
-                context["scopeContext"] = scope;
-        }
         return context;
     }
 

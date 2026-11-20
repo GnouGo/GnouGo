@@ -55,7 +55,9 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate)
+    private const int ContinuedScopePreviewBytes = 8192;
+
+    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate, PlanningConstructionCheckpoint? continued)
     {
         var construction = state.Construction!;
         if (state.Plan is null) return;
@@ -105,7 +107,7 @@ internal static partial class PlanningCompactConstruction
         if (owner is not null)
             navigation["scopeOwner"] = owner;
         context["taskEvidence"] = navigation;
-        AddAcceptedOperationEvidence(state, context, navigation["items"]!.AsArray().OfType<JsonObject>());
+        AddAcceptedOperationEvidence(state, context, navigation["items"]!.AsArray().OfType<JsonObject>(), continued);
     }
 
     internal static void AddCandidateGroupEvidence(PlanningSession state, JsonObject context)

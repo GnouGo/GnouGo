@@ -2125,6 +2125,40 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Fact]
+    public void OversizedContinuedScopeShowsBoundedOriginalOperationsAndCleanup()
+    {
+        var state = OperationState("/root");
+        state.Construction!.Candidate = null;
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var root = state.Plan!.Root;
+        root.Tasks[0].Objective += new string('x', 9000);
+        var operation = root.Tasks.Single(task => task.Id == "accepted_operation");
+        operation.Inputs[0] = new("target", new() { Kind = "string", Text = new string('x', 2300) });
+        root.Always.Add(new() { Id = "cleanup_result", Kind = "operation", Operation = operation.Operation, Objective = "Release the scoped resource.",
+            Inputs = [new("target", new() { Kind = "string", Text = new string('y', 1100) })] });
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var checkpoint = new PlanningConstructionCheckpoint { Step = step, PlanHash = step.BaseHash, Sequence = 1,
+            TaskIds = [operation.Id], Fragment = new() { ["continueInScope"] = "/root" } };
+        state.Construction.Checkpoints.Add(checkpoint);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.Null(shown["scopeContext"]);
+        foreach (var task in new[] { operation, root.Always[^1] })
+        {
+            var original = PlanningConstruction.TaskNode(task);
+            original["scope"] = "/root";
+            original["phase"] = task == operation ? "tasks" : "always";
+            Assert.True(JsonNode.DeepEquals(original, shown["evidence"]?["task:" + task.Id]));
+        }
+        Assert.InRange(Encoding.UTF8.GetByteCount(shown["evidence"]!.ToJsonString()), 1, 8192);
+        Assert.Contains("scope:/root", request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Null(state.Construction.Evidence);
+        checkpoint.PlanHash = "stale";
+        Assert.Null(Context(state, false)["evidence"]?["task:" + operation.Id]);
+    }
+
+    [Fact]
     public void UnrelatedAcceptedOperationsDoNotExpandScopedAutomaticEvidence()
     {
         var state = OperationState(NestedScope);
