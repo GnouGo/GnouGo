@@ -203,6 +203,7 @@ public sealed class CompactDeferredBindingTests
         var (state, runtime) = ReadyKnown();
         var record = new TaskInput { Name = "record", Type = readFields
             ? new() { Kind = "object", Nullable = true, Fields = [new() { Name = "ready", Type = new() { Kind = "boolean" } },
+                new() { Name = "complete", Type = new() { Kind = "boolean" } }, new() { Name = "retained", Type = new() { Kind = "boolean" } },
                 new() { Name = "target", Type = new() { Kind = "string" } }] }
             : new() { Kind = "string", Nullable = true } };
         state.Requirements!.Inputs!.Add(record);
@@ -222,7 +223,12 @@ public sealed class CompactDeferredBindingTests
             static TaskValue Field(string name) => new() { Kind = "field", Port = name, Items = [Export()] };
             Assert.Contains("Bind the guarded value directly", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
             TaskValue guard = new() { Kind = "predicate", Predicate = "not_equal", Items = [Export(), new()] };
-            if (readFields) guard = new() { Kind = "predicate", Predicate = "and", Items = [guard, Field("ready")] };
+            if (readFields)
+            {
+                Assert.Contains("Combine checks on the same observation in one requires", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+                static TaskValue And(TaskValue left, TaskValue right) => new() { Kind = "predicate", Predicate = "and", Items = [left, right] };
+                guard = And(guard, And(Field("ready"), And(Field("complete"), Field("retained"))));
+            }
             var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], CompleteBlock = false, Tasks =
             [
                 new() { Id = "capture", Kind = "sequence", Objective = "Expose the original reference.",
@@ -263,9 +269,12 @@ public sealed class CompactDeferredBindingTests
                 received.Add(args!["target"]!.GetValue<string>());
                 return new() { Content = new JsonObject() };
             } } });
+        Assert.Equal(["capture", "read_exact"], candidate.Plan.Root.Tasks.Select(task => task.Id));
+        static JsonObject Observation(bool ready, bool complete, bool retained) => new()
+        { ["ready"] = ready, ["complete"] = complete, ["retained"] = retained, ["target"] = "original" };
         (JsonNode? Value, bool Succeeds)[] cases = readFields
-            ? [(new JsonObject { ["ready"] = true, ["target"] = "original" }, true),
-               (new JsonObject { ["ready"] = false, ["target"] = "blocked" }, false), (null, false)]
+            ? [(Observation(true, true, true), true), (Observation(false, true, true), false),
+                (Observation(true, false, true), false), (Observation(true, true, false), false), (null, false)]
             : [(JsonValue.Create("original"), true), (null, false)];
         foreach (var (value, succeeds) in cases)
         {

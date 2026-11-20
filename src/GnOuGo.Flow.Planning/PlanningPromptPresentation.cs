@@ -8,7 +8,7 @@ public static class PlanningPromptPresentation
 {
     internal const string LifecycleScopeSemantics = "Business-block review does not execute tasks or close an owning workflow scope. A reusable group declares a body; only a call invokes it. Cleanup belongs to the scope covering the resource's actual consumers, which may be an ancestor of a helper or business block. Reuse appropriate existing ancestor cleanup; do not end a still-needed resource merely to finish a helper or request business review. Where the issued binding schema permits a composed control, select its kind together with exact inspected operationIds for its nested operations; an empty list selects none. Preserve explicit lifetime and cleanup requirements, lexical visibility, available transitions and ordinary validation. This guidance grants no new binding, repair or execution authority.";
 
-    internal const string FinalizationSemantics = "always cleans up on completion or failure. Preserve payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion. In consumer requires, short-circuit and(not_equal(exact input/output/field,null),field test). Bind the guarded value directly.";
+    internal const string FinalizationSemantics = "always cleans up on completion or failure. Preserve payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion. In consumer requires, short-circuit and(not_equal(exact input/output/field,null),field test). Bind the guarded value directly. Combine checks on the same observation in one requires with nested binary and/or. Pass its original outputs to the consumer.";
 
     internal static string PresentLifecycleScopeGuidance(string prompt, JsonNode? bindingSchema = null)
     {
