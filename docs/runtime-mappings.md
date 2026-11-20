@@ -68,6 +68,9 @@ For an observed array without its own position field, `m.indexed(array)`
 returns pairs containing the original `value` and its zero-based `index`.
 Apply filtering after indexing to preserve the positions of repeated values.
 The helper checks the input array's origin and rejects a derived array.
+Use `m.has` for a potentially missing property and `m.isNull` to guard an
+observed nullable value before applying a text predicate. Empty strings,
+false and zero remain present values.
 
 Pagination is a transport boundary, not evidence of independent business items.
 Preserve grouping and relationships that cross pages when projecting or extracting

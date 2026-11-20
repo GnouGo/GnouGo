@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 7;
+    public const int MappingProfileVersion = 8;
     public const string MappingFunction = "checkedMapping";
     internal static uint CheckedPosition(JsonNode? index, long count)
     {
@@ -24,7 +24,7 @@ public sealed partial class JintSandbox
         return (uint)number;
     }
 
-    private static readonly HashSet<string> MappingHelpers = ["indexed", "select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
+    private static readonly HashSet<string> MappingHelpers = ["indexed", "isNull", "select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
@@ -463,6 +463,9 @@ public sealed partial class JintSandbox
                     if (number?.GetValueKind() != System.Text.Json.JsonValueKind.Number)
                         throw Unsatisfied("The observed text is not a JSON number.");
                     return Import(number);
+                case "isNull":
+                    if (args[0].IsObject() && containers.Contains(args[0].AsObject())) return JsBoolean.False;
+                    return Observed(args[0]) is null ? JsBoolean.True : JsBoolean.False;
                 case "scalar": return args[0].IsObject() && origins.ContainsKey(args[0].AsObject()) ? JsBoolean.True : JsBoolean.False;
                 case "has":
                     if (args.Length != 2 || !args[1].IsString()) throw Unsatisfied("has requires an object and literal property name.");
@@ -555,7 +558,7 @@ public sealed partial class JintSandbox
         catch (WorkflowRuntimeException ex) when (!IsInvalidProgram(ex)) { throw InvalidProgram(ex.Message, ex); }
         static bool Control(Node node, int depth = 0) => depth < 64 && (node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Control(negate.Argument, depth + 1) ||
             node is Literal or UnaryExpression { Operator: Acornima.Operator.TypeOf } or BinaryExpression ||
-            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" } } } ||
+            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" or "isNull" } } } ||
             node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Array" }, Property: Identifier { Name: "isArray" } } });
 
         void Check(Node node, HashSet<string> bound, int depth)

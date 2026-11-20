@@ -158,6 +158,13 @@ can now call `m.indexed` on the original observed array, filter the pairs and
 return their grounded positions. Tests exercise empty selections, repeated
 values and attempted reindexing of derived arrays.
 
+Of the 1,606 source records, 785 had a null link. The original selection
+requires checking this before matching text. The sandbox now exposes
+`m.isNull` for observed values. A cold runtime comparison against a separate
+ordinal string-prefix check produced the same 183 positions across all 78
+pages, including all 45 empty selections and repeated links. There were
+zero model calls and zero business executions in this comparison.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

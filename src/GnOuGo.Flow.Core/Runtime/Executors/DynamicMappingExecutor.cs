@@ -269,7 +269,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Nullable fact example: ({key:item.reference,fact:m.has(item,'fact')?item.fact:null}).
         m.parse(token): strict JSON; m.text(token,pattern,captureIndex=1): capture or undefined; m.texts(token,pattern,captureIndex=1): ordered captures.
         m.trim(token); m.decode(token): HTML entities; m.percentDecode(token): URI percent escapes, not plus/HTML; m.resolveUri(observedReference,observedAbsoluteBase).
-        m.number(token): invariant decimal; m.has(object,property): presence; m.test(token,pattern): text match.
+        m.number(token): invariant decimal; m.has(object,property): presence; m.isNull(value): observed null; m.test(token,pattern): text match.
         Tokens: no literal comparisons/truthiness. Use m.test(token,'^literal$'), m.has, and return the original token. Empty collections need observed support.
         Patterns: JS strings, not /regex/; .NET nonbacktracking subset. JS: m.test(item.text,'\\S'); JSON needs four backslashes. Single JS backslash before S becomes literal S.
         Allowed: array map/filter/slice/flatMap, expression-only arrows; literal keys/paths/patterns/control arguments.
