@@ -53,6 +53,20 @@ archive with the outputs and are revalidated on replacement. The seven
 expanded original views occupied 7,541 UTF-8 bytes in compact JSON.
 [Contract inspection regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractInspectionTests.cs)
 
+At checkpoint 14 the draft added a PR review read. Request 53 then asked
+the operator to identify a pre-existing pending review. Its alternatives
+failed clarification validation. The host already checks for pending reviews,
+verifies the authenticated owner of the new one and confines subsequent writes
+to that ID. The qualified descriptor now exposes these checks.
+
+Request 54 received HTTP 401 at 11:39:06 UTC. The gateway reported an expired
+access token. There were 54 logical calls and 55 HTTP attempts, including a
+received HTTP 502 on request 18. Measured usage was EUR 33.74053 and both
+unpriced attempts retained EUR 9.19752 combined. EUR 203.78056 remained.
+The Server stopped before execution. At 11:41:36 UTC GitHub still showed
+the original head, zero reviews and zero inline comments. The clone directory
+was absent.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
