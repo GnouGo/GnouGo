@@ -50,6 +50,20 @@ values. Unsafe disjunctions, unrelated guards, undeclared fields and
 mixed scalar alternatives still fail semantic validation.
 [Guarded control result regression](../../tests/GnOuGo.Flow.Planning.Tests/NullOnlyContractTests.cs)
 
+### Independent Amazon loop diagnostic
+
+The first probe used the current planner to reconstruct the draft at
+revision 44 of Amazon run 11. It sent that prompt and its issued grammar
+through a fresh Server provider probe with one attempt and a 270-second
+deadline. The completed, schema-valid response requested the original
+reselection evidence and three contract sections. It contained zero
+loops. The response SHA-256 was
+`974e2162a4ad507b482db9d4b65142fabf64986adc3062b509973f8a7cf3d2dd`.
+The attempt used 16,143 input tokens and 128 output tokens and cost
+EUR 0.46154 at the captured tariffs. Independent retrieval of the four
+requested sections preserved the plan hash and produced the follow-up
+prompt. No browser or business workflow ran during the probe.
+
 ## Cumulative EUR 2,100 campaign, 20 November 2026
 
 At 06:13:10 UTC the operator applied the EUR 400 supplement to the existing
