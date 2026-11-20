@@ -720,11 +720,16 @@ internal static partial class PlanningCompactConstruction
         if (!useCandidate && draft is null && construction.Checkpoints.LastOrDefault() is { Step: { } previous } checkpoint &&
             previous.Id == step.Id && previous.BlockId == step.BlockId && previous.Scope == step.Scope &&
             checkpoint.Fragment["continueInScope"]?.ToString() == step.Scope && checkpoint.PlanHash == step.BaseHash &&
-            context["evidence"]?["scope:" + step.Scope] is null && PlanningConstruction.ScopeEvidence(state, step.Scope) is { } scope)
+            PlanningConstruction.ScopeEvidence(state, step.Scope) is { } scope)
         {
-            if (System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString()) <= ContinuedScopePreviewBytes)
-                context["scopeContext"] = scope;
-            else if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+            var shown = context["evidence"]?["scope:" + step.Scope];
+            if (shown is null && System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString()) <= ContinuedScopePreviewBytes)
+                shown = context["scopeContext"] = scope;
+            // A scope page contains at most eight declarations per phase. Even a
+            // freshly retrieved page can omit the most recent accepted operation.
+            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (shown is null ||
+                JsonNode.DeepEquals(shown, scope) && (scope["tasks"]!.AsArray().Count < scope["taskCount"]!.GetValue<int>() ||
+                    scope["always"]!.AsArray().Count < scope["alwaysCount"]!.GetValue<int>())))
                 continued = checkpoint;
         }
         AddTaskEvidence(state, context, useCandidate, continued);

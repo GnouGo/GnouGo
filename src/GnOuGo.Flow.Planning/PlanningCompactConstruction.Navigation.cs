@@ -115,11 +115,26 @@ internal static partial class PlanningCompactConstruction
             RemoveDisplayedTasks(scope);
         }
         if (context["evidence"] is JsonObject evidence)
+        {
+            TaskPlanSymbols? accepted = null;
             foreach (var (address, value) in evidence)
+            {
                 if (address.StartsWith("scope:", StringComparison.Ordinal) && value is JsonObject loaded &&
                     loaded["path"]?.ToString() is { } loadedPath && address == "scope:" + loadedPath &&
                     JsonNode.DeepEquals(loaded, PlanningConstruction.ScopeEvidence(state, loadedPath)))
                     RemoveDisplayedTasks(loaded);
+                if (!address.StartsWith("task:", StringComparison.Ordinal) || value is not JsonObject declaration ||
+                    state.Construction.Candidate is not null || state.Plan is null || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) ||
+                    declaration["kind"]?.ToString() != "operation" || declaration["id"]?.ToString() is not { } id || address != "task:" + id ||
+                    !addresses.Contains(address) || state.Construction.Evidence?.ContainsKey(address) == true) continue;
+                accepted ??= new TaskPlanSymbols(state.Plan);
+                if (!accepted.Tasks.TryGetValue(id, out var site)) continue;
+                var original = PlanningConstruction.TaskNode(site.Task);
+                original["scope"] = site.Scope.Path;
+                original["phase"] = accepted.Phase(id);
+                if (JsonNode.DeepEquals(value, original)) addresses.Remove(address);
+            }
+        }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
             supportedRereads: findingEvidence);
 
@@ -307,6 +322,7 @@ internal static partial class PlanningCompactConstruction
         if (continued is not null)
             rows = rows.OrderByDescending(row => continued.TaskIds.Contains(row["task"]!.ToString(), StringComparer.Ordinal))
                 .ThenByDescending(row => row["phase"]?.ToString() == "always").ToArray();
+        var shownScope = continued?.Step is { } step ? context["scopeContext"] ?? context["evidence"]?["scope:" + step.Scope] : null;
         var added = new JsonObject();
         foreach (var entry in rows)
         {
@@ -317,8 +333,11 @@ internal static partial class PlanningCompactConstruction
             // neither change the evidence journal nor establish retrieval progress.
             if (context["evidence"] is JsonObject retained && retained.ContainsKey(address)) continue;
             var original = PlanningConstruction.TaskNode(site.Task);
+            var phase = accepted.Phase(id);
+            if (shownScope?["path"]?.ToString() == site.Scope.Path && shownScope[phase] is JsonArray displayed &&
+                displayed.Any(task => JsonNode.DeepEquals(task, original))) continue;
             original["scope"] = site.Scope.Path;
-            original["phase"] = accepted.Phase(id);
+            original["phase"] = phase;
             if (added.Count < 3)
             {
                 added[address] = original;

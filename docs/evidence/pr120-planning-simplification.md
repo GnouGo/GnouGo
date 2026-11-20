@@ -23,6 +23,16 @@ batch. A fresh contract inspection still requires an inspected operation
 identity and current permission.
 [Discovery regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
 
+Requests 21 and 24 showed the complete `copilot_review_resolved_diff`
+declaration. Each then read the current root scope. Its first page held eight
+tasks, and the review operation was ninth. Loading that page removed the
+previously displayed declaration. Requests 22 and 25 asked for it again.
+The complete declaration matched across requests 21, 24 and 26 (3,450 UTF-8
+bytes after compact JSON serialization). Continued drafts now keep bounded,
+current operation declarations beyond the first scope page. The fresh draft
+grammar omits a repeated lookup when the full task, scope and phase match.
+[Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

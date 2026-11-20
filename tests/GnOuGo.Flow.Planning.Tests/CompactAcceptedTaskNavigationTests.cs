@@ -2158,6 +2158,47 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Null(Context(state, false)["evidence"]?["task:" + operation.Id]);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void ContinuedOperationBeyondFirstScopePageStaysVisibleAfterReadingThatPage(bool largePage)
+    {
+        var state = OperationState("/root");
+        state.Construction!.Candidate = null;
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var root = state.Plan!.Root;
+        var operation = root.Tasks.Single(task => task.Id == "accepted_operation");
+        operation.Inputs[0] = new("target", new() { Kind = "string", Text = new string('x', 2300) });
+        for (var index = 0; index < 8; index++)
+            root.Tasks.Insert(index, Value("source_" + index));
+        if (largePage) root.Tasks[0].Objective += new string('x', 9000);
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var checkpoint = new PlanningConstructionCheckpoint { Step = step, PlanHash = step.BaseHash, Sequence = 1,
+            TaskIds = [operation.Id], Fragment = new() { ["continueInScope"] = "/root" } };
+        state.Construction.Checkpoints.Add(checkpoint);
+        PlanningConstruction.LoadEvidence(state, ["scope:/root"]);
+        var page = state.Construction.Evidence!["scope:/root"]!.DeepClone();
+        Assert.DoesNotContain(page["tasks"]!.AsArray(), task => task!["id"]!.ToString() == operation.Id);
+        var original = PlanningConstruction.TaskNode(operation);
+        original["scope"] = "/root";
+        original["phase"] = "tasks";
+
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.True(JsonNode.DeepEquals(original, shown["evidence"]?["task:" + operation.Id]));
+        Assert.DoesNotContain("\"task:" + operation.Id + "\"", request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.True(JsonNode.DeepEquals(page, state.Construction.Evidence["scope:/root"]));
+        Assert.False(state.Construction.Evidence.ContainsKey("task:" + operation.Id));
+        var stale = Context(state, false);
+        stale["evidence"]!["task:" + operation.Id]!["phase"] = "always";
+        var schema = new JsonObject { ["properties"] = new JsonObject() };
+        PlanningCompactConstruction.ConstrainDraftEvidence(state, stale, schema);
+        Assert.Contains("\"task:" + operation.Id + "\"", schema["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        checkpoint.PlanHash = "stale";
+        Assert.Null(Context(state, false)["evidence"]?["task:" + operation.Id]);
+    }
+
     [Fact]
     public void UnrelatedAcceptedOperationsDoNotExpandScopedAutomaticEvidence()
     {
