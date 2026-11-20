@@ -298,8 +298,10 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(state.Construction!.Checkpoints); Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
     }
 
-    [Fact]
-    public async Task ReplacementSelectionCanRebindItsPreviouslySelectedCachedContractWithoutPagingAgain()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReplacementSelectionCanUseASmallRemainingCachedPageWithoutReadingItAgain(bool previouslySelected)
     {
         var (state, runtime) = ReadyKnown();
         for (var index = 0; index < 5; index++)
@@ -309,8 +311,8 @@ public sealed class CompactDeferredBindingTests
             AddContract(state, contract);
         }
         var page = PlanningCompactConstruction.ImplementationContext(state)["knownOperations"]!["next"]!.ToString();
-        PlanningConstruction.LoadEvidence(state, [page]);
-        runtime.Respond = (_, _) => new() { Json = SelectKnown(state, "operation", "read_4") };
+        if (previouslySelected) PlanningConstruction.LoadEvidence(state, [page]);
+        runtime.Respond = (_, _) => new() { Json = SelectKnown(state, "operation", previouslySelected ? "read_4" : "read_0") };
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics);
         state.Diagnostics = [new("CONSTRUCTION_RESELECTION", "/step", "This connected work needs an enclosing scope.")];
@@ -321,6 +323,8 @@ public sealed class CompactDeferredBindingTests
         Assert.Contains("read_4", PlanningCompactConstruction.SelectionOperationIds(state));
         var presented = PlanningCompactConstruction.ImplementationContext(state);
         Assert.Equal("read_4", Assert.Single(presented["evidence"]![page]!["items"]!.AsArray())!["id"]!.ToString());
+        var choices = PlanningCompactConstruction.ImplementationSchema(state, presented)["properties"]!["evidenceRequests"]!.ToJsonString();
+        Assert.DoesNotContain('"' + page + '"', choices, StringComparison.Ordinal);
         Assert.Null(state.Construction.Evidence);
         var unrelated = PlannerFixture.Clone(state);
         unrelated.Construction!.Compact!.ReplacementScope = "/different";

@@ -38,6 +38,9 @@ internal static partial class PlanningCompactConstruction
             addresses.UnionWith(NavigationEvidence(state, [context["knownOperations"]]));
             addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         }
+        if (context["knownOperations"] is JsonObject directory && directory["next"]?.ToString() is { } next && context["evidence"]?[next] is JsonObject shown &&
+            JsonNode.DeepEquals(shown, LoadKnownOperationPage(state, next)))
+            addresses.Remove(next);
         if (State(state).CurrentStep is null) addresses.RemoveWhere(address => !AvailableBeforeSelection(state, address));
         ConstrainEvidenceChoices(state, schema, addresses, maximum: 4);
     }

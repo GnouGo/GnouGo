@@ -429,7 +429,7 @@ internal static partial class PlanningCompactConstruction
         var ids = previous.Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal);
         foreach (var page in pages.Skip(1))
             if (state.Construction!.Evidence?.ContainsKey(page.Address) != true &&
-                page.Page["items"]!.AsArray().Any(row => ids.Contains(row!["id"]!.ToString())) &&
+                (pages.Count == 2 || page.Page["items"]!.AsArray().Any(row => ids.Contains(row!["id"]!.ToString()))) &&
                 System.Text.Encoding.UTF8.GetByteCount(page.Page.ToJsonString()) <= ContractDescriptionPageSize)
                 return page;
         return null;
