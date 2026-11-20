@@ -104,6 +104,36 @@ calls, EUR 1,562.70197 measured, EUR 489.11077 in HTTP reservations and
 EUR 142.48091 in retained Server reservations. EUR 405.70635 remained.
 The run never executed a business operation.
 
+### Review session ca5889c1ff3247dabb3b4a437708bbde
+
+Run 27 preserved both user inputs and a public report. Its six checkpoints
+included one clone, root cleanup, Copilot checks, comparison of the resolved
+revisions, Copilot review and report preparation. Call 18 supplied the
+verification and report together, using a deferred root export for the
+declared report. The planner required a separately selected Git fetch even
+though an accepted Copilot operation already requested that fetch. The
+same missing-operation finding recurred on call 20.
+
+Cold reconstruction of the original response at revision 72 reproduced one
+selection finding and zero compiler findings. The planner now allows a
+derived local result to propose its public export in the same business
+review. The projection tracks which ports of a local value depend on the
+block's accepted work. The focused regression covers a valid port, an
+unrelated port forwarded through two values, a literal and an explicit
+operation commitment. Deferred exports still require review before binding.
+The unchanged response then produced zero findings with the same accepted
+plan, ordinary business review pending and zero inference calls. All 79
+related tests passed. The live session stopped at revision 81 after 22
+logical requests and 43 advisory warnings. It did not execute the workflow.
+
+The independent Amazon diagnostic `amazon-control-20261120-04` used one
+completed physical call costing EUR 0.72956. The model returned a legal
+reselection and no loop. It reported that the response grammar could not
+express the source's 100-page and 200-record bounds. The captured HTTP
+request contained the exact issued strict schema, including the required
+integer `maxItems` at both loop positions. This left EUR 404.97679 before
+review 27. A received reselection does not qualify the business scenario.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

@@ -260,7 +260,12 @@ internal static partial class PlanningCompactConstruction
     private static bool ReviewsAcceptedResults(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         if (candidate.Extension is not { CompleteBlock: true, Complete: false, ContinueInScope: null, CloseScopes.Count: 0,
-            ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } extension) return false;
+            ContinuationBinding: null } extension) return false;
+        var boundaries = extension.BoundaryTransitions;
+        if (boundaries is { Count: > 0 } &&
+            (boundaries is not [{ Scope: "/root", CloseScope: false, Outputs.Count: > 0 }] ||
+             extension is not { Scope: "/root", Tasks.Count: > 0, Outputs.Count: 0 } ||
+             boundaries[0].Outputs.Any(output => state.Requirements?.Outputs?.Any(item => item.Name == output.Name) != true))) return false;
         if (extension is { Scope: "/root", Outputs.Count: > 0, Groups.Count: 0, Choices.Count: 0, Tasks.Count: 0, Always.Count: 0 })
         {
             var acceptedTasks = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
@@ -276,17 +281,26 @@ internal static partial class PlanningCompactConstruction
             extension.Tasks.Count != candidate.TaskIds.Count || extension.Tasks.Any(task => task.Kind is not ("value" or "transform"))) return false;
 
         // Every new result must derive from this block's accepted work, regardless of declaration order.
-        var results = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
+        var accepted = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
+        var derived = new HashSet<(string Task, string? Port)>();
         int previousCount;
         do
         {
-            previousCount = results.Count;
+            previousCount = derived.Count;
             foreach (var task in extension.Tasks)
-                if (task.Inputs.Concat(task.Outputs).SelectMany(binding => TaskPlanCompiler.Values(binding.Value)).Any(value =>
-                    value.Kind is "output" or "present" && value.Source is { } source && results.Contains(source)))
-                    results.Add(task.Id);
-        } while (results.Count > previousCount);
-        return candidate.TaskIds.All(results.Contains);
+            {
+                if (task.Kind == "transform" && task.Inputs.Any(input => TaskPlanCompiler.Values(input.Value).Any(IsDerived)))
+                    derived.Add((task.Id, null));
+                foreach (var output in task.Outputs.Where(output => TaskPlanCompiler.Values(output.Value).Any(IsDerived)))
+                    derived.Add((task.Id, output.Name));
+            }
+        } while (derived.Count > previousCount);
+        if (!candidate.TaskIds.All(id => derived.Any(result => result.Task == id))) return false;
+        return boundaries is not { Count: > 0 } || boundaries[0].Outputs.All(binding => binding.Value.Kind == "output" && IsDerived(binding.Value));
+
+        bool IsDerived(TaskValue value) => value.Kind is "output" or "present" && value.Source is { } source &&
+            (accepted.Contains(source) || derived.Contains((source, null)) || derived.Contains((source, value.Port)) ||
+             value.Port is null && derived.Any(result => result.Task == source));
     }
 
     internal static void Accept(PlanningSession state, bool reviewed)

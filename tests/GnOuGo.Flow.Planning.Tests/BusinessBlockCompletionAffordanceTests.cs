@@ -244,6 +244,40 @@ public sealed class BusinessBlockCompletionAffordanceTests
         Assert.Contains(PlanningCompactConstruction.CandidateFindings(state), finding => finding.Code == PlanningCommitments.MissingOperation);
     }
 
+    [Theory]
+    [InlineData("total", true)]
+    [InlineData("unrelated", false)]
+    [InlineData(null, false)]
+    public async Task DerivedLocalResultsCanProposeTheirPublicExportInTheSameReview(string? port, bool derivedExport)
+    {
+        var (state, _) = await Partial();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "sequence"; step.DiscoveryComplete = true; step.OperationIds = ["refresh"];
+        state.Requirements!.Outputs = [new() { Name = "report", Type = new() { Kind = "number" } }];
+        var export = port is not null ? new TaskValue { Kind = "output", Source = "projected", Port = port }
+            : new TaskValue { Kind = "number", Number = 1 };
+        var candidate = state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = step.RequirementIds, CompleteBlock = true,
+            Tasks = [new() { Id = "prepared", Kind = "value", Objective = "Prepare the observed total.",
+                Outputs = [new("total", new() { Kind = "output", Source = "compute", Port = "result" }),
+                    new("unrelated", new() { Kind = "number", Number = 1 })] },
+                new() { Id = "projected", Kind = "value", Objective = "Project both fields.",
+                    Outputs = [new("total", new() { Kind = "output", Source = "prepared", Port = "total" }),
+                        new("unrelated", new() { Kind = "output", Source = "prepared", Port = "unrelated" })] }],
+            BoundaryTransitions = [new() { Scope = "/root", RequirementIds = step.RequirementIds,
+                Outputs = [new("report", export)] }]
+        });
+        Assert.Empty(PlanningCompactConstruction.ExtensionFindings(state, candidate));
+        Assert.Equal(!derivedExport, PlanningCompactConstruction.CandidateFindings(state)
+            .Any(diagnostic => diagnostic.Code == PlanningCommitments.MissingOperation));
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
+        Assert.Empty(state.Plan!.Root.Outputs);
+        Assert.Empty(candidate.Plan.Root.Outputs);
+        state.Construction.Compact.PendingCommitments["work"] = [new("refresh")];
+        Assert.Contains(PlanningCompactConstruction.CandidateFindings(state), diagnostic => diagnostic.Code == PlanningCommitments.MissingOperation);
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Partial(bool selectedBoundOutput = false)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
