@@ -45,6 +45,23 @@ verifies its completed Server run. The startup and planner-choice tests
 passed all 23 cases.
 [Browser form regression](../../tests/GnOuGo.Agent.Server.Tests/FrontendStartupBrowserTests.cs)
 
+### Review session aa8558e0ce284bcf884105ba7fce6af9
+
+Fresh intake on `f720f286` declared the two caller inputs and a required
+string `report` output. The fourth physical request reached the provider
+at 15:35:27 UTC. The journal recorded HTTP 200 and output four seconds later.
+The last bytes arrived at 15:37:39. The retained stream contains 155
+parseable data events followed by an incomplete data line. The assembled
+480 characters do not form a complete decision. The deadline expired at
+15:45:27 without a terminal response or verified usage. The Server stopped at revision 8
+with `MODEL_DISPATCH_UNVERIFIABLE`, zero checkpoints, fourteen threshold
+warnings and zero business dispatches. The three completed calls accounted
+for EUR 0.53794 at the captured tariffs. The unresolved fourth call retained
+its full EUR 1.41280 reservation. The retention receipt
+`3deb31b0b3f0e1ee2bb71ae1a5c4776cab01f54bcf42bf5bb346cfe17159e25c`
+permanently prevents replay of that request. The review reached neither
+cloning nor GitHub publication.
+
 ### Review session ea662b0f5cb8485aaa7348b06bf6d6e0
 
 At revision 74 the Server had accepted six checkpoints. The model offered a
