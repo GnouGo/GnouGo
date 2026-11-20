@@ -109,6 +109,13 @@ permanent errors, invalid protocol, recoverable usage/completions and interrupte
 ownership cannot authorize another send. Terminal incidents still use exact
 preview/apply retention, which preserves all attempts and forbids the old run.
 
+For a fresh planning run behind a 300-second proxy, the optional
+`--server-transport-policy Profiles/server-proxy-270s.json` gives each
+generation request one 270-second attempt. The journal records the client
+deadline, first and last bytes, terminal marker and usage separately. A
+client deadline alone does not establish a proxy timeout. An unfinished
+stream requires receipt recovery or explicit retention of its full hold.
+
 Ordinary sessions preserve physical-call, correction and time targets as guards.
 Captured API allocations and financial guards remain explicit.
 The trusted campaign builder may capture `--advisory-token-thresholds` before fresh
