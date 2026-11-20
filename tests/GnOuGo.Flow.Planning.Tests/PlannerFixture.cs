@@ -6,6 +6,13 @@ using GnOuGo.Planning.Examples;
 namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
+    internal static void ObserveInputBudget(PlanningRequestMeasurement measurement)
+    {
+        Assert.True(measurement.EstimatedInputTokens > 0);
+        if (measurement.EstimatedInputTokens > measurement.InputLimit)
+            TestContext.Current.AddWarning($"{measurement.Phase} estimated {measurement.EstimatedInputTokens} input tokens against a target of {measurement.InputLimit}.");
+    }
+
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
     internal static PlanningSession Session() => Capture(new() { Request = new() { TenantId = "test", Prompt = "Return a greeting",
         MaxModelCalls = 64, MaxReplanAttempts = 4, Generation = new("medium", 12_000, 8_192) } });

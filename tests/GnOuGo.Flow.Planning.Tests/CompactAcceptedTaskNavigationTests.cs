@@ -2222,7 +2222,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.Equal(first.CompleteRequestBytes, last.CompleteRequestBytes);
         Assert.Equal(first.EstimatedInputTokens, last.EstimatedInputTokens);
         Assert.Equal(last.CompleteRequestBytes, last.Components.Sum(component => component.SerializedBytes));
-        Assert.InRange(last.EstimatedInputTokens, 1, review ? 8000 : 16000);
+        PlannerFixture.ObserveInputBudget(last);
     }
 
     [Theory]

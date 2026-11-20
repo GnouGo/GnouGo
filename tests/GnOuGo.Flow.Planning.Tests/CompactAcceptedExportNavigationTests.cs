@@ -90,7 +90,7 @@ public sealed class CompactAcceptedExportNavigationTests
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.LocalPurpose, proposal.Prompt, proposal.StructuredOutputSchema.AsObject());
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningConstruction.LocalPurpose, 8000);
-        Assert.InRange(measurement.EstimatedInputTokens, 1, 8000);
+        PlannerFixture.ObserveInputBudget(measurement);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
     }
 

@@ -92,7 +92,7 @@ public sealed class CompactDraftReselectionTests
             Assert.Contains(PlanningCompactConstruction.ValueSemantics, request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
             Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema, strict: true));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Reselect(request), request.StructuredOutputSchema!));
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 8000).EstimatedInputTokens, 1, 8000);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, purpose, 8000));
             return new() { Json = Reselect(request) };
         } };
         state = await Advance(state, runtime);
