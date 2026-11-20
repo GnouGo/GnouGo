@@ -29,11 +29,13 @@ public sealed partial class HybridWorkflowPlanner
     {
         var construction = state.Construction!; var candidate = construction.Candidate!;
         if (candidate.BaseHash != PlanningConstruction.Hash(state.Plan) || state.EditablePaths is not null) return;
-        var global = candidate.Extension.Complete && review["purpose"]?.ToString() == PlanningConstruction.GlobalPurpose &&
-            review["candidateHash"]?.ToString() == candidate.Hash && review["claimsHash"]?.ToString() == ConstructionClaimsHash(state) &&
-            BusinessSourcesAndContractsValid(state, review);
+        var currentReview = review["candidateHash"]?.ToString() == candidate.Hash &&
+            review["claimsHash"]?.ToString() == ConstructionClaimsHash(state) && BusinessSourcesAndContractsValid(state, review);
+        var global = currentReview && candidate.Extension.Complete && review["purpose"]?.ToString() == PlanningConstruction.GlobalPurpose;
+        var local = currentReview && !candidate.Extension.Complete && review["purpose"]?.ToString() == PlanningConstruction.LocalPurpose;
         var accepted = new TaskPlanSymbols(state.Plan ?? new()); var current = new TaskPlanSymbols(candidate.Plan);
         var paths = new List<string>(); var tasks = new List<string>();
+        var readOnlyTargets = new List<string>();
         var tentativeScope = false;
         foreach (var target in targets.Where(target => !candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
         {
@@ -51,10 +53,16 @@ public sealed partial class HybridWorkflowPlanner
                 !JsonNode.DeepEquals(PlanningConstruction.TaskNode(task.Task), PlanningConstruction.TaskNode(next.Task))) return;
             var owners = construction.Checkpoints.Where(checkpoint => checkpoint.TaskIds.Contains(target, StringComparer.Ordinal) &&
                 !checkpoint.InvalidatedTaskIds.Contains(target, StringComparer.Ordinal)).ToArray();
-            if (owners.Length == 0 || owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true &&
-                    (!global || !ReviewedTarget(owners[^1], target)) ||
-                owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
+            if (owners.Length == 0 || owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
                     JsonNode.DeepEquals(node, PlanningConstruction.Node(task.Task, PlanningJsonContext.Default.PlanTask)))) return;
+            if (owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true)
+            {
+                if (!ReviewedTarget(owners[^1], target)) return;
+                // A local finding can cite the earlier reviewed producer as evidence
+                // for a repair at its pending consumer. Only the consumer is editable.
+                if (local) { readOnlyTargets.Add(target); continue; }
+                if (!global) return;
+            }
             var offered = TaskRepairPaths(accepted, task.Task).ToArray();
             if (offered.Length == 0) return;
             paths.AddRange(offered); tasks.Add(target);
@@ -72,6 +80,8 @@ public sealed partial class HybridWorkflowPlanner
         candidate.AuthorizedPaths = authorized;
         candidate.TaskIds = candidate.TaskIds.Concat(tasks).Distinct(StringComparer.Ordinal).ToList();
         review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+        if (readOnlyTargets.Count > 0)
+            review["readOnlyTargets"] = new JsonArray(readOnlyTargets.Select(target => (JsonNode?)JsonValue.Create(target)).ToArray());
 
         bool ReviewedTarget(PlanningConstructionCheckpoint owner, string target)
         {
@@ -84,6 +94,7 @@ public sealed partial class HybridWorkflowPlanner
         static IEnumerable<string> TaskRepairPaths(TaskPlanSymbols symbols, PlanTask task) => task.Kind switch
         {
             "transform" => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/objective"],
+            "operation" or "call" when task.Requires is null => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/requires"],
             "operation" or "call" => ["/tasks/" + task.Id + "/inputs"],
             _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal))
         };

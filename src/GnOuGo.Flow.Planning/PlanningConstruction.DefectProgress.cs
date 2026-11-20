@@ -149,20 +149,22 @@ internal static partial class PlanningConstruction
     {
         if (prior is null || selector?.FirstOrDefault()?.ToString() != "actions" ||
             selector.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } task) return false;
-        // One finding may cite an action and the scope that exports its result.
-        // Rebinding that cited export changes the composition without changing
-        // the producer. Only the exact same report's scope targets qualify.
+        // Cited consumers can change how an unchanged producer is used.
+        // Only a guard or export in the same finding supplies such evidence.
         foreach (var entry in (witness["findings"] as JsonArray ?? []).OfType<JsonObject>())
         {
-            if (entry["selector"] is not JsonArray boundary || boundary.FirstOrDefault()?.ToString() != "scopes" ||
+            if (entry["selector"] is not JsonArray boundary ||
                 !DefectRead(prior, boundary, out var before, out _) || !DefectRead(current, boundary, out var after, out _) ||
-                before is not JsonObject originalScope || after is not JsonObject scope ||
-                originalScope["outputs"] is not JsonArray originals || scope["outputs"] is not JsonArray outputs) continue;
-            foreach (var original in originals.OfType<JsonObject>())
+                before is not JsonObject original || after is not JsonObject revised) continue;
+            if (boundary.Count == 2 && boundary[0]?.ToString() == "actions" && revised["id"]?.ToString() != task &&
+                original["requires"] is null && References(revised["requires"])) return true;
+            if (boundary.FirstOrDefault()?.ToString() != "scopes" ||
+                original["outputs"] is not JsonArray originals || revised["outputs"] is not JsonArray outputs) continue;
+            foreach (var output in originals.OfType<JsonObject>())
             {
-                var matches = outputs.OfType<JsonObject>().Where(output => output["name"]?.ToString() == original["name"]?.ToString()).ToArray();
-                if (matches.Length == 1 && !JsonNode.DeepEquals(original["value"], matches[0]["value"]) &&
-                    (References(original["value"]) || References(matches[0]["value"]))) return true;
+                var matches = outputs.OfType<JsonObject>().Where(item => item["name"]?.ToString() == output["name"]?.ToString()).ToArray();
+                if (matches.Length == 1 && !JsonNode.DeepEquals(output["value"], matches[0]["value"]) &&
+                    (References(output["value"]) || References(matches[0]["value"]))) return true;
             }
         }
         return false;

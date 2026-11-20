@@ -126,6 +126,7 @@ public sealed partial class HybridWorkflowPlanner
             var targets = decision["targets"]!.AsArray().Select(target => target!.ToString()).ToArray();
             AuthorizeBusinessRepair(state, row, targets);
             var permitted = targets.All(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal) ||
+                row["readOnlyTargets"] is JsonArray cited && cited.Any(id => id?.ToString() == target) ||
                 target == candidate.Extension.Scope || target.StartsWith("output:", StringComparison.Ordinal) && candidate.Extension.Outputs.Any(output => "output:" + output.Name == target) ||
                 candidate.AuthorizedPaths?.Any(path => path == "/tasks/" + target || path.StartsWith("/tasks/" + target + "/", StringComparison.Ordinal) ||
                     path.StartsWith(target + "/outputs/", StringComparison.Ordinal)) == true);

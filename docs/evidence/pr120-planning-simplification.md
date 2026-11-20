@@ -249,6 +249,18 @@ with 3,419 cumulative calls, EUR 1,638.19245 measured, EUR 489.11077
 reserved for 54 HTTP attempts, EUR 144.51319 retained at the Server and
 EUR 328.18360 available.
 
+The same local finding cited the previously reviewed dossier and two pending
+effects. Its evidence-only reconsideration kept all three tasks unchanged.
+The regression reproduced the missing repair slots. A local finding can now
+keep its reviewed source as read-only evidence and repair the cited pending
+consumer. An absent operation guard is editable. An existing guard stays
+protected. Adding a consumer guard that reads the cited source returns the
+joint finding to the judge. A constant guard still yields
+`CONSTRUCTION_DEFECT_UNCHANGED`. Replaying the actual finding offered four
+slots, covering only the inputs and absent guards of the pending-review and
+submission operations. The replay left the accepted plan unchanged and made
+zero inference calls. All 108 targeted tests passed.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
