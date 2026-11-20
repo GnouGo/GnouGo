@@ -2196,44 +2196,53 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void ContinuedOperationBeyondFirstScopePageStaysVisibleAfterReadingThatPage(bool largePage)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void ContinuedDeclarationBeyondFirstScopePageStaysVisibleAfterReadingThatPage(bool largePage, bool control)
     {
         var state = OperationState("/root");
         state.Construction!.Candidate = null;
         state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         var root = state.Plan!.Root;
-        var operation = root.Tasks.Single(task => task.Id == "accepted_operation");
-        operation.Inputs[0] = new("target", new() { Kind = "string", Text = new string('x', 2300) });
+        var declaration = root.Tasks.Single(task => task.Id == "accepted_operation");
+        declaration.Inputs[0] = new("target", new() { Kind = "string", Text = new string('x', 2300) });
+        if (control)
+        {
+            declaration = new() { Id = "ordered_items", Kind = "foreach", Objective = "Expose the original items in order.",
+                Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "one" }] },
+                Body = new() { Outputs = [new("item", new() { Kind = "item" })] } };
+            root.Tasks.Add(declaration);
+        }
         for (var index = 0; index < 8; index++)
             root.Tasks.Insert(index, Value("source_" + index));
         if (largePage) root.Tasks[0].Objective += new string('x', 9000);
         var step = state.Construction.Compact!.CurrentStep!;
         step.BaseHash = PlanningConstruction.Hash(state.Plan);
         var checkpoint = new PlanningConstructionCheckpoint { Step = step, PlanHash = step.BaseHash, Sequence = 1,
-            TaskIds = [operation.Id], Fragment = new() { ["continueInScope"] = "/root" } };
+            TaskIds = [declaration.Id], Fragment = new() { ["continueInScope"] = "/root" } };
         state.Construction.Checkpoints.Add(checkpoint);
         PlanningConstruction.LoadEvidence(state, ["scope:/root"]);
         var page = state.Construction.Evidence!["scope:/root"]!.DeepClone();
-        Assert.DoesNotContain(page["tasks"]!.AsArray(), task => task!["id"]!.ToString() == operation.Id);
-        var original = PlanningConstruction.TaskNode(operation);
+        Assert.DoesNotContain(page["tasks"]!.AsArray(), task => task!["id"]!.ToString() == declaration.Id);
+        var original = PlanningConstruction.TaskNode(declaration);
         original["scope"] = "/root";
         original["phase"] = "tasks";
 
         var request = PlanningConstruction.DraftRequest(state, repair: false);
         var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
-        Assert.True(JsonNode.DeepEquals(original, shown["evidence"]?["task:" + operation.Id]));
-        Assert.DoesNotContain("\"task:" + operation.Id + "\"", request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.True(JsonNode.DeepEquals(original, shown["evidence"]?["task:" + declaration.Id]));
+        Assert.DoesNotContain("\"task:" + declaration.Id + "\"", request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
         Assert.True(JsonNode.DeepEquals(page, state.Construction.Evidence["scope:/root"]));
-        Assert.False(state.Construction.Evidence.ContainsKey("task:" + operation.Id));
+        Assert.False(state.Construction.Evidence.ContainsKey("task:" + declaration.Id));
         var stale = Context(state, false);
-        stale["evidence"]!["task:" + operation.Id]!["phase"] = "always";
+        stale["evidence"]!["task:" + declaration.Id]!["phase"] = "always";
         var schema = new JsonObject { ["properties"] = new JsonObject() };
         PlanningCompactConstruction.ConstrainDraftEvidence(state, stale, schema);
-        Assert.Contains("\"task:" + operation.Id + "\"", schema["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains("\"task:" + declaration.Id + "\"", schema["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
         checkpoint.PlanHash = "stale";
-        Assert.Null(Context(state, false)["evidence"]?["task:" + operation.Id]);
+        Assert.Null(Context(state, false)["evidence"]?["task:" + declaration.Id]);
     }
 
     [Fact]

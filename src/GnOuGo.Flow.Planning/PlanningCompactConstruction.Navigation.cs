@@ -128,14 +128,14 @@ internal static partial class PlanningCompactConstruction
                 }
                 if (!address.StartsWith("task:", StringComparison.Ordinal) || value is not JsonObject declaration ||
                     state.Construction.Candidate is not null || state.Plan is null || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) ||
-                    declaration["kind"]?.ToString() != "operation" || declaration["id"]?.ToString() is not { } id || address != "task:" + id ||
+                    declaration["id"]?.ToString() is not { } id || address != "task:" + id ||
                     !addresses.Contains(address) || state.Construction.Evidence?.ContainsKey(address) == true) continue;
                 accepted ??= new TaskPlanSymbols(state.Plan);
                 if (!accepted.Tasks.TryGetValue(id, out var site)) continue;
                 var original = PlanningConstruction.TaskNode(site.Task);
                 original["scope"] = site.Scope.Path;
                 original["phase"] = accepted.Phase(id);
-                if (JsonNode.DeepEquals(value, original)) addresses.Remove(address);
+                if (JsonNode.DeepEquals(value, original) && ChildrenReachable(declaration)) addresses.Remove(address);
             }
         }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
@@ -146,10 +146,7 @@ internal static partial class PlanningCompactConstruction
             foreach (var task in displayed["tasks"]!.AsArray().Concat(displayed["always"]!.AsArray()).OfType<JsonObject>())
             {
                 if (task["id"]?.ToString() is not { } id) continue;
-                if (task["scopes"] is not JsonArray children || children.All(child => visibleTaskLinks.Contains("scope:" + child) ||
-                    child?.ToString() is { } childPath && context["evidence"]?["scope:" + childPath] is JsonObject shown &&
-                    JsonNode.DeepEquals(shown, PlanningConstruction.ScopeEvidence(state, childPath))))
-                    addresses.Remove("task:" + id);
+                if (ChildrenReachable(task)) addresses.Remove("task:" + id);
                 if (task["objective"] is JsonValue objective && objective.TryGetValue<string>(out var text))
                 {
                     var prefix = TaskObjectivePrefix(id, text);
@@ -157,6 +154,10 @@ internal static partial class PlanningCompactConstruction
                 }
             }
         }
+
+        bool ChildrenReachable(JsonObject task) => task["scopes"] is not JsonArray children || children.All(child =>
+            visibleTaskLinks.Contains("scope:" + child) || child?.ToString() is { } path && context["evidence"]?["scope:" + path] is JsonObject shown &&
+            JsonNode.DeepEquals(shown, PlanningConstruction.ScopeEvidence(state, path)));
     }
 
     internal static bool IsEvidenceAdmissionLimit(PlanningDiagnostic diagnostic) => diagnostic.Required &&
@@ -316,7 +317,7 @@ internal static partial class PlanningCompactConstruction
     private static string ObjectiveTextCompleteField(PlanningSession state) =>
         "objectiveTextComplete";
 
-    private static void AddAcceptedOperationEvidence(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries,
+    private static void AddAcceptedTaskPreviews(PlanningSession state, JsonObject context, IEnumerable<JsonObject> entries,
         PlanningConstructionCheckpoint? continued = null)
     {
         if (state.Plan is null) return;
@@ -332,7 +333,8 @@ internal static partial class PlanningCompactConstruction
         foreach (var entry in rows)
         {
             if (entry["task"]?.ToString() is not { } id || !accepted.Tasks.TryGetValue(id, out var site) ||
-                site.Task.Kind != "operation" || entry["scope"]?.ToString() != site.Scope.Path) continue;
+                site.Task.Kind != "operation" && continued?.TaskIds.Contains(id, StringComparer.Ordinal) != true ||
+                entry["scope"]?.ToString() != site.Scope.Path) continue;
             var address = "task:" + id;
             // Retained evidence remains authoritative. These context-only originals
             // neither change the evidence journal nor establish retrieval progress.

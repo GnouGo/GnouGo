@@ -122,6 +122,14 @@ persisted checkpoint was byte-identical after reconstruction. The preview
 requires a matching continuation, closed descendant scopes and whole pages.
 [Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
 
+At checkpoint nine, the most recent root declaration was a foreach outside
+the first scope page. Request 24 asked for that declaration and its child
+task. Cold reconstruction showed that the new child preview supplied the
+body, while the parent declaration was still missing. The bounded task
+preview now includes the latest accepted control and keeps its child scope
+reachable. The reconstructed draft displayed both and omitted the redundant
+parent lookup, with the same plan hash and zero model calls.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

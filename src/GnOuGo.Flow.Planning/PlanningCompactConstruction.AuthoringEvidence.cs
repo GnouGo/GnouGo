@@ -173,7 +173,7 @@ internal static partial class PlanningCompactConstruction
         if (owner is not null)
             navigation["scopeOwner"] = owner;
         context["taskEvidence"] = navigation;
-        AddAcceptedOperationEvidence(state, context, navigation["items"]!.AsArray().OfType<JsonObject>(), continued);
+        AddAcceptedTaskPreviews(state, context, navigation["items"]!.AsArray().OfType<JsonObject>(), continued);
     }
 
     internal static void AddCandidateGroupEvidence(PlanningSession state, JsonObject context)

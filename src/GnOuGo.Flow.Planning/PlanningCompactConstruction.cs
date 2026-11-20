@@ -561,7 +561,7 @@ internal static partial class PlanningCompactConstruction
         {
             context["interfacesDirectory"] = compact.InterfaceOffset > 0 && state.Construction.Evidence?.ContainsKey("page:interfaces:0") != true
                 ? "page:interfaces:0" : null;
-            AddAcceptedOperationEvidence(state, context, (context["interfaces"] as JsonArray ??
+            AddAcceptedTaskPreviews(state, context, (context["interfaces"] as JsonArray ??
                 context["evidence"]?["page:interfaces:" + compact.InterfaceOffset]?.DeepClone() as JsonArray ?? []).OfType<JsonObject>());
             context["completionOnly"] = CompletionOnly(state);
             context["continuation"] = ContinuationContext(state);
@@ -728,7 +728,7 @@ internal static partial class PlanningCompactConstruction
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && checkpoint.ClosedScopes.Count > 0)
                 AddContinuedChildScopes(state, context, checkpoint, step.Scope);
             // A scope page contains at most eight declarations per phase. Even a
-            // freshly retrieved page can omit the most recent accepted operation.
+            // freshly retrieved page can omit the most recent accepted contribution.
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (shown is null || JsonNode.DeepEquals(shown, scope) && !CompleteScopePage(scope)))
                 continued = checkpoint;
         }
