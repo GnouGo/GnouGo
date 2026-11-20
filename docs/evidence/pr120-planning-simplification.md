@@ -126,6 +126,21 @@ plan, ordinary business review pending and zero inference calls. All 79
 related tests passed. The live session stopped at revision 81 after 22
 logical requests and 43 advisory warnings. It did not execute the workflow.
 
+A paired test used the other public export form offered by the grammar. The
+same contribution could propose a deferred export but could not bind the
+selected public output directly. One of six examples failed. Direct and
+deferred exports now use the same port-level dependency check. All 82 related
+tests passed. The original deferred repair passed all 3,174 planner tests.
+
+Run 27 settled 21 physical calls for EUR 14.74001. The final indexed request
+had no campaign envelope. Its retention receipt
+`8f37cbf78bfd0ad09ef314883c404598ecc111cd99b56e38deafef1279935447`
+preserved the full EUR 2.03227 Server hold. This left 3,315 cumulative
+physical calls, EUR 1,578.17154 measured, EUR 489.11077 reserved for 54
+unresolved HTTP attempts, EUR 144.51319 in Server holds and EUR 388.20450
+available. Read-back of the open target still showed zero GitHub reviews
+and zero inline comments on head `107c86fc87fc`.
+
 The independent Amazon diagnostic `amazon-control-20261120-04` used one
 completed physical call costing EUR 0.72956. The model returned a legal
 reselection and no loop. It reported that the response grammar could not
@@ -133,6 +148,13 @@ express the source's 100-page and 200-record bounds. The captured HTTP
 request contained the exact issued strict schema, including the required
 integer `maxItems` at both loop positions. This left EUR 404.97679 before
 review 27. A received reselection does not qualify the business scenario.
+
+In `amazon-control-20261120-05` the actual user message also contained the
+complete native loop branch verbatim and its root and nested locations.
+The provider again returned a complete reselection and zero loops (one
+physical call, EUR 0.72576). Its response hash was
+`80334121f04b9c48a7edf54cdbb5ebc44c46882edc05d3ba5b2e116338dc4f25`.
+Review 28 opened on the reconciled EUR 387.47874 balance.
 
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing

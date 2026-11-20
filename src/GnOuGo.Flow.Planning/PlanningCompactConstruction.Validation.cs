@@ -260,25 +260,21 @@ internal static partial class PlanningCompactConstruction
     private static bool ReviewsAcceptedResults(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         if (candidate.Extension is not { CompleteBlock: true, Complete: false, ContinueInScope: null, CloseScopes.Count: 0,
-            ContinuationBinding: null } extension) return false;
-        var boundaries = extension.BoundaryTransitions;
-        if (boundaries is { Count: > 0 } &&
-            (boundaries is not [{ Scope: "/root", CloseScope: false, Outputs.Count: > 0 }] ||
-             extension is not { Scope: "/root", Tasks.Count: > 0, Outputs.Count: 0 } ||
-             boundaries[0].Outputs.Any(output => state.Requirements?.Outputs?.Any(item => item.Name == output.Name) != true))) return false;
-        if (extension is { Scope: "/root", Outputs.Count: > 0, Groups.Count: 0, Choices.Count: 0, Tasks.Count: 0, Always.Count: 0 })
-        {
-            var acceptedTasks = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
-            var step = State(state).CurrentStep!;
-            return CanReviewAcceptedBlock(state, candidate.Plan) && extension.Outputs.All(output =>
-                step.OutputNames.Contains(output.Name, StringComparer.Ordinal) &&
-                state.Requirements?.Outputs?.Any(declared => declared.Name == output.Name) == true &&
-                output.Value is { Kind: "output", Source: { } source } && acceptedTasks.Contains(source));
-        }
-        if (!CanReviewAcceptedBlock(state)) return false;
-        if (candidate.TaskIds.Count == 0) return candidate.Hash == State(state).CurrentStep!.BaseHash;
-        if (extension is not { Groups.Count: 0, Always.Count: 0, Choices.Count: 0, Outputs.Count: 0 } ||
+            ContinuationBinding: null, Groups.Count: 0, Choices.Count: 0, Always.Count: 0 } extension ||
             extension.Tasks.Count != candidate.TaskIds.Count || extension.Tasks.Any(task => task.Kind is not ("value" or "transform"))) return false;
+        var step = State(state).CurrentStep!;
+        var exports = extension.Outputs;
+        if (extension.BoundaryTransitions is { Count: > 0 } boundaries)
+        {
+            if (boundaries is not [{ Scope: "/root", CloseScope: false, Outputs.Count: > 0 } claim] ||
+                extension.Tasks.Count == 0 || exports.Count != 0) return false;
+            exports = claim.Outputs;
+        }
+        else if (exports.Any(output => !step.OutputNames.Contains(output.Name, StringComparer.Ordinal))) return false;
+        if (exports.Count > 0 && (extension.Scope != "/root" ||
+            exports.Any(output => state.Requirements?.Outputs?.Any(declared => declared.Name == output.Name) != true))) return false;
+        if (!CanReviewAcceptedBlock(state, extension.Outputs.Count > 0 ? candidate.Plan : null)) return false;
+        if (candidate.TaskIds.Count == 0 && exports.Count == 0) return candidate.Hash == step.BaseHash;
 
         // Every new result must derive from this block's accepted work, regardless of declaration order.
         var accepted = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
@@ -296,7 +292,7 @@ internal static partial class PlanningCompactConstruction
             }
         } while (derived.Count > previousCount);
         if (!candidate.TaskIds.All(id => derived.Any(result => result.Task == id))) return false;
-        return boundaries is not { Count: > 0 } || boundaries[0].Outputs.All(binding => binding.Value.Kind == "output" && IsDerived(binding.Value));
+        return exports.All(binding => binding.Value.Kind == "output" && IsDerived(binding.Value));
 
         bool IsDerived(TaskValue value) => value.Kind is "output" or "present" && value.Source is { } source &&
             (accepted.Contains(source) || derived.Contains((source, null)) || derived.Contains((source, value.Port)) ||
