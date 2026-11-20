@@ -165,6 +165,13 @@ ordinal string-prefix check produced the same 183 positions across all 78
 pages, including all 45 empty selections and repeated links. There were
 zero model calls and zero business executions in this comparison.
 
+The generated plan also added a model extraction to split each page into
+groups of 100. Each page had an authoritative bound of 200 and the captured
+host allowed 1,000 iterations. Draft and repair now explain when a single
+loop covers the entire known input. The regression validates a limit of
+200 against the grammar and executes the compiled loop with all 200 values,
+including duplicates, in order.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

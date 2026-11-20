@@ -139,7 +139,7 @@ public sealed class TaskPlanContractAlignmentTests
     [Theory]
     [InlineData("construction_draft")]
     [InlineData("replan")]
-    public void ModelCanSeeAndSetTheWholeCollectionCeiling(string purpose)
+    public async Task ModelCanSeeAndSetTheWholeCollectionCeiling(string purpose)
     {
         var state = PlannerFixture.Session();
         state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
@@ -147,9 +147,22 @@ public sealed class TaskPlanContractAlignmentTests
         var request = PlanningModelCalls.PrepareRequest(state, purpose, "Use all ordered observations.\n{}", grammar, null, null);
         var iteration = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!["maxItems"]!;
         Assert.Contains($"foreach.maxItems accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
-        Assert.Contains("ordered groups", request.Prompt);
+        Assert.Contains("one foreach", request.Prompt);
+        Assert.Contains("existing ordered groups", request.Prompt);
         var task = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Process each observation","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":200,"maxConcurrency":1}""")!;
+        task["items"] = JsonNode.Parse("""{"kind":"input","source":"source"}""");
+        task["body"]!["outputs"]!.AsArray().Add(JsonNode.Parse("""{"name":"entries","value":{"kind":"item"}}"""));
         Assert.Empty(Errors(task, "task"));
+        var loop = task.Deserialize(PlanningJsonContext.Default.PlanTask)!;
+        var plan = new TaskPlan { Inputs = [new() { Name = "source", Type = LookupCompilationTests.ArrayOf(new() { Kind = "integer" }) }],
+            Root = new() { Tasks = [loop], Outputs = [new("entries", ProductTransformationPlan.Ref(loop.Id, "entries"))] } };
+        var engine = new GnOuGo.Flow.Core.Runtime.WorkflowEngine();
+        var yaml = await LookupCompilationTests.Compile(plan, engine);
+        Assert.DoesNotContain("mapping.dynamic", yaml);
+        var entries = new JsonArray(Enumerable.Range(0, 200).Select(i => (JsonNode?)JsonValue.Create(i % 47)).ToArray());
+        var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["source"] = entries }, engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(entries, result.Outputs!["entries"]));
     }
 
     [Theory]
