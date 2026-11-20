@@ -47,6 +47,46 @@ public sealed class ConditionalEntryGuardTests
     }
 
     [Theory]
+    [InlineData("left", "right", true)]
+    [InlineData(null, "right", false)]
+    [InlineData("left", null, false)]
+    public async Task NonNullRequirementsNarrowOnlyTheirExactOperationArguments(string? first, string? second, bool allowed)
+    {
+        var calls = new List<JsonNode?>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("records", new() { Tools = [new() { Name = "use_pair", EffectKind = "none",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{"left":{"type":"string"},"right":{"type":"string"}},"required":["left","right"],"additionalProperties":false}"""),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}""") }],
+            ToolHandlers = new() { ["use_pair"] = args => { calls.Add(args?.DeepClone()); return new() { Content = new JsonObject { ["ok"] = true } }; } } });
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var catalog = await TaskPlanCompilerTests.Catalog(new(engine, (_, _) => Task.CompletedTask));
+        var consume = new PlanTask { Id = "consume", Objective = "Use the observed pair.",
+            Operation = catalog.Capabilities.Single(c => c.Method == "use_pair").Id,
+            Requires = P("and", P("not_equal", Output("observe", "first"), new()), P("not_equal", Output("observe", "second"), new())),
+            Inputs = [new("left", Output("observe", "first")), new("right", Output("observe", "second"))] };
+        var plan = new TaskPlan { Inputs = new[] { "first", "second" }.Select(name => new TaskInput { Name = name,
+            Type = new() { Kind = "string", Nullable = true } }).ToList(),
+            Root = new() { Tasks = [new() { Id = "observe", Kind = "value", Objective = "Keep the observed values.",
+                Outputs = [new("first", Input("first")), new("second", Input("second"))] }, consume] } };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["first"] = first, ["second"] = second }, PlannerFixture.Ct);
+        Assert.Equal(allowed, result.Success);
+        if (allowed)
+            Assert.True(JsonNode.DeepEquals(new JsonObject { ["left"] = first, ["right"] = second }, Assert.Single(calls)));
+        else
+        {
+            Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+            Assert.Empty(calls);
+        }
+        consume.Requires.Predicate = "or";
+        var findings = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics;
+        Assert.Contains(findings, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/consume/inputs/left");
+        Assert.Contains(findings, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/consume/inputs/right");
+    }
+
+    [Theory]
     [InlineData(null, "enable", true)]
     [InlineData("exact", "follow", true)]
     [InlineData("exact", "enable", false)]

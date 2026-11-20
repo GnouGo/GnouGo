@@ -461,7 +461,9 @@ public sealed partial class TaskPlanCompiler
             return new(Array(items.Select(v => v.Value)), new() { ["type"] = "array", ["minItems"] = items.Length, ["maxItems"] = items.Length,
                 ["items"] = new JsonObject { ["anyOf"] = new JsonArray(items.Select(v => (JsonNode)v.Schema.DeepClone()).ToArray()) } });
         }
-        var bound = Value(value, scope);
+        // A passing task assertion can narrow an exact reference at a consumer
+        // that rejects null. Nullable consumers keep their original binding.
+        var bound = Value(value, scope, requireNonNull: PlanningContractValidation.ValidateInstance(null, expected).Count != 0);
         var checkedConstraints = !PlanningGraphValidation.IsLiteral(bound.Value) && PlanningContractShapes.CanCheckConstraints(bound.Schema, expected);
         if (!checkedConstraints && !PlanningContractShapes.IsOpaque(bound.Schema) && !PlanningContractShapes.CanDefer(bound.Schema, expected)) return bound;
         var schema = expected.Count == 0 ? PlanningContractShapes.Opaque() : expected;

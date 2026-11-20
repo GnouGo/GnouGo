@@ -21,6 +21,18 @@ complete menu within the size of the original preview. Each action retains its
 own source, focus, exact cursor and availability. A regression dispatches the
 last provider with the selected prerequisite in one call.
 
+At checkpoint three the generated plan contained one revision-pinned clone
+and a root cleanup task. Call 30 then generated a comparison operation with
+a conjunction asserting that both revision outputs were non-null. The compiler
+reported `TASK_INPUT_TYPE` for `baseRef` and `headRef`. An offline replay of
+that exact generated task against captured baseline
+`e2f9c5348c55790bca8679f11083f49d835150de09c88cd38ddded1c5319db4e`
+reproduced both diagnostics. With task-local non-null facts applied at required
+operation arguments, the same replay returned zero diagnostics. Runtime tests
+cover a successful pair, either value null and a disjunction that cannot prove
+either value. On the earlier build the live planner added a validation transform
+at call 34. These are planning observations.
+
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 
 Calls 10 and 12 inspected the Copilot and command-runner contracts. Call 17
