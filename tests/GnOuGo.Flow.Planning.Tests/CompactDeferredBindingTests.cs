@@ -196,6 +196,68 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Fact]
+    public async Task CachedOperationConsumesGuardedNullableControlExportInTheIssuedGrammar()
+    {
+        var (state, runtime) = ReadyKnown();
+        var record = new TaskInput { Name = "record", Type = new() { Kind = "string", Nullable = true } };
+        state.Requirements!.Inputs!.Add(record);
+        state.Plan!.Inputs.Add(record);
+        var operation = Contract();
+        AddContract(state, operation);
+        state.Catalog!.AllowedStepTypes.AddRange(["set", "workflow.call", "validation"]);
+        var pages = new Pages();
+        runtime.Capabilities = pages;
+        runtime.Respond = (request, _) => Wire(request, SelectKnown(state, "sequence", operation.Id));
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            static TaskValue Export() => new() { Kind = "output", Source = "capture", Port = "reference" };
+            var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], CompleteBlock = false, Tasks =
+            [
+                new() { Id = "capture", Kind = "sequence", Objective = "Expose the original reference.",
+                    Body = new() { Outputs = [new("reference", new() { Kind = "input", Source = "record" })] } },
+                new() { Id = "read_exact", Operation = operation.Id, Objective = Objective,
+                    Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [Export(), new()] },
+                    Inputs = [new("target", Export())] }
+            ] };
+            var response = Draft(state);
+            response["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
+            var wire = Wire(request, response);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(wire.Json, request.StructuredOutputSchema!));
+            return wire;
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var candidate = Assert.IsType<PlanningConstructionCandidate>(state.Construction!.Candidate);
+        var compiled = new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog!);
+        var received = new List<string>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer(operation.Server!, new() { Tools = [new() { Name = operation.Method!, InputSchema = operation.InputSchema,
+            OutputSchema = operation.OutputSchema }], ToolHandlers = new() { [operation.Method!] = args =>
+            {
+                received.Add(args!["target"]!.GetValue<string>());
+                return new() { Content = new JsonObject() };
+            } } });
+        foreach (var value in new string?[] { "original", null })
+        {
+            var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["record"] = value }, new() { McpClientFactory = factory });
+            Assert.Equal(value is not null, result.Success);
+            if (value is null) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+        }
+        Assert.Equal(["original"], received);
+        Assert.Equal(2, runtime.Calls.Count);
+        Assert.Empty(pages.Cursors);
+        Assert.Empty(pages.Resolutions);
+        candidate.Plan.Root.Tasks.Single(task => task.Id == "read_exact").Requires = null;
+        Assert.Contains(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics,
+            finding => finding.Code == "TASK_INPUT_TYPE" && finding.Location == "/tasks/read_exact/inputs/target");
+    }
+
+    [Fact]
     public void KnownKnownOperationsHaveBoundedExactPagesAndRejectStalePages()
     {
         var (state, _) = ReadyKnown();
