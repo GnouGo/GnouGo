@@ -734,6 +734,13 @@ diagnosis with `dispatchStatus: not_started` in both the run and the Server.
 It requires the original reservation and configuration, an empty transport and
 absent campaign envelope and receipts. Applying that receipt prevents replay.
 
+For a funded fresh run, the Server's local planning allowance is the remaining
+campaign ceiling after measured usage, outstanding HTTP reservations and
+separate application holds. The allowance rounds down to a representable
+decimal. If the balance is exhausted, the live runner emits a warning and a
+`budget_blocked` result before creating a session. Each actual HTTP attempt
+still checks the cumulative spending ceiling.
+
 
 ### Financial audit and forecast experiment
 

@@ -587,6 +587,44 @@ public sealed class BenchmarkCampaignTests
         Assert.Empty((await journal.LoadAsync(Ct))!.Attempts);
     }
 
+    [Fact]
+    public void AvailableServerAllowanceRoundsDownAndRetainsTheFullPriorExposure()
+    {
+        Assert.Equal(2.75m, LLMUsageBudgetScope.AvailableCostAllowance(5m, 2.25m));
+        Assert.Equal(0m, LLMUsageBudgetScope.AvailableCostAllowance(5m, 5.01m));
+        const decimal smallestHold = 0.0000000000000000000000000001m;
+        var available = LLMUsageBudgetScope.AvailableCostAllowance(1000m, smallestHold);
+        Assert.True(available < 1000m);
+        Assert.False(LLMUsageBudgetScope.CostSumExceeds(1000m, available, smallestHold));
+    }
+
+    [Fact]
+    public async Task SpentCampaignStopsFreshServerPlanningBeforeAnyLocalReservation()
+    {
+        var records = new Records();
+        var previous = new BenchmarkCampaign(records, "previous");
+        var campaign = new BenchmarkCampaign(records, "spent");
+        var configuration = new JsonObject { ["model"] = "model" };
+        await previous.PinAsync(configuration, Ct);
+        await campaign.PinAsync(configuration, Ct);
+        await campaign.AuthorizeFreshAllocationAsync(previous.Id, 5, "grant", configuration, new string('a', 64), new string('b', 64), Ct);
+        var journal = new BenchmarkHttpJournal(campaign, "prior:1:hash", 10, 10, 5m);
+        await journal.PrepareAsync(Ct);
+        await journal.SaveAsync(new() { Attempts = [new() { Id = "prior:1:hash:1" }] }, Ct);
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.Spent", Guid.NewGuid().ToString("N"));
+        try
+        {
+            await ServerLiveDiagnostics.RunAsync(["--schema-portability", "server-live-plan", "--run", "fresh",
+                "--financial-forecast-mode", "experimental_warning", "--retained-external-reservations-eur", "0",
+                "--server-phase-policy", Path.Combine(workspace, "unused.json")], campaign, model, workspace);
+            Assert.False(Directory.Exists(workspace));
+            Assert.Empty(await campaign.OwnedRecordsAsync("planning-evaluation-session-policy", Ct));
+            Assert.Single((await journal.LoadAsync(Ct))!.Attempts);
+        }
+        finally { if (Directory.Exists(workspace)) Directory.Delete(workspace, true); }
+    }
+
     [Theory]
     [InlineData("pending")]
     [InlineData("binding")]

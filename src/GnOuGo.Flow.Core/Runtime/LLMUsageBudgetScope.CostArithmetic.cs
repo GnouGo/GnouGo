@@ -22,11 +22,23 @@ public sealed partial class LLMUsageBudgetScope
     {
         var units = amounts.Aggregate(BigInteger.Zero, (sum, amount) => sum + ExactCostUnits(amount));
         if (units.Sign < 0) throw new OverflowException("Cumulative LLM cost cannot be negative.");
+        return DecimalCost(units, roundUp: true);
+    }
+
+    internal static decimal AvailableCostAllowance(decimal ceiling, decimal exposure)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(ceiling);
+        ArgumentOutOfRangeException.ThrowIfNegative(exposure);
+        return DecimalCost(BigInteger.Max(BigInteger.Zero, ExactCostUnits(ceiling) - ExactCostUnits(exposure)), roundUp: false);
+    }
+
+    private static decimal DecimalCost(BigInteger units, bool roundUp)
+    {
         var scale = 28;
         while (units > MaximumDecimalCostMantissa && scale > 0)
         {
             units = BigInteger.DivRem(units, 10, out var remainder);
-            if (!remainder.IsZero) units++;
+            if (roundUp && !remainder.IsZero) units++;
             scale--;
         }
         if (units > MaximumDecimalCostMantissa) throw new OverflowException("Cumulative LLM cost exceeds decimal capacity.");

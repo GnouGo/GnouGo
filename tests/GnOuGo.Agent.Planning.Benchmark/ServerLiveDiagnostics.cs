@@ -72,11 +72,26 @@ internal static class ServerLiveDiagnostics
         var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
         if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
-        if (planning && model.AdvisoryFinancialForecasts)
-            await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: true);
+        if (planning)
+            await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: model.AdvisoryFinancialForecasts);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
         if (!retained && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
+        var planningAllowance = fundingScope?["current_authorized_ceiling_eur"]?.GetValue<decimal>();
+        if (planning && planningAllowance is { } ceiling)
+        {
+            var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: CancellationToken.None);
+            var exposure = LLMUsageBudgetScope.SumCostConservatively(accounting["cost_upper_bound_eur"]!.GetValue<decimal>(), model.RetainedExternalReservationsEur);
+            planningAllowance = LLMUsageBudgetScope.AvailableCostAllowance(ceiling, exposure);
+            if (planningAllowance == 0)
+            {
+                Console.Error.WriteLine("Warning: the campaign has no remaining funds for a fresh Server reservation.");
+                Console.WriteLine(new JsonObject { ["run"] = run, ["status"] = "budget_blocked", ["passed"] = false,
+                    ["campaign_ceiling_eur"] = ceiling, ["campaign_exposure_eur"] = exposure, ["available_eur"] = 0,
+                    ["session_created"] = false, ["provider_attempts"] = 0 }.ToJsonString());
+                return;
+            }
+        }
         var root = Directory.GetCurrentDirectory();
         var stateRoot = Path.Combine(workspace, ".GnOuGo", "data", "live-server", run); Directory.CreateDirectory(stateRoot);
         var retainedReport = executionOnly ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
@@ -104,9 +119,9 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
-        if (fundingScope is not null)
+        if (planningAllowance is { } amount)
             hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
-                "--WorkflowPlanningBudget:Amount=" + fundingScope["current_authorized_ceiling_eur"]!.GetValue<decimal>().ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
+                "--WorkflowPlanningBudget:Amount=" + amount.ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
         hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
         var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
         var transportFile = SchemaPortabilityCampaign.Option(args, "--server-transport-policy");
