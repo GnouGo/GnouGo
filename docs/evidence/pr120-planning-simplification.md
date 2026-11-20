@@ -21,6 +21,16 @@ captured forecast remains separately available. The strict mode regression
 still includes the forecast in its required amount. This run reached
 neither approval nor execution. [Financial admission regression](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
+The refused draft repeatedly embedded the same outer result constraints
+across nine inspected schema paths. Two paths had a second ancestor, which
+prevented the existing whole-list sharing from applying. Fresh presentation
+shares the byte-identical common prefix and keeps each path's own suffix.
+Replaying the actual refused request reduced its prompt from 122,151 to
+31,663 UTF-8 bytes and its estimated input from 78,716 to 22,355 tokens.
+All nine ancestor lists and selected schemas reconstructed exactly, including
+the seven schemas linked to their original branches. The replay made zero
+provider calls. [Mixed-depth regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ## Fresh review session b959c396c5914233abf87b90271346f3, 20 November 2026
 
 Call 6 requested the named output port directory of an inspected operation

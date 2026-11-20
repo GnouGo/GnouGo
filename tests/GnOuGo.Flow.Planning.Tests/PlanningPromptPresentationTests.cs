@@ -117,6 +117,42 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void SelectedResultBranchesAndDescendantsReuseTheirExactCommonAncestorPrefix()
+    {
+        var branch = new JsonObject { ["type"] = "object", ["description"] = new string('x', 1400),
+            ["properties"] = new JsonObject { ["count"] = new JsonObject { ["type"] = "integer" } } };
+        var root = new JsonObject { ["pointer"] = "/output", ["constraints"] = new JsonObject
+            { ["oneOf"] = new JsonArray(branch.DeepClone(), new JsonObject { ["type"] = "string" }) } };
+        var inner = new JsonObject { ["pointer"] = "/output/oneOf/0", ["constraints"] = new JsonObject { ["required"] = new JsonArray("count") } };
+        var rows = new JsonArray(new JsonObject { ["pointer"] = "/output/oneOf/0", ["schema"] = branch.DeepClone(),
+            ["ancestors"] = new JsonArray(root.DeepClone()) },
+            new JsonObject { ["pointer"] = "/output/oneOf/0/properties/count", ["schema"] = new JsonObject { ["type"] = "integer" },
+                ["ancestors"] = new JsonArray(root.DeepClone(), inner.DeepClone()) });
+        var closure = new JsonObject { ["#/$defs/example"] = new JsonObject { ["type"] = "string" } };
+        var operation = new JsonObject { ["id"] = "read", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["selectedOutputs"] = rows, ["selectedOutputsSharedSchemaMetadata"] = new JsonObject { ["referenceClosure"] = closure } };
+        var context = new JsonObject { ["operations"] = new JsonArray(operation) };
+        var prompt = "Use the exact selected branches.\n" + context.ToJsonString();
+        var result = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        var shown = JsonNode.Parse(result[(result.LastIndexOf('\n') + 1)..])!;
+        var selected = shown["operations"]![0]!["selectedOutputs"]!;
+        var metadata = shown["operations"]![0]!["selectedOutputsSharedSchemaMetadata"]!;
+        var prefix = Assert.IsType<JsonArray>(metadata["ancestorPrefix"]);
+        Assert.True(JsonNode.DeepEquals(root, Assert.Single(prefix)));
+        Assert.True(JsonNode.DeepEquals(closure, metadata["referenceClosure"]));
+        for (var i = 0; i < rows.Count; i++)
+        {
+            var restored = prefix.Concat(selected[i]!["ancestors"]!.AsArray()).ToArray();
+            Assert.Equal(rows[i]!["ancestors"]!.AsArray().Select(x => x!.ToJsonString()), restored.Select(x => x!.ToJsonString()));
+        }
+        Assert.True(JsonNode.DeepEquals(branch, PlanningSchemaReferences.Read(shown, selected[0]!["schemaPresentedAt"]!.ToString())));
+        Assert.Equal(result, PlanningPromptPresentation.ShareDuplicateContractSchemas(result));
+        rows[1]!["version"] = "v2";
+        var mixed = "Keep original owners.\n" + context.ToJsonString();
+        Assert.Equal(mixed, PlanningPromptPresentation.ShareDuplicateContractSchemas(mixed));
+    }
+
+    [Fact]
     public void DraftReusesExactSelectedBranchesAlreadyInsideTheirSharedAncestor()
     {
         var branch = new JsonObject { ["type"] = "string", ["description"] = new string('x', 1800) };

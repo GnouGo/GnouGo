@@ -252,6 +252,7 @@ public static class PlanningPromptPresentation
         var sharedSiblings = ShareImportedArgumentSiblings(context);
         var sharedTasks = ShareRepeatedTaskViews(context);
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
+        var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
         var sharedAncestors = ShareEvidenceAncestors(evidence);
@@ -264,11 +265,15 @@ public static class PlanningPromptPresentation
             {
                 if (operation[name] is not JsonArray selected) continue;
                 var metadata = name + "SharedSchemaMetadata";
-                var prefix = $"/operations/{i}/{metadata}/ancestors/";
-                if (operation[metadata]?["ancestors"] is JsonArray ancestors)
+                sharedPrefix |= ShareSelectedAncestorPrefix(operation, selected, metadata);
+                var prefix = $"/operations/{i}/{metadata}/";
+                foreach (var field in new[] { "ancestors", "ancestorPrefix" })
+                {
+                    if (operation[metadata]?[field] is not JsonArray ancestors) continue;
                     for (var index = 0; index < ancestors.Count; index++)
                         if (ancestors[index] is JsonObject ancestor && Text(ancestor["pointer"]) is { Length: > 0 } origin)
-                            Add(id, version, hash, ancestor["constraints"] as JsonObject, origin, $"{prefix}{index}/constraints");
+                            Add(id, version, hash, ancestor["constraints"] as JsonObject, origin, $"{prefix}{field}/{index}/constraints");
+                }
                 for (var j = 0; j < selected.Count; j++)
                 {
                     if (selected[j] is not JsonObject row || Text(row["pointer"]) is not { Length: > 0 } pointer ||
@@ -311,7 +316,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedAncestors && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
+        if (!shared && !sharedTasks && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
+        if (sharedPrefix)
+            context["ancestorPrefixPresentation"] = "For each selected input or output, prepend its direction's shared ancestorPrefix to its own ancestors in order. Together they are the original constraints.";
         if (sharedSiblings)
             context["requiredSiblingPresentation"] = "requiredSiblingsPresentedAt maps each required property to its exact schema in the selected inputs of the same producer contract.";
         if (sharedReviewContracts)
@@ -325,6 +332,34 @@ public static class PlanningPromptPresentation
         if (sharedTasks)
             context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareSelectedAncestorPrefix(JsonObject operation, JsonArray selected, string metadataName)
+    {
+        if (selected.Count < 2 || operation[metadataName] is not (null or JsonObject) ||
+            operation[metadataName]?["ancestors"] is not null || operation[metadataName]?["ancestorPrefix"] is not null) return false;
+        var lists = new List<JsonArray>();
+        foreach (var node in selected)
+        {
+            if (node is not JsonObject row || row["ancestors"] is not JsonArray { Count: > 0 } ancestors ||
+                new[] { "id", "version", "hash" }.Any(key => row.ContainsKey(key) && !JsonNode.DeepEquals(row[key], operation[key]))) return false;
+            lists.Add(ancestors);
+        }
+        var prefix = new JsonArray();
+        var length = lists.Min(list => list.Count);
+        for (var index = 0; index < length; index++)
+        {
+            if (lists[0][index] is not JsonObject ancestor || Text(ancestor["pointer"]).Length == 0) break;
+            var exact = ancestor.ToJsonString();
+            if (lists.Skip(1).Any(list => list[index]?.ToJsonString() != exact)) break;
+            prefix.Add(ancestor.DeepClone());
+        }
+        if (prefix.Count == 0 || (long)(lists.Count - 1) * prefix.ToJsonString().Length < 384) return false;
+        operation[metadataName] ??= new JsonObject();
+        operation[metadataName]!["ancestorPrefix"] = prefix;
+        foreach (var list in lists)
+            for (var remaining = prefix.Count; remaining > 0; remaining--) list.RemoveAt(0);
+        return true;
     }
 
     private static bool ShareImportedArgumentSiblings(JsonObject context)
