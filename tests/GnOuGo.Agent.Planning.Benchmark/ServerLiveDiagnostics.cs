@@ -125,11 +125,13 @@ internal static class ServerLiveDiagnostics
         hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
         var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
         var transportFile = SchemaPortabilityCampaign.Option(args, "--server-transport-policy");
+        int? attemptTimeoutLimitMilliseconds = null;
         if (transportFile is not null)
         {
             var transport = JsonSerializer.Deserialize(await File.ReadAllTextAsync(transportFile), PlanningJsonContext.Default.PlanningTransportPolicy)
                 ?? throw new ArgumentException("Missing transport policy.");
             PlanningTransportPolicies.Validate(transport);
+            attemptTimeoutLimitMilliseconds = transport.AttemptTimeoutMilliseconds;
             hostArgs = hostArgs.Concat(new[] {
                 $"--TypedWorkflowPlanning:TransportPolicy:Version={transport.Version}",
                 $"--TypedWorkflowPlanning:TransportPolicy:MaxAttempts={transport.MaxAttempts}",
@@ -424,7 +426,8 @@ internal static class ServerLiveDiagnostics
             {
                 // An isolated probe has no planning-session retry capture. Use the
                 // existing single-attempt inference journal, never planning defaults.
-                var result = await capture.CallAsync(request, options, (r, ct) => model.CallExecutionAsync(r, ct), context.RequestAborted);
+                var result = await capture.CallAsync(request, options,
+                    (r, ct) => model.CallExecutionAsync(r, ct, attemptTimeoutLimitMilliseconds), context.RequestAborted);
                 var received = result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text));
                 var schemaValid = PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
                 report["schema_valid"] = schemaValid;

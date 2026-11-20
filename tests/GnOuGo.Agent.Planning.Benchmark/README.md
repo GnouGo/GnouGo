@@ -236,6 +236,9 @@ failure and attempt count. Wire parameters appear only for a captured request.
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
 small nonce/schema availability check. `--probe-source-request <owned-request-id>`
 copies the exact retained prompt and schema into a fresh nonce/run identity.
+For a fresh probe, the attempt timeout in `--server-transport-policy` caps
+the provider's configured timeout. The journal records the applied deadline
+and the probe keeps its single physical attempt.
 Copied probes preserve the source reasoning setting, including its absence, unless
 `--probe-reasoning` explicitly overrides it; nonce probes without a source default
 to medium reasoning. The optional representation flag

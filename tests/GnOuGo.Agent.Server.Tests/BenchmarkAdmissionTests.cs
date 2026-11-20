@@ -483,6 +483,28 @@ public sealed class BenchmarkAdmissionTests
         Assert.Equal(3, rates.Calls);
     }
 
+    [Theory]
+    [InlineData(270_000, 270_000)]
+    [InlineData(700_000, 600_000)]
+    public async Task IndependentProbeDeadlineCapsOnlyItsFreshPhysicalAttempt(int limit, int expected)
+    {
+        using var fixture = new Fixture();
+        var rates = new Rates(fixture.Time);
+        var provider = new Provider(fixture.Campaign);
+        var request = ServerLiveDiagnostics.IndependentProbe(null, "fixture", "pinned", "deadline", "nonce", "medium", 64);
+        using (var model = fixture.Model(rates, provider))
+            await model.CallExecutionAsync(request, Ct, limit);
+        var original = await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct);
+        var retry = original!["effective_transport_policy"]!["effective_retry_policy"]!;
+        Assert.Equal(expected, retry["AttemptTimeoutMilliseconds"]!.GetValue<int>());
+        Assert.Equal(1, retry["MaxAttempts"]!.GetValue<int>());
+        Assert.Equal(0, retry["MaxUncertainRetries"]!.GetValue<int>());
+        using var restarted = fixture.Model(rates, provider);
+        await restarted.CallExecutionAsync(request, Ct, 1);
+        Assert.True(JsonNode.DeepEquals(original, await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, Ct)));
+        Assert.Equal(1, provider.Calls);
+    }
+
     [Fact]
     public async Task SettlementUsesAdmittedQuoteAndCommittedReceiptReplaysWithoutNetwork()
     {

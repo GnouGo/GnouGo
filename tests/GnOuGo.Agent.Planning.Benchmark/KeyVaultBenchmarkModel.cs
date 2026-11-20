@@ -546,28 +546,35 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (last?["Status"]?.GetValue<int>() is >= 200 and < 300 && last["Body"] is not null && last["Failure"] is null)
             await CallAsync(request, ct);
     }
-    internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct) => CallBoundedAsync(request, true, ct);
-    private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct)
+    internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null)
+        => CallBoundedAsync(request, true, ct, attemptTimeoutLimitMilliseconds);
+    private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null)
     {
         await _dispatchGate.WaitAsync(ct);
-        try { return await DispatchAsync(request, ct, execution); }
+        try { return await DispatchAsync(request, ct, execution, attemptTimeoutLimitMilliseconds); }
         finally { _dispatchGate.Release(); }
     }
 
-    private LLMProviderRetryPolicyOptions RuntimeRetryPolicy(JsonObject? captured = null)
+    private LLMProviderRetryPolicyOptions RuntimeRetryPolicy(JsonObject? captured = null, int? attemptTimeoutLimitMilliseconds = null)
     {
         var policy = captured?["effective_retry_policy"]?.Deserialize(LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
             ?? _options.ResolveProvider(Provider)!.RetryPolicy.Clone();
         policy.MaxAttempts = 1; policy.MaxUncertainRetries = 0;
+        if (attemptTimeoutLimitMilliseconds is { } limit)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
+            policy.AttemptTimeoutMilliseconds = Math.Min(policy.AttemptTimeoutMilliseconds, limit);
+        }
         return policy;
     }
 
-    private JsonObject RuntimeTransportPolicy(string mode, LLMRequest request) => new()
+    private JsonObject RuntimeTransportPolicy(string mode, LLMRequest request, int? attemptTimeoutLimitMilliseconds = null) => new()
     {
         ["version"] = 2, ["mode"] = mode, ["disable_transport_retries"] = true,
         ["request_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
         ["allow_http_recovery"] = true,
-        ["effective_retry_policy"] = JsonSerializer.SerializeToNode(RuntimeRetryPolicy(), LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+        ["effective_retry_policy"] = JsonSerializer.SerializeToNode(RuntimeRetryPolicy(attemptTimeoutLimitMilliseconds: attemptTimeoutLimitMilliseconds),
+            LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
     };
 
     // A saved logical request is not permission to repeat an unresolved physical attempt.
@@ -609,7 +616,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         throw new InvalidOperationException("Runtime inference has no exact completed response; another dispatch is forbidden.");
     }
 
-    private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false)
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false, int? attemptTimeoutLimitMilliseconds = null)
     {
         if (AdvisoryFinancialForecasts && RetainedExternalReservationsEur > 0 && !await HasSavedResponseAsync(request, ct))
             await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
@@ -650,7 +657,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
         };
         if (execution)
-            effectiveTransportPolicy = runtimeJournal is null ? RuntimeTransportPolicy("runtime_single_attempt", request) :
+            effectiveTransportPolicy = runtimeJournal is null ? RuntimeTransportPolicy("runtime_single_attempt", request, attemptTimeoutLimitMilliseconds) :
                 runtimeJournal["effective_transport_policy"]?.DeepClone().AsObject();
         if (capturedTransport is not null)
         {
