@@ -17,6 +17,7 @@ was EUR 401.85913. The authorization fingerprint is
 | 09 | 74 / 1,558 | 21 | 10 | 0 | Yes |
 | 10 | 74 / 1,582 | 21 | 10 | 0 | Yes |
 | 11 | 0 / 0 | 1 | 0 | 0 | Yes |
+| 12 | 77 / 1,616 | 1 | 0 | 0 | Yes |
 
 Captures 09 and 10 each resolved 20 occurrences under the active grant.
 Three reads returned product evidence and 17 returned store evidence. Cold
@@ -27,6 +28,16 @@ zero model calls. The fresh policy description on `351b26ef` includes both
 observed-navigation patterns and the separate static allowlist from the
 Browser configuration. The source and publication checks continue to use
 the existing permission grants. [Browser configuration regression](../../tests/GnOuGo.Agent.Server.Tests/AmazonAaxWorkflowTests.cs)
+
+Capture 12 on `94666266` received HTTP 200 and retained the complete search.
+The empty-ASIN card at heading record 409 also contained record 413, whose
+literal href was `https://www.amazon.fr/deals`. The active workflow grant
+excludes that route. The verifier returned `search_heading_context_unaccounted`
+and offered zero eligible next reads. The probe kept the record, made no GET
+to that address and closed the browser. A cold read reproduced the result.
+The comparison with captures 09 and 10 shows the dependence on the fresh
+listing. The separate auxiliary-listing proposal remains inactive.
+[Capture-specific boundary](pr120-amazon-deals-proposal-2026-11-13/proposal.md)
 
 Amazon session `5be178ac35e84f66811070c4f7989f1e` stopped in planning
 after six technical checkpoints. It produced zero business visits and no
