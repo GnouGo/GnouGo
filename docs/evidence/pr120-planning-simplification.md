@@ -45,6 +45,33 @@ verifies its completed Server run. The startup and planner-choice tests
 passed all 23 cases.
 [Browser form regression](../../tests/GnOuGo.Agent.Server.Tests/FrontendStartupBrowserTests.cs)
 
+### Review session 752c11ed2c0b49218a709ff0cb544e71
+
+For run 22 the operator supplied the audited external total plus the
+EUR 0.99571 Amazon authentication reservation. The campaign required an
+exact match with its verified external total. Comparison happened after
+the Server had reserved EUR 0.90505 and before the campaign had accepted
+the request. The session stopped at revision 2 with one logical request,
+zero physical generation attempts and zero business dispatches.
+
+A fresh Server plan now validates that total before creating session state.
+The exact stopped run, original Server budget and empty transport also
+support permanently retaining the existing EUR 0.90505 reservation.
+The applied receipt has evidence hash
+`143d6041427608a458d6889b39e8941e600a7a95ac811f70edee218c8808f53f`.
+The regression checks cold restart and rejects missing or ambiguous
+dispatch status. [Admission retention tests](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionRetentionTests.cs)
+
+Independent inspection found five Server requests with retained zero-attempt
+closures and separate outstanding application reservations. Each amount
+matched the original run's saved usage. They totaled EUR 20.95423, including
+EUR 0.99571 for Amazon run 12. The audit now includes those amounts once in
+fresh financial admission, with the original run, reservation and closure
+records unchanged. [Zero-attempt accounting regression](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkUnstartedServerHoldTests.cs)
+
+The combined financial admission, campaign and retention suites passed
+586 tests. The Release benchmark built with zero warnings and errors.
+
 ### Review session aa8558e0ce284bcf884105ba7fce6af9
 
 Fresh intake on `f720f286` declared the two caller inputs and a required
