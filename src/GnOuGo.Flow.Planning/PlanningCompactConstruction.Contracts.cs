@@ -118,6 +118,20 @@ internal static partial class PlanningCompactConstruction
             ["items"] = ContractDescriptors(state, offset, CompactContractDescriptorPageSize, concise: true, retained: retained),
             ["descriptionsOmitted"] = true };
 
+    private static void RetainInspectedOperationPages(PlanningSession state, JsonObject inspected, JsonObject retained)
+    {
+        if (Encoding.UTF8.GetByteCount(retained.ToJsonString()) >= ContinuedScopePreviewBytes) return;
+        foreach (var (address, value) in inspected)
+        {
+            if (!address.StartsWith("page:operations:", StringComparison.Ordinal) || retained.ContainsKey(address) ||
+                value is not JsonObject page || page["offset"] is not JsonValue position || !position.TryGetValue<int>(out var offset) || offset < 0) continue;
+            var current = ContractDescriptorPage(state, offset);
+            if (OperationPageAddress(current) != address || !JsonNode.DeepEquals(current, value)) continue;
+            retained[address] = current;
+            if (Encoding.UTF8.GetByteCount(retained.ToJsonString()) > ContinuedScopePreviewBytes) retained.Remove(address);
+        }
+    }
+
     private static JsonObject? CompanionOperationNavigation(PlanningSession state)
     {
         if (State(state).CurrentStep is not { OperationIds.Count: > 0 } step)

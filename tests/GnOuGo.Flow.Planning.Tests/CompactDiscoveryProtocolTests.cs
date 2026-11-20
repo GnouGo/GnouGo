@@ -94,6 +94,47 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(retrieved, [address]));
     }
 
+    [Theory]
+    [InlineData("continued")]
+    [InlineData("changed_page")]
+    [InlineData("changed_scope")]
+    [InlineData("tampered")]
+    [InlineData("oversized")]
+    public async Task ContinuedDraftReusesOnlyUnchangedInspectedOperationDirectoryPages(string variant)
+    {
+        var (state, _) = await BoundOperations(9);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var selected = step.OperationIds.ToArray();
+        if (variant == "oversized")
+        {
+            var page = state.Discovery.Pages.Single();
+            state.Discovery.Pages[0] = page with { Capabilities = page.Capabilities.Select(capability =>
+                selected.Contains(capability.Id, StringComparer.Ordinal) ? capability : capability with { Name = new string('x', 9000) }).ToList() };
+        }
+        var navigation = Context(PlanningConstruction.DraftRequest(state, false))["companionOperations"]!;
+        var addresses = new[] { navigation["directory"]!.ToString(), navigation["next"]!.ToString() };
+        PlanningConstruction.LoadEvidence(state, [.. addresses]);
+        var originals = addresses.Select(address => state.Construction.Evidence![address]!.DeepClone()).ToArray();
+        if (variant == "changed_page")
+            state.Catalog!.Policy.DeniedCapabilityIds.Add(originals[0]["items"]!.AsArray()
+                .Select(row => row!["id"]!.ToString()).First(id => !selected.Contains(id, StringComparer.Ordinal)));
+        if (variant == "tampered")
+            state.Construction.Evidence![addresses[0]]!["items"]![0]!["name"] = "modified";
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: variant == "changed_scope" ? "/another" : step.Scope);
+        var draft = PlanningConstruction.DraftRequest(state, false);
+        var context = Context(draft);
+        if (variant == "continued")
+            for (var i = 0; i < addresses.Length; i++)
+            {
+                Assert.True(JsonNode.DeepEquals(originals[i], context["evidence"]?[addresses[i]]));
+                Assert.DoesNotContain(JsonSerializer.Serialize(addresses[i]), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+            }
+        else Assert.Null(context["evidence"]?[addresses[0]]);
+        Assert.Equal(selected, step.OperationIds);
+        Assert.Empty(step.SchemaPointers);
+    }
+
     [Fact]
     public async Task CompanionNavigationDoesNotAutofillRegisteredOrEarlierOperationsAndKeepsCanonicalPaging()
     {

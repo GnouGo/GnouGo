@@ -2,6 +2,18 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 25 (Server session `aeef260c181a4104bf2533ef088722d6`) retained
+the required report, a single clone operation and root cleanup in its draft.
+Calls 18, 21 and 24 had already inspected two, two and one operation-directory
+pages respectively. After a checkpoint those same pages were requested again.
+Replaying the three immutable revisions (76, 84 and 92) after the retention
+fix exposed every unchanged page in the next draft, with zero repeated
+addresses, zero model calls, identical selections and identical plan hashes.
+The full planner suite passed 3,162 tests. During the live run the draft
+expanded the same paginated comparison through a fourth page-specific
+conditional. The Server stopped at revision 157 after the completed physical
+receipt for call 47. The workflow had not reached publication or execution.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

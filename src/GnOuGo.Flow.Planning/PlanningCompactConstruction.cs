@@ -1220,8 +1220,11 @@ internal static partial class PlanningCompactConstruction
         foreach (var item in construction.Evidence ?? [])
             if (addresses.Contains(item.Key)) retained[item.Key] = item.Value?.DeepClone();
         if (continuedScope is not null && continuedScope == State(state).CurrentStep?.Scope &&
-            PlanningTokenThresholds.OptimizationAdvisory(state.Request) && construction.Evidence is { Count: > 0 } inspectedScopes)
-            RetainInspectedChildScope(state, continuedScope, inspectedScopes, retained);
+            PlanningTokenThresholds.OptimizationAdvisory(state.Request) && construction.Evidence is { Count: > 0 } inspectedEvidence)
+        {
+            RetainInspectedChildScope(state, continuedScope, inspectedEvidence, retained);
+            RetainInspectedOperationPages(state, inspectedEvidence, retained);
+        }
         // An abandoned tentative binding does not invalidate exact metadata
         // already read for this unchanged responsibility. Restore only current,
         // verified originals from the existing rejection journal, after a new
