@@ -42,6 +42,17 @@ and its estimated input from 57,534 to 55,826 tokens. All three pointers
 resolved to the original captured constraints.
 [Presentation regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+Call 40 added a conditional that exported a second comparison page and a
+boolean indicating whether it had run. Its continuation at the same scope
+offered only value, transform and operation tasks. Call 42 requested another
+selection. Calls 43–45 inspected and selected a sequence, and call 46 used both
+conditional exports inside that sequence. A regression reproduced the
+rejection by the original draft grammar. A different control can now consume
+an exported port of the accepted control within the same business block.
+The compiler still checks the actual reference, scope and selected operations.
+Tests also cover an unrelated wrapper, a repeated wrapper and an open source.
+[Construction regressions](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
 The sixth independent Amazon source capture contained 1,642 records in
 79 pages. Nineteen authorized link resolutions returned sixteen store pages
 and three product links. The unclassified product context at record 497
@@ -49,6 +60,12 @@ also contained a bare `/deals` destination at record 503. The current
 permission did not cover it. Cold verification reproduced the same findings.
 The browser closed, the follow-up probe found no active page and the capture
 recorded zero business product visits.
+
+The seventh capture contained 1,663 records across 80 pages. Its empty-ASIN
+context at record 506 contained the bare deals link at record 512. Three
+product and sixteen store link resolutions were recorded. Cold verification
+reproduced the source failure, the browser closed and its independent probe
+found no active page.
 
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 

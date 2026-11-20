@@ -22,18 +22,37 @@ internal static partial class PlanningCompactConstruction
             : checkpoint.TaskIds.Any(id => symbols.Tasks.TryGetValue(id, out var task) && task.Task.Kind == step.Kind));
     }
 
-    internal static HashSet<string> BusinessFragmentKinds(PlanningSession state)
+    internal static HashSet<string> BusinessFragmentKinds(PlanningSession state) => BusinessFragmentKinds(state, out _);
+
+    private static HashSet<string> BusinessFragmentKinds(PlanningSession state, out HashSet<(string Id, string Port)> controlExports)
     {
         var step = State(state).CurrentStep!;
         var kinds = new HashSet<string>(StringComparer.Ordinal);
+        controlExports = [];
         if (!BlockAnchorConstructed(state) && step.Kind is not (null or "group" or "close" or "choice")) kinds.Add(step.Kind!);
         if (SupportsBusinessFragment(step.Kind))
         {
             kinds.Add("value"); kinds.Add("transform");
             if (step.OperationIds.Count > 0) kinds.Add("operation");
             if (step.GroupId is not null) kinds.Add("call");
-            if (BlockCheckpoints(state).FirstOrDefault()?.Step?.Scope is { } origin && origin != step.Scope)
-                kinds.UnionWith(NestedControlKinds);
+            var checkpoints = BlockCheckpoints(state).ToArray();
+            if (checkpoints.FirstOrDefault()?.Step?.Scope is { } origin)
+            {
+                if (origin != step.Scope) kinds.UnionWith(NestedControlKinds);
+                else if (NestedControlKinds.Contains(step.Kind, StringComparer.Ordinal))
+                {
+                    var symbols = new TaskPlanSymbols(state.Plan!);
+                    foreach (var id in checkpoints.SelectMany(checkpoint => checkpoint.TaskIds))
+                        if (symbols.Tasks.TryGetValue(id, out var site) && site.Scope.Path == step.Scope && site.Task.Kind == step.Kind)
+                        {
+                            var resultScopes = symbols.Scopes.Where(scope => scope.Owner == site.Task).ToArray();
+                            if (resultScopes.Any(scope => state.Construction!.OpenScopes.Contains(scope.Path, StringComparer.Ordinal))) continue;
+                            foreach (var scope in resultScopes)
+                                foreach (var output in scope.Source.Outputs) controlExports.Add((id, output.Name));
+                        }
+                    if (controlExports.Count > 0) kinds.UnionWith(NestedControlKinds.Where(kind => kind != step.Kind));
+                }
+            }
         }
         return kinds;
     }

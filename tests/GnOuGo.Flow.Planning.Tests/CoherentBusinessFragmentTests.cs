@@ -403,6 +403,47 @@ public sealed class CoherentBusinessFragmentTests
     }
 
     [Fact]
+    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Compact!.CurrentStep!.Kind = "conditional";
+        TaskScope Result(int index) => new()
+        {
+            Tasks = [new() { Id = "value_" + index, Kind = "value", Objective = "Retain this quantity.",
+                Outputs = [new("result", new() { Kind = "number", Number = index })] }],
+            Outputs = [new("result", new() { Kind = "output", Source = "value_" + index, Port = "result" })]
+        };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, ContinueInScope = "/root",
+            Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose the applicable quantity.",
+                Condition = new() { Kind = "boolean", Boolean = true }, Body = Result(0), Otherwise = Result(1) }]
+        });
+        runtime.Respond = (_, _) => throw new InvalidOperationException("A partial contribution needs no selection or review.");
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var consumer = Value(2);
+        consumer.Outputs[0] = new("result", new() { Kind = "output", Source = "choose", Port = "result" });
+        var extension = new PlanningConstructionExtension
+        {
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false,
+            Tasks = [new() { Id = "use_result", Kind = "sequence", Objective = "Process the chosen quantity.", Body = new() { Tasks = [consumer] } }]
+        };
+        AssertDraftAccepts(state, extension);
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+        Assert.Equal(2, candidate.Plan.Root.Tasks.Count);
+        consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
+            diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
+        state.Construction!.OpenScopes.Add("/tasks/choose/body");
+        Assert.DoesNotContain("sequence", PlanningCompactConstruction.BusinessFragmentKinds(state));
+    }
+
+    [Fact]
     public async Task ContinuedOriginalScopeCannotRepeatItsTopLevelWrapper()
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();

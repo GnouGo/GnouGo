@@ -258,7 +258,7 @@ internal static partial class PlanningCompactConstruction
     internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
-        var kinds = BusinessFragmentKinds(state);
+        var kinds = BusinessFragmentKinds(state, out var controlExports);
         // The issued fragment can compose nested controls even when its selected
         // anchor is a different control or a reusable group. Its semantics must
         // cover those reachable shapes, just like its strict grammar does.
@@ -268,6 +268,8 @@ internal static partial class PlanningCompactConstruction
         var controls = new HashSet<string>(kinds.Where(kind => NestedControlKinds.Contains(kind, StringComparer.Ordinal)), StringComparer.Ordinal);
         if (nestedControls) controls.UnionWith(NestedControlKinds);
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
+        if (controlExports.Count > 0)
+            hints.Add("At this same scope a different control may bind an exported port of the accepted control in its condition, inputs or body. Continue this block with that binding.");
         if (SupportsBusinessFragment(step.Kind))
             hints.Add("Contribute a coherent typed increment of this block, with related helpers and selected operations. The captured maxTasksPerDraft is shared by this entire extension. Newly supplied complete control/group bodies close automatically, including empty optional branches; no closeScopes bookkeeping is needed for them. continueInScope retains its exact original or block-owned scope and ancestors when this implementation cursor continues; null finishes only this cursor. completeBlock explicitly claims that the retained business objective, expected results and success criteria are fulfilled across all its accepted fragments. Keep completeBlock false for technical prerequisites, helper computations and incomplete contributions, including a finished technical scope. A completed block cannot retain continueInScope. Evidenced empty prerequisite openings remain open. A continuation does not close original requirements or discharge consumers. Existing boundaries still close explicitly; unfinished containers expose no usable result.");
         if (step.Kind is not ("group" or "choice" or "close"))

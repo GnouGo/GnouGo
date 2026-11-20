@@ -93,7 +93,7 @@ internal static partial class PlanningCompactConstruction
              candidate.Extension.Complete != selectedClosure.Contains("/root", StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/closeScopes", "Preserve the explicitly selected requirement-only or scope closure and its completion claim.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
-        var kinds = BusinessFragmentKinds(state);
+        var kinds = BusinessFragmentKinds(state, out var controlExports);
         var topLevel = candidate.Extension.Tasks.Concat(candidate.Extension.Always).Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
         if (candidate.Extension.Groups.Count > 0 && (step.Kind != "group" || BlockAnchorConstructed(state)) ||
             candidate.Extension.Choices.Count > 0 && step.Kind != "choice")
@@ -103,6 +103,16 @@ internal static partial class PlanningCompactConstruction
             symbols.Tasks[id].Task.Operation is { } operation && !step.OperationIds.Contains(operation, StringComparer.Ordinal) ||
             symbols.Tasks[id].Task.Kind == "call" && symbols.Tasks[id].Task.Group != step.GroupId))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/tasks", "The extension exceeds the issued task-kind or operation selection.");
+        if (controlExports.Count > 0)
+            foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always)
+                .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
+            {
+                var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
+                if (!contribution.Values.Values.Any(site => site.Value is { Kind: "output", Source: { } source, Port: { } port } &&
+                    controlExports.Contains((source, port))))
+                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id,
+                        "A further control at this scope must consume an exported result of the accepted control in this step.");
+            }
         ValidateEmptyOpening(state, candidate);
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
         var derivedImports = UsesDerivedImports(state, candidate);
