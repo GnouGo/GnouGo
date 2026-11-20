@@ -204,6 +204,15 @@ over the original two operands passed the issued draft grammar and both
 validation stages. This comparison made zero provider calls and executions.
 [Positional binding regression](../../tests/GnOuGo.Flow.Planning.Tests/PositionalBindingTests.cs)
 
+Request 24 retrieved the exact navigation-evidence and observation-snapshot
+output schemas. Requests 26 and 27 still displayed them on the selected
+operation after checkpoint 8. On reselection the archived evidence retained
+only the last task and scope read. Request 29 fetched both outputs again.
+The rejection now retains previously inspected, displayed output branches
+within an 8 KiB allowance. Restoration verifies the original bytes, current
+version, permission and responsibility before reusing a branch.
+[Reselection regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractInspectionTests.cs)
+
 Requests 30 and 33 each abandoned source acquisition because the model
 reported that it could not set `foreach.maxItems`. The retained response
 grammars both required that integer field and allowed 1 through 10,000.

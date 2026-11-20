@@ -439,6 +439,32 @@ internal static partial class PlanningCompactConstruction
         _ => false
     };
 
+    private static JsonObject? ArchiveReselectionEvidence(PlanningSession state, PlanningConstructionStep step)
+    {
+        var evidence = state.Construction!.Evidence?.DeepClone().AsObject();
+        if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) || !step.DiscoveryComplete || step.SchemaPointers.Count == 0)
+            return evidence;
+        // A continued draft still displays selected output schemas after its navigation
+        // batch is cleared. Keep those originals for the existing verified replacement path.
+        var remaining = ContinuedScopePreviewBytes;
+        foreach (var address in step.SchemaPointers.AsEnumerable().Reverse())
+        {
+            var parts = address.Split(':', 3);
+            if (parts.Length != 3 || !OutputEvidence(parts[0], parts[2]) || evidence?.ContainsKey(address) == true) continue;
+            var at = parts[1].IndexOf('@');
+            if (at <= 0 || !step.OperationIds.Contains(Uri.UnescapeDataString(parts[1][..at]), StringComparer.Ordinal)) continue;
+            JsonNode? original;
+            try { original = LoadContractEvidence(state, address, recordSchemaSelection: false); }
+            catch (PlanningResponseException) { continue; }
+            if (original is null) continue;
+            var bytes = Encoding.UTF8.GetByteCount(original.ToJsonString());
+            if (bytes > remaining) continue;
+            (evidence ??= new())[address] = original;
+            remaining -= bytes;
+        }
+        return evidence;
+    }
+
     private static JsonObject ContractView(PlanningSession state, PlanningCapability capability, bool useCandidate)
     {
         var operation = PlanningCapabilityArguments.Editable(capability);

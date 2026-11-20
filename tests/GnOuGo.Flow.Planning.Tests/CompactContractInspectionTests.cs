@@ -234,6 +234,49 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Null(state.Construction.Candidate); Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData("current", true)]
+    [InlineData("denied", false)]
+    [InlineData("differentVersion", false)]
+    [InlineData("differentSchema", false)]
+    public async Task ReplacingAControlReusesOutputBranchesDisplayedBeforeItsLastCheckpoint(string change, bool available)
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 1);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var discovered = new InspectionCatalog();
+        runtime.Capabilities = discovered;
+        runtime.Respond = (request, _) => Wire(request, Inspect("alpha", "operation_0"));
+        state = await Advance(state, runtime);
+        var previous = state.Construction!.Compact!.CurrentStep!;
+        previous.Kind = "sequence";
+        previous.DiscoveryComplete = true;
+        previous.OperationIds = ["operation_0"];
+        var identity = "schema:operation_0@version_0:/output";
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, identity);
+        Assert.NotNull(original);
+        // A continued checkpoint can discard the navigation batch. The next
+        // draft still renders the explicitly inspected output on its operation.
+        state.Construction.Evidence = null;
+        var shown = PlanningCompactConstruction.ContractViews(state, useCandidate: false);
+        Assert.True(JsonNode.DeepEquals(original, shown[0]!["selectedOutputs"]![0]));
+        state.Diagnostics = [new("CONSTRUCTION_RESELECTION_REQUIRED", "/step", "Use a different control for the same observation.")];
+        PlanningCompactConstruction.Reselect(state, "Use the same observation in the selected collection control.");
+        state = PlannerFixture.Clone(state);
+        state.Construction!.Compact!.CurrentStep = new()
+        {
+            Id = "replacement", BlockId = previous.BlockId, BaseHash = previous.BaseHash, Scope = previous.Scope,
+            Kind = "foreach", Objective = previous.Objective, RequirementIds = previous.RequirementIds.ToList(), OperationIds = ["operation_0"]
+        };
+        if (change == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add("operation_0");
+        if (change == "differentVersion") state.Discovery.Pages[0].Capabilities[0] = state.Discovery.Pages[0].Capabilities[0] with { Version = "later" };
+        if (change == "differentSchema") state.Discovery.Resolved.Single(c => c.Id == "operation_0").OutputSchema["description"] = "Updated restriction";
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        Assert.Equal(available, state.Construction.Compact.CurrentStep.SchemaPointers.Contains(identity));
+        if (available) Assert.True(JsonNode.DeepEquals(original, state.Construction.Evidence![identity]));
+        Assert.Single(discovered.Reads);
+    }
+
     private sealed class InspectionCatalog : ICapabilityCatalog
     {
         internal readonly List<string> Reads = [];
