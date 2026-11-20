@@ -213,12 +213,21 @@ internal static class PlanningSchemas
 
     private static IEnumerable<JsonObject> ArrayTypeShapes(string nested, bool nullable)
     {
-        var fields = new List<(string, JsonObject)> { ("kind", Enum("array")), ("items", Ref(nested)) };
-        fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
-        fields.Add(("maxItems", Described(Nullable(Integer(0, int.MaxValue)),
-            "Maximum array length: null leaves the upper bound unspecified; 0 permits only an empty array.")));
-        if (nullable) fields.Add(("nullable", Boolean(true)));
-        yield return Object(fields.ToArray());
+        // Prefer the complete shape when projecting an existing declaration with bounds.
+        foreach (var withBounds in new[] { true, false })
+        {
+            var fields = new List<(string, JsonObject)> { ("kind", Enum("array")) };
+            if (nullable) fields.Add(("nullable", Boolean(true)));
+            if (withBounds)
+            {
+                fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
+                fields.Add(("maxItems", Described(Nullable(Integer(0, int.MaxValue)),
+                    "Maximum array length: null leaves the upper bound unspecified; 0 permits only an empty array.")));
+            }
+            // The next property distinguishes the two wire shapes before the recursive child.
+            fields.Add(("items", Ref(nested)));
+            yield return Object(fields.ToArray());
+        }
     }
 
     private static JsonObject Input(bool objectField)

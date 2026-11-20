@@ -13,6 +13,7 @@ reported that there was no active page.
 | First | 1,616 | 512 | 516 | 0 |
 | Second | 1,623 | 518 | 522 | 0 |
 | Third | 1,579 | None | None requiring proof | 0 |
+| Fourth | 1,628 | 510 | 514 | 0 |
 
 The empty-ASIN card in each of the first two captures contains an observed `/deals` link.
 The active grant requires evidence for each unresolved occurrence across the
@@ -31,6 +32,13 @@ Cold reload produced the same selection of ten expected products. Closing the
 browser succeeded and the subsequent probe found no active page. This cleared
 the source prerequisite for a new Server run. The only remaining finding in
 that source-only capture was `first_product_visits_incomplete`.
+
+At 00:23 UTC on 20 November, a fourth fresh capture on `ce736d34`
+returned 80 pages. An empty-ASIN occurrence again contained the bare
+`/deals` link outside the active workflow grant. The cold verifier
+reproduced the source failure and the independent post-close probe found
+no active page. The earlier qualifying capture illustrates why this
+prerequisite must be evaluated on each actual search.
 
 The review session `4c961e2da593431fb092672d3eb522e3` stopped after its eighth
 successful planning response. It incurred EUR 2.05557 at campaign tariffs.
@@ -185,6 +193,18 @@ The 64-call threshold emitted warnings. The longest received call took 69.31
 seconds. No workflow executed, product was visited or workbook produced by
 this session. After retention the campaign had EUR 71.38389 available under
 its EUR 1,700 ceiling.
+
+The fresh PR 718 session `33c82d84e6e24e02a53272d2954195fe` reached six
+checkpoints, including a pinned clone, separate Copilot checks and review, and
+root cleanup. The diff remained bound to its original producer. On call 29 the
+provider reported incomplete output at 4,096 tokens (97 reasoning tokens).
+Its response stopped after the string item declaration of an array field,
+followed by 7,453 whitespace characters. The strict transform grammar required
+both array bounds even when neither was specified. Fresh drafts now also
+accept an array with its typed items alone. Explicit bounds, including an
+upper bound of zero, keep their original meaning. The incomplete response
+was rejected. The run incurred EUR 15.40961 and ended before execution or
+publication. [Array result contract regression](../../tests/GnOuGo.Flow.Planning.Tests/TaskTransformTests.cs)
 
 ## Execution baselines
 

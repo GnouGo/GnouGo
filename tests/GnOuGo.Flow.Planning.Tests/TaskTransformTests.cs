@@ -129,6 +129,29 @@ public sealed class TaskTransformTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void UnboundedTransformArrayCanCloseAfterItsTypedItems(bool nullable)
+    {
+        var grammar = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
+        var contract = new JsonObject { ["$ref"] = "#/$defs/resultType", ["$defs"] = grammar["$defs"]!.DeepClone() };
+        var array = JsonNode.Parse("""{"kind":"array","items":{"kind":"string"}}""")!.AsObject();
+        if (nullable) array["nullable"] = true;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(array, contract));
+        var canonical = array.Deserialize(PlanningJsonContext.Default.TaskType)!;
+        Assert.Null(canonical.MinItems);
+        Assert.Null(canonical.MaxItems);
+        Assert.Equal(nullable, canonical.Nullable);
+        array["minItems"] = null;
+        array["maxItems"] = 0;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(array, contract));
+        var projected = PlanningCorpus.Transport(array, contract, contract);
+        Assert.Equal(0, projected.Deserialize(PlanningJsonContext.Default.TaskType)!.MaxItems);
+        array.Remove("items");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(array, contract));
+    }
+
+    [Theory]
     [InlineData("opaque")]
     [InlineData("missing_items")]
     [InlineData("nullable_root")]
