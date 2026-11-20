@@ -212,19 +212,14 @@ internal static partial class PlanningCompactConstruction
         var compact = State(state); var candidate = state.Construction!.Candidate!; var step = compact.CurrentStep!;
         var tentative = CandidateRequirements(state);
         foreach (var diagnostic in PlanningCommitments.Validate(state, tentative, final: true)) yield return diagnostic;
-        var selectedOperations = new TaskPlanSymbols(candidate.Plan).Tasks.Values.Where(t => candidate.TaskIds.Contains(t.Task.Id, StringComparer.Ordinal))
+        var symbols = new TaskPlanSymbols(candidate.Plan);
+        var selectedOperations = symbols.Tasks.Values.Where(t => candidate.TaskIds.Contains(t.Task.Id, StringComparer.Ordinal))
             .Select(t => t.Task.Operation).OfType<string>().ToHashSet(StringComparer.Ordinal);
         foreach (var binding in compact.PendingCommitments.Values.SelectMany(c => c).DistinctBy(c => c.Operation))
             if (!selectedOperations.Contains(binding.Operation))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
-        // The empty claim asks the ordinary Judge to review the already accepted
-        // work. A tentative tool selection alone does not justify a new side effect.
-        var reviewAccepted = candidate.Extension is { CompleteBlock: true, Complete: false, ContinueInScope: null,
-            CloseScopes.Count: 0, ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } &&
-            candidate.TaskIds.Count == 0 && candidate.Hash == step.BaseHash && CanReviewAcceptedBlock(state);
-        if (CandidateCompletesBlock(candidate) && candidate.AuthorizedPaths is null && !reviewAccepted)
+        if (CandidateCompletesBlock(candidate) && candidate.AuthorizedPaths is null && !ReviewsAcceptedResults(state, candidate))
         {
-            var symbols = new TaskPlanSymbols(candidate.Plan);
             selectedOperations.UnionWith(BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds)
                 .Where(symbols.Tasks.ContainsKey).Select(id => symbols.Tasks[id].Task.Operation).OfType<string>());
             foreach (var operation in step.OperationIds.Where(operation => !selectedOperations.Contains(operation)))
@@ -251,6 +246,28 @@ internal static partial class PlanningCompactConstruction
             !RequirementCompletionClaimed(state, r.Id)))
             yield return new("CONSTRUCTION_REQUIREMENT_REMAINING", "/requirements/" + requirement.Id,
                 "This original requirement has contributions but has not explicitly closed; continue its business substeps before completion.");
+    }
+
+    private static bool ReviewsAcceptedResults(PlanningSession state, PlanningConstructionCandidate candidate)
+    {
+        if (candidate.Extension is not { CompleteBlock: true, Complete: false, ContinueInScope: null, CloseScopes.Count: 0,
+            ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } extension || !CanReviewAcceptedBlock(state)) return false;
+        if (candidate.TaskIds.Count == 0) return candidate.Hash == State(state).CurrentStep!.BaseHash;
+        if (extension is not { Groups.Count: 0, Always.Count: 0, Choices.Count: 0, Outputs.Count: 0 } ||
+            extension.Tasks.Count != candidate.TaskIds.Count || extension.Tasks.Any(task => task.Kind is not ("value" or "transform"))) return false;
+
+        // Every new result must derive from this block's accepted work, regardless of declaration order.
+        var results = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
+        int previousCount;
+        do
+        {
+            previousCount = results.Count;
+            foreach (var task in extension.Tasks)
+                if (task.Inputs.Concat(task.Outputs).SelectMany(binding => TaskPlanCompiler.Values(binding.Value)).Any(value =>
+                    value.Kind is "output" or "present" && value.Source is { } source && results.Contains(source)))
+                    results.Add(task.Id);
+        } while (results.Count > previousCount);
+        return candidate.TaskIds.All(results.Contains);
     }
 
     internal static void Accept(PlanningSession state, bool reviewed)

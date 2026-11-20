@@ -163,6 +163,33 @@ public sealed class BusinessBlockCompletionAffordanceTests
         Assert.Null(state.Construction.Candidate);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task LocalResultChainCanFinishAcceptedWorkWithoutAnExploratoryOperation(bool consumesAcceptedResult)
+    {
+        var (state, _) = await Partial();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "sequence"; step.DiscoveryComplete = true; step.OperationIds = ["refresh"];
+        var extension = new PlanningConstructionExtension
+        {
+            Scope = step.Scope, RequirementIds = step.RequirementIds, CompleteBlock = true,
+            Tasks = [
+                new() { Id = "normalize", Kind = "value", Objective = "Normalize the doubled result.", DependsOn = ["compute"],
+                    Outputs = [new("result", consumesAcceptedResult ? new() { Kind = "output", Source = "compute", Port = "result" }
+                        : new() { Kind = "number", Number = 1 })] },
+                new() { Id = "prepared", Kind = "value", Objective = "Return the normalized result.",
+                    Outputs = [new("result", new() { Kind = "output", Source = "normalize", Port = "result" })] }
+            ]
+        };
+        var candidate = state.Construction.Candidate = PlanningConstruction.Apply(state, extension);
+        var findings = PlanningCompactConstruction.CandidateFindings(state).ToList();
+        Assert.Equal(!consumesAcceptedResult, findings.Any(finding => finding.Code == PlanningCommitments.MissingOperation));
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
+        state.Construction.Compact.PendingCommitments["work"] = [new("refresh")];
+        Assert.Contains(PlanningCompactConstruction.CandidateFindings(state), finding => finding.Code == PlanningCommitments.MissingOperation);
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Partial(bool selectedBoundOutput = false)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();

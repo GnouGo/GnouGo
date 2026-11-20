@@ -45,6 +45,22 @@ verifies its completed Server run. The startup and planner-choice tests
 passed all 23 cases.
 [Browser form regression](../../tests/GnOuGo.Agent.Server.Tests/FrontendStartupBrowserTests.cs)
 
+### Review session ea662b0f5cb8485aaa7348b06bf6d6e0
+
+At revision 74 the Server had accepted six checkpoints. The model offered a
+final transform consuming their observations and a value returning its result.
+The block still required ordinary business review. Validation required an
+extra fetch solely because it had been selected during discovery. The retained
+candidate had 20 original commitments and zero new commitments.
+
+The selection check now permits a block to submit local results for ordinary
+review when each new result consumes data from that block's accepted work.
+Ordering dependencies alone do not qualify. A cold replay of revision 74
+removed the missing-fetch finding, retained the business judge and issued zero
+inference calls. The regression also exercises an explicit fetch commitment,
+which still requires the operation.
+[Block completion regressions](../../tests/GnOuGo.Flow.Planning.Tests/BusinessBlockCompletionAffordanceTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,
