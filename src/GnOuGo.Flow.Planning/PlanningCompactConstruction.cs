@@ -177,21 +177,23 @@ internal static partial class PlanningCompactConstruction
         return best;
     }
 
-    internal static JsonObject InterfaceTypeDefinitions(bool diagnostic = false)
+    internal static JsonObject InterfaceTypeDefinitions(bool diagnostic = false, bool forPrerequisite = false)
     {
         JsonObject OriginalText(int maximum) => diagnostic ? PlanningSchemas.String() : Text(maximum);
         var minimum = PlanningSchemas.Nullable(PlanningSchemas.Integer(0, int.MaxValue));
         minimum["description"] = "Explicit minimum array length from the original source; null when no lower bound is declared. Preserve explicit zero.";
         var maximum = PlanningSchemas.Nullable(PlanningSchemas.Integer(0, int.MaxValue));
         maximum["description"] = "Explicit maximum array length from the original source; null when no upper bound is declared. Zero permits only an empty array.";
-        var type = new JsonObject { ["anyOf"] = new JsonArray(
+        var arrayTypes = forPrerequisite ? PlanningSchemas.ArrayTypeShapes("type", PlanningSchemas.Type("boolean")) :
+            [PlanningSchemas.Object(("kind", PlanningSchemas.Enum("array")), ("nullable", PlanningSchemas.Type("boolean")),
+                ("items", PlanningSchemas.Ref("type")), ("minItems", minimum), ("maxItems", maximum))];
+        var type = new JsonObject { ["anyOf"] = new JsonArray([
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string", "number", "integer", "boolean", "any")), ("nullable", PlanningSchemas.Type("boolean"))),
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("string")), ("nullable", PlanningSchemas.Type("boolean")),
                 ("enum", PlanningSchemas.Array(OriginalText(1000), 1, diagnostic ? null : 256))),
-            PlanningSchemas.Object(("kind", PlanningSchemas.Enum("array")), ("nullable", PlanningSchemas.Type("boolean")), ("items", PlanningSchemas.Ref("type")),
-                ("minItems", minimum), ("maxItems", maximum)),
+            ..arrayTypes,
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("object")), ("nullable", PlanningSchemas.Type("boolean")),
-                ("fields", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, diagnostic ? null : 32)))) };
+                ("fields", PlanningSchemas.Array(PlanningSchemas.Ref("input"), 0, diagnostic ? null : 32)))]) };
         var input = PlanningSchemas.Object(("name", OriginalText(96)), ("type", PlanningSchemas.Ref("type")), ("required", PlanningSchemas.Type("boolean")));
         var literal = new JsonObject { ["anyOf"] = new JsonArray(
             PlanningSchemas.Object(("kind", PlanningSchemas.Enum("null"))),

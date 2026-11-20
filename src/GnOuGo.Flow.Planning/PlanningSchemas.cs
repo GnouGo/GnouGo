@@ -215,7 +215,7 @@ internal static class PlanningSchemas
         {
             JsonObject Shape(params (string Name, JsonObject Schema)[] fields) => Object(nullable ? [..fields, ("nullable", Boolean(true))] : fields);
             var nested = transform ? "resultType" : "businessType";
-            alternatives.AddRange(ArrayTypeShapes(nested, nullable));
+            alternatives.AddRange(ArrayTypeShapes(nested, nullable ? Boolean(true) : null));
             alternatives.Add(Shape(("kind", Enum("object")), ("fields", Array(Ref(transform ? "resultField" : "field")))));
             alternatives.Add(Shape(("kind", Enum("string")), ("enum", Array(String(), 1, diagnostic ? null : 256))));
             alternatives.Add(Shape(("kind", transform ? Enum("string", "number", "integer", "boolean") : Enum("string", "number", "integer", "boolean", "any"))));
@@ -223,13 +223,13 @@ internal static class PlanningSchemas
         return new() { ["anyOf"] = new JsonArray(alternatives.ToArray()) };
     }
 
-    private static IEnumerable<JsonObject> ArrayTypeShapes(string nested, bool nullable)
+    internal static IEnumerable<JsonObject> ArrayTypeShapes(string nested, JsonObject? nullable)
     {
         // Prefer the complete shape when projecting an existing declaration with bounds.
         foreach (var withBounds in new[] { true, false })
         {
             var fields = new List<(string, JsonObject)> { ("kind", Enum("array")) };
-            if (nullable) fields.Add(("nullable", Boolean(true)));
+            if (nullable is not null) fields.Add(("nullable", nullable.DeepClone().AsObject()));
             if (withBounds)
             {
                 fields.Add(("minItems", Nullable(Integer(0, int.MaxValue))));
@@ -281,7 +281,7 @@ internal static class PlanningSchemas
             yield return Described(TaskShape("transform", ("mode", Enum("extract")),
                 ("each", each), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(deriveExtractionOutput ? "id" : "goal")),
-                    ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
+                    ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", null).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce one result per item in order. Group related fields from the same item in one result object. Preserve nested arrays. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (TaskPlanCompiler.UsesAdaptiveMappings(state.Request.Options["mapping_profile"]?.ToString())
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."

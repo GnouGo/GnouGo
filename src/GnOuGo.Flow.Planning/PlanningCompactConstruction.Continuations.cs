@@ -25,7 +25,7 @@ internal static partial class PlanningCompactConstruction
         {
             var definitions = schema["$defs"] as JsonObject ?? new JsonObject();
             if (schema["$defs"] is null) schema["$defs"] = definitions;
-            var originals = InterfaceTypeDefinitions(diagnostic);
+            var originals = InterfaceTypeDefinitions(diagnostic, forPrerequisite: true);
             var names = new Dictionary<string, string>(StringComparer.Ordinal)
                 { ["type"] = "continuationType", ["input"] = "continuationField", ["literal"] = "continuationLiteral" };
             foreach (var (oldName, name) in names)

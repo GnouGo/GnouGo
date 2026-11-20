@@ -63,6 +63,17 @@ usage, zero new reservations and 451 threshold warnings. It reached 20
 checkpoints. No business workflow ran. The post-run audit left EUR 100.23296
 available under the cumulative ceiling.
 
+Request 67 stopped immediately after the integer item type inside two nested
+arrays. A cold replay completed that type declaration and validated it against
+the issued prerequisite grammar. The grammar required four additional
+properties to express unspecified cardinalities. Fresh typed prerequisites use
+the existing compact array forms from TaskPlan drafting. The same declaration
+then validated directly. A regression sends the reduced declaration through
+planner construction and checks the saved prerequisite type, including
+an explicit zero bound and rejection of a negative bound. The replay used zero
+provider calls. The cause of the provider's whitespace remains unverified.
+[Typed prerequisite tests](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftReselectionTests.cs)
+
 ### Amazon session d5b6222a4ab84edd9b4076aecd870703
 
 Run 08 on `35c987b1` reached one checkpoint with the complete search acquisition

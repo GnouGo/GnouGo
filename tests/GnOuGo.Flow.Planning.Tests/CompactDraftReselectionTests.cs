@@ -269,6 +269,46 @@ public sealed class CompactDraftReselectionTests
         Assert.Null(state.Construction.Compact.CurrentStep);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NestedPrerequisiteTypesRetainExplicitBoundsAndCanOmitUnspecifiedBounds(bool bounded)
+    {
+        var (state, runtime) = await Ready();
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var response = Reselect(request);
+        response["reselectStep"] = new JsonObject
+        {
+            ["reason"] = Reason, ["disposition"] = "suspend", ["prerequisite"] = new JsonObject
+            {
+                ["need"] = "Obtain the ordered groups of row positions.", ["evidenceAddresses"] = new JsonArray("requirement:req_0"),
+                ["expectedType"] = JsonSerializer.SerializeToNode(new TaskType
+                {
+                    Kind = "array", Items = new() { Kind = "array", MaxItems = bounded ? 0 : null, Items = new() { Kind = "integer" } }
+                }, PlanningJsonContext.Default.TaskType)
+            }
+        };
+        var wire = PlanningCorpus.Transport(response, schema, schema)!;
+        var decision = wire["reselectStep"]!;
+        var outer = decision["prerequisite"]!["expectedType"]!.AsObject();
+        outer.Remove("minItems");
+        outer.Remove("maxItems");
+        var inner = outer["items"]!.AsObject();
+        if (!bounded) { inner.Remove("minItems"); inner.Remove("maxItems"); }
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
+        runtime.Respond = (_, _) => new() { Json = wire };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var expected = Assert.Single(state.Construction!.Compact!.SuspendedSteps!).Prerequisite.ExpectedType;
+        Assert.Null(expected.MaxItems);
+        Assert.Equal(bounded ? 0 : (int?)null, expected.Items!.MaxItems);
+        Assert.Equal("integer", expected.Items.Items!.Kind);
+        inner["minItems"] = null;
+        inner["maxItems"] = -1;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, schema));
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> Ready()
     {
         var runtime = new TestRuntime { Respond = (request, _) => Wire(request, new()
