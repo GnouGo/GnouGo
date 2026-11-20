@@ -14,6 +14,14 @@ expanded the same paginated comparison through a fourth page-specific
 conditional. The Server stopped at revision 157 after the completed physical
 receipt for call 47. The workflow had not reached publication or execution.
 
+The original responses to calls 31 and 39 consumed the output of an accepted
+control through a checked value. Both were rejected until the model rewrote
+the binding to bypass the checked port. The two forwarded-port regression
+cases reproduced the rejection. After the validation change, the unchanged
+responses from revisions 112 and 134 each passed construction validation and
+compilation with zero findings and zero model calls. All 38 connected-fragment
+tests passed, including rejection of an unrelated output on the same producer.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

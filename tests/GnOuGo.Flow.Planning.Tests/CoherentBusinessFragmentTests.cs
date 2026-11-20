@@ -537,9 +537,11 @@ public sealed class CoherentBusinessFragmentTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope(bool predicateOperand)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope(bool predicateOperand, bool forwardThroughValues)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Compact!.CurrentStep!.Kind = "conditional";
@@ -561,6 +563,20 @@ public sealed class CoherentBusinessFragmentTests
         var consumer = Value(2);
         consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
         var accepted = new TaskValue { Kind = "output", Source = "choose", Port = "result" };
+        if (forwardThroughValues)
+        {
+            var verified = new PlanTask { Id = "verify", Kind = "value", Objective = "Retain the checked quantity.",
+                Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [accepted, new() { Kind = "null" }] },
+                Outputs = [new("checked", accepted), new("unrelated", new() { Kind = "number", Number = 3 })] };
+            var forward = new PlanTask { Id = "forward", Kind = "value", Objective = "Expose both quantities.",
+                Outputs = [new("quantity", new() { Kind = "output", Source = "verify", Port = "checked" }),
+                    new("other", new() { Kind = "output", Source = "verify", Port = "unrelated" })] };
+            state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+                CompleteBlock = false, ContinueInScope = "/root", Tasks = [verified, forward] });
+            state = await Advance(state, runtime);
+            Assert.Empty(state.Diagnostics);
+            accepted = new() { Kind = "output", Source = "forward", Port = "quantity" };
+        }
         if (predicateOperand)
             consumer.Requires = new() { Kind = "predicate", Predicate = "not_equal",
                 Items = [accepted, new() { Kind = "number", Number = -1 }] };
@@ -575,9 +591,10 @@ public sealed class CoherentBusinessFragmentTests
         PlanningCompactConstruction.ValidateExtension(state, candidate);
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
             candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
-        Assert.Equal(2, candidate.Plan.Root.Tasks.Count);
+        Assert.Equal(forwardThroughValues ? 4 : 2, candidate.Plan.Root.Tasks.Count);
         consumer.Requires = null;
-        consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
+        consumer.Outputs[0] = new("result", forwardThroughValues ? new() { Kind = "output", Source = "forward", Port = "other" } :
+            new() { Kind = "number", Number = 3 });
         Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
             PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
             diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");

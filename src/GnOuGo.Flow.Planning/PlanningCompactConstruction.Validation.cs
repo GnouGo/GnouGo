@@ -113,18 +113,26 @@ internal static partial class PlanningCompactConstruction
                 .Where(accepted => accepted.Kind == "foreach").Select(accepted => accepted.Items)
                 .OfType<TaskValue>().Where(items => items.Kind == "output")
                 .Select(items => (items.Source, items.Port)).ToHashSet();
+            // A checked value may forward a control result through several ports. Follow
+            // only the binding of that output; a guard or sibling output is not its data.
+            var accepted = BlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
+            var scope = symbols.Scopes.Single(scope => scope.Path == step.Scope).Source;
+            foreach (var producer in scope.Tasks.Where(task => task.Kind == "value" && accepted.Contains(task.Id)))
+                foreach (var output in producer.Outputs)
+                    if (ReadsControlExport(output.Value)) controlExports.Add((producer.Id, output.Name));
             foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always)
                 .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
             {
                 if (task is { Kind: "foreach", Items: { Kind: "output" } collection } &&
                     iteratedCollections.Contains((collection.Source, collection.Port))) continue;
                 var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
-                if (!contribution.Values.Values.SelectMany(site => TaskPlanCompiler.Values(site.Value))
-                    .Any(value => value is { Kind: "output", Source: { } source, Port: { } port } &&
-                        controlExports.Contains((source, port))))
+                if (!contribution.Values.Values.Any(site => ReadsControlExport(site.Value)))
                     PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id,
                         "A further control at this scope must consume an accepted control export or iterate an original collection already used by that control.");
             }
+
+            bool ReadsControlExport(TaskValue binding) => TaskPlanCompiler.Values(binding).Any(value =>
+                value is { Kind: "output", Source: { } source, Port: { } port } && controlExports.Contains((source, port)));
         }
         ValidateEmptyOpening(state, candidate);
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
