@@ -96,6 +96,23 @@ an explicit null as the right operand of `and`. This replay issued zero model
 calls. The provider's original truncation remains an observed external failure.
 [Guard and scoped output regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
 
+### Review session f508f684d7c14b358b2645a11fdf9a5f
+
+Call 4 timed out while listing the GitHub metadata source. Calls 11 and 13
+successfully read it for the replacement step, with the same snapshot hash
+on both reads. Call 12 inspected the pull-request read contract. Calls 16
+and 21 nevertheless searched other sources and cited the old timeout.
+The Server had included the previous step's failure in the new step's
+current limitations. An independent metadata check with the same configuration
+listed 49 tools and two prompts in 12.27 seconds within the configured 30 seconds.
+
+Discovery now presents the outstanding limitations owned by the current step
+and its selected focuses, using the same ownership test as metadata recovery.
+Cold replays of calls 12, 13 and 14 kept the historical timeout and successful
+pages. All three fresh prompts omitted the obsolete warning. No inference or
+tool execution was needed for those replays.
+[Focused discovery regressions](../../tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs)
+
 ### Review session 0983ad2d6da14dec833c87f1f7ab0471
 
 Run 18 on `19a34b52` extracted the three required PR identity fields without

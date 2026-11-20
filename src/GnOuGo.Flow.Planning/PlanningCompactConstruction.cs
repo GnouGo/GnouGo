@@ -853,9 +853,9 @@ internal static partial class PlanningCompactConstruction
         {
             context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null;
             context["discoveryFocuses"] = PlanningDiscoveryFocus.Presentation(state);
-            context["discoveryLimitations"] = new JsonArray((state.Discovery.Failures ?? []).Select(f => (JsonNode)new JsonObject
+            context["discoveryLimitations"] = new JsonArray(PlanningDiscoveryRecoveryActions.Failures(state).Select(f => (JsonNode)new JsonObject
                 { ["sourceId"] = f.SourceId, ["focusId"] = f.FocusId, ["outcome"] = f.Category,
-                  ["message"] = f.Message, ["superseded"] = state.Discovery.SupersededFailures?.Contains(f.Id) == true }).ToArray());
+                  ["message"] = f.Message, ["superseded"] = false }).ToArray());
         }
         AddRequirementNavigation(state, context);
         context["continuation"] = ContinuationContext(state);

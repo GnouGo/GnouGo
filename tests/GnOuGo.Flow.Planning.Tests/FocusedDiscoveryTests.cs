@@ -415,6 +415,31 @@ public sealed class FocusedDiscoveryTests
     }
 
     [Fact]
+    public async Task ARecoveredSourcePageDoesNotPresentAnEarlierFocusTimeoutAsACurrentLimitation()
+    {
+        var source = new Source("arbitrary", 1);
+        var (state, runtime) = Ready(source);
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var original = PlanningDiscoveryFocus.Choices(state).Single();
+        var timeout = new CapabilityDiscoveryFailure("timeout", source.Id, original.Id, original.Query, null,
+            "timeout", "Historical source timeout.", null, null, null, DateTimeOffset.UtcNow) { StepId = step.Id };
+        state.Discovery.Failures = [timeout];
+        Assert.Equal("timeout", PlanningCompactConstruction.DiscoveryContext(state)["discoveryLimitations"]![0]!["outcome"]!.ToString());
+
+        step.Objective = "Read the current record.";
+        runtime.Respond = (request, _) => Discover(request, state, source.Id);
+        state = await Advance(state, runtime);
+        var page = Assert.Single(state.Discovery.Pages);
+        Assert.NotEmpty(page.Capabilities);
+        var restored = PlannerFixture.Clone(state);
+        Assert.Equal(timeout, Assert.Single(restored.Discovery.Failures!));
+        var next = PlanningCompactConstruction.DiscoveryContext(restored);
+        Assert.Empty(next["discoveryLimitations"] as JsonArray ?? []);
+        Assert.Contains(page.Capabilities[0].Id, next.ToJsonString(), StringComparison.Ordinal);
+        Assert.Empty(PlanningDiscoveryRecoveryActions.Failures(restored));
+    }
+
+    [Fact]
     public async Task RecoveryRejectsFailuresOwnedByAnotherRetainedStepOrFocus()
     {
         var source = new Source("arbitrary", 1); var (state, runtime) = Ready(source);
