@@ -2,6 +2,17 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 34 reached five checkpoints. At calls 18 and 25 it requested a new
+implementation because the local comparison could require an unknown
+number of serial `nextCursor` reads. The alternative live PR diff operation
+could not bind both pinned revisions. The run stopped before execution.
+The Git MCP now offers a bounded page directory on request. A successful
+response in that mode has every remaining cursor for the pinned comparison.
+The real repository regression followed two cursors for five changed
+files, checked their order and verified a structured failure with no file
+records when the configured bound was exceeded. The default streaming
+behavior and patch truncation metadata are preserved. All 85 Git tests passed.
+
 Review 34's tenth discovery call included the same 5,114-character operation
 description in full and across three original pages. At revision 43, cold
 reconstruction of all three pages from the exact visible contract preserved

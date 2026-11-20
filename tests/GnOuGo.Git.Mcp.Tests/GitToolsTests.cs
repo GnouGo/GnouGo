@@ -105,6 +105,9 @@ public sealed class GitToolsTests : IDisposable
             tool.ProtocolTool.Name));
         var compare = Assert.Single(tools, static tool =>
             string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
+        var input = JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText())!;
+        Assert.Equal("boolean", input["properties"]?["requirePageDirectory"]?["type"]?.ToString());
+        Assert.Contains("requirePageDirectory", compare.ProtocolTool.Description, StringComparison.Ordinal);
         var outputSchema = JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText());
         var cursorDirectory = outputSchema!["properties"]!["remainingPageCursors"];
         Assert.Equal("string", cursorDirectory!["items"]!["type"]!.GetValue<string>());

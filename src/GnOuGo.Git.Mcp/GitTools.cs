@@ -48,7 +48,7 @@ public sealed class GitTools
         [Description("When true, returns staged/index changes instead of unstaged working tree changes.")] bool staged = false)
         => Execute("git_diff", () => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
-    [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. Each remainingPageCursors item addresses another page for these revisions and page size. If absent, follow nextCursor. Reads commit trees independently of the working tree." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Compare exact commit trees with per-file patches, renames, binary, submodule and truncation metadata. For bounded iteration set requirePageDirectory=true. On success remainingPageCursors then lists every remaining cursor in order for these revisions, comparison mode and page size. By default, large comparisons can be streamed using nextCursor." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompareRefsMetadataJson)]
     public GitCompareRefsResult GitCompareRefs(
         [Description(RequiredProjectRootDescription)] string projectRoot,
@@ -56,8 +56,15 @@ public sealed class GitTools
         [Description("Exact head commit SHA or fetched ref.")] string headRef,
         [Description("When true (default), compare merge-base to head as GitHub PRs do; exact base/head/merge-base SHAs are always returned.")] bool compareFromMergeBase = true,
         [Description("Opaque cursor from nextCursor or remainingPageCursors of the same comparison.")] string? cursor = null,
-        [Description("Maximum files in this page, capped by Git:MaxComparePageSize.")] int pageSize = 50)
-        => Execute("git_compare_refs", () => _gitRepositoryService.CompareRefs(projectRoot, baseRef, headRef, compareFromMergeBase, cursor, pageSize));
+        [Description("Maximum files in this page, capped by Git:MaxComparePageSize.")] int pageSize = 50,
+        [Description("Require a complete remainingPageCursors directory within the configured bound. Fails without returning a partial page when it cannot fit.")] bool requirePageDirectory = false)
+        => Execute("git_compare_refs", () =>
+        {
+            var page = _gitRepositoryService.CompareRefs(projectRoot, baseRef, headRef, compareFromMergeBase, cursor, pageSize);
+            if (requirePageDirectory && page.RemainingPageCursors is null)
+                throw new InvalidOperationException("The complete cursor directory exceeds Git:MaxComparePageSize. Use a larger permitted pageSize or stream the comparison with nextCursor.");
+            return page;
+        });
 
     [McpServerTool(Name = "git_log", UseStructuredContent = true, OutputSchemaType = typeof(GitLogResult)), Description("Returns recent commits for an existing repository project root." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]

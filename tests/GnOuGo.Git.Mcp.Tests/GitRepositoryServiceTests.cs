@@ -477,13 +477,17 @@ public sealed class GitRepositoryServiceTests : IDisposable
     [Fact]
     public void CompareRefsReturnsTheCompleteBoundedPageDirectoryForPinnedRevisions()
     {
-        var service = CreateService(maxComparePageSize: 2);
+        var settings = new GitServerSettings { DefaultWorkingDirectory = _root, AllowedWorkingRoots = [_root], AllowMutations = true, MaxComparePageSize = 2 };
+        var policy = new GitPolicy(settings, _root);
+        var service = new GitRepositoryService(policy, Options.Create(settings));
+        var tools = new GitTools(policy, service, Microsoft.Extensions.Logging.Abstractions.NullLogger<GitTools>.Instance);
         var basis = WriteCommit(service, "base.txt", "base", "base");
         var files = Enumerable.Range(0, 5).Select(i => $"file-{i}.txt").ToArray();
         foreach (var file in files) File.WriteAllText(Path.Combine(_root, file), file);
         service.Stage(".", files);
         var head = service.Commit(".", "five changes", "Test User", "test@example.local");
-        var first = service.CompareRefs(".", basis.Sha, head.Sha, pageSize: 8);
+        var first = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 8, requirePageDirectory: true);
+        Assert.True(first.Success);
         Assert.Equal(2, first.PageSize);
         Assert.Equal(new[] { "2", "4" }, first.RemainingPageCursors);
         var visited = new List<string>(first.Files.Select(f => f.Path));
@@ -493,11 +497,17 @@ public sealed class GitRepositoryServiceTests : IDisposable
             visited.AddRange(page.Files.Select(f => f.Path));
         }
         Assert.Equal(files, visited);
-        var last = service.CompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2);
+        var last = tools.GitCompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2, requirePageDirectory: true);
         Assert.Empty(last.RemainingPageCursors!);
-        var many = service.CompareRefs(".", basis.Sha, head.Sha, pageSize: 1);
+        var many = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 1);
         Assert.Null(many.RemainingPageCursors);
         Assert.Equal("1", many.NextCursor);
+        var overflow = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 1, requirePageDirectory: true);
+        Assert.False(overflow.Success);
+        Assert.Equal("INVALID_INPUT", overflow.ErrorCode);
+        Assert.Contains("cursor directory", overflow.ErrorMessage, StringComparison.Ordinal);
+        Assert.Empty(overflow.Files);
+        Assert.Null(overflow.NextCursor);
     }
 
     [Fact]
