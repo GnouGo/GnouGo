@@ -14,6 +14,25 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string InterruptedServerRun = "interrupted-server-run";
 
+    [Fact]
+    public async Task FreshServerPlanChecksExternalReservationsBeforeCreatingSessionState()
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "early-admission");
+        using var model = new KeyVaultBenchmarkModel(campaign, new LLMOptions());
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.Preflight", Guid.NewGuid().ToString("N"));
+        try
+        {
+            var failure = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => ServerLiveDiagnostics.RunAsync(
+                ["--schema-portability", "server-live-plan", "--run", "fresh", "--financial-forecast-mode", "experimental_warning",
+                    "--retained-external-reservations-eur", "1", "--server-phase-policy", Path.Combine(workspace, "unused.json")],
+                campaign, model, workspace));
+            Assert.Equal("external_financial_history_incomplete", failure.Details?["reason"]?.ToString());
+            Assert.False(Directory.Exists(workspace));
+            Assert.Empty(await campaign.OwnedRecordsAsync("planning-evaluation-session-policy", Ct));
+        }
+        finally { if (Directory.Exists(workspace)) Directory.Delete(workspace, true); }
+    }
+
     [Theory]
     [InlineData("valid")]
     [InlineData("receipt")]

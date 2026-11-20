@@ -69,6 +69,12 @@ internal static class ServerLiveDiagnostics
         if (planning || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
+        var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
+        if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
+        model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
+        if (planning && model.AdvisoryFinancialForecasts)
+            await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: true);
+
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
         if (!retained && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
         var root = Directory.GetCurrentDirectory();
@@ -101,9 +107,6 @@ internal static class ServerLiveDiagnostics
         if (fundingScope is not null)
             hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
                 "--WorkflowPlanningBudget:Amount=" + fundingScope["current_authorized_ceiling_eur"]!.GetValue<decimal>().ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
-        var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
-        if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
-        model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
         hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
         var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
         var transportFile = SchemaPortabilityCampaign.Option(args, "--server-transport-policy");
