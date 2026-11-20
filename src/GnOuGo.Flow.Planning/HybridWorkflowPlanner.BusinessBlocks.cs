@@ -52,7 +52,7 @@ public sealed partial class HybridWorkflowPlanner
             var owners = construction.Checkpoints.Where(checkpoint => checkpoint.TaskIds.Contains(target, StringComparer.Ordinal) &&
                 !checkpoint.InvalidatedTaskIds.Contains(target, StringComparer.Ordinal)).ToArray();
             if (owners.Length == 0 || owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true &&
-                    (!global || ReviewedCheckpoint(state, owners[^1]) is null) ||
+                    (!global || !ReviewedTarget(owners[^1], target)) ||
                 owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
                     JsonNode.DeepEquals(node, PlanningConstruction.Node(task.Task, PlanningJsonContext.Default.PlanTask)))) return;
             var offered = TaskRepairPaths(accepted, task.Task).ToArray();
@@ -72,6 +72,14 @@ public sealed partial class HybridWorkflowPlanner
         candidate.AuthorizedPaths = authorized;
         candidate.TaskIds = candidate.TaskIds.Concat(tasks).Distinct(StringComparer.Ordinal).ToList();
         review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+
+        bool ReviewedTarget(PlanningConstructionCheckpoint owner, string target)
+        {
+            if (ReviewedCheckpoint(state, owner) is not null) return true;
+            var block = construction.Compact!.Blocks?.SingleOrDefault(block => block.Id == owner.Step?.BlockId);
+            return block?.CompletionCheckpoint > owner.Sequence && PlanningCompactConstruction.BusinessBlockReview(state, block)?["context"]?["actions"] is JsonArray actions &&
+                actions.Any(action => action?["id"]?.ToString() == target);
+        }
 
         static IEnumerable<string> TaskRepairPaths(TaskPlanSymbols symbols, PlanTask task) => task.Kind switch
         {

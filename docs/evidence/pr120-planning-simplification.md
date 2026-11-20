@@ -61,6 +61,26 @@ inference calls. The regression also exercises an explicit fetch commitment,
 which still requires the operation.
 [Block completion regressions](../../tests/GnOuGo.Flow.Planning.Tests/BusinessBlockCompletionAffordanceTests.cs)
 
+The run subsequently accepted thirteen checkpoints. Its plan contained one
+clone, root cleanup, Copilot checks, a pending review, inline comments and
+guarded submission. The final judge identified an undelivered report. The
+prepared commands, exit codes and incomplete checks remained internal, while
+the GitHub submission carried the justification alone. The judge confirmed
+the defect after inspecting the original evidence. At revision 152 the run
+stopped after 46 physical calls, EUR 26.83436, zero new reservations and 266
+threshold warnings. No business operation ran. GitHub still showed zero
+reviews and zero inline comments on the captured head.
+
+The global finding cited three tasks. Two were introduced before the
+checkpoint that recorded their block's successful review. A cold replay
+found both valid block reviews, but the repair path looked for a receipt
+on the introducing checkpoint itself. It offered no edits. The same replay
+now exposes six existing functional slots across the three cited tasks and
+leaves the accepted plan intact. The regression compiles and executes the
+corrected workflow after a new global review and checks the caller's edit
+restrictions on both checkpoint layouts.
+[Scoped repair regressions](../../tests/GnOuGo.Flow.Planning.Tests/GlobalReviewedInstructionRepairTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,

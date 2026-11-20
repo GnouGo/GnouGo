@@ -13,9 +13,11 @@ public sealed class GlobalReviewedInstructionRepairTests
     private const string CorrectedGoal = "Multiply the supplied number by two.\nReturn the computed number as result.";
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task GlobalFindingRepairsOnlyCitedBehaviorAndRequiresRenewedReview(bool callerRestricted)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task GlobalFindingRepairsOnlyCitedBehaviorAndRequiresRenewedReview(bool callerRestricted, bool reviewLaterCheckpoint)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Requirements!.Outcomes.RemoveAll(requirement => requirement.Id != "work");
@@ -41,8 +43,22 @@ public sealed class GlobalReviewedInstructionRepairTests
             Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
             return new() { Json = BusinessReviewProtocolTests.Report("ok") };
         };
+        if (reviewLaterCheckpoint)
+        {
+            state.Construction.Candidate.Extension.CompleteBlock = false;
+            state = await BusinessReviewProtocolTests.Advance(state, runtime);
+            var construction = state.Construction!;
+            Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, Assert.Single(construction.Checkpoints)));
+            construction.Compact!.CurrentStep = new()
+            {
+                Id = "finish", BlockId = construction.Compact.CurrentBlockId, Scope = "/root", Kind = "close",
+                RequirementIds = ["work"], CloseScopes = [], Objective = "Review the computation and delivery.",
+                DiscoveryComplete = true, BaseHash = PlanningConstruction.Hash(state.Plan)
+            };
+            construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], CompleteBlock = true });
+        }
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
-        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        var checkpoint = state.Construction!.Checkpoints.Last();
         Assert.NotNull(HybridWorkflowPlanner.ReviewedCheckpoint(state, checkpoint));
         Assert.False(checkpoint.Fragment["businessReviewPending"]!.GetValue<bool>());
         var baseline = PlanningConstruction.Hash(state.Plan);
@@ -88,6 +104,7 @@ public sealed class GlobalReviewedInstructionRepairTests
         Assert.False(state.Construction!.Candidate!.BusinessReviewed);
         Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
         Assert.Null(state.ApprovedHash);
+        Assert.Contains("compute", state.Construction.Checkpoints[0].InvalidatedTaskIds);
         Assert.Null(HybridWorkflowPlanner.ReviewedCheckpoint(state, state.Construction.Checkpoints[0]));
         Assert.Equal(CorrectedGoal, new TaskPlanSymbols(state.Construction.Candidate.Plan).Tasks["compute"].Task.Objective);
         Assert.Equal(consumer, JsonSerializer.Serialize(new TaskPlanSymbols(state.Construction.Candidate.Plan).Tasks["consume"].Task, PlanningJsonContext.Default.PlanTask));

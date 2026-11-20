@@ -208,7 +208,7 @@ internal static partial class PlanningCompactConstruction
             ["availability"] = "Accepted planned contribution only; planned results are not all established by a partial contribution.",
             ["technicalStatus"] = "accepted_contribution",
             ["connectionStatus"] = BusinessConnectionStatus(state, block, reached),
-            ["reviewStatus"] = BusinessBlockReviewCurrent(state, block)
+            ["reviewStatus"] = BusinessBlockReview(state, block) is not null
                 ? "business_completion_reviewed" : "accepted_contribution_pending_business_completion",
             ["executionObserved"] = false
         }).ToArray());
@@ -225,10 +225,11 @@ internal static partial class PlanningCompactConstruction
             connected == tasks.Length ? "structurally_reachable" : "partially_reachable";
     }
 
-    private static bool BusinessBlockReviewCurrent(PlanningSession state, PlanningConstructionBlock block) =>
-        block.CompletionCheckpoint is { } sequence && state.Construction!.Checkpoints.SingleOrDefault(checkpoint => checkpoint.Sequence == sequence) is { } completion &&
-        HybridWorkflowPlanner.ReviewedCheckpoint(state, completion) is not null && state.Construction.Checkpoints
-            .Where(checkpoint => checkpoint.Step?.BlockId == block.Id).All(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0);
+    internal static JsonObject? BusinessBlockReview(PlanningSession state, PlanningConstructionBlock block) =>
+        block.CompletionCheckpoint is { } sequence && state.Construction!.Checkpoints.SingleOrDefault(checkpoint =>
+            checkpoint.Sequence == sequence && checkpoint.Step?.BlockId == block.Id) is { } completion &&
+        state.Construction.Checkpoints.Where(checkpoint => checkpoint.Step?.BlockId == block.Id).All(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0)
+            ? HybridWorkflowPlanner.ReviewedCheckpoint(state, completion) : null;
 
     internal static JsonObject SelectionSchema(PlanningSession state)
     {
