@@ -60,6 +60,8 @@ An array of selection criteria can therefore produce zero or many matches.
 For a text locator, extract the required components directly. An invalid capture
 fails before a dependent operation. Extracted Boolean fields require observed
 Boolean values. Use a predicate to express a decision over extracted facts.
+Compose derived strings at the consumer using `string_operation` with `concat`
+and the observed components.
 The compiler checks the input binding and array type. Historical
 responses retain their explicit output name for validation.
 

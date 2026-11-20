@@ -52,6 +52,26 @@ an explicit null as the right operand of `and`. This replay issued zero model
 calls. The provider's original truncation remains an observed external failure.
 [Guard and scoped output regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
 
+### Review session 0983ad2d6da14dec833c87f1f7ab0471
+
+Run 18 on `19a34b52` extracted the three required PR identity fields without
+introducing a validity flag. Its next extraction asked for the observed base
+and head SHAs and a clone URL assembled from the observed repository name.
+An independent read of PR 718 through the authorized GitHub MCP returned
+`base.repo.full_name` and the two expected SHAs. The repository object contained
+only `full_name`. The exact requested HTTPS clone URL occurred nowhere in the
+response.
+
+At Server revision 103 an offline replay passed the observed GitHub result
+to the production mapping sandbox. The two SHAs and repository name passed.
+String addition failed with `unsupported_operator`, and supplying the complete
+URL as a literal failed with `ungrounded_scalar` at `$/remoteUrl`. This source
+read and replay used zero model calls. Fresh generation and business review
+now distinguish observed string components from a derived consumer argument.
+The regression compiles and runs the native concatenation using extracted
+data. Runtime extraction still rejects the invented complete value.
+[Extraction and consumer binding regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
+
 ### Review session 09f8205f5c1f4f1e8d8f3ab2f5bfc0ed
 
 The fresh Server started on `b7697858` with EUR 246.71860 available.

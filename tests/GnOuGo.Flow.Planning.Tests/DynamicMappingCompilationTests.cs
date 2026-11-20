@@ -200,6 +200,34 @@ public sealed class DynamicMappingCompilationTests
         Assert.Equal("$/valid", invented.Error!.Details!["mapping_result_path"]!.ToString());
     }
 
+    [Fact]
+    public async Task DerivedReferencesAreComposedAtTheConsumerFromObservedNames()
+    {
+        var state = PlannerFixture.Capture(new() { Request = new() { Prompt = "Use the observed name to address its archive.",
+            Policy = new() { RequireExternalConfirmation = false } } });
+        var extract = new PlanTask { Id = "observe", Kind = "transform", Mode = "extract", Objective = "Extract the supplied name.",
+            Inputs = [new("record", new() { Kind = "input", Source = "record" })],
+            ResultType = ProductTransformationPlan.Obj(("name", new() { Kind = "string" })) };
+        var address = new TaskValue { Kind = "string_operation", Text = "concat", Items =
+            [new() { Kind = "string", Text = "/archive/" }, ProductTransformationPlan.Ref("observe", "name"), new() { Kind = "string", Text = ".zip" }] };
+        var plan = new TaskPlan { Inputs = [new() { Name = "record", Type = ProductTransformationPlan.Obj(("name", new() { Kind = "string" })) }],
+            Root = new() { Tasks = [extract], Outputs = [new("address", address)] } };
+        var model = new EachModel("({name:source.record.name})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var input = new JsonObject { ["record"] = new JsonObject { ["name"] = "box" } };
+        var run = await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog), input, engine);
+        Assert.True(run.Success, run.Error?.Message);
+        Assert.Equal("/archive/box.zip", run.Outputs!["address"]!.GetValue<string>());
+        var invalid = Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping("({name:'/archive/box.zip'})", input, PlannerFixture.Ct));
+        Assert.Equal("ungrounded_scalar", invalid.Details!["mapping_failure_reason"]!.ToString());
+        Assert.Contains("compose derived strings", PlanningSchemas.TaskPlanGrammar(state).ToJsonString(), StringComparison.Ordinal);
+    }
+
     private sealed class EachModel(string script = "source.observations.label") : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls;
