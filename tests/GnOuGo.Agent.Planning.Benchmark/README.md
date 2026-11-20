@@ -263,6 +263,11 @@ using admission's verified, ordered conservative decimal sum. Use this exact
 value for separately retained application holds; it grants no funding and releases
 no reservation. HTTP holds remain in their existing accounting total.
 
+For a retained Server request with zero generation attempts, admission also
+compares the original run's application reservations for that request with
+the durable Server budget. Matching EUR amounts contribute once to the
+separate application total. A changed amount or receipt blocks admission.
+
 Fresh Amazon/Code Server qualifications discover tools through the existing
 `ObservedMcp` scenario filter used by delegated execution. Source-bound Release
 tools and their contracts stay exact; operations outside the existing delegated

@@ -329,15 +329,53 @@ internal sealed partial class BenchmarkCampaign
         {
             var closure = JsonNode.Parse(row.Value)!.AsObject();
             var evidence = closure["evidence"] as JsonObject;
-            if (closure["reason"]?.ToString() != PermanentRetentionReason || evidence?["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
+            if (closure["reason"]?.ToString() != PermanentRetentionReason || evidence is null) continue;
+            var request = row.Key[(Id.Length + 1)..];
+            if (evidence["retention_kind"]?.ToString() == UnstartedPlanningRetention && evidence["run_collection"]?.ToString() == "planning-evaluation-runs")
+            {
+                ValidatePermanentClosure(closure, request);
+                retained = LLMUsageBudgetScope.SumCostConservatively(retained, await UnstartedServerReservationAsync(evidence, request, ct));
+                continue;
+            }
+            if (evidence["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
                 evidence["retention_kind"]?.ToString() is not (InterruptedProcessRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention) ||
                 evidence["retention_kind"]?.ToString() == CancelledPlanningRetention && !evidence.ContainsKey("retained_application_reservation_eur")) continue;
-            ValidatePermanentClosure(closure, row.Key[(Id.Length + 1)..]);
+            ValidatePermanentClosure(closure, request);
             var budget = await Records.GetAsync("agent-planning-budgets-v11", "benchmark", evidence["session_id"]!.ToString(), Author, ct);
             if (budget is null || Hash(JsonNode.Parse(budget.Value)!.AsObject()) != evidence["server_budget_hash"]!.ToString())
                 throw AdmissionFailure("retained_application_hold_evidence_changed");
             retained = LLMUsageBudgetScope.SumCostConservatively(retained, evidence["retained_application_reservation_eur"]!.GetValue<decimal>());
         }
         return retained;
+    }
+
+    private async Task<decimal> UnstartedServerReservationAsync(JsonObject evidence, string request, CancellationToken ct)
+    {
+        var run = await LoadAsync("planning-evaluation-runs", evidence["run_key"]!.ToString(), ct);
+        if (run is null || Hash(run) != evidence["run_hash"]?.ToString())
+            throw AdmissionFailure("retained_application_hold_evidence_changed");
+        if (run["host"]?.ToString() != "GnOuGo.Agent.Server") return 0;
+        var session = evidence["session_id"]!.ToString();
+        var budget = await Records.GetAsync("agent-planning-budgets-v11", "benchmark", session, Author, ct);
+        var current = budget is null ? null : JsonNode.Parse(budget.Value);
+        var snapshot = run["session"]?["usage"];
+        var original = RequestAttempts(snapshot);
+        if (run["session_id"]?.ToString() != session || !JsonNode.DeepEquals(original, RequestAttempts(current)))
+            throw AdmissionFailure("retained_application_hold_evidence_changed");
+        if (original.Count == 0) return 0;
+        if (snapshot?["estimatedCostCurrency"]?.ToString() != "EUR" || current?["estimatedCostCurrency"]?.ToString() != "EUR")
+            throw AdmissionFailure("unverifiable_server_application_reservation");
+        decimal total = 0;
+        foreach (var (_, hold) in original.OrderBy(pair => pair.Key, StringComparer.Ordinal))
+        {
+            if (hold?["verifiedUsage"] is not null || hold?["reservedEstimatedCost"]?.GetValue<decimal>() is not (>= 0 and var amount))
+                throw AdmissionFailure("unverifiable_server_application_reservation");
+            total = LLMUsageBudgetScope.SumCostConservatively(total, amount);
+        }
+        return total;
+
+        JsonObject RequestAttempts(JsonNode? usage) => new((usage?["journaledAttempts"] as JsonObject ?? [])
+            .Where(pair => pair.Key.StartsWith(request + ":attempt:", StringComparison.Ordinal))
+            .Select(pair => KeyValuePair.Create(pair.Key, pair.Value?.DeepClone())));
     }
 }
