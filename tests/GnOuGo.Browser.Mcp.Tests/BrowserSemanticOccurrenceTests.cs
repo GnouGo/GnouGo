@@ -9,6 +9,47 @@ namespace GnOuGo.Browser.Mcp.Tests;
 public sealed class BrowserSemanticOccurrenceTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AcceptedHttpResponseRequiresACommittedDocumentForASourceObservation(bool attachment)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var requests = 0;
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            if (context.Request.Path != "/source") { context.Response.StatusCode = 404; return; }
+            Interlocked.Increment(ref requests);
+            context.Response.StatusCode = StatusCodes.Status202Accepted;
+            context.Response.ContentType = "text/html";
+            if (attachment) context.Response.Headers.ContentDisposition = "attachment; filename=source.html";
+            await context.Response.WriteAsync("<html><body><main><h1>Source heading</h1></main></body></html>", ct);
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
+        var url = site.Origin + "/source";
+        var result = await tools.GetContentAsync(url: url, waitUntil: "domcontentloaded", timeoutMs: 10000,
+            format: "observation_complete", cancellationToken: ct);
+        var evidence = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        var hop = Assert.Single(evidence.Hops);
+        Assert.Equal((url, "GET", 202), (hop.Url, hop.Method, hop.StatusCode));
+        Assert.Equal(1, requests);
+        Assert.Equal(!attachment, result.Success);
+        Assert.Equal(!attachment, evidence.Complete);
+        if (attachment)
+        {
+            Assert.Null(evidence.FinalUrl);
+            Assert.Null(result.ObservationSnapshot);
+        }
+        else
+        {
+            Assert.Equal(url, evidence.FinalUrl);
+            Assert.NotEmpty(result.ObservationSnapshot!.Pages);
+        }
+        Assert.True((await tools.CloseAsync(ct)).Success);
+    }
+
+    [Theory]
     [InlineData("html", false)]
     [InlineData("html", true)]
     [InlineData("observation_complete", false)]
