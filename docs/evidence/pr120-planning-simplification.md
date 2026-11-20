@@ -110,6 +110,18 @@ original branch and the recorded contract identity. Original schema addresses
 remain available for selecting inputs. The replay made zero model calls.
 [Presentation regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+The first accepted extraction in request 10 asked for a `valid` Boolean
+from the supplied PR URL. The same unsupported shape had appeared in
+reviews 15 and 16. A cold execution compiled the original plan without
+diagnostics. Both a text predicate and a literal Boolean failed at
+`$/valid` with `ungrounded_scalar`, before any external tool ran.
+The checkpoint hash was
+`5f7c3f1e9b98f5b6eadc06b039ce7f667359a9463869632685e84f6dd05dbef1`.
+Fresh authoring and business review now distinguish required text captures
+from computed validation decisions. The regression checks valid and malformed
+text and confirms the original invented flag is still rejected.
+[Extraction regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
+
 ### Amazon session 41aa6741d7e3431582fa4f39edb47219
 
 Request 11 used one value task to guard and forward a nullable navigation

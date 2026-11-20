@@ -284,7 +284,7 @@ internal static class PlanningSchemas
             yield return Described(TaskShape("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
                 state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.ExplicitExtractionProfile
-                    ? "Extract over the whole bound input for filtering, grouping or cross-item comparisons. Declare each only for one independent result per item. Copies use value bindings."
+                    ? "Extract observed fields across the whole input. A missing required capture fails extraction. Omit invented validity flags and fallback values. Use predicates for validation, interpret for judgments, and each for one result per item."
                     : "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
         }
         if (kind is null or "sequence") yield return TaskShape("sequence", ("body", Ref("scope")));

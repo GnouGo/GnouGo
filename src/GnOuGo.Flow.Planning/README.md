@@ -57,6 +57,9 @@ In fresh drafts an independent extraction declares its collection through
 the response, the planner fills the canonical `each.output` from that sole
 field. Without `each`, a fresh extract transform processes its inputs together.
 An array of selection criteria can therefore produce zero or many matches.
+For a text locator, extract the required components directly. An invalid capture
+fails before a dependent operation. Extracted Boolean fields require observed
+Boolean values. Use a predicate to express a decision over extracted facts.
 The compiler checks the input binding and array type. Historical
 responses retain their explicit output name for validation.
 

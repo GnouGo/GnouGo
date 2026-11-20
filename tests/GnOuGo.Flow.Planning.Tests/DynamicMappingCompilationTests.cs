@@ -166,6 +166,40 @@ public sealed class DynamicMappingCompilationTests
         Assert.NotNull(PlanningGraphValidation.Member(Mapping(state.Request).Input, "each"));
     }
 
+    [Fact]
+    public async Task RequiredTextCapturesValidateTheInputWithoutAnExtractedValidityFlag()
+    {
+        var state = PlannerFixture.Capture(new() { Request = new() { Prompt = "Read an entry from its supplied locator.",
+            Policy = new() { RequireExternalConfirmation = false } } });
+        var grammar = PlanningSchemas.TaskPlanGrammar(state).ToJsonString();
+        Assert.Contains("missing required capture fails", grammar, StringComparison.Ordinal);
+        var task = new PlanTask { Id = "parse", Kind = "transform", Mode = "extract", Objective = "Extract the required collection and positive entry number.",
+            Inputs = [new("locator", new() { Kind = "input", Source = "locator" })],
+            ResultType = ProductTransformationPlan.Obj(("collection", new() { Kind = "string" }), ("entry", new() { Kind = "integer" })) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "locator", Type = new() { Kind = "string" } }],
+            Root = new() { Tasks = [task], Outputs = [new("entry", ProductTransformationPlan.Ref("parse", "entry"))] } };
+        const string captures = "collection:m.text(source.locator,'^/([a-z]+)/[1-9][0-9]*$'),entry:m.number(m.text(source.locator,'^/[a-z]+/([1-9][0-9]*)$'))";
+        async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(string locator, string script)
+        {
+            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = new EachModel(script),
+                LlmDefaults = new() { Model = "fixture" } };
+            var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+            var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+            Assert.Empty(compiled.Diagnostics);
+            Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+            return await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog),
+                new JsonObject { ["locator"] = locator }, engine);
+        }
+        var valid = await Execute("/entries/718", "({" + captures + "})");
+        Assert.True(valid.Success, valid.Error?.Message);
+        Assert.Equal(718, valid.Outputs!["entry"]!.GetValue<int>());
+        Assert.False((await Execute("/entries/invalid", "({" + captures + "})")).Success);
+        task.ResultType.Fields.Add(new() { Name = "valid", Type = new() { Kind = "boolean" } });
+        var invented = await Execute("/entries/718", "({" + captures + ",valid:m.test(source.locator,'^/entries/')})");
+        Assert.False(invented.Success);
+        Assert.Equal("$/valid", invented.Error!.Details!["mapping_result_path"]!.ToString());
+    }
+
     private sealed class EachModel(string script = "source.observations.label") : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls;
