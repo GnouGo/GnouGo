@@ -11,6 +11,21 @@ candidate hrefs and the successful read as the source of navigation evidence.
 The prompt regression failed on the original wording and passed with all
 503 related Server tests after the correction.
 
+On the same unmodified run, call 26 generated nested serial `foreach`
+loops with limits of 100 pages and 200 occurrences per page. The Server
+accepted the sequence as the third checkpoint. Call 28 again requested
+access to the host's qualification result. The operator stopped planning
+after the receipt for call 29. Execution had not started. The original
+session is `f0cd031b1bc54230bce68288f3c897f5`. Its 29 physical requests
+cost EUR 12.67175 at the campaign tariff. The Server reserved
+EUR 3.22400 for call 30 before the campaign recorded an HTTP attempt.
+The full amount remains held under evidence hash
+`15eecbb7676a1440567dffdf5b4037ba3b82b6f65e01ac77d6ec002ffb2b1883`.
+
+The complete solution on isolated revision `b4ecf6f6` passed 9,675 tests
+across 33 test projects, with 13 skips and zero failures. This includes
+2,612 Server tests, with one skip in that project.
+
 Review 34 reached five checkpoints. At calls 18 and 25 it requested a new
 implementation because the local comparison could require an unknown
 number of serial `nextCursor` reads. The alternative live PR diff operation
