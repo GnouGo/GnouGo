@@ -257,16 +257,18 @@ internal static class PlanningSchemas
         return new() { ["anyOf"] = new JsonArray(operations.Concat(TaskShapes(state, null)).ToArray()) };
     }
 
-    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind)
+    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind, bool deriveExtractionOutput = false)
     {
         if (kind is null or "value")
             yield return Described(TaskShape("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute.");
         if (kind is null or "transform")
         {
+            var input = Described(Ref("id"), "Exact named binding in this task's inputs.");
+            var each = deriveExtractionOutput ? Object(("input", input)) :
+                Object(("input", input), ("output", Described(Ref("id"), "Exact name of the sole array result field.")));
             yield return Described(TaskShape("transform", ("mode", Enum("extract")),
-                ("each", Object(("input", Described(Ref("id"), "Exact named binding in this task's inputs.")),
-                    ("output", Described(Ref("id"), "Exact name of the sole array result field.")))), ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref("goal")),
+                ("each", each), ("inputs", NonEmptyArray(Ref("output"))),
+                ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(deriveExtractionOutput ? "id" : "goal")),
                     ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile

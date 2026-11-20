@@ -47,6 +47,12 @@ for the same selected operation, version and contract hash. Its
 `ancestorsPresentedAt` pointer resolves within that prompt. Each row keeps
 its original schema coordinate and reference closure.
 
+In fresh drafts an independent extraction declares its collection through
+`each.input` and its array result in `resultType.fields`. After validating
+the response, the planner fills the canonical `each.output` from that sole
+field. The compiler checks the input binding and array type. Historical
+responses retain their explicit output name for validation.
+
 When an imported producer or individually retrieved task repeats an exact task
 declaration already shown in a retained scope view, `taskPresentedAt` points to
 that declaration in the same context. Matching includes task identity, owning

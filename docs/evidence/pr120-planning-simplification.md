@@ -104,6 +104,16 @@ preview allowance for up to three complete operation declarations. The most
 recent checkpoint and its scope's cleanup have priority. The complete scope
 remains retrievable. [Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
 
+Request 47 named `classifications` as its independent extraction output
+while declaring `matchesTargetedCandidate` as its only result field. The
+compiler rejected the mismatch. Request 48 repaired it and the Server
+accepted checkpoint 16. Fresh draft grammar asks for the field name once.
+Offline replay removed just the redundant output name from the original
+response. It passed the new grammar, technical validation and compilation
+on the same baseline `33bbfe12a1b0538678ebbe21ff161e1f21ffe000a3e8e98b0f7b14999ad90e87`
+with zero provider calls. The original response still fails its historical
+compiler check. [Draft and compilation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftFixedFactsTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

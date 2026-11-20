@@ -8,6 +8,42 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactDraftFixedFactsTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void IndependentDraftDeclaresItsResultNameOnceAndCompilesWithTheExactPort(bool nested)
+    {
+        var state = State();
+        state.Construction!.Compact!.CurrentStep!.Kind = nested ? "sequence" : "transform";
+        state.Catalog!.AllowedStepTypes.Add("mapping.dynamic");
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var task = new PlanTask { Id = "classify", Kind = "transform", Mode = "extract", Objective = "Classify each observed number.",
+            Inputs = [new("items", new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }] }),
+                new("candidate", new() { Kind = "number", Number = 1 })],
+            Each = new("items", "classifications"), ResultType = new() { Kind = "object", Fields = [new()
+                { Name = "matchesCandidate", Type = new() { Kind = "array", Items = new() { Kind = "boolean" } } }] } };
+        var extension = new PlanningConstructionExtension { Scope = "/tasks/outer/body", RequirementIds = ["req"],
+            Tasks = [nested ? new() { Id = "block", Kind = "sequence", Objective = "Process the records.",
+                Body = new() { Always = [task] } } : task], CompleteBlock = false };
+        var raw = PlanningCorpus.Transport(new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(extension,
+            PlanningJsonContext.Default.PlanningConstructionExtension) }, schema, schema)!;
+        var row = raw["extension"]!["tasks"]![0]!;
+        var each = (nested ? row["body"]!["always"]![0]! : row)["each"]!.AsObject();
+        each.Remove("output");
+        Assert.Empty(PlanningModelCalls.ValidateResponseFindings(raw, schema));
+        var normalized = PlanningConstruction.NormalizeDraftResponse(PlannerFixture.Clone(state), raw, Issued(state, schema));
+        var contribution = normalized["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
+        var root = new TaskScope { Tasks = contribution.Tasks };
+        Assert.Equal(new TaskExtractionEach("items", "matchesCandidate"), TaskPlanRevisions.Tasks(root).Single(item => item.Kind == "transform").Each);
+        var compiled = new TaskPlanCompiler().Compile(new() { Root = root }, state.Catalog);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.False(each.ContainsKey("output"));
+        each["output"] = "classifications";
+        Assert.NotEmpty(PlanningModelCalls.ValidateResponseFindings(raw, schema));
+        var legacy = new TaskPlanCompiler().Compile(new() { Root = new() { Tasks = [task] } }, state.Catalog);
+        Assert.Contains(legacy.Diagnostics, finding => finding.Code == "TASK_TRANSFORM_EACH");
+    }
+
     [Fact]
     public void DraftOmitsOnlyHostFactsAndUnavailableActions()
     {
