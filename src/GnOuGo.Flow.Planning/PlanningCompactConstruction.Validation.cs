@@ -104,16 +104,27 @@ internal static partial class PlanningCompactConstruction
             symbols.Tasks[id].Task.Kind == "call" && symbols.Tasks[id].Task.Group != step.GroupId))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/tasks", "The extension exceeds the issued task-kind or operation selection.");
         if (controlExports.Count > 0)
+        {
+            // A projection can discard fields required to check the original rows.
+            // Only the exact, already iterated collection can justify that separate loop.
+            var iteratedCollections = controlExports.Select(export => export.Id).Distinct(StringComparer.Ordinal)
+                .SelectMany(id => TaskPlanRevisions.Tasks(new TaskScope { Tasks = [symbols.Tasks[id].Task] }))
+                .Where(accepted => accepted.Kind == "foreach").Select(accepted => accepted.Items)
+                .OfType<TaskValue>().Where(items => items.Kind == "output")
+                .Select(items => (items.Source, items.Port)).ToHashSet();
             foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always)
                 .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
             {
+                if (task is { Kind: "foreach", Items: { Kind: "output" } collection } &&
+                    iteratedCollections.Contains((collection.Source, collection.Port))) continue;
                 var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
                 if (!contribution.Values.Values.SelectMany(site => TaskPlanCompiler.Values(site.Value))
                     .Any(value => value is { Kind: "output", Source: { } source, Port: { } port } &&
                         controlExports.Contains((source, port))))
                     PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id,
-                        "A further control at this scope must consume an exported result of the accepted control in this step.");
+                        "A further control at this scope must consume an accepted control export or iterate an original collection already used by that control.");
             }
+        }
         ValidateEmptyOpening(state, candidate);
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
         var derivedImports = UsesDerivedImports(state, candidate);

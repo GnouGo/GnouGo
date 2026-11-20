@@ -490,6 +490,44 @@ public sealed class CoherentBusinessFragmentTests
     }
 
     [Fact]
+    public async Task AnotherIterationCanUseTheSameOriginalCollectionForAnIndependentCheck()
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Compact!.CurrentStep!.Kind = "sequence";
+        static TaskValue Source(string port) => new() { Kind = "output", Source = "samples", Port = port };
+        static TaskValue Samples() => new() { Kind = "array", Items = [new() { Kind = "number", Number = 7 }] };
+        var original = new PlanTask { Id = "samples", Kind = "value", Objective = "Keep both series.",
+            Outputs = [new("measurements", Samples()), new("estimates", Samples())] };
+        var projection = new PlanTask { Id = "project", Kind = "foreach", Objective = "Project the measured values.",
+            Items = Source("measurements"), Body = new() { Outputs = [new("measurement", new() { Kind = "item" })] } };
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, ContinueInScope = "/root",
+            Tasks = [original, new() { Id = "summary", Kind = "sequence", Objective = "Retain the projected result.",
+                Body = new() { Tasks = [projection], Outputs = [new("derived", new() { Kind = "output", Source = "project", Port = "measurement" })] } }]
+        });
+        runtime.Respond = (_, _) => throw new InvalidOperationException("Technical acceptance needs no model call.");
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var check = new PlanTask { Id = "verify", Kind = "foreach", Objective = "Verify every original measurement.",
+            Items = Source("measurements"), Body = new() { Tasks = [new() { Id = "checked", Kind = "value",
+                Objective = "Require a nonzero sample.", Requires = new() { Kind = "predicate", Predicate = "not_equal",
+                    Items = [new() { Kind = "item" }, new() { Kind = "number", Number = 0 }] },
+                Outputs = [new("verified", new() { Kind = "boolean", Boolean = true })] }] } };
+        var extension = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, Tasks = [check] };
+        AssertDraftAccepts(state, extension);
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+            candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+
+        check.Items = Source("estimates");
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
+            diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
+    }
+
+    [Fact]
     public async Task ContinuedOriginalScopeCannotRepeatItsTopLevelWrapper()
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
