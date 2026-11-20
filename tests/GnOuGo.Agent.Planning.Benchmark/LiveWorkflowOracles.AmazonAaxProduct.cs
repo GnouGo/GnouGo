@@ -136,11 +136,13 @@ internal static class AmazonAaxProductPolicy
     internal static bool IsSourceEntry(string value) => AmazonSourceCoveragePolicy.IsSourceEntry(value) || IsAaxEntry(value) || IsReview(value);
     private static readonly Regex Reviews = new(@"\A(?:" + EntryPattern + @")#customerReviews\z", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
     internal static bool IsReview(string value) => Reviews.IsMatch(value);
-    internal const string PlanningFacts = "Authorized browser policy " + Id + ". Use the complete current owned search with nearest data-asin context. " +
-        "The static full-URL allowlist is " + UrlPattern + ". The observed-navigation source pattern is " + SourcePattern +
-        ". Additional fragment-free entries matching " + EntryPattern + " require the exact literal link from that same search, including at redirect hops. " +
-        "Account for every heading-bearing ASIN context, including empty identifiers and unclassified links. An unsupported link leaves coverage unresolved. " +
-        "Unverified AAX product occurrences require their own ordered complete reads and matching redirect and destination product identities. " +
-        "An AAX review alias requires the exact same-card non-heading base-href+#customerReviews twin. " +
-        AmazonCardReviewPolicy.CardReviewFacts + AmazonStoreListPolicy.StoreListFacts + AmazonObservedRedirectPolicy.AcquisitionGuarantees;
+    internal const string PlanningFacts = "Authorized browser policy " + Id + ". Use the complete current search observation. " +
+        "Keep the original ordered records with their card, nearest data-asin, heading, literal href and repeated occurrences. " +
+        AmazonResolvedProductPolicy.SourceResolutionFacts + " Keep each complete receipt with its original record. " +
+        "The host verifies card membership, heading coverage and product identity against the search, redirect receipts and destination observations. " +
+        "It admits only the next exact source read until the search is qualified. An ambiguous heading, conflicting identity or unsupported link leaves coverage unresolved. " +
+        "Store-only cards and auxiliary review anchors do not count as products. AAX review fragments require an exact same-card href twin and are never navigated. " +
+        "Visit the first qualifying product headings in their original order using observed links. A new search, close or failed evidence expires authority. " +
+        AmazonObservedRedirectPolicy.AcquisitionGuarantees + " Static full-URL allowlist: " + UrlPattern + ". Observed source: " + SourcePattern +
+        ". Additional fragment-free entries matching " + EntryPattern + " must be literal links from that search, including at redirect hops.";
 }

@@ -67,6 +67,9 @@ public sealed class AmazonAaxWorkflowTests
                      "Browser__ObservedNavigationEntryUrlPatterns__0" })
             Assert.Contains(Assert.IsType<string>(profile[setting]), prompt, StringComparison.Ordinal);
         Assert.Contains("exactement les 10 premiers produits", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Report this store membership separately", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("The host verifies card membership", prompt, StringComparison.Ordinal);
+        Assert.Contains(AmazonResolvedProductPolicy.SourceResolutionFacts, prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(profile.Values, value => value == AmazonAaxSourceDiagnostic.Host);
         Assert.Equal(before, JsonSerializer.Serialize(configured));
         var old = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, root, AmazonSourceCoveragePolicy.Id)["GnOuGo.Browser.Mcp"].EnvironmentVariables!;

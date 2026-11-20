@@ -2,6 +2,17 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 16's generated root contained ten collection passes for a single
+search prerequisite. Its 4,611-character request included a separate store
+membership report, an audit result that the qualification host already
+computes from the original browser observations. The v10 live prompt now
+identifies that verification as host work. With the original run's query,
+workspace path and ten-product request it measures 2,791 characters. All
+three captured navigation patterns and the requirement for a distinct
+ordered read of each unresolved occurrence remain in the request. The rule
+regression and all 503 related Server tests passed, including early visits,
+repeated links, incomplete receipts, changed ordering and workbook checks.
+
 Review 33 (`cc5abc5628034a3d811447e4f06a4e1c`) accepted eleven checkpoints.
 Its local judges accepted the pending review, verified inline comment loop,
 submission acknowledgement and the caller's bound report. Final technical
