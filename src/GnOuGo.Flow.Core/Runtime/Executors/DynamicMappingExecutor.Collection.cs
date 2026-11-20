@@ -37,12 +37,12 @@ public sealed partial class DynamicMappingExecutor
         };
         if (FailureDiagnostics(failureDetails) is { Count: > 0 } diagnostics) payload["failure_details"] = diagnostics;
         if (adaptiveIndices is not null) payload["assigned_count"] = adaptiveIndices.Count;
-        var collectionInstruction = "\nIndependent-item extraction. Return the result for ONE item, against item_target. " +
-            "Use item for the current original element (for example item.records), and context for the other approved read-only inputs. " +
-            "Do not wrap item in the business input name. The host binds these variables exactly as examples[].item and context below. " +
-            "Examples are incomplete observations of the collection, never evidence that omitted items are empty or absent. " +
+        var collectionInstruction = "\nReturn ONE item matching item_target. " +
+            "Use item for the current original element (e.g. item.records), context for approved shared inputs. " +
+            "Use examples[].item directly, without a business input wrapper. " +
+            "Omitted items remain unexamined in these examples. " +
             (adaptiveIndices is null
-                ? "The host applies this same expression to EVERY original item, preserving order and nesting, with no filtering or aggregation.\n"
+                ? "The host applies the expression to EVERY original item in order, preserving nesting. No filtering or aggregation.\n"
                 : "The host validates this expression against EVERY assigned unresolved item. Previously validated results stay unchanged. The complete result retains every original item in order and nesting, with no filtering or aggregation.\n");
         bool Fits(bool mandatory = false)
         {

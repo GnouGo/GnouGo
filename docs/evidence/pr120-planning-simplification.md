@@ -172,6 +172,12 @@ loop covers the entire known input. The regression validates a limit of
 200 against the grammar and executes the compiled loop with all 200 values,
 including duplicates, in order.
 
+Adding both extraction helpers initially pushed an existing complete-example
+request to 12,098 against its 12,000 allowance. Shortening the independent
+item instructions restored admission for that example. The regression
+checks all 120 observations, preserves the original action references and
+still rejects a genuinely oversized global judgment before dispatch.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
