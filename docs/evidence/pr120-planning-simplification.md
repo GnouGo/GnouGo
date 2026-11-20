@@ -122,6 +122,18 @@ from computed validation decisions. The regression checks valid and malformed
 text and confirms the original invented flag is still rejected.
 [Extraction regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
 
+The Server cancelled at revision 60 after four checkpoints and 26 warnings.
+Thirteen physical planning calls cost EUR 6.92486 at the recorded tariffs.
+The fourteenth logical call reserved EUR 5.18717 before any campaign
+envelope or HTTP attempt. The operator verified the exact cancellation
+and retained that entire application reservation under evidence hash
+`16e285f35288374620c7a6817a2f9f26219e06ac2551bd3a7ceafd6990878a05`.
+The subsequent audit counted 2,901 HTTP attempts, EUR 1,335.07883 measured,
+EUR 487.69797 in unknown HTTP reservations and EUR 108.54865 in separate
+application reservations. EUR 168.67455 remained under the EUR 2,100 ceiling.
+GitHub read-back found zero reviews and zero inline comments. The case's
+clone directory was absent. Execution never started.
+
 ### Amazon session 41aa6741d7e3431582fa4f39edb47219
 
 Request 11 used one value task to guard and forward a nullable navigation
