@@ -862,13 +862,15 @@ public sealed class CompactConstructionContractsTests
     [InlineData("value")]
     public void CompactDraftDistinguishesTaskPresenceFromBusinessValueNullability(string kind)
     {
-        const string current = "always contains cleanup on completion or failure; preserve available payloads before nested cleanup. present tests preceding local or lexical-ancestor task completion, not caller inputs or field nullability. For a null guard, compare the exact input, output or field with null.";
         var state = State();
 
         var step = state.Construction!.Compact!.CurrentStep!;
         step.Kind = kind; step.OperationIds.Clear();
         var schema = PlanningCompactConstruction.DraftSchema(state);
-        Assert.Contains(current, schema["description"]!.ToString(), StringComparison.Ordinal);
+        var description = schema["description"]!.ToString();
+        Assert.Contains("Preserve payloads before nested cleanup", description, StringComparison.Ordinal);
+        Assert.Contains("preceding local or lexical-ancestor task completion", description, StringComparison.Ordinal);
+        Assert.Contains("short-circuit and(not_equal(exact input/output/field,null),field test)", description, StringComparison.Ordinal);
 
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
 

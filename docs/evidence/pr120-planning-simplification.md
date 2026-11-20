@@ -100,6 +100,18 @@ available. Offline reconstruction of the rejected selection also restored
 all seven requested contract branches, totaling 7,541 bytes, with zero
 model calls or executions.
 
+### Amazon session 41aa6741d7e3431582fa4f39edb47219
+
+Request 11 used one value task to guard and forward a nullable navigation
+receipt and another to check its completion field. In a cold copy of that
+checkpoint, placing both checks on the consuming task compiled the five-task
+prefix with four tasks and preserved its root cleanup. The live plan was
+untouched. The draft now describes this short-circuit form. A regression
+passes a nullable control export directly into a cached operation. A null
+record or a false completion flag stops before dispatch. A complete record
+dispatches its original field once, with zero provider discovery calls.
+[Guarded consumer regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

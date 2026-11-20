@@ -195,16 +195,21 @@ public sealed class CompactDeferredBindingTests
             new JsonArray("  repeated\tlabel  ")), Assert.Single(writes)));
     }
 
-    [Fact]
-    public async Task CachedOperationConsumesGuardedNullableControlExportInTheIssuedGrammar()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CachedOperationConsumesGuardedNullableControlExportInTheIssuedGrammar(bool readFields)
     {
         var (state, runtime) = ReadyKnown();
-        var record = new TaskInput { Name = "record", Type = new() { Kind = "string", Nullable = true } };
+        var record = new TaskInput { Name = "record", Type = readFields
+            ? new() { Kind = "object", Nullable = true, Fields = [new() { Name = "ready", Type = new() { Kind = "boolean" } },
+                new() { Name = "target", Type = new() { Kind = "string" } }] }
+            : new() { Kind = "string", Nullable = true } };
         state.Requirements!.Inputs!.Add(record);
         state.Plan!.Inputs.Add(record);
         var operation = Contract();
         AddContract(state, operation);
-        state.Catalog!.AllowedStepTypes.AddRange(["set", "workflow.call", "validation"]);
+        state.Catalog!.AllowedStepTypes.AddRange(["set", "workflow.call", "validation", "switch"]);
         var pages = new Pages();
         runtime.Capabilities = pages;
         runtime.Respond = (request, _) => Wire(request, SelectKnown(state, "sequence", operation.Id));
@@ -214,13 +219,16 @@ public sealed class CompactDeferredBindingTests
         {
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             static TaskValue Export() => new() { Kind = "output", Source = "capture", Port = "reference" };
+            static TaskValue Field(string name) => new() { Kind = "field", Port = name, Items = [Export()] };
+            Assert.Contains("Bind the guarded value directly", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+            TaskValue guard = new() { Kind = "predicate", Predicate = "not_equal", Items = [Export(), new()] };
+            if (readFields) guard = new() { Kind = "predicate", Predicate = "and", Items = [guard, Field("ready")] };
             var extension = new PlanningConstructionExtension { RequirementIds = ["req_0"], CompleteBlock = false, Tasks =
             [
                 new() { Id = "capture", Kind = "sequence", Objective = "Expose the original reference.",
                     Body = new() { Outputs = [new("reference", new() { Kind = "input", Source = "record" })] } },
                 new() { Id = "read_exact", Operation = operation.Id, Objective = Objective,
-                    Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [Export(), new()] },
-                    Inputs = [new("target", Export())] }
+                    Requires = guard, Inputs = [new("target", readFields ? Field("target") : Export())] }
             ] };
             var response = Draft(state);
             response["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
@@ -242,19 +250,26 @@ public sealed class CompactDeferredBindingTests
                 received.Add(args!["target"]!.GetValue<string>());
                 return new() { Content = new JsonObject() };
             } } });
-        foreach (var value in new string?[] { "original", null })
+        (JsonNode? Value, bool Succeeds)[] cases = readFields
+            ? [(new JsonObject { ["ready"] = true, ["target"] = "original" }, true),
+               (new JsonObject { ["ready"] = false, ["target"] = "blocked" }, false), (null, false)]
+            : [(JsonValue.Create("original"), true), (null, false)];
+        foreach (var (value, succeeds) in cases)
         {
             var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["record"] = value }, new() { McpClientFactory = factory });
-            Assert.Equal(value is not null, result.Success);
-            if (value is null) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+            Assert.Equal(succeeds, result.Success);
+            if (!succeeds) Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
         }
         Assert.Equal(["original"], received);
         Assert.Equal(2, runtime.Calls.Count);
         Assert.Empty(pages.Cursors);
         Assert.Empty(pages.Resolutions);
-        candidate.Plan.Root.Tasks.Single(task => task.Id == "read_exact").Requires = null;
-        Assert.Contains(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics,
-            finding => finding.Code == "TASK_INPUT_TYPE" && finding.Location == "/tasks/read_exact/inputs/target");
+        if (!readFields)
+        {
+            candidate.Plan.Root.Tasks.Single(task => task.Id == "read_exact").Requires = null;
+            Assert.Contains(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics,
+                finding => finding.Code == "TASK_INPUT_TYPE" && finding.Location == "/tasks/read_exact/inputs/target");
+        }
     }
 
     [Fact]
