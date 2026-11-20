@@ -65,7 +65,7 @@ public sealed class AmazonAaxWorkflowTests
             LiveWorkflowEvaluation.QualificationProductCount, AmazonAaxProductPolicy.Id);
         foreach (var setting in new[] { "Browser__AllowedNavigationUrlPatterns__0", "Browser__ObservedNavigationSourceUrlPatterns__0",
                      "Browser__ObservedNavigationEntryUrlPatterns__0" })
-            Assert.Contains(profile[setting], prompt, StringComparison.Ordinal);
+            Assert.Contains(Assert.IsType<string>(profile[setting]), prompt, StringComparison.Ordinal);
         Assert.Contains("exactement les 10 premiers produits", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(profile.Values, value => value == AmazonAaxSourceDiagnostic.Host);
         Assert.Equal(before, JsonSerializer.Serialize(configured));
