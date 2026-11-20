@@ -41,9 +41,8 @@ public sealed partial class TaskPlanCompiler
             if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
             {
                 if (alternatives.Count == 0 || alternatives.Any(a => a is not JsonObject)) Fail("TASK_FIELD_TYPE", "Field selection requires declared object alternatives.");
-                var projected = alternatives.Select(a => FieldContract(a!.AsObject(), depth + 1)).ToArray();
-                if (projected.All(field => JsonNode.DeepEquals(field, projected[0]))) return projected[0];
-                return new() { ["anyOf"] = new JsonArray(projected.Select(field => field.DeepClone()).ToArray()) };
+                if (alternatives.Count == 1) return FieldContract(alternatives[0]!.AsObject(), depth + 1);
+                return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode)FieldContract(a!.AsObject(), depth + 1).DeepClone()).ToArray()) };
             }
             // A nullable object still declares its fields. The checked projection fails
             // on a null container; it never supplies a default or establishes success.
