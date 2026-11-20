@@ -75,6 +75,17 @@ regression reproduces that choice and verifies renewal before dispatch. The
 longest measured provider wait in review 16 was 81.42 seconds.
 [OIDC cache regression](../../tests/GnOuGo.Auth.Core.Tests/OidcJwtApiKeyProviderTests.cs)
 
+The first subsequent Amazon admission stopped before creating a session
+because the terminal 401 had no usage receipt. The standard retention
+operator bound the exact response, failure, request and stopped run to
+evidence hash `42695499b5141440defe633665ebbc70db1eec861ffe443971a332a6341a130c`.
+It permanently closed replay and preserved the full reservation. A separate
+process compared all 2,848 HTTP attempts, the complete accounting, ceiling
+history and application holds before and after. EUR 203.78056 remained
+available. Offline reconstruction of the rejected selection also restored
+all seven requested contract branches, totaling 7,541 bytes, with zero
+model calls or executions.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
