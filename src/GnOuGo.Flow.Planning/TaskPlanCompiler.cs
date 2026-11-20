@@ -50,7 +50,7 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 public sealed partial class TaskPlanCompiler
 {
     private sealed record Bound(PlanningValue Value, JsonObject Schema,
-        Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null);
+        Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null, bool WholeMcpResult = false);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
     {
         public PlanningWorkflow Workflow { get; } = workflow;
@@ -779,7 +779,7 @@ public sealed partial class TaskPlanCompiler
             capability.StepType, capability.OutputSchema, PlanningGraphValidation.Member(input, "output_schema"))); }
         catch (ArgumentException ex) { Fail("TASK_INPUT_SCHEMA", ex.Message); return null!; }
         catch (InvalidOperationException ex) { Fail("TASK_COMPILER_VALIDATION", ex.Message); return null!; }
-        var whole = Output(key, capability.StepType, [], schema);
+        var whole = Output(key, capability.StepType, [], schema) with { WholeMcpResult = capability.StepType == "mcp.call" };
         var results = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = whole };
         foreach (var port in TaskOperations.Describe(capability).Outputs)
         {
@@ -799,7 +799,9 @@ public sealed partial class TaskPlanCompiler
         if (value.Schema.Count == 0 || value.Schema["x-gnougo-opaque"]?.ToString() == "true")
             Fail("TASK_OUTPUT_CONTRACT", "An opaque optional result cannot establish a typed business field.");
         if (scope.Target is null) return value; // Semantic preflight: no graph emission.
-        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString());
+        var narrowing = value.WholeMcpResult && value.SelectionPath is { Count: 0 } && !JsonNode.DeepEquals(value.Schema, source.Schema)
+            ? ":" + PlanningGraphCompiler.Fingerprint(value.Schema.ToJsonString()) : "";
+        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString() + narrowing);
         if (!scope.Target.Any(n => n.Key == key))
         {
             var node = new PlanningNode { Key = key, Type = "set",

@@ -25,6 +25,19 @@ public sealed partial class TaskPlanCompiler
             value.Text is not null || value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
             Fail("TASK_FIELD_INVALID", "Field selection requires one business object and a nonblank literal field name.");
         var source = Value(value.Items[0], scope, consume: false, requireNonNull: true);
+        if (source.WholeMcpResult && (source.Schema["oneOf"] ?? source.Schema["anyOf"]) is JsonArray variants &&
+            variants.All(variant => variant is JsonObject branch && DeclaresOrExcludes(branch, value.Port!)))
+        {
+            var matching = variants.OfType<JsonObject>().Where(branch => DeclaresObject(branch) && branch["properties"]?[value.Port!] is JsonObject).ToArray();
+            if (matching.Length > 0 && matching.Length < variants.Count)
+            {
+                // Validate the actual whole response before looking up a property. An array
+                // can have a numeric index with the same name as a declared object property.
+                var contract = matching.Length == 1 ? matching[0] : new JsonObject
+                    { ["anyOf"] = new JsonArray(matching.Select(branch => branch.DeepClone()).ToArray()) };
+                source = Consume(source with { Schema = contract, SelectionSource = source, SelectionPath = [] }, scope);
+            }
+        }
         var schema = FieldContract(source.Schema, 0);
         // Only an unambiguous semantic location can grant producer-type repairs.
         var location = source.TypeLocation is { } declared && !value.Port!.Contains('/')
@@ -60,4 +73,12 @@ public sealed partial class TaskPlanCompiler
         string Origin() => string.Join(", ", Values(value.Items[0]).Where(v => v.Kind is "output" or "input" or "item")
             .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port)).DefaultIfEmpty("the explicit binding"));
     }
+
+    private static bool DeclaresOrExcludes(JsonObject schema, string field) => schema["type"]?.ToString() switch
+    {
+        "object" => schema["properties"]?[field] is JsonObject || schema["additionalProperties"] is JsonValue additional &&
+            additional.TryGetValue<bool>(out var open) && !open && !schema.ContainsKey("patternProperties"),
+        "array" or "string" or "integer" or "number" or "boolean" or "null" => true,
+        _ => false
+    };
 }

@@ -2,6 +2,20 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
+accepted checkpoints and requested clarification on its Copilot task. Call 13
+selected the literal `get_diff`, required its response to be nonnull and its
+`diff` field to be nonempty. The GitHub MCP publishes that field on one object
+in a union with null, other closed objects and arrays. Preflight reported
+`TASK_FIELD_TYPE` and `TASK_FIELD_UNKNOWN` against the actual request. A
+checked whole-response projection now tests the matching object contracts
+before reading the field. Tests exercise the real grammar, validation,
+compilation and downstream dispatch with matching and mismatched receipts.
+The original call 13 response (revision 56) produced the retained candidate
+hash again. With its resolved MCP catalog the candidate passed extension
+and technical validation without a model call or plan edit.
+The run stopped before execution after 18 calls costing EUR 11.27486.
+
 Amazon 16 (Server session `5b9abfc1707f48d6867179a9ed78d48e`) accepted
 13 checkpoints, including ordered nested loops over original observations and
 sponsored content reads. It repeatedly requested the same nested declarations

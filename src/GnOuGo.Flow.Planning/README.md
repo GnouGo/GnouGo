@@ -343,6 +343,15 @@ still yields to strict captured input targets; issued requests recover unchanged
 
 ### Explicit consumer views and flatten
 
+An MCP can declare several possible response shapes. A `field` selection on
+the whole response can read a property declared by a subset of those shapes
+when every other alternative excludes it. The compiler checks the received
+response against the matching object contracts before reading the property.
+An absent property, an array with a matching numeric index, or a different
+object shape cannot satisfy the check. An opaque or open alternative with an
+unknown field still requires more evidence. Input selector descriptions do
+not determine which response actually arrived.
+
 `flatten` is an additive TaskValue/PlanningValue binding with exactly one operand in `items`. It accepts typed, nonnullable arrays of arrays and concatenates one level in source order. Element nulls, duplicates, deeper arrays and exact references survive; null inner arrays and opaque elements fail. Compiler-owned checked selections enforce source constraints before concatenation and consumer constraints afterward. Extraction result contracts and explicit object/field bindings define closed consumer inputs. Global interpretation still has to fit complete-request admission; flattening a broad result does not compact its fields.
 
 ### ID-only selection and lookup
