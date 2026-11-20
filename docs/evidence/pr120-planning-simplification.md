@@ -113,6 +113,25 @@ pages. All three fresh prompts omitted the obsolete warning. No inference or
 tool execution was needed for those replays.
 [Focused discovery regressions](../../tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs)
 
+Call 22 selected the inspected read operation. Call 23 abandoned it because
+the generated prerequisite appeared to prohibit deriving its arguments from
+the caller's URL. The original request requires resolving the actual PR on
+each execution. Its URL supplies the lookup arguments, while live metadata
+supplies the base and head revisions. Continuation guidance now distinguishes
+those sources. A replay of revision 104 retained the same consumer, typed
+prerequisite and evidence addresses. The generic extraction regression executes
+with a caller-supplied reference and rejects an invented validity field.
+[Continuation tests](../../tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs)
+
+The operator stopped the session after receipt 27. Terminal revision 129
+recorded 28 logical requests, 27 physical calls, EUR 16.05139 measured,
+183 advisory warnings and zero accepted checkpoints. Request 28 had a
+EUR 1.88300 application reservation before any campaign HTTP envelope.
+Retention hash `7ec5b125326bf149f74e3e56804b40662499e03a2bcc087ff47ff10fdaae6ae4`
+preserved that liability. The audit left EUR 82.29857 available. At 14:32:38 UTC
+GitHub still showed zero reviews and zero inline comments, the same base and head
+as run 18, and the expected clone directory was absent.
+
 ### Review session 0983ad2d6da14dec833c87f1f7ab0471
 
 Run 18 on `19a34b52` extracted the three required PR identity fields without

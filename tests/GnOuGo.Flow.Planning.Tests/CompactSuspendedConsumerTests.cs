@@ -10,6 +10,25 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactSuspendedConsumerTests
 {
+    [Fact]
+    public async Task AGeneratedPrerequisiteKeepsCallerArgumentsDistinctFromUnobservedExternalFacts()
+    {
+        var (state, _) = await TentativeProducer();
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var navigation = PlanningCompactConstruction.ContinuationContext(state)!;
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        var context = JsonNode.Parse(draft.Prompt[(draft.Prompt.LastIndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        foreach (var view in new[] { navigation, context["continuation"]!.AsObject() })
+        {
+            Assert.Equal("model_authored_navigation", view["basis"]!.ToString());
+            var guidance = view["bindingValidation"]!.ToString();
+            Assert.Contains("derive operation arguments from caller inputs", guidance, StringComparison.Ordinal);
+            Assert.Contains("read missing external facts", guidance, StringComparison.Ordinal);
+            Assert.Contains("original", guidance, StringComparison.Ordinal);
+        }
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
     [Theory]
     [InlineData("none")]
     [InlineData("changed")]

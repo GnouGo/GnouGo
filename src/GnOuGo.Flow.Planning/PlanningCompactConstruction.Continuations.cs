@@ -8,7 +8,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     private static bool Active(PlanningConstructionSuspendedStep item) => item.Status is "waiting" or "resuming";
-    private const string ContinuationValidation = "Model-authored navigation, not an original obligation or permission. Eligibility only allows proposing a binding; resumption still checks its exact checkpoint, source, contract, scope and retained type. Compatible types do not identify the intended producer.";
+    private const string ContinuationValidation = "Under the original requirements, derive operation arguments from caller inputs and read missing external facts with authorized operations. Resumption verifies the exact checkpoint, source, contract, scope and retained type.";
 
     internal static void ConstrainReselectionSchema(PlanningSession state, JsonObject schema)
     {
