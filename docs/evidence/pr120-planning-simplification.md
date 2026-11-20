@@ -333,6 +333,14 @@ request had projected only positions. The complete response cost EUR 0.67410.
 The fresh Amazon 16 session started with 3,481 cumulative physical attempts
 and EUR 297.72181 available.
 
+Review 30 also requested nine catalog listings during discovery. Five asked
+for a different ranking of a source whose entire descriptor directory had
+already been displayed. A cold replay read the original encrypted snapshots,
+checked their hashes, and reproduced every issued page and cursor before
+testing the revised choices. The five redundant listings disappeared.
+The four outstanding reads, contract inspection, and the accepted plan
+remained available. The replay made zero provider calls.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

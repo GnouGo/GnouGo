@@ -11,6 +11,54 @@ public sealed class FocusedDiscoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Theory]
+    [InlineData("complete", false)]
+    [InlineData("partial", true)]
+    [InlineData("different_snapshot", true)]
+    [InlineData("unversioned", true)]
+    [InlineData("historical", true)]
+    [InlineData("duplicate", true)]
+    [InlineData("filtered", true)]
+    public async Task AFocusCanInspectEveryKnownDescriptorWithoutRelistingTheCompleteSnapshot(string variant, bool canList)
+    {
+        var source = new Source("archive", 9);
+        var (state, runtime) = Ready(source);
+        state.Construction!.Compact!.CurrentStep!.Prerequisites =
+            [new() { Need = "Inspect the original values.", EvidenceAddresses = ["requirement:req_0"] }];
+        var focuses = PlanningDiscoveryFocus.Choices(state);
+        var catalog = Assert.IsType<CapabilityDiscovery>(runtime.Capabilities);
+        var snapshot = await catalog.CaptureAsync(source.Id, Ct);
+        var first = catalog.ReadPage(snapshot, null, focuses[0].Query) with { FocusId = focuses[0].Id, SnapshotVersion = new string('a', 64) };
+        var last = catalog.ReadPage(snapshot, first.NextCursor!, focuses[0].Query) with { FocusId = focuses[0].Id, SnapshotVersion = first.SnapshotVersion };
+        state.Discovery.Pages = [first];
+        if (variant != "partial")
+            state.Discovery.Pages.Add(variant switch
+            {
+                "different_snapshot" => last with { SnapshotVersion = new string('b', 64) },
+                "unversioned" => last with { SnapshotVersion = null },
+                "historical" => last with { SourceCapabilityCount = null },
+                "duplicate" => last with { Capabilities = [first.Capabilities[0]] },
+                "filtered" => last with { ProducedArtifactKind = "file" },
+                _ => last
+            });
+        var page = PlanningCompactConstruction.ProviderRequestPage(state, 0, 4);
+        var other = page["items"]!.AsArray().Single(row => row!["focusId"]!.ToString() == focuses[1].Id)!;
+        Assert.Equal(canList, other["canRequestPage"]!.GetValue<bool>());
+        if (!canList)
+        {
+            Assert.Equal(9, other["resultCount"]!.GetValue<int>());
+            Assert.Equal(9, PlanningCompactConstruction.InspectionCandidates(state, source.Id).Length);
+            var schema = PlanningCompactConstruction.DiscoverySchema(state);
+            var request = new JsonObject { ["sourceId"] = source.Id, ["cursor"] = null, ["query"] = null,
+                ["operationIds"] = null, ["focusId"] = focuses[1].Id, ["justification"] = "List this source again." };
+            var response = new JsonObject { ["discoveryRequests"] = new JsonArray(request), ["binding"] = null,
+                ["evidenceRequests"] = null, ["reselectStep"] = null, ["clarifications"] = null };
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
+        }
+        Assert.Empty(state.Discovery.Resolved);
+        Assert.Equal(1, source.Reads);
+    }
+
     [Fact]
     public async Task SmallProviderFocusMenuAllowsTheLastSourceAndItsExactPrerequisiteOnTheFirstDecision()
     {

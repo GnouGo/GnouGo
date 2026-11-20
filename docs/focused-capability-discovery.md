@@ -20,6 +20,13 @@ in-memory integrity; no progress cache, database service or synchronization work
 is added. Runtimes without persistent journal adapters retain the snapshot in their
 existing checkpoint data.
 
+The native catalog records the total number of capabilities in an unfiltered
+directory. Once the visible pages contain every distinct capability from the
+same versioned snapshot, another focus can inspect those descriptors directly.
+Partial pages, filtered reads, older pages without a total, conflicting
+versions and unresolved failures keep their existing discovery choices.
+Final validation still checks the selected contracts.
+
 Transport failures, metadata timeouts and catalog changes remain explicit source
 outcomes. Ordinary exploratory failures stop that source's pagination and warn while
 other sources continue. Failed sources cannot be automatically selected again for

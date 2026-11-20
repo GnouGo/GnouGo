@@ -17,21 +17,25 @@ internal static partial class PlanningCompactConstruction
         var focuses = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)
             : new[] { new PlanningDiscoveryFocus.Focus("", State(state).CurrentStep!.Objective, "legacy") };
         foreach (var source in state.Discovery.Sources)
-        foreach (var focus in focuses)
         {
-            var objective = focus.Query;
-            var focusId = PlanningDiscoveryFocus.Enabled(state) ? focus.Id : null;
-            var failure = PlanningDiscoveryFocus.Failure(state, source.Id, objective, focusId);
-            if (failure is not null) { result.Add(new(source.Id, null, false, failure.Message, FocusId: focusId)); continue; }
-            var pages = PlanningDiscoveryFocus.Pages(state, source.Id, objective, focusId).ToArray();
-            if (pages.Length == 0) result.Add(new(source.Id, null, FocusId: focusId));
-            else
+            var completeCount = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.CompleteDirectoryCount(state, source.Id) : null;
+            foreach (var focus in focuses)
             {
-                var continuations = pages.Where(p => p.NextCursor is not null && pages.All(next => next.Cursor != p.NextCursor))
-                    .Select(p => new ProviderRequest(source.Id, p.NextCursor, ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId)).Distinct().ToArray();
-                if (continuations.Length > 0) result.AddRange(continuations);
-                else result.Add(new(source.Id, null, Available: false, Unavailable: pages[^1].UnavailableReason,
-                    ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId));
+                var objective = focus.Query;
+                var focusId = PlanningDiscoveryFocus.Enabled(state) ? focus.Id : null;
+                var failure = PlanningDiscoveryFocus.Failure(state, source.Id, objective, focusId);
+                if (failure is not null) { result.Add(new(source.Id, null, false, failure.Message, FocusId: focusId)); continue; }
+                if (completeCount is { } count) { result.Add(new(source.Id, null, false, ResultCount: count, FocusId: focusId)); continue; }
+                var pages = PlanningDiscoveryFocus.Pages(state, source.Id, objective, focusId).ToArray();
+                if (pages.Length == 0) result.Add(new(source.Id, null, FocusId: focusId));
+                else
+                {
+                    var continuations = pages.Where(p => p.NextCursor is not null && pages.All(next => next.Cursor != p.NextCursor))
+                        .Select(p => new ProviderRequest(source.Id, p.NextCursor, ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId)).Distinct().ToArray();
+                    if (continuations.Length > 0) result.AddRange(continuations);
+                    else result.Add(new(source.Id, null, Available: false, Unavailable: pages[^1].UnavailableReason,
+                        ResultCount: pages.Sum(page => page.Capabilities.Count), FocusId: focusId));
+                }
             }
         }
         return result;

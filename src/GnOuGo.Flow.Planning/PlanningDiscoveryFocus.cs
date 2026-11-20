@@ -40,6 +40,19 @@ internal static class PlanningDiscoveryFocus
         return state.Discovery.Pages.Where(p => p.SourceId == source && p.Query == query && p.ProducedArtifactKind is null &&
             (active is null || p.ActionId == active) && (focus is null || p.FocusId == focus));
     }
+
+    internal static int? CompleteDirectoryCount(PlanningSession state, string source)
+    {
+        var pages = VisiblePages(state).Where(p => p.SourceId == source).ToArray();
+        if (pages.FirstOrDefault() is not { SourceCapabilityCount: >= 0 and var count, SnapshotVersion: { Length: > 0 } version } ||
+            pages.Any(p => p.UnavailableReason is not null || p.FailureId is not null || p.SnapshotVersion != version ||
+                p.SourceCapabilityCount != count || p.ProducedArtifactKind is not null) ||
+            state.Discovery.Failures?.Any(f => f.SourceId == source &&
+                state.Discovery.SupersededFailures?.Contains(f.Id, StringComparer.Ordinal) != true) == true) return null;
+        var capabilities = pages.SelectMany(p => p.Capabilities).DistinctBy(c => (c.Id, c.Version)).ToArray();
+        return capabilities.Length == count && capabilities.All(c => c.SourceId == source) &&
+            capabilities.DistinctBy(c => c.Id).Count() == count ? count : null;
+    }
     internal static CapabilityDiscoveryFailure? Failure(PlanningSession state, string source, string query, string? focus = null) =>
         state.Discovery.Failures?.LastOrDefault(f => f.SourceId == source && f.Query == query &&
             (f.FocusId is not null ? f.FocusId == focus : f.StepId == state.Construction?.Compact?.CurrentStep?.Id) &&

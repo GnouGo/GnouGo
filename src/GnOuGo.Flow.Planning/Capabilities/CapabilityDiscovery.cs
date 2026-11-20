@@ -107,7 +107,8 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
         if (offset > summaries.Length) throw new ArgumentException("Discovery cursor is outside this source.");
         var pageSize = query is null && producedArtifactKind is null ? 24 : 8;
         return new(sourceId, cursor, ordered.Skip(offset).Take(pageSize).ToList(),
-            offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind);
+            offset + pageSize < summaries.Length ? prefix + (offset + pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture) : null, Query: query, ProducedArtifactKind: producedArtifactKind)
+        { SourceCapabilityCount = producedArtifactKind is null ? capabilities.Count : null };
     }
 
     public async Task<PlanningCapability> ResolveAsync(CapabilitySummary summary, CancellationToken ct)
