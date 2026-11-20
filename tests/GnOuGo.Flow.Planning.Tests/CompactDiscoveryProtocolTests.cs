@@ -314,6 +314,32 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(step.SchemaPointers);
     }
 
+    [Theory]
+    [InlineData("unchanged", true)]
+    [InlineData("different_content", false)]
+    [InlineData("different_scope", false)]
+    [InlineData("denied", false)]
+    public async Task ContinuedDraftRetainsExactVisibleCompanionDescription(string variant, bool expected)
+    {
+        var (state, _) = await BoundOperations(2);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        var selected = step.OperationIds.ToArray();
+        var companion = state.Discovery.Pages[0].Capabilities.Single(c => !selected.Contains(c.Operation!.Id));
+        var address = "description:" + PlanningCompactConstruction.ContractIdentity(companion.Operation!.Id, companion.Version) + ":0";
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var original = construction.Evidence![address]!.DeepClone();
+        if (variant == "different_content") construction.Evidence[address]!["text"] = "Stale";
+        if (variant == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add(companion.Id);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: variant == "different_scope" ? "/other" : step.Scope);
+        var draft = PlanningConstruction.DraftRequest(state, false);
+        Assert.Equal(expected, JsonNode.DeepEquals(original, Context(draft)["evidence"]?[address]));
+        if (expected) Assert.DoesNotContain(JsonSerializer.Serialize(address), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(selected, step.OperationIds);
+        Assert.DoesNotContain(state.Discovery.Resolved, c => c.Id == companion.Id);
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> BoundOperations(int count)
     {
         var (state, runtime) = await Ready();

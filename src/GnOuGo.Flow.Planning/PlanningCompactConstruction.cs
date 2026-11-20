@@ -1230,7 +1230,8 @@ internal static partial class PlanningCompactConstruction
                 RetainInspectedChildScope(state, continuedScope, inspectedEvidence, retained);
                 RetainInspectedOperationPages(state, inspectedEvidence, retained);
             }
-            RetainSelectedContractPages(state, inspectedEvidence, retained);
+            RetainInspectedContractPages(state, inspectedEvidence, retained,
+                continuedScope is not null && continuedScope == State(state).CurrentStep?.Scope);
             if (continuedScope is not null && continuedScope == State(state).CurrentStep?.Scope)
                 RetainInspectedScopeTasks(state, continuedScope, inspectedEvidence, retained);
         }

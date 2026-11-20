@@ -2,6 +2,14 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 32 requested the same 235-character Git operation description at
+calls 14 and 16. The full operation was outside its selection, but the same
+versioned descriptor remained visible. Replays of revisions 59 and 65 now
+carry the exact inspected description into the continued draft and remove
+its repeat-read choice. Both kept the selection and plan hash unchanged
+and made zero model calls. All 201 discovery protocol regressions passed,
+including changed content, a different scope and a denied capability.
+
 Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
 accepted checkpoints and requested clarification on its Copilot task. Call 13
 selected the literal `get_diff`, required its response to be nonnull and its
