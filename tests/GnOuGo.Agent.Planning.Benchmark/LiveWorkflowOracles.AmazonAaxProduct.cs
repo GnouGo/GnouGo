@@ -140,7 +140,7 @@ internal static class AmazonAaxProductPolicy
         "Keep the original ordered records with their card, nearest data-asin, heading, literal href and repeated occurrences. " +
         AmazonResolvedProductPolicy.SourceResolutionFacts + " Keep each complete receipt with its original record. " +
         "The host verifies card membership, heading coverage and product identity against the search, redirect receipts and destination observations. " +
-        "It admits only the next exact source read until the search is qualified. An ambiguous heading, conflicting identity or unsupported link leaves coverage unresolved. " +
+        "The workflow selects candidate hrefs from its observations. Admission is checked on browser_get_content itself for each literal href. A successful read returns the page and navigationEvidence. The host keeps its authorization list and qualification state private. An ambiguous heading, conflicting identity or unsupported link leaves coverage unresolved. " +
         "Store-only cards and auxiliary review anchors do not count as products. AAX review fragments require an exact same-card href twin and are never navigated. " +
         "Visit the first qualifying product headings in their original order using observed links. A new search, close or failed evidence expires authority. " +
         AmazonObservedRedirectPolicy.AcquisitionGuarantees + " Static full-URL allowlist: " + UrlPattern + ". Observed source: " + SourcePattern +

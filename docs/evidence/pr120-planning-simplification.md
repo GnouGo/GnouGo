@@ -2,6 +2,15 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 17's twelfth and eighteenth native responses searched for an exposed
+qualification result or an authorization list after the search and cleanup
+were accepted. The host actually checks admission on each call to
+`browser_get_content`. Its authorization list is private. The live prompt
+now identifies the workflow's own search observations as the source of
+candidate hrefs and the successful read as the source of navigation evidence.
+The prompt regression failed on the original wording and passed with all
+503 related Server tests after the correction.
+
 Review 34 reached five checkpoints. At calls 18 and 25 it requested a new
 implementation because the local comparison could require an unknown
 number of serial `nextCursor` reads. The alternative live PR diff operation

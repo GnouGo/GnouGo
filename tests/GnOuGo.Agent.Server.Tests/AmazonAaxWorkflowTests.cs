@@ -70,6 +70,8 @@ public sealed class AmazonAaxWorkflowTests
         Assert.DoesNotContain("Report this store membership separately", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("The host verifies card membership", prompt, StringComparison.Ordinal);
         Assert.Contains(AmazonResolvedProductPolicy.SourceResolutionFacts, prompt, StringComparison.Ordinal);
+        Assert.Contains("The workflow selects candidate hrefs from its observations", prompt, StringComparison.Ordinal);
+        Assert.Contains("Admission is checked on browser_get_content itself", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(profile.Values, value => value == AmazonAaxSourceDiagnostic.Host);
         Assert.Equal(before, JsonSerializer.Serialize(configured));
         var old = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, root, AmazonSourceCoveragePolicy.Id)["GnOuGo.Browser.Mcp"].EnvironmentVariables!;
