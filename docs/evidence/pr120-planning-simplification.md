@@ -10,6 +10,61 @@ EUR 99.88219 in separate application reservations. The new available funding
 was EUR 401.85913. The authorization fingerprint is
 `25041a40a3c9336a98364ba6cf232c01e0c1df3ee9cbe26fbe7685b1685ef834`.
 
+### Business results and closing balance
+
+| Scenario after the supplement | Fresh Server sessions | Logical planning requests | Physical generation attempts | Measured usage at captured tariffs | Outstanding HTTP holds added | Separate application holds added | Consecutive verified runs |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Amazon, runs 04–13 | 10 | 303 | 299 | EUR 146.73641 | EUR 0 | EUR 9.32266 | 0/2 |
+| Review, runs 14–22 | 9 | 313 | 310 | EUR 204.98259 | EUR 10.61032 | EUR 10.40431 | 0/2 |
+
+The source-only Amazon captures 14 and 15 each identified the ordered first
+ten products and verified browser closure. Business execution did not start
+in the fresh Server sessions. They made zero detail visits and produced no
+XLSX. GitHub still showed an open PR with 52 changed files, zero reviews and
+zero inline comments on head `107c86fc87fcd89b529f6589736d27a09acb4206`.
+The qualification did not clone, publish or exercise failure cleanup on that
+PR in these sessions. [Amazon source captures](#amazon-source-and-execution-evidence)
+and [target pull request](https://github.com/AxaFrance/SmartGuide/pull/718)
+
+The cumulative audit counted 3,164 physical attempts and EUR 1,471.47722
+of measured usage at captured tariffs. It preserved EUR 489.11077 across
+54 unresolved HTTP attempts and EUR 139.56769 of separate Server application
+holds. The resulting exposure was EUR 2,100.15568 against EUR 2,100.00.
+Spendable funding was zero. The provider invoice was unavailable. Four
+of the five previously omitted zero-attempt holds predated the supplement.
+Together those four accounted for EUR 19.95853 of the closing application
+total. The audit file's SHA-256 was
+`42a768af99070979dc478aa59a20f67fbaec5a4cc8a9ba1b499ff14bb9ef050e`.
+
+On `76fbe18f`, fresh review attempt 23 and Amazon attempt 14 each
+returned a `budget_blocked` warning with zero available funding, zero
+sessions created and zero provider attempts. Both used the existing
+campaign, provider, execution authorizations and forecast warning mode.
+The 588 admission, campaign and retention regressions passed.
+
+### Amazon session 56d272d2ab0a4125afe7afdad23bef8c
+
+Run 13 on `e23127de` produced eight technical checkpoints, including the
+search, source-position extraction and a root browser finalizer. It reached
+revision 59 with 100 advisory warnings, 18 logical requests, 17 physical
+attempts and EUR 7.21785 of measured usage. Its eighteenth request required
+cumulative exposure of EUR 2,100.16210 and stopped before HTTP dispatch.
+The Server had already reserved EUR 3.08334 locally for that request. It
+kept the hold in full under receipt
+`c29114c26bdbced05eb59c4c8f95b1be3696a449790d2e52456aa83fe26d4321`.
+The fresh Server launcher now sets the local planning allowance from the
+uncommitted campaign balance before it can reserve another request.
+[Funding regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
+
+Drafts 10–12 contributed four values that forwarded the same observations.
+Together they tested six distinct conditions. The issued grammar supports
+nesting binary predicates. Fresh drafts now describe combining these checks
+at the consumer. Cold reconstruction of all three issued requests showed the
+new guidance and an equivalent executable guard grammar. The regression
+validates the issued grammar, compiles the guarded consumer and executes
+every false branch and the null input. The full planner suite passed 3,147
+tests. [Guarded consumer regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
+
 ### HTTP admission read time
 
 Before Amazon run 08, a read-only audit took 67.68 seconds to account for
