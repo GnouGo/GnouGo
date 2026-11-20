@@ -139,6 +139,16 @@ bytes on `93afd696`. Referring to the same field reduced that to 35,612 bytes.
 The replay compared the complete expanded schema and both source bindings
 with zero provider calls. [Imported result regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+On request 78 the generator bound the official GitHub review and inline
+comment operations. Request 79 abandoned the selection because neither HTTP
+tool declared a separate host-confirmation operation. Request 82 restarted
+discovery for that operation. The qualification host already intercepts
+`submit_pending`, checks the receipts, presents the concrete submission for
+confirmation and rechecks the target before dispatch. Its discovery adapter
+now describes this installed guard on the existing operation. The provider's
+wire schemas, authorized methods and actual dispatch checks are preserved.
+[Discovery regression](../../tests/GnOuGo.Agent.Server.Tests/DelegatedPlanningDiscoveryTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

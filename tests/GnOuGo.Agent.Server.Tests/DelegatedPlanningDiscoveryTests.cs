@@ -11,6 +11,35 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class DelegatedPlanningDiscoveryTests
 {
+    [Fact]
+    public async Task PublishedReviewDiscoveryDescribesTheInstalledDispatchGuardOnTheUnderlyingWrite()
+    {
+        const string description = "The provider can create, submit or remove a pending review.";
+        var inner = new Factory("Github", "pull_request_review_write", "pull_request_read");
+        var write = inner.Tools[0];
+        write.Description = description;
+        write.EffectKind = "write";
+        write.OutputSchema = new JsonObject { ["type"] = "object" };
+        var ct = TestContext.Current.CancellationToken;
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario, "bound-host");
+        await using var session = await discovery.GetClientAsync("Github", ct);
+        var tools = await session.ListToolsAsync(ct);
+        var offered = Assert.Single(tools, tool => tool.Name == write.Name);
+        Assert.Contains("submit_pending", offered.Description, StringComparison.Ordinal);
+        Assert.Contains("concrete verdict and inline comments", offered.Description, StringComparison.Ordinal);
+        Assert.Contains("rechecks the pull request head and base", offered.Description, StringComparison.Ordinal);
+        Assert.Contains(description, offered.Description, StringComparison.Ordinal);
+        Assert.Equal(write.EffectKind, offered.EffectKind);
+        Assert.Same(write.InputSchema, offered.InputSchema);
+        Assert.Same(write.OutputSchema, offered.OutputSchema);
+        Assert.Same(inner.Tools[1], Assert.Single(tools, tool => tool.Name == "pull_request_read"));
+        Assert.Equal(description, write.Description);
+        var ordinary = new LiveWorkflowEvaluation.ObservedMcp(inner, _ => Task.CompletedTask);
+        await using var ordinarySession = await ordinary.GetClientAsync("Github", ct);
+        Assert.Same(write, (await ordinarySession.ListToolsAsync(ct))[0]);
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
     [Theory]
     [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill")]
     [InlineData("code", "GnOuGo.Git.Mcp", "git_diff", "git_push")]

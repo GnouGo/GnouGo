@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 // Independent read-back uses only GET requests. All publication goes through the generated workflow's MCP.
 internal sealed record PublishedReviewQualification(string Owner, string Repository, int Number, string Head, string Base)
@@ -9,6 +10,16 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     internal const string Scenario = "code-publish";
     internal const string Version = "github-published-review-v1";
     private string Api => $"repos/{Owner}/{Repository}/pulls/{Number}";
+
+    // The qualification host intercepts this existing MCP call in ServerBusinessExecution.
+    // The underlying provider metadata and wire contracts may also be shared by other hosts.
+    internal static McpToolInfo DescribeGuardedWrite(McpToolInfo tool) => tool.Name != "pull_request_review_write" ? tool : new()
+    {
+        Name = tool.Name, EffectKind = tool.EffectKind, InputSchema = tool.InputSchema, OutputSchema = tool.OutputSchema,
+        ArtifactContract = tool.ArtifactContract, CompositionContract = tool.CompositionContract, OutputContract = tool.OutputContract,
+        Meta = tool.Meta, ExampleResponse = tool.ExampleResponse,
+        Description = "Host dispatch contract for submit_pending: the host checks recorded mandatory checks, asks for confirmation of the concrete verdict and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. Calling submit_pending invokes this guard directly.\n" + tool.Description
+    };
 
     internal static async Task<PublishedReviewQualification> CaptureAsync(string url, CancellationToken ct)
     {
