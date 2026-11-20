@@ -355,6 +355,35 @@ public sealed class CompactDraftNavigationTests
     }
 
     [Fact]
+    public void ContinuedDraftCanInspectAnAcceptedNestedProducerWithoutScanningTaskPages()
+    {
+        var state = State();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var body = new TaskScope();
+        for (var index = 0; index < 28; index++)
+            body.Tasks.Add(new() { Id = "observed_" + index, Kind = "value", Objective = new string('x', 1200) });
+        state.Plan!.Root.Tasks.Add(new() { Id = "previously_accepted", Kind = "sequence", Body = body });
+        state.Plan.Groups.Add(new() { Id = "separate", Body = new() { Tasks = [new() { Id = "isolated", Kind = "value" }] } });
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Checkpoints.Add(new() { Step = step, PlanHash = step.BaseHash, Sequence = 1,
+            TaskIds = ["previously_accepted"], Fragment = new() { ["continueInScope"] = step.Scope } });
+        var request = PlanningConstruction.DraftRequest(state, false);
+        const string address = "task:observed_12";
+        AssertResponse(request, state, address, valid: true);
+        AssertResponse(request, state, "task:isolated", valid: false);
+        var links = Context(request)["taskEvidence"]!["descendantTaskAddresses"]!.AsArray();
+        Assert.InRange(links.Count, 1, 24);
+        Assert.Contains(links, value => value!.ToString() == address);
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var evidence = Context(PlanningConstruction.DraftRequest(state, false))["evidence"]!;
+        Assert.Equal("/tasks/previously_accepted/body", evidence[address]!["scope"]!.ToString());
+        Assert.Equal(new string('x', 1200), evidence[address]!["objective"]!.ToString());
+        Assert.DoesNotContain(step.InputTaskIds, id => id == "observed_12");
+        Assert.Equal(step.BaseHash, PlanningConstruction.Hash(state.Plan));
+    }
+
+    [Fact]
     public void ContinuedScopeCanReadItsUnrepresentedMiddleTaskPageInTheFirstBatch()
     {
         var state = State();

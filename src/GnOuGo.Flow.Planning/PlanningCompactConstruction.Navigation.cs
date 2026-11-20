@@ -100,6 +100,8 @@ internal static partial class PlanningCompactConstruction
             .Append(context["taskEvidence"]?["scopeOwner"])
             .Concat((state.Construction!.Evidence ?? []).Select(item => item.Value).Where(value => value is JsonObject or JsonArray))));
         addresses.UnionWith(NavigationEvidence(state, [context["interfaces"]]));
+        if (context["taskEvidence"]?["descendantTaskAddresses"] is JsonArray nested)
+            addresses.UnionWith(NavigationEvidence(state, nested));
         addresses.UnionWith(NavigationEvidence(state, [context["repair"]?["contracts"]]));
         addresses.UnionWith(NavigationEvidence(state, (context["requirements"] as JsonArray ?? []).Select(row => row?["acceptedProgress"])));
         var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);

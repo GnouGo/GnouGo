@@ -28,6 +28,14 @@ Replaying the inspected evidence at revisions 68, 80 and 92 preserved all
 existing byte budget. None was offered for another read. The original plan
 hash and selected operations were unchanged in each replay. A separate
 scope, an isolated group and a moved declaration fail the retention check.
+The short follow-up diagnostic `amazon-control-20261120-09` returned a complete
+evidence request after one physical attempt (EUR 0.76340). It requested the
+checkpoint directory and two task pages. Continued drafts now offer exact
+read addresses for up to 24 nested declarations in the current scope tree
+within a two-KiB index. At calls 23, 24, 29, 34 and 38 the native grammar
+offered 2, 4, 5, 6 and 10 additional directly retrievable declarations.
+The original pages remain available for bulk reads. The diagnostic produced
+no executable contribution.
 
 Amazon 16's request 28 generated another full collection pass to get the
 last HTTP method, URL and status from the ordered hops. The Browser MCP now

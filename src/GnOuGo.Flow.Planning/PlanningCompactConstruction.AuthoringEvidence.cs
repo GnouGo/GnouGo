@@ -138,7 +138,8 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
-    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate, PlanningConstructionCheckpoint? continued)
+    private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate, PlanningConstructionCheckpoint? continued,
+        bool includeDescendantAddresses)
     {
         var construction = state.Construction!;
         if (state.Plan is null) return;
@@ -201,6 +202,24 @@ internal static partial class PlanningCompactConstruction
         }
         if (owner is not null)
             navigation["scopeOwner"] = owner;
+        if (includeDescendantAddresses && accepted.Scopes.Find(site => site.Path == step.Scope) is { } current)
+        {
+            var links = new JsonArray();
+            var bytes = 2;
+            foreach (var (task, scope) in accepted.Tasks.Values)
+            {
+                var address = "task:" + task.Id;
+                if (scope == current || accepted.ExportRoute(current, task.Id).Count == 0 ||
+                    selected.Contains(task.Id, StringComparer.Ordinal) || construction.Evidence?.ContainsKey(address) == true) continue;
+                var link = JsonValue.Create(address);
+                var size = System.Text.Encoding.UTF8.GetByteCount(link.ToJsonString()) + 1;
+                if (bytes + size > ContinuedScopePreviewBytes / 4) continue;
+                links.Add((JsonNode)link);
+                bytes += size;
+                if (links.Count == 3 * PlanningConstruction.TaskDirectoryPageSize) break;
+            }
+            if (links.Count > 0) navigation["descendantTaskAddresses"] = links;
+        }
         context["taskEvidence"] = navigation;
         AddAcceptedTaskPreviews(state, context, navigation["items"]!.AsArray().OfType<JsonObject>(), continued);
     }

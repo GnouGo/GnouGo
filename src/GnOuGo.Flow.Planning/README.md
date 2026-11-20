@@ -343,6 +343,11 @@ still yields to strict captured input targets; issued requests recover unchanged
 
 ### Explicit consumer views and flatten
 
+When a diagnostic draft continues the same accepted scope, its task directory
+includes direct read addresses for nested declarations. Up to 24 addresses
+fit within a two-KiB index. Exact task reads carry the original scope and
+phase. Binding and repair still use their respective scope rules.
+
 An MCP can declare several possible response shapes. A `field` selection on
 the whole response can read a property declared by a subset of those shapes
 when every other alternative excludes it. The compiler checks the received
