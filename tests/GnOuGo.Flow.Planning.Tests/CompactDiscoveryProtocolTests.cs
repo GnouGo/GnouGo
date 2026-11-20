@@ -634,6 +634,43 @@ public sealed partial class CompactDiscoveryProtocolTests
 
 
     [Fact]
+    public async Task NearbyOperationPagesCanBeReadTogetherWithoutSelectingOrResolvingATool()
+    {
+        var (state, runtime) = await Ready();
+        AddOperations(state, 20);
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!["operationPages"]);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var directory = PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!.AsObject();
+        var pages = Assert.IsType<JsonArray>(directory["operationPages"]);
+        Assert.Equal(new[] { 4, 8, 12 }, pages.Select(p => p!["offset"]!.GetValue<int>()));
+        foreach (var page in pages)
+        {
+            var offset = page!["offset"]!.GetValue<int>();
+            var original = PlanningCompactConstruction.ContractDescriptorPage(state, offset);
+            Assert.Equal(PlanningCompactConstruction.OperationPageAddress(state, offset), page["evidence"]!.ToString());
+            Assert.Equal(original["items"]!.AsArray().Select(r => r!["name"]!.ToString()), page["names"]!.AsArray().Select(n => n!.ToString()));
+        }
+        var before = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (request, _) =>
+        {
+            var choices = Context(request)["directoryEvidence"]!["operationPages"]!.AsArray();
+            var response = Evidence(choices[0]!["evidence"]!.ToString());
+            response["evidenceRequests"] = new JsonArray(choices.Select(p => p!["evidence"]!.DeepClone()).ToArray());
+            return Wire(request, response);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(3, state.Construction!.Evidence!.Count);
+        Assert.All(pages, page => Assert.NotNull(state.Construction.Evidence[page!["evidence"]!.ToString()]));
+        Assert.Equal(before, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(state.Construction.Compact!.CurrentStep!.OperationIds);
+        Assert.Empty(state.Discovery.Resolved);
+        var after = PlanningCompactConstruction.DiscoveryContext(state)["directoryEvidence"]!;
+        Assert.Equal(PlanningCompactConstruction.OperationPageAddress(state, 16), after["operations"]!.ToString());
+        Assert.Null(after["operationPages"]);
+    }
+
+    [Fact]
     public async Task OperationNavigationKeepsProgressAcrossDescriptionDrilldownAndStopsRepeatedPages()
     {
         var (state, runtime) = await Ready();

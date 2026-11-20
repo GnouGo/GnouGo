@@ -809,6 +809,8 @@ internal static partial class PlanningCompactConstruction
         var step = State(state).CurrentStep!;
         var evidence = DiscoveryEvidence(state);
         var descriptors = DecisionOperationPage(state);
+        var upcoming = UnseenOperationPages(state, descriptors)
+            .Take(PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? 3 : 1).ToArray();
         var known = KnownDiscoveryContracts(state, descriptors);
         var providerPage = PresentedProviderRequests(state);
         var context = new JsonObject
@@ -824,10 +826,21 @@ internal static partial class PlanningCompactConstruction
             ["knownOperations"] = known,
             ["contractInspection"] = ContractInspectionOptions(state, known),
             ["directoryEvidence"] = new JsonObject { ["sources"] = SourceDirectoryContinuation(state),
-                ["operations"] = OperationDirectoryContinuation(state, descriptors), ["providers"] = ProviderDirectoryContinuation(state) },
+                ["operations"] = upcoming.FirstOrDefault().Address, ["providers"] = ProviderDirectoryContinuation(state) },
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
+        if (upcoming.Length > 1)
+        {
+            var pages = new JsonArray(upcoming.Select(entry => (JsonNode)new JsonObject
+            {
+                ["offset"] = entry.Page["offset"]!.DeepClone(),
+                ["evidence"] = entry.Address,
+                ["names"] = new JsonArray(entry.Page["items"]!.AsArray().Select(item => item!["name"]!.DeepClone()).ToArray())
+            }).ToArray());
+            if (System.Text.Encoding.UTF8.GetByteCount(pages.ToJsonString()) <= ContinuedScopePreviewBytes)
+                context["directoryEvidence"]!["operationPages"] = pages;
+        }
         if (ReselectionContext(state) is { } reselection) context["reselection"] = reselection;
         if (PlanningDiscoveryFocus.Enabled(state))
         {

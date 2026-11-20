@@ -191,24 +191,22 @@ internal static partial class PlanningCompactConstruction
         return null;
     }
 
-    private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed)
-    {
-        return UnseenOperationPage(state, displayed) is { } page
-            ? OperationPageAddress(state, page["offset"]!.GetValue<int>()) : null;
-    }
+    private static string? OperationDirectoryContinuation(PlanningSession state, JsonObject? displayed) =>
+        UnseenOperationPages(state, displayed).Select(entry => entry.Address).FirstOrDefault();
 
-    private static JsonObject? UnseenOperationPage(PlanningSession state, JsonObject? displayed = null)
+    private static IEnumerable<(string Address, JsonObject Page)> UnseenOperationPages(PlanningSession state, JsonObject? displayed)
     {
         for (var offset = 0; ; offset += CompactContractDescriptorPageSize)
         {
             var page = ContractDescriptorPage(state, offset);
-            if (page["items"]!.AsArray().Count == 0) return null;
-            var address = OperationPageAddress(state, offset);
+            var items = page["items"]!.AsArray();
+            if (items.Count == 0) yield break;
+            var address = OperationPageAddress(page);
             var supplied = state.Construction!.EvidenceRequests.Contains(
                 PlanningConstruction.EvidenceBatchFingerprint(state, [address]), StringComparer.Ordinal);
             if (!supplied && !JsonNode.DeepEquals(displayed, page) &&
-                !JsonNode.DeepEquals(state.Construction.Evidence?[address], page)) return page;
-            if (page["items"]!.AsArray().Count < CompactContractDescriptorPageSize) return null;
+                !JsonNode.DeepEquals(state.Construction.Evidence?[address], page)) yield return (address, page);
+            if (items.Count < CompactContractDescriptorPageSize) yield break;
         }
     }
 

@@ -257,7 +257,10 @@ internal static partial class PlanningCompactConstruction
     }
 
     internal static string OperationPageAddress(PlanningSession state, int offset) =>
-        "page:operations:" + PlanningGraphCompiler.Fingerprint(ContractDescriptorPage(state, offset).ToJsonString()) + ":" + offset.ToString(CultureInfo.InvariantCulture);
+        OperationPageAddress(ContractDescriptorPage(state, offset));
+
+    private static string OperationPageAddress(JsonObject page) =>
+        "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":" + page["offset"]!.GetValue<int>().ToString(CultureInfo.InvariantCulture);
 
     internal static JsonArray ContractViews(PlanningSession state, bool useCandidate = false)
         => new(SelectedContracts(state).Select(capability =>

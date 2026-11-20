@@ -10,6 +10,19 @@ EUR 99.88219 in separate application reservations. The new available funding
 was EUR 401.85913. The authorization fingerprint is
 `25041a40a3c9336a98364ba6cf232c01e0c1df3ee9cbe26fbe7685b1685ef834`.
 
+### Review session 09f8205f5c1f4f1e8d8f3ab2f5bfc0ed
+
+The fresh Server started on `b7697858` with EUR 246.71860 available.
+An independent GitHub read at 10:46:54 UTC found the original open PR head
+`107c86fc87fcd89b529f6589736d27a09acb4206`, zero reviews and zero inline
+comments. Requests 5, 6 and 7 fetched consecutive four-operation catalog
+pages at offsets 4, 8 and 12. Each request could see only the next page
+address. Diagnostic discovery now shows the names and content-addressed
+links for up to three nearby unread pages. It can retrieve them in one
+batch. A fresh contract inspection still requires an inspected operation
+identity and current permission.
+[Discovery regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
