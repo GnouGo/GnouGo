@@ -61,6 +61,12 @@ public sealed class AmazonAaxWorkflowTests
         Assert.Equal(AmazonSourceCoveragePolicy.UrlPattern, profile["Browser__AllowedNavigationUrlPatterns__0"]);
         Assert.Equal(AmazonAaxProductPolicy.SourcePattern, profile["Browser__ObservedNavigationSourceUrlPatterns__0"]);
         Assert.Equal(AmazonAaxProductPolicy.EntryPattern, profile["Browser__ObservedNavigationEntryUrlPatterns__0"]);
+        var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/qualification",
+            LiveWorkflowEvaluation.QualificationProductCount, AmazonAaxProductPolicy.Id);
+        foreach (var setting in new[] { "Browser__AllowedNavigationUrlPatterns__0", "Browser__ObservedNavigationSourceUrlPatterns__0",
+                     "Browser__ObservedNavigationEntryUrlPatterns__0" })
+            Assert.Contains(profile[setting], prompt, StringComparison.Ordinal);
+        Assert.Contains("exactement les 10 premiers produits", prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(profile.Values, value => value == AmazonAaxSourceDiagnostic.Host);
         Assert.Equal(before, JsonSerializer.Serialize(configured));
         var old = LiveWorkflowEvaluation.Configuration(configured, "amazon", null, build, root, AmazonSourceCoveragePolicy.Id)["GnOuGo.Browser.Mcp"].EnvironmentVariables!;

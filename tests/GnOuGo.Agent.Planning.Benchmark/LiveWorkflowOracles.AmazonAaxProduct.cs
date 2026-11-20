@@ -136,5 +136,11 @@ internal static class AmazonAaxProductPolicy
     internal static bool IsSourceEntry(string value) => AmazonSourceCoveragePolicy.IsSourceEntry(value) || IsAaxEntry(value) || IsReview(value);
     private static readonly Regex Reviews = new(@"\A(?:" + EntryPattern + @")#customerReviews\z", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
     internal static bool IsReview(string value) => Reviews.IsMatch(value);
-    internal const string PlanningFacts = "Authorized browser policy amazon-observed-aax-product-context-v10 adds only exact fragment-free AAX /x/c/ entries from the complete current owned search. Every unresolved occurrence, including repetitions, requires its own ordered complete read and matching product redirect/document identity. Every hop must use an existing approved route or an exact AAX entry from that same source. Empty-ASIN cards require consistent original context, exactly one heading, one proved identity and no unproved sibling. Only exact same-card non-heading base-href+#customerReviews twins may reference completed proof; aliases create no HTTP receipt or navigable URL. Retain every raw record, product occurrence and source order. Source reads are separate from all later first-N business visits, fields, real Excel and cleanup. " + AmazonSourceCoveragePolicy.PlanningFacts;
+    internal const string PlanningFacts = "Authorized browser policy " + Id + ". Use the complete current owned search with nearest data-asin context. " +
+        "The static full-URL allowlist is " + UrlPattern + ". The observed-navigation source pattern is " + SourcePattern +
+        ". Additional fragment-free entries matching " + EntryPattern + " require the exact literal link from that same search, including at redirect hops. " +
+        "Account for every heading-bearing ASIN context, including empty identifiers and unclassified links. An unsupported link leaves coverage unresolved. " +
+        "Unverified AAX product occurrences require their own ordered complete reads and matching redirect and destination product identities. " +
+        "An AAX review alias requires the exact same-card non-heading base-href+#customerReviews twin. " +
+        AmazonCardReviewPolicy.CardReviewFacts + AmazonStoreListPolicy.StoreListFacts + AmazonObservedRedirectPolicy.AcquisitionGuarantees;
 }
