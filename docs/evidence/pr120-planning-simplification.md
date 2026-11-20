@@ -21,6 +21,10 @@ publishes this original hop directly as `navigationEvidence.terminalResponse`
 when a complete chain matches its final URL. The native contract and actual
 browser tests cover completed and partial reads, history changes, superseded
 responses and HTTP failures. This supplies a typed binding for fresh planners.
+The issued draft instructions also favored contributing any executable prefix.
+Fresh drafts now work backward from the next requested result and place field
+selection and checks at its consumer. Incomplete connected contributions
+remain available when a contract or response limit prevents completion.
 
 Review 25 (Server session `aeef260c181a4104bf2533ef088722d6`) retained
 the required report, a single clone operation and root cleanup in its draft.

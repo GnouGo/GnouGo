@@ -211,6 +211,16 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
+    public async Task ScopedDraftPrioritizesTheRequestedConsumerOverPreparatoryInventories()
+    {
+        var (state, _) = await BoundOperations(2);
+        var request = PlanningConstruction.DraftRequest(state, false);
+        Assert.Contains("Work backward from the next requested result", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("Attach field selection and its checks to the consuming task", request.Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("When the current contracts support a useful executable prefix", request.Prompt, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task CompanionNavigationDoesNotAutofillRegisteredOrEarlierOperationsAndKeepsCanonicalPaging()
     {
         var (state, _) = await BoundOperations(9);
