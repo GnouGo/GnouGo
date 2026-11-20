@@ -170,6 +170,15 @@ reservations. The audit counted 2,759 cumulative HTTP attempts, EUR 1,257.02585
 in measured usage, EUR 478.50045 in HTTP reservations and EUR 103.36148 in
 application reservations. EUR 261.11222 was available for the next run.
 
+### Amazon session 66583c6ef4d745209f0f5b7ce5f19eca
+
+Request 10 assembled an ordered record projection. Request 11 retrieved its
+complete objective through the evidence grammar although the current root
+scope already displayed that exact text. Fresh draft navigation omits objective
+page reads whose task identity and full text fingerprint match a displayed
+declaration. A container's undisplayed child scopes remain separately
+retrievable. [Draft navigation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftNavigationTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

@@ -126,9 +126,16 @@ internal static partial class PlanningCompactConstruction
         void RemoveDisplayedTasks(JsonObject displayed)
         {
             foreach (var task in displayed["tasks"]!.AsArray().Concat(displayed["always"]!.AsArray()).OfType<JsonObject>())
-                if (task["id"]?.ToString() is { } id && (task["scopes"] is not JsonArray children ||
-                    children.All(child => visibleTaskLinks.Contains("scope:" + child))))
+            {
+                if (task["id"]?.ToString() is not { } id) continue;
+                if (task["scopes"] is not JsonArray children || children.All(child => visibleTaskLinks.Contains("scope:" + child)))
                     addresses.Remove("task:" + id);
+                if (task["objective"] is JsonValue objective && objective.TryGetValue<string>(out var text))
+                {
+                    var prefix = TaskObjectivePrefix(id, text);
+                    addresses.RemoveWhere(address => address.StartsWith(prefix, StringComparison.Ordinal));
+                }
+            }
         }
     }
 
@@ -397,8 +404,10 @@ internal static partial class PlanningCompactConstruction
 
     private static string TaskPortsVersion(IEnumerable<string> ports) => PlanningGraphCompiler.Fingerprint(new JsonArray(ports.Select(port => (JsonNode?)JsonValue.Create(port)).ToArray()).ToJsonString());
     private static string TaskPortsAddress(string id, IEnumerable<string> ports, int offset) => "page:task-ports:" + Uri.EscapeDataString(id) + "@" + TaskPortsVersion(ports) + ":" + offset.ToString(CultureInfo.InvariantCulture);
-    private static string TaskObjectiveAddress(PlanTask task, int offset) => "task-objective:" + Uri.EscapeDataString(task.Id) + "@" +
-        PlanningGraphCompiler.Fingerprint(task.Objective) + ":" + offset.ToString(CultureInfo.InvariantCulture);
+    private static string TaskObjectivePrefix(string id, string objective) =>
+        "task-objective:" + Uri.EscapeDataString(id) + "@" + PlanningGraphCompiler.Fingerprint(objective) + ":";
+    private static string TaskObjectiveAddress(PlanTask task, int offset) =>
+        TaskObjectivePrefix(task.Id, task.Objective) + offset.ToString(CultureInfo.InvariantCulture);
 
     private static bool LoadTaskNavigationEvidence(PlanningSession state, string address, out JsonNode? value)
     {

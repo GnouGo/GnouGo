@@ -158,7 +158,7 @@ public sealed class CompactDraftNavigationTests
     public void DisplayedContainerKeepsItsTaskLookupWhenAnyChildScopeLinkIsMissing(int branches, bool needsLookup)
     {
         var state = State();
-        var task = new PlanTask { Id = "compare", Kind = "parallel", Objective = "Compare independent sources." };
+        var task = new PlanTask { Id = "compare", Kind = "parallel", Objective = string.Concat(Enumerable.Repeat("Compare independent sources. ", 10)) };
         for (var i = 0; i < branches; i++) task.Branches.Add(new());
         state.Plan!.Root.Tasks.Add(task);
         state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
@@ -166,6 +166,9 @@ public sealed class CompactDraftNavigationTests
             followup: current => PlanningConstruction.DraftRequest(current, repair: false), purpose: PlanningConstruction.DraftPurpose);
         var next = PlanningConstruction.DraftRequest(state, repair: false);
         AssertResponse(next, state, "task:compare", valid: needsLookup);
+        var objective = "task-objective:compare@" + PlanningGraphCompiler.Fingerprint(task.Objective) + ":0";
+        Assert.Equal(task.Objective, Context(next)["evidence"]!["scope:/root"]!["tasks"]![0]!["objective"]!.ToString());
+        AssertResponse(next, state, objective, valid: false);
         for (var i = 0; i < branches; i++)
             AssertResponse(next, state, "scope:/tasks/compare/branches/" + i, valid: i < 4);
         Assert.Equal(0, state.ModelCalls);
