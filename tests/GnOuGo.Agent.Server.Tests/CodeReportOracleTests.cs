@@ -235,6 +235,50 @@ public sealed class CodeReportOracleTests
         Assert.Equal(allowed, finding is null);
     }
 
+    [Theory]
+    [InlineData(false, false, null, false)]
+    [InlineData(true, false, null, true)]
+    [InlineData(false, true, null, false)]
+    [InlineData(true, true, null, true)]
+    [InlineData(true, false, "other_session", false)]
+    [InlineData(true, true, "duplicate_source", false)]
+    [InlineData(true, true, "string_exit", false)]
+    [InlineData(true, true, "failed_check", false)]
+    public void PublicationRequiresTheOriginalCopilotTerminalCompletion(bool sourcePresent, bool deferred, string? change, bool allowApproval)
+    {
+        var run = PublishedRun();
+        var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
+        var check = Call("integration", "pnpm run e2e", 0, "Integration complete.");
+        check["copilotSessionId"] = "checks";
+        check["startedSequence"] = 1;
+        check["completedSequence"] = 2;
+        check["shellId"] = "shell";
+        check["isShellCommand"] = true;
+        var terminal = check["terminals"]![0]!;
+        terminal["shellId"] = "shell";
+        var source = new JsonObject
+        {
+            ["toolCallId"] = "terminal-read", ["copilotSessionId"] = "checks", ["startedSequence"] = 3,
+            ["completedSequence"] = 4, ["completionObserved"] = true, ["toolSucceeded"] = true,
+            ["conflictingCompletion"] = false, ["terminals"] = new JsonArray(terminal.DeepClone())
+        };
+        if (deferred) terminal["exitCode"] = null;
+        else terminal["sourceToolCallId"] = "terminal-read";
+        calls.Add(check);
+        if (sourcePresent) calls.Add(source);
+        if (change == "other_session") source["copilotSessionId"] = "another-invocation";
+        if (change == "duplicate_source") calls.Add(source.DeepClone());
+        if (change == "string_exit") source["terminals"]![0]!["exitCode"] = "0";
+        if (change == "failed_check") source["terminals"]![0]!["exitCode"] = 1;
+
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.Equal(allowApproval || change == "failed_check", run["required_checks_verified"]!.GetValue<bool>());
+        Assert.Equal(allowApproval, LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = "APPROVE", ["body"] = "Verified." }) is null);
+        if (change == "failed_check")
+            Assert.Null(LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = "REQUEST_CHANGES",
+                ["body"] = "pnpm run e2e exited 1 when opening the checkout." }));
+    }
+
     private static JsonObject PublishedRun()
     {
         var run = Run();

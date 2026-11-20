@@ -1254,7 +1254,10 @@ and `reviewText` to the composer and captures the current PR head and base.
 It checks the clone, completed Copilot commands and cleanup. After publication,
 it reads the submitted review and inline comments back from GitHub by review ID.
 Before submission, each mandatory check needs a conclusive terminal receipt from
-the pinned checkout. Approval requires every mandatory check to pass. A request
+the pinned checkout. When a Copilot shell command completes through a later
+terminal read, the guard verifies its owner using the SDK observations from that
+same invocation. A missing source, ambiguous owner or string exit code leaves
+the check inconclusive. Approval requires every mandatory check to pass. A request
 for changes identifies and explains each observed mandatory failure. The
 confirmation displays the failed commands and exit codes alongside the verdict.
 The checkout observer records package manifest paths from the pinned Git tree.

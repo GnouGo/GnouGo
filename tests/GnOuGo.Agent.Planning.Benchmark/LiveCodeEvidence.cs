@@ -1,13 +1,18 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.GithubCopilot.Core;
 
 // Independent evidence for the authorized pinned checkout. No commands
 // are executed here except read-only git identity checks; workflow observations
 // must establish dependency installation and the repository's own checks.
 internal static class LiveCodeEvidence
 {
+    private static readonly CopilotCoreJsonContext TerminalJson = new(new JsonSerializerOptions(JsonSerializerDefaults.Web)
+        { NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.Strict });
+
     internal static async Task ObserveCheckoutAsync(string root, JsonObject run)
     {
         var repository = Path.GetFullPath(Path.Combine(root, run["workspace_relative"]!.ToString(), "repository"));
@@ -37,16 +42,27 @@ internal static class LiveCodeEvidence
     internal static JsonArray Commands(JsonObject run, string repository, HashSet<string>? inconclusive = null)
     {
         var commands = new JsonArray();
-        foreach (var evt in run["events"]!.AsArray().Where(evt => run["oracle_version"]?.ToString() != PublishedReviewQualification.Version ||
+        var publication = run["oracle_version"]?.ToString() == PublishedReviewQualification.Version;
+        foreach (var evt in run["events"]!.AsArray().Where(evt => !publication ||
             evt?["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && evt["tool"]?.ToString() == "code_agent_edit"))
-            foreach (var call in (evt?["result"]?["toolExecutions"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (evt?["result"]?["toolExecutions"] is not JsonArray calls) continue;
+            IReadOnlyList<CopilotToolExecutionObservation>? observations = null;
+            for (var index = 0; index < calls.Count; index++)
             {
-                if (call["argumentsJson"]?.ToString() is not { } raw) continue;
+                if (calls[index] is not JsonObject call || call["argumentsJson"]?.ToString() is not { } raw) continue;
                 JsonNode? arguments;
                 try { arguments = JsonNode.Parse(raw); } catch (System.Text.Json.JsonException) { continue; }
                 var command = (arguments?["command"] ?? arguments?["cmd"] ?? arguments?["script"])?.ToString();
                 if (command is null) continue;
                 var terminals = call["terminals"] as JsonArray;
+                if (publication && (call["isShellCommand"]?.GetValue<bool>() == true ||
+                    terminals?.OfType<JsonObject>().Any(terminal => terminal["sourceToolCallId"] is not null) == true))
+                {
+                    observations ??= ReadCopilotObservations(calls);
+                    var verified = observations.Count == calls.Count ? observations[index].GetVerifiedTerminals(observations) : null;
+                    terminals = verified is null ? null : JsonSerializer.SerializeToNode(verified, CopilotCoreJsonContext.Default.IReadOnlyListCopilotTerminalObservation)?.AsArray();
+                }
                 if (call["completionObserved"]?.GetValue<bool>() != true || call["conflictingCompletion"]?.GetValue<bool>() != false ||
                     terminals is not { Count: > 0 })
                 {
@@ -62,13 +78,26 @@ internal static class LiveCodeEvidence
                         continue;
                     }
                     var directory = Path.GetFullPath(cwd);
-                    if (directory == repository || run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
+                    if (directory == repository || publication &&
                         directory.StartsWith(Path.TrimEndingDirectorySeparator(repository) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                         commands.Add(new JsonObject { ["command"] = command, ["cwd"] = cwd, ["exit_code"] = exit,
                             ["output"] = terminal["text"]?.DeepClone(), ["tool_call_id"] = call["toolCallId"]?.DeepClone() });
                 }
             }
+        }
         return commands;
+    }
+
+    private static IReadOnlyList<CopilotToolExecutionObservation> ReadCopilotObservations(JsonArray calls)
+    {
+        try
+        {
+            var observations = calls.Deserialize(TerminalJson.IReadOnlyListCopilotToolExecutionObservation);
+            if (observations is null || observations.Any(call => call?.Terminals is null || string.IsNullOrWhiteSpace(call.ToolCallId) || call.Terminals.Any(terminal => terminal is null)) ||
+                observations.DistinctBy(call => (call.CopilotSessionId, call.ToolCallId)).Count() != observations.Count) return [];
+            return observations;
+        }
+        catch (JsonException) { return []; }
     }
 
     internal static JsonObject Verify(JsonObject run, string repository)

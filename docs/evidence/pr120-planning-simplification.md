@@ -88,6 +88,14 @@ A failed check blocks approval, as do missing or conflicting completions.
 An explained failure can support a request for changes. The review regression
 uses the same verdict check as the live prepublication hook. [Publication regression](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
 
+Two local publication regressions reproduced opposite errors on Copilot shell
+checks. A copied exit code with no source terminal read allowed approval,
+while a later, independently recorded completion for the same command could
+leave the check inconclusive. The host now uses the Copilot SDK observation
+resolver for both cases. It checks the invocation, source call, completion
+and typed exit code. An explained nonzero exit can support a request for
+changes. The regressions use recorded events and make zero GitHub calls.
+
 At head `107c86fc`, PR 718's root test script runs the recursive workspace
 suite. The webapp's test script runs that package's Vitest suite. A green
 member-only receipt previously satisfied the root check. The guard on
