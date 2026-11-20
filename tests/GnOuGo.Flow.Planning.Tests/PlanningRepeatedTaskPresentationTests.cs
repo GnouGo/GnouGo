@@ -7,6 +7,46 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningRepeatedTaskPresentationTests
 {
     [Theory]
+    [InlineData("tasks", true)]
+    [InlineData("always", true)]
+    [InlineData("tasks", false)]
+    public void IssuedTaskPageReusesOnlyTheIdenticalOrderedScopeArray(string phase, bool sameOrder)
+    {
+        var context = Context(phase);
+        var evidence = context["evidence"]!.AsObject();
+        var items = evidence["scope:/root~view"]![phase]!.AsArray();
+        items.Add(new JsonObject { ["id"] = "second", ["kind"] = "value", ["objective"] = "Another accepted result." });
+        var originals = new JsonArray((sameOrder ? items.AsEnumerable() : items.Reverse()).Select(item => item!.DeepClone()).ToArray());
+        evidence["page:tasks:8"] = new JsonObject { ["offset"] = 8, ["total"] = 10, ["items"] = originals.DeepClone() };
+
+        var state = PlannerFixture.Session();
+        var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() };
+        var request = PlanningModelCalls.PrepareRequest(state, "construction_draft", "Originals.\n" + context.ToJsonString(),
+            schema, null, null, out var map);
+        var issued = new PlanningModelCall { Id = request.ClientRequestId!, Purpose = "construction_draft", Request = request, EvidenceAddresses = map };
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(issued, PlanningJsonContext.Default.PlanningModelCall),
+            PlanningJsonContext.Default.PlanningModelCall)!;
+        PlanningModelCalls.ValidateEvidenceAddresses(restored);
+        foreach (var prompt in new[] { request.Prompt, PlanningModelCalls.CanonicalEvidenceRequest(restored).Prompt })
+        {
+            var view = Read(prompt);
+            var page = view["evidence"]!.AsObject().Single(pair => pair.Value?["offset"]?.GetValue<int>() == 8).Value!;
+            Assert.Equal(10, page["total"]!.GetValue<int>());
+            if (sameOrder)
+            {
+                Assert.Null(page["items"]);
+                var pointer = Assert.IsAssignableFrom<JsonValue>(page["itemsPresentedAt"]).ToString();
+                Assert.True(JsonNode.DeepEquals(originals, PlanningSchemaReferences.Read(view, pointer)));
+            }
+            else
+            {
+                Assert.Null(page["itemsPresentedAt"]);
+                Assert.True(JsonNode.DeepEquals(originals, page["items"]));
+            }
+        }
+    }
+
+    [Theory]
     [InlineData("tasks")]
     [InlineData("always")]
     public void RepeatedTaskViewsResolveToTheirExactDeclarationWithLocationAndLiteralDataPreserved(string phase)

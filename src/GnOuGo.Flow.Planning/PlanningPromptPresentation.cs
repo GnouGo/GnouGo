@@ -251,6 +251,7 @@ public static class PlanningPromptPresentation
         var sharedResults = ShareRepeatedOutputSchemas(context);
         var sharedSiblings = ShareImportedArgumentSiblings(context);
         var sharedTasks = ShareRepeatedTaskViews(context);
+        var sharedTaskPages = ShareRepeatedTaskPages(context);
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
@@ -316,7 +317,7 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
         if (sharedPrefix)
             context["ancestorPrefixPresentation"] = "For each selected input or output, prepend its direction's shared ancestorPrefix to its own ancestors in order. Together they are the original constraints.";
         if (sharedSiblings)
@@ -331,6 +332,8 @@ public static class PlanningPromptPresentation
             context["schemaPresentation"] = "schemaPresentedAt is a JSON pointer within this same context to the byte-identical schema for the retained operation id/version/hash and original pointer. Evidence retains its original ancestor constraints and reference closure. This presentation link grants no binding, contract or execution authority.";
         if (sharedTasks)
             context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
+        if (sharedTaskPages)
+            context["taskPagePresentation"] = "A task page's itemsPresentedAt points to its complete ordered items array in this context. Its offset, total and continuation belong to the page.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
     }
 
@@ -477,6 +480,32 @@ public static class PlanningPromptPresentation
                 row["ancestorsPresentedAt"] = at;
                 changed = true;
             }
+        }
+        return changed;
+    }
+
+    private static bool ShareRepeatedTaskPages(JsonObject context)
+    {
+        if (context["evidence"] is not JsonObject evidence) return false;
+        var pages = evidence.Where(pair => pair.Key.StartsWith("page:tasks:", StringComparison.Ordinal))
+            .Select(pair => pair.Value).OfType<JsonObject>().Where(page => page["items"] is JsonArray { Count: > 0 }).ToArray();
+        if (pages.Length == 0) return false;
+        var locations = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var (address, scope) in evidence.Where(pair => pair.Key.StartsWith("scope:", StringComparison.Ordinal)))
+        {
+            if (scope is not JsonObject scopeView) continue;
+            foreach (var phase in new[] { "tasks", "always" })
+                if (scopeView[phase] is JsonArray { Count: > 0 } rows)
+                    locations.TryAdd(rows.ToJsonString(), "/evidence/" + PlanningSchemaReferences.Escape(address) + "/" + phase);
+        }
+        var changed = false;
+        foreach (var page in pages)
+        {
+            var items = page["items"]!.ToJsonString();
+            if (!locations.TryGetValue(items, out var pointer) || items.Length <= pointer.Length + 200) continue;
+            page.Remove("items");
+            page["itemsPresentedAt"] = pointer;
+            changed = true;
         }
         return changed;
     }

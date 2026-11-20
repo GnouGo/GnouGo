@@ -51,6 +51,10 @@ bindings remain distinct. Evidence-address mapping rewrites only the pointer's
 evidence-key segment, preserving literal strings and canonical recovery. Different
 arguments or locations do not share. No plan, interface or repair authority changes.
 
+A retrieved task directory page can point to the complete ordered array already
+displayed in scope evidence. This requires identical serialized items, including
+all arguments and their order. The page retains its own offset, total and continuation.
+
 Business-only selection captures immutable objectives, original obligations, information
 needs, expected results, existing-result dependencies and success criteria. Its request
 and response contain no implementation kinds, scopes, MCP identifiers or typed bindings.
