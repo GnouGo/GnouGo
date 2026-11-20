@@ -72,6 +72,19 @@ The regression compiles and runs the native concatenation using extracted
 data. Runtime extraction still rejects the invented complete value.
 [Extraction and consumer binding regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
 
+The Server stopped at revision 138 after six checkpoints, 43 logical requests
+and 95 advisory warnings. No business operation ran. GitHub read-back at
+13:43:34 UTC found the original head, zero reviews and zero inline comments.
+The clone directory was absent. The 42 physical calls cost EUR 25.81763 at
+captured tariffs. Request 43 had a separate EUR 2.42909 application reservation
+and no campaign HTTP envelope. The operator retained that reservation under
+`1944086fcae151a5d63e534a6611d4b948bacbc089e2580dfeef8035a73803b6`.
+
+The post-run audit counted 2,952 physical calls, EUR 1,364.46971 at measured
+usage tariffs, 53 unresolved HTTP attempts reserving EUR 487.69797 and
+EUR 110.97774 in retained application reservations. EUR 136.85458 remained
+available under the cumulative EUR 2,100 ceiling when Amazon run 09 started.
+
 ### Review session 09f8205f5c1f4f1e8d8f3ab2f5bfc0ed
 
 The fresh Server started on `b7697858` with EUR 246.71860 available.
