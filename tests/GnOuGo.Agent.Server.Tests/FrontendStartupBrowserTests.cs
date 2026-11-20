@@ -105,6 +105,10 @@ public sealed class FrontendStartupBrowserTests
         Assert.Equal(yaml, journal.WorkflowYaml);
         Assert.Equal(WorkflowRunStatus.Completed, journal.Status);
         foreach (var value in input) Assert.True(JsonNode.DeepEquals(JsonNode.Parse(value.Value!.ToString()), journal.Inputs![value.Key]));
+        var returned = JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "form-response.json"), ct))!;
+        Assert.Equal(receipt["run"]!.ToString(), returned["run"]!.ToString());
+        Assert.Equal(run, returned["agent"]!.ToString());
+        Assert.True(JsonNode.DeepEquals(journal.Result!.Outputs, JsonNode.Parse(returned["text"]!.ToString())));
         await app.StopAsync(ct);
     }
 

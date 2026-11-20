@@ -149,13 +149,16 @@ internal static partial class LiveWorkflowOracles
                 run["workbook_rows"] = new JsonArray(rows.Select(r => (JsonNode)new JsonArray(r.Select(v => (JsonNode)JsonValue.Create(v)).ToArray())).ToArray());
             }
         }
-        else if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version)
+        else if (PublishedReviewQualification.UsesPublicationChecks(run))
         {
             var repository = Path.Combine(folder, "repository");
             var target = await PublishedReviewQualification.CaptureAsync(run["inputs"]!["pullRequestUrl"]!.GetValue<string>(), CancellationToken.None);
             if (run["target_head"]?.ToString() != target.Head || run["target_base"]?.ToString() != target.Base)
                 findings.Add("reviewed_head_or_base_changed");
             LiveCodeEvidence.Verify(run, repository);
+            if (run["oracle_version"]?.ToString() == PublishedReviewQualification.DeliveryVersion &&
+                PublishedReviewQualification.ReturnedReportFinding(run) is { } deliveryFinding)
+                findings.Add(deliveryFinding);
             if (run["required_checks_verified"]?.GetValue<bool>() != true) findings.Add("repository_required_checks_not_independently_verified");
             var clones = events.Where(e => e["tool"]?.ToString() == "git_clone").ToArray();
             if (clones.Length != 1 || clones[0]["error"]?.GetValue<bool>() != false || clones[0]["result"]?["success"]?.GetValue<bool>() != true ||

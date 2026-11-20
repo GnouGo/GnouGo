@@ -46,6 +46,10 @@ try {
     // Keep the Blazor circuit alive through all runtime confirmations.
     await submit.waitFor({ timeout: 0 });
     assert.deepEqual(errors, []);
+    const response = page.locator('article[aria-label="GnOuGo.Agent response"][data-correlation-id="' + run + '"]');
+    const answer = response.locator('.gnougo-chat__bubble > .gnougo-chat__bubble-text');
+    const text = await answer.isVisible() ? await answer.innerText() : null;
+    await writeFile(output + '/form-response.json', JSON.stringify({ agent, run, text }), { flag: 'wx' });
   } else {
   await page.goto(`${url}/planning/${session}`);
   await page.locator('#planningReview[data-interactive="true"]').waitFor();

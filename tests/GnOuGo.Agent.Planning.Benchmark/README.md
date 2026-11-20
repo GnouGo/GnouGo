@@ -1305,6 +1305,13 @@ For root package scripts, a terminal inside a member package must show a
 workspace-root invocation to establish the root suite. Package-local failures
 remain visible in the verdict evidence.
 
+Fresh publication runs use `github-published-review-v2`. The browser records
+the final visible answer for the submitted agent and execution ID. The oracle
+checks the returned commands and exit codes against Copilot terminal receipts.
+The run retains both that answer and the public workflow outputs for inspection
+of explanations and incomplete checks. Historical v1 runs keep their original
+GitHub read-back criteria.
+
 Each new business session captures its draft-phase output allowance for runtime
 model calls and the Copilot inference proxy. A smaller allowance requested by
 the caller is retained. The Server profile uses 4,096 output tokens for drafting

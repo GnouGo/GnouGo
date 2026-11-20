@@ -294,6 +294,23 @@ fields and positions in one item result. Two regressions reproduced the
 old instructions. All 71 focused presentation, observation and compilation
 tests passed with the change.
 
+### Review session 641ae5f96e134f8f96072a4f554d7391
+
+The first local judge accepted the pinned clone and root cleanup. Call 24
+combined a continued draft with a deferred root export and failed validation.
+The next native response retained the report and submitted the export for
+review. The Server bound the public `report` to the accepted proposal and
+reached global review after the publication block's local assessment. This
+establishes planning progress only.
+
+An independent composer test found that the live observer recorded the typed
+submission and missed the final chat answer. It now captures the visible
+answer from the assistant message bearing the same execution ID. The real
+browser test reproduced the missing receipt, then matched the delivered
+answer to the completed workflow outputs. Fresh v2 Review qualifications
+also check delivery of command and exit-code evidence. A wrong invocation,
+a missing answer, omitted commands and swapped exit codes fail qualification.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

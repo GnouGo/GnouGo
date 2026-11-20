@@ -5,6 +5,31 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PublishedReviewQualificationTests
 {
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("Published on GitHub.", false)]
+    [InlineData("pnpm test exited 0.", false)]
+    [InlineData("pnpm test exited 7. uv run pytest exited 0.", false)]
+    [InlineData("pnpm test exited 7 after 0 warnings. uv run pytest exited 0 after 7 seconds.", false)]
+    [InlineData("pnpm test exited 0. uv run pytest was requested.", false)]
+    [InlineData("pnpm test exited 0. uv run pytest exited 7.", true)]
+    [InlineData("{\"result\":{\"checks\":[{\"exitCode\":0,\"command\":\"pnpm test\"},{\"command\":\"uv run pytest\",\"exitCode\":7}]}}", true)]
+    public void CallerReceivesTheObservedChecksInTheAnswerToThisInvocation(string? text, bool passed)
+    {
+        var answer = new JsonObject { ["run"] = "execution", ["agent"] = "saved", ["text"] = text };
+        var run = new JsonObject { ["run"] = "saved", ["execution_run_id"] = "execution", ["caller_response"] = answer,
+            ["observed_commands"] = new JsonArray(new JsonObject { ["command"] = "pnpm test", ["exit_code"] = 0 },
+                new JsonObject { ["command"] = "uv run pytest", ["exit_code"] = 7 }) };
+        Assert.Equal(passed, PublishedReviewQualification.ReturnedReportFinding(run) is null);
+        if (!passed) return;
+        answer["run"] = "other";
+        Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
+        answer["run"] = "execution";
+        answer["agent"] = "other";
+        Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
+    }
+
     private static readonly PublishedReviewQualification Target = new("AxaFrance", "SmartGuide", 718, "head", "base");
 
     [Theory]

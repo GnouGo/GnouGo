@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -9,6 +10,53 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
 {
     internal const string Scenario = "code-publish";
     internal const string Version = "github-published-review-v1";
+    internal const string DeliveryVersion = "github-published-review-v2";
+    internal static bool UsesPublicationChecks(JsonObject run) =>
+        run["oracle_version"]?.ToString() is Version or DeliveryVersion;
+
+    internal static string? ReturnedReportFinding(JsonObject run)
+    {
+        if (run["caller_response"] is not JsonObject answer ||
+            run["execution_run_id"]?.ToString() is not { Length: > 0 } id || answer["run"]?.ToString() != id ||
+            run["run"]?.ToString() is not { Length: > 0 } agent || answer["agent"]?.ToString() != agent ||
+            answer["text"]?.GetValue<string>() is not { } text || string.IsNullOrWhiteSpace(text))
+            return "caller_review_report_missing";
+        // A public JSON result and a Markdown answer both reach the caller as rendered text.
+        // Decode JSON escaping before looking for the observed commands in their original spelling.
+        if (text.TrimStart().StartsWith('{'))
+        {
+            try
+            {
+                if (JsonNode.Parse(text) is JsonObject outputs) text = ReportText(outputs);
+            }
+            catch (System.Text.Json.JsonException) { /* A free-form report can start with a brace. */ }
+        }
+        if (run["observed_commands"] is not JsonArray { Count: > 0 } commands) return "caller_review_report_command_missing";
+        var pending = commands.Select(c => (Command: c?["command"]?.ToString(), Code: c?["exit_code"]?.ToString())).ToHashSet();
+        if (pending.Any(p => string.IsNullOrWhiteSpace(p.Command) || p.Code is null)) return "caller_review_report_command_missing";
+        var names = pending.Select(p => p.Command!).Distinct(StringComparer.Ordinal).OrderByDescending(name => name.Length);
+        var mentions = Regex.Matches(text, string.Join('|', names.Select(Regex.Escape)), RegexOptions.CultureInvariant);
+        for (var i = 0; i < mentions.Count; i++)
+        {
+            var mention = mentions[i];
+            var end = i + 1 < mentions.Count ? mentions[i + 1].Index : text.Length;
+            var details = text[(mention.Index + mention.Length)..end];
+            var code = Regex.Match(details,
+                @"(?:\A\s*[|,:=–—()]*\s*|\b(?:exit(?:ed|[_ -]?code|[_ -]?status)?|code(?: de (?:sortie|retour))?)\s*[:=]?\s*)(-?[0-9]+)(?!\w|\.[0-9])",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (code.Success) pending.Remove((mention.Value, code.Groups[1].Value));
+        }
+        return pending.Count == 0 ? null : "caller_review_report_command_or_exit_missing";
+    }
+
+    private static string ReportText(JsonNode? node) => node switch
+    {
+        JsonObject record when record["command"] is JsonValue command && (record["exitCode"] ?? record["exit_code"]) is JsonValue code =>
+            command.ToString() + " " + code,
+        JsonObject obj => string.Join('\n', obj.Select(p => ReportText(p.Value))),
+        JsonArray array => string.Join('\n', array.Select(ReportText)),
+        _ => node?.ToString() ?? ""
+    };
     private string Api => $"repos/{Owner}/{Repository}/pulls/{Number}";
 
     // The qualification host intercepts this existing MCP call in ServerBusinessExecution.

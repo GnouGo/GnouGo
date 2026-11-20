@@ -21,7 +21,7 @@ internal static class LiveCodeEvidence
         var expectedHead = run["target_head"]?.ToString() ?? LiveWorkflowEvaluation.Head;
         run["checkout_head"] = await Git(repository, "rev-parse", "HEAD");
         run["checkout_base"] = await Git(repository, "rev-parse", expectedBase + "^{commit}");
-        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
+        if (PublishedReviewQualification.UsesPublicationChecks(run) &&
             run["checkout_head"]?.ToString() == expectedHead && run["tracked_package_manifests"] is null &&
             await Git(repository, "ls-tree", "-rz", "--name-only", expectedHead) is { } paths)
             run["tracked_package_manifests"] = new JsonArray(paths.Split('\0', StringSplitOptions.RemoveEmptyEntries)
@@ -42,7 +42,7 @@ internal static class LiveCodeEvidence
     internal static JsonArray Commands(JsonObject run, string repository, HashSet<string>? inconclusive = null)
     {
         var commands = new JsonArray();
-        var publication = run["oracle_version"]?.ToString() == PublishedReviewQualification.Version;
+        var publication = PublishedReviewQualification.UsesPublicationChecks(run);
         foreach (var evt in run["events"]!.AsArray().Where(evt => !publication ||
             evt?["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && evt["tool"]?.ToString() == "code_agent_edit"))
         {
@@ -113,7 +113,7 @@ internal static class LiveCodeEvidence
             ["pinned_base"] = run["checkout_base"]?.ToString() == (run["target_base"]?.ToString() ?? LiveWorkflowEvaluation.Base),
             ["manifest_observed"] = run["repository_manifest"] is not null,
         };
-        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version)
+        if (PublishedReviewQualification.UsesPublicationChecks(run))
         {
             var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
             var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];

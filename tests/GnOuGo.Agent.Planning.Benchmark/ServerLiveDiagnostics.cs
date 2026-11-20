@@ -600,7 +600,7 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedProductPolicy.Id ? LiveWorkflowOracles.AmazonResolvedProductVersion :
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
-                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.Version;
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.DeliveryVersion;
                     report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
