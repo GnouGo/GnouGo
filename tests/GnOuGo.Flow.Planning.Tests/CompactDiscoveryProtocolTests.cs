@@ -166,6 +166,50 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(step.SchemaPointers);
     }
 
+    [Theory]
+    [InlineData("descendant")]
+    [InlineData("other_branch")]
+    [InlineData("isolated_group")]
+    [InlineData("moved")]
+    public async Task ContinuedDraftReusesOnlyInspectedResultsInsideItsScopeTree(string variant)
+    {
+        var (state, _) = await BoundOperations(2);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var measured = new PlanTask { Id = "measure", Kind = "value",
+            Outputs = [new("reading", new() { Kind = "string", Text = "observed" })] };
+        var inner = new PlanTask { Id = "inspect", Kind = "sequence", Body = new() { Tasks = [measured] } };
+        var branch = new PlanTask { Id = "choose", Kind = "conditional", Body = new() { Tasks = [inner] }, Otherwise = new() };
+        state.Plan!.Root.Tasks.Add(branch);
+        if (variant == "isolated_group")
+        {
+            branch.Body!.Tasks.Clear();
+            state.Plan.Groups.Add(new() { Id = "isolated", Body = new() { Tasks = [inner] } });
+        }
+        step.Scope = variant == "other_branch" ? "/tasks/choose/otherwise" : "/root";
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        const string address = "task:measure";
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var original = state.Construction.Evidence![address]!.DeepClone();
+        if (variant == "moved")
+        {
+            inner.Body!.Tasks.Clear();
+            branch.Otherwise!.Tasks.Add(measured);
+        }
+        var hash = PlanningConstruction.Hash(state.Plan);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: step.Scope);
+        if (variant == "descendant")
+        {
+            var draft = PlanningConstruction.DraftRequest(state, false);
+            Assert.True(JsonNode.DeepEquals(original, Context(draft)["evidence"]?[address]));
+            Assert.DoesNotContain(JsonSerializer.Serialize(address), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        }
+        else Assert.Null(state.Construction.Evidence?[address]);
+        Assert.Equal(hash, PlanningConstruction.Hash(state.Plan));
+        Assert.DoesNotContain(measured.Id, step.InputTaskIds);
+        Assert.Empty(step.SchemaPointers);
+    }
+
     [Fact]
     public async Task CompanionNavigationDoesNotAutofillRegisteredOrEarlierOperationsAndKeepsCanonicalPaging()
     {

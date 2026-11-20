@@ -1230,7 +1230,7 @@ internal static partial class PlanningCompactConstruction
             }
             RetainSelectedContractPages(state, inspectedEvidence, retained);
             if (continuedScope is not null && continuedScope == State(state).CurrentStep?.Scope)
-                RetainInspectedSiblingTasks(state, continuedScope, inspectedEvidence, retained);
+                RetainInspectedScopeTasks(state, continuedScope, inspectedEvidence, retained);
         }
         // An abandoned tentative binding does not invalidate exact metadata
         // already read for this unchanged responsibility. Restore only current,

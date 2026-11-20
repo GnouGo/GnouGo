@@ -65,23 +65,29 @@ internal static partial class PlanningCompactConstruction
         evidence?.Where(pair => pair.Key.StartsWith("task:", StringComparison.Ordinal) && pair.Value is not null)
             .Sum(pair => System.Text.Encoding.UTF8.GetByteCount(pair.Value!.ToJsonString())) ?? 0;
 
-    private static void RetainInspectedSiblingTasks(PlanningSession state, string scope, JsonObject inspected, JsonObject retained)
+    private static void RetainInspectedScopeTasks(PlanningSession state, string scope, JsonObject inspected, JsonObject retained)
     {
         if (state.Plan is null) return;
         var accepted = new TaskPlanSymbols(state.Plan);
         var candidate = state.Construction?.Candidate is { } draft ? new TaskPlanSymbols(draft.Plan) : accepted;
+        var acceptedScope = accepted.Scopes.Find(site => site.Path == scope);
+        var candidateScope = candidate == accepted ? acceptedScope : candidate.Scopes.Find(site => site.Path == scope);
+        if (acceptedScope is null || candidateScope is null) return;
         var remaining = ContinuedScopePreviewBytes - InspectedTaskBytes(retained);
         foreach (var (address, value) in inspected.Reverse())
         {
             if (value is not JsonObject task || !address.StartsWith("task:", StringComparison.Ordinal) ||
                 retained.ContainsKey(address) || task["id"]?.ToString() is not { } id || address != "task:" + id ||
-                !accepted.Tasks.TryGetValue(id, out var site) || site.Scope.Path != scope || !candidate.Tasks.ContainsKey(id)) continue;
+                !Within(accepted, acceptedScope, id) || candidate != accepted && !Within(candidate, candidateScope, id)) continue;
             var size = System.Text.Encoding.UTF8.GetByteCount(task.ToJsonString());
             if (size > remaining || !JsonNode.DeepEquals(task, PlanningConstruction.LocatedTaskNode(accepted, id)) ||
                 candidate != accepted && !JsonNode.DeepEquals(task, PlanningConstruction.LocatedTaskNode(candidate, id))) continue;
             retained[address] = task.DeepClone();
             remaining -= size;
         }
+
+        static bool Within(TaskPlanSymbols symbols, TaskPlanSymbols.Scope owner, string id) =>
+            symbols.Tasks.TryGetValue(id, out var site) && (site.Scope == owner || symbols.ExportRoute(owner, id).Count > 0);
     }
 
     private static void AddContinuedChildScopes(PlanningSession state, JsonObject context, PlanningConstructionCheckpoint checkpoint, string parentPath)

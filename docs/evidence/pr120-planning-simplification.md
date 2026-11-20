@@ -2,6 +2,19 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 16 (Server session `5b9abfc1707f48d6867179a9ed78d48e`) accepted
+13 checkpoints, including ordered nested loops over original observations and
+sponsored content reads. It repeatedly requested the same nested declarations
+and produced several field inventories from the same unexecuted receipts.
+The Server stopped after measured call 42 with no pending call. No product
+visit or workbook write executed. Those 42 HTTP attempts cost EUR 30.06337
+at the captured tariffs, leaving EUR 267.65843 after existing reservations.
+Replaying the inspected evidence at revisions 68, 80 and 92 preserved all
+2, 4 and 4 nested declarations respectively within the continued scope's
+existing byte budget. None was offered for another read. The original plan
+hash and selected operations were unchanged in each replay. A separate
+scope, an isolated group and a moved declaration fail the retention check.
+
 Review 25 (Server session `aeef260c181a4104bf2533ef088722d6`) retained
 the required report, a single clone operation and root cleanup in its draft.
 Calls 18, 21 and 24 had already inspected two, two and one operation-directory
