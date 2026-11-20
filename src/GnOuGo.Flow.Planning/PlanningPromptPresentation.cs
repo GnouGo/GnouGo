@@ -256,7 +256,7 @@ public static class PlanningPromptPresentation
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
-        var sharedAncestors = ShareEvidenceAncestors(evidence);
+        var ancestorLocations = new Dictionary<(string Id, string Version, string Hash, string Ancestors), string>();
         var schemas = new Dictionary<(string Id, string Version, string Hash, string Pointer, string Schema), string>();
         for (var i = 0; i < operations.Count; i++)
         {
@@ -271,6 +271,8 @@ public static class PlanningPromptPresentation
                 foreach (var field in new[] { "ancestors", "ancestorPrefix" })
                 {
                     if (operation[metadata]?[field] is not JsonArray ancestors) continue;
+                    if (field == "ancestors" && ancestors.Count > 0)
+                        ancestorLocations.TryAdd((id, version, hash, ancestors.ToJsonString()), prefix + field);
                     for (var index = 0; index < ancestors.Count; index++)
                         if (ancestors[index] is JsonObject ancestor && Text(ancestor["pointer"]) is { Length: > 0 } origin)
                             Add(id, version, hash, ancestor["constraints"] as JsonObject, origin, $"{prefix}{field}/{index}/constraints");
@@ -294,6 +296,7 @@ public static class PlanningPromptPresentation
                 }
             }
         }
+        var sharedAncestors = ShareEvidenceAncestors(evidence, ancestorLocations);
         foreach (var (address, value) in evidence)
         {
             if (value is not JsonObject row || row["ancestors"] is not JsonArray ancestors ||
@@ -462,9 +465,9 @@ public static class PlanningPromptPresentation
         return shared;
     }
 
-    private static bool ShareEvidenceAncestors(JsonObject evidence)
+    private static bool ShareEvidenceAncestors(JsonObject evidence,
+        Dictionary<(string Id, string Version, string Hash, string Ancestors), string> originals)
     {
-        var originals = new Dictionary<(string Id, string Version, string Hash, string Ancestors), string>();
         var changed = false;
         foreach (var (address, value) in evidence)
         {

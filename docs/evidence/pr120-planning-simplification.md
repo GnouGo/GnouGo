@@ -87,6 +87,13 @@ description read when the current complete menu shows the exact original
 for an inspected source. Partial menus, truncated descriptions and explicit
 prerequisites retain the read. [Discovery grammar regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
 
+Request 14 presented the same union constraints in a selected operation and
+in the evidence for five output branches. Replaying the presentation on all
+five expanded views reduced the prompt from 92,874 to 82,890 UTF-8 bytes.
+Every branch schema and complete ancestor array matched its original bytes
+after pointer resolution. Both replays used zero provider calls.
+[Schema presentation regressions](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

@@ -97,6 +97,42 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void DraftEvidenceReusesTheSelectedOperationsExactAncestorArray()
+    {
+        var ancestors = new JsonArray(new JsonObject { ["pointer"] = "/output", ["constraints"] = new JsonObject
+            { ["oneOf"] = new JsonArray(new JsonObject { ["type"] = "null" }, new JsonObject { ["description"] = new string('x', 2400) }) } });
+        var operation = new JsonObject { ["id"] = "inspect", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["selectedOutputs"] = new JsonArray(new JsonObject { ["pointer"] = "/output/oneOf/1" }),
+            ["selectedOutputsSharedSchemaMetadata"] = new JsonObject { ["ancestors"] = ancestors.DeepClone() } };
+        var evidence = new JsonObject();
+        foreach (var variant in new[] { "matching", "id", "version", "hash", "constraints" })
+        {
+            var row = new JsonObject { ["id"] = operation["id"]!.DeepClone(), ["version"] = operation["version"]!.DeepClone(),
+                ["hash"] = operation["hash"]!.DeepClone(), ["pointer"] = "/output/oneOf/1", ["schema"] = new JsonObject { ["type"] = "integer" },
+                ["ancestors"] = ancestors.DeepClone(), ["referenceClosure"] = new JsonObject { ["#/$defs/example"] = true } };
+            if (variant == "constraints") row["ancestors"]![0]!["constraints"]!["additionalProperties"] = false;
+            else if (variant != "matching") row[variant] = "other";
+            evidence["schema:" + variant] = row;
+        }
+        var prompt = "Use the selected contract.\n" + new JsonObject { ["operations"] = new JsonArray(operation), ["evidence"] = evidence }.ToJsonString();
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_draft", prompt,
+            new JsonObject { ["type"] = "object" }, null, null, out var aliases);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        foreach (var (alias, row) in shown["evidence"]!.AsObject())
+        {
+            var address = aliases!.Addresses[alias];
+            if (address == "schema:matching")
+            {
+                Assert.Null(row!["ancestors"]);
+                Assert.Equal("/operations/0/selectedOutputsSharedSchemaMetadata/ancestors", row["ancestorsPresentedAt"]!.ToString());
+                Assert.True(JsonNode.DeepEquals(ancestors, PlanningSchemaReferences.Read(shown, row["ancestorsPresentedAt"]!.ToString())));
+            }
+            else Assert.Equal(evidence[address]!["ancestors"]!.ToJsonString(), row!["ancestors"]!.ToJsonString());
+            Assert.True(JsonNode.DeepEquals(evidence[address]!["referenceClosure"], row["referenceClosure"]));
+        }
+    }
+
+    [Fact]
     public void DiscoveredBranchUsesItsExactOriginalSchemaInsideTheDisplayedAncestor()
     {
         var schema = new JsonObject { ["type"] = "string", ["description"] = new string('x', 2000) };

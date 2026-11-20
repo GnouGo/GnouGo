@@ -42,6 +42,11 @@ This is a presentation link with no binding or execution authority. Preparation
 measures and binds the final shared presentation before dispatch; saved pending
 requests, maps and receipts recover exactly without applying new compaction.
 
+An evidence row can also refer to the complete ancestor array already shown
+for the same selected operation, version and contract hash. Its
+`ancestorsPresentedAt` pointer resolves within that prompt. Each row keeps
+its original schema coordinate and reference closure.
+
 When an imported producer or individually retrieved task repeats an exact task
 declaration already shown in a retained scope view, `taskPresentedAt` points to
 that declaration in the same context. Matching includes task identity, owning
