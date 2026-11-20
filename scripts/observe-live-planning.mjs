@@ -28,13 +28,22 @@ try {
     await page.goto(url);
     await page.getByTitle('Select a GnOuGo agent', { exact: true }).click();
     await page.getByRole('menuitemradio', { name: agent, exact: true }).click();
-    const form = page.getByLabel('Workflow inputs', { exact: true });
-    await form.waitFor();
-    assert.equal(await form.locator('[id^="workflowInput_"]').count(), Object.keys(inputs).length);
-    for (const [name, value] of Object.entries(inputs)) {
-      await form.locator('[id="workflowInput_' + name + '"]').fill(value);
+    await page.waitForFunction(name => document.querySelector('form.gnougo-composer')?.dataset.workflowAgent === name, agent);
+    const composer = page.locator('form.gnougo-composer');
+    const form = composer.getByLabel('Workflow inputs', { exact: true });
+    const structured = await form.isVisible();
+    if (structured) {
+      assert.equal(await form.locator('[id^="workflowInput_"]').count(), Object.keys(inputs).length);
+      for (const [name, value] of Object.entries(inputs)) {
+        await form.locator('[id="workflowInput_' + name + '"]').fill(value);
+      }
+    } else {
+      const values = Object.values(inputs);
+      assert.equal(values.length, 1, 'The message composer accepts one prompt value');
+      assert.equal(typeof values[0], 'string');
+      await composer.locator('textarea.gnougo-composer__input').fill(values[0]);
     }
-    const submit = page.getByRole('button', { name: 'Run workflow', exact: true });
+    const submit = composer.getByRole('button', { name: structured ? 'Run workflow' : 'Send', exact: true });
     const previous = await page.getByLabel('Your message', { exact: true }).count();
     await submit.click();
     const message = page.getByLabel('Your message', { exact: true }).nth(previous);

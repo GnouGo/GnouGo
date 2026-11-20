@@ -624,7 +624,8 @@
             <label>Planning mode <select @bind="_planningMode" disabled="@_isStreaming"><option value="interactive">Interactive</option><option value="auto">Auto</option></select></label>
             @if (_diagnosticAvailable)
             { <label>Threshold policy <select @bind="_thresholdMode" disabled="@_isStreaming"><option value="strict">Strict</option><option value="diagnostic">Diagnostic — thresholds are warnings</option></select></label> }
-            <EditForm id="@ComposerDropZoneId" class="gnougo-composer" Model="_model" OnValidSubmit="SendAsync">
+            <EditForm id="@ComposerDropZoneId" class="gnougo-composer" Model="_model" OnValidSubmit="SendAsync"
+                      data-workflow-agent="@(!_workflowInputsLoading && _workflowInputSchema is { ErrorMessage: null } ? _workflowInputSchema.AgentName : null)">
                 <DataAnnotationsValidator />
                 <input id="@ComposerFileInputId" class="gnougo-composer__file-input" type="file" multiple />
 

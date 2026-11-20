@@ -2,6 +2,26 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 18 reached both local business approvals, the global judge and final
+technical validation on its fresh generated plan. A typed repair bound the
+header and extracted rows to the workbook before approval. The 34 physical
+planning requests cost EUR 16.17928. All 24 tasks were reviewed at revision
+99, artifact `5863c77bba27d43abc81dba5c36a2e4e0638f21340d27c42ec399d101b0589bf`.
+The first operator document described the obligations in prose. The Server
+rejected it before approval. After recording the six required obligation IDs,
+the Server approved and saved the exact artifact as agent
+`d3f9edce-562d-42e9-86d6-cc5ae8e88403`.
+
+The execution observer waited 30 seconds for a structured form. A workflow
+with a single required prompt string uses the normal chat message composer.
+The server received no submission. There were zero business tool events and
+no workbook. The execution marker at 23:00:59 UTC is retained. A browser
+regression reproduced the timeout on the single-input composer while the
+structured case passed. The observer now waits until the saved agent's input
+schema is loaded and submits through the displayed composer. Both real
+browser fixtures submitted their inputs and matched the resulting journal,
+saved agent and response. All seven related tests passed.
+
 Amazon 18's thirteenth request iterated the identical `snapshot.pages`
 field already used at the preceding checkpoint. Construction rejected the
 new loop because the original-collection check recognized a direct output

@@ -600,6 +600,11 @@ product row in order. `document_write` treats headers as ordinary supplied rows;
 it does not invent them. This states an existing format criterion before generation
 without changing the oracle or navigation grants.
 
+The execution observer waits for the selected saved agent's input schema. It
+uses the message composer for one prompt string and the structured form for
+named fields. Both paths capture the chat correlation ID and verify the
+Server journal against the saved workflow and the submitted values.
+
 `server-live-execute --run <id>` can continue only the identical review-ready,
 unexecuted Server artifact after correcting a rejected review document. It starts
 with background processing disabled and maps no inference endpoint. An existing
