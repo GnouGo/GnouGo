@@ -402,6 +402,44 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Equal(2, candidate.Plan.Root.Tasks[0].Body!.Tasks.Count);
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task ContinuingTheSameFragmentCanUseTheAcceptedScopeAndCleanupWithoutRereadingThem(bool oversized, bool strictPacking)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        var first = Value(0);
+        if (oversized) first.Objective += new string('x', 9000);
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, ContinueInScope = "/root",
+            Tasks = [first], Always = [new() { Id = "cleanup", Kind = "value", Objective = "Record the cleanup.",
+                Outputs = [new("finished", new() { Kind = "boolean", Boolean = true })] }]
+        });
+        runtime.Respond = (_, _) => throw new InvalidOperationException("The technical checkpoint needs no model response.");
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        state = PlannerFixture.Clone(state);
+        if (!strictPacking) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        Assert.Equal(!oversized, PlanningCompactConstruction.Context(state)["scopeContext"] is not null);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var choices = request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString();
+        if (oversized || strictPacking) Assert.Null(context["scopeContext"]);
+        else
+        {
+            var scope = context["scopeContext"];
+            Assert.True(JsonNode.DeepEquals(PlanningConstruction.ScopeEvidence(state, "/root"), scope));
+            Assert.Equal("value_0", scope!["tasks"]![0]!["id"]!.ToString());
+            Assert.Equal("cleanup", scope["always"]![0]!["id"]!.ToString());
+        }
+        foreach (var address in new[] { "scope:/root", "task:value_0", "task:cleanup" })
+            Assert.Equal(oversized || strictPacking, choices.Contains(System.Text.Json.JsonSerializer.Serialize(address), StringComparison.Ordinal));
+        Assert.Single(state.Construction!.Checkpoints);
+        Assert.False(state.Construction.Evidence?.ContainsKey("scope:/root") == true);
+    }
+
     [Fact]
     public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope()
     {

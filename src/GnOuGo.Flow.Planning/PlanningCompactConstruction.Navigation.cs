@@ -102,6 +102,16 @@ internal static partial class PlanningCompactConstruction
         var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);
         if (findingEvidence.Length > 0)
             context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+        if (context["scopeContext"] is JsonObject scope && scope["path"]?.ToString() is { } path &&
+            context["scopeEvidence"]?.ToString() == "scope:" + path && scope["taskCount"]?.GetValue<int>() > 0)
+        {
+            if (scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
+                scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>())
+                addresses.Remove("scope:" + path);
+            foreach (var task in scope["tasks"]!.AsArray().Concat(scope["always"]!.AsArray()).OfType<JsonObject>())
+                if (task["id"]?.ToString() is { } id && task["scopes"] is not JsonArray { Count: > 0 })
+                    addresses.Remove("task:" + id);
+        }
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
             supportedRereads: findingEvidence);
     }
