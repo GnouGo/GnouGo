@@ -49,7 +49,7 @@ public sealed partial class TaskPlanCompiler
             if (!DeclaresObject(contract))
                 Fail("TASK_FIELD_TYPE", "Field '" + value.Port + "' requires a declared object; received " +
                     (type?.ToJsonString() ?? "opaque") + " from " + Origin() +
-                    ". Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");
+                    ". Arrays have no field/index/length ports; use typed iteration, at_index, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");
             if (contract["properties"] is not JsonObject fields || fields[value.Port!] is not JsonObject)
                 Fail("TASK_FIELD_UNKNOWN", Origin() + " does not declare field '" + value.Port + "'. Available fields: " +
                     string.Join(", ", (contract["properties"] as JsonObject ?? []).Select(p => p.Key)) + ". Field names are literal, not paths.");

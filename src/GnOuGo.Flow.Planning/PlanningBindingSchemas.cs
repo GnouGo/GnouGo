@@ -17,7 +17,7 @@ internal static class PlanningBindingSchemas
             foreach (var binding in definitions["value"]!["anyOf"]!.AsArray().OfType<JsonObject>())
             {
                 var kinds = binding["properties"]?["kind"]?["enum"]?.AsArray()
-                    .Select(k => k!.ToString()).Where(k => k is "input" or "item" or "output" or "field").ToArray() ?? [];
+                    .Select(k => k!.ToString()).Where(k => k is "input" or "item" or "output" or "field" or "at_index").ToArray() ?? [];
                 if (kinds.Length == 0) continue;
                 var reference = binding.DeepClone();
                 reference["properties"]!["kind"] = PlanningSchemas.Enum(kinds);

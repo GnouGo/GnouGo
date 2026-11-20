@@ -63,6 +63,8 @@ internal sealed class CommitmentBindings
                     if (path[0] is null) return All(value.Items.Select(v => Trace(v, scope, path.Skip(1).ToArray(), operation, port)));
                     return int.TryParse(path[0], out var index) && index >= 0 && index < value.Items.Count
                         ? Trace(value.Items[index], scope, path.Skip(1).ToArray(), operation, port) : Evidence.Unknown;
+                case "at_index":
+                    return value.Items.Count == 2 ? Trace(value.Items[0], scope, new string?[] { null }.Concat(path).ToArray(), operation, port) : Evidence.Unknown;
                 case "lookup":
                     // Reconnection preserves records, not the source of the selection IDs.
                     return value.Items.Count == 2 ? Trace(value.Items[0], scope,

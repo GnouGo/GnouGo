@@ -32,6 +32,8 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
         {
             switch (value.Kind)
             {
+                case "at_index":
+                    return value.Items.Count == 2 && Trace(value.Items[0], scope, new string?[] { null }.Concat(path).ToArray(), kind);
                 case "lookup":
                     // Any selected position can originate from any source record.
                     // Selected IDs establish no artifact authority.

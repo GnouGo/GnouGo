@@ -65,6 +65,22 @@ internal static class PlanningValues
             // not imply uniqueness or cardinality constraints on concatenation.
             return new() { ["type"] = "array", ["items"] = element.DeepClone() };
         }
+        if (value.Kind == "at_index")
+        {
+            if (value.Text is not null || value.Items.Count != 2 || resolve(value.Items[0]) is not { } collection ||
+                PlanningContractShapes.IterationItems(collection) is not { } element || PlanningContractShapes.IsOpaque(element) ||
+                !Established(element) || HasTuple(collection))
+                throw new InvalidOperationException("at_index requires a nonnullable array with an established element contract.");
+            var index = value.Items[1];
+            if (index is { Kind: "number", Number: { } literal }
+                ? !double.IsFinite(literal) || literal < 0 || literal > 9007199254740991d || Math.Truncate(literal) != literal
+                : resolve(index) is not { } position || !PlanningContractCompatibility.Fits(position, new() { ["type"] = "integer" }))
+                throw new InvalidOperationException("at_index requires a zero-based integer position.");
+            return element;
+
+            static bool HasTuple(JsonObject schema) => schema["prefixItems"] is JsonArray { Count: > 0 } ||
+                (schema["anyOf"] ?? schema["oneOf"]) is JsonArray alternatives && alternatives.OfType<JsonObject>().Any(HasTuple);
+        }
         if (value.Kind == "lookup")
         {
             if (string.IsNullOrWhiteSpace(value.Text) || value.Text is "__proto__" or "prototype" or "constructor" || value.Items.Count != 2 ||

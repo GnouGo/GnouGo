@@ -337,6 +337,8 @@ For decision-driven actions, declare the extract `resultType` as candidate ident
 
 Use it only to reconnect selection: verify selected IDs against the offered candidate view, project those verified IDs, then resolve them against retained original records. Producer IDs are preferred; otherwise use the original collection index attached before extraction/filtering. Index identities belong to that captured collection, not a later snapshot. Never hash content or renumber surviving candidates. No model-generated action argument is used on this path; producer permissions, action compatibility and expiration still apply.
 
+Use `at_index` with `items: [collection, position]` to read the corresponding element of an ordered typed array. Positions are zero-based integers. A missing position fails before the consuming action. The selected element retains its type and original value, including null when declared. For a one-to-one extraction, a subsequent loop over the original observations can read the corresponding result with its current `index`. Filtering or reordering requires a separate verified correspondence.
+
 ### Array cardinality and explicit transform revisions
 
 Explicit `EditablePaths` revisions may select an existing transform’s `/mode`, `/each` and `/resultType` alongside dependent bindings. The typed patch preserves unrelated tasks, objectives, ordering and cleanup, invalidates approval, and retains cumulative accounting. Automatic repair does not acquire this authority. Invalid immutable required bindings stop with `REVISION_REQUIRED` when no issued producer/export edit can resolve them.

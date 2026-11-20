@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal const string ValueSemantics = "Bind typed results at the consumer. Use field, object, array, lookup, flatten, json, declared arithmetic, predicates or string_operation concat and uri_component. Objectives alone compute nothing.";
+    internal const string ValueSemantics = "Bind typed results at the consumer. Use field, object, array, at_index (array and zero-based index), lookup (keyed records and IDs), flatten, json, declared arithmetic, predicates or string_operation concat and uri_component. Objectives alone compute nothing.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
     internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 
@@ -301,7 +301,7 @@ internal static partial class PlanningCompactConstruction
             hints.Add("Use a finite supported capacity; the TaskPlan default maxItems=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
         }
         if (controls.Contains("foreach") || scope?.Owner?.Kind == "foreach")
-            hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Export an ordered array of fields per item for a matrix consumer. Prepend a required header by flattening [single-row matrix, collected matrix] one level. Within the body, item and index refer to the current iteration.");
+            hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Export an ordered array of fields per item for a matrix consumer. Prepend a required header by flattening [single-row matrix, collected matrix] one level. Within the body, item and index refer to the current iteration. Bind a positionally corresponding array element with at_index(array,index).");
         if (controls.Contains("conditional") || scope?.Owner?.Kind == "conditional")
             hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path.");
         if (controls.Contains("parallel") || scope?.Owner?.Kind == "parallel")

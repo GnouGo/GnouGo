@@ -80,6 +80,8 @@ public sealed partial class ExpressionEvaluator
                 Supported(member.Object, names) && call.Arguments[0] is ArrowFunctionExpression { Params.Count: 1 or 2 } arrow && FunctionSupported(arrow, names),
             CallExpression { Callee: ArrowFunctionExpression arrow } call when readable =>
                 arrow.Params.Count == call.Arguments.Count && call.Arguments.All(a => Supported(a, names)) && FunctionSupported(arrow, names),
+            CallExpression { Arguments.Count: 2, Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "atIndex" }, Computed: false } } call =>
+                call.Arguments.All(a => Supported(a, names)),
             CallExpression { Arguments.Count: 3, Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "lookup" }, Computed: false } } call when readable =>
                 call.Arguments[2] is StringLiteral && call.Arguments.All(a => Supported(a, names)),
             CallExpression { Arguments.Count: 1, Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "scalar" }, Computed: false } } call when readable =>
@@ -279,6 +281,11 @@ public sealed partial class ExpressionEvaluator
                         assembled[propertyName] = Copy(pair[1]);
                     }
                     return assembled;
+                case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "atIndex" } } } call:
+                    if (EvaluateSelection(call.Arguments[0], bindings) is not JsonArray elements)
+                        throw JintSandbox.Unsatisfied("Positional selection requires an observed array and an integer index.");
+                    var position = JintSandbox.CheckedPosition(EvaluateSelection(call.Arguments[1], bindings), elements.Count);
+                    return elements[(int)position];
                 case CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier helper } } call:
                     if (helper.Name == "scalar") return JsonValue.Create(EvaluateSelection(call.Arguments[0], bindings) is not (JsonObject or JsonArray));
                     var operands = new JsonObject();

@@ -187,6 +187,23 @@ them with the candidate and then the accepted plan and uses the existing
 8 KiB scope allowance. Completing the cursor drops this optional evidence.
 [Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
 
+Request 20 applied a keyed lookup to an ordered decision array. The elements
+contained two Boolean classifications and no identity field, and the second
+operand was the scalar loop index. The compiler rejected the condition on
+`read_sponsored_occurrence` with `TASK_LOOKUP_INVALID`. Request 21 abandoned
+the consumer and request 25 repeated the per-record classification to carry
+the original href into another array. A grammar-to-runtime regression now
+binds the array and zero-based index directly using `at_index`. It checks
+repeated records, exact values, invalid positions and producer ownership.
+For the offline replay, the restored checkpoint matched the Server's plan hash
+`15917c8a4e8aa0c7a504c6c45166f3a4a307067dac1a9e632d365f0765440321`.
+The original response (SHA-256
+`98f36ee1dad4b14bf0c2c6f97e4d5dfaa47154b72fc06c485d627e69347b6868`)
+reproduced the rejection. Changing the binding to positional selection
+over the original two operands passed the issued draft grammar and both
+validation stages. This comparison made zero provider calls and executions.
+[Positional binding regression](../../tests/GnOuGo.Flow.Planning.Tests/PositionalBindingTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

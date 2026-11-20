@@ -89,6 +89,7 @@ public sealed partial class PlanningGraphCompiler
             "output" => ResolveOutput(value),
             "object" => "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value))) + "})",
             "array" => "[" + string.Join(",", value.Items.Select(Resolve)) + "]",
+            "at_index" => "m.atIndex(" + Resolve(value.Items[0]) + "," + Resolve(value.Items[1]) + ")",
             "flatten" => FlattenExpression(Resolve(value.Items.Single())),
             "lookup" => LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!),
             "null" or "string" or "number" or "boolean" => LowerValue(value, scope, allowReferences: false)?.ToJsonString() ?? "null",
@@ -137,6 +138,7 @@ public sealed partial class PlanningGraphCompiler
             }
             if (value.Kind == "object") return "({" + string.Join(",", value.Members.Select(m => Quote(m.Name) + ":" + Resolve(m.Value, m.Name))) + "})";
             if (value.Kind == "array") return "[" + string.Join(",", value.Items.Select(v => Resolve(v))) + "]";
+            if (value.Kind == "at_index") return "m.atIndex(" + Resolve(value.Items[0]) + "," + Resolve(value.Items[1]) + ")";
             if (value.Kind == "flatten") return FlattenExpression(Resolve(value.Items.Single()));
             if (value.Kind == "lookup") return LookupExpression(Resolve(value.Items[0]), Resolve(value.Items[1]), value.Text!);
             var name = "v" + sources.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);

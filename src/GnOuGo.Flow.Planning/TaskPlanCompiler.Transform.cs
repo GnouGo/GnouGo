@@ -124,7 +124,7 @@ public sealed partial class TaskPlanCompiler
         return StructuredResult(key, schema);
     }
 
-    private static bool ContainsConsumerBinding(TaskValue value) => value.Kind is "flatten" or "lookup" ||
+    private static bool ContainsConsumerBinding(TaskValue value) => value.Kind is "flatten" or "lookup" or "at_index" ||
         value.Items.Any(ContainsConsumerBinding) || value.Members.Any(m => ContainsConsumerBinding(m.Value));
 
     private static PlanningValue Text(string text) => new() { Kind = "string", Text = text };

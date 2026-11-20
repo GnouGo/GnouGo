@@ -421,7 +421,7 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
-    private bool CopyValue(TaskValue value) => (value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" || _indexedProjections && value.Kind == "index") &&
+    private bool CopyValue(TaskValue value) => (value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" || _indexedProjections && value.Kind is "index" or "at_index") &&
         value.Items.All(CopyValue) && value.Members.All(m => CopyValue(m.Value));
 
     private bool PureProjection(PlanTask task)
@@ -742,6 +742,7 @@ public sealed partial class TaskPlanCompiler
             case "json": return EncodeJson(value, scope);
             case "flatten": return Flatten(value, scope);
             case "lookup": return Lookup(value, scope);
+            case "at_index": return AtIndex(value, scope);
             case "field": return SelectField(value, scope, consume);
             default: Fail("TASK_VALUE_INVALID", "Values allow literals, business references, declared fields, JSON encoding, typed string operations, arithmetic and predicates only."); break;
         }
@@ -855,6 +856,20 @@ public sealed partial class TaskPlanCompiler
         return new(computation, schema);
     }
 
+    private Bound AtIndex(TaskValue value, Scope scope)
+    {
+        if (value.Items.Count != 2 || value.Port is not null || value.Source is not null || value.Text is not null ||
+            value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
+            Fail("TASK_INDEX_INVALID", "at_index requires exactly two operands, the array and its zero-based position.");
+        var collection = Value(value.Items[0], scope);
+        var index = Value(value.Items[1], scope);
+        var selection = new PlanningValue { Kind = "at_index", Items = [collection.Value, index.Value] };
+        JsonObject element;
+        try { element = PlanningValues.ComputationContract(selection, operand => ReferenceEquals(operand, collection.Value) ? collection.Schema : index.Schema); }
+        catch (InvalidOperationException error) { Fail("TASK_INDEX_INVALID", error.Message); throw; }
+        return new(selection, element);
+    }
+
     private Bound Lookup(TaskValue value, Scope scope)
     {
         if (value.Items.Count != 2 || string.IsNullOrWhiteSpace(value.Port) || value.Source is not null || value.Text is not null ||
@@ -868,7 +883,7 @@ public sealed partial class TaskPlanCompiler
         {
             Fail("TASK_LOOKUP_INVALID", ex.Message + " " + Operand(0, records, "records: array of objects declaring identity field '" + value.Port + "'") +
                 " " + Operand(1, selected, "IDs: array of strings or safe integers compatible with the record identity") +
-                " json produces text, not a record collection.");
+                " json produces text, not a record collection. To select the corresponding position in an ordered array, use at_index(array, index).");
             throw;
         }
         computation.Items = [Consume(records with { SelectionSource = records, SelectionPath = [] }, scope).Value,
