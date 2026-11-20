@@ -149,6 +149,16 @@ now describes this installed guard on the existing operation. The provider's
 wire schemas, authorized methods and actual dispatch checks are preserved.
 [Discovery regression](../../tests/GnOuGo.Agent.Server.Tests/DelegatedPlanningDiscoveryTests.cs)
 
+This Server session ended in planning after 23 technical checkpoints, one
+accepted business block and 85 settled HTTP attempts. It ran from 08:24:07
+to 09:59:11 UTC. Its longest measured model invocation took 94.60 seconds.
+At 09:59:31 UTC a separate GitHub read returned the original open head, zero
+reviews and zero inline comments, and the checkout path was absent. The run
+cost EUR 67.82484 at the captured tariffs and introduced zero outstanding
+reservations. The audit counted 2,759 cumulative HTTP attempts, EUR 1,257.02585
+in measured usage, EUR 478.50045 in HTTP reservations and EUR 103.36148 in
+application reservations. EUR 261.11222 was available for the next run.
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.
