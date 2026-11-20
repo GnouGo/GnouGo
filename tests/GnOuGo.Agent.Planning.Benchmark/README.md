@@ -228,6 +228,9 @@ dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
 Configuration readiness is not a provider generation health check. Keep
 pre-generation failures, actual reserved attempts and completed receipts distinct.
 A default exception attempt count does not establish a generation dispatch.
+An independent probe that stops during authentication can have a prepared
+HTTP journal with zero attempts. Its report preserves the authentication
+failure and attempt count. Wire parameters appear only for a captured request.
 
 `server-live-probe` also supports independent diagnostic requests. Use
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the

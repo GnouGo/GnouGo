@@ -452,17 +452,7 @@ internal static class ServerLiveDiagnostics
             report["physical_http_attempts"] = transportEvidence?["transport"]?["Attempts"] is JsonArray attempts ? attempts.Count :
                 report["financial_refusal"]?["dispatch_status"]?.ToString() == "not_started" ? 0 : null;
             report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, CancellationToken.None) is not null;
-            if (transportEvidence?["transport"] is JsonObject wire)
-            {
-                var body = JsonNode.Parse(wire["RequestBody"]!.ToString())!;
-                report["effective_http"] = new JsonObject { ["method"] = wire["RequestMethod"]?.DeepClone(),
-                    ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(wire["Endpoint"]!.ToString()),
-                    ["body_sha256"] = PlanningGraphCompiler.Fingerprint(wire["RequestBody"]!.ToString()),
-                    ["model"] = body["model"]?.DeepClone(), ["reasoning_effort"] = body["reasoning_effort"]?.DeepClone(),
-                    ["max_completion_tokens"] = body["max_completion_tokens"]?.DeepClone(), ["stream"] = body["stream"]?.DeepClone(),
-                    ["tool_count"] = (body["tools"] as JsonArray)?.Count ?? 0,
-                    ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone() };
-            }
+            if (ProbeHttpEvidence(transportEvidence) is { } httpEvidence) report["effective_http"] = httpEvidence;
             report["finished_utc"] = DateTimeOffset.UtcNow; report["trace_id"] = activity.TraceId.ToHexString();
             await campaign.SaveAsync("planning-evaluation-runs", run, report, CancellationToken.None);
             return Results.Json(report);
@@ -707,6 +697,21 @@ internal static class ServerLiveDiagnostics
             await app.StopAsync();
             if (business is not null) await business.DisposeAsync();
         }
+    }
+
+    internal static JsonObject? ProbeHttpEvidence(JsonObject? transportEvidence)
+    {
+        if (transportEvidence?["transport"] is not JsonObject wire ||
+            wire["RequestBody"]?.GetValue<string>() is not { } requestBody ||
+            wire["Endpoint"]?.GetValue<string>() is not { } endpoint) return null;
+        var body = JsonNode.Parse(requestBody)!;
+        return new JsonObject { ["method"] = wire["RequestMethod"]?.DeepClone(),
+            ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(endpoint),
+            ["body_sha256"] = PlanningGraphCompiler.Fingerprint(requestBody),
+            ["model"] = body["model"]?.DeepClone(), ["reasoning_effort"] = body["reasoning_effort"]?.DeepClone(),
+            ["max_completion_tokens"] = body["max_completion_tokens"]?.DeepClone(), ["stream"] = body["stream"]?.DeepClone(),
+            ["tool_count"] = (body["tools"] as JsonArray)?.Count ?? 0,
+            ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone() };
     }
 
     internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string? reasoning, int outputTokens,

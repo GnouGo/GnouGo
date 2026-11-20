@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
@@ -8,6 +9,15 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class IndependentProviderProbeTests
 {
+    [Fact]
+    public void AuthenticationFailureBeforeGenerationHasNoEffectiveHttpRequest()
+    {
+        var journal = new JsonObject { ["transport"] = JsonSerializer.SerializeToNode(new LLMHttpRetryState(),
+            LLMHttpRetryJsonContext.Default.LLMHttpRetryState) };
+        Assert.Empty(journal["transport"]!["Attempts"]!.AsArray());
+        Assert.Null(ServerLiveDiagnostics.ProbeHttpEvidence(journal));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
