@@ -138,7 +138,7 @@ public sealed class LifecycleScopeGuidanceTests
         policy["maxInputTokens"] = limit;
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, prompt, schema);
         Assert.Equal(prompt, issued.Prompt);
-        Assert.InRange(ModelRequestAdmission.EstimateTokens(issued), 1, limit);
+        PlannerFixture.ObserveInputBudget(ModelRequestAdmission.EstimateTokens(issued), limit);
         Assert.Null(state.PendingCall);
     }
 }

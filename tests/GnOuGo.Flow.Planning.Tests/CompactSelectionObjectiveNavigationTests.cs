@@ -196,8 +196,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         Assert.Equal(old.SchemaHash, current.SchemaHash);
         Assert.Equal(old.BaselineHash, current.BaselineHash);
         Assert.True(current.CompleteRequestBytes > old.CompleteRequestBytes);
-        Assert.InRange(current.EstimatedInputTokens, 1,
-            PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens);
+        PlannerFixture.ObserveInputBudget(current, PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens);
         Assert.Equal(current.CompleteRequestBytes, current.Components.Sum(component => component.SerializedBytes));
         foreach (var field in previous.Where(field => field.Key != "interfaces"))
             Assert.True(JsonNode.DeepEquals(field.Value, context[field.Key]), field.Key);

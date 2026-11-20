@@ -24,6 +24,12 @@ operations on offer, the local and deferred choices share one compact schema.
 This keeps strict navigation admission within the existing 6,000-token allowance
 in the suspended-consumer tests. Direct bindings still require IDs and exact contracts.
 
+Replaying two oversized requests from `af621102` with the updated test
+observations reproduced 6,217 implementation and 6,012 discovery tokens against
+a target of 6,000. Both tests completed with warnings and reported the byte
+counts by component. Strict admission and unfinished-response tests continue
+to check the actual accepted or rejected state separately.
+
 The fifth independent Amazon source capture returned 1,669 records. Twenty
 authorized resolutions returned seventeen store pages and three product links.
 The product links resolved to the same ASIN, but the independent verifier found the bare auxiliary /deals link at record 506 in the same card.

@@ -62,7 +62,7 @@ public sealed class CompactConstructionTests
             Assert.DoesNotContain(state.Diagnostics, d => d.Required);
             var measurement = state.RequestMeasurements![^1];
             Assert.Equal(PlanningCompactConstruction.IntentPurpose, measurement.Phase);
-            Assert.InRange(measurement.EstimatedInputTokens, 1, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.IntentPurpose));
+            PlannerFixture.ObserveInputBudget(measurement, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.IntentPurpose));
         }
         var pages = state.Construction!.Compact!.Sources.Where(s => s.Kind == "page").ToArray();
         Assert.All(pages, page => Assert.True(page.Indexed));
@@ -145,7 +145,7 @@ public sealed class CompactConstructionTests
         foreach (var call in runtime.Calls)
         {
             var phase = call.StructuredOutputSchema!["title"]!.ToString();
-            Assert.InRange(PlanningRequestMeasurements.Measure(call, phase, 8000).EstimatedInputTokens, 1, PlanningConstructionInputPolicy.EffectiveLimit(state.Request, phase));
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, phase, 8000), PlanningConstructionInputPolicy.EffectiveLimit(state.Request, phase));
         }
         Assert.DoesNotContain("operationDirectory", runtime.Calls[^1].Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("\"request\":", runtime.Calls[^1].Prompt, StringComparison.Ordinal);
@@ -479,7 +479,7 @@ public sealed class CompactConstructionTests
         Assert.True(state.Construction!.Compact!.RequirementPageRequested);
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.ImplementationGuidance(state), context,
             PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose);
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000), 12000);
         PlanningConstruction.LoadEvidence(state, ["page:requirements:0"]);
         var repeated = PlanningCompactConstruction.ImplementationContext(state);
         Assert.Null(repeated["requirements"]);
@@ -532,7 +532,7 @@ public sealed class CompactConstructionTests
                 UseBackgroundMode = true, MaxTokens = state.Construction!.Limits.DraftOutputTokens,
                 ClientRequestId = new string('s', 64) + ":12:" + new string('h', 64)
             }, state.Request.Generation);
-            Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, 3000), 12000);
         }
         Assert.Equal(originals, JsonSerializer.Serialize(compact.Sources, PlanningJsonContext.Default.ListPlanningConstructionSource));
         Assert.All(state.Construction!.Requirements, requirement => Assert.NotEqual("closed", requirement.Status));
@@ -705,7 +705,7 @@ public sealed class CompactConstructionTests
             StructuredOutputSchema = request.StructuredOutputSchema, StructuredOutputStrict = true, UseBackgroundMode = true,
             MaxTokens = state.Construction!.Limits.DraftOutputTokens, ClientRequestId = new string('s', 64) + ":14:" + new string('h', 64)
         }, state.Request.Generation);
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000), 12000);
         var objectiveAddress = scope["objectiveEvidence"]!.ToString();
         PlanningConstruction.LoadEvidence(state, [objectiveAddress, port["evidence"]!.ToString()]);
         Assert.Equal(owner.Objective, state.Construction!.Evidence![objectiveAddress]!["text"]!.ToString());
@@ -761,7 +761,7 @@ public sealed class CompactConstructionTests
         complete.ClientRequestId = state.Request.SessionId + ":" + (state.ModelCalls + 1) + ":" + hash;
         Assert.Equal(4, PlanningCompactConstruction.InterfaceDirectory(state, null, 0).Count);
         Assert.Equal("page:interfaces:4", PlanningCompactConstruction.ImplementationContext(state)["nextInterfaces"]!.ToString());
-        Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, 3000), 12000);
     }
 
     [Fact]
@@ -823,7 +823,7 @@ public sealed class CompactConstructionTests
         var schema = PlanningCompactConstruction.ImplementationSchema(state);
         Assert.DoesNotContain("result_8\"", schema.ToJsonString(), StringComparison.Ordinal);
         var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.ImplementationGuidance(state), context, schema, PlanningCompactConstruction.ImplementationPurpose);
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000).EstimatedInputTokens, 1, 12000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 3000), 12000);
         Assert.True(PlanningCompactConstruction.LoadEvidence(state, context["publicOutputs"]!["next"]!.ToString(), out var page));
         Assert.Equal("result_8", page!["items"]![0]!["name"]!.ToString());
         var pagedSchema = PlanningCompactConstruction.ImplementationSchema(state);
@@ -887,7 +887,7 @@ public sealed class CompactConstructionTests
         Assert.Single(runtime.Calls);
         Assert.All(state.Construction!.Compact!.Sources, source => Assert.True(source.Indexed));
         Assert.Equal(prompt, string.Concat(state.Requirements!.Outcomes.Select(r => r.Description)));
-        Assert.All(runtime.Calls, call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.IntentPurpose, 3000).EstimatedInputTokens, 1, 12000));
+        Assert.All(runtime.Calls, call => PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.IntentPurpose, 3000), 12000));
     }
 
     [Fact]
@@ -1006,7 +1006,7 @@ public sealed class CompactConstructionTests
         Assert.Equal(beforeJudge.Length, afterJudge.Length);
         Assert.DoesNotContain("independent_", afterDraft.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("unrelated_scope_", afterJudge, StringComparison.Ordinal);
-        Assert.InRange(PlanningRequestMeasurements.Measure(afterDraft, PlanningConstruction.DraftPurpose, 8000).EstimatedInputTokens, 1, 12000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(afterDraft, PlanningConstruction.DraftPurpose, 8000), 12000);
     }
 
     [Fact]
@@ -1081,7 +1081,7 @@ public sealed class CompactConstructionTests
         Assert.Equal("null", inputs[2].Default!.Kind);
         Assert.False(Assert.Single(inputs[3].Default!.Members).Value.Boolean);
         Assert.True(PlanningClarifications.SameInputs(inputs, PlannerFixture.Clone(state).Requirements!.Inputs));
-        Assert.All(state.RequestMeasurements!, measurement => Assert.InRange(measurement.EstimatedInputTokens, 1, measurement.InputLimit));
+        Assert.All(state.RequestMeasurements!, measurement => PlannerFixture.ObserveInputBudget(measurement));
     }
 
     [Theory]

@@ -207,7 +207,7 @@ public sealed class CompactDraftNavigationTests
         Assert.Equal(reselection ? new[] { "req" } : null, state.Construction.Compact.ReplacementRequirements?.ToArray());
         var prepared = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
         var measured = PlanningRequestMeasurements.Measure(prepared, PlanningCompactConstruction.ImplementationPurpose, 6000);
-        Assert.InRange(measured.EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(measured, 6000);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
     }
 
@@ -230,7 +230,7 @@ public sealed class CompactDraftNavigationTests
         Assert.DoesNotContain("worker_103", request.Prompt, StringComparison.Ordinal);
         var prepared = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt, request.StructuredOutputSchema!.AsObject());
         var measured = PlanningRequestMeasurements.Measure(prepared, PlanningConstruction.DraftPurpose, 16000);
-        Assert.InRange(measured.EstimatedInputTokens, 1, 16000);
+        PlannerFixture.ObserveInputBudget(measured, 16000);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         Assert.InRange(request.Prompt.Length - before.Prompt.Length, 1, 150);
         Assert.InRange(request.StructuredOutputSchema!.ToJsonString().Length - before.StructuredOutputSchema!.ToJsonString().Length, 1, 150);

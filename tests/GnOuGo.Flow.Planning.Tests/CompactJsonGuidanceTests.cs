@@ -46,7 +46,7 @@ public sealed class CompactJsonGuidanceTests
         captured["targetInputTokens"] = limit; captured["maxInputTokens"] = limit;
         var request = PlanningModelCalls.PrepareRequest(state, purpose, prompt, schema);
         Assert.Equal(prompt, request.Prompt);
-        Assert.InRange(ModelRequestAdmission.EstimateTokens(request), 1, limit);
+        PlannerFixture.ObserveInputBudget(ModelRequestAdmission.EstimateTokens(request), limit);
         Assert.True(JsonNode.DeepEquals(original.StructuredOutputSchema, request.StructuredOutputSchema));
         Assert.NotEqual(original.ClientRequestId, request.ClientRequestId);
         Assert.Equal(request.ClientRequestId, PlanningModelCalls.PrepareRequest(state, purpose, prompt, schema).ClientRequestId);

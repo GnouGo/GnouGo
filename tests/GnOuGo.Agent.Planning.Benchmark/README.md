@@ -1257,6 +1257,9 @@ emits a warning and continues waiting for the terminal journal and cleanup
 evidence. Operator cancellation and tool failures still propagate.
 
 Diagnostic call, token and timing targets produce warnings. A session can
-continue across those targets. The campaign still enforces its spending
+continue across those targets. The planning test suite also reports estimated
+input above an observation target as an xUnit warning and continues checking
+the response, bindings and state. Warnings show the phase, estimated tokens,
+target and measured request bytes by component when available. The campaign still enforces its spending
 authorization and preserves outstanding reservations. A funding refusal or
 planning-only result cannot qualify a business case.

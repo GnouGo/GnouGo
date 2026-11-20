@@ -82,14 +82,14 @@ public sealed class CompactMissingImportTests
         var state = await Ready(); state.Construction!.Compact!.CurrentStep = null;
         var request = Prepared(state);
         var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling));
         var context = Context(Canonical(state, request));
         if (!context["scopes"]!.AsArray().Any(row => row?["path"]?.ToString() == Scope))
         {
             var next = context["nextScopes"]!.ToString();
             PlanningConstruction.LoadEvidence(state, [next], followup: Prepared, purpose: PlanningCompactConstruction.ImplementationPurpose);
             request = Prepared(state);
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling).EstimatedInputTokens, 1, ceiling);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, ceiling));
             context = Context(Canonical(state, request));
         }
         var group = Assert.Single(context["scopes"]!.AsArray(), row => row?["path"]?.ToString() == Scope)!;

@@ -77,7 +77,7 @@ public sealed class CompactContractEvidenceFlowTests
         var paged = PlanningConstruction.DraftRequest(state, correction);
         var context = Context(paged);
         var operation = Contract(context);
-        Assert.InRange(PlanningRequestMeasurements.Measure(Prepare(paged), purpose, maximum).EstimatedInputTokens, 1, maximum);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(Prepare(paged), purpose, maximum));
         Assert.InRange(operation["outputs"]!.AsArray().Count, 2, 9);
         Assert.Equal(40, operation["outputCount"]!.GetValue<int>());
         Assert.Contains(operation["outputs"]!.AsArray(), row => row!["name"]!.ToString() == "result9");
@@ -325,7 +325,7 @@ public sealed class CompactContractEvidenceFlowTests
         var fitted = PlanningConstruction.DraftRequest(state, false);
         var context = Context(fitted);
         var selected = context["operations"]![0]!;
-        Assert.InRange(Measure(fitted).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(Measure(fitted), limit);
         Assert.InRange(selected["outputs"]!.AsArray().Count, 2, 7); // Requires refinement below the initial eight-row page.
         Assert.Equal(16, selected["outputCount"]!.GetValue<int>());
         foreach (var name in new[] { "result00", "result15" })
@@ -463,7 +463,7 @@ public sealed class CompactContractEvidenceFlowTests
             var view = context["operations"]![0]!;
             var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
             var measurement = PlanningRequestMeasurements.Measure(request, purpose, limit);
-            Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
+            PlannerFixture.ObserveInputBudget(measurement, limit);
             if (purpose == phase)
             {
                 drafts++;

@@ -104,7 +104,7 @@ public sealed class CompactSelectionSchemaTests
         request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, request.Prompt,
             request.StructuredOutputSchema!.AsObject());
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit));
         Assert.Equal(500, state.Construction!.OpenScopes.Count);
     }
 
@@ -127,7 +127,7 @@ public sealed class CompactSelectionSchemaTests
             var scopes = DisplayedScopes(page); Assert.Equal(scopes, ScopeDomain(request.StructuredOutputSchema!.AsObject()));
             var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
             var complete = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose, request.Prompt, request.StructuredOutputSchema.AsObject());
-            Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.ImplementationPurpose, limit));
             Assert.Equal(baseline.Construction!.OpenScopes[offset], scopes[0]);
             foreach (var scope in scopes) Assert.True(reached.Add(scope), scope);
             if (page["nextScopes"] is not { } next) break;
@@ -314,7 +314,7 @@ public sealed class CompactSelectionSchemaTests
             ClientRequestId = new string('s', 64) + ":9:" + new string('h', 64)
         }, state.Request.Generation);
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit));
         Assert.Equal(["req_0", "req_1", "req_2"], Domain(request.StructuredOutputSchema!.AsObject()));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
@@ -356,7 +356,7 @@ public sealed class CompactSelectionSchemaTests
         }, state.Request.Generation);
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit);
-        Assert.True(measurement.EstimatedInputTokens <= limit, $"Complete selection request: {measurement.EstimatedInputTokens} tokens; ceiling: {limit}.");
+        PlannerFixture.ObserveInputBudget(measurement, limit);
         Assert.Equal(7, context["globalConstraints"]!.AsArray().Count);
         foreach (var source in compact.Sources.Where(s => compact.GlobalSourceIds.Contains(s.Id)))
         {

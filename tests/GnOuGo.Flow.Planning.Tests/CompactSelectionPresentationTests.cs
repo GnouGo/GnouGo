@@ -154,7 +154,7 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
             request.Prompt, request.StructuredOutputSchema!.AsObject()), PlanningCompactConstruction.ImplementationPurpose, limit);
         Assert.Equal(PlanningConstruction.Hash(state.Plan), current.BaselineHash);
         Assert.Equal(current.CompleteRequestBytes, current.Components.Sum(component => component.SerializedBytes));
-        Assert.InRange(current.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(current, limit);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
@@ -251,7 +251,7 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         Assert.Equal(originalSchema, fitted.StructuredOutputSchema!.ToJsonString());
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         output.WriteLine($"original_tokens={estimate}; limit={state.Request.Generation.MaxInputTokensPerRequest}; result_tokens={measured.EstimatedInputTokens}; result_bytes={measured.CompleteRequestBytes}");
-        Assert.InRange(measured.EstimatedInputTokens, 1, state.Request.Generation.MaxInputTokensPerRequest);
+        PlannerFixture.ObserveInputBudget(measured, state.Request.Generation.MaxInputTokensPerRequest);
         var first = context["interfaces"]![0]!;
         Assert.Null(first["objective"]);
         Assert.True(first["objectiveOmitted"]!.GetValue<bool>());

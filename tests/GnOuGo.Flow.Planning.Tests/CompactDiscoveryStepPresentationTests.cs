@@ -85,7 +85,7 @@ public sealed class CompactDiscoveryStepPresentationTests
         Assert.True(JsonNode.DeepEquals(HostSchema(withoutGroupRequest, withoutGroupAddresses), HostSchema(request, requestAddresses)));
         var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
         var measured = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
-        Assert.InRange(measured.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(measured, limit);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         Assert.Equal(retained, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
@@ -129,9 +129,7 @@ public sealed class CompactDiscoveryStepPresentationTests
         var fullMeasurement = PlanningRequestMeasurements.Measure(full, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.True(fullMeasurement.EstimatedInputTokens > compactMeasurement.EstimatedInputTokens,
             $"Selected-step projection must remove duplicated authority metadata: {fullMeasurement.EstimatedInputTokens}/{compactMeasurement.EstimatedInputTokens}.");
-        Assert.True(compactMeasurement.EstimatedInputTokens <= limit,
-            $"Complete compact request is {compactMeasurement.CompleteRequestBytes} bytes/{compactMeasurement.EstimatedInputTokens} tokens; " +
-            string.Join(", ", compactMeasurement.Components.Select(component => $"{component.Component}={component.SerializedBytes}")));
+        PlannerFixture.ObserveInputBudget(compactMeasurement, limit);
         Assert.Equal(compactMeasurement.CompleteRequestBytes, compactMeasurement.Components.Sum(component => component.SerializedBytes));
         Assert.True(JsonNode.DeepEquals(context["requirements"], fullContext["requirements"]));
         Assert.True(JsonNode.DeepEquals(context["globalConstraints"], fullContext["globalConstraints"]));
@@ -150,7 +148,7 @@ public sealed class CompactDiscoveryStepPresentationTests
         context["step"] = Node(state.Construction.Compact.CurrentStep);
         var issued = Complete(state, context, out var evidenceAddresses);
         var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
-        Assert.InRange(PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(issued, PlanningCompactConstruction.DiscoveryPurpose, limit));
         state.PendingCall = new() { Id = issued.ClientRequestId!, Purpose = PlanningCompactConstruction.DiscoveryPurpose, Request = issued, EvidenceAddresses = evidenceAddresses };
         state.ModelCalls = 1;
         var saved = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);

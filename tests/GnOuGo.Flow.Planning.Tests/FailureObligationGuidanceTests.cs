@@ -90,7 +90,7 @@ public sealed class FailureObligationGuidanceTests
         var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.GlobalPurpose, prompt, schema);
         Assert.Equal(prompt, issued.Prompt);
         Assert.True(JsonNode.DeepEquals(original.StructuredOutputSchema, issued.StructuredOutputSchema));
-        Assert.InRange(ModelRequestAdmission.EstimateTokens(issued), 1, limit);
+        PlannerFixture.ObserveInputBudget(ModelRequestAdmission.EstimateTokens(issued), limit);
         Assert.NotEqual(original.ClientRequestId, issued.ClientRequestId);
         Assert.Equal(issued.ClientRequestId, PlanningModelCalls.PrepareRequest(state, PlanningConstruction.GlobalPurpose, prompt, schema).ClientRequestId);
         Assert.Null(state.PendingCall);

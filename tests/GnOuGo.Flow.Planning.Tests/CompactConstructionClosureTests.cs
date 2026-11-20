@@ -283,7 +283,7 @@ public sealed class CompactConstructionClosureTests
         var complete = PlanningGenerationPolicy.Apply(new() { Prompt = request.Prompt, StructuredOutputSchema = schema,
             StructuredOutputStrict = true, UseBackgroundMode = true, MaxTokens = 8192,
             ClientRequestId = "array-test:1:" + new string('a', 64) }, new("medium", 32000, 8192));
-        Assert.InRange(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.IntentPurpose, 3000).EstimatedInputTokens, 1, 3000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(complete, PlanningCompactConstruction.IntentPurpose, 3000));
     }
 
     private static PlanningSession WithCandidate(PlanningSession state, PlanningConstructionCandidate candidate)

@@ -228,7 +228,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         var phase = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose);
         var measurement = PlanningRequestMeasurements.Measure(prepared, PlanningCompactConstruction.DiscoveryPurpose, phase.MaxInputTokens);
         Assert.True(measurement.EstimatedInputTokens > phase.TargetInputTokens);
-        Assert.InRange(measurement.EstimatedInputTokens, 1, phase.MaxInputTokens);
+        PlannerFixture.ObserveInputBudget(measurement, phase.MaxInputTokens);
     }
 
     [Fact]
@@ -746,7 +746,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         Assert.DoesNotContain(new string('x', 12000), bounded.Prompt, StringComparison.Ordinal);
         var measured = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, purpose, bounded.Prompt,
             bounded.StructuredOutputSchema.AsObject(), state.Construction!.Limits.DraftOutputTokens), purpose, limit);
-        Assert.InRange(measured.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(measured, limit);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         Assert.Empty(PlanningContractValidation.ValidateSchema(bounded.StructuredOutputSchema.AsObject(), strict: true));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
@@ -817,7 +817,7 @@ public sealed class CompactAcceptedTaskNavigationTests
         else Assert.Equal(1, context["omittedRequirementCount"]!.GetValue<int>());
         var measured = PlanningRequestMeasurements.Measure(PlanningModelCalls.PrepareRequest(state, "replan", request.Prompt,
             request.StructuredOutputSchema!.AsObject(), state.Construction!.Limits.DraftOutputTokens), "replan", limit);
-        Assert.InRange(measured.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(measured, limit);
         Assert.Equal(measured.CompleteRequestBytes, measured.Components.Sum(component => component.SerializedBytes));
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema.AsObject(), strict: true));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));

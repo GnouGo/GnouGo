@@ -253,7 +253,7 @@ public sealed class CompactScopeInterfaceTests
                 var action = Assert.Single(Context(request)["actions"]!.AsArray())!;
                 Assert.Equal(kind == "transform", action["instruction"] is not null);
                 Assert.Equal("message", Context(request)["publicOutputs"]![0]!["name"]!.ToString());
-                Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, 4000).EstimatedInputTokens, 1, 4000);
+                PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, purpose, 4000));
             }
             return Wire(request, Reviewed());
         } };

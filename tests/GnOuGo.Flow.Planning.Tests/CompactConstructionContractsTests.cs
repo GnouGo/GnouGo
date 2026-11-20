@@ -688,9 +688,7 @@ public sealed class CompactConstructionContractsTests
             StructuredOutputStrict = true, UseBackgroundMode = true, MaxTokens = 8192, Provider = "OpenAi", Model = "gpt-5.5-2026-04-24",
             ClientRequestId = new string('s', 64) + ":123:" + new string('h', 64) }, state.Request.Generation);
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000, "step");
-        Assert.True(measurement.EstimatedInputTokens <= state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens,
-            $"Complete discovery request: {measurement.EstimatedInputTokens} estimated tokens; " +
-            string.Join(", ", measurement.Components.Select(c => $"{c.Component}={c.EstimatedTokens}")));
+        PlannerFixture.ObserveInputBudget(measurement, state.Construction!.Limits.PhasePolicy!.Navigation.MaxInputTokens);
         Assert.DoesNotContain(new string('P', 100), request.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain(string.Concat(Enumerable.Repeat(descriptionSymbol, 193)), request.Prompt, StringComparison.Ordinal);
         PlanningConstruction.LoadEvidence(state, [context["directoryEvidence"]!["sources"]!.ToString()]);

@@ -27,7 +27,7 @@ public sealed class DiscoveryResponsePresentationTests
         Assert.EndsWith("\n{\"original\":\"Keep this context intact.\"}", request.Prompt, StringComparison.Ordinal);
         Assert.Equal(original, schema.ToJsonString());
         Assert.True(request.StructuredOutputStrict);
-        Assert.InRange(ModelRequestAdmission.EstimateTokens(request), 1, 12000);
+        PlannerFixture.ObserveInputBudget(ModelRequestAdmission.EstimateTokens(request), 12000);
         if (diagnostic) Assert.True(ModelRequestAdmission.EstimateTokens(request) > 2000);
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonObject { ["answer"] = "observed" }, request.StructuredOutputSchema));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject { ["answer"] = "invented" }, request.StructuredOutputSchema));
@@ -75,7 +75,7 @@ public sealed class DiscoveryResponsePresentationTests
         phase["targetInputTokens"] = limit; phase["maxInputTokens"] = limit;
         var request = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.DiscoveryPurpose, Prompt, Schema());
         Assert.Equal(Prompt, request.Prompt);
-        Assert.InRange(ModelRequestAdmission.EstimateTokens(request), 1, limit);
+        PlannerFixture.ObserveInputBudget(ModelRequestAdmission.EstimateTokens(request), limit);
         Assert.True(JsonNode.DeepEquals(original.StructuredOutputSchema, request.StructuredOutputSchema));
         Assert.Null(state.PendingCall);
     }

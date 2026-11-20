@@ -199,7 +199,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var next = DiscoveryFollowup(state, out var nextAddresses);
         Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(next, Evidence(addresses[1..]), nextAddresses).Json!, next.StructuredOutputSchema!));
         var measurement = PlanningRequestMeasurements.Measure(next, PlanningCompactConstruction.DiscoveryPurpose, policy.Navigation.MaxInputTokens);
-        Assert.InRange(measurement.EstimatedInputTokens, 1, measurement.InputLimit);
+        PlannerFixture.ObserveInputBudget(measurement);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
     }
 
@@ -254,7 +254,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
-        Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(measurement, limit);
         var host = HostView(request, evidenceAddresses);
         Assert.All(continuations, address => Assert.Contains(address, host.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal));
         foreach (var address in addresses)
@@ -459,7 +459,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var before = PlanningRequestMeasurements.Measure(unprojected, PlanningCompactConstruction.DiscoveryPurpose, limit);
         var after = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
         Assert.True(after.CompleteRequestBytes < before.CompleteRequestBytes);
-        Assert.InRange(after.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(after, limit);
         Assert.Equal(originals, state.Construction.Evidence.ToJsonString());
         Assert.Equal(reads, state.Construction.EvidenceRequests);
 
@@ -590,7 +590,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose));
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
         var measurement = PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit);
-        Assert.InRange(measurement.EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(measurement, limit);
         Assert.Equal(state.Construction!.Evidence!.Count, context["evidence"]!.AsObject().Count);
         foreach (var (address, evidence) in state.Construction.Evidence)
         {

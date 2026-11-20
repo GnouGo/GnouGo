@@ -214,7 +214,7 @@ public sealed partial class CompactDiscoveryProtocolTests
                     Operation = new() { Id = "earlier_operation_" + index, Version = capability.Version, Description = new string('x', 20000) } }] });
         var after = Measure(state);
         Assert.InRange(after.CompleteRequestBytes - before.CompleteRequestBytes, 1, 4096);
-        Assert.InRange(after.EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(after, 6000);
         var cached = PlanningCompactConstruction.DiscoveryContext(state)["describedOperations"]!;
         Assert.InRange(System.Text.Encoding.UTF8.GetByteCount(cached.ToJsonString()), 1, 2048);
         Assert.InRange(cached["items"]!.AsArray().Count, 1, 4);
@@ -251,7 +251,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("source_" + index, "source_4_next"), schema));
         }
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("source_4", "source_4_next"), schema));
-        Assert.InRange(PlanningRequestMeasurements.Measure(DiscoveryFollowup(state), PlanningCompactConstruction.DiscoveryPurpose, 6000).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(DiscoveryFollowup(state), PlanningCompactConstruction.DiscoveryPurpose, 6000));
         Assert.Equal(calls, state.ModelCalls);
         Assert.Equal(0, state.ReplanAttempts);
     }
@@ -296,7 +296,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("source_2", null), schema));
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("source_0", null), schema));
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state), context, schema, PlanningCompactConstruction.DiscoveryPurpose));
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000), 6000);
         Assert.Equal(original, state.Discovery.Sources[0].Description);
         state.Discovery.Pages.Add(new("source_2", null, [], "next", Query: Objective));
         state.Construction!.Evidence = null; state.Construction!.EvidenceRequests.Clear();
@@ -351,7 +351,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Contains(repeated.Diagnostics, diagnostic => diagnostic.Code == "REPLAN_NO_PROGRESS");
         Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [first]), state.Construction!.EvidenceRequests);
         Assert.Contains(PlanningConstruction.EvidenceBatchFingerprint(state, [last]), state.Construction!.EvidenceRequests);
-        Assert.InRange(Measure(state).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(Measure(state), 6000);
     }
 
     [Fact]
@@ -415,7 +415,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         Assert.Equal(0, state.ReplanAttempts);
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
-            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000));
+            call => PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000), 6000));
         var beforeRepeatedRead = state.Construction!.Evidence!.ToJsonString();
         var callsBeforeRepeatedRead = state.ModelCalls;
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(description), PlanningCompactConstruction.DiscoverySchema(state)));
@@ -583,7 +583,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var pages = state.Construction!.Evidence!.Select(pair => pair.Value).OfType<JsonObject>().Where(page => page["text"] is not null).OrderBy(page => page["offset"]!.GetValue<int>()).ToArray();
         Assert.NotEmpty(pages); var text = string.Concat(pages.Select(page => page["text"]!.ToString()));
         Assert.StartsWith(text, original, StringComparison.Ordinal);
-        Assert.InRange(Measure(state).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(Measure(state), 6000);
         Assert.Equal(before, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         Assert.Empty(state.Discovery.Resolved); Assert.Empty(state.Construction.Checkpoints);
     }
@@ -638,13 +638,13 @@ public sealed partial class CompactDiscoveryProtocolTests
             Assert.Equal("Read exact original records with declared restrictions.", state.Construction!.Evidence![exactDescription]!["text"]!.ToString());
             var measurement = PlanningRequestMeasurements.Measure(DiscoveryFollowup(state), PlanningCompactConstruction.DiscoveryPurpose, 6000);
             Assert.Equal(measurement.CompleteRequestBytes, measurement.Components.Sum(component => component.SerializedBytes));
-            Assert.InRange(measurement.EstimatedInputTokens, 1, 6000);
+            PlannerFixture.ObserveInputBudget(measurement, 6000);
         }
 
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
-            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 6000).EstimatedInputTokens, 1, 6000));
+            call => PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 6000)));
         runtime.Respond = (request, _) => Wire(request, Evidence(secondAddress));
         state = await Advance(state, runtime);
         Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code ==
@@ -796,7 +796,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         runtime.Respond = (request, _) =>
         {
             Assert.Null(Context(request)["diagnostics"]);
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, 3000), 6000);
             return Wire(request, Discover("alpha", "more"));
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
@@ -915,7 +915,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
-            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000));
+            call => PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000), 6000));
         var calls = state.ModelCalls;
         var retained = state.Construction!.Evidence!.ToJsonString();
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(secondAddress), PlanningCompactConstruction.DiscoverySchema(state)));
@@ -1082,7 +1082,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var originals = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
         PlanningConstruction.LoadEvidence(state, [.. addresses], followup: DiscoveryFollowup, purpose: PlanningCompactConstruction.DiscoveryPurpose);
         Assert.All(addresses, address => Assert.NotNull(state.Construction!.Evidence![address]));
-        Assert.InRange(Measure(state).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(Measure(state), 6000);
         Assert.Equal(originals, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
         Assert.Throws<PlanningResponseException>(() => PlanningConstruction.LoadEvidence(state, [addresses[0]]));
         Assert.Empty(state.Discovery.Resolved); Assert.Empty(state.Construction!.Checkpoints);
@@ -1146,7 +1146,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Equal(0, state.ReplanAttempts);
         Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
         Assert.All(runtime.Calls.Where(call => call.StructuredOutputSchema?["title"]?.ToString() == PlanningCompactConstruction.DiscoveryPurpose),
-            call => Assert.InRange(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000).EstimatedInputTokens, 1, 6000));
+            call => PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(call, PlanningCompactConstruction.DiscoveryPurpose, 3000), 6000));
         var calls = state.ModelCalls;
         state = await Advance(state, runtime);
         Assert.NotEqual(PlanningStatus.FinalReview, state.Status);

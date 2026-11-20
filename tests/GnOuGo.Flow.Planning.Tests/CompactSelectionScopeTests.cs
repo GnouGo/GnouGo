@@ -31,7 +31,7 @@ public sealed class CompactSelectionScopeTests
         var request = Complete(state, PlanningCompactConstruction.Request(PlanningCompactConstruction.ImplementationGuidance(state),
             context, PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationPurpose));
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit));
         Assert.Equal(original, Snapshot(state));
         // Caller ownership remains explicit before the first TaskPlan exists too.
         state.Plan = null;

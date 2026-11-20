@@ -73,7 +73,7 @@ public sealed class CompactRequirementPageTests
             selection = Wire(runtime, request, selection);
             Assert.Empty(PlanningContractValidation.ValidateInstance(selection, request.StructuredOutputSchema!));
             var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit));
             return new() { Json = selection };
         };
         state = await Advance(state, runtime);
@@ -141,7 +141,7 @@ public sealed class CompactRequirementPageTests
             var narrowed = selection.DeepClone().AsObject();
             narrowed["step"]!["requirementIds"] = new JsonArray("req_1", "req_8");
             Assert.NotEmpty(PlanningContractValidation.ValidateInstance(narrowed, request.StructuredOutputSchema!));
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 6000).EstimatedInputTokens, 1, 6000);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, 6000));
             return new() { Json = selection };
         };
         state = await Advance(PlannerFixture.Clone(state), runtime);
@@ -180,7 +180,7 @@ public sealed class CompactRequirementPageTests
             var response = Wire(runtime, request, Selection(state));
             Assert.Empty(PlanningContractValidation.ValidateInstance(response, request.StructuredOutputSchema!));
             var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.ImplementationPurpose).MaxInputTokens;
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit).EstimatedInputTokens, 1, limit);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.ImplementationPurpose, limit));
             return new() { Json = response };
         };
         state = await Advance(state, runtime);
@@ -303,7 +303,7 @@ public sealed class CompactRequirementPageTests
         Assert.Equal(Ids(beforeContext["evidence"]!["page:requirements:0"]!["items"]!),
             Ids(afterContext["evidence"]!["page:requirements:0"]!["items"]!));
         Assert.True(afterContext["omittedRequirementCount"]!.GetValue<int>() > 0);
-        Assert.InRange(PlanningRequestMeasurements.Measure(after, PlanningCompactConstruction.ImplementationPurpose, 6000).EstimatedInputTokens, 1, 6000);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(after, PlanningCompactConstruction.ImplementationPurpose, 6000));
         Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
         Assert.Contains("界😀", page["items"]![0]!["original"]!.ToString(), StringComparison.Ordinal);
     }

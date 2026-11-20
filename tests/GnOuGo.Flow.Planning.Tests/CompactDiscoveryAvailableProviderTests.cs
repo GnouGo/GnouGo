@@ -57,7 +57,7 @@ public sealed partial class CompactDiscoveryProtocolTests
             Assert.StartsWith("source-description:" + item["sourceId"] + "@", item["descriptionEvidence"]!.ToString(), StringComparison.Ordinal);
         }
         var limit = PlanningConstructionPhasePolicies.Resolve(state.Request, PlanningCompactConstruction.DiscoveryPurpose).MaxInputTokens;
-        Assert.InRange(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit).EstimatedInputTokens, 1, limit);
+        PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, PlanningCompactConstruction.DiscoveryPurpose, limit));
         Assert.Equal(original, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         var recovered = PlannerFixture.Clone(state);
         Assert.Equal(canonical, PlanningCompactConstruction.ProviderRequestPage(recovered, 0).ToJsonString());

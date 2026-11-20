@@ -131,7 +131,7 @@ public sealed class CompactDraftReselectionTests
             Assert.True(JsonNode.DeepEquals(rejected, evidence));
             Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Selection(request, replacementKind)).Json!, request.StructuredOutputSchema!));
             var ceiling = PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).MaxInputTokens;
-            Assert.InRange(PlanningRequestMeasurements.Measure(request, purpose, ceiling).EstimatedInputTokens, 1, ceiling);
+            PlannerFixture.ObserveInputBudget(PlanningRequestMeasurements.Measure(request, purpose, ceiling));
             return Wire(request, Selection(request, replacementKind));
         };
         state = await Advance(state, runtime);

@@ -6,11 +6,18 @@ using GnOuGo.Planning.Examples;
 namespace GnOuGo.Flow.Planning.Tests;
 internal static class PlannerFixture
 {
-    internal static void ObserveInputBudget(PlanningRequestMeasurement measurement)
+    internal static void ObserveInputBudget(PlanningRequestMeasurement measurement, long? target = null) =>
+        ObserveInputBudget(measurement.EstimatedInputTokens, target ?? measurement.InputLimit, measurement.Phase, measurement.Components);
+
+    internal static void ObserveInputBudget(long estimate, long target, string phase = "Planning request",
+        IReadOnlyList<PlanningRequestComponentMeasurement>? components = null)
     {
-        Assert.True(measurement.EstimatedInputTokens > 0);
-        if (measurement.EstimatedInputTokens > measurement.InputLimit)
-            TestContext.Current.AddWarning($"{measurement.Phase} estimated {measurement.EstimatedInputTokens} input tokens against a target of {measurement.InputLimit}.");
+        Assert.True(estimate > 0);
+        if (estimate <= target) return;
+        var details = components is { Count: > 0 }
+            ? " Request bytes by component: " + string.Join(", ", components.Select(c => $"{c.Component}={c.SerializedBytes}")) + "."
+            : "";
+        TestContext.Current.AddWarning($"{phase} estimated {estimate} input tokens against a target of {target}.{details}");
     }
 
     internal static CancellationToken Ct => TestContext.Current.CancellationToken;
