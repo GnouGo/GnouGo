@@ -7,6 +7,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
+    [Fact]
+    public async Task DiscoveryCanBindTheRequiredProducerAndCleanupWithTheirConsumerInOneDecision()
+    {
+        var (state, runtime) = await AcceptedDiscovery(true, 3);
+        var provider = new CountingContinuationCatalog();
+        runtime.Capabilities = provider;
+        var plan = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (issued, purpose) =>
+        {
+            Assert.Equal(PlanningCompactConstruction.DiscoveryPurpose, purpose);
+            Assert.Contains("required producers and cleanup", issued.Prompt, StringComparison.Ordinal);
+            var response = CachedBinding();
+            response["binding"]!["operationIds"] = new JsonArray("operation_0", "operation_1", "operation_2");
+            return Wire(issued, response);
+        };
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(new[] { "operation_0", "operation_1", "operation_2" }, state.Construction!.Compact!.CurrentStep!.OperationIds);
+        Assert.True(state.Construction.Compact.CurrentStep.DiscoveryComplete);
+        Assert.Equal(0, provider.ListCalls);
+        Assert.Equal(plan, PlanningConstruction.Hash(state.Plan));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
