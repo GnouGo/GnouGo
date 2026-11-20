@@ -2,6 +2,13 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 34's tenth discovery call included the same 5,114-character operation
+description in full and across three original pages. At revision 43, cold
+reconstruction of all three pages from the exact visible contract preserved
+their text, offsets, persisted evidence and TaskPlan hash. It used zero
+inference calls. The change passed 267 related discovery and presentation
+tests, including a modified description that must retain the original pages.
+
 Amazon 16's generated root contained ten collection passes for a single
 search prerequisite. Its 4,611-character request included a separate store
 membership report, an audit result that the qualification host already

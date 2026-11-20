@@ -342,7 +342,23 @@ internal static partial class PlanningCompactConstruction
                 try
                 {
                     if (JsonNode.DeepEquals(page, LoadContractEvidence(state, address, recordSchemaSelection: false)))
+                    {
+                        if (address.StartsWith("description:", StringComparison.Ordinal) && view["text"] is JsonValue text)
+                        {
+                            var contract = "contract:" + ContractIdentity(page["id"]!.ToString(), page["version"]!.ToString());
+                            var pointer = "/evidence/" + PlanningSchemaReferences.Escape(contract) + "/description";
+                            var length = text.GetValue<string>().Length;
+                            if (length > pointer.Length + 40 && presentation[contract]?["description"] is JsonValue full &&
+                                PlanningGraphCompiler.Fingerprint(full.GetValue<string>()) == page["descriptionHash"]!.ToString() &&
+                                ContractEvidenceCurrent(state, contract, presentation[contract]))
+                            {
+                                view.Remove("text");
+                                view["textPresentedAt"] = pointer;
+                                view["textLength"] = length;
+                            }
+                        }
                         view.Remove("version");
+                    }
                 }
                 catch (PlanningResponseException) { /* Unverified evidence keeps its original presentation. */ }
             }

@@ -6,6 +6,49 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed partial class CompactDiscoveryProtocolTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiscoverySharesOnlyExactDescriptionSlicesFromTheVisibleResolvedContract(bool changed)
+    {
+        var (state, _) = await Ready();
+        var contract = new PlanningCapability { Id = "inspect", Server = "alpha", Method = "inspect", Version = "v1", Kind = "tool",
+            StepType = "mcp.call", Description = string.Concat(Enumerable.Repeat("Read the ordered original résumé. ", 110)) };
+        state.Discovery.Resolved.Add(contract);
+        state.Construction!.Compact!.CurrentStep!.OperationIds = [contract.Id];
+        var identity = PlanningCompactConstruction.ContractIdentity(contract.Id, contract.Version);
+        var address = "contract:" + identity;
+        var pages = new List<string>();
+        var evidence = state.Construction.Evidence = new JsonObject { [address] = PlanningCompactConstruction.LoadContractEvidence(state, address) };
+        for (string? next = "description:" + identity + ":0"; next is not null; next = evidence[next]!["next"]?.ToString())
+        {
+            pages.Add(next);
+            evidence[next] = PlanningCompactConstruction.LoadContractEvidence(state, next);
+        }
+        Assert.True(pages.Count > 1);
+        if (changed) evidence[address]!["description"] = contract.Description + " Changed.";
+        var original = evidence.ToJsonString();
+        var request = DiscoveryFollowup(state, out var aliases);
+        var context = Context(request);
+        var rows = context["evidence"]!.AsObject().Select(pair => pair.Value!.AsObject()).Where(row => row.ContainsKey("descriptionHash")).ToArray();
+        Assert.Equal(pages.Count, rows.Length);
+        foreach (var row in rows)
+        {
+            var offset = row["offset"]!.GetValue<int>();
+            var text = evidence[pages.Single(key => evidence[key]!["offset"]!.GetValue<int>() == offset)]!["text"]!.ToString();
+            if (changed) Assert.Equal(text, row["text"]!.ToString());
+            else
+            {
+                Assert.Null(row["text"]);
+                var path = row["textPresentedAt"]!.ToString();
+                Assert.Equal(text, PlanningSchemaReferences.Read(context, path)!.ToString().Substring(offset, row["textLength"]!.GetValue<int>()));
+                Assert.DoesNotContain(address, path, StringComparison.Ordinal);
+            }
+        }
+        Assert.Equal(original, evidence.ToJsonString());
+        Assert.NotEmpty(aliases!.Addresses);
+    }
+
     [Fact]
     public async Task ExactEvidenceAddressesFactorOnlyRedundantVersionsWithoutChangingOriginalsOrRecovery()
     {

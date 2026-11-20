@@ -47,6 +47,12 @@ for the same selected operation, version and contract hash. Its
 `ancestorsPresentedAt` pointer resolves within that prompt. Each row keeps
 its original schema coordinate and reference closure.
 
+In discovery, a description page can carry `textPresentedAt`, `offset` and
+`textLength` when its exact text is already visible in the resolved operation
+contract. The pointer resolves within the same prompt. The offset and length
+count UTF-16 code units in that description. The original page, hash and
+continuation remain available to the session.
+
 Discovery and drafting can show repeated fields of an operation input schema
 once under that schema's local definitions. Expanding those references restores
 the original alternatives. Original input pointers and contract hashes continue
