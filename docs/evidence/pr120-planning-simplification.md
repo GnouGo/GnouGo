@@ -1,5 +1,60 @@
 # PR 120 planning simplification
 
+## Qualification outcome, 20 November 2026
+
+| Case | Consecutive verified Server executions | Last fresh session | Observed outcome |
+| --- | ---: | --- | --- |
+| Amazon first ten | 0 of 2 | `bc9cda6c8313437c8764099fef721b6f` | Search and cleanup reached technical validation. Execution never started. Zero business product visits and no XLSX. |
+| Published review of PR 718 | 0 of 2 | `966fb4988be947c982be5e98bef6e28a` | Discovery stopped before a workflow could run. The checkout path was absent. GitHub returned zero reviews and zero diff comments. |
+
+Qualification uses the saved workflow and the Server's typed chat inputs.
+Amazon requires the ten observed product visits in order, the corresponding
+rows in the reopened workbook and evidence that the browser closed. The
+review takes the URL and review instructions at execution time and checks
+the repository tests, GitHub verdict, inline diff comments and clone cleanup.
+[Server execution](../../tests/GnOuGo.Agent.Planning.Benchmark/ServerBusinessExecution.cs) · [Amazon checks](../../tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs) · [GitHub publication checks](../../tests/GnOuGo.Agent.Planning.Benchmark/PublishedReviewQualification.cs)
+
+The review ran on `308a390e`. Its second model call selected the business
+block directly from the seven displayed clauses. Six HTTP attempts returned
+measured usage estimated at EUR 1.06981. The campaign refused discovery
+request 7 before dispatch. It needed EUR 1.87224 with EUR 1.85913 available.
+The preceding Amazon refusal needed EUR 3.07795 with EUR 2.92895 available.
+Both test processes emitted warnings and exited zero with unqualified results.
+Neither refused request issued an HTTP attempt.
+
+GitHub still showed head `107c86fc87fcd89b529f6589736d27a09acb4206` when
+checked after the review session. Its reviews and inline review comments
+endpoints both returned empty lists. [Target PR 718](https://github.com/AxaFrance/SmartGuide/pull/718)
+
+After these runs the campaign ledger recorded EUR 1,119.75822 of measured
+usage at captured tariffs, EUR 478.50045 of unresolved HTTP reservations and
+EUR 99.88219 of separately retained application reservations against its
+EUR 1,700 ceiling. Source-only browser captures and controlled test executions
+contributed no successful business runs to the table.
+
+On `308a390e`, all 3,042 planning tests, 287 selected Server outcome tests,
+41 Amazon verification tests and nine Document MCP structured-row tests
+passed. The Release benchmark build reported zero warnings and zero errors.
+The campaign admission and retention change passed 487 tests on `44d652fb`.
+The preceding whole-solution run on `a91a86d3` passed 9,395 tests across
+33 projects, with 13 skipped and zero failures.
+
+## Fresh Amazon session bc9cda6c8313437c8764099fef721b6f, 20 November 2026
+
+The real Server requested exactly ten products. It accepted a search task
+and a browser cleanup task at its first technical checkpoint. Draft request
+11 was refused before HTTP dispatch at EUR 1,700.14900 of current exposure
+against the EUR 1,700 ceiling. Ten HTTP attempts had measured usage estimated
+at EUR 3.18513. The test emitted a warning and exited zero with an unqualified
+result. The workflow never executed and its requested workbook was absent.
+
+An independent Browser MCP capture contained 1,593 source records in 77
+pages. Its empty-ASIN context at record 429 also contained the bare deals
+destination at record 433. The active grant did not authorize that
+navigation. The verifier recorded zero source resolutions and zero business
+product visits. Cold verification reproduced the result. The browser closed
+and the second probe found no active page.
+
 ## Fresh review session c7b201b1b0ff4a04b4297176a768d8f6, 20 November 2026
 
 Call 2 asked for the original request page. Four displayed requirements and
