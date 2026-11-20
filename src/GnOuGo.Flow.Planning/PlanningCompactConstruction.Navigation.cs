@@ -138,6 +138,7 @@ internal static partial class PlanningCompactConstruction
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
         addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["knownOperations"], context["reselection"]]));
+        var cited = CurrentPrerequisiteAddresses(state);
         // Clause evidence contains exactly its identity, version and original text.
         // Keep these identities available for citations even when no read is needed.
         foreach (var global in (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>())
@@ -167,7 +168,7 @@ internal static partial class PlanningCompactConstruction
         void RemoveDisplayedClause(JsonObject row, JsonNode? text)
         {
             if (text is null || row["id"]?.ToString() is not { } id ||
-                row["evidence"]?.ToString() != "source:" + id || !addresses.Contains("source:" + id)) return;
+                row["evidence"]?.ToString() != "source:" + id || cited.Contains("source:" + id) || !addresses.Contains("source:" + id)) return;
             var original = State(state).Sources.SingleOrDefault(clause => clause.Id == id);
             if (original is not null && original.Version == row["version"]?.ToString() && original.Text == text.ToString())
                 addresses.Remove("source:" + id);

@@ -1330,9 +1330,13 @@ public sealed class CompactDeferredBindingTests
             initialContext.Remove("requirementsDirectory"); initialContext.Remove("nextRequirements");
             var schema = initial.StructuredOutputSchema!.DeepClone().AsObject();
             foreach (var node in Nodes(schema).OfType<JsonObject>())
-                if (node["enum"] is JsonArray values)
+                if (node["enum"] is JsonArray values && values.Any(value => value?.ToString() == "page:requirements:0"))
+                {
+                    const string earlierSource = "source:request:0:clause:0";
+                    if (!values.Any(value => value?.ToString() == earlierSource)) values.Add(earlierSource);
                     foreach (var value in values.Where(value => value?.ToString().StartsWith("page:requirements:", StringComparison.Ordinal) == true).ToArray())
                         values.Remove(value);
+                }
             var old = PlanningCompactConstruction.Request(initial.Prompt[..initial.Prompt.LastIndexOf('\n')], initialContext, schema,
                 phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose);
             initial = PlanningModelCalls.PrepareRequest(state, phase == "draft" ? PlanningConstruction.DraftPurpose : PlanningCompactConstruction.DiscoveryPurpose,
