@@ -105,27 +105,29 @@ internal static partial class PlanningCompactConstruction
         var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);
         if (findingEvidence.Length > 0)
             context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+        var visibleTaskLinks = NavigationEvidence(state, [context["taskEvidence"]]);
         if (context["scopeContext"] is JsonObject scope && scope["path"]?.ToString() is { } path &&
             context["scopeEvidence"]?.ToString() == "scope:" + path && scope["taskCount"]?.GetValue<int>() > 0)
         {
             if (scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
                 scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>())
                 addresses.Remove("scope:" + path);
-            RemoveDisplayedLeaves(scope);
+            RemoveDisplayedTasks(scope);
         }
         if (context["evidence"] is JsonObject evidence)
             foreach (var (address, value) in evidence)
                 if (address.StartsWith("scope:", StringComparison.Ordinal) && value is JsonObject loaded &&
                     loaded["path"]?.ToString() is { } loadedPath && address == "scope:" + loadedPath &&
                     JsonNode.DeepEquals(loaded, PlanningConstruction.ScopeEvidence(state, loadedPath)))
-                    RemoveDisplayedLeaves(loaded);
+                    RemoveDisplayedTasks(loaded);
         ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
             supportedRereads: findingEvidence);
 
-        void RemoveDisplayedLeaves(JsonObject displayed)
+        void RemoveDisplayedTasks(JsonObject displayed)
         {
             foreach (var task in displayed["tasks"]!.AsArray().Concat(displayed["always"]!.AsArray()).OfType<JsonObject>())
-                if (task["id"]?.ToString() is { } id && task["scopes"] is not JsonArray { Count: > 0 })
+                if (task["id"]?.ToString() is { } id && (task["scopes"] is not JsonArray children ||
+                    children.All(child => visibleTaskLinks.Contains("scope:" + child))))
                     addresses.Remove("task:" + id);
         }
     }

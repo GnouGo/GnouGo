@@ -885,7 +885,9 @@ the original issued request and map without regenerating this presentation.
 When an explicitly retrieved scope already displays a leaf task, the next draft
 uses its declaration there. This covers ordinary tasks and cleanup. The
 planner compares the displayed scope with the current plan before removing
-the separate task lookup. Containers keep their navigation to nested bodies.
+the separate task lookup. A displayed container also uses the existing task
+directory when it links to every child scope. A partial directory retains the
+container lookup.
 
 An empty initial root exposes its existing structural evidence in transient
 `scopeContext`, without adding retained evidence, checkpoints, approvals or calls.

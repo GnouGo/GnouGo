@@ -124,7 +124,7 @@ public sealed class CompactDraftNavigationTests
         Assert.Equal(body.Always[0].Objective, scope["always"]![0]!["objective"]!.ToString());
         foreach (var id in new[] { "normalize", "release" })
             AssertResponse(request, state, "task:" + id, valid: false);
-        AssertResponse(request, state, "task:nested", valid: true);
+        AssertResponse(request, state, "task:nested", valid: false);
         AssertResponse(request, state, "scope:/tasks/nested/body", valid: true);
         Assert.Equal(step.BaseHash, PlanningConstruction.Hash(state.Plan));
         Assert.Equal(0, state.ModelCalls);
@@ -132,6 +132,25 @@ public sealed class CompactDraftNavigationTests
         body.Tasks[0].Objective = "Normalize the updated record.";
         state.Construction.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
         AssertResponse(PlanningConstruction.DraftRequest(state, repair: false), state, "task:normalize", valid: true);
+    }
+
+    [Theory]
+    [InlineData(2, false)]
+    [InlineData(5, true)]
+    public void DisplayedContainerKeepsItsTaskLookupWhenAnyChildScopeLinkIsMissing(int branches, bool needsLookup)
+    {
+        var state = State();
+        var task = new PlanTask { Id = "compare", Kind = "parallel", Objective = "Compare independent sources." };
+        for (var i = 0; i < branches; i++) task.Branches.Add(new());
+        state.Plan!.Root.Tasks.Add(task);
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        PlanningConstruction.LoadEvidence(state, ["scope:/root"],
+            followup: current => PlanningConstruction.DraftRequest(current, repair: false), purpose: PlanningConstruction.DraftPurpose);
+        var next = PlanningConstruction.DraftRequest(state, repair: false);
+        AssertResponse(next, state, "task:compare", valid: needsLookup);
+        for (var i = 0; i < branches; i++)
+            AssertResponse(next, state, "scope:/tasks/compare/branches/" + i, valid: i < 4);
+        Assert.Equal(0, state.ModelCalls);
     }
 
     [Theory]
