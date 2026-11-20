@@ -453,8 +453,14 @@ internal static partial class PlanningCompactConstruction
 
     private static JsonObject? KnownDiscoveryContracts(PlanningSession state, JsonObject? descriptors)
     {
-        if (descriptors?["items"] is not JsonArray { Count: > 0 } items) return null;
-        var displayed = items.Select(item => (item!["id"]!.ToString(), item["version"]!.ToString())).ToHashSet();
+        // A descriptor on a retrieved continuation can bind the same exact cached
+        // contract as a descriptor on the first page. Resolution still checks its version and contents.
+        var pages = (state.Construction!.Evidence ?? []).Where(item => item.Key.StartsWith("page:operations:", StringComparison.Ordinal))
+            .Select(item => item.Value).Prepend(descriptors);
+        var displayed = pages.OfType<JsonObject>().SelectMany(page => page["items"] as JsonArray ?? []).OfType<JsonObject>()
+            .Where(row => row["id"] is not null && row["version"] is not null)
+            .Select(row => (row["id"]!.ToString(), row["version"]!.ToString())).ToHashSet();
+        if (displayed.Count == 0) return null;
         var candidates = InspectionCandidates(state).Where(c => displayed.Contains((c.Operation!.Id, c.Version)))
             .ToDictionary(c => (c.Operation!.Id, c.Version));
         var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;

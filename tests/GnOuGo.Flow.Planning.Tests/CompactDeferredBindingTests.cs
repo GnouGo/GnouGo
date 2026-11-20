@@ -982,6 +982,34 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Fact]
+    public void APreviouslyResolvedOperationOnTheNextDiscoveryPageUsesItsExactLocalContract()
+    {
+        var (state, _) = Ready();
+        var contracts = Enumerable.Range(0, 5).Select(index =>
+        {
+            var operation = Contract();
+            operation.Id = operation.Method = "read_" + index;
+            return operation;
+        }).ToList();
+        state.Discovery.Pages.Add(new("source", null, contracts.Select(contract => new CapabilitySummary(contract.Id,
+            "source", contract.Method!, contract.Description, contract.StepType, contract.EffectKind, contract.Version,
+            Operation: TaskOperations.Describe(contract))).ToList(), null, Query: Objective));
+        var final = Assert.Single(PlanningCompactConstruction.ContractDescriptorPage(state, 4)["items"]!.AsArray())!;
+        var cached = contracts.Single(contract => contract.Id == final["id"]!.ToString());
+        AddContract(state, cached);
+        PlanningConstruction.LoadEvidence(state, [PlanningCompactConstruction.OperationPageAddress(state, 4)]);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var address = "contract:" + cached.Id + "@" + cached.Version;
+        var offered = Assert.Single((context["knownOperations"]?["items"] as JsonArray ?? []).OfType<JsonObject>());
+        Assert.Equal(address, offered["evidence"]!.ToString());
+        Assert.DoesNotContain((context["contractInspection"] as JsonArray ?? []).SelectMany(row => row!["operationIds"]!.AsArray()),
+            id => id!.ToString() == cached.Id);
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, address, false);
+        Assert.Equal(original!["hash"]!.ToString(), offered["hash"]!.ToString());
+        Assert.Contains(address, PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DiscoveryDistinguishesOperationVersionsUsingTheSameCapabilityId()
     {
         var (state, _) = Ready();
