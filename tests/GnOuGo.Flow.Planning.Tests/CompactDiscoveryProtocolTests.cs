@@ -194,6 +194,41 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Contains(original!["items"]!.AsArray(), item => item!["name"]!.ToString().Length == 5000);
     }
 
+    [Theory]
+    [InlineData("selected")]
+    [InlineData("changed")]
+    [InlineData("denied")]
+    [InlineData("not_selected")]
+    public async Task DraftKeepsPreviouslyInspectedDirectoryAndDescriptionOfSelectedOperation(string variant)
+    {
+        var (state, _) = await BoundOperations(2);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var operation = state.Discovery.Resolved.Single();
+        var identity = PlanningCompactConstruction.ContractIdentity(step.OperationIds.Single(), operation.Version);
+        var addresses = new[] { "schema-page:" + identity + ":/output:0", "description:" + identity + ":0" };
+        state.Construction.Evidence = new();
+        foreach (var address in addresses)
+            state.Construction.Evidence[address] = PlanningCompactConstruction.LoadContractEvidence(state, address);
+        var original = state.Construction.Evidence.DeepClone();
+        if (variant == "changed")
+            foreach (var address in addresses) state.Construction.Evidence[address]!["version"] = "different-version";
+        if (variant == "denied") state.Catalog!.Policy.DeniedCapabilityIds.Add(operation.Id);
+        if (variant == "not_selected") step.OperationIds.Clear();
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        if (variant == "selected")
+        {
+            var draft = PlanningConstruction.DraftRequest(state, false);
+            foreach (var address in addresses)
+            {
+                Assert.True(JsonNode.DeepEquals(original[address], Context(draft)["evidence"]?[address]));
+                Assert.DoesNotContain(JsonSerializer.Serialize(address), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+            }
+        }
+        else Assert.Null(state.Construction.Evidence);
+        Assert.Empty(step.SchemaPointers);
+    }
+
     private static async Task<(PlanningSession State, TestRuntime Runtime)> BoundOperations(int count)
     {
         var (state, runtime) = await Ready();

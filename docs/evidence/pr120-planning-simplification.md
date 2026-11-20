@@ -156,6 +156,22 @@ physical call, EUR 0.72576). Its response hash was
 `80334121f04b9c48a7edf54cdbb5ebc44c46882edc05d3ba5b2e116338dc4f25`.
 Review 28 opened on the reconciled EUR 387.47874 balance.
 
+### Review session 26ef290ce96446dabe9a25bba5d259cd
+
+Call 8 inspected a GitHub operation's output directory. Call 9 selected
+that operation. Call 10 had to ask for the identical directory again.
+The boundary from discovery to drafting had discarded the inspected page.
+One of four targeted cases reproduced the loss. Fresh drafts can now carry
+the selected operation's unchanged description and directory pages within
+the existing 8,192-byte preview budget. They check the current permission,
+version and contents before reuse. The other cases cover changed data, a
+denied operation and a different selection.
+
+Cold replay of the actual binding at revision 45 carried the 2,463-byte
+original into the next draft and removed its duplicate retrieval choice.
+It preserved the accepted plan and bound operation IDs, with zero model
+calls. All 384 related discovery and navigation tests passed.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

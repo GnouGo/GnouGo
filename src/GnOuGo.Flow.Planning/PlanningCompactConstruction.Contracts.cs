@@ -132,6 +132,30 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    private static void RetainSelectedContractPages(PlanningSession state, JsonObject inspected, JsonObject retained)
+    {
+        if (State(state).CurrentStep is not { DiscoveryComplete: true, OperationIds.Count: > 0 } step ||
+            Encoding.UTF8.GetByteCount(retained.ToJsonString()) >= ContinuedScopePreviewBytes) return;
+        foreach (var (address, original) in inspected)
+        {
+            if (retained.ContainsKey(address) || original is not JsonObject page || page["id"]?.ToString() is not { } id ||
+                !step.OperationIds.Contains(id, StringComparer.Ordinal) || page["version"]?.ToString() is not { } version) continue;
+            var parts = address.Split(':', 3);
+            if (parts.Length != 3 || parts[0] is not ("description" or "schema-page" or "port-page") ||
+                parts[1] != ContractIdentity(id, version)) continue;
+            JsonNode? current;
+            try
+            {
+                if (parts[0] == "description") _ = ExactContract(state, id, version);
+                current = LoadContractEvidence(state, address, recordSchemaSelection: false);
+            }
+            catch (PlanningResponseException) { continue; }
+            if (current is null || !JsonNode.DeepEquals(current, original)) continue;
+            retained[address] = current;
+            if (Encoding.UTF8.GetByteCount(retained.ToJsonString()) > ContinuedScopePreviewBytes) retained.Remove(address);
+        }
+    }
+
     private static JsonObject? CompanionOperationNavigation(PlanningSession state)
     {
         if (State(state).CurrentStep is not { OperationIds.Count: > 0 } step)
