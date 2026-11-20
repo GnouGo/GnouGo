@@ -5,6 +5,8 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningConstruction
 {
+    internal const string SelectedOperationRule = "selected_block_operation";
+
     internal static string FailureIdentity(PlanningSession state, PlanningConstructionCandidate candidate, string? planHash = null)
     {
         var hash = planHash ?? candidate.Hash;
@@ -44,13 +46,25 @@ internal static partial class PlanningConstruction
     internal static bool PreviouslyRejected(PlanningSession state, PlanningConstructionCandidate candidate, string? planHash = null)
     {
         var rejected = state.Construction!.FailedCandidates;
-        return rejected.Contains(FailureIdentity(state, candidate, planHash), StringComparer.Ordinal);
+        var identity = FailureIdentity(state, candidate, planHash);
+        return rejected.Contains(identity, StringComparer.Ordinal) ||
+            rejected.Contains(SelectionFailureIdentity(state, identity), StringComparer.Ordinal);
     }
 
     internal static void RecordRejection(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         var identity = FailureIdentity(state, candidate);
+        if (candidate.Diagnostics.Count > 0 && candidate.Diagnostics.All(finding =>
+            finding.Code == PlanningCommitments.MissingOperation && finding.Rule == SelectedOperationRule))
+            identity = SelectionFailureIdentity(state, identity);
         if (!state.Construction!.FailedCandidates.Contains(identity, StringComparer.Ordinal))
             state.Construction.FailedCandidates.Add(identity);
+    }
+
+    private static string SelectionFailureIdentity(PlanningSession state, string identity)
+    {
+        var operations = state.Construction!.Compact!.CurrentStep!.OperationIds.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal);
+        return identity + ":selection:" + PlanningGraphCompiler.Fingerprint(new JsonArray(operations
+            .Select(operation => (JsonNode?)JsonValue.Create(operation)).ToArray()).ToJsonString());
     }
 }

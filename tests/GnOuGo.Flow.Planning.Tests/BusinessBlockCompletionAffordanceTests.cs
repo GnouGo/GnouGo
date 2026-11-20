@@ -7,6 +7,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessBlockCompletionAffordanceTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RejectedPlanRemembersWhetherItsFailureDependedOnTheOperationSelection(bool independentFailure)
+    {
+        var (state, _) = await Partial();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "sequence"; step.OperationIds = ["refresh"];
+        var candidate = state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = step.Scope, RequirementIds = step.RequirementIds, CompleteBlock = true,
+            Tasks = [new() { Id = "unrelated", Kind = "value", Objective = "Prepare a literal result.",
+                Outputs = [new("number", new() { Kind = "number", Number = 2 })] }]
+        });
+        candidate.Diagnostics = PlanningCompactConstruction.CandidateFindings(state).ToList();
+        Assert.Equal(PlanningCommitments.MissingOperation, Assert.Single(candidate.Diagnostics).Code);
+        if (independentFailure) candidate.Diagnostics.Add(new("CONSTRUCTION_BUSINESS_REVIEW", "/construction/candidate", "The result is incomplete."));
+        PlanningConstruction.RecordRejection(state, candidate);
+        Assert.True(PlanningConstruction.PreviouslyRejected(state, candidate));
+        var restored = PlannerFixture.Clone(state);
+        var replacement = restored.Construction!.Compact!.CurrentStep!;
+        replacement.Id = "renamed";
+        Assert.True(PlanningConstruction.PreviouslyRejected(restored, restored.Construction.Candidate!));
+        replacement.OperationIds.Clear();
+        Assert.Equal(independentFailure, PlanningConstruction.PreviouslyRejected(restored, restored.Construction.Candidate!));
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(restored, restored.Construction.Candidate!));
+    }
+
+    [Theory]
     [InlineData(true, false)]
     [InlineData(true, true)]
     [InlineData(false, true)]

@@ -232,7 +232,8 @@ internal static partial class PlanningCompactConstruction
                 .Where(symbols.Tasks.ContainsKey).Select(id => symbols.Tasks[id].Task.Operation).OfType<string>());
             foreach (var operation in step.OperationIds.Where(operation => !selectedOperations.Contains(operation)))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate",
-                    "The selected business operation is absent from this completed block: " + operation);
+                    "The selected business operation is absent from this completed block: " + operation,
+                    Rule: PlanningConstruction.SelectedOperationRule);
         }
         if (candidate.AuthorizedPaths is null && !candidate.Extension.Complete && CandidateCompletesBlock(candidate))
         {

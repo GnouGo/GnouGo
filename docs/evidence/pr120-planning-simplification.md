@@ -86,6 +86,24 @@ and an unrelated literal both still fail the regression. Replaying the exact
 call 35 at revision 125 yielded zero validation and compiler findings, with
 the business review still required. The 106 related tests passed.
 
+The live planner then withdrew the two unused operations. The closure
+submitted at call 40 still collided with the failure remembered for the
+original binding. Calls 41–47 repeated it without accepting a new task.
+A regression reproduced this collision and distinguishes an operation-only
+finding from an independent business rejection. New operation-only
+rejections are scoped to the exact set of selected operations. Ordinary
+technical and business findings and older, unclassified failure records keep
+their original scope. All 108 targeted checks passed.
+
+The Server stopped at revision 152 with 48 logical requests, 47 physical
+attempts, 116 advisory warnings and EUR 29.62099 in measured usage. Request
+48 had a Server reservation before a campaign HTTP attempt. The exact
+retention receipt `9bdb08e92ed15c5a955d887ea1fb424f8f737e53ce7b05add25637a3486526c9`
+preserved EUR 2.91322 for that request. The audit counted 3,293 physical
+calls, EUR 1,562.70197 measured, EUR 489.11077 in HTTP reservations and
+EUR 142.48091 in retained Server reservations. EUR 405.70635 remained.
+The run never executed a business operation.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
