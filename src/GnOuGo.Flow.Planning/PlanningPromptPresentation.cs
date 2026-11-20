@@ -247,6 +247,7 @@ public static class PlanningPromptPresentation
         // producer contracts differ through compiler-applied constraints. Factor
         // each schema independently; never substitute one owner's contract for
         // another or detach the original schema's reference scope.
+        var composedFields = ShareImportedObjectMembers(context);
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
         var sharedResults = ShareRepeatedOutputSchemas(context);
         var sharedSiblings = ShareImportedArgumentSiblings(context);
@@ -320,7 +321,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !composedFields) return prompt;
+        if (composedFields)
+            context["composedFieldPresentation"] = "composedFieldAt points to the same imported result's field schema in an earlier object. Resolve its local references within that object's interface schema. Each result retains its own binding and producer.";
         if (sharedPrefix)
             context["ancestorPrefixPresentation"] = "For each selected input or output, prepend its direction's shared ancestorPrefix to its own ancestors in order. Together they are the original constraints.";
         if (sharedSiblings)
@@ -412,6 +415,54 @@ public static class PlanningPromptPresentation
             changed = true;
         }
         return changed;
+    }
+
+    private static bool ShareImportedObjectMembers(JsonObject context)
+    {
+        if (context["interfaces"] is not JsonArray { Count: > 1 } interfaces) return false;
+        var fields = new Dictionary<(string Scope, string Source, string Port), (JsonObject Schema, string Pointer)>();
+        var changed = false;
+        for (var index = 0; index < interfaces.Count; index++)
+        {
+            if (interfaces[index] is not JsonObject row || row["schema"] is not JsonObject schema ||
+                row["value"] is not JsonObject binding || Text(binding["kind"]) != "output" ||
+                row["producers"] is not JsonArray { Count: 1 } producers || producers[0] is not JsonObject producer ||
+                Text(producer["scope"]) is not { Length: > 0 } scope || Text(producer["phase"]) != "tasks" ||
+                Text(binding["source"]) is not { Length: > 0 } id || Text(producer["id"]) != id ||
+                Text(binding["port"]) is not { Length: > 0 } port) continue;
+            if (fields.TryGetValue((scope, id, port), out var field) && JsonNode.DeepEquals(schema, field.Schema))
+            {
+                row.Remove("schema");
+                row["composedFieldAt"] = field.Pointer;
+                changed = true;
+                continue;
+            }
+            // Only an accepted local object construction proves that this member
+            // is the original value. Equal types alone do not establish a source.
+            if (producer["task"] is not JsonObject task || Text(task["id"]) != id || Text(task["kind"]) != "value" ||
+                producer["contract"] is not null || task["outputs"] is not JsonArray outputs ||
+                outputs.OfType<JsonObject>().FirstOrDefault(o => Text(o["name"]) == port)?["value"] is not JsonObject value ||
+                Text(value["kind"]) != "object" || value["members"] is not JsonArray members ||
+                schema["properties"] is not JsonObject properties || HasReferenceKeyword(schema)) continue;
+            foreach (var member in members.OfType<JsonObject>())
+            {
+                var name = Text(member["name"]);
+                if (member["value"] is not JsonObject reference || Text(reference["kind"]) != "output" ||
+                    Text(reference["source"]) is not { Length: > 0 } source || Text(reference["port"]) is not { Length: > 0 } sourcePort ||
+                    properties[name] is not JsonObject property || property.ToJsonString().Length < 512) continue;
+                fields.TryAdd((scope, source, sourcePort), (property, $"/interfaces/{index}/schema/properties/{PlanningSchemaReferences.Escape(name)}"));
+            }
+        }
+        return changed;
+
+        // Unknown dialects and nested reference scopes retain the original
+        // standalone view. Check extension objects as well as known schema slots.
+        static bool HasReferenceKeyword(JsonNode? node) => node switch
+        {
+            JsonObject obj => obj.Any(pair => pair.Key.StartsWith('$') || HasReferenceKeyword(pair.Value)),
+            JsonArray array => array.Any(HasReferenceKeyword),
+            _ => false
+        };
     }
 
     private static bool ShareRepeatedOutputSchemas(JsonObject context)

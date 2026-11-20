@@ -131,6 +131,14 @@ directly and the current contribution can claim completion when its result and
 cleanup are covered. An unknown or populated public interface receives no such
 hint. [Block closure regression](../../tests/GnOuGo.Flow.Planning.Tests/BusinessBlockCompletionAffordanceTests.cs)
 
+The next block selected both accepted results. In discovery request 73, the
+proposal object included the execution report as an exact member and the
+report's schema appeared again as a standalone import. Replaying the request
+with its original local schema references expanded produced 44,217 UTF-8
+bytes on `93afd696`. Referring to the same field reduced that to 35,612 bytes.
+The replay compared the complete expanded schema and both source bindings
+with zero provider calls. [Imported result regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

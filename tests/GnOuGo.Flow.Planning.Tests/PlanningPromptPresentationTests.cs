@@ -256,6 +256,51 @@ public sealed class PlanningPromptPresentationTests
         Assert.Equal(conflicting, PlanningPromptPresentation.ShareDuplicateContractSchemas(conflicting));
     }
 
+    [Theory]
+    [InlineData("same")]
+    [InlineData("different_source")]
+    [InlineData("different_scope")]
+    [InlineData("narrower")]
+    [InlineData("relative_reference")]
+    public void DiscoveryCanReadAnImportedResultTypeFromItsExactObjectMember(string variant)
+    {
+        var property = new JsonObject { ["type"] = "string", ["description"] = new string('a', 600) };
+        var child = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["first"] = property, ["second"] = property.DeepClone() } };
+        if (variant == "relative_reference") child["$id"] = "local.json";
+        var parent = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["a/b"] = child.DeepClone() } };
+        if (variant == "narrower") child["additionalProperties"] = false;
+        JsonObject Binding(string id) => new() { ["kind"] = "output", ["source"] = id, ["port"] = "out" };
+        JsonObject Row(string id, JsonObject schema, string scope, JsonArray outputs) => new()
+        {
+            ["value"] = Binding(id), ["schema"] = schema,
+            ["producers"] = new JsonArray(new JsonObject { ["id"] = id, ["scope"] = scope, ["phase"] = "tasks",
+                ["task"] = new JsonObject { ["id"] = id, ["kind"] = "value", ["outputs"] = outputs } })
+        };
+        var member = new JsonObject { ["name"] = "a/b", ["value"] = Binding(variant == "different_source" ? "another" : "source") };
+        var wrapper = Row("wrapper", parent, "/root", new JsonArray(new JsonObject { ["name"] = "out",
+            ["value"] = new JsonObject { ["kind"] = "object", ["members"] = new JsonArray(member) } }));
+        var source = Row("source", child, variant == "different_scope" ? "/root/body" : "/root", []);
+        var context = new JsonObject { ["interfaces"] = new JsonArray(wrapper, source) };
+        var prompt = "Bind the selected results.\n" + context.ToJsonString();
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_discovery", prompt, new JsonObject { ["type"] = "object" }, null, null);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var row = shown["interfaces"]![1]!;
+        Assert.True(JsonNode.DeepEquals(source["value"], row["value"]));
+        Assert.True(JsonNode.DeepEquals(source["producers"], row["producers"]));
+        if (variant != "same")
+        {
+            Assert.NotNull(row["schema"]);
+            Assert.Null(row["composedFieldAt"]);
+            return;
+        }
+        Assert.Null(row["schema"]);
+        Assert.Equal("/interfaces/0/schema/properties/a~1b", row["composedFieldAt"]!.ToString());
+        var root = shown["interfaces"]![0]!["schema"]!.AsObject();
+        var field = PlanningSchemaReferences.Read(shown, row["composedFieldAt"]!.ToString())!.AsObject();
+        Assert.True(JsonNode.DeepEquals(child, PlanningSchemaReferences.ExpandLocalReferences(root, field)));
+        Assert.Equal(request.Prompt, PlanningPromptPresentation.ShareDuplicateContractSchemas(request.Prompt));
+    }
+
     [Fact]
     public void DiscoveryShowsTheTypeOfTwoIndependentResultsFromTheSameContractOnce()
     {
