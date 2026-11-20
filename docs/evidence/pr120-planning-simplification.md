@@ -261,6 +261,11 @@ slots, covering only the inputs and absent guards of the pending-review and
 submission operations. The replay left the accepted plan unchanged and made
 zero inference calls. All 108 targeted tests passed.
 
+The full suite caught two global-review cases where an already reviewed
+consumer acquired an extra guard-edit slot. The slot is now limited to
+actions whose checkpoint still awaits business review. All 40 focused tests
+for local repair, prior global review and immutable guards passed.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

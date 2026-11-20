@@ -55,7 +55,8 @@ public sealed partial class HybridWorkflowPlanner
                 !checkpoint.InvalidatedTaskIds.Contains(target, StringComparer.Ordinal)).ToArray();
             if (owners.Length == 0 || owners[^1].Fragment["tasks"] is not JsonArray original || !original.Any(node => node?["id"]?.ToString() == target &&
                     JsonNode.DeepEquals(node, PlanningConstruction.Node(task.Task, PlanningJsonContext.Default.PlanTask)))) return;
-            if (owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() != true)
+            var pending = owners[^1].Fragment["businessReviewPending"]?.GetValue<bool>() == true;
+            if (!pending)
             {
                 if (!ReviewedTarget(owners[^1], target)) return;
                 // A local finding can cite the earlier reviewed producer as evidence
@@ -63,7 +64,7 @@ public sealed partial class HybridWorkflowPlanner
                 if (local) { readOnlyTargets.Add(target); continue; }
                 if (!global) return;
             }
-            var offered = TaskRepairPaths(accepted, task.Task).ToArray();
+            var offered = TaskRepairPaths(accepted, task.Task, offerMissingGuard: pending).ToArray();
             if (offered.Length == 0) return;
             paths.AddRange(offered); tasks.Add(target);
         }
@@ -91,10 +92,10 @@ public sealed partial class HybridWorkflowPlanner
                 actions.Any(action => action?["id"]?.ToString() == target);
         }
 
-        static IEnumerable<string> TaskRepairPaths(TaskPlanSymbols symbols, PlanTask task) => task.Kind switch
+        static IEnumerable<string> TaskRepairPaths(TaskPlanSymbols symbols, PlanTask task, bool offerMissingGuard = false) => task.Kind switch
         {
             "transform" => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/objective"],
-            "operation" or "call" when task.Requires is null => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/requires"],
+            "operation" or "call" when offerMissingGuard && task.Requires is null => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/requires"],
             "operation" or "call" => ["/tasks/" + task.Id + "/inputs"],
             _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal))
         };
