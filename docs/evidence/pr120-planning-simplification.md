@@ -28,6 +28,9 @@ The cold scan took 50.51 seconds and the repeated scan 0.49 seconds. Both
 matched the original audit across all 181 session groups, including the 2,901
 attempts, EUR 1,335.07883 measured at captured tariffs and EUR 487.69797 in
 HTTP reservations. This comparison issued zero provider calls.
+The median time between the Server marking a request active and retaining its
+response was 77.65 seconds across 13 calls in review 17 and 20.67 seconds
+across 42 calls in review 18. The runs used different generated requests.
 [Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
 ### Amazon session d5b6222a4ab84edd9b4076aecd870703
@@ -71,6 +74,17 @@ now distinguish observed string components from a derived consumer argument.
 The regression compiles and runs the native concatenation using extracted
 data. Runtime extraction still rejects the invented complete value.
 [Extraction and consumer binding regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
+
+Twenty requests in run 18 asked for 115 evidence addresses. Request 13
+first retrieved the diff operation's `remainingPageCursors` output schema.
+Request 17 asked for the identical schema after its accepted checkpoint
+had cleared the evidence window. The request already displayed the complete
+selected schema in its operations list. A cold replay of both issued states
+kept the first lookup and removed the second from the fresh draft choices.
+It preserved the five other requested addresses. The regression covers full
+and compact views, changed contracts, incomplete constraints and explicit
+prerequisite citations. No inference was dispatched by the replay.
+[Selected contract evidence tests](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs)
 
 The Server stopped at revision 138 after six checkpoints, 43 logical requests
 and 95 advisory warnings. No business operation ran. GitHub read-back at

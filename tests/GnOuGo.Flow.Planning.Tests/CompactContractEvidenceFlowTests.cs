@@ -581,6 +581,44 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.Equal(before, JsonSerializer.Serialize(contract, PlanningJsonContext.Default.PlanningCapability));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DraftReusesTheCompleteSelectedOutputAfterTheEvidenceWindowCloses(bool compact)
+    {
+        var (state, _) = await Ready();
+        const string address = "schema:read@v1:/output/properties/result11";
+        const string other = "schema:read@v1:/output/properties/result10";
+        PlanningConstruction.LoadEvidence(state, [address, other]);
+        state.Construction!.Evidence!.Clear();
+        var context = PlanningCompactConstruction.Context(state);
+        var contract = Assert.Single(context["operations"]!.AsArray())!.AsObject();
+        if (compact) PlanningCompactConstruction.CompactProducerSchemaMetadata(contract, shareConstraints: true);
+        bool Offered(string lookup)
+        {
+            var schema = PlanningCompactConstruction.DraftSchema(state);
+            PlanningCompactConstruction.ConstrainDraftEvidence(state, context, schema);
+            return schema["properties"]!["evidenceRequests"]!.ToJsonString().Contains(lookup, StringComparison.Ordinal);
+        }
+        Assert.False(Offered(address));
+        var selected = contract["selectedOutputs"]!.AsArray().Single(row => row!["pointer"]!.ToString().EndsWith("/result11", StringComparison.Ordinal))!;
+        selected["schema"]!["type"] = "integer";
+        Assert.True(Offered(address));
+        Assert.False(Offered(other));
+        var step = state.Construction.Compact!.CurrentStep!;
+        step.Prerequisites = [new() { EvidenceAddresses = [other] }];
+        Assert.True(Offered(other));
+        step.Prerequisites = null;
+        var selectedOther = contract["selectedOutputs"]!.AsArray().Single(row => row!["pointer"]!.ToString().EndsWith("/result10", StringComparison.Ordinal))!;
+        selectedOther["referenceClosure"] = new JsonObject { ["#/$defs/stale"] = new JsonObject() };
+        Assert.True(Offered(other));
+        if (contract["selectedOutputsSharedSchemaMetadata"]?["referenceClosure"] is not null) selectedOther.AsObject().Remove("referenceClosure");
+        else selectedOther["referenceClosure"] = new JsonObject();
+        Assert.False(Offered(other));
+        contract["hash"] = new string('0', 64);
+        Assert.True(Offered(other));
+    }
+
     [Fact]
     public async Task CoherentEvidenceBatchRetainsEverySelectedInputBeforeTechnicalCheckpoint()
     {

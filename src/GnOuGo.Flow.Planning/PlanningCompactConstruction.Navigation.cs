@@ -107,6 +107,7 @@ internal static partial class PlanningCompactConstruction
             context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
         foreach (var global in (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>())
             RemoveDisplayedClause(state, addresses, global, global["text"]);
+        RemoveDisplayedSelectedOutputs(state, context, addresses);
         var visibleTaskLinks = NavigationEvidence(state, [context["taskEvidence"]]);
         if (context["scopeContext"] is JsonObject scope && scope["path"]?.ToString() is { } path &&
             context["scopeEvidence"]?.ToString() == "scope:" + path && scope["taskCount"]?.GetValue<int>() > 0)
@@ -169,6 +170,36 @@ internal static partial class PlanningCompactConstruction
 
     internal static bool EvidenceAdmissionOnly(PlanningSession state) => HasEvidenceAdmissionLimit(state) &&
         state.Construction!.Candidate is null && state.Diagnostics.Where(diagnostic => diagnostic.Required).All(IsEvidenceAdmissionLimit);
+
+    private static void RemoveDisplayedSelectedOutputs(PlanningSession state, JsonObject context, HashSet<string> addresses)
+    {
+        var selected = State(state).CurrentStep?.SchemaPointers;
+        if (selected is not { Count: > 0 }) return;
+        var citations = CurrentPrerequisiteAddresses(state);
+        foreach (var operation in (context["operations"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (operation["selectedOutputs"] is not JsonArray outputs || operation["id"]?.ToString() is not { } id ||
+                operation["version"]?.ToString() is not { } version) continue;
+            var identity = ContractIdentity(id, version);
+            if (!ContractEvidenceCurrent(state, "contract:" + identity, operation)) continue;
+            foreach (var view in outputs.OfType<JsonObject>())
+            {
+                if (view["pointer"]?.ToString() is not { } pointer) continue;
+                var address = "schema:" + identity + ":" + pointer;
+                if (!addresses.Contains(address) || !selected.Contains(address) || citations.Contains(address)) continue;
+                var original = ExactSchemaView(ExactContract(state, id, version), pointer);
+                // Compact selected views inherit only these identity, annotation and constraint fields.
+                if (original.All(field => JsonNode.DeepEquals(field.Value, view.ContainsKey(field.Key) ? view[field.Key] : field.Key switch
+                    {
+                        "id" or "version" or "hash" => operation[field.Key],
+                        "view" => operation["selectedSchemaView"],
+                        "ancestors" or "referenceClosure" => operation["selectedOutputsSharedSchemaMetadata"]?[field.Key],
+                        _ => null
+                    })))
+                    addresses.Remove(address);
+            }
+        }
+    }
 
     private static void ConstrainDiscoveryEvidence(PlanningSession state, JsonObject context, JsonObject schema)
     {
