@@ -130,6 +130,15 @@ preview now includes the latest accepted control and keeps its child scope
 reachable. The reconstructed draft displayed both and omitted the redundant
 parent lookup, with the same plan hash and zero model calls.
 
+Request 25 fetched a cited global constraint already displayed in full.
+Its 3,731 UTF-8 bytes, source identity and version matched the subsequent
+read. The source text SHA-256 was
+`6d30d8fe732e344307636089a063f5ca9e262c686af8847c2ac3aaa885af29cc`.
+Cold replay kept the source available for prerequisite citations and
+removed its duplicate text lookup. An incomplete view or mismatched version
+still offers the original read.
+[Original source regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

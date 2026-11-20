@@ -1352,6 +1352,35 @@ public sealed class CompactDeferredBindingTests
         Assert.Single(runtime.Calls);
     }
 
+    [Fact]
+    public void DraftCanCiteTheExactDisplayedGlobalClauseWithoutFetchingItsTextAgain()
+    {
+        var (state, _) = OriginalPages("draft", 1);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var compact = state.Construction!.Compact!;
+        const string id = "request:0:clause:global", address = "source:" + id, text = "Preserve the supplier's order and repeated references.";
+        compact.Sources.Add(new() { Id = id, Kind = "global", Text = text, Version = PlanningGraphCompiler.Fingerprint(text), Indexed = true });
+        compact.GlobalSourceIds.Add(id);
+        compact.CurrentStep!.Prerequisites = [new() { Need = "Read the ordered collection.", EvidenceAddresses = [address] }];
+        var request = PlanningConstruction.DraftRequest(state, false);
+        var context = OriginalContext(request);
+        var shown = Assert.Single(context["globalConstraints"]!.AsArray())!;
+        Assert.Equal(text, shown["text"]!.ToString());
+        var properties = request.StructuredOutputSchema!["properties"]!;
+        Assert.Contains(address, properties["reselectStep"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(address, properties["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        foreach (var field in new[] { "text", "version" })
+        {
+            var incomplete = context.DeepClone().AsObject();
+            incomplete["globalConstraints"]![0]![field] = "different";
+            var schema = new JsonObject { ["properties"] = new JsonObject() };
+            PlanningCompactConstruction.ConstrainDraftEvidence(state, incomplete, schema);
+            Assert.Contains(address, schema["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        }
+        Assert.Equal(address, Assert.Single(Assert.Single(compact.CurrentStep.Prerequisites).EvidenceAddresses));
+        Assert.Null(state.Construction.Evidence?[address]);
+    }
+
     [Theory]
     [InlineData("draft", false)]
     [InlineData("draft", true)]

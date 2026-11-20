@@ -105,6 +105,8 @@ internal static partial class PlanningCompactConstruction
         var findingEvidence = HybridWorkflowPlanner.BusinessReviewReconsiderationEvidence(state);
         if (findingEvidence.Length > 0)
             context["findingEvidence"] = new JsonArray(findingEvidence.Select(address => (JsonNode?)JsonValue.Create(address)).ToArray());
+        foreach (var global in (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>())
+            RemoveDisplayedClause(state, addresses, global, global["text"]);
         var visibleTaskLinks = NavigationEvidence(state, [context["taskEvidence"]]);
         if (context["scopeContext"] is JsonObject scope && scope["path"]?.ToString() is { } path &&
             context["scopeEvidence"]?.ToString() == "scope:" + path && scope["taskCount"]?.GetValue<int>() > 0)
@@ -197,10 +199,10 @@ internal static partial class PlanningCompactConstruction
         // Clause evidence contains exactly its identity, version and original text.
         // Keep these identities available for citations even when no read is needed.
         foreach (var global in (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>())
-            RemoveDisplayedClause(global, global["text"]);
+            RemoveDisplayedClause(state, addresses, global, global["text"], cited);
         foreach (var requirement in (context["requirements"] as JsonArray ?? []).OfType<JsonObject>())
             if (requirement["sources"] is JsonArray { Count: 1 } sources && sources[0] is JsonObject source)
-                RemoveDisplayedClause(source, requirement["original"]);
+                RemoveDisplayedClause(state, addresses, source, requirement["original"], cited);
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>
@@ -220,14 +222,15 @@ internal static partial class PlanningCompactConstruction
         schema["properties"]!["evidenceRequests"] = alternatives.Count == 1 ? PlanningSchemas.Type("null") :
             new JsonObject { ["anyOf"] = alternatives };
 
-        void RemoveDisplayedClause(JsonObject row, JsonNode? text)
-        {
-            if (text is null || row["id"]?.ToString() is not { } id ||
-                row["evidence"]?.ToString() != "source:" + id || cited.Contains("source:" + id) || !addresses.Contains("source:" + id)) return;
-            var original = State(state).Sources.SingleOrDefault(clause => clause.Id == id);
-            if (original is not null && original.Version == row["version"]?.ToString() && original.Text == text.ToString())
-                addresses.Remove("source:" + id);
-        }
+    }
+
+    private static void RemoveDisplayedClause(PlanningSession state, HashSet<string> addresses, JsonObject row, JsonNode? text,
+        IReadOnlySet<string>? keep = null)
+    {
+        if (text is not JsonValue value || !value.TryGetValue<string>(out var displayed) || row["id"]?.ToString() is not { } id ||
+            row["evidence"]?.ToString() is not { } address || address != "source:" + id || keep?.Contains(address) == true || !addresses.Contains(address)) return;
+        var original = State(state).Sources.SingleOrDefault(clause => clause.Id == id);
+        if (original is not null && original.Version == row["version"]?.ToString() && original.Text == displayed) addresses.Remove(address);
     }
 
     private static bool IsOriginalAddress(string address) => address.StartsWith("requirement:", StringComparison.Ordinal) ||
