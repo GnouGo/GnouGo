@@ -216,7 +216,12 @@ internal static partial class PlanningCompactConstruction
         foreach (var binding in compact.PendingCommitments.Values.SelectMany(c => c).DistinctBy(c => c.Operation))
             if (!selectedOperations.Contains(binding.Operation))
                 yield return new(PlanningCommitments.MissingOperation, "/construction/candidate", "The selected business operation is absent from this draft: " + binding.Operation);
-        if (CandidateCompletesBlock(candidate) && candidate.AuthorizedPaths is null)
+        // The empty claim asks the ordinary Judge to review the already accepted
+        // work. A tentative tool selection alone does not justify a new side effect.
+        var reviewAccepted = candidate.Extension is { CompleteBlock: true, Complete: false, ContinueInScope: null,
+            CloseScopes.Count: 0, ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } &&
+            candidate.TaskIds.Count == 0 && candidate.Hash == step.BaseHash && CanReviewAcceptedBlock(state);
+        if (CandidateCompletesBlock(candidate) && candidate.AuthorizedPaths is null && !reviewAccepted)
         {
             var symbols = new TaskPlanSymbols(candidate.Plan);
             selectedOperations.UnionWith(BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds)

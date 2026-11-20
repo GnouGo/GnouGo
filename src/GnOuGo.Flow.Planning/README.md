@@ -55,6 +55,12 @@ A retrieved task directory page can point to the complete ordered array already
 displayed in scope evidence. This requires identical serialized items, including
 all arguments and their order. The page retains its own offset, total and continuation.
 
+A continued draft can request business review of accepted work with an empty
+completion fragment. The technical check keeps the exact plan and scope open,
+verifies selected public bindings, and rejects outstanding operation commitments.
+The business judge still assesses the original obligations. A tentative
+implementation can therefore leave an unnecessary operation unused.
+
 Business-only selection captures immutable objectives, original obligations, information
 needs, expected results, existing-result dependencies and success criteria. Its request
 and response contain no implementation kinds, scopes, MCP identifiers or typed bindings.

@@ -9,6 +9,61 @@ public sealed class BusinessBlockCompletionAffordanceTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task ContinuedDraftCanSubmitTheAcceptedBlockForReviewWithoutAddingAnUnneededOperation(bool missingPublicOutput)
+    {
+        var (state, runtime) = await Partial();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var capability = new PlanningCapability
+        {
+            Id = "refresh", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "records", Method = "refresh",
+            Description = "Acquire a new observation when the prior observation is unavailable.",
+            InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject() },
+            OutputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject() }
+        };
+        state.Catalog!.Capabilities.Add(capability);
+        step.Kind = "sequence"; step.DiscoveryComplete = true; step.OperationIds = [capability.Id];
+        if (missingPublicOutput) step.OutputNames = ["missing"];
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        var extension = new PlanningConstructionExtension { CompleteBlock = true, Scope = "/root", RequirementIds = ["work"] };
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
+            var response = new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
+            var schema = request.StructuredOutputSchema!.AsObject();
+            var wire = PlanningCorpus.Transport(response, schema, schema)!;
+            Assert.Empty(PlanningContractValidation.ValidateInstance(wire, request.StructuredOutputSchema!));
+            return new() { Json = wire };
+        };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        if (missingPublicOutput)
+        {
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Required);
+            return;
+        }
+        Assert.Empty(state.Diagnostics);
+        var candidate = Assert.IsType<PlanningConstructionCandidate>(state.Construction!.Candidate);
+        Assert.Empty(candidate.TaskIds); Assert.Equal(baseline, candidate.Hash);
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
+        var committed = PlannerFixture.Clone(state);
+        committed.Construction!.Compact!.PendingCommitments["work"] = [new(capability.Id)];
+        Assert.Contains(PlanningCompactConstruction.CandidateFindings(committed), finding =>
+            finding.Code == PlanningCommitments.MissingOperation && finding.Message.Contains(capability.Id, StringComparison.Ordinal));
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        };
+        state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Null(state.Construction!.Compact!.CurrentBlockId);
+        Assert.Contains("/root", state.Construction.OpenScopes);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.Null(state.ApprovedHash);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task AcceptedBusinessContributionCanClaimReviewWithoutAddingWorkOrClosingRoot(bool selectedBoundOutput)
     {
         var (state, runtime) = await Partial(selectedBoundOutput);
