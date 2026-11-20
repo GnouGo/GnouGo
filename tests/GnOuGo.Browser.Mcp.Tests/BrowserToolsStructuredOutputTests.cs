@@ -80,6 +80,18 @@ public sealed class BrowserToolsStructuredOutputTests
         Assert.Equal(200, (int?)snapshotPages["items"]!["properties"]!["records"]!["maxItems"]);
     }
 
+    [Fact]
+    public void PublishedRecordIdentityAndOrderAreVisibleAtBothObservationPaths()
+    {
+        var properties = PublishedContentProperties();
+        foreach (var records in new[] { properties["observation"]!["properties"]!["records"]!,
+                     properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"]! })
+        {
+            Assert.Contains("source order", (string?)records["description"], StringComparison.Ordinal);
+            Assert.Contains("snapshot-local identity", (string?)records["items"]!["properties"]!["reference"]!["description"], StringComparison.Ordinal);
+        }
+    }
+
     private static JsonNode[] PublishedRecordSchemas()
     {
         var properties = PublishedContentProperties();

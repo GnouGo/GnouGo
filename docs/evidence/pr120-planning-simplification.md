@@ -47,6 +47,11 @@ The issued draft instructions also favored contributing any executable prefix.
 Fresh drafts now work backward from the next requested result and place field
 selection and checks at its consumer. Incomplete connected contributions
 remain available when a contract or response limit prevents completion.
+Call 12 also built an occurrence index to rejoin records to their source.
+The Browser was already emitting a separate identity for every record.
+Both observation paths now publish the meaning of the existing `reference`
+and the records' source order. A real browser regression verifies all nine
+original identities across more than three pages of a replacement snapshot.
 
 Review 25 (Server session `aeef260c181a4104bf2533ef088722d6`) retained
 the required report, a single clone operation and root cleanup in its draft.

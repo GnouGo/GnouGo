@@ -52,6 +52,7 @@ public sealed class BrowserCompleteObservationTests
         Assert.Equal(9, snapshot.RecordCount); Assert.True(snapshot.Pages.Count > 3);
         var records = snapshot.Pages.SelectMany(p => p.Records).ToArray();
         Assert.Equal(Enumerable.Range(0, 9).Select(i => "new " + i), records.Select(r => r.Text));
+        Assert.Equal(Enumerable.Range(0, 9).Select(i => snapshot.Id + ":record:" + i), records.Select(r => r.Reference));
         Assert.All(snapshot.Pages, p => { Assert.Equal(snapshot.Id, p.Id); Assert.Null(p.NextCursor); Assert.False(p.CaptureTruncated); });
         var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
         var expired = await tools.GetContentAsync(format: "observation", cursor: discarded.SnapshotId + ":page:0", cancellationToken: ct);

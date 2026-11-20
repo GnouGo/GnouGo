@@ -24,6 +24,7 @@ public sealed record BrowserObservationRecord(string Kind, string Tag, string Se
     public IReadOnlyDictionary<string, BrowserObservationAncestorAttribute?>? AncestorAttributes { get; init; }
 
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Opaque snapshot-local identity of this original record. Use it to join observations from the same capture. Repeated hrefs have distinct references. Keep the returned spelling.")]
     public string? Reference { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<string>? Actions { get; init; }
@@ -31,7 +32,9 @@ public sealed record BrowserObservationRecord(string Kind, string Tag, string Se
 public sealed record BrowserObservationAncestorAttribute(string Value, string Tag, string? Role, int Index);
 public sealed record BrowserObservationGroup(string Tag, string? Role, int Index);
 public sealed record BrowserObservationOccurrence(string Selector, string Tag, string? Role, int Index);
-public sealed record BrowserObservation(string Id, IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
+public sealed record BrowserObservation(string Id,
+    [property: Description("Original records in source order. Keep page and record order across the snapshot, including repeated hrefs.")]
+    IReadOnlyList<BrowserObservationRecord> Records, string? NextCursor, bool CaptureTruncated);
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
     int RecordCount, bool CaptureTruncated, bool ManifestTruncated);

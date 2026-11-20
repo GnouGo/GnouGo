@@ -215,6 +215,9 @@ one occurrence remain associated, while distinct occurrences with identical URLs
 remain distinct. DOM order, original resolved hrefs, exact selectors and existing
 snapshot-bound record references are preserved. These facts do not identify a
 business product or establish that a link's eventual destination was visited.
+The published `records` contract specifies source order. Its `reference`
+field identifies each original record within that snapshot, including records
+that share an href. Consumers can join observations by this returned identity.
 Each record also exposes its outer semantic `occurrence` (selector, tag, role and snapshot-local index), bounded by the nearest landmark/dialog. This retains the relationship between nested variant links and their containing item. `heading` identifies an enclosing or linked heading selector when present. Neither field assigns business meaning to that item.
 
 Explicit content reads return `navigationEvidence` only for a response bound to
