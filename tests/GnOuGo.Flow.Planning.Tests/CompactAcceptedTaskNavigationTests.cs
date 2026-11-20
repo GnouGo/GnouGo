@@ -2196,11 +2196,15 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public void ContinuedDeclarationBeyondFirstScopePageStaysVisibleAfterReadingThatPage(bool largePage, bool control)
+    [InlineData(false, "operation")]
+    [InlineData(true, "operation")]
+    [InlineData(false, "foreach")]
+    [InlineData(true, "foreach")]
+    [InlineData(false, "value")]
+    [InlineData(true, "value")]
+    [InlineData(false, "transform")]
+    [InlineData(true, "transform")]
+    public void ContinuedDeclarationBeyondFirstScopePageStaysVisibleAfterReadingThatPage(bool largePage, string kind)
     {
         var state = OperationState("/root");
         state.Construction!.Candidate = null;
@@ -2208,11 +2212,18 @@ public sealed class CompactAcceptedTaskNavigationTests
         var root = state.Plan!.Root;
         var declaration = root.Tasks.Single(task => task.Id == "accepted_operation");
         declaration.Inputs[0] = new("target", new() { Kind = "string", Text = new string('x', 2300) });
-        if (control)
+        if (kind != "operation")
         {
-            declaration = new() { Id = "ordered_items", Kind = "foreach", Objective = "Expose the original items in order.",
-                Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "one" }] },
-                Body = new() { Outputs = [new("item", new() { Kind = "item" })] } };
+            declaration = kind switch
+            {
+                "value" => Value("observed_value"),
+                "transform" => new() { Id = "format_value", Kind = kind, Objective = "Format the observed number as text.",
+                    Inputs = [new("number", new() { Kind = "number", Number = 7 })], ResultType = new() { Kind = "string" } },
+                "foreach" => new() { Id = "ordered_items", Kind = kind, Objective = "Expose the original items in order.",
+                    Items = new() { Kind = "array", Items = [new() { Kind = "string", Text = "one" }] },
+                    Body = new() { Outputs = [new("item", new() { Kind = "item" })] } },
+                _ => throw new ArgumentOutOfRangeException(nameof(kind))
+            };
             root.Tasks.Add(declaration);
         }
         for (var index = 0; index < 8; index++)

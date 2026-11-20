@@ -367,8 +367,7 @@ internal static partial class PlanningCompactConstruction
         foreach (var entry in rows)
         {
             if (entry["task"]?.ToString() is not { } id || !accepted.Tasks.TryGetValue(id, out var site) ||
-                site.Task.Kind != "operation" && (continued?.TaskIds.Contains(id, StringComparer.Ordinal) != true ||
-                    entry["scopeCount"]?.GetValue<int>() is not > 0) ||
+                site.Task.Kind != "operation" && continued?.TaskIds.Contains(id, StringComparer.Ordinal) != true ||
                 entry["scope"]?.ToString() != site.Scope.Path) continue;
             var address = "task:" + id;
             // Retained evidence remains authoritative. These context-only originals

@@ -22,6 +22,25 @@ uses a single physical attempt per planning call with a 270-second local
 deadline. Run 21's last received bytes at 132 seconds and an eventual local
 deadline at 600 seconds do not establish when or why the upstream stopped.
 
+### Review session 5f6edcda9a994f748590c531de6b6027
+
+Run 24 preserved the caller's report at intake. On calls 23, 25 and 27 it
+requested the local value or transform just accepted by the preceding
+checkpoint. All three originals fit the continuation's existing preview
+budget. The fresh draft now includes the exact declaration of the latest
+checkpoint contribution when it fits. Cold reconstruction of each of the
+three issued drafts verified its original declaration with zero inference
+calls. The 154 navigation regressions passed, including stale checkpoints,
+oversized scopes and the existing byte and task limits.
+[Continuation regressions](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
+
+The run reached revision 111 with nine checkpoints, 32 completed physical
+calls and 67 advisory warnings. Its generated conditional tested that an
+optional page existed before reading a field from it. Validation rejected
+four field reads. The workflow entered clarification before execution.
+Measured campaign usage increased by EUR 22.05003, both reservation totals
+were unchanged and the remaining balance was EUR 477.79429.
+
 ## Cumulative EUR 2,100 campaign, 20 November 2026
 
 At 06:13:10 UTC the operator applied the EUR 400 supplement to the existing
