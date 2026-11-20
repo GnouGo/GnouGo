@@ -259,7 +259,17 @@ internal static partial class PlanningCompactConstruction
     private static bool ReviewsAcceptedResults(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         if (candidate.Extension is not { CompleteBlock: true, Complete: false, ContinueInScope: null, CloseScopes.Count: 0,
-            ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } extension || !CanReviewAcceptedBlock(state)) return false;
+            ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 } } extension) return false;
+        if (extension is { Scope: "/root", Outputs.Count: > 0, Groups.Count: 0, Choices.Count: 0, Tasks.Count: 0, Always.Count: 0 })
+        {
+            var acceptedTasks = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
+            var step = State(state).CurrentStep!;
+            return CanReviewAcceptedBlock(state, candidate.Plan) && extension.Outputs.All(output =>
+                step.OutputNames.Contains(output.Name, StringComparer.Ordinal) &&
+                state.Requirements?.Outputs?.Any(declared => declared.Name == output.Name) == true &&
+                output.Value is { Kind: "output", Source: { } source } && acceptedTasks.Contains(source));
+        }
+        if (!CanReviewAcceptedBlock(state)) return false;
         if (candidate.TaskIds.Count == 0) return candidate.Hash == State(state).CurrentStep!.BaseHash;
         if (extension is not { Groups.Count: 0, Always.Count: 0, Choices.Count: 0, Outputs.Count: 0 } ||
             extension.Tasks.Count != candidate.TaskIds.Count || extension.Tasks.Any(task => task.Kind is not ("value" or "transform"))) return false;

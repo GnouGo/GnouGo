@@ -72,6 +72,20 @@ in retained Server holds. Review 26 opened with EUR 438.24056 available.
 The SHA-256 of its input audit is
 `8b0ac8fccbd45c001f400839706eedfb354bf03bcb9c591b27bf2247d82372ab`.
 
+### Review session e127ae42d41b4bf7a0258944bc46ddc5
+
+The fresh request preserved both input parameters and the public report.
+Eight checkpoints retained one clone, cleanup, a Copilot check, the PR diff,
+a revision check, Copilot review and a checked report. At call 35 the model
+bound the public report directly to that accepted result. Technical validation
+demanded two additional operations from the initial selection, although the
+block had obtained its diff using a different accepted operation. Two tests
+reproduced the rejection. A new root binding to the block's accepted output
+now goes through ordinary business review. The explicit operation commitment
+and an unrelated literal both still fail the regression. Replaying the exact
+call 35 at revision 125 yielded zero validation and compiler findings, with
+the business review still required. The 106 related tests passed.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

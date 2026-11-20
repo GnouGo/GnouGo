@@ -69,9 +69,12 @@ internal static partial class PlanningCompactConstruction
         BusinessBlockCheckpoints(state).Any(checkpoint => checkpoint.TaskIds.Count > 0);
 
     private static bool CanClaimCurrentBlockCompletion(PlanningSession state) =>
+        State(state).CurrentStep?.CloseRequirementIds.Count == 0 && HasAcceptedCompletionBasis(state);
+
+    private static bool HasAcceptedCompletionBasis(PlanningSession state) =>
         State(state).CurrentStep is { BlockId: { } block } step &&
         CurrentBlock(state) is { CompletionCheckpoint: null } current && current.Id == block &&
-        step.CloseRequirementIds.Count == 0 && step.BaseHash == PlanningConstruction.Hash(state.Plan) &&
+        step.BaseHash == PlanningConstruction.Hash(state.Plan) &&
         CanFinishContinuedBlock(state, new() { CompleteBlock = true });
 
     internal static List<string> CandidateCompletionClaims(PlanningSession state) =>

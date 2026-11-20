@@ -116,12 +116,12 @@ internal static partial class PlanningCompactConstruction
             checkpoint.Step!.Scope == path || scope.Owner is { } owner && checkpoint.TaskIds.Contains(owner.Id));
     }
 
-    private static bool CanReviewAcceptedBlock(PlanningSession state) =>
-        CanClaimCurrentBlockCompletion(state) && state.EditablePaths is null &&
+    private static bool CanReviewAcceptedBlock(PlanningSession state, TaskPlan? proposedOutputs = null) =>
+        (proposedOutputs is null ? CanClaimCurrentBlockCompletion(state) : HasAcceptedCompletionBasis(state)) && state.EditablePaths is null &&
         state.Construction is { RebuildTasks.Count: 0, Compact: { ReplacementScope: null, ResumingStepId: null,
             CurrentStep: { ContinuationBinding: null } step } compact } &&
         !compact.PendingCommitments.Any(item => item.Value.Count > 0) &&
-        step.OutputNames.All(name => state.Plan!.Root.Outputs.Count(output => output.Name == name) == 1);
+        step.OutputNames.All(name => (proposedOutputs ?? state.Plan!).Root.Outputs.Count(output => output.Name == name) == 1);
 
     private static PlanningSession? PrepareSelectedBusinessBlockClosure(PlanningSession state)
     {

@@ -7,6 +7,32 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessBlockCompletionAffordanceTests
 {
     [Theory]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    [InlineData(false, true)]
+    public async Task PublishingAnAcceptedResultCanCloseItsBlockUnderOrdinaryReview(bool acceptedResult, bool closeRequirement)
+    {
+        var (state, _) = await Partial();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "sequence"; step.DiscoveryComplete = true; step.OperationIds = ["refresh"];
+        step.CloseRequirementIds = closeRequirement ? ["work"] : [];
+        step.OutputNames = ["result"];
+        state.Requirements!.Outputs = [new() { Name = "result", Type = new() { Kind = "number" } }];
+        var binding = acceptedResult ? new TaskValue { Kind = "output", Source = "compute", Port = "result" }
+            : new TaskValue { Kind = "number", Number = 1 };
+        var candidate = state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = step.Scope, RequirementIds = step.RequirementIds, CompleteBlock = true, Outputs = [new("result", binding)]
+        });
+        var diagnostics = PlanningCompactConstruction.CandidateFindings(state).ToList();
+        Assert.Equal(!acceptedResult, diagnostics.Any(d => d.Code == PlanningCommitments.MissingOperation));
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
+        Assert.Empty(state.Plan!.Root.Outputs);
+        state.Construction.Compact.PendingCommitments["work"] = [new("refresh")];
+        Assert.Contains(PlanningCompactConstruction.CandidateFindings(state), d => d.Code == PlanningCommitments.MissingOperation);
+    }
+
+    [Theory]
     [InlineData(false, "empty")]
     [InlineData(true, "empty")]
     [InlineData(false, "declared")]
