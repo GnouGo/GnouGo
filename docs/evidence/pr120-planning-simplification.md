@@ -42,6 +42,17 @@ preserved that full amount. The cumulative audit recorded 3,588 physical
 calls, EUR 1,743.50020 measured, EUR 489.11077 reserved for HTTP attempts
 and EUR 151.17387 in separate Server reservations, leaving EUR 216.21516.
 
+A one-call comparison reused the issued call 40 request, its original response
+schema and the single-attempt transport. Only the two appearances of the
+guarded tool description changed. The complete model response generated a
+pending review, a loop adding the original inline comments and a submission
+bound to GitHub's acknowledgement. Its extension and compiler checks passed
+at the original revision. Final block completion still required a third read
+selected on the old cursor. The independent diagnostic ran no workflow and
+cost EUR 0.96034. Discovery guidance now asks the model to select operations
+the workflow will invoke and account for checks owned by the called
+operation or the host. The 391 discovery, binding and contract tests passed.
+
 Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
 accepted checkpoints and requested clarification on its Copilot task. Call 13
 selected the literal `get_diff`, required its response to be nonnull and its

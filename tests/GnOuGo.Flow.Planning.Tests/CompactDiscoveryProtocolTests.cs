@@ -37,6 +37,11 @@ public sealed partial class CompactDiscoveryProtocolTests
         summaries[0] = summaries[0] with { Composition = new(1, "complete_operation", [new("tool", summaries[1].Name)]) };
         var page = PlanningCompactConstruction.ContractDescriptorPage(state);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var request = PlanningCompactConstruction.Request(PlanningCompactConstruction.DiscoveryGuidance(state),
+            context, PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        Assert.Contains("operations this workflow must invoke", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("returned acknowledgements", request.Prompt, StringComparison.Ordinal);
+        Assert.Empty(state.Construction!.Compact!.CurrentStep!.OperationIds);
         Assert.True(JsonNode.DeepEquals(page, context["descriptors"]));
         var entry = Assert.Single(context["operationCompositions"]!.AsArray())!;
         Assert.Equal(summaries[0].Id, entry["id"]!.ToString());
