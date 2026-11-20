@@ -89,6 +89,9 @@ public sealed class FrontendStartupBrowserTests
         var saved = await repository.AddAgentAsync(run, yaml, ct: ct);
         var input = new JsonObject { ["observationPages"] = """[[{"key":"x","text":"typed form"}]]""", ["selectedKeys"] = """["x"]""" };
         var url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!;
+        using var http = new HttpClient();
+        var firstPaint = await http.GetStringAsync(url, ct);
+        Assert.Matches("""<button\b[^>]*title="Select a GnOuGo agent"[^>]*\bdisabled\b[^>]*>""", firstPaint);
         using var browser = ServerLiveDiagnostics.StartObserver(app, root.FullName, url, null, run, run, input);
         try { await browser.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(100), ct); }
         finally { if (!browser.HasExited) browser.Kill(entireProcessTree: true); }

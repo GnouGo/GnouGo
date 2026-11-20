@@ -960,7 +960,7 @@
     private readonly Dictionary<string, string> _workflowInputValues = new(StringComparer.Ordinal);
     private bool _workflowInputsLoading;
     private readonly List<string> _availableAgents = new();
-    private bool _agentsLoading;
+    private bool _agentsLoading = true;
 
     private bool _sidebarOpen;
     private bool _agentMenuOpen;

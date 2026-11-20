@@ -33,6 +33,18 @@ response was 77.65 seconds across 13 calls in review 17 and 20.67 seconds
 across 42 calls in review 18. The runs used different generated requests.
 [Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
+### Saved workflow form
+
+The solution run at `031cd160` timed out waiting for the saved workflow's
+menu item after clicking the chat agent selector. An isolated rerun passed
+in three seconds. A first-render regression reproduced the enabled selector
+before the interactive component had loaded the list of agents. The selector
+now stays disabled through the first catalog load. The browser test checks
+the first response, selects the saved workflow, submits its typed inputs and
+verifies its completed Server run. The startup and planner-choice tests
+passed all 23 cases.
+[Browser form regression](../../tests/GnOuGo.Agent.Server.Tests/FrontendStartupBrowserTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,
