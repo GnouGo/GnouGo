@@ -8,6 +8,78 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PendingActionGuardRepairTests
 {
     [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task PendingTransformCanExposeValidationFactsBeforeItsResultIsConsumed(bool consumed, bool guarded)
+    {
+        var (state, runtime) = await Ready();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "transform";
+        step.CloseRequirementIds.Clear();
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+            CompleteBlock = false, ContinueInScope = "/root", Tasks = [new()
+            {
+                Id = "measure", Kind = "transform", Mode = "interpret", Objective = "Measure the supplied value.",
+                Inputs = [new("number", new() { Kind = "input", Source = "x" })],
+                Requires = guarded ? new() { Kind = "boolean", Boolean = true } : null,
+                ResultType = new() { Kind = "object", Fields = [new() { Name = "amount", Type = new() { Kind = "number" } }] }
+            }] });
+        state = await Advance(state, runtime);
+        construction = state.Construction!;
+        Assert.True(Assert.Single(construction.Checkpoints).Fragment["businessReviewPending"]!.GetValue<bool>());
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        construction.Compact!.CurrentStep = new() { Id = "finish", BlockId = construction.Compact.CurrentBlockId,
+            Kind = "value", Scope = "/root", Objective = "Review the measured value.", RequirementIds = ["work"],
+            InputTaskIds = ["measure"], BaseHash = baseline, DiscoveryComplete = true };
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+            CompleteBlock = true, Tasks = [new() { Id = "receipt", Kind = "value", Objective = "Record completion.",
+                Outputs = [new("result", consumed ? new() { Kind = "output", Source = "measure", Port = "amount" }
+                    : new() { Kind = "present", Source = "measure" })] }] });
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject {
+            ["verdict"] = "needs_change", ["reason"] = "Expose the measured validation fact and check the source before accepting it.",
+            ["obligations"] = new JsonArray("work"), ["targets"] = new JsonArray("measure") } } };
+        state = await Advance(state, runtime);
+        var paths = Assert.IsType<List<string>>(state.Construction!.Candidate!.AuthorizedPaths);
+        Assert.Equal(!consumed, paths.Contains("/tasks/measure/resultType"));
+        Assert.Equal(!guarded, paths.Contains("/tasks/measure/requires"));
+        Assert.All(paths, path => Assert.StartsWith("/tasks/measure/", path, StringComparison.Ordinal));
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        if (consumed || guarded) return;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            var slots = PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray();
+            var edits = new JsonArray();
+            Add("requires", JsonNode.Parse("""{"kind":"predicate","predicate":"greater","items":[{"kind":"input","source":"x"},{"kind":"number","number":0}]}""")!);
+            Add("resultType", JsonNode.Parse("""{"kind":"object","fields":[{"name":"amount","type":{"kind":"number"}},{"name":"observed","type":{"kind":"boolean"}}]}""")!);
+            return new() { Json = PlanningCorpus.Transport(new JsonObject { ["patch"] = new JsonObject { ["edits"] = edits } },
+                request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+
+            void Add(string field, JsonNode value)
+            {
+                var slot = Assert.Single(slots, row => row!["location"]!.ToString() == "/tasks/measure/" + field)!;
+                edits.Add(new JsonObject { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = value });
+            }
+        };
+        state = await Advance(Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+        Assert.False(state.Construction!.Candidate!.BusinessReviewed);
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = Report("ok") };
+        };
+        state = await Advance(state, runtime);
+        var measure = state.Plan!.Root.Tasks.Single(task => task.Id == "measure");
+        Assert.Equal("greater", measure.Requires!.Predicate);
+        Assert.Contains(measure.ResultType!.Fields, field => field.Name == "observed" && field.Type.Kind == "boolean");
+        Assert.Null(state.Construction!.Candidate);
+    }
+
+    [Theory]
     [InlineData(false, true)]
     [InlineData(false, false)]
     [InlineData(true, false)]

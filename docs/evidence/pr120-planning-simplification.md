@@ -2,6 +2,31 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 35 (`de9381281b6b43b99f9fd675b1c5c8b8`) generated a single clone,
+root cleanup and Copilot checks. At call 16 it bound the new
+`requirePageDirectory` input and iterated the comparison's ordered cursors.
+The fifth checkpoint prepared the proposed verdict. The local judge found
+that the transform exposed neither comparison facts nor an executable guard.
+The repair request offered only its inputs and objective. The model returned
+a technical clarification. The 23 physical requests cost EUR 16.44102.
+GitHub had zero reviews and zero inline comments when this run began.
+
+Three regression cases reproduced the missing repair fields. Rebuilding the
+original request at revision 83 matched its issued prompt and schema.
+The revised request adds the cited pending transform's missing guard and
+unconsumed result declaration. The accepted plan and candidate both retain
+hash `1acfd41d69f98fa59577f49b42cc0d00165c4b8a6fbdaf6c87425dfee7be4bb8`.
+The reconstruction used zero model calls. The repair regression also
+applies both typed edits and requires a new business verdict. All 3,231
+planning tests passed.
+
+Amazon diagnostic `amazon-control-20261120-10` replayed the twelfth
+request of Amazon 17 with the admission wording corrected. The complete
+response requested the record schema and accepted search output directory.
+Both addresses resolved against the original Server state with its plan
+unchanged. The single native request cost EUR 0.53573. The fresh ten-product
+scenario started with EUR 131.17494 available.
+
 Amazon 17's twelfth and eighteenth native responses searched for an exposed
 qualification result or an authorization list after the search and cleanup
 were accepted. The host actually checks admission on each call to

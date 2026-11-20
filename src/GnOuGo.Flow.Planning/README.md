@@ -276,6 +276,13 @@ An unchanged consumer can require renewed review after an upstream binding repai
 Compare against the exact retained review and use the existing invalidation closure;
 this permits reassessment without declaring resolution or granting additional edits.
 
+When a local finding cites a pending transform, repair can add a missing
+`requires` predicate. It can also revise the transform's result type while its
+output is unused. References in task bindings, scope exports and choice
+alternatives preserve the existing output contract. A `present` check reads
+task completion and leaves the output contract available for repair. The
+revised fragment returns to deterministic validation and business review.
+
 The shared caller/result type grammar explains array maxima at their existing field:
 null leaves the type's upper bound unspecified; zero admits only an empty array.
 Both remain legal and compiler/runtime enforced. This differs from finite control

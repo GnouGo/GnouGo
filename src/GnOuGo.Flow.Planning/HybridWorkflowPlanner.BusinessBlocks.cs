@@ -64,8 +64,16 @@ public sealed partial class HybridWorkflowPlanner
                 if (local) { readOnlyTargets.Add(target); continue; }
                 if (!global) return;
             }
-            var offered = TaskRepairPaths(accepted, task.Task, offerMissingGuard: pending).ToArray();
-            if (offered.Length == 0) return;
+            var offered = TaskRepairPaths(accepted, task.Task, offerMissingGuard: pending).ToList();
+            if (local && pending && task.Task.Kind == "transform")
+            {
+                if (task.Task.Requires is null) offered.Add("/tasks/" + target + "/requires");
+                var bindings = current.Values.Values.Select(site => site.Value)
+                    .Concat(candidate.Plan.Choices.SelectMany(choice => choice.Alternatives).Select(alternative => alternative.Value));
+                if (!bindings.SelectMany(TaskPlanCompiler.Values).Any(value => value.Kind == "output" && value.Source == target))
+                    offered.Add("/tasks/" + target + "/resultType");
+            }
+            if (offered.Count == 0) return;
             paths.AddRange(offered); tasks.Add(target);
         }
         if (paths.Count == 0) return;
