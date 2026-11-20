@@ -33,6 +33,17 @@ response was 77.65 seconds across 13 calls in review 17 and 20.67 seconds
 across 42 calls in review 18. The runs used different generated requests.
 [Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
+### Amazon session a67678773441457184336e8f46189fbc
+
+At revision 112 the Server had accepted thirteen independent extractions
+over the same ordered pages. They included separate passes for headings,
+ancestor identifiers and occurrence context. Fresh drafting now describes
+the existing per-item object shape for related fields. The regression
+compiles a single extraction, checks its executable graph and uses one
+bounded script to return two observed fields together for three items.
+The output preserves the original order and the repeated item.
+[Grouped item extraction test](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
+
 ### Amazon session d5b6222a4ab84edd9b4076aecd870703
 
 Run 08 on `35c987b1` reached one checkpoint with the complete search acquisition

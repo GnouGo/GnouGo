@@ -282,7 +282,7 @@ internal static class PlanningSchemas
                 ("each", each), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(deriveExtractionOutput ? "id" : "goal")),
                     ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
-                "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
+                "Independent extraction: each names one collection input and the sole array result field. Produce one result per item in order. Group related fields from the same item in one result object. Preserve nested arrays. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (TaskPlanCompiler.UsesAdaptiveMappings(state.Request.Options["mapping_profile"]?.ToString())
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
                     : "all items are checked under one shared two-attempt allowance."));

@@ -55,7 +55,9 @@ to identify the provider schema.
 In fresh drafts an independent extraction declares its collection through
 `each.input` and its array result in `resultType.fields`. After validating
 the response, the planner fills the canonical `each.output` from that sole
-field. Without `each`, a fresh extract transform processes its inputs together.
+field. An item result can be one object containing multiple observed fields.
+Its consumers can bind these fields directly while preserving order and repetitions.
+Without `each`, a fresh extract transform processes its inputs together.
 An array of selection criteria can therefore produce zero or many matches.
 For a text locator, extract the required components directly. An invalid capture
 fails before a dependent operation. Extracted Boolean fields require observed

@@ -116,6 +116,31 @@ public sealed class DynamicMappingCompilationTests
         Assert.DoesNotContain("\"each\"", JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan));
     }
 
+    [Fact]
+    public async Task OneIndependentMappingCanBindRelatedFieldsInOrderUsingOneScript()
+    {
+        var plan = EachPlan();
+        plan.Inputs[0].Type.Items = ProductTransformationPlan.Obj(("title", new()), ("code", new()));
+        var extract = plan.Root.Tasks[0];
+        extract.Objective = "Keep the observed title and code together for each record.";
+        extract.ResultType = ProductTransformationPlan.Obj(("rows", new() { Kind = "array",
+            Items = ProductTransformationPlan.Obj(("label", new()), ("key", new())) }));
+        var model = new EachModel("({label:source.observations.title,key:source.observations.code})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var request = new PlanningRequest { Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["mapping_profile"] = TaskPlanCompiler.ExplicitExtractionProfile } };
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var input = JsonNode.Parse("""{"records":[{"title":"Second","code":"b"},{"title":"First","code":"a"},{"title":"Second","code":"b"}]}""")!;
+        var result = await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog), input.AsObject(), engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, model.Calls);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""[{"label":"Second","key":"b"},{"label":"First","key":"a"},{"label":"Second","key":"b"}]"""), result.Outputs!["rows"]));
+        Assert.Contains("Group related fields from the same item", PlanningSchemas.TaskPlanGrammar(new() { Request = request, Catalog = catalog }).ToJsonString(), StringComparison.Ordinal);
+    }
+
     private static TaskPlan EachPlan() => new()
     {
         Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = ProductTransformationPlan.Obj(("label", new() { Kind = "string" })) } }],
