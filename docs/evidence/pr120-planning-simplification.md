@@ -52,6 +52,9 @@ selected on the old cursor. The independent diagnostic ran no workflow and
 cost EUR 0.96034. Discovery guidance now asks the model to select operations
 the workflow will invoke and account for checks owned by the called
 operation or the host. The 391 discovery, binding and contract tests passed.
+The full suite exposed two prompt contracts covering cursor ownership and
+required producers and cleanup. Restoring both in the shorter guidance
+passed all 3,222 planner tests, including the existing input limits.
 
 Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
 accepted checkpoints and requested clarification on its Copilot task. Call 13
