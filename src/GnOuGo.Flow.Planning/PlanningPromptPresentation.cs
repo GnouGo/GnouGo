@@ -249,6 +249,7 @@ public static class PlanningPromptPresentation
         // another or detach the original schema's reference scope.
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
         var sharedResults = ShareRepeatedOutputSchemas(context);
+        var sharedSiblings = ShareImportedArgumentSiblings(context);
         var sharedTasks = ShareRepeatedTaskViews(context);
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
         var operations = context["operations"] as JsonArray ?? [];
@@ -310,7 +311,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedAncestors && !sharedResults && !sharedReviewContracts) return prompt;
+        if (!shared && !sharedTasks && !sharedAncestors && !sharedSiblings && !sharedResults && !sharedReviewContracts) return prompt;
+        if (sharedSiblings)
+            context["requiredSiblingPresentation"] = "requiredSiblingsPresentedAt maps each required property to its exact schema in the selected inputs of the same producer contract.";
         if (sharedReviewContracts)
             context["reviewContractPresentation"] = "contractDetailsAt points to the action with the identical operation meaning and ports. Each action retains its own arguments, controls and results.";
         if (sharedResults)
@@ -322,6 +325,52 @@ public static class PlanningPromptPresentation
         if (sharedTasks)
             context["taskPresentation"] = "taskPresentedAt is a JSON pointer within this same context to the byte-identical task declaration under the same task id, scope and tasks/always phase. Location metadata stays on each view. Read its original arguments and behavior there; distinct task results remain distinct. This presentation link grants no binding, repair or execution authority.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareImportedArgumentSiblings(JsonObject context)
+    {
+        if (context["interfaces"] is not JsonArray interfaces) return false;
+        var changed = false;
+        for (var i = 0; i < interfaces.Count; i++)
+        {
+            if (interfaces[i] is not JsonObject row || row["producers"] is not JsonArray producers) continue;
+            for (var j = 0; j < producers.Count; j++)
+                if (producers[j] is JsonObject producer && producer["contract"] is JsonObject contract &&
+                    Identity(contract, out _, out _, out _) && contract["selectedInputs"] is JsonArray selected)
+                    changed |= ShareSelectedArgumentSiblings(contract, selected, $"/interfaces/{i}/producers/{j}/contract/selectedInputs");
+        }
+        return changed;
+    }
+
+    private static bool ShareSelectedArgumentSiblings(JsonObject contract, JsonArray selected, string path)
+    {
+        var views = selected.OfType<JsonObject>().ToArray();
+        if (views.Any(view => new[] { "id", "version", "hash" }.Any(key =>
+            view.ContainsKey(key) && !JsonNode.DeepEquals(view[key], contract[key])))) return false;
+        var originals = new Dictionary<(string Pointer, string Schema), string>();
+        for (var index = 0; index < selected.Count; index++)
+            if (selected[index] is JsonObject row && Text(row["pointer"]) is { Length: > 0 } pointer && row["schema"] is JsonObject schema)
+                originals.TryAdd((pointer, schema.ToJsonString()), $"{path}/{index}/schema");
+        var changed = false;
+        foreach (var ancestor in views.SelectMany(view => (view["ancestors"] as JsonArray ?? []).OfType<JsonObject>()))
+        {
+            if (Text(ancestor["pointer"]) is not { Length: > 0 } parent || ancestor["requiredSiblings"] is not JsonObject siblings ||
+                ancestor.ContainsKey("requiredSiblingsPresentedAt")) continue;
+            var locations = new JsonObject();
+            foreach (var (name, value) in siblings)
+            {
+                if (value is not JsonObject sibling) continue;
+                var exact = sibling.ToJsonString();
+                var coordinate = parent + "/properties/" + PlanningSchemaReferences.Escape(name);
+                if (originals.TryGetValue((coordinate, exact), out var at) && exact.Length > at.Length + 200)
+                    locations[name] = at;
+            }
+            if (locations.Count == 0) continue;
+            foreach (var pair in locations) siblings.Remove(pair.Key);
+            ancestor["requiredSiblingsPresentedAt"] = locations;
+            changed = true;
+        }
+        return changed;
     }
 
     private static bool ShareRepeatedOutputSchemas(JsonObject context)

@@ -33,6 +33,23 @@ cover a successful pair, either value null and a disjunction that cannot prove
 either value. On the earlier build the live planner added a validation transform
 at call 34. These are planning observations.
 
+Call 36 presented a required argument of an imported operation four times,
+once at its original coordinate and once on each of three related inputs.
+Fresh requests point these required siblings to the already displayed schema
+when their contract, property coordinate and schema bytes agree. Replaying
+the captured request reduced its UTF-8 prompt from 96,244 to 91,510 bytes
+and its estimated input from 57,534 to 55,826 tokens. All three pointers
+resolved to the original captured constraints.
+[Presentation regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
+The sixth independent Amazon source capture contained 1,642 records in
+79 pages. Nineteen authorized link resolutions returned sixteen store pages
+and three product links. The unclassified product context at record 497
+also contained a bare `/deals` destination at record 503. The current
+permission did not cover it. Cold verification reproduced the same findings.
+The browser closed, the follow-up probe found no active page and the capture
+recorded zero business product visits.
+
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 
 Calls 10 and 12 inspected the Copilot and command-runner contracts. Call 17

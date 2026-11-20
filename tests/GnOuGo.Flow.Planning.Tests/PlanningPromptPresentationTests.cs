@@ -152,6 +152,39 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void ImportedArgumentsReuseTheirExactRequiredSiblingSchemaAtItsOriginalCoordinate()
+    {
+        var schema = new JsonObject { ["type"] = "string", ["description"] = new string('x', 1600) };
+        var different = new JsonObject { ["type"] = "number", ["description"] = new string('x', 1600) };
+        var siblings = new JsonObject { ["kind/~"] = schema.DeepClone(), ["flag"] = different.DeepClone() };
+        var ancestor = new JsonObject { ["pointer"] = "/input", ["constraints"] = new JsonObject
+            { ["required"] = new JsonArray("kind/~", "flag") }, ["requiredSiblings"] = siblings };
+        var selected = new JsonArray(
+            new JsonObject { ["pointer"] = "/input/properties/kind~1~0", ["schema"] = schema.DeepClone() },
+            new JsonObject { ["pointer"] = "/input/properties/flag", ["schema"] = new JsonObject { ["type"] = "boolean" } },
+            new JsonObject { ["pointer"] = "/input/properties/data", ["schema"] = new JsonObject { ["type"] = "string" },
+                ["ancestors"] = new JsonArray(ancestor) });
+        var contract = new JsonObject { ["id"] = "operation", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["selectedInputs"] = selected };
+        var root = new JsonObject { ["interfaces"] = new JsonArray(new JsonObject
+            { ["producers"] = new JsonArray(new JsonObject { ["contract"] = contract }) }) };
+        var prompt = "Use the recorded producer.\n" + root.ToJsonString();
+        var presented = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        var shown = JsonNode.Parse(presented[(presented.LastIndexOf('\n') + 1)..])!;
+        var actual = shown["interfaces"]![0]!["producers"]![0]!["contract"]!["selectedInputs"]![2]!["ancestors"]![0]!;
+        Assert.Null(actual["requiredSiblings"]!["kind/~"]);
+        Assert.True(JsonNode.DeepEquals(schema, PlanningSchemaReferences.Read(shown, actual["requiredSiblingsPresentedAt"]!["kind/~"]!.ToString())));
+        Assert.True(JsonNode.DeepEquals(different, actual["requiredSiblings"]!["flag"]));
+        Assert.True(JsonNode.DeepEquals(ancestor["constraints"], actual["constraints"]));
+        Assert.Equal(presented, PlanningPromptPresentation.ShareDuplicateContractSchemas(presented));
+        Assert.True(presented.Length < prompt.Length - 900);
+
+        selected[0]!["version"] = "v2";
+        var conflicting = "Use the recorded producer.\n" + root.ToJsonString();
+        Assert.Equal(conflicting, PlanningPromptPresentation.ShareDuplicateContractSchemas(conflicting));
+    }
+
+    [Fact]
     public void DiscoveryShowsTheTypeOfTwoIndependentResultsFromTheSameContractOnce()
     {
         var schema = new JsonObject { ["type"] = "string", ["description"] = new string('a', 1200) };
