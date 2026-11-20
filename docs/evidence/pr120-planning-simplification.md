@@ -10,6 +10,26 @@ EUR 99.88219 in separate application reservations. The new available funding
 was EUR 401.85913. The authorization fingerprint is
 `25041a40a3c9336a98364ba6cf232c01e0c1df3ee9cbe26fbe7685b1685ef834`.
 
+### HTTP admission read time
+
+Before Amazon run 08, a read-only audit took 67.68 seconds to account for
+2,901 physical calls. The same scan precedes each physical dispatch. Of 2,910
+journal records inventoried during run 08, 2,794 had a KeyVault content version.
+Their recorded lengths totaled over 1.26 billion characters.
+
+Each admission now pages current campaign membership and reuses an in-memory
+accounting contribution only for the same record, timestamps, length and SHA-256
+version previously verified against the decrypted value. Records without a
+version are read in full every time. A new process starts cold. Proposed HTTP
+attempts affect only the admission evaluating them.
+
+An independent read-only replay selected the complete pre-run-08 journal.
+The cold scan took 50.51 seconds and the repeated scan 0.49 seconds. Both
+matched the original audit across all 181 session groups, including the 2,901
+attempts, EUR 1,335.07883 measured at captured tariffs and EUR 487.69797 in
+HTTP reservations. This comparison issued zero provider calls.
+[Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
+
 ### Review session 09f8205f5c1f4f1e8d8f3ab2f5bfc0ed
 
 The fresh Server started on `b7697858` with EUR 246.71860 available.

@@ -31,7 +31,13 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         var prefix = Id + ":" + relativePrefix;
         if (records is not IKeyVaultRecordReader reader)
             return (await records.ListAsync(collection, "benchmark", Author, ct)).Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).Select(r => r.Key).ToArray();
-        var keys = new HashSet<string>(StringComparer.Ordinal);
+        return (await OwnedMetadataAsync(reader, collection, prefix, ct)).Select(row => row.Key).ToArray();
+    }
+
+    private static async Task<IReadOnlyList<KeyVaultRecordMetadata>> OwnedMetadataAsync(IKeyVaultRecordReader reader,
+        string collection, string prefix, CancellationToken ct)
+    {
+        var owned = new Dictionary<string, KeyVaultRecordMetadata>(StringComparer.Ordinal);
         KeyVaultRecordCursor? cursor = null;
         while (true)
         {
@@ -39,7 +45,9 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             foreach (var row in page.Records)
             {
                 if (!row.Key.StartsWith(prefix, StringComparison.Ordinal)) throw AdmissionFailure("campaign_record_owner_mismatch");
-                keys.Add(row.Key);
+                if (owned.TryGetValue(row.Key, out var previous) && row != previous)
+                    throw AdmissionFailure("campaign_record_changed_during_inspection");
+                owned[row.Key] = row;
             }
             if (!page.HasMore) break;
             if (page.Next is null || cursor is not null && (page.Next.UpdatedAtTicks < cursor.UpdatedAtTicks ||
@@ -47,7 +55,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 throw AdmissionFailure("campaign_metadata_cursor_invalid");
             cursor = page.Next;
         }
-        return keys.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        return owned.Values.OrderBy(row => row.Key, StringComparer.OrdinalIgnoreCase).ToArray();
     }
     internal async Task<IReadOnlyList<KeyVaultRecordValue>> OwnedRecordsAsync(string collection, CancellationToken ct)
     {
@@ -55,12 +63,14 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             return (await records.ListAsync(collection, "benchmark", Author, ct)).Where(r => r.Key.StartsWith(Id + ":", StringComparison.Ordinal)).ToArray();
         var owned = new List<KeyVaultRecordValue>();
         foreach (var key in await OwnedKeysAsync(collection, ct))
-        {
-            var row = await records.GetAsync(collection, "benchmark", key, Author, ct) ?? throw AdmissionFailure("campaign_record_unavailable");
-            if (row.Key != key || row.Collection != collection || row.TenantId != "benchmark") throw AdmissionFailure("campaign_record_owner_mismatch");
-            owned.Add(row);
-        }
+            owned.Add(await ReadOwnedRecordAsync(collection, key, ct));
         return owned;
+    }
+    private async Task<KeyVaultRecordValue> ReadOwnedRecordAsync(string collection, string key, CancellationToken ct)
+    {
+        var row = await records.GetAsync(collection, "benchmark", key, Author, ct) ?? throw AdmissionFailure("campaign_record_unavailable");
+        if (row.Key != key || row.Collection != collection || row.TenantId != "benchmark") throw AdmissionFailure("campaign_record_owner_mismatch");
+        return row;
     }
     internal static WorkflowRuntimeException AdmissionFailure(string reason) => new(ErrorCodes.LlmBudgetUnverifiable,
         "Inference admission could not verify " + reason + "; no provider attempt was started.", retryable: false,

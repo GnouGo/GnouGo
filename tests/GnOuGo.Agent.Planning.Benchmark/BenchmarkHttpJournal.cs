@@ -210,9 +210,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal static async Task<JsonObject> AccountingAsync(BenchmarkCampaign campaign, string? requestId = null, JsonObject? replacement = null, CancellationToken ct = default, bool includeSessions = false)
     {
         var prefix = campaign.Id + ":";
-        var rows = (await campaign.OwnedRecordsAsync(Collection, ct))
-            .Where(r => r.Key.StartsWith(prefix, StringComparison.Ordinal)).ToDictionary(r => r.Key[prefix.Length..], r => JsonNode.Parse(r.Value)!.AsObject(), StringComparer.Ordinal);
-        if (requestId is not null && replacement is not null) rows[requestId] = replacement;
+        var rows = await campaign.HttpContributionsAsync(ct);
+        if (requestId is not null && replacement is not null) rows[requestId] = BenchmarkCampaign.HttpContribution.From(replacement);
         var legacy = await campaign.Records.GetAsync("planning-evaluation-budgets", "benchmark", campaign.Id, BenchmarkCampaign.Author, ct);
         var snapshot = legacy is null ? null : JsonSerializer.Deserialize(legacy.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
         if (snapshot is not null && snapshot.EstimatedCostCurrency != "EUR") throw new InvalidOperationException("The existing campaign ledger must be denominated in EUR.");
@@ -223,34 +222,32 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         var perSession = includeSessions ? new Dictionary<string, JsonObject>(StringComparer.Ordinal) : null;
         foreach (var (key, row) in rows)
         {
-            var attempts = row["transport"]!["Attempts"]!.AsArray();
-            calls += attempts.Count;
-            if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal)) sessionCalls += attempts.Count;
-            var usage = row["usage"];
-            var pending = attempts.Count(a => PlanningBenchmarkMeasurements.RequiresHttpUsageReservation(a?["Status"]?.GetValue<int>(), usage is not null, PlanningBenchmarkMeasurements.RetainsAllHttpFailures(row)));
+            calls += row.Attempts;
+            if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal)) sessionCalls += row.Attempts;
+            var pending = row.Pending;
             if (perSession is not null)
             {
                 var owner = key.Split(':')[0];
                 if (!perSession.TryGetValue(owner, out var item)) perSession[owner] = item = new() { ["sessionId"] = owner,
                     ["httpAttempts"] = 0L, ["unresolvedAttempts"] = 0L, ["measuredUsageTariffEstimateEur"] = 0m,
                     ["unresolvedReservationEur"] = 0m, ["zeroAttemptRequests"] = new JsonArray() };
-                item["httpAttempts"] = item["httpAttempts"]!.GetValue<long>() + attempts.Count;
+                item["httpAttempts"] = item["httpAttempts"]!.GetValue<long>() + row.Attempts;
                 item["unresolvedAttempts"] = item["unresolvedAttempts"]!.GetValue<long>() + pending;
-                item["measuredUsageTariffEstimateEur"] = LLMUsageBudgetScope.SumCostConservatively(item["measuredUsageTariffEstimateEur"]!.GetValue<decimal>(), usage?["benchmark_cost_eur"]?.GetValue<decimal>() ?? 0m);
-                item["unresolvedReservationEur"] = LLMUsageBudgetScope.SumCostConservatively(new[] { item["unresolvedReservationEur"]!.GetValue<decimal>() }.Concat(Enumerable.Repeat(row["cost_ceiling_eur"]!.GetValue<decimal>(), pending)).ToArray());
-                if (attempts.Count == 0) item["zeroAttemptRequests"]!.AsArray().Add(key);
+                item["measuredUsageTariffEstimateEur"] = LLMUsageBudgetScope.SumCostConservatively(item["measuredUsageTariffEstimateEur"]!.GetValue<decimal>(), row.MeasuredCost ?? 0m);
+                item["unresolvedReservationEur"] = LLMUsageBudgetScope.SumCostConservatively(new[] { item["unresolvedReservationEur"]!.GetValue<decimal>() }.Concat(Enumerable.Repeat(row.CostCeiling, pending)).ToArray());
+                if (row.Attempts == 0) item["zeroAttemptRequests"]!.AsArray().Add(key);
             }
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal))
-                sessionTokens = checked(sessionTokens + pending * checked(row["input_ceiling"]!.GetValue<long>() + row["output_ceiling"]!.GetValue<long>()) +
-                    (usage?["input_tokens"]?.GetValue<long>() ?? 0) + (usage?["output_tokens"]?.GetValue<long>() ?? 0));
+                sessionTokens = checked(sessionTokens + pending * checked(row.InputCeiling + row.OutputCeiling) +
+                    row.InputTokens + row.OutputTokens);
             uncertain += pending;
-            reservedInput += pending * row["input_ceiling"]!.GetValue<long>();
-            reservedOutput += pending * row["output_ceiling"]!.GetValue<long>();
-            reservedCost = LLMUsageBudgetScope.SumCostConservatively(new[] { reservedCost }.Concat(Enumerable.Repeat(row["cost_ceiling_eur"]!.GetValue<decimal>(), pending)).ToArray());
-            if (usage is not null)
+            reservedInput += pending * row.InputCeiling;
+            reservedOutput += pending * row.OutputCeiling;
+            reservedCost = LLMUsageBudgetScope.SumCostConservatively(new[] { reservedCost }.Concat(Enumerable.Repeat(row.CostCeiling, pending)).ToArray());
+            if (row.MeasuredCost is { } measuredCost)
             {
-                input += usage["input_tokens"]!.GetValue<long>(); output += usage["output_tokens"]!.GetValue<long>();
-                cost = LLMUsageBudgetScope.SumCostConservatively(cost, usage["benchmark_cost_eur"]!.GetValue<decimal>());
+                input += row.InputTokens; output += row.OutputTokens;
+                cost = LLMUsageBudgetScope.SumCostConservatively(cost, measuredCost);
             }
         }
         if (requestId is not null)

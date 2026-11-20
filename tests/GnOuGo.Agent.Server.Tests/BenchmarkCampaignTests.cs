@@ -428,6 +428,54 @@ public sealed class BenchmarkCampaignTests
         Assert.NotNull(await current.LoadAsync("planning-evaluation-receipts", "new:1:hash", Ct));
     }
 
+    [Fact]
+    public async Task RepeatedAdmissionReusesOnlyVerifiedUnchangedHttpContributions()
+    {
+        var records = new Records { ForbidList = true, VersionedHttpMetadata = true };
+        var campaign = new BenchmarkCampaign(records, "current");
+        var writer = new BenchmarkCampaign(records, "current");
+        var journal = new BenchmarkHttpJournal(writer, "session:1:hash", 10, 10, 3m);
+        await journal.PrepareAsync(Ct);
+        await journal.SaveAsync(new() { Attempts = [new() { Id = "physical-1" }] }, Ct);
+        var before = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct, includeSessions: true);
+        Assert.Equal(3m, before["reserved_cost_eur"]!.GetValue<decimal>());
+        const string key = "current:session:1:hash";
+        records.ReadKeys.Clear();
+        var repeated = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct, includeSessions: true);
+        Assert.Equal(before.ToJsonString(), repeated.ToJsonString());
+        Assert.DoesNotContain(key, records.ReadKeys);
+
+        var settled = (await writer.LoadAsync(BenchmarkHttpJournal.Collection, "session:1:hash", Ct))!;
+        settled["transport"]!["Attempts"]![0]!["Status"] = 200;
+        settled["usage"] = new JsonObject { ["input_tokens"] = 4L, ["output_tokens"] = 2L, ["benchmark_cost_eur"] = 0.1m };
+        await writer.SaveAsync(BenchmarkHttpJournal.Collection, "session:1:hash", settled, Ct);
+        records.ReadKeys.Clear();
+        var updated = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct, includeSessions: true);
+        Assert.Contains(key, records.ReadKeys);
+        Assert.Equal(0.1m, updated["known_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(0m, updated["reserved_cost_eur"]!.GetValue<decimal>());
+        var cold = await BenchmarkHttpJournal.AccountingAsync(new(records, "current"), ct: Ct, includeSessions: true);
+        Assert.Equal(cold.ToJsonString(), updated.ToJsonString());
+
+        var proposed = settled.DeepClone().AsObject();
+        proposed.Remove("usage");
+        proposed["transport"]!["Attempts"]!.AsArray().Add(new JsonObject { ["Id"] = "physical-2" });
+        var projected = await BenchmarkHttpJournal.AccountingAsync(campaign, "session:1:hash", proposed, Ct);
+        Assert.Equal(2, projected["session_calls"]!.GetValue<long>());
+        Assert.Equal(6m, projected["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Equal(updated.ToJsonString(), (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct, includeSessions: true)).ToJsonString());
+
+        records.MutateMetadata = page => page with { Records = [page.Records[0] with { Version = new string('A', 64) }] };
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        records.MutateMetadata = null;
+        records.VersionedHttpMetadata = false;
+        records.HideKey = key;
+        await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct));
+    }
+
     [Theory]
     [InlineData("owner")]
     [InlineData("missing")]
@@ -2320,6 +2368,7 @@ public sealed class BenchmarkCampaignTests
         internal string? FailCollection;
         internal string? FailKey;
         internal bool ForbidList;
+        internal bool VersionedHttpMetadata;
         internal int MetadataQueries;
         internal string? HideKey;
         internal Func<KeyVaultRecordMetadataPage, KeyVaultRecordMetadataPage>? MutateMetadata;
@@ -2336,7 +2385,9 @@ public sealed class BenchmarkCampaignTests
             var rows = _rows.Values.Where(r => r.Collection == c && r.TenantId == t && r.Key.StartsWith(prefix, StringComparison.Ordinal))
                 .Where(r => after is null || r.UpdatedAt.UtcTicks > after.UpdatedAtTicks || r.UpdatedAt.UtcTicks == after.UpdatedAtTicks && string.CompareOrdinal(r.Key, after.Key) > 0)
                 .OrderBy(r => r.UpdatedAt).ThenBy(r => r.Key, StringComparer.Ordinal).Take(count + 1).ToArray();
-            var selected = rows.Take(count).Select(r => new KeyVaultRecordMetadata(r.Key, r.CreatedAt, r.UpdatedAt, null, null)).ToArray();
+            var selected = rows.Take(count).Select(r => new KeyVaultRecordMetadata(r.Key, r.CreatedAt, r.UpdatedAt,
+                VersionedHttpMetadata && c == BenchmarkHttpJournal.Collection ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(r.Value))) : null,
+                VersionedHttpMetadata && c == BenchmarkHttpJournal.Collection ? r.Value.Length : null)).ToArray();
             var page = new KeyVaultRecordMetadataPage(selected, selected.Length == 0 ? after : new(selected[^1].UpdatedAt.UtcTicks, selected[^1].Key), rows.Length > count);
             return Task.FromResult(MutateMetadata?.Invoke(page) ?? page);
         }
