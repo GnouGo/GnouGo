@@ -49,6 +49,7 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("object")), ("members", Array(Ref("output")))),
                 Object(("kind", Enum("array")), ("items", Array(Ref("value")))),
                 Described(Object(("kind", Enum("json", "flatten")), ("items", Array(Ref("value"), 1, 1))), "json encodes one value; flatten concatenates one typed array-of-arrays level in order."),
+                Described(Object(("kind", Enum("array_length")), ("items", Array(Ref("value"), 1, 1))), "Count the actual elements of one nonnullable array, including repeated values. Use in exact-count guards."),
                 Described(Object(("kind", Enum("at_index")), ("items", Array(Ref("value"), 2, 2))), "Select one typed array element by zero-based integer position. A missing position fails."),
                 Described(Object(("kind", Enum("field")), ("items", Array(Ref("value"), 1, 1)), ("port", Ref("goal"))), "Select one literal declared field from a typed object/item; nest for nested fields."),
                 Object(("kind", Enum("input")), ("source", String())),

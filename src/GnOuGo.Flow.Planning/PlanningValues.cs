@@ -55,6 +55,13 @@ internal static class PlanningValues
                 throw new InvalidOperationException("JSON encoding requires exactly one established value.");
             return new() { ["type"] = "string" };
         }
+        if (value.Kind == "array_length")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is not { } array ||
+                PlanningContractShapes.IterationItems(array) is null)
+                throw new InvalidOperationException("array_length requires one nonnullable array.");
+            return new() { ["type"] = "integer", ["minimum"] = 0 };
+        }
         if (value.Kind == "flatten")
         {
             if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is not { } source ||

@@ -75,6 +75,7 @@ public static class PlanningReviewFormatter
         "object" => "{" + string.Join(", ", value.Members.Select(m => m.Name + ": " + Describe(m.Value))) + "}",
         "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
         "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "array_length" => "number of items in " + Describe(value.Items.Single()),
         "flatten" => "flatten one level(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "at_index" => Describe(value.Items[0]) + "[" + Describe(value.Items[1]) + "]",
         "lookup" => "lookup by " + value.Port + "(" + string.Join(", ", value.Items.Select(Describe)) + "; retain order and repeats)",

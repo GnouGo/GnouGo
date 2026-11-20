@@ -745,6 +745,7 @@ public sealed partial class TaskPlanCompiler
             case "string_operation": return StringOperation(value, scope);
             case "predicate": return Predicate(value, scope);
             case "json": return EncodeJson(value, scope);
+            case "array_length": return ArrayLength(value, scope);
             case "flatten": return Flatten(value, scope);
             case "lookup": return Lookup(value, scope);
             case "at_index": return AtIndex(value, scope);
@@ -861,6 +862,17 @@ public sealed partial class TaskPlanCompiler
         var checkedSource = Consume(source with { SelectionSource = source, SelectionPath = [] }, scope);
         computation.Items = [checkedSource.Value];
         return new(computation, schema);
+    }
+
+    private Bound ArrayLength(TaskValue value, Scope scope)
+    {
+        if (value.Items.Count != 1 || value.Port is not null || value.Source is not null || value.Text is not null ||
+            value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
+            Fail("TASK_ARRAY_LENGTH_INVALID", "array_length requires exactly one collection operand.");
+        var collection = Value(value.Items[0], scope, requireNonNull: true);
+        var length = new PlanningValue { Kind = "array_length", Items = [collection.Value] };
+        try { return new(length, PlanningValues.ComputationContract(length, _ => collection.Schema)); }
+        catch (InvalidOperationException error) { Fail("TASK_ARRAY_LENGTH_INVALID", error.Message); throw; }
     }
 
     private Bound AtIndex(TaskValue value, Scope scope)

@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    internal const string ValueSemantics = "Bind typed results at the consumer. Use field, object, array, at_index (array and zero-based index), lookup (keyed records and IDs), flatten, json, declared arithmetic, predicates or string_operation concat and uri_component. Objectives alone compute nothing.";
+    internal const string ValueSemantics = "Bind typed results at the consumer. Use field, object, array, array_length (actual element count), at_index (array and zero-based index), lookup (keyed records and IDs), flatten, json, declared arithmetic, predicates or string_operation concat and uri_component. Objectives alone compute nothing.";
     internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
     internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 

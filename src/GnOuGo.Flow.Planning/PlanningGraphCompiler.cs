@@ -365,13 +365,13 @@ public sealed partial class PlanningGraphCompiler
             case "workflow" when allowReferences:
                 if (value.Source is null || !scope.WorkflowIds.TryGetValue(value.Source, out var workflow)) throw new InvalidOperationException("Unknown workflow reference.");
                 return new JsonObject { ["kind"] = "local", ["name"] = workflow };
-            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "string_operation" or "flatten" or "present" } computed &&
+            case "projection" when allowReferences && PlanningGraphValidation.Member(value, "value") is { Kind: "json" or "predicate" or "arithmetic" or "string_operation" or "array_length" or "flatten" or "present" } computed &&
                 PlanningGraphValidation.Member(value, "each")?.Boolean != true && PlanningGraphValidation.Member(value, "paths") is { Kind: "array", Items.Count: 1 } paths &&
                 paths.Items[0] is { Kind: "array", Items.Count: 0 }:
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "flatten" or "lookup" or "at_index" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "array_length" or "flatten" or "lookup" or "at_index" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -439,6 +439,9 @@ public sealed partial class PlanningGraphCompiler
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + sourceExpression + ")";
         }
+        else if (value.Kind == "array_length")
+            expression = "((items)=>{if(!Array.isArray(items))throw new Error('Expected an array.');return items.length;})(" +
+                ExpressionBody(value.Items.Single()) + ")";
         else if (value.Kind == "flatten")
         {
             var script = FlattenExpression("source");

@@ -2,6 +2,19 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+The second Review 35 diagnostic used the new withdrawal action. Its single
+complete native response cost EUR 0.84591. Applying it to a detached copy
+of revision 83 preserved the finding, open scope, requirements and accepted
+plan hash. The fresh Review 36 Server run began with EUR 93.94087 available.
+
+Amazon 19's writer needs the actual count of the selection or collected
+rows. Its TaskPlan exposed a loop capacity and an ordered row array. The
+issued value grammar had no array count. Six regression cases reproduced
+the missing grammar and compiler behavior. The new typed `array_length`
+operand supports deterministic guards on observed collections. Runtime
+tests cover zero, matching and excess counts, repeated elements, control
+outputs and a short-circuited nullable input. All 30 focused tests passed.
+
 Amazon 19 (Server session `809321975c7d4c4c8a29beb134c5596c`)
 generated sequential loops with capacities 100 pages, 200 sponsored
 occurrences per page and ten product visits. Call 20 approved the ordered
