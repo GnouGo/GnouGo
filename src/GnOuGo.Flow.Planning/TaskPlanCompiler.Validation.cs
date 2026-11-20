@@ -454,7 +454,7 @@ public sealed partial class TaskPlanCompiler
                 case "sequence": case "foreach":
                     if (task.Kind == "foreach")
                     {
-                        Check(path + "/maxItems", () => { if (task.MaxItems is < 1 or > 10000) Fail("TASK_ITERATION_BOUND", "Iteration requires a finite positive item ceiling."); });
+                        Check(path + "/maxItems", () => { if (task.MaxItems is < 1 or > MaximumIterationItems) Fail("TASK_ITERATION_BOUND", "Iteration requires a finite positive item ceiling."); });
                         Check(path + "/maxConcurrency", () => { if (task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires bounded concurrency."); });
                         if (task.Items is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/items", "Iteration requires items."));
                     }

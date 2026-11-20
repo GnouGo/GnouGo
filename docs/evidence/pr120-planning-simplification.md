@@ -204,6 +204,21 @@ over the original two operands passed the issued draft grammar and both
 validation stages. This comparison made zero provider calls and executions.
 [Positional binding regression](../../tests/GnOuGo.Flow.Planning.Tests/PositionalBindingTests.cs)
 
+Requests 30 and 33 each abandoned source acquisition because the model
+reported that it could not set `foreach.maxItems`. The retained response
+grammars both required that integer field and allowed 1 through 10,000.
+The model had already set it to 100 in request 20. The prepared prompt now
+gives the supported range and points out that larger ordered collections
+can use their original bounded groups. A shorter list would leave source
+coverage unverified. The compiler and the repair grammar share the same limit.
+[Iteration contract regression](../../tests/GnOuGo.Flow.Planning.Tests/TaskPlanContractAlignmentTests.cs)
+
+The session ran from 10:01:00 to 10:37:00 UTC and stopped after 34 settled
+calls and eight checkpoints. Execution never started. No product pages
+were visited and no workbook was created. The run cost EUR 14.39361 at
+captured tariffs and added zero reservations. The cumulative balance was
+EUR 246.71860 after all outstanding HTTP and application reservations.
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

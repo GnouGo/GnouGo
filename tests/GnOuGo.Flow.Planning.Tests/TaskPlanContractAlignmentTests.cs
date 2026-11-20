@@ -137,6 +137,22 @@ public sealed class TaskPlanContractAlignmentTests
     }
 
     [Theory]
+    [InlineData("construction_draft")]
+    [InlineData("replan")]
+    public void ModelCanSeeAndSetTheWholeCollectionCeiling(string purpose)
+    {
+        var state = PlannerFixture.Session();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var request = PlanningModelCalls.PrepareRequest(state, purpose, "Use all ordered observations.\n{}", grammar, null, null);
+        var iteration = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!["maxItems"]!;
+        Assert.Contains($"foreach.maxItems accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
+        Assert.Contains("ordered groups", request.Prompt);
+        var task = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Process each observation","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":200,"maxConcurrency":1}""")!;
+        Assert.Empty(Errors(task, "task"));
+    }
+
+    [Theory]
     [InlineData(1, 1)]
     [InlineData(10000, 100)]
     public void SchemaAcceptsBoundsAndBothPredicateArities(int items, int concurrency)

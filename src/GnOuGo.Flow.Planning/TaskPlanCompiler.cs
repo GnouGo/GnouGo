@@ -77,6 +77,7 @@ public sealed partial class TaskPlanCompiler
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
     private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
+    internal const int MaximumIterationItems = 10_000;
     internal const string CompactProfile = "compact-bindings-v15";
     internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile;
     internal static bool UsesNormalExports(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile;
@@ -352,7 +353,7 @@ public sealed partial class TaskPlanCompiler
                     }
                 outputs = Aggregate(outputs, key, target); break;
             case "foreach":
-                if (task.MaxItems is < 1 or > 10000 || task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires finite positive item and concurrency ceilings.");
+                if (task.MaxItems is < 1 or > MaximumIterationItems || task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires finite positive item and concurrency ceilings.");
                 var items = Value(task.Items ?? MissingValue(), scope);
                 var itemSchema = PlanningContractShapes.IterationItems(items.Schema);
                 if (itemSchema is null) Fail("TASK_ITEMS_INVALID", "Iteration needs an authoritative array contract.");

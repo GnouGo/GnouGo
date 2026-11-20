@@ -283,7 +283,7 @@ internal static class PlanningSchemas
         if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
         if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
         if (kind is null or "foreach")
-            yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, 10000),
+            yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),
                 "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type.")), ("maxConcurrency", Integer(1, 100)));
         if (kind is null or "call") yield return TaskShape("call", ("group", Ref("id")), ("inputs", Array(Ref("output"))));
     }

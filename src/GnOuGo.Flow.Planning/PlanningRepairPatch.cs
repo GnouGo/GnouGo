@@ -183,7 +183,7 @@ internal static class PlanningRepairPatch
                     "dependsOn" => symbols.DependencyTargets(ownerId) is { Count: > 0 } targets
                         ? PlanningSchemas.Array(PlanningSchemas.Enum(targets.ToArray()), 0, targets.Count)
                         : PlanningSchemas.Array(PlanningSchemas.Ref("id"), 0, 0),
-                    "maxItems" => PlanningSchemas.Integer(1, 10000), "maxConcurrency" => PlanningSchemas.Integer(1, 100),
+                    "maxItems" => PlanningSchemas.Integer(1, TaskPlanCompiler.MaximumIterationItems), "maxConcurrency" => PlanningSchemas.Integer(1, 100),
                     _ => schema
                 };
                 if (field is "objective" or "operation" or "group" or "dependsOn" or "maxItems" or "maxConcurrency" or "condition" or "items") actions.Add("replace");

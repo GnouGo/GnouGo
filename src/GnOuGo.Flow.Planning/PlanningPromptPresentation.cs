@@ -22,7 +22,7 @@ public static class PlanningPromptPresentation
     public static string PresentNativeControlGuidance(string prompt, JsonNode schema)
     {
         if (!Find(schema["properties"]?["binding"], 0) && !Find(schema["properties"]?["step"], 0)) return prompt;
-        var guidance = "\nNative TaskPlan controls have no MCP operation contract. Select a local control only when offered by the current binding schema; its scoped draft supplies the authoritative task/value grammar. always is a TaskScope finalization list, and present is a TaskValue completion test, not an external operation. Do not suspend for a runtime producer of these planning rules. " + FinalizationSemantics + "\n";
+        var guidance = "\nNative TaskPlan controls have no MCP operation contract. Select a local control only when offered by the current binding schema; its scoped draft supplies the authoritative task/value grammar. always is a TaskScope finalization list, and present is a TaskValue completion test, not an external operation. Do not suspend for a runtime producer of these planning rules. " + PlanningCompactConstruction.IterationCapacityGuidance + " " + FinalizationSemantics + "\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
 
@@ -144,7 +144,7 @@ public static class PlanningPromptPresentation
     /// <summary>Guide consumers to reuse typed evidence without duplicating full observations.</summary>
     internal static string PresentInferenceInputGuidance(string prompt)
     {
-        var guidance = "\n" + PlanningCompactConstruction.TransformInputSemantics + "\n";
+        var guidance = "\n" + PlanningCompactConstruction.TransformInputSemantics + " " + PlanningCompactConstruction.IterationCapacityGuidance + "\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
     }
