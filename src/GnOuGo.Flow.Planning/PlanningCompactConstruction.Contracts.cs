@@ -189,18 +189,24 @@ internal static partial class PlanningCompactConstruction
         {
             var operation = capability.Operation!;
             var identity = ContractIdentity(operation.Id, operation.Version);
+            var address = "description:" + identity + ":0";
+            var contract = state.Construction.Evidence?["contract:" + identity];
+            var description = NavigationDescription(operation.Description);
+            var complete = description == operation.Description;
+            bool shown;
             try
             {
                 if ((state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved).Any(contract => TaskOperations.Describe(contract).Id == operation.Id) &&
                     ExactContract(state, operation.Id).Version != operation.Version) return null;
-                _ = OperationDescription(state, operation.Id, operation.Version, identity, 0);
+                var original = OperationDescription(state, operation.Id, operation.Version, identity, 0);
+                shown = complete && original["next"] is null && original["text"]?.ToString() == description &&
+                    contract?["description"]?.ToString() == description && ContractEvidenceCurrent(state, "contract:" + identity, contract);
             }
             catch (PlanningResponseException) { return null; }
-            var description = NavigationDescription(operation.Description);
-            return new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version,
-                ["name"] = capability.Name, ["effect"] = capability.EffectKind, ["description"] = description,
-                ["descriptionComplete"] = description.Length == operation.Description.Length,
-                ["descriptionEvidence"] = "description:" + identity + ":0" };
+            var row = new JsonObject { ["id"] = operation.Id, ["version"] = operation.Version,
+                ["name"] = capability.Name, ["effect"] = capability.EffectKind, ["description"] = description, ["descriptionComplete"] = complete };
+            if (!shown || CurrentPrerequisiteAddresses(state).Contains(address)) row["descriptionEvidence"] = address;
+            return row;
         }
         void AddRemainingChoiceLink()
         {

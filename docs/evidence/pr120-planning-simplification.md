@@ -7,7 +7,11 @@ whose contract already showed an empty list and a count of zero. Call 7 received
 the empty directory. Fresh discovery omits that link when the original contract
 identity, hash and empty port list agree. The structural output schema remains
 available, including all seven result alternatives for this GitHub operation.
-Historical receipts still resolve the original port directory.
+Historical receipts still resolve the original port directory. The same
+request also selected a 64-character operation description already displayed
+in full in both the retained contract and the discovery list. Fresh discovery
+omits that duplicate read when version, hash, complete original text and
+displayed text agree. Explicit prerequisite citations retain access.
 
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 

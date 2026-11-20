@@ -821,6 +821,35 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
+    [InlineData("exact")]
+    [InlineData("missing")]
+    [InlineData("stale")]
+    public void DiscoveryOffersOriginalDescriptionReadsWhenDisplayedContractEvidenceNeedsThem(string evidence)
+    {
+        var (state, _) = Ready();
+        var capability = Contract();
+        AddContract(state, capability);
+        var summary = new CapabilitySummary(capability.Id, "source", "read", capability.Description, capability.StepType,
+            capability.EffectKind, capability.Version, Operation: TaskOperations.Describe(capability));
+        state.Discovery.Pages.Add(new("source", null, [summary], null, Query: "Previously inspected objective"));
+        if (evidence != "missing")
+        {
+            var contract = PlanningCompactConstruction.LoadContractEvidence(state, "contract:read@v1", false)!;
+            if (evidence == "stale") contract["hash"] = "older-contract-hash";
+            state.Construction!.Evidence = new() { ["contract:read@v1"] = contract };
+        }
+
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var description = Assert.Single(context["describedOperations"]!["items"]!.AsArray())!;
+        Assert.Equal(capability.Description, (string?)description["description"]);
+        Assert.True((bool?)description["descriptionComplete"]);
+        const string address = "description:read@v1:0";
+        Assert.Equal(evidence == "exact" ? null : address, (string?)description["descriptionEvidence"]);
+        var offered = PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["evidenceRequests"]!.ToJsonString();
+        Assert.Equal(evidence != "exact", offered.Contains(address, StringComparison.Ordinal));
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public void DiscoveryOmitsOnlyTheProvenEmptyOutputPortDirectory(bool hasNamedPort)
