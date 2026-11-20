@@ -85,7 +85,8 @@ Its response requested three of those descriptions again. Requests 6 and 7
 subsequently read directory pages. Fresh discovery grammars omit a second
 description read when the current complete menu shows the exact original
 for an inspected source. Partial menus, truncated descriptions and explicit
-prerequisites retain the read. [Discovery grammar regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
+prerequisites retain the read. If reading the source enables reselection
+for a new objective, the issued grammar also retains it. [Discovery grammar regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
 
 Request 14 presented the same union constraints in a selected operation and
 in the evidence for five output branches. Replaying the presentation on all

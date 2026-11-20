@@ -155,11 +155,11 @@ internal static partial class PlanningCompactConstruction
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
         addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["knownOperations"], context["reselection"]]));
         var cited = CurrentPrerequisiteAddresses(state);
-        if (state.Discovery.Pages.Count > 0 && CompleteProviderMenu(state, context) is { } menu)
+        if (state.Discovery.Pages.Count > 0 && CanReselectDiscovery(state) && CompleteProviderMenu(state, context) is { } menu)
         {
             var inspected = state.Discovery.Pages.Select(page => page.SourceId).ToHashSet(StringComparer.Ordinal);
             // The complete canonical menu includes all actions and the versioned
-            // original text. Reading it again would narrow the menu to one source.
+            // original text. Keep the read when it can still unlock reselection.
             foreach (var row in menu.OfType<JsonObject>())
                 if (row["descriptionComplete"]?.GetValue<bool>() == true &&
                     inspected.Contains(row["sourceId"]!.ToString()) && row["descriptionEvidence"]?.ToString() is { } address &&

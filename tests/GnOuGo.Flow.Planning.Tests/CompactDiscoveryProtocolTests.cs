@@ -362,6 +362,21 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
+    public async Task ReadingAnInspectedSourceCanStillEnableReselectionForANewObjective()
+    {
+        var (state, _) = await Ready();
+        state.Discovery.Pages.Add(new("alpha", null, [], null, Query: "A different earlier objective."));
+        Assert.False(PlanningCompactConstruction.CanReselectDiscovery(state));
+        var issued = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
+            PlanningCompactConstruction.DiscoveryPurpose);
+        var address = Context(issued)["providerRequests"]!["items"]![0]!["descriptionEvidence"]!.ToString();
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(address), issued.StructuredOutputSchema!));
+        PlanningConstruction.LoadEvidence(state, [address]);
+        Assert.True(PlanningCompactConstruction.CanReselectDiscovery(state));
+    }
+
+    [Fact]
     public async Task ConsumedProviderPagesAdvanceWithoutGrantingOldVersionRereads()
     {
         var (state, _) = await Ready();
