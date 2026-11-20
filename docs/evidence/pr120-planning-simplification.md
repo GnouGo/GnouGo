@@ -50,6 +50,14 @@ contract on calls 22 and 24. All four retained the historical reasons. The
 regressions also keep actual validation findings and changed selections visible.
 [Reselection regressions](../../tests/GnOuGo.Flow.Planning.Tests/ReselectionFeedbackTests.cs)
 
+The original wire declaration placed the finite iteration and concurrency
+settings after the recursive loop body. Fresh grammar declares both before
+the body. Cold replays of calls 16 and 18 confirm the provider-facing order
+and the unchanged 10,000 ceiling. The compiler/runtime regression visits all
+200 ordered items with repetitions and rejects an input exceeding the declared
+limit. A fresh live run is needed to measure any effect on model behavior.
+[Loop capacity regression](../../tests/GnOuGo.Flow.Planning.Tests/TaskPlanContractAlignmentTests.cs)
+
 The operator stopped the run after receipt 28. At revision 77 it had issued
 29 logical requests, made 28 physical calls, used EUR 10.51880 at captured
 tariffs and recorded 182 advisory warnings. The untransmitted request retained

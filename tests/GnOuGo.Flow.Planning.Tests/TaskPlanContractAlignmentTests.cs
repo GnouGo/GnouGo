@@ -145,7 +145,9 @@ public sealed class TaskPlanContractAlignmentTests
         state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         var grammar = PlanningSchemas.TaskPlanGrammar(state);
         var request = PlanningModelCalls.PrepareRequest(state, purpose, "Use all ordered observations.\n{}", grammar, null, null);
-        var iteration = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!["maxItems"]!;
+        var loopFields = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!.AsObject();
+        Assert.Equal("body", loopFields.Last().Key);
+        var iteration = loopFields["maxItems"]!;
         Assert.Contains($"foreach.maxItems accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
         Assert.Contains("one foreach", request.Prompt);
         Assert.Contains("existing ordered groups", request.Prompt);
@@ -163,6 +165,11 @@ public sealed class TaskPlanContractAlignmentTests
         var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["source"] = entries }, engine);
         Assert.True(result.Success, result.Error?.Message);
         Assert.True(JsonNode.DeepEquals(entries, result.Outputs!["entries"]));
+        var extra = entries.DeepClone().AsArray();
+        extra.Add(0);
+        var overflow = await LookupCompilationTests.Execute(yaml, new JsonObject { ["source"] = extra }, engine);
+        Assert.False(overflow.Success);
+        Assert.Equal("INPUT_VALIDATION", overflow.Error?.Code);
     }
 
     [Theory]

@@ -296,8 +296,9 @@ internal static class PlanningSchemas
         if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("guard")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
         if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
         if (kind is null or "foreach")
-            yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),
-                "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type.")), ("maxConcurrency", Integer(1, 100)));
+            yield return TaskShape("foreach", ("items", Ref("value")), ("maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),
+                "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type.")), ("parallel", Type("boolean")),
+                ("maxConcurrency", Integer(1, 100)), ("body", Ref("scope")));
         if (kind is null or "call") yield return TaskShape("call", ("group", Ref("id")), ("inputs", Array(Ref("output"))));
     }
     private static IEnumerable<JsonNode?> OperationTasks(PlanningSession state, JsonObject definitions, Func<JsonObject, JsonObject, JsonObject> task)
