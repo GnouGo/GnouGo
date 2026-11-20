@@ -234,6 +234,19 @@ public sealed class CompactDeferredBindingTests
             response["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension);
             var wire = Wire(request, response);
             Assert.Empty(PlanningContractValidation.ValidateInstance(wire.Json, request.StructuredOutputSchema!));
+            var invalid = wire.Json!.DeepClone();
+            var task = invalid["extension"]!["tasks"]!.AsArray().Single(t => t!["id"]!.ToString() == "read_exact")!;
+            foreach (var guardJson in new[]
+                     {
+                         """{"kind":"null"}""",
+                         """{"kind":"index"}""",
+                         """{"kind":"predicate","predicate":"and","items":[{"kind":"boolean","boolean":true},{"kind":"null"}]}""",
+                         """{"kind":"predicate","predicate":"not","items":[{"kind":"number","number":1}]}"""
+                     })
+            {
+                task["requires"] = JsonNode.Parse(guardJson);
+                Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, request.StructuredOutputSchema!));
+            }
             return wire;
         };
         state = await Advance(state, runtime);

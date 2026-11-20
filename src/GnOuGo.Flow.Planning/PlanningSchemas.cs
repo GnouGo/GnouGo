@@ -39,7 +39,7 @@ internal static class PlanningSchemas
 
     private static JsonObject SemanticDefinitions(bool diagnostic)
     {
-        return new JsonObject
+        var definitions = new JsonObject
         {
             ["id"] = Identity(), ["goal"] = Nonblank(),
             ["identities"] = Array(Identity()),
@@ -59,8 +59,9 @@ internal static class PlanningSchemas
                 Object(("kind", Enum("arithmetic")), ("text", Enum("add", "subtract", "multiply", "divide", "remainder")), ("items", Array(Ref("value"), 2, 2))),
                 Described(Object(("kind", Enum("string_operation")), ("text", Enum("concat")), ("items", Array(Ref("value"), 2, 16))), "Concatenate established nonnullable strings in order, without coercion or interpolation."),
                 Described(Object(("kind", Enum("string_operation")), ("text", Enum("uri_component")), ("items", Array(Ref("value"), 1, 1))), "Encode one nonnullable string as a URI component using encodeURIComponent; this does not validate or authorize a URL."),
-                Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("value"), 1, 1))),
-                Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or", "equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
+                Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("guard"), 1, 1))),
+                Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or")), ("items", Array(Ref("guard"), 2, 2))),
+                Object(("kind", Enum("predicate")), ("predicate", Enum("equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
             ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),
                 Object(("kind", Enum("number")), ("number", Type("number"))), Object(("kind", Enum("boolean")), ("boolean", Type("boolean"))),
@@ -79,6 +80,10 @@ internal static class PlanningSchemas
                 ("alternatives", Array(Object(("id", Ref("goal")), ("description", String()), ("value", Ref("literal"))), 2)),
                 ("recommended", String()))
         };
+        // Task requirements, conditions and logical operands consume the same boolean binding contract.
+        // Equality still compares ordinary values, including the explicit null literal.
+        definitions["guard"] = PlanningBindingSchemas.For(Type("boolean"), definitions, constrainResult: true);
+        return definitions;
     }
 
     internal static JsonObject Compact(JsonObject root, bool preserveDescriptions = false)
@@ -256,7 +261,7 @@ internal static class PlanningSchemas
     private static JsonObject TaskShape(string kind, params (string Name, JsonObject Schema)[] fields) =>
         Object(new (string Name, JsonObject Schema)[]
         { ("id", Ref("id")), ("kind", Enum(kind)), ("objective", Ref("goal")), ("dependsOn", Ref("identities")),
-          ("requires", Nullable(Ref("value"))) }.Concat(fields).ToArray());
+          ("requires", Nullable(Ref("guard"))) }.Concat(fields).ToArray());
 
     private static JsonObject Tasks(PlanningSession state, JsonObject definitions)
     {
@@ -288,7 +293,7 @@ internal static class PlanningSchemas
                     : "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
         }
         if (kind is null or "sequence") yield return TaskShape("sequence", ("body", Ref("scope")));
-        if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
+        if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("guard")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
         if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
         if (kind is null or "foreach")
             yield return TaskShape("foreach", ("items", Ref("value")), ("body", Ref("scope")), ("parallel", Type("boolean")), ("maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),

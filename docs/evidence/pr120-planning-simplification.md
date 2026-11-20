@@ -30,6 +30,28 @@ attempts, EUR 1,335.07883 measured at captured tariffs and EUR 487.69797 in
 HTTP reservations. This comparison issued zero provider calls.
 [Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
+### Amazon session d5b6222a4ab84edd9b4076aecd870703
+
+Run 08 on `35c987b1` reached one checkpoint with the complete search acquisition
+and unconditional browser cleanup. Request 9 began a guard combining the
+producer's truncation flag and a non-null snapshot. The provider returned
+`finish_reason=length` after 4,096 output tokens, including 37 reasoning tokens.
+The response had 65,759 characters and ended in 64,191 whitespace characters.
+The original request already instructed the provider to emit compact JSON.
+The Server rejected the incomplete fragment. No product visit or workbook
+write occurred. The 9 physical calls cost EUR 3.57325 at captured tariffs.
+The audit found EUR 165.10130 left after retained reservations.
+
+An offline regression through the issued draft, validation and compilation
+found a separate grammar defect in that guard position. A literal null or
+loop index was selectable as a boolean condition. Logical operators also
+accepted nonboolean literals. The fresh grammar applies the existing boolean
+binding contract to guards and logical operands. Equality still accepts null.
+A cold replay of the captured guard preserved both comparisons and rejected
+an explicit null as the right operand of `and`. This replay issued zero model
+calls. The provider's original truncation remains an observed external failure.
+[Guard and scoped output regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
+
 ### Review session 09f8205f5c1f4f1e8d8f3ab2f5bfc0ed
 
 The fresh Server started on `b7697858` with EUR 246.71860 available.

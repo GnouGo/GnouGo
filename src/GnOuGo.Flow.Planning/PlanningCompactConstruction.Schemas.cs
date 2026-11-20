@@ -222,7 +222,7 @@ internal static partial class PlanningCompactConstruction
             };
             return PlanningSchemas.Object(("id", PlanningSchemas.Ref("id")), ("kind", PlanningSchemas.Enum("operation")),
                 ("objective", PlanningSchemas.Ref("goal")), ("dependsOn", PlanningSchemas.Ref("identities")),
-                ("requires", PlanningSchemas.Nullable(PlanningSchemas.Ref("value"))),
+                ("requires", PlanningSchemas.Nullable(PlanningSchemas.Ref("guard"))),
                 ("operation", PlanningSchemas.Enum(operation.Id)), ("inputs", inputs));
         }
     }
