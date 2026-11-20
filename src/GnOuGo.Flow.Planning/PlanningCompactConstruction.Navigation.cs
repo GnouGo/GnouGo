@@ -127,7 +127,7 @@ internal static partial class PlanningCompactConstruction
         addresses.UnionWith(NavigationEvidence(state, new[] { context["descriptors"], context["providerRequests"], context["scopeOwner"] }
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
-        addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["reselection"]]));
+        addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["knownOperations"], context["reselection"]]));
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>

@@ -793,6 +793,41 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
+    [InlineData("same")]
+    [InlineData("notResolved")]
+    [InlineData("changed")]
+    public void DiscoveryReusesTheExactPreviouslyResolvedContractWithoutAProviderInspection(string variant)
+    {
+        var (state, _) = Ready();
+        var capability = Contract();
+        var operation = TaskOperations.Describe(capability);
+        if (variant == "changed") operation.Description = "Changed producer declaration.";
+        var summary = new CapabilitySummary("read", "source", "read", capability.Description, "mcp.call", "read", "v1",
+            Operation: operation);
+        state.Discovery.Pages.Add(new("source", null, [summary], null, Query: Objective));
+        if (variant != "notResolved") AddContract(state, capability);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var schema = PlanningCompactConstruction.DiscoverySchema(state);
+        var checks = (context["contractInspection"] as JsonArray ?? []).OfType<JsonObject>()
+            .SelectMany(row => row["operationIds"]!.AsArray()).Select(id => id!.ToString());
+        if (variant == "same")
+        {
+            var cached = Assert.Single(context["knownOperations"]!["items"]!.AsArray())!;
+            Assert.Equal("read", (string?)cached["id"]);
+            Assert.Equal("contract:read@v1", (string?)cached["evidence"]);
+            Assert.Equal((string?)PlanningCompactConstruction.LoadContractEvidence(state, "contract:read@v1", false)!["hash"],
+                (string?)cached["hash"]);
+            Assert.Contains("contract:read@v1", schema["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+            Assert.DoesNotContain("read", checks);
+        }
+        else
+        {
+            Assert.Null(context["knownOperations"]);
+            Assert.Contains("read", checks);
+        }
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
     [InlineData(false, true)]

@@ -16,16 +16,7 @@ internal static class PlanningDiscoveryContext
         { throw RequiredContractFailure(ex.Category); }
         catch (CapabilityDiscoveryException ex)
         { throw RequiredContractFailure(ex.Category); }
-        if (resolved.Id != summary.Id || resolved.Version != summary.Version ||
-            summary.ArtifactContract is not null && !JsonNode.DeepEquals(
-                JsonSerializer.SerializeToNode(summary.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
-                JsonSerializer.SerializeToNode(resolved.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract)) ||
-            PlanningContractValidation.ValidateSchema(resolved.InputSchema).Count > 0 ||
-            resolved.OutputSchema.Count > 0 && PlanningContractValidation.ValidateSchema(resolved.OutputSchema).Count > 0 ||
-            !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(TaskOperations.Describe(resolved), PlanningJsonContext.Default.PlanningOperation),
-                JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation)) &&
-            !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(PlanningCapabilityArguments.Editable(resolved), PlanningJsonContext.Default.PlanningOperation),
-                JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation)))
+        if (!MatchesDescriptor(resolved, summary))
             throw new PlanningConflictException("The operation contract changed after discovery.");
         if (cached is null) state.Discovery.Resolved.Add(resolved);
         state.Discovery.ResolutionFailures?.RemoveAll(f => f.Id == summary.Id && f.Version == summary.Version);
@@ -50,6 +41,20 @@ internal static class PlanningDiscoveryContext
             return new(code, failure.Message + " Explicit metadata recovery is required before a new binding decision.");
         }
     }
+    internal static bool MatchesDescriptor(PlanningCapability resolved, CapabilitySummary summary)
+    {
+        if (resolved.Id != summary.Id || resolved.Version != summary.Version ||
+            summary.ArtifactContract is not null && !JsonNode.DeepEquals(
+                JsonSerializer.SerializeToNode(summary.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract),
+                JsonSerializer.SerializeToNode(resolved.ArtifactContract, PlanningJsonContext.Default.McpArtifactContract)) ||
+            PlanningContractValidation.ValidateSchema(resolved.InputSchema).Count > 0 ||
+            resolved.OutputSchema.Count > 0 && PlanningContractValidation.ValidateSchema(resolved.OutputSchema).Count > 0)
+            return false;
+        var advertised = JsonSerializer.SerializeToNode(summary.Operation, PlanningJsonContext.Default.PlanningOperation);
+        return JsonNode.DeepEquals(JsonSerializer.SerializeToNode(TaskOperations.Describe(resolved), PlanningJsonContext.Default.PlanningOperation), advertised) ||
+            JsonNode.DeepEquals(JsonSerializer.SerializeToNode(PlanningCapabilityArguments.Editable(resolved), PlanningJsonContext.Default.PlanningOperation), advertised);
+    }
+
     internal static async Task DiscoverPageAsync(PlanningSession state, IPlanningRuntime runtime, string source, string? cursor, CancellationToken ct, string? query = null, string? producedArtifactKind = null,
         PlanningConstructionDiscoveryContinuation? action = null, PlanningDiscoveryRequest? selection = null)
     {

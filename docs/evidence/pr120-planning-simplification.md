@@ -1,5 +1,15 @@
 # PR 120 planning simplification
 
+## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
+
+Calls 10 and 12 inspected the Copilot and command-runner contracts. Call 17
+requested the same two operation IDs and versions for another objective. The
+Server reused the retained originals internally. The model still had to select
+the inspection action to receive the two contract views again. Fresh discovery
+now identifies exact, policy-allowed contracts on the displayed descriptor page.
+It offers direct binding and a local evidence address for the original. Changed
+or unresolved descriptors retain their provider inspection path.
+
 ## Fresh ten-product and published-review qualification, 19 November 2026
 
 The ten-product Server attempt `bef26286efd94475bff02326756f3c60`

@@ -36,7 +36,7 @@ internal static partial class PlanningCompactConstruction
         Resolve the current implementation cursor within its selected scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence.
         Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Draft connected helpers later. closeScopes:[] closes no scope, [scope] the offered boundary; other actions use null.
         {ContainerBoundaryGuidance} value json_encode serializes supplied runtime values as JSON text without an encoder MCP. transform extract preserves observations; eligible interpret derives typed data from supplied inputs through the runtime LLM. Neither invents external facts nor performs external actions. {SelectedExpectationsSemantics}
-        The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
+        Bind a knownOperations ID directly or read its exact evidence if needed. The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
         discoveryRequests uses source/cursor, query:null and operationIds:null; offered operationIds with cursor:null inspect contracts without binding. The host follows exact continuations. evidenceRequests may also select an offered earlier description. {EvidenceBatchGuidance(state)} Use supplied evidence; metadata grants no execution authority.
         """ + (CanClaimCurrentBlockCompletion(state)
             ? "\nA close binding with closeScopes:[] claims completion of this business block's accepted contributions for ordinary review. It adds no work and closes no workflow scope or original requirement. When accepted contributions fulfill the fixed goal and criteria, select this review claim; do not add a report or helper solely to obtain review. Ordinary review can reject a premature claim."
@@ -348,15 +348,17 @@ internal static partial class PlanningCompactConstruction
 
     // Selection reuses exact cached contracts, not descriptor-only discoveries.
     // Pages are derived from current identities; no new cursor or cache is retained.
-    private static List<(string Address, JsonObject Page)> KnownOperationPages(PlanningSession state)
-    {
-        var rows = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
+    private static IEnumerable<PlanningCapability> KnownOperationContracts(PlanningSession state) => (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
             .GroupBy(capability => TaskOperations.Describe(capability).Id, StringComparer.Ordinal)
             .Where(group => group.Select(capability => (capability.Id, capability.Version, Hash: ContractHash(capability))).Distinct().Count() == 1)
             .Select(group => group.First())
             .Where(capability => state.Catalog!.AllowedStepTypes.Contains(capability.StepType) &&
                 !state.Catalog.Policy.DeniedCapabilityIds.Contains(capability.Id) && TaskOperations.Validate(capability).Count == 0)
-            .OrderBy(capability => TaskOperations.Describe(capability).Id, StringComparer.Ordinal).ToArray();
+            .OrderBy(capability => TaskOperations.Describe(capability).Id, StringComparer.Ordinal);
+
+    private static List<(string Address, JsonObject Page)> KnownOperationPages(PlanningSession state)
+    {
+        var rows = KnownOperationContracts(state).ToArray();
         var pages = new List<(string Address, JsonObject Page)>();
         string? next = null;
         for (var offset = (rows.Length - 1) / CompactContractDescriptorPageSize * CompactContractDescriptorPageSize;
@@ -752,6 +754,7 @@ internal static partial class PlanningCompactConstruction
         var step = State(state).CurrentStep!;
         var evidence = DiscoveryEvidence(state);
         var descriptors = DecisionOperationPage(state);
+        var known = KnownDiscoveryContracts(state, descriptors);
         var providerPage = PresentedProviderRequests(state);
         var context = new JsonObject
         {
@@ -763,7 +766,8 @@ internal static partial class PlanningCompactConstruction
             ["sources"] = null,
             ["descriptors"] = descriptors,
             ["providerRequests"] = ProviderEvidencePage(state) is null ? providerPage : null,
-            ["contractInspection"] = ContractInspectionOptions(state),
+            ["knownOperations"] = known,
+            ["contractInspection"] = ContractInspectionOptions(state, known),
             ["directoryEvidence"] = new JsonObject { ["sources"] = SourceDirectoryContinuation(state),
                 ["operations"] = OperationDirectoryContinuation(state, descriptors), ["providers"] = ProviderDirectoryContinuation(state) },
             ["evidence"] = evidence?.DeepClone(),

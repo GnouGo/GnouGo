@@ -412,7 +412,26 @@ internal static partial class PlanningCompactConstruction
                     state.Discovery.Sources.Any(s => s.Id == c.SourceId)).ToArray()
             : [];
 
-    private static JsonArray ContractInspectionOptions(PlanningSession state)
+    private static JsonObject? KnownDiscoveryContracts(PlanningSession state, JsonObject? descriptors)
+    {
+        if (descriptors?["items"] is not JsonArray { Count: > 0 } items) return null;
+        var displayed = items.Select(item => (item!["id"]!.ToString(), item["version"]!.ToString())).ToHashSet();
+        var candidates = InspectionCandidates(state).Where(c => displayed.Contains((c.Operation!.Id, c.Version))).ToDictionary(c => c.Id);
+        var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;
+        var matches = new JsonArray();
+        foreach (var contract in KnownOperationContracts(state))
+        {
+            if (!candidates.TryGetValue(contract.Id, out var candidate) || !PlanningDiscoveryContext.MatchesDescriptor(contract, candidate) ||
+                PlanningDiscoveryFocus.Failure(state, candidate.SourceId, PlanningDiscoveryFocus.Query(state, focus), focus) is not null) continue;
+            var id = candidate.Operation!.Id;
+            var address = "contract:" + ContractIdentity(id, contract.Version);
+            if (state.Construction!.Evidence?.ContainsKey(address) == true) continue;
+            matches.Add((JsonNode)new JsonObject { ["id"] = id, ["version"] = contract.Version, ["hash"] = ContractHash(contract), ["evidence"] = address });
+        }
+        return matches.Count > 0 ? new JsonObject { ["items"] = matches } : null;
+    }
+
+    private static JsonArray ContractInspectionOptions(PlanningSession state, JsonObject? known)
     {
         var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;
         var visible = ContractDescriptorPage(state)["items"]!.AsArray().OfType<JsonObject>()
@@ -425,8 +444,9 @@ internal static partial class PlanningCompactConstruction
                 foreach (var item in items.OfType<JsonObject>())
                     if (item["id"] is { } operationId) visible.Add(operationId.ToString());
         }
+        var cached = (known?["items"] as JsonArray ?? []).Select(row => (row!["id"]!.ToString(), row["version"]!.ToString())).ToHashSet();
         return new JsonArray(InspectionCandidates(state)
-            .Where(c => visible.Contains(c.Operation!.Id) &&
+            .Where(c => visible.Contains(c.Operation!.Id) && !cached.Contains((c.Operation.Id, c.Version)) &&
                 state.Construction!.Evidence?.ContainsKey("contract:" + ContractIdentity(c.Operation!.Id, c.Version)) != true &&
                 PlanningDiscoveryFocus.Failure(state, c.SourceId, PlanningDiscoveryFocus.Query(state, focus), focus) is null)
             .GroupBy(c => c.SourceId).Select(group => (JsonNode)new JsonObject
@@ -464,7 +484,8 @@ internal static partial class PlanningCompactConstruction
             }
             alternatives.Add((JsonNode)branch);
         }
-        foreach (var option in ContractInspectionOptions(state))
+        var context = DiscoveryContext(state);
+        foreach (var option in context["contractInspection"] as JsonArray ?? [])
         {
             var branch = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(option!["sourceId"]!.ToString())),
                 ("cursor", PlanningSchemas.Type("null")), ("query", PlanningSchemas.Type("null")),
@@ -522,7 +543,7 @@ internal static partial class PlanningCompactConstruction
             schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("binding"));
         }
         schema["description"] = DescriptionKnowledgePrefix + DescriptionKnowledgeHash(DescriptionKnowledge(state, state.Discovery.Pages.Count));
-        ConstrainDiscoveryEvidence(state, DiscoveryContext(state), schema);
+        ConstrainDiscoveryEvidence(state, context, schema);
         ConstrainReselectionSchema(state, schema);
         return schema;
     }
