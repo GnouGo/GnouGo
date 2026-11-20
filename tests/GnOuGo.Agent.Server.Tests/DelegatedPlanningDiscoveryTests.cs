@@ -20,7 +20,7 @@ public sealed class DelegatedPlanningDiscoveryTests
         var write = inner.Tools[0];
         write.Description = description;
         write.EffectKind = "write";
-        write.OutputSchema = new JsonObject { ["type"] = "object" };
+        write.OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}""")!.AsObject();
         var ct = TestContext.Current.CancellationToken;
         await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario, "bound-host");
         await using var session = await discovery.GetClientAsync("Github", ct);
@@ -45,6 +45,9 @@ public sealed class DelegatedPlanningDiscoveryTests
         Assert.Contains("checks for an existing pending review before create", resolved.Description, StringComparison.Ordinal);
         Assert.Contains("only to the review created by this execution", resolved.Description, StringComparison.Ordinal);
         Assert.Contains("reads back the submitted review and inline comments by that ID", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("pending pull request review successfully submitted", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("after workflow execution", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("message", resolved.OutputSchema!.ToJsonString(), StringComparison.Ordinal);
         var grant = new PublishedReviewQualification("example", "repository", 1, "head", "base");
         var args = new JsonObject { ["owner"] = "example", ["repo"] = "repository", ["pullNumber"] = 1,
             ["method"] = "create", ["commitID"] = "head" };

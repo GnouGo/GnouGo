@@ -10,6 +10,18 @@ its repeat-read choice. Both kept the selection and plan hash unchanged
 and made zero model calls. All 201 discovery protocol regressions passed,
 including changed content, a different scope and a denied capability.
 
+The same session accepted nine checkpoints, including one clone, root cleanup,
+Copilot checks and review, and bounded iteration over diff pages and proposed
+comments. At call 40 it abandoned publication because the write returns a
+message and the workflow could not access the host's private review ID. Call
+45 inspected the same operation looking for that ID again. GitHub's provider
+returns the submission acknowledgement after its GraphQL mutation succeeds.
+The qualification host separately reads the review and comments by ID after
+execution. Its tool description now makes both observable results explicit.
+The discovery regression reproduced the omission and passed through the
+Server's offered and resolved contracts, alongside the independent readback
+tests. [GitHub MCP submission implementation](https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/pullrequests.go#L2180-L2200)
+
 Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
 accepted checkpoints and requested clarification on its Copilot task. Call 13
 selected the literal `get_diff`, required its response to be nonnull and its
