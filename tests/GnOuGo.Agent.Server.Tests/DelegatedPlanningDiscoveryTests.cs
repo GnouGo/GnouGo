@@ -41,6 +41,18 @@ public sealed class DelegatedPlanningDiscoveryTests
         var page = catalog.ReadPage(snapshot, null, null);
         var resolved = await catalog.ResolveAsync(Assert.Single(page.Capabilities, capability => capability.Id == captured.Id), ct);
         Assert.Contains("Calling submit_pending invokes this guard directly", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("Permitted write methods are create and submit_pending", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("reads back the submitted review and inline comments by that ID", resolved.Description, StringComparison.Ordinal);
+        var grant = new PublishedReviewQualification("example", "repository", 1, "head", "base");
+        var args = new JsonObject { ["owner"] = "example", ["repo"] = "repository", ["pullNumber"] = 1,
+            ["method"] = "create", ["commitID"] = "head" };
+        Assert.True(grant.Allows(write.Name, args));
+        args["method"] = "submit_pending";
+        args["event"] = "REQUEST_CHANGES";
+        args["body"] = "Verified finding.";
+        Assert.True(grant.Allows(write.Name, args));
+        args["method"] = "delete_pending";
+        Assert.False(grant.Allows(write.Name, args));
         Assert.Equal(captured.Version, resolved.Version);
         var ordinary = new LiveWorkflowEvaluation.ObservedMcp(inner, _ => Task.CompletedTask);
         await using var ordinarySession = await ordinary.GetClientAsync("Github", ct);

@@ -18,7 +18,11 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
         Name = tool.Name, EffectKind = tool.EffectKind, InputSchema = tool.InputSchema, OutputSchema = tool.OutputSchema,
         ArtifactContract = tool.ArtifactContract, CompositionContract = tool.CompositionContract, OutputContract = tool.OutputContract,
         Meta = tool.Meta, ExampleResponse = tool.ExampleResponse,
-        Description = "Host dispatch contract for submit_pending: the host checks recorded mandatory checks, asks for confirmation of the concrete verdict and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. Calling submit_pending invokes this guard directly.\n" + tool.Description
+        Description = "Permitted write methods are create and submit_pending. create opens a pending review on the evaluated head. " +
+            "The host records the new review ID and, during qualification, reads back the submitted review and inline comments by that ID. " +
+            "delete_pending is outside this grant. The host checks recorded mandatory checks, asks for confirmation of the concrete verdict " +
+            "and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. " +
+            "Calling submit_pending invokes this guard directly.\n" + tool.Description
     };
 
     internal static async Task<PublishedReviewQualification> CaptureAsync(string url, CancellationToken ct)

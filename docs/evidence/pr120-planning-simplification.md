@@ -33,6 +33,17 @@ current operation declarations beyond the first scope page. The fresh draft
 grammar omits a repeated lookup when the full task, scope and phase match.
 [Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
 
+The preparatory business block passed its local review on request 35. Request
+43 bound both GitHub write operations. Request 46 recognized the installed
+confirmation guard, then sought a way to decide whether to call
+`delete_pending`. The provider described that method, but the existing
+publication grant permits only `create` and `submit_pending` on the review
+write tool. The original cleanup instruction applies to the cloned directory.
+The qualified descriptor now states those two methods and the host's
+independent read-back by review ID. Request 48 on the original build reused
+the already discovered PR read and both write operations for its next draft.
+[Discovery and permission regression](../../tests/GnOuGo.Agent.Server.Tests/DelegatedPlanningDiscoveryTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
