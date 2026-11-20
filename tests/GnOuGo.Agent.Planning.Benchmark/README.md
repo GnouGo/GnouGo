@@ -1257,6 +1257,10 @@ Before submission, each mandatory check needs a conclusive terminal receipt from
 the pinned checkout. Approval requires every mandatory check to pass. A request
 for changes identifies and explains each observed mandatory failure. The
 confirmation displays the failed commands and exit codes alongside the verdict.
+The checkout observer records package manifest paths from the pinned Git tree.
+For root package scripts, a terminal inside a member package must show a
+workspace-root invocation to establish the root suite. Package-local failures
+remain visible in the verdict evidence.
 
 Each new business session captures its draft-phase output allowance for runtime
 model calls and the Copilot inference proxy. A smaller allowance requested by

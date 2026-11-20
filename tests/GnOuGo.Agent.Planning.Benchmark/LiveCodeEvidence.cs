@@ -16,6 +16,12 @@ internal static class LiveCodeEvidence
         var expectedHead = run["target_head"]?.ToString() ?? LiveWorkflowEvaluation.Head;
         run["checkout_head"] = await Git(repository, "rev-parse", "HEAD");
         run["checkout_base"] = await Git(repository, "rev-parse", expectedBase + "^{commit}");
+        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
+            run["checkout_head"]?.ToString() == expectedHead && run["tracked_package_manifests"] is null &&
+            await Git(repository, "ls-tree", "-rz", "--name-only", expectedHead) is { } paths)
+            run["tracked_package_manifests"] = new JsonArray(paths.Split('\0', StringSplitOptions.RemoveEmptyEntries)
+                .Where(path => path == "package.json" || path.EndsWith("/package.json", StringComparison.Ordinal))
+                .Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
         if (run["repository_manifest"] is not null) return;
         var manifest = new JsonObject();
         foreach (var file in new[] { "AGENTS.md", ".nvmrc", ".python-version", "package.json", "pyproject.toml", ".github/workflows/quality_pipeline.yml" })
@@ -82,14 +88,38 @@ internal static class LiveCodeEvidence
         {
             var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
             var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];
+            var packageManifests = (run["tracked_package_manifests"] as JsonArray)?.Select(path => path!.ToString()).ToHashSet(StringComparer.Ordinal);
             var failures = new JsonObject();
             bool Observed(string name, params string[] accepted)
             {
-                var matching = commands.OfType<JsonObject>().Where(c => accepted.Contains(c["command"]!.ToString(), StringComparer.Ordinal)).ToArray();
+                var rootScript = name is "node_tests" or "integration_tests";
+                bool Matches(string command) => accepted.Contains(rootScript ? WorkspaceCommand(command) : command, StringComparer.Ordinal);
+                var matching = commands.OfType<JsonObject>().Where(c => Matches(c["command"]!.ToString())).ToArray();
                 var failed = matching.Where(c => c["exit_code"]!.GetValue<long>() != 0).ToArray();
                 if (failed.Length > 0) failures[name] = new JsonArray(failed.Select(c => (JsonNode)new JsonObject {
                     ["command"] = c["command"]!.DeepClone(), ["exit_code"] = c["exit_code"]!.DeepClone() }).ToArray());
-                return matching.Length > 0 && !accepted.Any(inconclusive.Contains);
+                return matching.Any(c => !rootScript || RunsRootScript(c)) && !inconclusive.Any(Matches);
+            }
+            bool RunsRootScript(JsonObject receipt)
+            {
+                var command = receipt["command"]!.ToString();
+                var relative = Path.GetRelativePath(repository, receipt["cwd"]!.ToString()).Replace(Path.DirectorySeparatorChar, '/');
+                if (relative == "." || command != WorkspaceCommand(command)) return true;
+                if (packageManifests?.Contains("package.json") != true) return false;
+                while (relative.Length > 0)
+                {
+                    if (packageManifests.Contains(relative + "/package.json")) return false;
+                    var separator = relative.LastIndexOf('/');
+                    if (separator < 0) break;
+                    relative = relative[..separator];
+                }
+                return true;
+            }
+            static string WorkspaceCommand(string command)
+            {
+                const string longFlag = "pnpm --workspace-root ", shortFlag = "pnpm -w ";
+                if (command.StartsWith(longFlag, StringComparison.Ordinal)) return "pnpm " + command[longFlag.Length..];
+                return command.StartsWith(shortFlag, StringComparison.Ordinal) ? "pnpm " + command[shortFlag.Length..] : command;
             }
             checks["node_dependencies"] = Observed("node_dependencies", "pnpm i", "pnpm install", "pnpm install --frozen-lockfile");
             checks["python_dependencies"] = Observed("python_dependencies", "uv sync --group tests", "uv sync --frozen --group tests",
@@ -210,6 +240,6 @@ internal static class LiveCodeEvidence
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         using var process = Process.Start(start)!;
         var output = process.StandardOutput.ReadToEndAsync(); var error = process.StandardError.ReadToEndAsync();
-        await process.WaitForExitAsync(); await error; return process.ExitCode == 0 ? (await output).Trim() : null;
+        await process.WaitForExitAsync(); await error; return process.ExitCode == 0 ? (await output).TrimEnd('\r', '\n') : null;
     }
 }

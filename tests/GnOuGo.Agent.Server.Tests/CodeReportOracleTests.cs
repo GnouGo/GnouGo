@@ -149,6 +149,25 @@ public sealed class CodeReportOracleTests
     }
 
     [Theory]
+    [InlineData("pnpm run test", "packages/member", false)]
+    [InlineData("pnpm run test", "packages/member/tests", false)]
+    [InlineData("pnpm run test", "packages/member-other", true)]
+    [InlineData("pnpm --workspace-root run test", "packages/member", true)]
+    public void APackageLocalTestRunCannotApproveTheRootWorkspaceSuite(string command, string workingDirectory, bool expected)
+    {
+        var run = PublishedRun();
+        var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
+        calls.RemoveAt(calls.Count - 1);
+        var test = Call("unit", command, 0, "Completed.");
+        test["terminals"]![0]!["workingDirectory"] = Path.Combine(Repository, workingDirectory);
+        calls.Add(test);
+        calls.Add(Call("integration", "pnpm run e2e", 0, "Completed."));
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.Equal(expected, run["verified_checks"]!["node_tests"]!.GetValue<bool>());
+        Assert.Equal(expected, LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = "APPROVE", ["body"] = "Verified." }) is null);
+    }
+
+    [Theory]
     [InlineData("passed", "APPROVE", "Verified.", true)]
     [InlineData("failed", "APPROVE", "All checks passed.", false)]
     [InlineData("failed", "REQUEST_CHANGES", "pnpm run e2e exited 1 when opening the checkout.", true)]
@@ -184,6 +203,7 @@ public sealed class CodeReportOracleTests
     {
         var run = Run();
         run["oracle_version"] = PublishedReviewQualification.Version;
+        run["tracked_package_manifests"] = new JsonArray("package.json", "packages/member/package.json");
         run["repository_manifest"] = new JsonObject { ["package.json"] = new JsonObject {
             ["content"] = new JsonObject { ["scripts"] = new JsonObject { ["e2e"] = "playwright test", ["test"] = "pnpm recursive run test" } }.ToJsonString() } };
         run["events"]![1]!["server"] = "GnOuGo.GithubCopilot.Mcp";
