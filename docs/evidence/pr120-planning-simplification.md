@@ -60,6 +60,18 @@ every legal recursive control and identifies the earlier selection's
 explanation as historical evidence. All 107 related regression tests passed.
 The source plan and earlier physical requests remain available unchanged.
 
+After all 47 review 25 attempts were settled, the campaign counted
+3,244 physical calls and EUR 1,531.45356 in measured usage. Review 25 cost
+EUR 37.46477, accepted 16 checkpoints and emitted 95 advisory warnings.
+At read-back the target PR still had 52 changed files, zero reviews and zero
+inline comments. The isolated review follow-up asked for another contract
+directory page in a complete response and did not generate a loop. After both
+short probes the campaign counted 3,246 calls, EUR 1,533.08098 in measured
+usage, EUR 489.11077 for 54 unresolved physical attempts and EUR 139.56769
+in retained Server holds. Review 26 opened with EUR 438.24056 available.
+The SHA-256 of its input audit is
+`8b0ac8fccbd45c001f400839706eedfb354bf03bcb9c591b27bf2247d82372ab`.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
