@@ -23,6 +23,28 @@ public sealed partial class HybridWorkflowPlanner
         return true;
     }
 
+    internal static bool CanWithdrawRejectedClaim(PlanningSession state)
+    {
+        var construction = state.Construction;
+        if (state.EditablePaths is not null || state.Request.Options["automatic_correction"]?.ToString() == "false" ||
+            construction?.Compact?.CurrentStep is not { } step ||
+            construction.Candidate is not { AuthorizedPaths.Count: > 0, BusinessReviewed: false } candidate ||
+            candidate.Extension is not { CompleteBlock: true, Complete: false, CloseScopes.Count: 0,
+                Tasks.Count: 0, Always.Count: 0, Outputs.Count: 0, Groups.Count: 0, Choices.Count: 0,
+                ContinuationBinding: null, BoundaryTransitions: null or { Count: 0 }, ContinueInScope: null } ||
+            candidate.Extension.Scope != step.Scope || !construction.OpenScopes.Contains(step.Scope) ||
+            candidate.BaseHash != candidate.Hash || candidate.Hash != PlanningConstruction.Hash(state.Plan) ||
+            candidate.Hash != PlanningConstruction.Hash(candidate.Plan) ||
+            !candidate.Diagnostics.Any(d => d.Required && d.Code == "CONSTRUCTION_BUSINESS_REVIEW" && d.ValidationStage == PlanningConstruction.LocalPurpose)) return false;
+
+        var review = candidate.Reviews.LastOrDefault(row => row["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
+        return review?["outcome"]?.ToString() == "needs_change" && review["defectWitness"] is JsonObject &&
+            review["pendingRepairPaths"] is JsonArray paths && candidate.AuthorizedPaths.ToHashSet(StringComparer.Ordinal)
+                .SetEquals(paths.Select(path => path!.ToString())) &&
+            review["candidateHash"]?.ToString() == candidate.Hash && review["claimsHash"]?.ToString() == ConstructionClaimsHash(state) &&
+            BusinessSourcesAndContractsValid(state, review);
+    }
+
     // New scope exports, pending accepted tasks and concrete current global
     // findings retain bounded functional repair, never structural authority.
     private static void AuthorizeBusinessRepair(PlanningSession state, JsonObject review, string[] targets)

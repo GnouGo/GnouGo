@@ -10,7 +10,7 @@ internal static partial class PlanningCompactConstruction
     private static bool Active(PlanningConstructionSuspendedStep item) => item.Status is "waiting" or "resuming";
     private const string ContinuationValidation = "Under the original requirements, derive operation arguments from caller inputs and read missing external facts with authorized operations. Resumption verifies the exact checkpoint, source, contract, scope and retained type.";
 
-    internal static void ConstrainReselectionSchema(PlanningSession state, JsonObject schema)
+    internal static void ConstrainReselectionSchema(PlanningSession state, JsonObject schema, bool abandonOnly = false)
     {
         if (schema["properties"]?["reselectStep"] is not JsonObject previous ||
             previous["type"]?.ToString() == "null") return;
@@ -18,7 +18,7 @@ internal static partial class PlanningCompactConstruction
         JsonObject NavigationText(int maximum) => diagnostic ? PlanningSchemas.String() : Text(maximum);
         var alternatives = new JsonArray(PlanningSchemas.Object(("reason", NavigationText(512)),
             ("disposition", PlanningSchemas.Enum("abandon")), ("prerequisite", PlanningSchemas.Type("null"))));
-        var addresses = StepOriginalEvidence(state).Concat(PrerequisiteAddresses(state, [])
+        var addresses = abandonOnly ? [] : StepOriginalEvidence(state).Concat(PrerequisiteAddresses(state, [])
             .Where(address => !IsOriginalAddress(address))).Distinct(StringComparer.Ordinal).ToArray();
         var active = State(state).SuspendedSteps?.Count(Active) ?? 0;
         if (addresses.Length > 0 && (diagnostic || active < 4 || State(state).ResumingStepId is not null))
@@ -56,6 +56,7 @@ internal static partial class PlanningCompactConstruction
         // CallAsync owns string bounds under the issued schema's convention.
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
         if (step is null || decision.Disposition is not ("suspend" or "abandon") ||
+            decision.Disposition == "suspend" && construction.Candidate?.AuthorizedPaths is not null ||
             string.IsNullOrWhiteSpace(decision.Reason) ||
             (decision.Disposition == "suspend") != (decision.Prerequisite is not null))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Explicitly abandon this selection or suspend it for one evidenced typed prerequisite.");

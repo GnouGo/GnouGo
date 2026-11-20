@@ -118,7 +118,7 @@ internal static partial class PlanningConstruction
             var status = !sameBasis || !sameSource ? "basis_changed" : !sameClaims ? "claims_changed" : !found ? "unverified" :
                 entry["before"]?["hash"]?.ToString() == snapshot!["hash"]!.ToString() ? "unchanged" : "changed";
             if (status == "unchanged" && DefectDependencyChanged(candidate, witness, selector, currentContext)) status = "dependency_changed";
-            if (status == "unchanged" && DefectCompositionChanged(witness, selector, priorContext, currentContext)) status = "composition_changed";
+            if (status == "unchanged" && DefectCompositionChanged(state, witness, selector, priorContext, currentContext)) status = "composition_changed";
             var progress = new JsonObject
             {
                 ["id"] = entry["id"]!.DeepClone(), ["kind"] = entry["kind"]!.DeepClone(), ["status"] = status,
@@ -145,10 +145,20 @@ internal static partial class PlanningConstruction
         return result.Count == 0 ? null : result;
     }
 
-    private static bool DefectCompositionChanged(JsonObject witness, JsonArray? selector, JsonObject? prior, JsonObject current)
+    private static bool DefectCompositionChanged(PlanningSession state, JsonObject witness, JsonArray? selector, JsonObject? prior, JsonObject current)
     {
         if (prior is null || selector?.FirstOrDefault()?.ToString() != "actions" ||
             selector.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } task) return false;
+        // A replacement for a withdrawn claim may add a new consumer. Its
+        // precondition can check the exact producer result under review.
+        var candidate = state.Construction!.Candidate!;
+        if (witness["baseline"]?.ToString() == witness["candidate"]?.ToString() &&
+            ReplacementDefectReviews(state).Any(row => row["pendingRepairPaths"] is JsonArray &&
+                row["defectWitness"]?["contextHash"]?.ToString() == witness["contextHash"]?.ToString()) &&
+            candidate.Extension.Tasks.Any(added => added.Requires is { } guard &&
+                TaskPlanCompiler.Values(guard).Any(value => value.Kind == "output" && value.Source == task)))
+            return true;
+
         // Cited consumers can change how an unchanged producer is used.
         // Only a guard or export in the same finding supplies such evidence.
         foreach (var entry in (witness["findings"] as JsonArray ?? []).OfType<JsonObject>())

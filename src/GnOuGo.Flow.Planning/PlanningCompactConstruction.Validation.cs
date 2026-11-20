@@ -16,7 +16,7 @@ internal static partial class PlanningCompactConstruction
     internal static void Reselect(PlanningSession state, string reason)
     {
         var construction = state.Construction!; var compact = State(state); var step = compact.CurrentStep;
-        if (step is null || construction.Candidate?.AuthorizedPaths is not null || state.EditablePaths is not null ||
+        if (step is null || construction.Candidate?.AuthorizedPaths is not null && !HybridWorkflowPlanner.CanWithdrawRejectedClaim(state) || state.EditablePaths is not null ||
             state.PendingCall is not null || string.IsNullOrWhiteSpace(reason) || !state.Diagnostics.Any(d => d.Required))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselection requires a diagnosed tentative step and cannot expand explicit correction authority.");
         compact.RejectedSteps.Add(new JsonObject { ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),

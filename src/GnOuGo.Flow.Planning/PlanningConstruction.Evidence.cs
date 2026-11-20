@@ -14,10 +14,11 @@ internal static partial class PlanningConstruction
         var schema = PlanningSchemas.RepairSchema(authority);
         schema["properties"]!["evidenceRequests"] = PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String(), 1, PlanningOptimizationThresholds.Maximum(state, 8)));
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("evidenceRequests"));
-        schema["properties"]!["reselectStep"] = state.Construction!.Candidate?.AuthorizedPaths is null
+        var withdrawClaim = HybridWorkflowPlanner.CanWithdrawRejectedClaim(state);
+        schema["properties"]!["reselectStep"] = state.Construction!.Candidate?.AuthorizedPaths is null || withdrawClaim
             ? PlanningSchemas.Nullable(new JsonObject { ["type"] = "string", ["maxLength"] = 512 }) : PlanningSchemas.Type("null");
         schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("reselectStep"));
-        PlanningCompactConstruction.ConstrainReselectionSchema(state, schema);
+        PlanningCompactConstruction.ConstrainReselectionSchema(state, schema, abandonOnly: withdrawClaim);
         var projected = PlanningContractValidation.ProjectStructuredOutputSchema(schema);
         var context = PlanningCompactConstruction.Context(state, useCandidate: true);
         context["repair"] = PlanningRepairContext.Build(authority);
@@ -26,7 +27,8 @@ internal static partial class PlanningConstruction
         return PlanningCompactConstruction.Request(state, (guidance is null ? "" : guidance + "\n") + PlanningPrompt.RepairInstructions +
             "\n" + PlanningCompactConstruction.RecursiveTaskBudgetGuidance(state) +
             "\nRequest up to eight related exact evidence addresses as the only action. The complete follow-up must fit its captured phase ceiling; evidence grants no edit authority. If exact original evidence already supports the implementation, request those addresses for bounded reconsideration without editing the plan." +
-            " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded.",
+            " If the diagnosed tentative task kind or operation cannot implement the original requirement, reselectStep may give a concrete reason as the only action. It preserves accepted work and the selected scope/requirements; explicit revision paths cannot be expanded." +
+            (withdrawClaim ? " To check outputs produced by an accepted task, abandon this rejected completion claim and add its consuming check in the open block. The accepted tasks stay fixed and the finding returns to the judge." : ""),
             context, projected, "replan");
     }
 

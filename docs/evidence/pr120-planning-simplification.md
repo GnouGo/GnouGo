@@ -2,6 +2,21 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 35's isolated native correction probe returned a complete clarification
+in one physical request at EUR 0.84880. The additional result and guard slots
+were visible. The proposed task's precondition runs before its output exists,
+so validating the proposed result requires a later consumer. The retained
+local completion claim had an empty extension and the same hash as the
+accepted plan. Its repair grammar nevertheless offered only edits to the
+producer. Two regressions reproduced the missing withdrawal action.
+
+A rejected local claim with no plan or scope changes can now return to
+implementation in its original open scope. The repair journal retains the
+finding and its exact evidence. A new guard that reads the cited result
+permits a fresh business judgment. A constant guard leaves the finding open
+and fails deterministic progress validation. Explicit revisions and global
+closure keep their original authority.
+
 Amazon 18 reached both local business approvals, the global judge and final
 technical validation on its fresh generated plan. A typed repair bound the
 header and extracted rows to the workbook before approval. The 34 physical
