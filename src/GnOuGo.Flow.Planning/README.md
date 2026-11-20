@@ -47,6 +47,11 @@ for the same selected operation, version and contract hash. Its
 `ancestorsPresentedAt` pointer resolves within that prompt. Each row keeps
 its original schema coordinate and reference closure.
 
+Discovery and drafting can show repeated fields of an operation input schema
+once under that schema's local definitions. Expanding those references restores
+the original alternatives. Original input pointers and contract hashes continue
+to identify the provider schema.
+
 In fresh drafts an independent extraction declares its collection through
 `each.input` and its array result in `resultType.fields`. After validating
 the response, the planner fills the canonical `each.output` from that sole

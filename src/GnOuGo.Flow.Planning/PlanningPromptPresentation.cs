@@ -618,6 +618,15 @@ public static class PlanningPromptPresentation
                         foreach (var view in (contract[field] as JsonArray ?? []).OfType<JsonObject>())
                             Factor(view, "schema");
         }
+        var evidence = (context["evidence"] as JsonObject ?? []).Select(entry => entry.Value).OfType<JsonObject>().ToArray();
+        foreach (var contract in evidence)
+            if (Identity(contract, out _, out _, out _)) Factor(contract, "inputSchema");
+        foreach (var operation in (context["operations"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (!Identity(operation, out var id, out _, out _) || operation["selectedInputs"] is JsonArray { Count: > 0 } ||
+                evidence.Any(view => Text(view["id"]) == id && Text(view["pointer"]).StartsWith("/input", StringComparison.Ordinal))) continue;
+            Factor(operation, "inputSchema");
+        }
         return changed;
 
         void Factor(JsonObject owner, string field)

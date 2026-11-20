@@ -74,6 +74,37 @@ public sealed class PlanningPromptPresentationTests
         Assert.Equal("Keep all original obligations.\n" + context.ToJsonString(), prompt);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InspectedDiscriminatedContractSharesRepeatedBranchesWithinItsSchemaRoot(bool selected)
+    {
+        var field = new JsonObject { ["type"] = "string", ["description"] = new string('x', 600), ["pattern"] = "^[a-z]+$" };
+        var alternatives = new JsonArray();
+        foreach (var name in new[] { "read", "write", "list" })
+            alternatives.Add(new JsonObject { ["properties"] = new JsonObject {
+                ["operation"] = new JsonObject { ["const"] = name }, ["path"] = field.DeepClone() },
+                ["required"] = new JsonArray("operation", "path") });
+        var schema = new JsonObject { ["type"] = "object", ["oneOf"] = alternatives };
+        var contract = new JsonObject { ["id"] = "tool", ["version"] = "v1", ["hash"] = new string('a', 64),
+            ["inputSchema"] = schema, ["inputDirectory"] = "schema-page:tool@v1:/input:0" };
+        var context = selected ? new JsonObject { ["operations"] = new JsonArray(contract) } :
+            new JsonObject { ["evidence"] = new JsonObject { ["contract:tool@v1"] = contract } };
+        var original = context.ToJsonString();
+        var prompt = PlanningPromptPresentation.ShareDuplicateContractSchemas("Inspect.\n" + original);
+        var shown = JsonNode.Parse(prompt[(prompt.LastIndexOf('\n') + 1)..])!;
+        var view = selected ? shown["operations"]![0]! : shown["evidence"]!["contract:tool@v1"]!;
+        Assert.NotNull(view["inputSchema"]!["$defs"]);
+        var expanded = PlanningSchemaReferences.ExpandLocalReferences(view["inputSchema"]!.AsObject());
+        expanded.Remove("$defs");
+        Assert.True(JsonNode.DeepEquals(schema, expanded));
+        Assert.Equal(contract["inputDirectory"]!.ToString(), view["inputDirectory"]!.ToString());
+        Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""{"operation":"read","path":"valid"}"""), view["inputSchema"]!.AsObject()));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(JsonNode.Parse("""{"operation":"other","path":"valid"}"""), view["inputSchema"]!.AsObject()));
+        Assert.Equal(original, context.ToJsonString());
+        Assert.Equal(prompt, PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt));
+    }
+
     private static JsonObject Context()
     {
         var schema = new JsonObject { ["type"] = new JsonArray("string", "null"), ["description"] = new string('x', 2000),

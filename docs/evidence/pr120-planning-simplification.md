@@ -100,6 +100,16 @@ available. Offline reconstruction of the rejected selection also restored
 all seven requested contract branches, totaling 7,541 bytes, with zero
 model calls or executions.
 
+### Review session c8e79311ec2043c5893847d340467550
+
+Request 7 inspected seven operation contracts. Request 8 selected six for
+the first draft. Both carried the same command input with 18 alternatives.
+Factoring its repeated schema fragments reduced each issued prompt by 1,241
+UTF-8 bytes in a cold replay. Expanding the local references recovered every
+original branch and the recorded contract identity. Original schema addresses
+remain available for selecting inputs. The replay made zero model calls.
+[Presentation regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ### Amazon session 41aa6741d7e3431582fa4f39edb47219
 
 Request 11 used one value task to guard and forward a nullable navigation
