@@ -287,7 +287,7 @@ public sealed partial class HybridWorkflowPlanner
         construction.Compact!.CurrentStep = admission.Construction.Compact!.CurrentStep;
         construction.Compact.PendingCommitments = admission.Construction.Compact.PendingCommitments;
         construction.Candidate = next; construction.PendingReviewContext = null; construction.PendingReviewHash = null;
-        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: next.Extension.ContinueInScope);
         await ValidateConstructionCandidateAsync(state, runtime, ct);
         if (next.Diagnostics.Count == 0 && state.Request.Mode == PlanningMode.Interactive && next.Plan.Choices.Any(c => c.Selected is null))
             state.Status = PlanningStatus.Clarification;
@@ -523,7 +523,7 @@ public sealed partial class HybridWorkflowPlanner
         construction.Complete = draft.Extension.Complete; construction.Candidate = null;
         construction.DraftCorrections = 0; construction.LastProposalHash = null;
         construction.PendingReviewContext = null; construction.PendingReviewHash = null;
-        PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: draft.Extension.ContinueInScope);
         construction.ScopeCursor = 0;
         state.Diagnostics.Clear(); state.Graph = null; Invalidate(state);
         state.Phase = construction.Complete ? PlanningPhase.Validation : PlanningConstruction.DraftPurpose;

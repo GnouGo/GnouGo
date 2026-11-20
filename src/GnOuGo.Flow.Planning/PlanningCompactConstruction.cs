@@ -1190,13 +1190,16 @@ internal static partial class PlanningCompactConstruction
         return addresses;
     }
 
-    internal static void RetainPrerequisiteEvidence(PlanningSession state, bool preserveConsumedHistory = false)
+    internal static void RetainPrerequisiteEvidence(PlanningSession state, bool preserveConsumedHistory = false, string? continuedScope = null)
     {
         var construction = state.Construction!;
         var addresses = CurrentPrerequisiteAddresses(state);
         var retained = new JsonObject();
         foreach (var item in construction.Evidence ?? [])
             if (addresses.Contains(item.Key)) retained[item.Key] = item.Value?.DeepClone();
+        if (continuedScope is not null && continuedScope == State(state).CurrentStep?.Scope &&
+            PlanningTokenThresholds.OptimizationAdvisory(state.Request) && construction.Evidence is { Count: > 0 } inspectedScopes)
+            RetainInspectedChildScope(state, continuedScope, inspectedScopes, retained);
         // An abandoned tentative binding does not invalidate exact metadata
         // already read for this unchanged responsibility. Restore only current,
         // verified originals from the existing rejection journal, after a new

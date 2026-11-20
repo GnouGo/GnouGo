@@ -8,6 +8,68 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CoherentBusinessFragmentTests
 {
     [Theory]
+    [InlineData("current")]
+    [InlineData("stale")]
+    [InlineData("strict")]
+    [InlineData("oversized")]
+    public async Task AContinuedDraftCanReuseTheClosedChildScopeItInspectedBeforeTheCheckpoint(string variant)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready(advisoryOptimization: variant != "strict");
+        var construction = state.Construction!;
+        construction.Candidate = null;
+        const string path = "/tasks/collected/body";
+        const string scopeAddress = "scope:" + path;
+        const string taskAddress = "task:value_1";
+        var child = Value(0);
+        child.Id = "value_1";
+        if (variant == "oversized") child.Objective = new string('界', 3000);
+        state.Plan!.Root.Tasks.Add(new() { Id = "collected", Kind = "sequence", Objective = "Collect the records.", Body = new() { Tasks = [child] } });
+        construction.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        PlanningConstruction.LoadEvidence(state, [scopeAddress, taskAddress]);
+        var original = construction.Evidence![scopeAddress]!.DeepClone();
+        if (variant == "stale")
+        {
+            child.Objective = "Changed evidence on the accepted plan.";
+            construction.Compact.CurrentStep.BaseHash = PlanningConstruction.Hash(state.Plan);
+        }
+        var calls = 0;
+        runtime.Respond = (request, _) =>
+        {
+            var task = Value(0);
+            task.Id = "next_" + calls;
+            return Draft(request, new()
+            {
+                Scope = "/root", Tasks = [task], RequirementIds = ["work"], CompleteBlock = false,
+                ContinueInScope = calls++ == 0 ? "/root" : null
+            });
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        var continued = PlannerFixture.Clone(state);
+        var retained = continued.Construction!.Evidence;
+        if (variant == "current")
+        {
+            Assert.True(JsonNode.DeepEquals(original, retained?[scopeAddress]));
+            Assert.Equal(child.Objective, retained![taskAddress]!["objective"]!.ToString());
+            var request = PlanningConstruction.DraftRequest(continued, repair: false);
+            Assert.Contains(scopeAddress, request.Prompt, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Null(retained?[scopeAddress]);
+            Assert.Null(retained?[taskAddress]);
+        }
+        state = await Advance(continued, runtime);
+        Assert.Empty(state.Diagnostics);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Null(state.Construction!.Evidence?[scopeAddress]);
+        Assert.Equal(2, calls);
+    }
+
+    [Theory]
     [InlineData("description:read@v1:0")]
     [InlineData("schema:read@v1:/input")]
     [InlineData("contract:read@v1")]

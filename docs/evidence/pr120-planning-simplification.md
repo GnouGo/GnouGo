@@ -179,6 +179,14 @@ page reads whose task identity and full text fingerprint match a displayed
 declaration. A container's undisplayed child scopes remain separately
 retrievable. [Draft navigation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftNavigationTests.cs)
 
+Requests 11 and 12 fetched the nested record collector and its closed parent
+scope. After checkpoint 4, request 14 fetched both again. An advisory
+continuation can now carry one previously inspected direct child scope and
+its inspected task declarations across a technical checkpoint. It compares
+them with the candidate and then the accepted plan and uses the existing
+8 KiB scope allowance. Completing the cursor drops this optional evidence.
+[Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

@@ -57,6 +57,33 @@ internal static partial class PlanningCompactConstruction
 
     private const int ContinuedScopePreviewBytes = 8192;
 
+    private static void RetainInspectedChildScope(PlanningSession state, string parent, JsonObject inspected, JsonObject retained)
+    {
+        foreach (var (address, value) in inspected.Reverse())
+        {
+            if (!address.StartsWith("scope:", StringComparison.Ordinal) || value is not JsonObject scope ||
+                scope["open"]?.GetValue<bool>() != false || scope["parent"]?.ToString() != parent ||
+                scope["path"]?.ToString() is not { } path || address != "scope:" + path) continue;
+            var bytes = System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString());
+            if (bytes > ContinuedScopePreviewBytes || !JsonNode.DeepEquals(scope, PlanningConstruction.ScopeEvidence(state, path))) continue;
+            retained[address] = scope.DeepClone();
+            foreach (var phase in new[] { "tasks", "always" })
+                foreach (var declaration in scope[phase]!.AsArray().OfType<JsonObject>())
+                {
+                    var taskAddress = "task:" + declaration["id"]!.ToString();
+                    if (inspected[taskAddress] is not JsonObject task || retained.ContainsKey(taskAddress)) continue;
+                    var original = declaration.DeepClone().AsObject();
+                    original["scope"] = path; original["phase"] = phase;
+                    if (!JsonNode.DeepEquals(task, original)) continue;
+                    var size = System.Text.Encoding.UTF8.GetByteCount(task.ToJsonString());
+                    if (size > ContinuedScopePreviewBytes - bytes) continue;
+                    retained[taskAddress] = task.DeepClone();
+                    bytes += size;
+                }
+            break;
+        }
+    }
+
     private static void AddTaskEvidence(PlanningSession state, JsonObject context, bool useCandidate, PlanningConstructionCheckpoint? continued)
     {
         var construction = state.Construction!;
