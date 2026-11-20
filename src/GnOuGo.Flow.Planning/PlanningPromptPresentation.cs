@@ -163,7 +163,7 @@ public static class PlanningPromptPresentation
     /// <summary>Keep the original delivery channel distinct from an additional caller-return contract.</summary>
     public static string PresentDeliveryChannelGuidance(string prompt)
     {
-        const string guidance = "\nFor a missing-result concern, establish the delivery channel required by the original obligation: a file, a caller return, or both. Terms such as result, report or feedback alone do not establish an additional caller-return contract when the originals prescribe delivery in a file. A specifically requested caller return remains mandatory even if the same value is saved to a file. Assess each requested channel and its actual provenance independently.\n";
+        const string guidance = "\nFor a missing-result concern, establish the delivery channel required by the original obligation: a caller return, file or external action. Trace the file content or external action's actual arguments to the requested information. Internal preparation alone does not deliver it. A specifically requested caller return remains mandatory alongside any other requested delivery. Assess each requested channel and its actual provenance independently.\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
     }

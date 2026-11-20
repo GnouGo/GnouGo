@@ -81,6 +81,16 @@ corrected workflow after a new global review and checks the caller's edit
 restrictions on both checkpoint layouts.
 [Scoped repair regressions](../../tests/GnOuGo.Flow.Planning.Tests/GlobalReviewedInstructionRepairTests.cs)
 
+The first model response indexed the separate request to report commands,
+exit codes and incomplete checks with an empty public interface. Intake now
+asks for a caller result when requested information has no other delivery
+channel. The final judge traces an external delivery to the actual arguments
+of the action. The paired regressions preserve a report requested alongside
+a published decision and allow a single publication when the user requests
+both pieces of information there.
+[Intake tests](../../tests/GnOuGo.Flow.Planning.Tests/CompactIntentIndexingTests.cs)
+and [delivery tests](../../tests/GnOuGo.Flow.Planning.Tests/DeliveryChannelGuidanceTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,

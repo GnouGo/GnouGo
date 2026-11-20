@@ -21,6 +21,25 @@ public sealed class CompactIntentIndexingTests
     private static Task<PlanningSession> Advance(PlanningSession state, TestRuntime runtime) =>
         new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
 
+    [Theory]
+    [InlineData("Publish the decision. Report the observed measurements.", true)]
+    [InlineData("Publish the decision and the observed measurements together.", false)]
+    public async Task IntentDistinguishesInformationForTheCallerFromContentDeliveredByAnEffect(string original, bool callerReport)
+    {
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            Assert.Contains("information requested for the caller", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("delivered by a specified effect", request.Prompt, StringComparison.Ordinal);
+            var outputs = callerReport ? Declarations(new TaskInput { Name = "measurements", Type = new() { Kind = "string" } }) : new JsonArray();
+            return Wire(request, CurrentPlanningFixture.Intent(Context(request), outputs: outputs));
+        } };
+        var state = await Advance(Fresh(original), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(original, Assert.Single(state.Requirements!.Outcomes).Description);
+        Assert.Equal(callerReport ? new[] { "measurements" } : [], state.Requirements.Outputs!.Select(output => output.Name));
+        Assert.Equal(0, runtime.Discoveries);
+    }
+
     [Fact]
     public void DiagnosticIntentRetainsLargeExactDeclarationsAndLiteralDefaults()
     {

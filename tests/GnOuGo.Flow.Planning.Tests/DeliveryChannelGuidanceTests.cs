@@ -23,6 +23,7 @@ public sealed class DeliveryChannelGuidanceTests
     [Theory]
     [InlineData("Save the feedback in the requested file.")]
     [InlineData("Return the result to the caller and also save the file.")]
+    [InlineData("Publish the decision and its observations in the same message.")]
     public void GuidancePreservesTheWholeOriginalAndDoesNotSetABusinessVerdict(string original)
     {
         var context = new JsonObject { ["original"] = original, ["declaredPublicOutputs"] = new JsonArray() };
@@ -31,6 +32,7 @@ public sealed class DeliveryChannelGuidanceTests
         Assert.EndsWith("\n" + context.ToJsonString(), guided, StringComparison.Ordinal);
         Assert.Contains("A specifically requested caller return remains mandatory", guided, StringComparison.Ordinal);
         Assert.Contains("Assess each requested channel and its actual provenance independently", guided, StringComparison.Ordinal);
+        Assert.Contains("external action's actual arguments", guided, StringComparison.Ordinal);
         Assert.DoesNotContain("Return ok", guided, StringComparison.Ordinal);
         Assert.DoesNotContain("Code", guided, StringComparison.Ordinal);
     }
