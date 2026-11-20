@@ -1248,6 +1248,10 @@ independent browser closure probe. The GitHub check supplies `pullRequestUrl`
 and `reviewText` to the composer and captures the current PR head and base.
 It checks the clone, completed Copilot commands and cleanup. After publication,
 it reads the submitted review and inline comments back from GitHub by review ID.
+Before submission, each mandatory check needs a conclusive terminal receipt from
+the pinned checkout. Approval requires every mandatory check to pass. A request
+for changes identifies and explains each observed mandatory failure. The
+confirmation displays the failed commands and exit codes alongside the verdict.
 
 Each new business session captures its draft-phase output allowance for runtime
 model calls and the Copilot inference proxy. A smaller allowance requested by

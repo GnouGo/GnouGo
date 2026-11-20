@@ -182,6 +182,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 JsonArray githubEvents;
                 var submitting = tool == "pull_request_review_write" && args["method"]?.ToString() == "submit_pending";
                 JsonObject? checks = null;
+                JsonNode? failures = null;
                 await eventLock.WaitAsync(token);
                 try
                 {
@@ -193,8 +194,9 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                             throw new PlanningConflictException("The requested review instructions did not reach a completed Copilot operation.");
                         var repository = Path.GetFullPath(Path.Combine(workspace, report["workspace_relative"]!.ToString(), "repository"));
                         checks = LiveCodeEvidence.Verify(report, repository);
-                        if (report["required_checks_verified"]?.GetValue<bool>() != true)
-                            throw new PlanningConflictException("The required repository checks have no verified execution receipts.");
+                        if (LiveCodeEvidence.SubmissionFinding(report, args) is { } finding)
+                            throw new PlanningConflictException(finding);
+                        failures = report["required_check_failures"]!.DeepClone();
                     }
                 }
                 finally { eventLock.Release(); }
@@ -202,6 +204,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 {
                     var confirmation = new JsonObject { ["mode"] = "confirm", ["prompt"] = "Submit this exact review for " + inputs["pullRequestUrl"],
                         ["choices"] = new JsonArray("approve", "reject"), ["review"] = args.DeepClone(), ["head"] = Target!.Head, ["verified_checks"] = checks!.DeepClone(),
+                        ["failed_checks"] = failures,
                         ["inline"] = new JsonArray(githubEvents.OfType<JsonObject>().Where(e => e["tool"]?.ToString() == "add_comment_to_pending_review" && e["error"]?.GetValue<bool>() == false)
                             .Select(e => e["arguments"]!.DeepClone()).ToArray()) };
                     Console.WriteLine(confirmation.ToJsonString());

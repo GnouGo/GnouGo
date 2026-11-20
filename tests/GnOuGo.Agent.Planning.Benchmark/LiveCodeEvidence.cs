@@ -28,33 +28,47 @@ internal static class LiveCodeEvidence
         if (run["checkout_head"]?.ToString() == expectedHead) run["repository_manifest"] = manifest;
     }
 
-    internal static JsonArray Commands(JsonObject run, string repository)
+    internal static JsonArray Commands(JsonObject run, string repository, HashSet<string>? inconclusive = null)
     {
         var commands = new JsonArray();
         foreach (var evt in run["events"]!.AsArray().Where(evt => run["oracle_version"]?.ToString() != PublishedReviewQualification.Version ||
             evt?["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && evt["tool"]?.ToString() == "code_agent_edit"))
             foreach (var call in (evt?["result"]?["toolExecutions"] as JsonArray ?? []).OfType<JsonObject>())
             {
-                if (call["completionObserved"]?.GetValue<bool>() != true || call["conflictingCompletion"]?.GetValue<bool>() != false ||
-                    call["argumentsJson"]?.ToString() is not { } raw) continue;
+                if (call["argumentsJson"]?.ToString() is not { } raw) continue;
                 JsonNode? arguments;
                 try { arguments = JsonNode.Parse(raw); } catch (System.Text.Json.JsonException) { continue; }
                 var command = (arguments?["command"] ?? arguments?["cmd"] ?? arguments?["script"])?.ToString();
                 if (command is null) continue;
-                foreach (var terminal in (call["terminals"] as JsonArray ?? []).OfType<JsonObject>())
-                    if (terminal["workingDirectory"]?.ToString() is { } cwd && Path.IsPathFullyQualified(cwd) &&
-                        (Path.GetFullPath(cwd) == repository || run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
-                            Path.GetFullPath(cwd).StartsWith(Path.TrimEndingDirectorySeparator(repository) + Path.DirectorySeparatorChar, StringComparison.Ordinal)) &&
-                        long.TryParse(terminal["exitCode"]?.ToJsonString(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var exit))
+                var terminals = call["terminals"] as JsonArray;
+                if (call["completionObserved"]?.GetValue<bool>() != true || call["conflictingCompletion"]?.GetValue<bool>() != false ||
+                    terminals is not { Count: > 0 })
+                {
+                    inconclusive?.Add(command);
+                    continue;
+                }
+                foreach (var terminal in terminals.OfType<JsonObject>())
+                {
+                    if (terminal["workingDirectory"]?.ToString() is not { } cwd || !Path.IsPathFullyQualified(cwd) ||
+                        !long.TryParse(terminal["exitCode"]?.ToJsonString(), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var exit))
+                    {
+                        inconclusive?.Add(command);
+                        continue;
+                    }
+                    var directory = Path.GetFullPath(cwd);
+                    if (directory == repository || run["oracle_version"]?.ToString() == PublishedReviewQualification.Version &&
+                        directory.StartsWith(Path.TrimEndingDirectorySeparator(repository) + Path.DirectorySeparatorChar, StringComparison.Ordinal))
                         commands.Add(new JsonObject { ["command"] = command, ["cwd"] = cwd, ["exit_code"] = exit,
                             ["output"] = terminal["text"]?.DeepClone(), ["tool_call_id"] = call["toolCallId"]?.DeepClone() });
+                }
             }
         return commands;
     }
 
     internal static JsonObject Verify(JsonObject run, string repository)
     {
-        var commands = Commands(run, repository);
+        var inconclusive = new HashSet<string>(StringComparer.Ordinal);
+        var commands = Commands(run, repository, inconclusive);
         bool Executed(params string[] accepted) => commands.Any(c => accepted.Contains(c!["command"]!.ToString(), StringComparer.Ordinal));
         bool Installed(params string[] accepted) => commands.Any(c => c!["exit_code"]!.GetValue<long>() == 0 && accepted.Contains(c["command"]!.ToString(), StringComparer.Ordinal));
         bool Version(string command, string expected) => commands.Any(c => c!["command"]!.ToString() == command && c["exit_code"]!.GetValue<long>() == 0 && c["output"]?.ToString().Trim().TrimStart('v') == expected);
@@ -68,17 +82,27 @@ internal static class LiveCodeEvidence
         {
             var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
             var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];
-            checks["node_dependencies"] = Installed("pnpm i", "pnpm install", "pnpm install --frozen-lockfile");
-            checks["python_dependencies"] = Installed("uv sync --group tests", "uv sync --frozen --group tests",
+            var failures = new JsonObject();
+            bool Observed(string name, params string[] accepted)
+            {
+                var matching = commands.OfType<JsonObject>().Where(c => accepted.Contains(c["command"]!.ToString(), StringComparer.Ordinal)).ToArray();
+                var failed = matching.Where(c => c["exit_code"]!.GetValue<long>() != 0).ToArray();
+                if (failed.Length > 0) failures[name] = new JsonArray(failed.Select(c => (JsonNode)new JsonObject {
+                    ["command"] = c["command"]!.DeepClone(), ["exit_code"] = c["exit_code"]!.DeepClone() }).ToArray());
+                return matching.Length > 0 && !accepted.Any(inconclusive.Contains);
+            }
+            checks["node_dependencies"] = Observed("node_dependencies", "pnpm i", "pnpm install", "pnpm install --frozen-lockfile");
+            checks["python_dependencies"] = Observed("python_dependencies", "uv sync --group tests", "uv sync --frozen --group tests",
                 "uv sync --native-tls --group tests --group ci", "uv sync --native-tls --group tests --group ci --extra jobs",
                 "UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci", "UV_HTTP_TIMEOUT=1000 uv sync --native-tls --group tests --group ci --extra jobs");
-            checks["python_lint"] = Executed("uv run ruff check .", "uv run --frozen ruff check .", "uv tool run ruff==0.15.22 check .", "ruff check .");
-            checks["python_tests"] = Executed("uv run pytest", "uv run --frozen pytest", "uv run --frozen pytest tests", "uv run pytest tests",
+            checks["python_lint"] = Observed("python_lint", "uv run ruff check .", "uv run --frozen ruff check .", "uv tool run ruff==0.15.22 check .", "ruff check .");
+            checks["python_tests"] = Observed("python_tests", "uv run pytest", "uv run --frozen pytest", "uv run --frozen pytest tests", "uv run pytest tests",
                 "uv run pytest -v", "uv run pytest --junitxml=test-results.xml",
                 "uv run coverage run -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning || exit 1",
                 "uv run coverage run --omit=*.venv*,config.py,config-3.py,_remote_module_non_scriptable.py -m pytest --junitxml=dist/test-results.xml -W ignore::DeprecationWarning || exit 1");
-            checks["node_tests"] = scripts?["test"] is not null && Executed("pnpm test", "pnpm run test", "pnpm recursive run test");
-            checks["integration_tests"] = scripts?["e2e"] is not null && Executed("pnpm e2e", "pnpm run e2e", "pnpm exec playwright test");
+            checks["node_tests"] = scripts?["test"] is not null && Observed("node_tests", "pnpm test", "pnpm run test", "pnpm recursive run test");
+            checks["integration_tests"] = scripts?["e2e"] is not null && Observed("integration_tests", "pnpm e2e", "pnpm run e2e", "pnpm exec playwright test");
+            run["required_check_failures"] = failures;
         }
         else
         {
@@ -94,6 +118,24 @@ internal static class LiveCodeEvidence
         run["observed_commands"] = commands; run["verified_checks"] = checks;
         run["required_checks_verified"] = checks.All(p => p.Value!.GetValue<bool>());
         return checks;
+    }
+
+    internal static string? SubmissionFinding(JsonObject run, JsonObject submission)
+    {
+        if (run["required_checks_verified"]?.GetValue<bool>() != true || run["required_check_failures"] is not JsonObject failures)
+            return "Required repository checks are inconclusive.";
+        var verdict = submission["event"]?.ToString();
+        if (verdict == "APPROVE") return failures.Count == 0 ? null : "Approval requires all mandatory checks to pass.";
+        if (verdict != "REQUEST_CHANGES") return "Unknown review verdict.";
+        var body = submission["body"]?.ToString() ?? "";
+        foreach (var (name, receipts) in failures)
+        {
+            var references = receipts!.AsArray().OfType<JsonObject>().Select(c => c["command"]!.ToString()).Append(name.Replace('_', ' '));
+            if (!references.Any(reference => body.Contains(reference, StringComparison.OrdinalIgnoreCase) &&
+                body.Replace(reference, "", StringComparison.OrdinalIgnoreCase).Any(char.IsLetterOrDigit)))
+                return "The review must identify and explain the observed failure of " + name + ".";
+        }
+        return null;
     }
 
     // Compare the actual local report with independent terminal completions.

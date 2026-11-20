@@ -139,6 +139,46 @@ public sealed class CodeReportOracleTests
     [InlineData("pnpm run e2e --help", "browser", false)]
     public void PublishedReviewUsesThePinnedProjectsChecksAndCompletedCommands(string integration, string directory, bool expected)
     {
+        var run = PublishedRun();
+        var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
+        var last = Call("integration", integration, 0, "Completed.");
+        last["terminals"]![0]!["workingDirectory"] = Path.GetFullPath(Path.Combine(Repository, directory));
+        calls.Add(last);
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.Equal(expected, run["required_checks_verified"]!.GetValue<bool>());
+    }
+
+    [Theory]
+    [InlineData("passed", "APPROVE", "Verified.", true)]
+    [InlineData("failed", "APPROVE", "All checks passed.", false)]
+    [InlineData("failed", "REQUEST_CHANGES", "pnpm run e2e exited 1 when opening the checkout.", true)]
+    [InlineData("failed", "REQUEST_CHANGES", "Looks fine.", false)]
+    [InlineData("failed", "REQUEST_CHANGES", "pnpm run e2e", false)]
+    [InlineData("missing", "APPROVE", "Verified.", false)]
+    [InlineData("unknown", "APPROVE", "Verified.", false)]
+    [InlineData("conflict_after_success", "APPROVE", "Verified.", false)]
+    [InlineData("unrelated_failure", "APPROVE", "Verified.", true)]
+    public void PublicationChecksTheVerdictBeforeConfirmationAndGitHubDispatch(string outcome, string verdict, string body, bool allowed)
+    {
+        var run = PublishedRun();
+        var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
+        var integration = Call("integration", "pnpm run e2e", outcome == "failed" ? 1 : 0, "Test output");
+        if (outcome == "unknown") integration["terminals"]![0]!.AsObject().Remove("exitCode");
+        if (outcome != "missing") calls.Add(integration);
+        if (outcome == "conflict_after_success")
+        {
+            var uncertain = integration.DeepClone();
+            uncertain["conflictingCompletion"] = true;
+            calls.Add(uncertain);
+        }
+        if (outcome == "unrelated_failure") calls.Add(Call("probe", "which optional-utility", 1, ""));
+        LiveCodeEvidence.Verify(run, Repository);
+        var finding = LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = verdict, ["body"] = body });
+        Assert.Equal(allowed, finding is null);
+    }
+
+    private static JsonObject PublishedRun()
+    {
         var run = Run();
         run["oracle_version"] = PublishedReviewQualification.Version;
         run["repository_manifest"] = new JsonObject { ["package.json"] = new JsonObject {
@@ -149,11 +189,7 @@ public sealed class CodeReportOracleTests
         foreach (var command in new[] { "pnpm install --frozen-lockfile", "uv sync --native-tls --group tests --group ci",
                      "uv tool run ruff==0.15.22 check .", "uv run --frozen pytest tests", "pnpm run test" })
             calls.Add(Call(command, command, 0, "Completed."));
-        var last = Call("integration", integration, 0, "Completed.");
-        last["terminals"]![0]!["workingDirectory"] = Path.GetFullPath(Path.Combine(Repository, directory));
-        calls.Add(last);
-        LiveCodeEvidence.Verify(run, Repository);
-        Assert.Equal(expected, run["required_checks_verified"]!.GetValue<bool>());
+        return run;
     }
 
     private static JsonObject Run() => new()

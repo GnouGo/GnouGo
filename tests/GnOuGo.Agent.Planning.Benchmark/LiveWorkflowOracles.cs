@@ -166,9 +166,11 @@ internal static partial class LiveWorkflowOracles
             var readback = await target.ReadBackAsync(run["events"]!.AsArray(), CancellationToken.None);
             run["github_readback"] = readback;
             findings.AddRange(readback["findings"]!.AsArray().Select(f => f!.ToString()));
-            if (run["observed_commands"]!.AsArray().Any(c => c!["exit_code"]!.GetValue<long>() != 0) &&
-                events.Any(e => e["arguments"]?["method"]?.ToString() == "submit_pending" && e["arguments"]?["event"]?.ToString() == "APPROVE"))
-                findings.Add("approval_after_failed_check");
+            foreach (var submission in events.Where(e => e["server"]?.ToString() == "Github" &&
+                e["tool"]?.ToString() == "pull_request_review_write" && e["error"]?.GetValue<bool>() == false &&
+                e["arguments"]?["method"]?.ToString() == "submit_pending"))
+                if (LiveCodeEvidence.SubmissionFinding(run, submission["arguments"]!.AsObject()) is { } finding)
+                    findings.Add(finding);
         }
         else
         {
