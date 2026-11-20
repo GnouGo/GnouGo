@@ -240,7 +240,7 @@ internal static class PlanningBusinessProjection
 
     private static JsonObject Declaration(TaskInput input, IEnumerable<TaskValue>? values = null, string? evidence = null, bool completeType = false)
     {
-        var result = new JsonObject { ["name"] = input.Name, ["type"] = completeType ? ResultShape(input.Type, includeEnum: true) : Type(input.Type), ["required"] = input.Required };
+        var result = new JsonObject { ["name"] = input.Name, ["type"] = completeType ? ResultShape(input.Type) : Type(input.Type), ["required"] = input.Required };
         if (input.Default is not null) result["default"] = Value(input.Default);
         if (evidence is not null) result["evidence"] = evidence;
         if (values is not null)
@@ -264,16 +264,16 @@ internal static class PlanningBusinessProjection
 
     // Extraction/interpretation targets are executable behavior, unlike an
     // unrelated input schema. Keep their complete semantic field structure.
-    private static JsonNode? ResultShape(TaskType? type, bool includeEnum = false)
+    private static JsonNode? ResultShape(TaskType? type)
     {
         if (type is null) return null;
         var result = Type(type)!.AsObject();
-        if (includeEnum && type.Enum is { } alternatives) result["enum"] = Strings(alternatives);
-        if (type.Items is { } item) result["items"] = ResultShape(item, includeEnum);
+        if (type.Enum is { } alternatives) result["enum"] = Strings(alternatives);
+        if (type.Items is { } item) result["items"] = ResultShape(item);
         if (type.Fields.Count > 0)
             result["fields"] = new JsonArray(type.Fields.Select(field =>
             {
-                var value = new JsonObject { ["name"] = field.Name, ["required"] = field.Required, ["type"] = ResultShape(field.Type, includeEnum) };
+                var value = new JsonObject { ["name"] = field.Name, ["required"] = field.Required, ["type"] = ResultShape(field.Type) };
                 if (field.Default is not null) value["default"] = Value(field.Default);
                 return (JsonNode)value;
             }).ToArray());

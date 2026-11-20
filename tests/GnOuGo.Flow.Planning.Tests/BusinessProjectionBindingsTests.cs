@@ -247,7 +247,7 @@ public sealed class BusinessProjectionBindingsTests
             Objective = "Extract complete observed document contents separately from document identities; preserve missing contents as null.",
             Inputs = [new("data", new() { Kind = "input", Source = "observation" })],
             ResultType = new() { Kind = "object", Fields = [new() { Name = "documents", Type = new() { Kind = "array", Items = new() { Kind = "object", Fields =
-            [new() { Name = "identity", Type = new() { Kind = "string" } }, new() { Name = "content", Type = new() { Kind = "string", Nullable = true } }] } } }] } }];
+            [new() { Name = "identity", Type = new() { Kind = "string", Enum = ["first", "second"] } }, new() { Name = "content", Type = new() { Kind = "string", Nullable = true } }] } } }] } }];
         candidate.TaskIds = ["extract"];
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
         Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
@@ -263,6 +263,7 @@ public sealed class BusinessProjectionBindingsTests
         var fields = documents["type"]!["items"]!["fields"]!.AsArray();
         Assert.Equal(new[] { "identity", "content" }, fields.Select(field => field!["name"]!.ToString()));
         Assert.False(fields[0]!["type"]!["nullable"]!.GetValue<bool>());
+        Assert.Equal(new[] { "first", "second" }, fields[0]!["type"]!["enum"]!.AsArray().Select(value => value!.ToString()));
         Assert.True(fields[1]!["type"]!["nullable"]!.GetValue<bool>());
         Assert.All(fields, field => Assert.True(field!["required"]!.GetValue<bool>()));
         Assert.DoesNotContain(new string('z', 100), projection.ToJsonString(), StringComparison.Ordinal);

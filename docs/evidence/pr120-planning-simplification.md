@@ -237,6 +237,18 @@ port in each, with the same edit slots and accepted plan hash. The replay made
 zero inference calls. All 82 targeted planner tests passed, including denial
 of the producer and compilation of the native single-binding edit.
 
+The local judge on calls 46 and 48 saw an unrestricted string where the
+validated transform declared exactly two verdicts. The nested-result
+regression reproduced this omission. Fresh projections of both original
+decisions now show the two exact values. Both still show the potentially
+empty comment list. All 83 related judge and projection tests passed.
+The session stopped at revision 159 after 48 settled physical requests,
+11 checkpoints and 98 advisory warnings. No workflow ran and no new hold
+remained. Its measured cost was EUR 24.77533. Amazon 15 then started
+with 3,419 cumulative calls, EUR 1,638.19245 measured, EUR 489.11077
+reserved for 54 HTTP attempts, EUR 144.51319 retained at the Server and
+EUR 328.18360 available.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
