@@ -8,7 +8,7 @@ public sealed class ReselectionFeedbackTests
 {
     [Theory]
     [InlineData("foreach", "CONSTRUCTION_TENTATIVE_SELECTION", true)]
-    [InlineData("sequence", "CONSTRUCTION_TENTATIVE_SELECTION", false)]
+    [InlineData("sequence", "CONSTRUCTION_TENTATIVE_SELECTION", true)]
     [InlineData("foreach", "CONSTRUCTION_STEP_INVALID", false)]
     public void ReselectedControlUsesItsDeclaredFieldsWhileKeepingTheOriginalRejection(string nextKind, string diagnostic, bool sameTentative)
     {
@@ -21,10 +21,6 @@ public sealed class ReselectionFeedbackTests
         state.Diagnostics = [new(diagnostic, "/step", reason)];
         PlanningCompactConstruction.Reselect(state, reason);
         Assert.Equal(reason, PlanningCompactConstruction.ImplementationContext(state)["reselection"]?["reason"]?.ToString());
-        compact.CurrentStep = selected;
-        Assert.Equal(reason, PlanningCompactConstruction.Context(state)["reselection"]?["reason"]?.ToString());
-        state.Diagnostics = [new(diagnostic, "/step", reason)];
-        PlanningCompactConstruction.Reselect(state, reason);
         selected.Id = "replacement";
         selected.Kind = nextKind;
         compact.CurrentStep = selected;
@@ -33,15 +29,21 @@ public sealed class ReselectionFeedbackTests
         var context = JsonNode.Parse(draft.Prompt[(draft.Prompt.LastIndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
         var feedback = context["reselection"]!;
         Assert.Equal(reason, restored.Construction!.Compact!.RejectedSteps[0]["reason"]!.ToString());
-        Assert.Equal("rejected:1", feedback["evidence"]!.ToString());
+        Assert.Equal("rejected:0", feedback["evidence"]!.ToString());
         if (sameTentative)
         {
             Assert.Null(feedback["reason"]);
             var contract = feedback["currentControl"]!;
-            Assert.Equal("foreach", contract["kind"]!.ToString());
-            Assert.Contains("maxItems", contract["required"]!.AsArray().Select(field => field!.ToString()));
-            Assert.Equal(1, contract["integerFields"]!["maxItems"]!["minimum"]!.GetValue<int>());
-            Assert.Equal(TaskPlanCompiler.MaximumIterationItems, contract["integerFields"]!["maxItems"]!["maximum"]!.GetValue<int>());
+            Assert.Equal(nextKind, contract["kind"]!.ToString());
+            var loop = nextKind == "foreach" ? contract : feedback["nestedControls"]!["foreach"]!;
+            var issued = PlanningModelCalls.PrepareRequest(restored, PlanningConstruction.DraftPurpose, draft.Prompt, draft.StructuredOutputSchema!.AsObject());
+            var shape = Assert.Single(PlanningSchemaReferences.Walk(issued.StructuredOutputSchema!.AsObject(), "", 0),
+                entry => entry.Schema["properties"]?["kind"]?["enum"] is JsonArray { Count: 1 } kinds && kinds[0]?.ToString() == "foreach");
+            Assert.Contains("maxItems", loop["required"]!.AsArray().Select(field => field!.ToString()));
+            Assert.True(JsonNode.DeepEquals(shape.Schema["required"], loop["required"]));
+            foreach (var constraint in new[] { "type", "minimum", "maximum" })
+                Assert.True(JsonNode.DeepEquals(shape.Schema["properties"]!["maxItems"]![constraint], loop["integerFields"]!["maxItems"]![constraint]));
+            Assert.Equal(TaskPlanCompiler.MaximumIterationItems, loop["integerFields"]!["maxItems"]!["maximum"]!.GetValue<int>());
         }
         else
         {

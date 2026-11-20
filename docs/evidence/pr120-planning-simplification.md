@@ -99,6 +99,26 @@ original snapshots. Changed snapshots, reasons and targets retain their
 original evidence.
 [Review presentation tests](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
 
+### Amazon session ac3cb7e99ce1460cb49dda9354d1825e
+
+The Server retained the search, snapshot guards, ordered page groups and
+browser finalizer in four checkpoints. The model then alternated a loop
+and a sequence on the same baseline. On calls 15, 17 and 19 it reported
+that the loop limit was missing. Each physical provider request matched
+the Server's message and schema. On call 19 the precise nested form was
+`#/$defs/8/anyOf/2/properties/maxItems`, with integer range 1 through
+10,000. The operator stopped the session after physical receipt 23.
+Revision 62 had 147 advisory warnings, EUR 9.22555 measured, zero new
+reservations and zero business dispatches.
+
+After a tentative control is replaced, drafting now receives the required
+fields and integer limits of the selected control and its allowed children.
+The original model explanation remains available at the rejection's evidence
+address. A cold replay of all three requests matched the loop declaration in
+the issued grammar, including the nested loop under the sequence. Host
+validation findings remain visible.
+[Control reselection tests](../../tests/GnOuGo.Flow.Planning.Tests/ReselectionFeedbackTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,

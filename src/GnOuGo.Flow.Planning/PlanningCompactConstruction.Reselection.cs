@@ -26,29 +26,28 @@ internal static partial class PlanningCompactConstruction
             ["reason"] = rejected["reason"]?.DeepClone(),
             ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1)
         };
-        if (compact.CurrentStep is not { DiscoveryComplete: true, Kind: { } kind } selected ||
-            !NestedControlKinds.Contains(kind, StringComparer.Ordinal) || state.Construction!.Candidate is not null ||
-            compact.RejectedSteps.Count < 2 || !compact.RejectedSteps.TakeLast(2).All(SameTentativeControl) ||
+        if (compact.CurrentStep is not { DiscoveryComplete: true, Kind: { } kind } ||
+            !NestedControlKinds.Contains(kind, StringComparer.Ordinal) || !NestedControlKinds.Contains(previous["kind"]?.ToString(), StringComparer.Ordinal) ||
+            state.Construction!.Candidate is not null || rejected["candidateHash"] is not null ||
+            rejected["diagnostics"] is not JsonArray { Count: 1 } diagnostics || diagnostics[0]?["code"]?.ToString() != "CONSTRUCTION_TENTATIVE_SELECTION" ||
             !BusinessFragmentKinds(state).Contains(kind)) return feedback;
 
-        // The selection already considered both model diagnoses. Keep them at
-        // their evidence addresses and present the actual fields for drafting.
-        var shape = PlanningSchemas.TaskShapes(state, kind).Single()!;
-        var integerFields = new JsonObject();
-        foreach (var (name, field) in shape["properties"]!.AsObject())
-            if (field?["type"]?.ToString() == "integer") integerFields[name] = field.DeepClone();
+        // Selection has already seen the earlier model explanation. Draft against
+        // the actual replacement and child forms, with the explanation still available as evidence.
         feedback.Remove("reason");
-        feedback["currentControl"] = new JsonObject { ["kind"] = kind, ["required"] = shape["required"]!.DeepClone(),
-            ["integerFields"] = integerFields };
+        feedback["currentControl"] = ControlContract(kind);
+        var nested = new JsonObject();
+        foreach (var child in NestedControlKinds.Where(child => child != kind)) nested[child] = ControlContract(child);
+        feedback["nestedControls"] = nested;
         return feedback;
 
-        bool SameTentativeControl(JsonObject entry) =>
-            entry["candidateHash"] is null && entry["diagnostics"] is JsonArray { Count: 1 } diagnostics &&
-            diagnostics[0]?["code"]?.ToString() == "CONSTRUCTION_TENTATIVE_SELECTION" &&
-            entry["step"] is JsonObject prior && prior["kind"]?.ToString() == kind &&
-            prior["baseHash"]?.ToString() == selected.BaseHash && prior["scope"]?.ToString() == selected.Scope &&
-            prior["blockId"]?.ToString() == selected.BlockId && prior["groupId"]?.ToString() == selected.GroupId &&
-            prior["requirementIds"] is JsonArray ids && selected.RequirementIds.ToHashSet(StringComparer.Ordinal).SetEquals(ids.Select(id => id!.ToString())) &&
-            prior["operationIds"] is JsonArray operations && selected.OperationIds.ToHashSet(StringComparer.Ordinal).SetEquals(operations.Select(id => id!.ToString()));
+        JsonObject ControlContract(string control)
+        {
+            var shape = PlanningSchemas.TaskShapes(state, control).Single()!;
+            var integerFields = new JsonObject();
+            foreach (var (name, field) in shape["properties"]!.AsObject())
+                if (field?["type"]?.ToString() == "integer") integerFields[name] = field.DeepClone();
+            return new() { ["kind"] = control, ["required"] = shape["required"]!.DeepClone(), ["integerFields"] = integerFields };
+        }
     }
 }
