@@ -108,6 +108,7 @@ internal static partial class PlanningCompactConstruction
             // A projection can discard fields required to check the original rows.
             // Only the exact, already iterated collection can justify that separate loop.
             var iteratedCollections = controlExports.Select(export => export.Id).Distinct(StringComparer.Ordinal)
+                .Where(id => symbols.Tasks[id].Task.Kind == step.Kind)
                 .SelectMany(id => TaskPlanRevisions.Tasks(new TaskScope { Tasks = [symbols.Tasks[id].Task] }))
                 .Where(accepted => accepted.Kind == "foreach").Select(accepted => accepted.Items)
                 .OfType<TaskValue>().Where(items => items.Kind == "output")

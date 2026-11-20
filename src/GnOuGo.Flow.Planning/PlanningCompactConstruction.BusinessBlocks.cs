@@ -42,15 +42,22 @@ internal static partial class PlanningCompactConstruction
                 else if (NestedControlKinds.Contains(step.Kind, StringComparer.Ordinal))
                 {
                     var symbols = new TaskPlanSymbols(state.Plan!);
+                    var anchorHasExports = false;
                     foreach (var id in checkpoints.SelectMany(checkpoint => checkpoint.TaskIds))
-                        if (symbols.Tasks.TryGetValue(id, out var site) && site.Scope.Path == step.Scope && site.Task.Kind == step.Kind)
+                        if (symbols.Tasks.TryGetValue(id, out var site) && site.Scope.Path == step.Scope &&
+                            NestedControlKinds.Contains(site.Task.Kind, StringComparer.Ordinal))
                         {
                             var resultScopes = symbols.Scopes.Where(scope => scope.Owner == site.Task).ToArray();
                             if (resultScopes.Any(scope => state.Construction!.OpenScopes.Contains(scope.Path, StringComparer.Ordinal))) continue;
                             foreach (var scope in resultScopes)
-                                foreach (var output in scope.Source.Outputs) controlExports.Add((id, output.Name));
+                                foreach (var output in scope.Source.Outputs)
+                                {
+                                    controlExports.Add((id, output.Name));
+                                    anchorHasExports |= site.Task.Kind == step.Kind;
+                                }
                         }
-                    if (controlExports.Count > 0) kinds.UnionWith(NestedControlKinds.Where(kind => kind != step.Kind));
+                    if (anchorHasExports) kinds.UnionWith(NestedControlKinds.Where(kind => kind != step.Kind));
+                    else controlExports.Clear();
                 }
             }
         }

@@ -889,6 +889,10 @@ the separate task lookup. A displayed container also uses the existing task
 directory when it links to every child scope. A partial directory retains the
 container lookup.
 
+At a continued scope, a control can consume an export of a previously
+accepted sibling control in the same step. The original selected control
+must have exposed its results, and the producer's result scopes must be closed.
+
 Visible accepted tasks link to their page in the complete task directory.
 A draft can request the pages containing several known producers in one
 evidence batch, including pages beyond the first. The evidence reader

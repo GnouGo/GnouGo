@@ -525,6 +525,27 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
             PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
             diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
+
+        check.Items = Source("measurements");
+        check.Body!.Outputs = [new("verified", new() { Kind = "output", Source = "checked", Port = "verified" })];
+        extension.ContinueInScope = "/root";
+        state.Construction!.Candidate = PlanningConstruction.Apply(state, extension);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var applyCheck = new PlanTask { Id = "use_checks", Kind = "foreach", Objective = "Retain the ordered verified flags.",
+            Items = new() { Kind = "output", Source = "verify", Port = "verified" },
+            Body = new() { Outputs = [new("flag", new() { Kind = "item" })] } };
+        var consumer = new PlanningConstructionExtension { Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, Tasks = [applyCheck] };
+        AssertDraftAccepts(state, consumer);
+        var composed = PlanningConstruction.Apply(state, consumer);
+        PlanningCompactConstruction.ValidateExtension(state, composed);
+        Assert.Empty(TaskPlanCompiler.ValidateConstruction(composed.Plan, state.Catalog!, state.Request,
+            composed.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+
+        state.Construction!.OpenScopes.Add("/tasks/verify/body");
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, consumer))).Diagnostics,
+            diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID");
     }
 
     [Fact]
