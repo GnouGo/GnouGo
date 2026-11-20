@@ -2125,6 +2125,43 @@ public sealed class CompactAcceptedTaskNavigationTests
     }
 
     [Fact]
+    public void ContinuedDraftShowsFreshlyClosedNestedScopesWithoutAnotherInspection()
+    {
+        const string childScope = "/tasks/child_container/body";
+        var state = Ready("/root");
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var construction = state.Construction!;
+        construction.Candidate = null;
+        construction.OpenScopes = ["/root"];
+        var step = construction.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var checkpoint = new PlanningConstructionCheckpoint { Sequence = 1, Step = step, PlanHash = step.BaseHash,
+            RequirementIds = ["req_0"], TaskIds = ["child_value", "child_container", "container"],
+            ClosedScopes = [childScope, NestedScope], Fragment = new() { ["continueInScope"] = "/root" } };
+        construction.Checkpoints.Add(checkpoint);
+        var request = PlanningConstruction.DraftRequest(state, false);
+        var shown = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var choices = request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString();
+        foreach (var path in checkpoint.ClosedScopes)
+        {
+            Assert.True(JsonNode.DeepEquals(PlanningConstruction.ScopeEvidence(state, path), shown["evidence"]?["scope:" + path]));
+            Assert.DoesNotContain("\"scope:" + path + "\"", choices, StringComparison.Ordinal);
+        }
+        foreach (var id in new[] { "child_value", "child_container" })
+            Assert.DoesNotContain("\"task:" + id + "\"", choices, StringComparison.Ordinal);
+        Assert.Null(construction.Evidence);
+        construction.OpenScopes.Add(childScope);
+        Assert.Null(Context(state, false)["evidence"]?["scope:" + childScope]);
+        construction.OpenScopes.Remove(childScope);
+        var child = new TaskPlanSymbols(state.Plan!).Tasks["child_value"].Task;
+        child.Objective = new string('界', 3000);
+        checkpoint.PlanHash = step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        Assert.Null(Context(state, false)["evidence"]?["scope:" + childScope]);
+        checkpoint.PlanHash = "stale";
+        Assert.Null(Context(state, false)["evidence"]?["scope:" + NestedScope]);
+    }
+
+    [Fact]
     public void OversizedContinuedScopeShowsBoundedOriginalOperationsAndCleanup()
     {
         var state = OperationState("/root");

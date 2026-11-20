@@ -57,6 +57,31 @@ internal static partial class PlanningCompactConstruction
 
     private const int ContinuedScopePreviewBytes = 8192;
 
+    private static bool CompleteScopePage(JsonObject scope) =>
+        scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
+        scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>();
+
+    private static void AddContinuedChildScopes(PlanningSession state, JsonObject context, PlanningConstructionCheckpoint checkpoint, string parentPath)
+    {
+        if (state.Plan is not { } plan) return;
+        var symbols = new TaskPlanSymbols(plan);
+        var parent = symbols.Scopes.Single(scope => scope.Path == parentPath);
+        var bytes = 0;
+        foreach (var path in checkpoint.ClosedScopes.Take(3))
+        {
+            var address = "scope:" + path;
+            var site = symbols.Scopes.SingleOrDefault(scope => scope.Path == path);
+            if (site?.Owner is not { } owner || !checkpoint.TaskIds.Contains(owner.Id, StringComparer.Ordinal) ||
+                site.Parent != parent && symbols.ExportRoute(parent, owner.Id).Count == 0 || context["evidence"]?[address] is not null) continue;
+            var view = PlanningConstruction.ScopeEvidence(state, path);
+            if (view?["open"]?.GetValue<bool>() != false || !CompleteScopePage(view)) continue;
+            var size = System.Text.Encoding.UTF8.GetByteCount(view.ToJsonString());
+            if (size > ContinuedScopePreviewBytes - bytes) continue;
+            (context["evidence"] ??= new JsonObject())[address] = view;
+            bytes += size;
+        }
+    }
+
     private static void RetainInspectedChildScope(PlanningSession state, string parent, JsonObject inspected, JsonObject retained)
     {
         foreach (var (address, value) in inspected.Reverse())

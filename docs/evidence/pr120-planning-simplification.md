@@ -112,6 +112,16 @@ record or a false completion flag stops before dispatch. A complete record
 dispatches its original field once, with zero provider discovery calls.
 [Guarded consumer regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
 
+Request 12 closed two nested scopes while indexing source positions.
+Request 13 then fetched the two task declarations it had just written.
+Request 15 likewise inspected a newly closed scope and its extraction task.
+Cold reconstruction of checkpoint five reproduced both issued task choices.
+With bounded previews of the new child scopes, the next draft contained
+both exact declarations and neither repeated lookup was offered. The
+persisted checkpoint was byte-identical after reconstruction. The preview
+requires a matching continuation, closed descendant scopes and whole pages.
+[Continuation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

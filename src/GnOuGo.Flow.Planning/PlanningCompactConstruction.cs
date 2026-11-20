@@ -725,11 +725,11 @@ internal static partial class PlanningCompactConstruction
             var shown = context["evidence"]?["scope:" + step.Scope];
             if (shown is null && System.Text.Encoding.UTF8.GetByteCount(scope.ToJsonString()) <= ContinuedScopePreviewBytes)
                 shown = context["scopeContext"] = scope;
+            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && checkpoint.ClosedScopes.Count > 0)
+                AddContinuedChildScopes(state, context, checkpoint, step.Scope);
             // A scope page contains at most eight declarations per phase. Even a
             // freshly retrieved page can omit the most recent accepted operation.
-            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (shown is null ||
-                JsonNode.DeepEquals(shown, scope) && (scope["tasks"]!.AsArray().Count < scope["taskCount"]!.GetValue<int>() ||
-                    scope["always"]!.AsArray().Count < scope["alwaysCount"]!.GetValue<int>())))
+            if (PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (shown is null || JsonNode.DeepEquals(shown, scope) && !CompleteScopePage(scope)))
                 continued = checkpoint;
         }
         AddTaskEvidence(state, context, useCandidate, continued);

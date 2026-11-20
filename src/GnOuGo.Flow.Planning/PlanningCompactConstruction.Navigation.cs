@@ -109,8 +109,7 @@ internal static partial class PlanningCompactConstruction
         if (context["scopeContext"] is JsonObject scope && scope["path"]?.ToString() is { } path &&
             context["scopeEvidence"]?.ToString() == "scope:" + path && scope["taskCount"]?.GetValue<int>() > 0)
         {
-            if (scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
-                scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>())
+            if (CompleteScopePage(scope))
                 addresses.Remove("scope:" + path);
             RemoveDisplayedTasks(scope);
         }
@@ -122,7 +121,11 @@ internal static partial class PlanningCompactConstruction
                 if (address.StartsWith("scope:", StringComparison.Ordinal) && value is JsonObject loaded &&
                     loaded["path"]?.ToString() is { } loadedPath && address == "scope:" + loadedPath &&
                     JsonNode.DeepEquals(loaded, PlanningConstruction.ScopeEvidence(state, loadedPath)))
+                {
                     RemoveDisplayedTasks(loaded);
+                    if (state.Construction.Evidence?.ContainsKey(address) != true && CompleteScopePage(loaded))
+                        addresses.Remove(address);
+                }
                 if (!address.StartsWith("task:", StringComparison.Ordinal) || value is not JsonObject declaration ||
                     state.Construction.Candidate is not null || state.Plan is null || !PlanningTokenThresholds.OptimizationAdvisory(state.Request) ||
                     declaration["kind"]?.ToString() != "operation" || declaration["id"]?.ToString() is not { } id || address != "task:" + id ||
@@ -143,7 +146,9 @@ internal static partial class PlanningCompactConstruction
             foreach (var task in displayed["tasks"]!.AsArray().Concat(displayed["always"]!.AsArray()).OfType<JsonObject>())
             {
                 if (task["id"]?.ToString() is not { } id) continue;
-                if (task["scopes"] is not JsonArray children || children.All(child => visibleTaskLinks.Contains("scope:" + child)))
+                if (task["scopes"] is not JsonArray children || children.All(child => visibleTaskLinks.Contains("scope:" + child) ||
+                    child?.ToString() is { } childPath && context["evidence"]?["scope:" + childPath] is JsonObject shown &&
+                    JsonNode.DeepEquals(shown, PlanningConstruction.ScopeEvidence(state, childPath))))
                     addresses.Remove("task:" + id);
                 if (task["objective"] is JsonValue objective && objective.TryGetValue<string>(out var text))
                 {
