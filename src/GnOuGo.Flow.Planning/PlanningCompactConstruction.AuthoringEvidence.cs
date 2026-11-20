@@ -61,6 +61,29 @@ internal static partial class PlanningCompactConstruction
         scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
         scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>();
 
+    private static int InspectedTaskBytes(JsonObject? evidence) =>
+        evidence?.Where(pair => pair.Key.StartsWith("task:", StringComparison.Ordinal) && pair.Value is not null)
+            .Sum(pair => System.Text.Encoding.UTF8.GetByteCount(pair.Value!.ToJsonString())) ?? 0;
+
+    private static void RetainInspectedSiblingTasks(PlanningSession state, string scope, JsonObject inspected, JsonObject retained)
+    {
+        if (state.Plan is null) return;
+        var accepted = new TaskPlanSymbols(state.Plan);
+        var candidate = state.Construction?.Candidate is { } draft ? new TaskPlanSymbols(draft.Plan) : accepted;
+        var remaining = ContinuedScopePreviewBytes - InspectedTaskBytes(retained);
+        foreach (var (address, value) in inspected.Reverse())
+        {
+            if (value is not JsonObject task || !address.StartsWith("task:", StringComparison.Ordinal) ||
+                retained.ContainsKey(address) || task["id"]?.ToString() is not { } id || address != "task:" + id ||
+                !accepted.Tasks.TryGetValue(id, out var site) || site.Scope.Path != scope || !candidate.Tasks.ContainsKey(id)) continue;
+            var size = System.Text.Encoding.UTF8.GetByteCount(task.ToJsonString());
+            if (size > remaining || !JsonNode.DeepEquals(task, PlanningConstruction.LocatedTaskNode(accepted, id)) ||
+                candidate != accepted && !JsonNode.DeepEquals(task, PlanningConstruction.LocatedTaskNode(candidate, id))) continue;
+            retained[address] = task.DeepClone();
+            remaining -= size;
+        }
+    }
+
     private static void AddContinuedChildScopes(PlanningSession state, JsonObject context, PlanningConstructionCheckpoint checkpoint, string parentPath)
     {
         if (state.Plan is not { } plan) return;

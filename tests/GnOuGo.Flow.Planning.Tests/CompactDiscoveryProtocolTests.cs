@@ -135,6 +135,37 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(step.SchemaPointers);
     }
 
+    [Theory]
+    [InlineData("continued")]
+    [InlineData("changed_task")]
+    [InlineData("other_scope")]
+    [InlineData("oversized")]
+    public async Task ContinuedDraftRetainsExactInspectedSiblingResults(string variant)
+    {
+        var (state, _) = await BoundOperations(2);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var task = new PlanTask { Id = "measure", Kind = "value", Objective = "Keep the observed measurement.",
+            Outputs = [new("record", new() { Kind = "string", Text = variant == "oversized" ? new string('x', 9000) : "observed" })] };
+        state.Plan!.Root.Tasks.Add(task);
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        const string address = "task:measure";
+        PlanningConstruction.LoadEvidence(state, [address]);
+        var original = state.Construction.Evidence![address]!.DeepClone();
+        if (variant == "changed_task") task.Outputs[0].Value.Text = "revised";
+        var hash = PlanningConstruction.Hash(state.Plan);
+        PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: variant == "other_scope" ? "/another" : step.Scope);
+        if (variant == "continued")
+        {
+            var draft = PlanningConstruction.DraftRequest(state, false);
+            Assert.True(JsonNode.DeepEquals(original, Context(draft)["evidence"]?[address]));
+            Assert.DoesNotContain(JsonSerializer.Serialize(address), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        }
+        else Assert.Null(state.Construction.Evidence?[address]);
+        Assert.Equal(hash, PlanningConstruction.Hash(state.Plan));
+        Assert.Empty(step.SchemaPointers);
+    }
+
     [Fact]
     public async Task CompanionNavigationDoesNotAutofillRegisteredOrEarlierOperationsAndKeepsCanonicalPaging()
     {

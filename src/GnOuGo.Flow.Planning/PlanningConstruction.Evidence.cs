@@ -167,6 +167,15 @@ internal static partial class PlanningConstruction
         PlanningGraphCompiler.Fingerprint(Hash(state.Plan) + ":" + state.Construction!.Candidate?.Hash + ":" +
             string.Join('\n', requests.Order(StringComparer.Ordinal)));
 
+    internal static JsonNode LocatedTaskNode(TaskPlanSymbols symbols, string id)
+    {
+        var site = symbols.Tasks[id];
+        var node = TaskNode(site.Task);
+        node["scope"] = site.Scope.Path;
+        node["phase"] = symbols.Phase(id);
+        return node;
+    }
+
     internal static JsonObject? ScopeEvidence(PlanningSession state, string path)
     {
         var construction = state.Construction!;
@@ -265,8 +274,7 @@ internal static partial class PlanningConstruction
                             ["originalEvidence"] = "original:" + originalEvent + ":<task-id>" };
                     break;
                 case "task":
-                    if (symbols.Tasks.TryGetValue(id, out var task))
-                    { value = TaskNode(task.Task); value["scope"] = task.Scope.Path; value["phase"] = symbols.Phase(id); }
+                    if (symbols.Tasks.ContainsKey(id)) value = LocatedTaskNode(symbols, id);
                     else if (construction.RebuildTasks.FirstOrDefault(t => t.Id == id) is { } invalidated)
                     { value = TaskNode(invalidated); value["contextRole"] = "invalidated_original"; }
                     break;

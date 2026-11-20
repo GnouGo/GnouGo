@@ -134,10 +134,8 @@ internal static partial class PlanningCompactConstruction
                     declaration["id"]?.ToString() is not { } id || address != "task:" + id ||
                     !addresses.Contains(address) || state.Construction.Evidence?.ContainsKey(address) == true) continue;
                 accepted ??= new TaskPlanSymbols(state.Plan);
-                if (!accepted.Tasks.TryGetValue(id, out var site)) continue;
-                var original = PlanningConstruction.TaskNode(site.Task);
-                original["scope"] = site.Scope.Path;
-                original["phase"] = accepted.Phase(id);
+                if (!accepted.Tasks.ContainsKey(id)) continue;
+                var original = PlanningConstruction.LocatedTaskNode(accepted, id);
                 if (JsonNode.DeepEquals(value, original) && ChildrenReachable(declaration)) addresses.Remove(address);
             }
         }
@@ -358,7 +356,7 @@ internal static partial class PlanningCompactConstruction
         var accepted = new TaskPlanSymbols(state.Plan);
         var rows = entries.ToArray();
         AddAcceptedProducerPorts(state, rows, ImportedProducerIds(context["interfaces"] as JsonArray ?? []));
-        var maximumBytes = continued is null ? 1024 : ContinuedScopePreviewBytes;
+        var maximumBytes = continued is null ? 1024 : ContinuedScopePreviewBytes - InspectedTaskBytes(state.Construction?.Evidence);
         if (continued is not null)
             rows = rows.OrderByDescending(row => continued.TaskIds.Contains(row["task"]!.ToString(), StringComparer.Ordinal))
                 .ThenByDescending(row => row["phase"]?.ToString() == "always").ToArray();

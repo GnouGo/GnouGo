@@ -266,6 +266,26 @@ consumer acquired an extra guard-edit slot. The slot is now limited to
 actions whose checkpoint still awaits business review. All 40 focused tests
 for local repair, prior global review and immutable guards passed.
 
+### Amazon session 28380485230b4809ad74409e8162cf19
+
+The search draft added seven extractions over the same untouched collection of
+pages. It repeatedly retrieved the declarations of earlier projections after
+each checkpoint. On requests 13, 15, 17 and 19 the response asked for three
+task records each time, alongside the evolving root scope and task directory.
+The session stopped after the settled receipt for call 21, at revision 68.
+It recorded 41 advisory warnings and zero browser or workbook dispatches.
+The 21 physical calls cost EUR 11.25071 with zero new holds. Review 30 opened
+with 3,440 cumulative calls, EUR 1,649.44316 measured, EUR 489.11077 reserved
+for 54 HTTP attempts, EUR 144.51319 in Server holds and EUR 316.93289 available.
+
+A continued draft now retains bounded, previously inspected declarations of
+accepted sibling tasks when their contents, scope and phase still match. The
+four original follow-up revisions (44, 50, 56 and 62) each retained all three
+individual declarations without offering those addresses for another read.
+The accepted plan and selected operations stayed identical. The replay used
+zero model calls. All 380 targeted tests passed, including changed content,
+changed scope and an oversized declaration.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
