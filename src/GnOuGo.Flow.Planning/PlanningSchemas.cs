@@ -94,9 +94,15 @@ internal static class PlanningSchemas
         return root;
     }
 
-    internal static JsonObject Clarifications(bool diagnostic = false) => Array(Object(("id", Nonblank()), ("question", Nonblank()),
-        ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), 0, diagnostic ? null : 3)),
-        ("recommended", Nullable(Nonblank()))), 1, diagnostic ? null : 3);
+    internal static JsonObject Clarifications(bool diagnostic = false)
+    {
+        JsonObject Question(int minimum, int? maximum, JsonObject recommended) => Object(
+            ("id", Nonblank()), ("question", Nonblank()),
+            ("alternatives", Array(Object(("id", Nonblank()), ("description", Nonblank())), minimum, maximum)),
+            ("recommended", recommended));
+        return Array(new JsonObject { ["anyOf"] = new JsonArray(
+            Question(0, 0, Type("null")), Question(2, diagnostic ? null : 3, Nonblank())) }, 1, diagnostic ? null : 3);
+    }
 
     private static void CompactDefinitionNames(JsonObject root, JsonObject definitions)
     {

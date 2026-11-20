@@ -59,6 +59,20 @@ failed clarification validation. The host already checks for pending reviews,
 verifies the authenticated owner of the new one and confines subsequent writes
 to that ID. The qualified descriptor now exposes these checks.
 
+The saved response to request 53 offered three alternatives with a null
+recommendation. Its issued response schema accepted that combination and
+the deterministic question validator rejected it. Cold replay through the
+revised clarification grammar found the error before accepting the response.
+Questions with alternatives require a nonblank recommendation. A request
+for a missing fact has an empty alternatives array and a null recommendation.
+The validator also checks that the recommendation identifies an offered
+alternative. The replay consumed zero model calls.
+[Clarification grammar regression](../../tests/GnOuGo.Flow.Planning.Tests/DiagnosticClarificationTargetsTests.cs)
+
+Shorter implementation and discovery instructions kept existing bounded
+requests within their captured limits. All 3,117 planning tests passed.
+The earlier full solution at `7cf22d4e` passed 9,502 tests with 13 skipped.
+
 Request 54 received HTTP 401 at 11:39:06 UTC. The gateway reported an expired
 access token. There were 54 logical calls and 55 HTTP attempts, including a
 received HTTP 502 on request 18. Measured usage was EUR 33.74053 and both

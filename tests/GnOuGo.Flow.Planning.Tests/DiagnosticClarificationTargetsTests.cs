@@ -8,6 +8,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class DiagnosticClarificationTargetsTests
 {
     [Theory]
+    [InlineData(0, null, true)]
+    [InlineData(0, "option_0", false)]
+    [InlineData(1, "option_0", false)]
+    [InlineData(3, null, false)]
+    [InlineData(3, "option_1", true)]
+    public void IssuedClarificationGrammarMatchesTheValidatedRecommendationShape(int count, string? recommended, bool valid)
+    {
+        var questions = Questions(1, count);
+        questions[0] = questions[0] with { Recommended = recommended };
+        var wire = JsonSerializer.SerializeToNode(questions, PlanningJsonContext.Default.ListPlanningQuestion)!.AsArray();
+        wire[0]!["recommended"] = recommended;
+        var response = new JsonObject { ["clauses"] = null, ["evidenceRequests"] = null, ["clarifications"] = wire };
+        foreach (var diagnostic in new[] { false, true })
+        {
+            var schema = PlanningCompactConstruction.IntentSchema(new() { Text = "Select the requested presentation." }, diagnostic: diagnostic);
+            Assert.Equal(valid, PlanningContractValidation.ValidateInstanceFindings(response, schema).Count == 0);
+            Assert.Equal(valid, Record.Exception(() => PlanningClarifications.ValidateQuestions(questions, diagnostic)) is null);
+        }
+    }
+
+    [Theory]
     [InlineData(PlanningCompactConstruction.IntentPurpose)]
     [InlineData(PlanningCompactConstruction.SelectPurpose)]
     [InlineData(PlanningCompactConstruction.ImplementationPurpose)]
