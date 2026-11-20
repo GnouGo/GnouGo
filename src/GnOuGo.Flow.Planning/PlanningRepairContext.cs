@@ -146,6 +146,19 @@ internal static class PlanningRepairContext
             }).ToArray());
             scopeNodes.Add((JsonNode)node);
         }
+        if (state.Diagnostics.Any(d => d.Required && d.Code == "TASK_ARTIFACT_BINDING" && state.RevisionScope.Contains(d.Location)))
+        {
+            var allowed = PlanningStructuralRepair.Catalog(state).Capabilities
+                .ToDictionary(capability => TaskOperations.Describe(capability).Id, StringComparer.Ordinal);
+            var availablePorts = scopeNodes.SelectMany(scope => scope!["availablePorts"]!.AsArray());
+            var bytes = 0;
+            foreach (var row in taskNodes.Concat(availablePorts).OfType<JsonObject>())
+            {
+                var task = symbols.Tasks[(row["id"] ?? row["task"])!.ToString()].Task;
+                if (task.Kind == "operation" && task.Operation is { } operation && allowed.TryGetValue(operation, out var capability))
+                    PlanningCompactConstruction.AddProducedArtifactPorts(row, capability, ref bytes);
+            }
+        }
         foreach (var path in state.RevisionScope)
         {
             if (path.Split('/') is ["", "inputs", var name, ..]) inputs.Add(name);

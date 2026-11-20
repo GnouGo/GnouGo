@@ -78,6 +78,38 @@ public sealed class TaskArtifactBindingTests
         Assert.Equal("/tasks/use/inputs/location", error.Location);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScopedRepairIdentifiesTheDeclaredArtifactPortAmongExistingOutputs(bool selected)
+    {
+        var (plan, catalog) = await Fixture();
+        var consumer = plan.Root.Tasks[1];
+        consumer.Inputs = [new("location", new() { Kind = "string", Text = "same-looking-handle" })];
+        if (selected) consumer.DependsOn.Add("make");
+        var state = PlannerFixture.Session();
+        state.Catalog = catalog;
+        state.Plan = plan;
+        state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList();
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("TASK_ARTIFACT_BINDING", diagnostic.Code);
+        state.RevisionScope = [diagnostic.Location];
+        var repair = PlanningRepairContext.Build(state);
+        var producer = selected
+            ? repair["tasks"]!.AsArray().Single(row => row!["id"]!.ToString() == "make")
+            : repair["scopes"]![0]!["availablePorts"]!.AsArray().Single(row => row!["task"]!.ToString() == "make");
+        var declaration = Assert.Single(Assert.IsType<JsonArray>(producer!["produces"]));
+        Assert.Equal("resource", declaration!["kind"]!.ToString());
+        Assert.Equal("handle", declaration["port"]!.ToString());
+        Assert.Equal(diagnostic.Location, Assert.Single(repair["slots"]!.AsArray())!["location"]!.ToString());
+        var value = new JsonObject { ["kind"] = "output", ["source"] = "make", ["port"] = declaration["port"]!.ToString() };
+        var corrected = RepairPatchTests.Apply(state, RepairPatchTests.Edit(state, diagnostic.Location, "replace", value));
+        Assert.Empty(new TaskPlanCompiler().Compile(corrected, catalog).Diagnostics);
+        Assert.Equal("string", consumer.Inputs[0].Value.Kind);
+        catalog.Policy.DeniedCapabilityIds.Add("allocate");
+        Assert.DoesNotContain("\"produces\"", PlanningRepairContext.Build(state).ToJsonString(), StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task DeclaredOriginSurvivesCheckedFieldSelectionAndOpaqueExport()
     {

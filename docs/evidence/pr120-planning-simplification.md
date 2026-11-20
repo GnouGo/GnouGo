@@ -219,6 +219,24 @@ compiler findings. Both limits survived decoding, both loops remained
 sequential and the original accepted plan hash stayed the same. Review 29
 opened with 3,371 cumulative calls and EUR 352.95892 available.
 
+### Review session 1b8f273055d5443895030d1c14ff67ab
+
+Call 24 bound the Copilot project's directory to a declared path string.
+The compiler rejected its provenance. After three evidence requests the model
+replaced only that input on call 28 with the clone's `projectRootRelative`
+output. The Server accepted the repair and continued to the pending review,
+inline comment loop and guarded submission checkpoints. These were planning
+receipts. The original repair context listed fourteen output names for the
+clone, without identifying which one produced the required directory.
+
+Two regressions reproduced the missing declaration for a referenced producer
+and for an alternative already in scope. Scoped repair now shows the bounded
+producer artifact metadata beside the available business ports. Rebuilding
+requests 25 and 28 from revisions 92 and 98 identified exactly one matching
+port in each, with the same edit slots and accepted plan hash. The replay made
+zero inference calls. All 82 targeted planner tests passed, including denial
+of the producer and compilation of the native single-binding edit.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

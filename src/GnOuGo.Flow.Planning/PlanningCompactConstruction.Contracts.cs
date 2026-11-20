@@ -390,14 +390,22 @@ internal static partial class PlanningCompactConstruction
                 entry["inputDirectory"] = "schema-page:" + ContractIdentity(operation.Id, operation.Version) + ":/input:0";
                 entry["outputs"] = CompletePortDirectory(operation.Outputs, ContractIdentity(operation.Id, operation.Version), "/output");
             }
-            var produces = TaskOperations.ArtifactPorts(capability)["produces"] as JsonArray ?? [];
-            if (produces.Count == 0) continue;
-            entry["producesCount"] = produces.Count;
-            var length = Encoding.UTF8.GetByteCount(produces.ToJsonString());
-            if (produces.Count <= ContractDirectoryPageSize && bytes + length <= ContractDescriptionPageSize)
-            { entry["produces"] = produces.DeepClone(); bytes += length; }
-            else entry["producesOmitted"] = true;
+            AddProducedArtifactPorts(entry, capability, ref bytes);
         }
+    }
+
+    internal static void AddProducedArtifactPorts(JsonObject entry, PlanningCapability capability, ref int bytes)
+    {
+        if (capability.ArtifactContract is not { Produces.Count: > 0 } ||
+            TaskOperations.ArtifactPorts(capability)["produces"] is not JsonArray { Count: > 0 } produces) return;
+        entry["producesCount"] = produces.Count;
+        var length = Encoding.UTF8.GetByteCount(produces.ToJsonString());
+        if (produces.Count <= ContractDirectoryPageSize && bytes + length <= ContractDescriptionPageSize)
+        {
+            entry["produces"] = produces.DeepClone();
+            bytes += length;
+        }
+        else entry["producesOmitted"] = true;
     }
 
     private static JsonObject SelectionProducerPageContext(PlanningSession state, JsonObject context, JsonObject schema)
