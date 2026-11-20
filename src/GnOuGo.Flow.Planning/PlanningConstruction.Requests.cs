@@ -14,9 +14,9 @@ internal static partial class PlanningConstruction
             if (JsonNode.DeepEquals(step["objective"], block["objective"])) step.Remove("objective");
             if (JsonNode.DeepEquals(step["expectedOutputs"], block["expectedResults"])) step.Remove("expectedOutputs");
         }
-        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var schema = PlanningCompactConstruction.DraftSchema(state, out var controlGuidance);
         PlanningCompactConstruction.ConstrainDraftEvidence(state, context, schema);
-        var instructions = PlanningCompactConstruction.DraftGuidance(state) + (repair
+        var instructions = PlanningCompactConstruction.DraftGuidance(state) + controlGuidance + (repair
             ? "\nFor a replacement extension, preserve its target scope and accepted requirements; the accepted TaskPlan is immutable."
             : "");
         return PlanningCompactConstruction.Request(state, instructions, context, schema,

@@ -302,6 +302,40 @@ public sealed class CoherentBusinessFragmentTests
             Objective = "Read this exact item.", Inputs = [new("target", new() { Kind = "item" })] };
     }
 
+    [Theory]
+    [InlineData("sequence")]
+    [InlineData("foreach")]
+    public async Task DraftShowsWhereToDeclareAnExplicitNestedLoopLimit(string anchor)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep!.Kind = anchor;
+        state.Plan!.Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = new() { Kind = "number" } } }];
+        var inner = new PlanTask
+        {
+            Id = "rows", Kind = "foreach", Objective = "Visit every row within the supplied capacity.",
+            Items = new() { Kind = "input", Source = "records" }, MaxItems = 200,
+            Body = new() { Tasks = [new() { Id = "row", Kind = "value", Objective = "Retain the current row.",
+                Outputs = [new("result", new() { Kind = "item" })] }] }
+        };
+        var outer = new PlanTask { Id = "batch", Kind = anchor, Objective = "Process the batch.", Body = new() { Tasks = [inner] } };
+        if (anchor == "foreach") outer.Items = new() { Kind = "input", Source = "records" };
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [outer] };
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        AssertDraftAccepts(state, extension);
+        var candidate = PlanningConstruction.Apply(state, extension);
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Empty(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics);
+        Assert.Contains(anchor + ".body.tasks", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("foreach.maxItems (1..10000)", request.Prompt, StringComparison.Ordinal);
+        inner.MaxItems = TaskPlanCompiler.MaximumIterationItems + 1;
+        var raw = new JsonObject { ["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
+        var schema = request.StructuredOutputSchema!.AsObject();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PlanningCorpus.Transport(raw, schema, schema)!, schema));
+        state.Construction.Compact.CurrentStep.Kind = "value";
+        Assert.DoesNotContain("foreach.maxItems (", PlanningConstruction.DraftRequest(state, repair: false).Prompt, StringComparison.Ordinal);
+    }
+
     [Fact]
     public async Task NestedControlPermissionDoesNotWidenTheSelectedTopLevelAnchor()
     {

@@ -44,6 +44,25 @@ bounded script to return two observed fields together for three items.
 The output preserves the original order and the repeated item.
 [Grouped item extraction test](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
 
+At calls 54 and 58 the model rejected the selected sequence and loop respectively.
+Both provider request bodies contained the same strict schema as the Server
+journal. The selected child task list offered recursive controls, the inspected
+operation and an explicit integer `foreach.maxItems` from 1 through 10,000.
+At call 64 the model added a partition solely to stay within the default of 100.
+The draft now names the available child task lists and the position of the
+per-loop bound. Cold replays of revisions 152 and 160 presented the corresponding
+sequence and loop paths without contacting the provider. The regression compiles
+both with an inner capacity of 200 and rejects 10,001 in the issued grammar.
+[Control composition regressions](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
+The Server stopped naturally at revision 181. The last provider response used
+all 4,096 output tokens, including 175 reasoning tokens. It ended inside a typed
+prerequisite and contained 3,509 trailing whitespace characters. No fragment was
+accepted from it. The run recorded 67 physical calls, EUR 36.62162 of measured
+usage, zero new reservations and 451 threshold warnings. It reached 20
+checkpoints. No business workflow ran. The post-run audit left EUR 100.23296
+available under the cumulative ceiling.
+
 ### Amazon session d5b6222a4ab84edd9b4076aecd870703
 
 Run 08 on `35c987b1` reached one checkpoint with the complete search acquisition

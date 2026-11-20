@@ -37,7 +37,9 @@ internal static partial class PlanningCompactConstruction
         return (canClose && (step.Scope != "/root" || canComplete), canComplete);
     }
 
-    internal static JsonObject DraftSchema(PlanningSession state)
+    internal static JsonObject DraftSchema(PlanningSession state) => DraftSchema(state, out _);
+
+    internal static JsonObject DraftSchema(PlanningSession state, out string controlGuidance)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var kind = step.Kind ?? throw new PlanningConflictException("Bind the immediate step implementation before issuing TaskPlan grammar.");
@@ -79,7 +81,19 @@ internal static partial class PlanningCompactConstruction
                 ("value", PlanningSchemas.Ref("value"))), 0, maximum);
         }
         var closure = ClosurePresentation(state);
-        var createsScopes = step.Kind == "group" && !BlockAnchorConstructed(state) || kinds.Any(NestedControlKinds.Contains);
+        var childTaskLists = NestedControlKinds.Where(kinds.Contains).Select(kind => kind switch
+        {
+            "parallel" => "parallel.branches[].tasks",
+            "conditional" => "conditional.body.tasks and conditional.otherwise.tasks",
+            _ => kind + ".body.tasks"
+        }).ToList();
+        if (step.Kind == "group" && !BlockAnchorConstructed(state)) childTaskLists.Add("groups[].body.tasks");
+        var createsScopes = childTaskLists.Count > 0;
+        controlGuidance = createsScopes
+            ? "\nChild task lists available here (" + string.Join(", ", childTaskLists) + ") accept recursive " +
+                string.Join(", ", NestedControlKinds) + (step.OperationIds.Count > 0 ? " and selected operation tasks." : " tasks.") +
+                FormattableString.Invariant($" Set foreach.maxItems (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. Use the required capacity within host limits.")
+            : "";
         var scopeChoices = new JsonArray();
         if (closure.CloseScope) scopeChoices.Add((JsonNode)PlanningSchemas.Enum(step.Scope));
         if (createsScopes)
