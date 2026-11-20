@@ -226,7 +226,11 @@ the next browser navigation under the same deadline. Loops and more than twenty
 redirects stop before sending the next request; failures retain partial hops and
 never claim a final destination. A Playwright interruption also retains only the
 read's already observed hops, with `complete: false` and no final URL, through
-both ordinary content and complete-snapshot failure results. The existing error
+both ordinary content and complete-snapshot failure results. If a guarded GET
+fails before receiving a response, the complete-snapshot receipt also records
+a bounded transport category such as `connection_reset` in
+`acquisition.failureCategory`. The receipt omits the Playwright call log,
+which can contain request headers. The existing error
 code and acquisition failure category remain; this evidence authorizes no retry
 or acceptance. A history-only address change retains the same document's actual method, status and response chain and reports the changed address separately as `documentUrl`; it never invents an HTTP redirect. If the page replaces its document with another guarded GET response for the identical terminal URL during that read, the host verifies the current request's already observed response. Earlier responses appear separately in `supersededResponses`, preserving any real redirect prefix. This metadata lookup dispatches no navigation or interaction; a different URL or POST cannot borrow an earlier response. A new explicit fragment-only navigation cannot borrow an earlier response. An eligible wholly empty-document reload remains a distinct acquisition
 attempt with its own response identity and the existing shared bounds.

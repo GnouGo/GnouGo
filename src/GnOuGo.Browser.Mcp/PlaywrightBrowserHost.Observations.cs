@@ -448,19 +448,15 @@ public sealed partial class PlaywrightBrowserHost
         }
         catch (PlaywrightException error)
         {
-            var category = error.Message.Contains("Execution context was destroyed", StringComparison.Ordinal) ? "document_context_destroyed"
-                : error.Message.Contains("interrupted by another navigation", StringComparison.Ordinal) ? "navigation_interrupted"
-                : error.Message.Contains("closed", StringComparison.OrdinalIgnoreCase) ? "target_closed"
-                : System.Text.RegularExpressions.Regex.Match(error.Message, @"net::ERR_[A-Z_]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant,
-                    TimeSpan.FromMilliseconds(100)) is { Success: true } network ? network.Value : "playwright_error";
-            var failure = new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.", Acquisition() with { FailureCategory = category });
+            var failure = new BrowserObservationException("BROWSER_ERROR", "The Browser could not complete snapshot acquisition.",
+                Acquisition() with { FailureCategory = PlaywrightFailureCategory(error) });
             if (error.Data[nameof(BrowserNavigationEvidence)] is BrowserNavigationEvidence partialNavigation)
                 failure.Data[nameof(BrowserNavigationEvidence)] = partialNavigation;
             throw failure;
         }
         catch (BrowserNavigationException ex)
         {
-            ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition();
+            ex.Data[nameof(BrowserSnapshotAcquisition)] = Acquisition() with { FailureCategory = ex.FailureCategory };
             throw;
         }
         catch (InvalidOperationException ex) when (ex is not BrowserObservationException)

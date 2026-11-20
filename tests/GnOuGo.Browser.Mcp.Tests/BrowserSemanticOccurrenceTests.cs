@@ -8,6 +8,35 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserSemanticOccurrenceTests
 {
+    [Fact]
+    public async Task GuardedSourceReadReportsConnectionResetBeforeAnyResponse()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var requests = 0;
+        await using var site = await LoopbackTestServer.StartAsync(context =>
+        {
+            Interlocked.Increment(ref requests);
+            context.Abort();
+            return Task.CompletedTask;
+        }, ct);
+        await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings
+            { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
+        var tools = new BrowserTools(host, NullLogger<BrowserTools>.Instance);
+        var result = await tools.GetContentAsync(url: site.Origin + "/source", waitUntil: "domcontentloaded",
+            timeoutMs: 10000, format: "observation_complete", cancellationToken: ct);
+
+        Assert.True((await tools.CloseAsync(ct)).Success);
+        Assert.Equal(1, requests);
+        Assert.False(result.Success);
+        Assert.Equal("NAVIGATION_FAILED", result.ErrorCode);
+        var navigation = Assert.IsType<BrowserNavigationEvidence>(result.NavigationEvidence);
+        Assert.False(navigation.Complete);
+        Assert.Empty(navigation.Hops);
+        Assert.Null(navigation.FinalUrl);
+        Assert.Null(result.ObservationSnapshot);
+        Assert.Equal("connection_reset", result.Acquisition!.FailureCategory);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

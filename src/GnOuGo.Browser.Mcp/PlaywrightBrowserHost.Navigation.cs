@@ -20,6 +20,7 @@ internal sealed class BrowserNavigationException(string code, string message, Br
 {
     internal string Code { get; } = code;
     internal BrowserNavigationEvidence Evidence { get; } = evidence;
+    internal string? FailureCategory { get; init; }
 }
 
 public sealed partial class PlaywrightBrowserHost
@@ -114,7 +115,16 @@ public sealed partial class PlaywrightBrowserHost
             {
                 _observedNavigation.Clear("navigation_failure");
                 _navigationFailure = error as BrowserNavigationException ?? new("NAVIGATION_FAILED",
-                    "Browser navigation did not complete; no final destination is established.", read?.Evidence() ?? new(request.Url, null, [], false));
+                    "Browser navigation did not complete; no final destination is established.", read?.Evidence() ?? new(request.Url, null, [], false))
+                {
+                    FailureCategory = error switch
+                    {
+                        PlaywrightException transport => PlaywrightFailureCategory(transport),
+                        TimeoutException => "timeout",
+                        OperationCanceledException => "cancelled",
+                        _ => null
+                    }
+                };
             }
             try { await route.AbortAsync("aborted"); }
             catch (PlaywrightException) { /* The caller may already have closed the cancelled page. */ }
@@ -224,6 +234,23 @@ public sealed partial class PlaywrightBrowserHost
         {
             SupersededResponses = read.Hops.Skip(start).Take(current - start).ToArray()
         };
+    }
+
+    private static string PlaywrightFailureCategory(PlaywrightException error)
+    {
+        // Playwright appends a call log that can include request headers and URLs.
+        var end = error.Message.IndexOf('\n');
+        var reason = end < 0 ? error.Message : error.Message[..end];
+        if (reason.Contains("socket hang up", StringComparison.OrdinalIgnoreCase) || reason.Contains("ECONNRESET", StringComparison.Ordinal))
+            return "connection_reset";
+        if (reason.Contains("ECONNREFUSED", StringComparison.Ordinal)) return "connection_refused";
+        if (reason.Contains("ENOTFOUND", StringComparison.Ordinal)) return "dns_not_found";
+        if (reason.Contains("Execution context was destroyed", StringComparison.Ordinal)) return "document_context_destroyed";
+        if (reason.Contains("interrupted by another navigation", StringComparison.Ordinal)) return "navigation_interrupted";
+        if (reason.Contains("closed", StringComparison.OrdinalIgnoreCase)) return "target_closed";
+        var network = System.Text.RegularExpressions.Regex.Match(reason, @"net::ERR_[A-Z_]+", System.Text.RegularExpressions.RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(100));
+        return network.Success ? network.Value : "playwright_error";
     }
 
     private void ThrowNavigationFailure()

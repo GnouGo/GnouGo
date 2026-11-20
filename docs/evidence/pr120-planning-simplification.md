@@ -257,6 +257,13 @@ zero response hops, no final document URL and no HTTP status. The cold
 verifier likewise found zero products. A separate close probe verified
 browser closure. The probe made zero model calls and zero business visits.
 
+The guarded GET discarded the underlying transport category. A local server
+accepted one request and closed the connection before sending headers. The
+old receipt had no category. The corrected Browser MCP reports
+`connection_reset`, zero hops and no final URL, and successfully closes
+the browser. The original failure's underlying cause remains unknown.
+[Browser regression](../../tests/GnOuGo.Browser.Mcp.Tests/BrowserSemanticOccurrenceTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.
