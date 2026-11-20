@@ -52,6 +52,26 @@ A failed check blocks approval, as do missing or conflicting completions.
 An explained failure can support a request for changes. The review regression
 uses the same verdict check as the live prepublication hook. [Publication regression](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
 
+Review session `bc53bd8d6b844466858c34847f9b03ba` on `6fea9bf1` accepted
+eight technical checkpoints. Its TaskPlan contained URL and revision resolution,
+one clone, a Copilot review and root cleanup. Execution never started. The
+checkout directory was absent, and GitHub showed zero reviews and zero inline
+comments after the session. [Target PR 718](https://github.com/AxaFrance/SmartGuide/pull/718)
+
+The generator abandoned an unused fetch selection after constructing the clone
+and comparison. Request 38 ended with provider finish reason `length` at 4,096
+output tokens. The response contained 283 characters through the `outputNames`
+key followed by 14,007 whitespace characters. It contained no completed
+selection. On the same run, offline replay of request 32 reduced the canonical
+prompt from 136,493 to 125,623 UTF-8 bytes by presenting an identical eight-task
+array once. The replay compared every item in order and made zero provider calls.
+[Task page regression](../../tests/GnOuGo.Flow.Planning.Tests/PlanningRepeatedTaskPresentationTests.cs)
+
+The 38 HTTP attempts had measured usage estimated at EUR 27.25104. The
+subsequent campaign audit recorded 2,620 HTTP attempts, EUR 1,158.47140 in
+measured usage, EUR 478.50045 in HTTP reservations and EUR 103.36148 in other
+reservations. EUR 359.66667 remained available for the next run.
+
 ## Qualification at the previous EUR 1,700 ceiling, 20 November 2026
 
 | Case | Consecutive verified Server executions | Last fresh session | Observed outcome |
