@@ -79,6 +79,14 @@ subsequent campaign audit recorded 2,620 HTTP attempts, EUR 1,158.47140 in
 measured usage, EUR 478.50045 in HTTP reservations and EUR 103.36148 in other
 reservations. EUR 359.66667 remained available for the next run.
 
+In the next fresh review, session `4df6899ed88b44e191c17f1934ae01c7`,
+request 5 displayed all five provider actions and their complete descriptions.
+Its response requested three of those descriptions again. Requests 6 and 7
+subsequently read directory pages. Fresh discovery grammars omit a second
+description read when the current complete menu shows the exact original
+for an inspected source. Partial menus, truncated descriptions and explicit
+prerequisites retain the read. [Discovery grammar regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryProtocolTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

@@ -333,6 +333,35 @@ public sealed partial class CompactDiscoveryProtocolTests
     }
 
     [Fact]
+    public async Task CompleteProviderMenuNeedsNoSecondReadOfAnInspectedSourcesFullDescription()
+    {
+        var (state, _) = await Ready(inspected: true);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Discovery.Sources.Insert(0, new("unread", "A separate callable provider."));
+        state.Discovery.Sources.Add(new("long", new string('x', 500)));
+        state.Discovery.Pages.Add(new("long", null, [], null, Query: Objective));
+
+        LLMRequest Issue() => PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
+            PlanningCompactConstruction.DiscoveryPurpose);
+        var request = Issue();
+        var rows = Context(request)["providerRequests"]!["items"]!.AsArray();
+        string Address(string id) => rows.Single(row => row!["sourceId"]!.ToString() == id)!["descriptionEvidence"]!.ToString();
+        var original = Address("alpha");
+        Assert.Equal("Declared metadata for business operations.", rows[1]!["description"]!.ToString());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Evidence(original), request.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(Address("long")), request.StructuredOutputSchema!));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Discover("unread", null), request.StructuredOutputSchema!));
+        Assert.Empty(state.Construction!.EvidenceRequests);
+
+        state.Construction.Compact!.CurrentStep!.Prerequisites = [new() { EvidenceAddresses = [original] }];
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(original), Issue().StructuredOutputSchema!));
+        state.Construction.Compact.CurrentStep.Prerequisites = [];
+        for (var index = 0; index < 8; index++) state.Discovery.Sources.Add(new("later-" + index, "More sources."));
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Evidence(original), Issue().StructuredOutputSchema!));
+    }
+
+    [Fact]
     public async Task ConsumedProviderPagesAdvanceWithoutGrantingOldVersionRereads()
     {
         var (state, _) = await Ready();

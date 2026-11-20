@@ -151,14 +151,18 @@ internal static partial class PlanningCompactConstruction
         return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction!.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
     }
 
-    private static JsonObject OmitDisplayedDirectoryReads(PlanningSession state, JsonObject context)
+    private static JsonArray? CompleteProviderMenu(PlanningSession state, JsonObject context)
     {
         if (context["providerRequests"] is not JsonObject page || page["items"] is not JsonArray { Count: > 0 } items ||
-            page["total"]?.GetValue<int>() != items.Count || page["next"] is not null) return context;
+            page["total"]?.GetValue<int>() != items.Count || page["next"] is not null || page["offset"]?.GetValue<int>() != 0) return null;
         var canonical = ProviderRequestPage(state, 0, items.Count);
         if (page["descriptionsBySourceId"]?.GetValue<bool>() == true) canonical = CompactProviderFocusMenu(canonical);
-        if (!JsonNode.DeepEquals(page, canonical)) return context;
+        return JsonNode.DeepEquals(page, canonical) ? items : null;
+    }
 
+    private static JsonObject OmitDisplayedDirectoryReads(PlanningSession state, JsonObject context)
+    {
+        if (CompleteProviderMenu(state, context) is not { } items) return context;
         // Each current action is already on screen with its exact source description link.
         // Keep the original canonical pages available to previously issued requests.
         var displayed = context.DeepClone().AsObject();
