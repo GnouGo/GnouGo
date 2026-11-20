@@ -26,7 +26,7 @@ internal static class PlanningSessionCreation
         var options = state.Request.Options;
         PlanningTransportPolicies.Capture(state.Request);
         options.TryAdd("compilation_profile", TaskPlanCompiler.CompactProfile);
-        options.TryAdd("mapping_profile", TaskPlanCompiler.AdaptiveMappingProfile);
+        options.TryAdd("mapping_profile", TaskPlanCompiler.ExplicitExtractionProfile);
         options.TryAdd("planning_validation_profile", TaskPlanCompiler.AssertionValidationProfile);
         state.Construction ??= new();
         state.Construction.Compact ??= new();

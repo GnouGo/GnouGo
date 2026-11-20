@@ -278,12 +278,14 @@ internal static class PlanningSchemas
                 ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(deriveExtractionOutput ? "id" : "goal")),
                     ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", false).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce exactly one result per item in order; nested arrays stay nested. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
-                (state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.AdaptiveMappingProfile
+                (TaskPlanCompiler.UsesAdaptiveMappings(state.Request.Options["mapping_profile"]?.ToString())
                     ? "all items are checked under the configured shared runtime budget; unresolved items may require specialization."
                     : "all items are checked under one shared two-attempt allowance."));
             yield return Described(TaskShape("transform", ("mode", Enum("extract", "interpret")), ("inputs", NonEmptyArray(Ref("output"))),
                 ("resultType", Object(("kind", Enum("object")), ("fields", NonEmptyArray(Ref("resultField")))))),
-                "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
+                state.Request.Options["mapping_profile"]?.ToString() == TaskPlanCompiler.ExplicitExtractionProfile
+                    ? "Extract over the whole bound input for filtering, grouping or cross-item comparisons. Declare each only for one independent result per item. Copies use value bindings."
+                    : "Extract observed data or interpret it explicitly. Copies use value/field/object bindings. Declare result fields; no invented defaults.");
         }
         if (kind is null or "sequence") yield return TaskShape("sequence", ("body", Ref("scope")));
         if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("value")), ("body", Ref("scope")), ("otherwise", Ref("scope")));

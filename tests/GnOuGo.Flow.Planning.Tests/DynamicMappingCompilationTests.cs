@@ -125,11 +125,55 @@ public sealed class DynamicMappingCompilationTests
             Outputs = [new("rows", new() { Kind = "output", Source = "extract", Port = "rows" })] }
     };
 
-    private sealed class EachModel : ILLMClient, ILLMCapabilityResolver
+    [Fact]
+    public async Task FreshExtractionPreservesWholePageCardinalityWhenAnArraySuppliesSelectionCriteria()
+    {
+        var model = new EachModel("({positions: source.page.records.filter(r => m.test(r.label,'^(match|other-rule)$')).map(r => r.position)})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 4 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var state = PlannerFixture.Capture(new() { Request = new() { TenantId = "whole-page",
+            Prompt = "Return the positions of all records matching the selection rules.", Policy = new() { RequireExternalConfirmation = false } } });
+        var catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var recordsType = new TaskType { Kind = "array", Items = ProductTransformationPlan.Obj(
+            ("label", new() { Kind = "string" }), ("position", new() { Kind = "integer" })) };
+        var task = new PlanTask { Id = "select_positions", Kind = "transform", Mode = "extract", Objective = state.Request.Prompt,
+            Inputs = [new("page", new() { Kind = "input", Source = "page" }),
+                new("rules", new() { Kind = "array", Items = [new() { Kind = "string", Text = "match" }, new() { Kind = "string", Text = "other-rule" }] })],
+            ResultType = ProductTransformationPlan.Obj(("positions", new() { Kind = "array", Items = new() { Kind = "integer" } })) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "page", Type = ProductTransformationPlan.Obj(("records", recordsType)) }],
+            Root = new() { Tasks = [task], Outputs = [new("positions", new() { Kind = "output", Source = task.Id, Port = "positions" })] } };
+        var legacy = new PlanningRequest { Options = state.Request.Options.DeepClone().AsObject() };
+        legacy.Options["mapping_profile"] = "adaptive-each-v1";
+        PlanningNode Mapping(PlanningRequest policy)
+        {
+            var compilation = new TaskPlanCompiler().Compile(plan, catalog, policy);
+            Assert.Empty(compilation.Diagnostics);
+            return Assert.Single(compilation.Graph!.Workflows[0].Steps, node => node.Input.Kind == "dynamic_mapping");
+        }
+        Assert.NotNull(PlanningGraphValidation.Member(Mapping(legacy).Input, "each"));
+        var fresh = Mapping(state.Request);
+        Assert.Null(PlanningGraphValidation.Member(fresh.Input, "each"));
+        Assert.Null(PlanningGraphValidation.Member(fresh.Input, "infer_each"));
+        var graph = new TaskPlanCompiler().Compile(plan, catalog, state.Request).Graph!;
+        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog))).Workflows["main"];
+        static JsonArray Records(params string[] labels) => new(labels.Select((label, position) => (JsonNode)new JsonObject
+            { ["label"] = label, ["position"] = position }).ToArray());
+        foreach (var (records, expected) in new[] { (Records("none"), new JsonArray()),
+            (Records("match", "none", "other-rule", "match"), new JsonArray(0, 2, 3)) })
+        {
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["page"] = new JsonObject { ["records"] = records } }, PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(JsonNode.DeepEquals(expected, result.Outputs!["positions"]));
+        }
+        task.Each = new("rules", "positions");
+        Assert.NotNull(PlanningGraphValidation.Member(Mapping(state.Request).Input, "each"));
+    }
+
+    private sealed class EachModel(string script = "source.observations.label") : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        { Calls++; return Task.FromResult(new LLMResponse { Json = JsonNode.Parse("{\"script\":\"source.observations.label\"}") }); }
+        { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } }); }
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);

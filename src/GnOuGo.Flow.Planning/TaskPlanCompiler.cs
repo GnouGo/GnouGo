@@ -94,8 +94,10 @@ public sealed partial class TaskPlanCompiler
     internal static bool UsesReadableBranches(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v14" or CompactProfile;
     internal static bool UsesSimplifiedLocals(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() == CompactProfile;
     internal const string AdaptiveMappingProfile = "adaptive-each-v1";
+    internal const string ExplicitExtractionProfile = "adaptive-each-v2";
+    internal static bool UsesAdaptiveMappings(string? profile) => profile is AdaptiveMappingProfile or ExplicitExtractionProfile;
     internal const string AssertionValidationProfile = "explicit-assertions-v1";
-    private bool _adaptiveMappings;
+    private string? _mappingProfile;
     private bool _compactBindings;
     private bool _normalExports;
     private bool _indexedProjections;
@@ -110,12 +112,12 @@ public sealed partial class TaskPlanCompiler
         => Compile(plan, catalog, compactBindings, false);
 
     internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request)
-        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString() == AdaptiveMappingProfile,
+        => Compile(plan, catalog, UsesCompactBindings(request), UsesNormalExports(request), request.Options["mapping_profile"]?.ToString(),
             request.Options["compilation_profile"]?.ToString() is "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile, UsesFusedBindings(request),
             request.Options["planning_validation_profile"]?.ToString() == AssertionValidationProfile,
             request.Options["planning_diagnostics_version"]?.ToString() == "1", PlanningTokenThresholds.OptimizationAdvisory(request));
 
-    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, bool adaptiveMappings = false, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false, bool advisoryOptimization = false)
+    internal TaskCompilation Compile(TaskPlan plan, PlanningCatalog catalog, bool compactBindings, bool normalExports, string? mappingProfile = null, bool indexedProjections = false, bool fusedBindings = false, bool validateAssertions = false, bool preciseDeclarations = false, bool advisoryOptimization = false)
     {
         _advisoryOptimization = advisoryOptimization;
         _preciseDeclarations = preciseDeclarations;
@@ -123,7 +125,7 @@ public sealed partial class TaskPlanCompiler
         _constructionAllowsUnboundChoices = false;
         _fusedBindings = fusedBindings;
         _indexedProjections = indexedProjections;
-        _adaptiveMappings = adaptiveMappings;
+        _mappingProfile = mappingProfile;
         _normalExports = normalExports;
         _compactBindings = compactBindings;
         _plan = plan; _symbols = new(plan); _catalog = catalog; _location = "/"; _graph = new(); _sources.Clear(); _groups.Clear(); _compilingGroups.Clear();
@@ -484,7 +486,7 @@ public sealed partial class TaskPlanCompiler
         return Output(key, "set", ["value"], schema);
     }
 
-    private PlanningNode Mapping(string key, PlanningValue sources, JsonObject schema, string objective)
+    private PlanningNode Mapping(string key, PlanningValue sources, JsonObject schema, string objective, bool inferEach = true)
     {
         var contracts = new JsonArray(_catalog.Capabilities.OrderBy(c => c.Id, StringComparer.Ordinal).Select(c => (JsonNode)new JsonObject
             { ["id"] = c.Id, ["version"] = c.Version, ["input"] = c.InputSchema.DeepClone(), ["output"] = c.OutputSchema.DeepClone() }).ToArray());
@@ -492,8 +494,8 @@ public sealed partial class TaskPlanCompiler
             Input = new() { Kind = "dynamic_mapping", Members = [new("sources", sources), new("objective", Text(objective)),
                 new("binding", Text(key)), new("producer_contract", Text(PlanningGraphCompiler.Fingerprint(contracts.ToJsonString())))] },
             OutputSchema = Contract(ObjectSchema([("value", schema)])) };
-        if (_adaptiveMappings) node.Input.Members.Add(new("adaptive_each", new() { Kind = "boolean", Boolean = true }));
-        if (_compactBindings) node.Input.Members.Add(new("infer_each", new() { Kind = "boolean", Boolean = true }));
+        if (UsesAdaptiveMappings(_mappingProfile)) node.Input.Members.Add(new("adaptive_each", new() { Kind = "boolean", Boolean = true }));
+        if (_compactBindings && inferEach) node.Input.Members.Add(new("infer_each", new() { Kind = "boolean", Boolean = true }));
         return node;
     }
 

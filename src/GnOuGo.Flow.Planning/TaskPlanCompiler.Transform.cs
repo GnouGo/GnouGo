@@ -55,6 +55,7 @@ public sealed partial class TaskPlanCompiler
         var schema = Schema(task.ResultType!);
         if (task.Mode == "extract")
         {
+            var inferEach = _mappingProfile != ExplicitExtractionProfile;
             var bindings = task.Inputs.Select(i => (i.Name, Bound: Value(i.Value, scope))).ToArray();
             var observed = Object(bindings.Select(i => new PlanningMember(i.Name, i.Bound.Value)));
             var inputShape = ObjectSchema(bindings.Select(i => (i.Name, i.Bound.Schema)));
@@ -62,9 +63,9 @@ public sealed partial class TaskPlanCompiler
                 ? new PlanningNode { Key = key, Type = "set", Purpose = task.Objective,
                     Input = Projection([new("value", observed), new("paths", Array([Strings([])]))]),
                     OutputSchema = Contract(ObjectSchema([("value", schema)])) }
-                : Mapping(key, observed, schema, task.Objective);
+                : Mapping(key, observed, schema, task.Objective, inferEach);
             var independent = task.Each;
-            if (_compactBindings && independent is null && schema["properties"] is JsonObject { Count: 1 } fields &&
+            if (_compactBindings && inferEach && independent is null && schema["properties"] is JsonObject { Count: 1 } fields &&
                 fields.First().Value is JsonObject { } array && array["type"]?.ToString() == "array")
             {
                 var collections = bindings.Where(b => PlanningContractShapes.IterationItems(b.Bound.Schema) is not null).ToArray();

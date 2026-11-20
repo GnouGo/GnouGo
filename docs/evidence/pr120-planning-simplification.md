@@ -139,6 +139,18 @@ removed its duplicate text lookup. An incomplete view or mismatched version
 still offers the original read.
 [Original source regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDeferredBindingTests.cs)
 
+The accepted extraction in request 14 asked for matching source positions.
+The compiler selected the five literal selection prefixes as its independent
+input, forcing one output per prefix. On source capture 14, 45 of 78 pages
+had zero prefix matches. Recompiling the original checkpoint with its
+recorded profile reproduced the selection. With the fresh profile, both
+the position extraction and the later grouping consume the whole input.
+Both replays made zero provider calls. The live session was stopped at
+revision 116 after receipt 40, with 13 checkpoints, 80 warnings and
+EUR 22.99397 measured. It never reached execution. The campaign ledger
+then showed EUR 180.78659 available.
+[Compiler and runtime regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
