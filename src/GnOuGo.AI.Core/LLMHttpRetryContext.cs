@@ -217,11 +217,22 @@ public sealed class LLMHttpRetryContext
         {
             var state = await owner.LoadAsync(ct).ConfigureAwait(false);
             var other = await required.LoadAsync(ct).ConfigureAwait(false);
-            if (other is { Attempts.Count: > 0 } && (state is null ||
-                JsonSerializer.Serialize(state, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) !=
-                JsonSerializer.Serialize(other, LLMHttpRetryJsonContext.Default.LLMHttpRetryState)))
-                throw new InvalidOperationException("Required HTTP journals disagree; independent receipt recovery is required.");
-            return state;
+            if (other is not { Attempts.Count: > 0 }) return state;
+            var type = LLMHttpRetryJsonContext.Default.LLMHttpRetryState;
+            var saved = JsonSerializer.Serialize(state, type);
+            var requiredState = JsonSerializer.Serialize(other, type);
+            if (saved == requiredState) return state;
+            // The additional journal is written first. Cancellation could separate
+            // the final decision writes after both hosts persisted the same receipt.
+            if (state?.Attempts.LastOrDefault() is { Status: >= 200 and < 300, Failure: null, Body: not null,
+                    ProtocolComplete: true, ResponseBodyComplete: true, AssembledBody: not null, UsageKnown: true, RetryDecision: null } &&
+                other.Attempts[^1].RetryDecision == HttpRequestHelper.CompletedDecision)
+            {
+                var comparison = JsonSerializer.Deserialize(saved, type)!;
+                comparison.Attempts[^1].RetryDecision = HttpRequestHelper.CompletedDecision;
+                if (JsonSerializer.Serialize(comparison, type) == requiredState) return other;
+            }
+            throw new InvalidOperationException("Required HTTP journals disagree; independent receipt recovery is required.");
         }
         public async Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
         {

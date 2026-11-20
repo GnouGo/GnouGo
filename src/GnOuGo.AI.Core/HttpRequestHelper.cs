@@ -15,6 +15,7 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public static class HttpRequestHelper
 {
+    internal const string CompletedDecision = "completed; no retry";
     private const int MaxErrorBodyCharacters = 64 * 1024;
     private const string ExceptionRetryMetadataKey = "gnougo.llm.retry_metadata";
     private static readonly ConditionalWeakTable<HttpResponseMessage, LLMHttpRetryMetadata> RetryMetadata = new();
@@ -278,7 +279,7 @@ public static class HttpRequestHelper
                 exhausted |= durationExhausted;
                 var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
                     classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
-                var decision = response?.IsSuccessStatusCode == true ? "completed; no retry" :
+                var decision = response?.IsSuccessStatusCode == true ? CompletedDecision :
                     durationExhausted ? "blocked; captured generation duration exhausted" :
                     uncertain && confirmedOnly && !independent ? "blocked; uncertain outcome" :
                     !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" :
@@ -433,6 +434,8 @@ public static class HttpRequestHelper
                 }
                 if (streaming && attempt.ProtocolComplete != true && attempt.ObservedStatus is >= 200 and < 300)
                     attempt.RetryDecision = "blocked; incomplete native stream; exact receipt recovery required";
+                else if (attempt.ProtocolComplete == true && attempt.Status is >= 200 and < 300 && attempt.Failure is null)
+                    attempt.RetryDecision = CompletedDecision;
                 if (ct.IsCancellationRequested) attempt.RetryDecision = "cancelled; no retry";
                 if (attempt.Body is null)
                 {

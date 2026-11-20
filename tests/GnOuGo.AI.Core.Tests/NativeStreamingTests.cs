@@ -567,6 +567,37 @@ public sealed class NativeStreamingTests
             [LLMTransportResolver.ChatCompletions] = true, [LLMTransportResolver.Messages] = true, [LLMTransportResolver.OllamaChat] = true, [LLMTransportResolver.Responses] = true } } }
     };
     [Theory]
+    [InlineData("annotation")]
+    [InlineData("body")]
+    [InlineData("incomplete")]
+    [InlineData("usage")]
+    [InlineData("decision")]
+    public async Task DualJournalRecoveryRequiresTheSameCompleteNativeReceipt(string difference)
+    {
+        var owner = new Journal(); var financial = new Journal(); var sends = 0;
+        using var http = NewHttp(new Handler(_ => { sends++; return Task.FromResult(Response("openai", Fixture("openai"))); }));
+        using (IndependentContext(owner))
+        using (LLMHttpRetryContext.RequireAdditionalJournal(financial))
+            await Client(http, "openai").CallAsync(Request(), Ct);
+        var received = Assert.Single(owner.State!.Attempts);
+        Assert.Equal("completed; no retry", received.RetryDecision);
+        received.RetryDecision = difference == "decision" ? "cancelled; no retry" : null;
+        if (difference == "body") received.Body += " ";
+        if (difference == "incomplete") received.ProtocolComplete = false;
+        if (difference == "usage") received.UsageKnown = false;
+        var original = JsonSerializer.Serialize(owner.State);
+        using (IndependentContext(owner))
+        using (LLMHttpRetryContext.RequireAdditionalJournal(financial))
+        {
+            if (difference == "annotation")
+                Assert.Equal("{\"value\":\"café\"}", (await Client(http, "openai").CallAsync(Request(), Ct)).Text);
+            else await Assert.ThrowsAsync<InvalidOperationException>(() => Client(http, "openai").CallAsync(Request(), Ct));
+        }
+        Assert.Equal(original, JsonSerializer.Serialize(owner.State));
+        Assert.Equal(1, sends);
+    }
+
+    [Theory]
     [InlineData("openai")] [InlineData("copilot")] [InlineData("anthropic")] [InlineData("ollama")]
     public async Task CapturedIndependentGenerationRetainsPartialAttemptAndAppliesOnlyFreshCompletion(string type)
     {

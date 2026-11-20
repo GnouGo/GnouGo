@@ -22,6 +22,17 @@ responses from revisions 112 and 134 each passed construction validation and
 compilation with zero findings and zero model calls. All 38 connected-fragment
 tests passed, including rejection of an unrelated output on the same producer.
 
+Run 25's last physical response was HTTP 200 with terminal `stop`, 34,204
+input tokens and 519 output tokens. Both encrypted journals contained the
+same complete raw response, assembled JSON, usage and request. Cancellation
+landed between the two writes of the final retry-decision annotation. The
+campaign correctly stopped admission before the next diagnostic made a call.
+One of five new native-stream tests reproduced the receipt-recovery failure.
+Recovery now accepts this single annotation difference only on an otherwise
+identical, completed and measured success. A new success writes that annotation
+with its original receipt. All 395 AI.Core tests passed, including the four
+negative cases for changed response bytes, completion, usage and retry decision.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
