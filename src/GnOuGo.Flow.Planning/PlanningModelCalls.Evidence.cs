@@ -27,7 +27,7 @@ internal static partial class PlanningModelCalls
     private static readonly HashSet<string> MetadataLists = new(StringComparer.Ordinal)
     {
         "items", "inputs", "outputs", "groups", "tasks", "ancestors", "selectedOutputs", "selectedInputs", "producers", "scopes",
-        "acceptedCheckpoints", "acceptedProgress", "descendants", "contracts", "ports", "originals", "prerequisites", "sources", "omittedOptionalInputs", "obligations"
+        "acceptedCheckpoints", "acceptedProgress", "descendants", "contracts", "ports", "originals", "prerequisites", "sources", "omittedOptionalInputs", "obligations", "directoryPages"
     };
     private static readonly HashSet<string> MetadataObjects = new(StringComparer.Ordinal)
     { "contract", "consumer", "prerequisite", "scopeOwner", "scopeGroup", "bindings", "interface", "resumption", "suspendedConsumer", "acceptedProgress", "acceptedExports", "before", "current" };

@@ -114,6 +114,13 @@ on the same baseline `33bbfe12a1b0538678ebbe21ff161e1f21ffe000a3e8e98b0f7b14999a
 with zero provider calls. The original response still fails its historical
 compiler check. [Draft and compilation regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftFixedFactsTests.cs)
 
+With 20 accepted tasks, request 44 linked pages at offsets 0 and 16.
+Request 45 used a separate response to reach offset 8 through the first
+page. The continued-scope directory now identifies intermediate pages by
+their first and last local task. A cold regression retrieves offsets 0, 8
+and 16 together using the ordinary evidence grammar.
+[Task directory regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftNavigationTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.

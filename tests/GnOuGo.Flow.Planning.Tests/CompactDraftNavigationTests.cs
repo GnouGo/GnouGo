@@ -352,6 +352,35 @@ public sealed class CompactDraftNavigationTests
     }
 
     [Fact]
+    public void ContinuedScopeCanReadItsUnrepresentedMiddleTaskPageInTheFirstBatch()
+    {
+        var state = State();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        for (var i = 0; i < 20; i++)
+            state.Plan!.Root.Tasks.Add(new() { Id = "work_" + i, Kind = "value", Objective = new string('x', 1200) });
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Checkpoints.Add(new() { Step = step, PlanHash = step.BaseHash, Sequence = 1,
+            TaskIds = ["work_19"], Fragment = new() { ["continueInScope"] = step.Scope } });
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        AssertResponse(request, state, "page:tasks:8", valid: true);
+        var middle = Assert.Single(Context(request)["taskEvidence"]!["directoryPages"]!.AsArray())!;
+        Assert.Equal("page:tasks:8", middle["address"]!.ToString());
+        Assert.Equal("work_8", middle["firstTask"]!.ToString());
+        Assert.Equal("work_15", middle["lastTask"]!.ToString());
+        var wire = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose, request.Prompt,
+            request.StructuredOutputSchema!.AsObject(), null, null, out var map);
+        var alias = Context(wire)["taskEvidence"]!["directoryPages"]![0]!["address"]!.ToString();
+        Assert.Equal("page:tasks:8", map!.Addresses[alias]);
+        state = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(state, ["page:tasks:0", "page:tasks:8", "page:tasks:16"]);
+        var next = Context(PlanningConstruction.DraftRequest(state, repair: false));
+        Assert.Null(next["taskEvidence"]!["directoryPages"]);
+        Assert.Equal("work_8", next["evidence"]!["page:tasks:8"]!["items"]![0]!["id"]!.ToString());
+        Assert.Equal(0, state.ModelCalls);
+    }
+
+    [Fact]
     public void DraftCanReadTheDirectoryPagesOfRecentAcceptedTasksInOneBatch()
     {
         var state = State();

@@ -98,9 +98,23 @@ internal static partial class PlanningCompactConstruction
                 var directory = draft is null ? accepted : new TaskPlanSymbols(draft.Plan);
                 var rows = navigation["items"]!.AsArray().OfType<JsonObject>().ToDictionary(row => row["task"]!.ToString(), StringComparer.Ordinal);
                 const int pageSize = PlanningConstruction.TaskDirectoryPageSize;
-                foreach (var (id, index) in directory.Tasks.Keys.Select((id, index) => (id, index)).Skip(pageSize))
-                    if (rows.TryGetValue(id, out var row))
-                        row["directory"] = "page:tasks:" + (index - index % pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                var pages = new JsonArray();
+                foreach (var (page, number) in directory.Tasks.Values.Chunk(pageSize).Select((page, number) => (page, number)).Skip(1))
+                {
+                    var address = "page:tasks:" + (number * pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    var linked = false;
+                    foreach (var site in page)
+                        if (rows.TryGetValue(site.Task.Id, out var row))
+                        {
+                            row["directory"] = address;
+                            linked = true;
+                        }
+                    if (continued is null || linked || pages.Count >= pageSize || construction.Evidence?.ContainsKey(address) == true) continue;
+                    var local = page.Where(site => site.Scope.Path == step.Scope).ToArray();
+                    if (local.Length > 0)
+                        pages.Add((JsonNode)new JsonObject { ["address"] = address, ["firstTask"] = local[0].Task.Id, ["lastTask"] = local[^1].Task.Id });
+                }
+                if (pages.Count > 0) navigation["directoryPages"] = pages;
             }
             if (siblings.Except(selected, StringComparer.Ordinal).Any()) navigation["scopeEvidence"] = "scope:" + step.Scope;
         }
