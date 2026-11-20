@@ -98,13 +98,13 @@ public sealed partial class HybridWorkflowPlanner
             if (offered.Count == 0) return;
             paths.AddRange(offered); tasks.Add(target);
         }
-        if (paths.Count == 0) return;
-        if (tentativeScope)
+        if (tentativeScope || local && readOnlyTargets.Count > 0)
             foreach (var target in targets.Where(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
             {
                 if (!current.Tasks.TryGetValue(target, out var task)) return;
-                paths.AddRange(TaskRepairPaths(current, task.Task));
+                paths.AddRange(TaskRepairPaths(current, task.Task, offerMissingGuard: local && !accepted.Tasks.ContainsKey(target)));
             }
+        if (paths.Count == 0) return;
         var authorized = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
         try { TaskPlanRevisions.ValidateEditablePaths(new() { Plan = candidate.Plan, Catalog = state.Catalog }, authorized); }
         catch (ArgumentException) { return; }

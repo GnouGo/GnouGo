@@ -80,10 +80,12 @@ public sealed class PendingActionGuardRepairTests
     }
 
     [Theory]
-    [InlineData(false, true)]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    public async Task LocalFindingCanGuardAPendingConsumerWhileKeepingItsReviewedProducerFixed(bool existingGuard, bool usesProducer)
+    [InlineData(false, true, true)]
+    [InlineData(false, false, true)]
+    [InlineData(true, false, true)]
+    [InlineData(false, true, false)]
+    [InlineData(false, false, false)]
+    public async Task LocalFindingCanGuardACitedConsumerWhileKeepingItsReviewedProducerFixed(bool existingGuard, bool usesProducer, bool checkpointed)
     {
         var (state, runtime) = await Ready();
         state.Catalog!.Capabilities.Add(new()
@@ -114,15 +116,28 @@ public sealed class PendingActionGuardRepairTests
                 Id = "save", Kind = "operation", Operation = "record", Objective = "Record the amount.",
                 Inputs = [new("amount", value)], Requires = existingGuard ? new() { Kind = "present", Source = "compute" } : null
             }] });
-        state = await Advance(state, runtime);
-        con = state.Construction!;
-        Assert.True(con.Checkpoints.Last().Fragment["businessReviewPending"]!.GetValue<bool>());
-        con.Compact!.CurrentStep = new() { BlockId = con.Compact.CurrentBlockId, Id = "receipt", Kind = "value",
-            Objective = "Return the observed record.", RequirementIds = ["later"], InputTaskIds = ["save"],
-            BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
-        con.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"],
-            CompleteBlock = true, Tasks = [new() { Id = "receipt", Kind = "value", Objective = "Return the observation.",
-                Outputs = [new("observed", new() { Kind = "present", Source = "save" })] }] });
+        if (checkpointed)
+        {
+            state = await Advance(state, runtime);
+            con = state.Construction!;
+            Assert.True(con.Checkpoints.Last().Fragment["businessReviewPending"]!.GetValue<bool>());
+            con.Compact!.CurrentStep = new() { BlockId = con.Compact.CurrentBlockId, Id = "receipt", Kind = "value",
+                Objective = "Return the observed record.", RequirementIds = ["later"], InputTaskIds = ["save"],
+                BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+            con.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["later"],
+                CompleteBlock = true, Tasks = [new() { Id = "receipt", Kind = "value", Objective = "Return the observation.",
+                    Outputs = [new("observed", new() { Kind = "present", Source = "save" })] }] });
+        }
+        else
+        {
+            var delivery = con.Candidate.Extension;
+            delivery.CompleteBlock = true;
+            delivery.ContinueInScope = null;
+            delivery.Tasks.Add(new() { Id = "receipt", Kind = "value", Objective = "Preserve the successful record.",
+                Outputs = [new("observed", new() { Kind = "present", Source = "save" })] });
+            con.Compact.CurrentStep.Kind = "sequence";
+            con.Candidate = PlanningConstruction.Apply(state, delivery);
+        }
         var acceptedHash = PlanningConstruction.Hash(state.Plan);
         var reviewed = PlanningConstruction.TaskNode(state.Plan!.Root.Tasks.Single(t => t.Id == "compute")).ToJsonString();
         runtime.Respond = (_, purpose) =>
@@ -131,16 +146,19 @@ public sealed class PendingActionGuardRepairTests
             return new() { Json = new JsonObject { ["decision"] = new JsonObject
             {
                 ["verdict"] = "needs_change", ["reason"] = "The computed number can be negative when the recording is invoked.",
-                ["obligations"] = new JsonArray("later"), ["targets"] = new JsonArray("compute", "save")
+                ["obligations"] = new JsonArray("later"), ["targets"] = checkpointed ? new JsonArray("compute", "save") : new JsonArray("compute", "save", "receipt")
             } } };
         };
         state = await Advance(state, runtime);
         var paths = Assert.IsType<List<string>>(state.Construction!.Candidate!.AuthorizedPaths);
         var finding = state.Construction.Candidate.Reviews.Single(row => row["outcome"]?.ToString() == "needs_change");
         Assert.Equal("compute", Assert.Single(finding["readOnlyTargets"]!.AsArray())!.ToString());
-        Assert.Equal(2, finding["defectWitness"]!["findings"]!.AsArray().Count);
+        Assert.Equal(checkpointed ? 2 : 3, finding["defectWitness"]!["findings"]!.AsArray().Count);
         Assert.Equal(acceptedHash, PlanningConstruction.Hash(state.Plan));
-        Assert.Equal(existingGuard ? ["/tasks/save/inputs"] : new[] { "/tasks/save/inputs", "/tasks/save/requires" }, paths.Order());
+        var expected = new List<string> { "/tasks/save/inputs" };
+        if (!existingGuard) expected.Add("/tasks/save/requires");
+        if (!checkpointed) expected.Add("/tasks/receipt/outputs/observed");
+        Assert.Equal(expected.Order(), paths.Order());
         if (existingGuard) return;
         runtime.Respond = (request, purpose) =>
         {

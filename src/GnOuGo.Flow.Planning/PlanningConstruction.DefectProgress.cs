@@ -216,9 +216,13 @@ internal static partial class PlanningConstruction
             .FirstOrDefault(context => DefectHash(context) == witness["contextHash"]?.ToString());
         if (prior?["actions"] is not JsonArray originals || current["actions"] is not JsonArray actions) return false;
         var symbols = new TaskPlanSymbols(candidate.Plan);
-        var changed = actions.OfType<JsonObject>().Where(action => action["id"]?.ToString() is { } id && id != consumer && symbols.Tasks.ContainsKey(id) &&
+        var cited = (witness["findings"] as JsonArray ?? []).OfType<JsonObject>()
+            .Select(entry => DefectTarget(entry["selector"] as JsonArray)).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        var changed = actions.OfType<JsonObject>().Where(action => action["id"]?.ToString() is { } id && id != consumer && symbols.Tasks.TryGetValue(id, out var task) &&
             originals.OfType<JsonObject>().SingleOrDefault(before => before["id"]?.ToString() == id) is { } before &&
-            new[] { "arguments", "outputs", "instruction" }.Any(key => !JsonNode.DeepEquals(before[key], action[key])))
+            (new[] { "arguments", "outputs", "instruction" }.Any(key => !JsonNode.DeepEquals(before[key], action[key])) ||
+                cited.Contains(id) && before["requires"] is null && task.Task.Requires is { } guard &&
+                TaskPlanCompiler.Values(guard).Any(value => value.Kind == "output")))
             .Select(action => action["id"]!.ToString()).ToArray();
         // The existing invalidation closure tracks transitive values, captures,
         // exports, controls and called groups. This permits renewed review only;

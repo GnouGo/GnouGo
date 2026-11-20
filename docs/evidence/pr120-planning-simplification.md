@@ -2,6 +2,28 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 19 (Server session `809321975c7d4c4c8a29beb134c5596c`)
+generated sequential loops with capacities 100 pages, 200 sponsored
+occurrences per page and ten product visits. Call 20 approved the ordered
+selection and retention of the original source evidence. Call 37 rejected
+the writer because an empty selection could produce a header-only workbook.
+The local judge cited the previously reviewed selection, the new writer and
+its new delivery receipt. The correction path offered evidence only and the
+same judge finding recurred at call 39. No workflow executed. The 39 paid
+requests cost EUR 19.36007, leaving EUR 94.78678 after all reservations.
+
+Replaying the original judge response with the original request, session
+revision and plan reproduced the missing authority over the sink. The
+correction now retains the reviewed producer as evidence and offers the
+tentative writer's missing guard. The receipt can be rejudged when its cited
+upstream effect acquires an output-dependent guard. All three findings
+survive for business review. Both an unguarded sink and a constant guard
+were exercised by regression. The replay at revision 107 used zero model
+calls and preserved plan hash
+`d0812b21462b7fec90fa81a1839021314fc7219490255e6351cc17b806c77a90`.
+All 52 focused tests passed. The full planner suite at the preceding
+rejected-claim correction passed all 3,234 tests.
+
 Review 35's isolated native correction probe returned a complete clarification
 in one physical request at EUR 0.84880. The additional result and guard slots
 were visible. The proposed task's precondition runs before its output exists,
