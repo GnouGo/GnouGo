@@ -286,6 +286,14 @@ The accepted plan and selected operations stayed identical. The replay used
 zero model calls. All 380 targeted tests passed, including changed content,
 changed scope and an oversized declaration.
 
+The issued draft instructions also applied the one-response limit to the
+extracted collection. At runtime a bounded response can describe a mapping,
+which the runtime then applies to the complete original collection. The
+draft and scoped repair now describe this distinction and ask for related
+fields and positions in one item result. Two regressions reproduced the
+old instructions. All 71 focused presentation, observation and compilation
+tests passed with the change.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

@@ -431,7 +431,9 @@ public sealed class PlanningPromptPresentationTests
         state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         var request = PlanningModelCalls.PrepareRequest(state, phase, "Use the observed records.\n{}",
             new JsonObject { ["type"] = "object" }, null, null);
-        Assert.Contains("one bounded model response", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("An interpretation must fit in one bounded model response", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("runtime applies the mapping to every original item", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("one pass over the collection", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("original producer", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("typed value bindings", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("opaque extraction can call the model", request.Prompt, StringComparison.Ordinal);
