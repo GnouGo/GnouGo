@@ -11,6 +11,10 @@ in a union with null, other closed objects and arrays. Preflight reported
 checked whole-response projection now tests the matching object contracts
 before reading the field. Tests exercise the real grammar, validation,
 compilation and downstream dispatch with matching and mismatched receipts.
+Narrowing retains constraints alongside the union. A regression supplies a
+matching object that exceeds the enclosing `maxProperties`: both compilation
+profiles now stop before the downstream write. A separate runtime test checks
+that the object bound applies only to object instances of the union.
 The original call 13 response (revision 56) produced the retained candidate
 hash again. With its resolved MCP catalog the candidate passed extension
 and technical validation without a model call or plan edit.

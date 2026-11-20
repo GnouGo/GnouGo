@@ -33,8 +33,9 @@ public sealed partial class TaskPlanCompiler
             {
                 // Validate the actual whole response before looking up a property. An array
                 // can have a numeric index with the same name as a declared object property.
-                var contract = matching.Length == 1 ? matching[0] : new JsonObject
-                    { ["anyOf"] = new JsonArray(matching.Select(branch => branch.DeepClone()).ToArray()) };
+                var contract = source.Schema.DeepClone().AsObject();
+                contract[source.Schema.ContainsKey("oneOf") ? "oneOf" : "anyOf"] =
+                    new JsonArray(matching.Select(branch => branch.DeepClone()).ToArray());
                 source = Consume(source with { Schema = contract, SelectionSource = source, SelectionPath = [] }, scope);
             }
         }

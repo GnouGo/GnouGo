@@ -228,6 +228,7 @@ internal static class JsonSchemaInstanceValidator
             return types.OfType<JsonValue>().Select(valueNode => valueNode.TryGetValue<string>(out var name) ? name : null).FirstOrDefault();
         }
         if (schema.ContainsKey("properties") || schema.ContainsKey("required") || schema.ContainsKey("additionalProperties")) return "object";
+        if (value is JsonObject && (schema.ContainsKey("minProperties") || schema.ContainsKey("maxProperties"))) return "object";
         if (schema.ContainsKey("items") || schema.ContainsKey("minItems") || schema.ContainsKey("maxItems")) return "array";
         if (schema.ContainsKey("pattern") || schema.ContainsKey("minLength") || schema.ContainsKey("maxLength")) return "string";
         if (schema.ContainsKey("minimum") || schema.ContainsKey("maximum") || schema.ContainsKey("multipleOf")) return "number";

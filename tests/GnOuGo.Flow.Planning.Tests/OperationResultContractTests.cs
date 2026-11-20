@@ -164,6 +164,7 @@ public sealed class OperationResultContractTests
     [InlineData("other_object")]
     [InlineData("array")]
     [InlineData("array_index")]
+    [InlineData("root_constraint")]
     [InlineData("opaque_contract")]
     [InlineData("open_contract")]
     [InlineData("undeclared_field")]
@@ -172,6 +173,7 @@ public sealed class OperationResultContractTests
         var resultSchema = Schema("""{"oneOf":[{"type":"null"},{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false},{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false},{"type":"array","items":{"type":"string"}}]}""");
         if (variant == "opaque_contract") resultSchema["oneOf"]!.AsArray().Add(new JsonObject());
         if (variant == "open_contract") resultSchema["oneOf"]![1]!["additionalProperties"] = true;
+        if (variant == "root_constraint") resultSchema["maxProperties"] = 0;
         var selectedField = variant == "array_index" ? "0" : "message";
         if (variant == "array_index")
             resultSchema["oneOf"]![2] = Schema("""{"type":"object","properties":{"0":{"type":"string"}},"required":["0"],"additionalProperties":false}""");
