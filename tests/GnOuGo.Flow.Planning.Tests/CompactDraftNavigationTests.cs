@@ -352,6 +352,38 @@ public sealed class CompactDraftNavigationTests
     }
 
     [Fact]
+    public void DraftCanReadTheDirectoryPagesOfRecentAcceptedTasksInOneBatch()
+    {
+        var state = State();
+        for (var i = 0; i < 20; i++)
+            state.Plan!.Root.Tasks.Add(new() { Id = "value_" + i, Kind = "value", Objective = "Retain observation " + i });
+        state.Construction!.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        state.Construction.Compact.CurrentStep.DependencyTaskIds = ["value_9"];
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var directory = Context(request)["taskEvidence"]!;
+        Assert.Equal("page:tasks:0", directory["remainingEvidence"]!.ToString());
+        foreach (var id in new[] { 9, 19 })
+        {
+            var row = Assert.Single(directory["items"]!.AsArray(), item => item!["task"]!.ToString() == "value_" + id)!;
+            Assert.Equal("page:tasks:" + id / 8 * 8, row["directory"]?.ToString());
+        }
+        var pages = new[] { "page:tasks:8", "page:tasks:16" };
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var response = Response(state, pages[0]);
+        response["evidenceRequests"] = new JsonArray(pages[0], pages[1]);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(PlanningCorpus.Transport(response, schema, schema)!, schema));
+        AssertResponse(request, state, "page:tasks:24", valid: false);
+        PlanningConstruction.LoadEvidence(state, [.. pages],
+            followup: current => PlanningConstruction.DraftRequest(current, repair: false), purpose: PlanningConstruction.DraftPurpose);
+        var next = PlanningConstruction.DraftRequest(PlannerFixture.Clone(state), repair: false);
+        var evidence = Context(next)["evidence"]!;
+        foreach (var offset in new[] { 8, 16 })
+            Assert.Equal("value_" + offset, evidence["page:tasks:" + offset]!["items"]![0]!["id"]!.ToString());
+        Assert.Equal(0, state.ModelCalls);
+        Assert.Equal(state.Construction.Compact.CurrentStep.BaseHash, PlanningConstruction.Hash(state.Plan));
+    }
+
+    [Fact]
     public void NonstructuralDraftsCanRetrieveInterfacesWithoutAutomaticUnrelatedGroups()
     {
         var state = State();

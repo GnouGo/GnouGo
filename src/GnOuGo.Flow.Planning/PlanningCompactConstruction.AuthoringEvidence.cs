@@ -47,7 +47,7 @@ internal static partial class PlanningCompactConstruction
                 if (task["task"]?.ToString() is not { } id ||
                     task["evidence"]?.ToString() != "task:" + id && task["address"]?.ToString() != "task:" + id) continue;
                 var removed = task.Select(pair => pair.Key).Except(
-                    ["task", "address", "evidence", "scope", "phase", "kind", "operation", "group", "scopes", "scopeCount", "nextPorts", "objectiveEvidence", "detailsOmitted",
+                    ["task", "address", "evidence", "directory", "scope", "phase", "kind", "operation", "group", "scopes", "scopeCount", "nextPorts", "objectiveEvidence", "detailsOmitted",
                      "openResultScopeCount", "portCount", "ports"], StringComparer.Ordinal).ToArray();
                 foreach (var key in removed) task.Remove(key);
                 if (removed.Length > 0) task["detailsOmitted"] = true;
@@ -90,7 +90,16 @@ internal static partial class PlanningCompactConstruction
         };
         {
             navigation["remaining"] = count - selected.Length;
-            if (count > selected.Length) navigation["remainingEvidence"] = "page:tasks:0";
+            if (count > selected.Length)
+            {
+                navigation["remainingEvidence"] = "page:tasks:0";
+                var directory = draft is null ? accepted : new TaskPlanSymbols(draft.Plan);
+                var rows = navigation["items"]!.AsArray().OfType<JsonObject>().ToDictionary(row => row["task"]!.ToString(), StringComparer.Ordinal);
+                const int pageSize = PlanningConstruction.TaskDirectoryPageSize;
+                foreach (var (id, index) in directory.Tasks.Keys.Select((id, index) => (id, index)).Skip(pageSize))
+                    if (rows.TryGetValue(id, out var row))
+                        row["directory"] = "page:tasks:" + (index - index % pageSize).ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
             if (siblings.Except(selected, StringComparer.Ordinal).Any()) navigation["scopeEvidence"] = "scope:" + step.Scope;
         }
         if (owner is not null)

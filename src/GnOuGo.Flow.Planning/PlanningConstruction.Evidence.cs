@@ -7,6 +7,8 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningConstruction
 {
+    internal const int TaskDirectoryPageSize = 8;
+
     internal static GnOuGo.Flow.Core.Runtime.LLMRequest RepairRequest(PlanningSession state, PlanningSession authority, string? guidance = null)
     {
         var schema = PlanningSchemas.RepairSchema(authority);
@@ -288,9 +290,9 @@ internal static partial class PlanningConstruction
                     {
                         case "tasks" when offset < symbols.Tasks.Count:
                             value = new JsonObject { ["offset"] = offset, ["total"] = symbols.Tasks.Count,
-                                ["items"] = new JsonArray(symbols.Tasks.Values.Skip(offset).Take(8).Select(t => TaskNode(t.Task)).ToArray()) };
-                            if (offset + 8 < symbols.Tasks.Count)
-                                value["next"] = "page:tasks:" + (offset + 8).ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                ["items"] = new JsonArray(symbols.Tasks.Values.Skip(offset).Take(TaskDirectoryPageSize).Select(t => TaskNode(t.Task)).ToArray()) };
+                            if (offset + TaskDirectoryPageSize < symbols.Tasks.Count)
+                                value["next"] = "page:tasks:" + (offset + TaskDirectoryPageSize).ToString(System.Globalization.CultureInfo.InvariantCulture);
                             construction.TaskCursor = offset; break;
                         case "requirements" when offset < state.Requirements?.Outcomes.Count:
                             value = Node(new PlanningRequirements { Summary = state.Requirements.Summary,

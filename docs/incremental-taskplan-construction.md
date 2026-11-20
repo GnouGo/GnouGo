@@ -889,6 +889,11 @@ the separate task lookup. A displayed container also uses the existing task
 directory when it links to every child scope. A partial directory retains the
 container lookup.
 
+Visible accepted tasks link to their page in the complete task directory.
+A draft can request the pages containing several known producers in one
+evidence batch, including pages beyond the first. The evidence reader
+preserves their order and checks the complete follow-up before admission.
+
 An empty initial root exposes its existing structural evidence in transient
 `scopeContext`, without adding retained evidence, checkpoints, approvals or calls.
 Strict packing may remove these redundant details while retaining the original scope
