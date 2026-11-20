@@ -263,6 +263,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Copy opaque IDs/references verbatim: key:record.reference. Never shorten/decode IDs. Copy verbatim facts as one whole observed block, without trimming, joining or paraphrasing. UI affordances are not producer errors.
         Observed properties/contracts only. A locator string does not prove DOM ancestry; unfamiliar URLs remain observed targets. No guessed structure/formats; justified text/URL extraction allowed.
         Compact facts; decisions outside mapping. No blank/placeholder IDs.
+        m.indexed(originalArray): ordered {index,value} pairs with grounded zero-based positions. Filter after indexing.
         m.select(value, [[property,...],...], eachBoolean): first PRESENT path, null stays null.
         m.optional(item,['label']): observed container only; absent path needs a host-declared default, null stays null. Never pass constructed/filtered containers.
         Nullable fact example: ({key:item.reference,fact:m.has(item,'fact')?item.fact:null}).

@@ -108,6 +108,17 @@ public sealed class DynamicMappingTests
     }
 
     [Theory]
+    [InlineData("m.indexed(source.rows.slice(1))")]
+    [InlineData("m.indexed([source.rows[0]])")]
+    [InlineData("m.indexed(m.indexed(source.rows))")]
+    [InlineData("source.rows.map((r,i)=>i)")]
+    public void PositionEvidenceCannotBeRebasedOrInvented(string script)
+    {
+        var source = JsonNode.Parse("""{"rows":["repeat","repeat"]}""");
+        Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox().ExecuteMapping(script, source, TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
     [InlineData("({amount:source.price})", "{\"price\":7922816251426433759354395033.5}", "{\"amount\":7922816251426433759354395033.5}")]
     [InlineData("source.rows.map(r=>({name:r.title}))", "{\"rows\":[{\"title\":\"a\"},{\"title\":\"a\"}]}", "[{\"name\":\"a\"},{\"name\":\"a\"}]")]
     [InlineData("m.parse(source.text)", "{\"text\":\"{\\\"x\\\":7}\"}", "{\"x\":7}")]

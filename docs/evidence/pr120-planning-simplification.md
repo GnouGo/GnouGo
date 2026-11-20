@@ -151,6 +151,13 @@ EUR 22.99397 measured. It never reached execution. The campaign ledger
 then showed EUR 180.78659 available.
 [Compiler and runtime regression](../../tests/GnOuGo.Flow.Planning.Tests/DynamicMappingCompilationTests.cs)
 
+The same checkpoint requested zero-based source positions. Source capture
+14 carries no position field on its records. A runtime reproduction rejected
+the native array callback index as an ungrounded scalar. A bounded mapping
+can now call `m.indexed` on the original observed array, filter the pairs and
+return their grounded positions. Tests exercise empty selections, repeated
+values and attempted reindexing of derived arrays.
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

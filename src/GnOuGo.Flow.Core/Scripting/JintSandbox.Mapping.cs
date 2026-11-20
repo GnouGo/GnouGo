@@ -14,7 +14,7 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 6;
+    public const int MappingProfileVersion = 7;
     public const string MappingFunction = "checkedMapping";
     internal static uint CheckedPosition(JsonNode? index, long count)
     {
@@ -24,7 +24,7 @@ public sealed partial class JintSandbox
         return (uint)number;
     }
 
-    private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
+    private static readonly HashSet<string> MappingHelpers = ["indexed", "select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
@@ -407,6 +407,18 @@ public sealed partial class JintSandbox
             if (args.Length == 0) throw Unsatisfied("Mapping helper arguments are missing.");
             switch (name)
             {
+                case "indexed":
+                    if (args.Length != 1 || !args[0].IsArray() || !containers.Contains(args[0].AsObject()))
+                        throw Unsatisfied("indexed requires the original observed array before filtering or reordering.");
+                    return Array(args[0].AsArray().Select((item, position) =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        allowance?.Check();
+                        var entry = new JsObject(engine);
+                        entry.CreateDataProperty("index", Import(JsonValue.Create(position)));
+                        entry.CreateDataProperty("value", item);
+                        return (JsValue)entry;
+                    }));
                 case "optional":
                     if (args.Length != 2) throw Unsatisfied("optional requires an observed container and literal path.");
                     if (!args[0].IsObject() || !containers.Contains(args[0].AsObject()))

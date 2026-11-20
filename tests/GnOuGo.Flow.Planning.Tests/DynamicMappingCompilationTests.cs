@@ -128,14 +128,13 @@ public sealed class DynamicMappingCompilationTests
     [Fact]
     public async Task FreshExtractionPreservesWholePageCardinalityWhenAnArraySuppliesSelectionCriteria()
     {
-        var model = new EachModel("({positions: source.page.records.filter(r => m.test(r.label,'^(match|other-rule)$')).map(r => r.position)})");
+        var model = new EachModel("({positions: m.indexed(source.page.records).filter(r => m.test(r.value,'^(match|other-rule)$')).map(r => r.index)})");
         var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 4 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var state = PlannerFixture.Capture(new() { Request = new() { TenantId = "whole-page",
             Prompt = "Return the positions of all records matching the selection rules.", Policy = new() { RequireExternalConfirmation = false } } });
         var catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
-        var recordsType = new TaskType { Kind = "array", Items = ProductTransformationPlan.Obj(
-            ("label", new() { Kind = "string" }), ("position", new() { Kind = "integer" })) };
+        var recordsType = new TaskType { Kind = "array", Items = new() { Kind = "string" } };
         var task = new PlanTask { Id = "select_positions", Kind = "transform", Mode = "extract", Objective = state.Request.Prompt,
             Inputs = [new("page", new() { Kind = "input", Source = "page" }),
                 new("rules", new() { Kind = "array", Items = [new() { Kind = "string", Text = "match" }, new() { Kind = "string", Text = "other-rule" }] })],
@@ -156,10 +155,8 @@ public sealed class DynamicMappingCompilationTests
         Assert.Null(PlanningGraphValidation.Member(fresh.Input, "infer_each"));
         var graph = new TaskPlanCompiler().Compile(plan, catalog, state.Request).Graph!;
         var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog))).Workflows["main"];
-        static JsonArray Records(params string[] labels) => new(labels.Select((label, position) => (JsonNode)new JsonObject
-            { ["label"] = label, ["position"] = position }).ToArray());
-        foreach (var (records, expected) in new[] { (Records("none"), new JsonArray()),
-            (Records("match", "none", "other-rule", "match"), new JsonArray(0, 2, 3)) })
+        foreach (var (records, expected) in new[] { (new JsonArray("none"), new JsonArray()),
+            (new JsonArray("match", "none", "other-rule", "match"), new JsonArray(0, 2, 3)) })
         {
             var result = await engine.ExecuteAsync(workflow, new JsonObject { ["page"] = new JsonObject { ["records"] = records } }, PlannerFixture.Ct);
             Assert.True(result.Success, result.Error?.Message);

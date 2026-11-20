@@ -64,6 +64,11 @@ from complete-request token estimates; input fit stays unverified until dispatch
 This changes review evidence only, not mapping execution, approved YAML or historical
 version-1 review behavior.
 
+For an observed array without its own position field, `m.indexed(array)`
+returns pairs containing the original `value` and its zero-based `index`.
+Apply filtering after indexing to preserve the positions of repeated values.
+The helper checks the input array's origin and rejects a derived array.
+
 Pagination is a transport boundary, not evidence of independent business items.
 Preserve grouping and relationships that cross pages when projecting or extracting
 the consumer's view. Bounded examples teach a mapping that is checked against every
