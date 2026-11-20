@@ -356,7 +356,7 @@ public sealed partial class TaskPlanCompiler
                 outputs = Aggregate(outputs, key, target); break;
             case "foreach":
                 if (task.MaxItems is < 1 or > MaximumIterationItems || task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires finite positive item and concurrency ceilings.");
-                var items = Value(task.Items ?? MissingValue(), scope);
+                var items = Value(task.Items ?? MissingValue(), scope, requireNonNull: true);
                 var itemSchema = PlanningContractShapes.IterationItems(items.Schema);
                 if (itemSchema is null) Fail("TASK_ITEMS_INVALID", "Iteration needs an authoritative array contract.");
                 var bounded = items.Schema.DeepClone().AsObject();

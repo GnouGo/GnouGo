@@ -191,7 +191,7 @@ public sealed partial class TaskPlanCompiler
             }
             inspect?.Invoke(path + "/outputs", scope);
         }
-        Bound? Read(TaskValue value, Scope scope, string location)
+        Bound? Read(TaskValue value, Scope scope, string location, bool requireNonNull = false)
         {
             inspect?.Invoke(location, scope);
             if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
@@ -206,7 +206,7 @@ public sealed partial class TaskPlanCompiler
             }
             if (!valid) return null;
             if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
-            Check(location, () => result = Value(value, scope));
+            Check(location, () => result = Value(value, scope, requireNonNull: requireNonNull));
             if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
                 foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
                     foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
@@ -281,7 +281,7 @@ public sealed partial class TaskPlanCompiler
                 var child = new Scope(new(), scope) { FailurePath = scope.FailurePath || scope.Cleanup, NonNullReferences = task.Kind == "conditional" ? NonNullReferences(task.Condition, role == "body") : null };
                 if (task.Kind == "foreach")
                 {
-                    var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
+                    var items = task.Items is null ? null : Read(task.Items, scope, path + "/items", requireNonNull: true);
                     if (items is not null && PlanningContractShapes.IterationItems(items.Schema) is { } itemSchema)
                     { child.Item = new(new() { Kind = "loop_item" }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }); }
                     else

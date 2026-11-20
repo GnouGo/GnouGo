@@ -32,6 +32,20 @@ Recovery now accepts this single annotation difference only on an otherwise
 identical, completed and measured success. A new success writes that annotation
 with its original receipt. All 395 AI.Core tests passed, including the four
 negative cases for changed response bytes, completion, usage and retry decision.
+Receipt recovery on the original two journals then settled EUR 1.01850437
+from the captured tariff without dispatching another attempt. The original
+Server session is still cancelled and both original transports are identical
+to their pre-recovery contents.
+
+Run 25's selected Git comparison returned an ordered, nullable array of
+remaining page arguments. A focused regression found that the grammar could
+express a native loop with its own non-null assertion, but preflight and the
+compiler rejected the guarded collection. Both now narrow that exact binding.
+The regression runs zero, one and three entries, including repeated entries
+in order, and checks failure on null. A guard on another value still fails
+compilation. All 130 related null, loop and iteration tests passed. Draft
+guidance now describes using a producer's ordered arguments in one loop and
+combining each item's checks with its consumer.
 
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing

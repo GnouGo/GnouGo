@@ -328,6 +328,7 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Empty(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics);
         Assert.Contains(anchor + ".body.tasks", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("foreach.maxItems (1..10000)", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("iterate that ordered collection once", request.Prompt, StringComparison.Ordinal);
         inner.MaxItems = TaskPlanCompiler.MaximumIterationItems + 1;
         var raw = new JsonObject { ["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
         var schema = request.StructuredOutputSchema!.AsObject();

@@ -92,7 +92,7 @@ internal static partial class PlanningCompactConstruction
         controlGuidance = createsScopes
             ? "\nChild task lists available here (" + string.Join(", ", childTaskLists) + ") accept recursive " +
                 string.Join(", ", NestedControlKinds) + (step.OperationIds.Count > 0 ? " and selected operation tasks." : " tasks.") +
-                FormattableString.Invariant($" Set foreach.maxItems (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. Use the required capacity within host limits.")
+                FormattableString.Invariant($" Set foreach.maxItems (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. When a producer enumerates the remaining arguments, iterate that ordered collection once. Guard a nullable collection on the loop and put each item's checks beside its consumer. A fixed chain of conditionals cannot cover an unknown runtime count.")
             : "";
         var scopeChoices = new JsonArray();
         if (closure.CloseScope) scopeChoices.Add((JsonNode)PlanningSchemas.Enum(step.Scope));

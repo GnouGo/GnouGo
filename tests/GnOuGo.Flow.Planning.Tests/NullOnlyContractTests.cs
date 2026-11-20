@@ -156,6 +156,48 @@ public sealed class NullOnlyContractTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task IterationConsumesAnOptionalCollectionAfterItsOwnNonNullGuard(bool guardCollection)
+    {
+        var engine = new WorkflowEngine();
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        var collection = new TaskType { Kind = "array", Nullable = true, Items = new() { Kind = "string" } };
+        var loop = new PlanTask { Id = "visit", Kind = "foreach", Objective = "Visit every observed reference in order.",
+            Items = Input("references"), MaxItems = 4, Requires = new() { Kind = "predicate", Predicate = "not_equal",
+                Items = [Input(guardCollection ? "references" : "other"), new()] },
+            Body = Export(new() { Kind = "item" }) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "references", Type = collection }, new() { Name = "other", Type = collection }],
+            Root = new() { Tasks = [loop], Outputs = [new("visited", Output("visit"))] } };
+        var state = PlannerFixture.Session();
+        state.Requirements = PlannerFixture.Requirements();
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), grammar, grammar)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, grammar));
+        var parsed = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var checkedPlan = TaskPlanCompiler.ValidateConstruction(parsed, catalog, state.Request, new HashSet<string>(StringComparer.Ordinal));
+        var compilation = new TaskPlanCompiler().Compile(parsed, catalog);
+        if (!guardCollection)
+        {
+            Assert.Contains(checkedPlan.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID");
+            Assert.Contains(compilation.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID");
+            return;
+        }
+        Assert.Empty(checkedPlan.Diagnostics);
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        foreach (var references in new JsonArray?[] { null, [], ["a"], ["b", "a", "b"] })
+        {
+            var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
+                new JsonObject { ["references"] = references?.DeepClone(), ["other"] = new JsonArray() }, PlannerFixture.Ct);
+            Assert.Equal(references is not null, result.Success);
+            if (references is not null) Assert.True(JsonNode.DeepEquals(references, result.Outputs!["visited"]));
+        }
+    }
+
+    [Theory]
     [InlineData("and", true)]
     [InlineData("or", true)]
     [InlineData("unsafe_or", false)]
