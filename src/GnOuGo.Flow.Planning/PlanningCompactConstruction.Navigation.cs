@@ -111,12 +111,23 @@ internal static partial class PlanningCompactConstruction
             if (scope["tasks"]!.AsArray().Count == scope["taskCount"]!.GetValue<int>() &&
                 scope["always"]!.AsArray().Count == scope["alwaysCount"]!.GetValue<int>())
                 addresses.Remove("scope:" + path);
-            foreach (var task in scope["tasks"]!.AsArray().Concat(scope["always"]!.AsArray()).OfType<JsonObject>())
+            RemoveDisplayedLeaves(scope);
+        }
+        if (context["evidence"] is JsonObject evidence)
+            foreach (var (address, value) in evidence)
+                if (address.StartsWith("scope:", StringComparison.Ordinal) && value is JsonObject loaded &&
+                    loaded["path"]?.ToString() is { } loadedPath && address == "scope:" + loadedPath &&
+                    JsonNode.DeepEquals(loaded, PlanningConstruction.ScopeEvidence(state, loadedPath)))
+                    RemoveDisplayedLeaves(loaded);
+        ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
+            supportedRereads: findingEvidence);
+
+        void RemoveDisplayedLeaves(JsonObject displayed)
+        {
+            foreach (var task in displayed["tasks"]!.AsArray().Concat(displayed["always"]!.AsArray()).OfType<JsonObject>())
                 if (task["id"]?.ToString() is { } id && task["scopes"] is not JsonArray { Count: > 0 })
                     addresses.Remove("task:" + id);
         }
-        ConstrainEvidenceChoices(state, schema, addresses, maximum: HasEvidenceAdmissionLimit(state) ? 1 : 8,
-            supportedRereads: findingEvidence);
     }
 
     internal static bool IsEvidenceAdmissionLimit(PlanningDiagnostic diagnostic) => diagnostic.Required &&

@@ -882,6 +882,11 @@ removed from the context, no result is equated with another result, and no bindi
 repair, interface publication or execution authority is created. Cold recovery uses
 the original issued request and map without regenerating this presentation.
 
+When an explicitly retrieved scope already displays a leaf task, the next draft
+uses its declaration there. This covers ordinary tasks and cleanup. The
+planner compares the displayed scope with the current plan before removing
+the separate task lookup. Containers keep their navigation to nested bodies.
+
 An empty initial root exposes its existing structural evidence in transient
 `scopeContext`, without adding retained evidence, checkpoints, approvals or calls.
 Strict packing may remove these redundant details while retaining the original scope

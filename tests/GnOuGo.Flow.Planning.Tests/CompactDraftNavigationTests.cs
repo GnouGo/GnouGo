@@ -99,6 +99,41 @@ public sealed class CompactDraftNavigationTests
         Assert.Equal(0, state.ModelCalls);
     }
 
+    [Fact]
+    public void LoadedChildScopeSuppliesItsExactNormalAndCleanupLeavesDuringDrafting()
+    {
+        var state = State();
+        const string path = "/tasks/inspect/body";
+        var body = new TaskScope();
+        body.Tasks.Add(new() { Id = "normalize", Kind = "value", Objective = "Normalize the record once." });
+        body.Tasks.Add(new() { Id = "nested", Kind = "sequence", Body = new() });
+        body.Always.Add(new() { Id = "release", Kind = "value", Objective = "Release the observed resource." });
+        state.Plan!.Root.Tasks.Add(new() { Id = "inspect", Kind = "sequence", Body = body });
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Scope = path;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var first = PlanningConstruction.DraftRequest(state, repair: false);
+        AssertResponse(first, state, "scope:" + path, valid: true);
+        foreach (var id in new[] { "normalize", "release", "nested" })
+            AssertResponse(first, state, "task:" + id, valid: true);
+        PlanningConstruction.LoadEvidence(state, ["scope:" + path],
+            followup: current => PlanningConstruction.DraftRequest(current, repair: false), purpose: PlanningConstruction.DraftPurpose);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var scope = Context(request)["evidence"]!["scope:" + path]!;
+        Assert.Equal(body.Tasks[0].Objective, scope["tasks"]![0]!["objective"]!.ToString());
+        Assert.Equal(body.Always[0].Objective, scope["always"]![0]!["objective"]!.ToString());
+        foreach (var id in new[] { "normalize", "release" })
+            AssertResponse(request, state, "task:" + id, valid: false);
+        AssertResponse(request, state, "task:nested", valid: true);
+        AssertResponse(request, state, "scope:/tasks/nested/body", valid: true);
+        Assert.Equal(step.BaseHash, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(0, state.ModelCalls);
+
+        body.Tasks[0].Objective = "Normalize the updated record.";
+        state.Construction.Compact!.CurrentStep!.BaseHash = PlanningConstruction.Hash(state.Plan);
+        AssertResponse(PlanningConstruction.DraftRequest(state, repair: false), state, "task:normalize", valid: true);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
