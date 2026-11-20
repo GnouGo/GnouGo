@@ -44,6 +44,15 @@ independent read-back by review ID. Request 48 on the original build reused
 the already discovered PR read and both write operations for its next draft.
 [Discovery and permission regression](../../tests/GnOuGo.Agent.Server.Tests/DelegatedPlanningDiscoveryTests.cs)
 
+Request 49 fetched five previously inspected input branches again. The
+complete branch schemas and identities matched requests 43 and 50 after
+resolving their presentation pointers. The rejected step still recorded all
+seven selected addresses (five inputs and two outputs), but its evidence
+contained only the last task read. The inputs now share the existing bounded
+archive with the outputs and are revalidated on replacement. The seven
+expanded original views occupied 7,541 UTF-8 bytes in compact JSON.
+[Contract inspection regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactContractInspectionTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |

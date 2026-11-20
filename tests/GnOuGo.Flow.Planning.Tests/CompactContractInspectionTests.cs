@@ -239,12 +239,14 @@ public sealed partial class CompactDiscoveryProtocolTests
     [InlineData("denied", false)]
     [InlineData("differentVersion", false)]
     [InlineData("differentSchema", false)]
-    public async Task ReplacingAControlReusesOutputBranchesDisplayedBeforeItsLastCheckpoint(string change, bool available)
+    public async Task ReplacingAControlReusesInspectedInputAndOutputBranchesDisplayedBeforeItsLastCheckpoint(string change, bool available)
     {
         var (state, runtime) = await Ready();
         AddOperations(state, 1);
         state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
-        var discovered = new InspectionCatalog();
+        var discovered = new InspectionCatalog { OptionalInput = true };
+        var summary = state.Discovery.Pages[0].Capabilities[0];
+        state.Discovery.Pages[0].Capabilities[0] = summary with { Operation = TaskOperations.Describe(discovered.Contract(summary)) };
         runtime.Capabilities = discovered;
         runtime.Respond = (request, _) => Wire(request, Inspect("alpha", "operation_0"));
         state = await Advance(state, runtime);
@@ -254,12 +256,16 @@ public sealed partial class CompactDiscoveryProtocolTests
         previous.OperationIds = ["operation_0"];
         var identity = "schema:operation_0@version_0:/output";
         var original = PlanningCompactConstruction.LoadContractEvidence(state, identity);
+        const string input = "schema:operation_0@version_0:/input/properties/optional";
+        var inspectedInput = PlanningCompactConstruction.LoadContractEvidence(state, input);
         Assert.NotNull(original);
+        Assert.NotNull(inspectedInput);
         // A continued checkpoint can discard the navigation batch. The next
         // draft still renders the explicitly inspected output on its operation.
         state.Construction.Evidence = null;
         var shown = PlanningCompactConstruction.ContractViews(state, useCandidate: false);
         Assert.True(JsonNode.DeepEquals(original, shown[0]!["selectedOutputs"]![0]));
+        Assert.True(JsonNode.DeepEquals(inspectedInput["schema"], shown[0]!["inputSchema"]!["properties"]!["optional"]));
         state.Diagnostics = [new("CONSTRUCTION_RESELECTION_REQUIRED", "/step", "Use a different control for the same observation.")];
         PlanningCompactConstruction.Reselect(state, "Use the same observation in the selected collection control.");
         state = PlannerFixture.Clone(state);
@@ -273,7 +279,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         if (change == "differentSchema") state.Discovery.Resolved.Single(c => c.Id == "operation_0").OutputSchema["description"] = "Updated restriction";
         PlanningCompactConstruction.RetainPrerequisiteEvidence(state);
         Assert.Equal(available, state.Construction.Compact.CurrentStep.SchemaPointers.Contains(identity));
+        Assert.Equal(available, state.Construction.Compact.CurrentStep.SchemaPointers.Contains(input));
         if (available) Assert.True(JsonNode.DeepEquals(original, state.Construction.Evidence![identity]));
+        if (available) Assert.True(JsonNode.DeepEquals(inspectedInput, state.Construction.Evidence![input]));
         Assert.Single(discovered.Reads);
     }
 

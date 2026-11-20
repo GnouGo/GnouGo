@@ -447,13 +447,14 @@ internal static partial class PlanningCompactConstruction
         var evidence = state.Construction!.Evidence?.DeepClone().AsObject();
         if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) || !step.DiscoveryComplete || step.SchemaPointers.Count == 0)
             return evidence;
-        // A continued draft still displays selected output schemas after its navigation
-        // batch is cleared. Keep those originals for the existing verified replacement path.
+        // Continued drafts still display explicitly inspected input and output branches
+        // after their navigation batch is cleared. Retain them for verified reselection.
         var remaining = ContinuedScopePreviewBytes;
         foreach (var address in step.SchemaPointers.AsEnumerable().Reverse())
         {
             var parts = address.Split(':', 3);
-            if (parts.Length != 3 || !OutputEvidence(parts[0], parts[2]) || evidence?.ContainsKey(address) == true) continue;
+            if (parts.Length != 3 || parts[0] != "schema" ||
+                !(InputEvidence(parts[0], parts[2]) || OutputEvidence(parts[0], parts[2])) || evidence?.ContainsKey(address) == true) continue;
             var at = parts[1].IndexOf('@');
             if (at <= 0 || !step.OperationIds.Contains(Uri.UnescapeDataString(parts[1][..at]), StringComparer.Ordinal)) continue;
             JsonNode? original;
