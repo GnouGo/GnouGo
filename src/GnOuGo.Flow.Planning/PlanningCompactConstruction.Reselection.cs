@@ -35,9 +35,10 @@ internal static partial class PlanningCompactConstruction
         // Selection has already seen the earlier model explanation. Draft against
         // the actual replacement and child forms, with the explanation still available as evidence.
         feedback.Remove("reason");
+        feedback["evidenceRole"] = "Previous tentative selection. Use the current and nested control contracts below for this draft.";
         feedback["currentControl"] = ControlContract(kind);
         var nested = new JsonObject();
-        foreach (var child in NestedControlKinds.Where(child => child != kind)) nested[child] = ControlContract(child);
+        foreach (var child in NestedControlKinds) nested[child] = ControlContract(child);
         feedback["nestedControls"] = nested;
         return feedback;
 

@@ -35,7 +35,9 @@ public sealed class ReselectionFeedbackTests
             Assert.Null(feedback["reason"]);
             var contract = feedback["currentControl"]!;
             Assert.Equal(nextKind, contract["kind"]!.ToString());
-            var loop = nextKind == "foreach" ? contract : feedback["nestedControls"]!["foreach"]!;
+            var nested = feedback["nestedControls"]!.AsObject();
+            Assert.True(JsonNode.DeepEquals(contract, nested[nextKind]));
+            var loop = nested["foreach"]!;
             var issued = PlanningModelCalls.PrepareRequest(restored, PlanningConstruction.DraftPurpose, draft.Prompt, draft.StructuredOutputSchema!.AsObject());
             var shape = Assert.Single(PlanningSchemaReferences.Walk(issued.StructuredOutputSchema!.AsObject(), "", 0),
                 entry => entry.Schema["properties"]?["kind"]?["enum"] is JsonArray { Count: 1 } kinds && kinds[0]?.ToString() == "foreach");

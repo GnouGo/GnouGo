@@ -47,6 +47,19 @@ compilation. All 130 related null, loop and iteration tests passed. Draft
 guidance now describes using a producer's ordered arguments in one loop and
 combining each item's checks with its consumer.
 
+The paid follow-up Amazon control probe `amazon-control-20261120-03` used
+the four pieces of evidence requested by the earlier probe. It returned a
+complete, schema-valid reselection, with zero loops and zero operations
+(one physical call, EUR 0.71056). The model claimed it could not specify a
+bound. The actual HTTP request included exactly the issued strict schema:
+at both the outer and nested task positions it required an integer
+`maxItems` between 1 and 10,000. The replacement-control summary listed
+the outer loop but omitted the same kind from its list of legal children.
+Two failing examples reproduced that mismatch. The correction presents
+every legal recursive control and identifies the earlier selection's
+explanation as historical evidence. All 107 related regression tests passed.
+The source plan and earlier physical requests remain available unchanged.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
