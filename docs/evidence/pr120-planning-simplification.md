@@ -33,6 +33,30 @@ response was 77.65 seconds across 13 calls in review 17 and 20.67 seconds
 across 42 calls in review 18. The runs used different generated requests.
 [Campaign accounting regressions](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
 
+### Amazon session f6054746b98d48ad80f73685e32f10f8
+
+The Server accepted six checkpoints, including the search, complete snapshot,
+ordered source positions and browser finalizer. It then abandoned the loop on
+the claim that the response grammar lacked `maxItems`. For calls 16 and 18 the
+actual provider message and strict schema matched the Server journal. Both
+contained the limit. Later drafts repeated the model's earlier claim verbatim
+in their reselection context while offering the same control and read operation.
+
+After two consecutive model-only abandonments of the same control on the
+same baseline, a new draft now displays the control's required fields and
+integer ranges. The original reasons remain at their issued evidence addresses.
+Cold replays retained the full reason on calls 18 and 20 and showed the field
+contract on calls 22 and 24. All four retained the historical reasons. The
+regressions also keep actual validation findings and changed selections visible.
+[Reselection regressions](../../tests/GnOuGo.Flow.Planning.Tests/ReselectionFeedbackTests.cs)
+
+The operator stopped the run after receipt 28. At revision 77 it had issued
+29 logical requests, made 28 physical calls, used EUR 10.51880 at captured
+tariffs and recorded 182 advisory warnings. The untransmitted request retained
+EUR 1.76433 under evidence hash
+`e7d2dc4a067cd80b74a1c72ba3397ed56de6145d4156843af5ac7d78a4afc738`.
+There were zero business dispatches and no workbook.
+
 ### Amazon session a67678773441457184336e8f46189fbc
 
 At revision 112 the Server had accepted thirteen independent extractions

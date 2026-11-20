@@ -1,10 +1,55 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ReselectionFeedbackTests
 {
+    [Theory]
+    [InlineData("foreach", "CONSTRUCTION_TENTATIVE_SELECTION", true)]
+    [InlineData("sequence", "CONSTRUCTION_TENTATIVE_SELECTION", false)]
+    [InlineData("foreach", "CONSTRUCTION_STEP_INVALID", false)]
+    public void ReselectedControlUsesItsDeclaredFieldsWhileKeepingTheOriginalRejection(string nextKind, string diagnostic, bool sameTentative)
+    {
+        var (state, _) = FocusedDiscoveryTests.Ready(new("source", 1));
+        var compact = state.Construction!.Compact!;
+        var selected = compact.CurrentStep!;
+        selected.Kind = "foreach";
+        selected.DiscoveryComplete = true;
+        const string reason = "The selected task does not offer the required bound.";
+        state.Diagnostics = [new(diagnostic, "/step", reason)];
+        PlanningCompactConstruction.Reselect(state, reason);
+        Assert.Equal(reason, PlanningCompactConstruction.ImplementationContext(state)["reselection"]?["reason"]?.ToString());
+        compact.CurrentStep = selected;
+        Assert.Equal(reason, PlanningCompactConstruction.Context(state)["reselection"]?["reason"]?.ToString());
+        state.Diagnostics = [new(diagnostic, "/step", reason)];
+        PlanningCompactConstruction.Reselect(state, reason);
+        selected.Id = "replacement";
+        selected.Kind = nextKind;
+        compact.CurrentStep = selected;
+        var restored = PlannerFixture.Clone(state);
+        var draft = PlanningConstruction.DraftRequest(restored, repair: false);
+        var context = JsonNode.Parse(draft.Prompt[(draft.Prompt.LastIndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
+        var feedback = context["reselection"]!;
+        Assert.Equal(reason, restored.Construction!.Compact!.RejectedSteps[0]["reason"]!.ToString());
+        Assert.Equal("rejected:1", feedback["evidence"]!.ToString());
+        if (sameTentative)
+        {
+            Assert.Null(feedback["reason"]);
+            var contract = feedback["currentControl"]!;
+            Assert.Equal("foreach", contract["kind"]!.ToString());
+            Assert.Contains("maxItems", contract["required"]!.AsArray().Select(field => field!.ToString()));
+            Assert.Equal(1, contract["integerFields"]!["maxItems"]!["minimum"]!.GetValue<int>());
+            Assert.Equal(TaskPlanCompiler.MaximumIterationItems, contract["integerFields"]!["maxItems"]!["maximum"]!.GetValue<int>());
+        }
+        else
+        {
+            Assert.Equal(reason, feedback["reason"]!.ToString());
+            Assert.Null(feedback["currentControl"]);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
