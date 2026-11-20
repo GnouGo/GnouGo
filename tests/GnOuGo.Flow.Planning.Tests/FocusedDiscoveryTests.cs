@@ -12,6 +12,32 @@ public sealed class FocusedDiscoveryTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
+    public async Task SmallProviderFocusMenuAllowsTheLastSourceAndItsExactPrerequisiteOnTheFirstDecision()
+    {
+        var source = new Source("source_last", 1);
+        var (state, runtime) = Ready(source);
+        for (var n = 0; n < 4; n++)
+            state.Discovery.Sources.Insert(n, new("source_" + n, "A provider of original operation metadata for the corresponding business requirement."));
+        state.Construction!.Compact!.CurrentStep!.Prerequisites = [
+            new() { Need = "Resolve the current revision.", EvidenceAddresses = ["requirement:req_0"] },
+            new() { Need = "Compare the two specified revisions.", EvidenceAddresses = ["requirement:req_0"] }];
+        var focuses = PlanningDiscoveryFocus.Choices(state);
+        var canonical = PlanningCompactConstruction.ProviderRequestPage(state, 0, 8);
+        var menu = PlanningCompactConstruction.DiscoveryContext(state)["providerRequests"]!;
+        Assert.Equal(15, menu["items"]!.AsArray().Count);
+        Assert.Equal(5, menu["items"]!.AsArray().Count(item => item!["description"] is not null));
+        Assert.Null(menu["next"]);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(menu.ToJsonString()) <= System.Text.Encoding.UTF8.GetByteCount(canonical.ToJsonString()));
+        Assert.True(JsonNode.DeepEquals(canonical, PlanningCompactConstruction.ProviderRequestPage(state, 0, 8)));
+        runtime.Respond = (request, _) => Discover(request, state, [source.Id], focuses[2].Id);
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal(focuses[2].Id, Assert.Single(state.Discovery.Pages).FocusId);
+        Assert.Equal(1, source.Reads);
+        Assert.Single(runtime.Calls);
+    }
+
+    [Fact]
     public async Task SmallFocusDirectoryOnAnInspectedSourceAllowsDirectPrerequisiteDiscovery()
     {
         var source = new Source("stored-records", 1);

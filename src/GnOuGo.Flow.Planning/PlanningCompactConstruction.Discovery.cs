@@ -110,14 +110,37 @@ internal static partial class PlanningCompactConstruction
     {
         if (ProviderEvidencePage(state) is { } page) return page;
         if (DescribedProviderRequests(state) is { } described) return described;
+        // Keep the exact actions for later sources visible when sharing their
+        // descriptions fits the entire menu within the ordinary overview size.
+        const int overviewSize = 8;
+        var options = ProviderRequestOptions(state);
+        var offset = Math.Max(0, options.FindIndex(option => option.Available));
+        var overview = ProviderRequestPage(state, offset, overviewSize);
+        if (offset != 0 || !PlanningDiscoveryFocus.Enabled(state) || options.Count <= overviewSize || options.Count > 4 * overviewSize ||
+            options.Select(option => option.SourceId).Distinct().Count() == options.Take(overviewSize).Select(option => option.SourceId).Distinct().Count())
+            return overview;
+        var complete = CompactProviderFocusMenu(ProviderRequestPage(state, 0, options.Count));
+        return System.Text.Encoding.UTF8.GetByteCount(complete.ToJsonString()) <= System.Text.Encoding.UTF8.GetByteCount(overview.ToJsonString())
+            ? complete : overview;
+    }
+
+    private static JsonObject CompactProviderFocusMenu(JsonObject page)
+    {
+        var sources = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in page["items"]!.AsArray().OfType<JsonObject>())
         {
-            // Inspecting one operation does not exhaust other providers for this
-            // substep. Keep their exact bounded actions beside the original evidence.
-            var firstAvailable = ProviderRequestOptions(state).FindIndex(option => option.Available);
-            // The decision overview can expose more choices without changing
-            // canonical evidence pages or selecting any provider automatically.
-            return ProviderRequestPage(state, Math.Max(0, firstAvailable), 8);
+            if (!sources.Add(row["sourceId"]!.ToString()))
+            {
+                row.Remove("description");
+                row.Remove("descriptionComplete");
+                row.Remove("descriptionEvidence");
+            }
+            if (row["unavailable"] is null) row.Remove("unavailable");
+            if (row["resultCount"]?.GetValue<int>() == 0) row.Remove("resultCount");
         }
+        page["descriptionsBySourceId"] = true;
+        page["defaults"] = new JsonObject { ["unavailable"] = null, ["resultCount"] = 0 };
+        return page;
     }
 
     private static JsonObject? DecisionOperationPage(PlanningSession state)
@@ -131,8 +154,10 @@ internal static partial class PlanningCompactConstruction
     private static JsonObject OmitDisplayedDirectoryReads(PlanningSession state, JsonObject context)
     {
         if (context["providerRequests"] is not JsonObject page || page["items"] is not JsonArray { Count: > 0 } items ||
-            page["total"]?.GetValue<int>() != items.Count || page["next"] is not null ||
-            !JsonNode.DeepEquals(page, ProviderRequestPage(state, 0, items.Count))) return context;
+            page["total"]?.GetValue<int>() != items.Count || page["next"] is not null) return context;
+        var canonical = ProviderRequestPage(state, 0, items.Count);
+        if (page["descriptionsBySourceId"]?.GetValue<bool>() == true) canonical = CompactProviderFocusMenu(canonical);
+        if (!JsonNode.DeepEquals(page, canonical)) return context;
 
         // Each current action is already on screen with its exact source description link.
         // Keep the original canonical pages available to previously issued requests.

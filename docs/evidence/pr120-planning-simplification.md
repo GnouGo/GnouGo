@@ -13,6 +13,14 @@ in full in both the retained contract and the discovery list. Fresh discovery
 omits that duplicate read when version, hash, complete original text and
 displayed text agree. Explicit prerequisite citations retain access.
 
+Call 13 had five available providers and three discovery focuses, all at their
+initial cursor. Its eight displayed actions covered three providers. The Git
+provider first appeared in the model's discovery requests on call 20. The planner
+now offers all fifteen source/focus pairs when sharing descriptions keeps the
+complete menu within the size of the original preview. Each action retains its
+own source, focus, exact cursor and availability. A regression dispatches the
+last provider with the selected prerequisite in one call.
+
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 
 Calls 10 and 12 inspected the Copilot and command-runner contracts. Call 17
