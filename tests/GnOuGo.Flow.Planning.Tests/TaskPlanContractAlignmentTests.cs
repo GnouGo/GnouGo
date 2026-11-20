@@ -148,7 +148,7 @@ public sealed class TaskPlanContractAlignmentTests
         var loopFields = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!.AsObject();
         Assert.Equal("body", loopFields.Last().Key);
         var iteration = loopFields["maxItems"]!;
-        Assert.Contains($"foreach.maxItems accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
+        Assert.Contains($"foreach.itemLimit accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
         Assert.Contains("one foreach", request.Prompt);
         Assert.Contains("existing ordered groups", request.Prompt);
         var task = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Process each observation","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":200,"maxConcurrency":1}""")!;

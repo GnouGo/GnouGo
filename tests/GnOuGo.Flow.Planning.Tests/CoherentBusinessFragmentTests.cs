@@ -1,3 +1,4 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -321,20 +322,33 @@ public sealed class CoherentBusinessFragmentTests
         var outer = new PlanTask { Id = "batch", Kind = anchor, Objective = "Process the batch.", Body = new() { Tasks = [inner] } };
         if (anchor == "foreach") outer.Items = new() { Kind = "input", Source = "records" };
         var extension = new PlanningConstructionExtension { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"], Tasks = [outer] };
+        state.Construction.IssuedBaseHash = state.Construction.Compact.CurrentStep.BaseHash = PlanningConstruction.Hash(state.Plan);
         var request = PlanningConstruction.DraftRequest(state, repair: false);
-        AssertDraftAccepts(state, extension);
-        var candidate = PlanningConstruction.Apply(state, extension);
+        var schema = request.StructuredOutputSchema!.AsObject();
+        var response = new JsonObject { ["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
+        var wire = PlanningCorpus.Transport(response, schema, schema)!;
+        var nested = wire["extension"]!["tasks"]![0]!["body"]!["tasks"]![0]!.AsObject();
+        Assert.Equal(200, nested["itemLimit"]?.GetValue<int>());
+        Assert.False(nested.ContainsKey("maxItems"));
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        var normalized = PlanningConstruction.NormalizeDraftResponse(PlannerFixture.Clone(state), wire, request);
+        var restored = normalized["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
+        Assert.Equal(200, restored.Tasks[0].Body!.Tasks[0].MaxItems);
+        Assert.Equal(200, nested["itemLimit"]!.GetValue<int>());
+        nested["maxItems"] = 100;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        Assert.Throws<PlanningConflictException>(() => PlanningConstruction.NormalizeDraftResponse(state, wire, request));
+        var candidate = PlanningConstruction.Apply(state, restored);
         PlanningCompactConstruction.ValidateExtension(state, candidate);
         Assert.Empty(new TaskPlanCompiler().Compile(candidate.Plan, state.Catalog!, state.Request).Diagnostics);
         Assert.Contains(anchor + ".body.tasks", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("foreach.maxItems (1..10000)", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("foreach.itemLimit (1..10000)", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("iterate that ordered collection once", request.Prompt, StringComparison.Ordinal);
         inner.MaxItems = TaskPlanCompiler.MaximumIterationItems + 1;
         var raw = new JsonObject { ["extension"] = PlanningConstruction.Node(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
-        var schema = request.StructuredOutputSchema!.AsObject();
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(PlanningCorpus.Transport(raw, schema, schema)!, schema));
         state.Construction.Compact.CurrentStep.Kind = "value";
-        Assert.DoesNotContain("foreach.maxItems (", PlanningConstruction.DraftRequest(state, repair: false).Prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("foreach.itemLimit (", PlanningConstruction.DraftRequest(state, repair: false).Prompt, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -919,7 +919,9 @@ public sealed class CompactConstructionContractsTests
         step.BlockId = state.Construction.Compact.CurrentBlockId;
         step.Kind = "foreach";
         state.Construction.Compact.CurrentStep = step;
-        var schema = PlanningCompactConstruction.DraftSchema(state);
+        state.Construction.IssuedBaseHash = step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var schema = request.StructuredOutputSchema!.AsObject();
         var response = JsonNode.Parse("""
             {"baseHash":"","requirements":null,"commitments":null,"discoveryRequests":null,"clarifications":null,"evidenceRequests":null,"rollbackTask":null,"rollbackReason":null,"reselectStep":null,
              "extension":{"scope":"/root","tasks":[{"id":"loop","kind":"foreach","objective":"Visit every supplied item","dependsOn":[],"requires":null,
@@ -933,7 +935,8 @@ public sealed class CompactConstructionContractsTests
             {"id":"hidden","kind":"value","objective":"A hidden nested task","dependsOn":[],"requires":null,"outputs":[]}
             """)!);
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
-        var extension = response["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
+        var normalized = PlanningConstruction.NormalizeDraftResponse(state, response, request);
+        var extension = normalized["extension"]!.Deserialize(PlanningJsonContext.Default.PlanningConstructionExtension)!;
         var candidate = PlanningConstruction.Apply(state, extension);
         PlanningCompactConstruction.ValidateExtension(state, candidate);
         Assert.Equal(2, candidate.TaskIds.Count);

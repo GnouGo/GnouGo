@@ -48,7 +48,7 @@ internal static partial class PlanningCompactConstruction
         tasks.Clear();
         var kinds = BusinessFragmentKinds(state);
         foreach (var allowed in kinds.Where(allowed => allowed != "operation"))
-            foreach (var shape in PlanningSchemas.TaskShapes(state, allowed, deriveExtractionOutput: true)) tasks.Add(shape);
+            foreach (var shape in PlanningSchemas.TaskShapes(state, allowed, compactDraft: true)) tasks.Add(shape);
         if (step.OperationIds.Count > 0)
             foreach (var capability in SelectedContracts(state)) tasks.Add((JsonNode)OperationTask(capability));
         if (step.GroupId is not null)
@@ -63,7 +63,7 @@ internal static partial class PlanningCompactConstruction
             // operations/calls stay shared with the top-level anchor grammar.
             var nested = new JsonArray((JsonNode)PlanningSchemas.Ref("task"));
             foreach (var control in controls)
-                foreach (var shape in PlanningSchemas.TaskShapes(state, control)) nested.Add(shape);
+                foreach (var shape in PlanningSchemas.TaskShapes(state, control, compactDraft: true)) nested.Add(shape);
             definitions["nestedTask"] = new JsonObject { ["anyOf"] = nested };
             nestedTask = "nestedTask";
         }
@@ -94,7 +94,7 @@ internal static partial class PlanningCompactConstruction
         controlGuidance = createsScopes
             ? "\nChild task lists available here (" + string.Join(", ", childTaskLists) + ") accept recursive " +
                 string.Join(", ", NestedControlKinds) + (step.OperationIds.Count > 0 ? " and selected operation tasks." : " tasks.") +
-                FormattableString.Invariant($" Set foreach.maxItems (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. When a producer enumerates the remaining arguments, iterate that ordered collection once. Guard a nullable collection on the loop and put each item's checks beside its consumer. A fixed chain of conditionals cannot cover an unknown runtime count.")
+                FormattableString.Invariant($" Set foreach.itemLimit (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. When a producer enumerates the remaining arguments, iterate that ordered collection once. Guard a nullable collection on the loop and put each item's checks beside its consumer. A fixed chain of conditionals cannot cover an unknown runtime count.")
             : "";
         var scopeChoices = new JsonArray();
         if (closure.CloseScope) scopeChoices.Add((JsonNode)PlanningSchemas.Enum(step.Scope));
@@ -315,8 +315,8 @@ internal static partial class PlanningCompactConstruction
                 " Retrieval expands binding grammar. [] does not mean no arguments are needed.");
         if (controls.Contains("foreach"))
         {
-            hints.Add("foreach.maxItems is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
-            hints.Add("Use a finite supported capacity; the TaskPlan default maxItems=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
+            hints.Add("foreach.itemLimit is the TOTAL input-item ceiling; excess fails, it never samples or truncates. maxConcurrency limits simultaneous workers, not total items. Neither bound guarantees a nonempty collection.");
+            hints.Add("Use a finite supported capacity; the default itemLimit=" + new PlanTask().MaxItems.ToString(System.Globalization.CultureInfo.InvariantCulture) + ". Assess conflicts with explicit original bounds; unspecified capacity remains unverified. Runtime ceilings still apply.");
         }
         if (controls.Contains("foreach") || scope?.Owner?.Kind == "foreach")
             hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Export an ordered array of fields per item for a matrix consumer. Prepend a required header by flattening [single-row matrix, collected matrix] one level. Within the body, item and index refer to the current iteration. Bind a positionally corresponding array element with at_index(array,index).");

@@ -41,11 +41,11 @@ public sealed class ReselectionFeedbackTests
             var issued = PlanningModelCalls.PrepareRequest(restored, PlanningConstruction.DraftPurpose, draft.Prompt, draft.StructuredOutputSchema!.AsObject());
             var shape = Assert.Single(PlanningSchemaReferences.Walk(issued.StructuredOutputSchema!.AsObject(), "", 0),
                 entry => entry.Schema["properties"]?["kind"]?["enum"] is JsonArray { Count: 1 } kinds && kinds[0]?.ToString() == "foreach");
-            Assert.Contains("maxItems", loop["required"]!.AsArray().Select(field => field!.ToString()));
+            Assert.Contains("itemLimit", loop["required"]!.AsArray().Select(field => field!.ToString()));
             Assert.True(JsonNode.DeepEquals(shape.Schema["required"], loop["required"]));
             foreach (var constraint in new[] { "type", "minimum", "maximum" })
-                Assert.True(JsonNode.DeepEquals(shape.Schema["properties"]!["maxItems"]![constraint], loop["integerFields"]!["maxItems"]![constraint]));
-            Assert.Equal(TaskPlanCompiler.MaximumIterationItems, loop["integerFields"]!["maxItems"]!["maximum"]!.GetValue<int>());
+                Assert.True(JsonNode.DeepEquals(shape.Schema["properties"]!["itemLimit"]![constraint], loop["integerFields"]!["itemLimit"]![constraint]));
+            Assert.Equal(TaskPlanCompiler.MaximumIterationItems, loop["integerFields"]!["itemLimit"]!["maximum"]!.GetValue<int>());
         }
         else
         {

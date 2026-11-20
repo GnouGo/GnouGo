@@ -269,18 +269,18 @@ internal static class PlanningSchemas
         return new() { ["anyOf"] = new JsonArray(operations.Concat(TaskShapes(state, null)).ToArray()) };
     }
 
-    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind, bool deriveExtractionOutput = false)
+    internal static IEnumerable<JsonNode?> TaskShapes(PlanningSession state, string? kind, bool compactDraft = false)
     {
         if (kind is null or "value")
             yield return Described(TaskShape("value", ("outputs", Array(Ref("output")))), "Copies/assembles values; objectives do not compute.");
         if (kind is null or "transform")
         {
             var input = Described(Ref("id"), "Exact named binding in this task's inputs.");
-            var each = deriveExtractionOutput ? Object(("input", input)) :
+            var each = compactDraft ? Object(("input", input)) :
                 Object(("input", input), ("output", Described(Ref("id"), "Exact name of the sole array result field.")));
             yield return Described(TaskShape("transform", ("mode", Enum("extract")),
                 ("each", each), ("inputs", NonEmptyArray(Ref("output"))),
-                ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(deriveExtractionOutput ? "id" : "goal")),
+                ("resultType", Object(("kind", Enum("object")), ("fields", Array(Object(("name", Ref(compactDraft ? "id" : "goal")),
                     ("type", new JsonObject { ["anyOf"] = new JsonArray(ArrayTypeShapes("resultType", null).Cast<JsonNode?>().ToArray()) })), 1, 1))))),
                 "Independent extraction: each names one collection input and the sole array result field. Produce one result per item in order. Group related fields from the same item in one result object. Preserve nested arrays. No global comparison, filtering or implicit flattening. Shared inputs are read-only. Mapping examples are bounded; " +
                 (TaskPlanCompiler.UsesAdaptiveMappings(state.Request.Options["mapping_profile"]?.ToString())
@@ -296,7 +296,7 @@ internal static class PlanningSchemas
         if (kind is null or "conditional") yield return TaskShape("conditional", ("condition", Ref("guard")), ("body", Ref("scope")), ("otherwise", Ref("scope")));
         if (kind is null or "parallel") yield return TaskShape("parallel", ("branches", Array(Ref("scope"), 2)), ("maxConcurrency", Integer(1, 100)));
         if (kind is null or "foreach")
-            yield return TaskShape("foreach", ("items", Ref("value")), ("maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),
+            yield return TaskShape("foreach", ("items", Ref("value")), (compactDraft ? "itemLimit" : "maxItems", Described(Integer(1, TaskPlanCompiler.MaximumIterationItems),
                 "TOTAL iteration ceiling, not a nonempty guarantee; declare array cardinality in its type.")), ("parallel", Type("boolean")),
                 ("maxConcurrency", Integer(1, 100)), ("body", Ref("scope")));
         if (kind is null or "call") yield return TaskShape("call", ("group", Ref("id")), ("inputs", Array(Ref("output"))));

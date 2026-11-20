@@ -44,7 +44,7 @@ internal static partial class PlanningCompactConstruction
 
         JsonObject ControlContract(string control)
         {
-            var shape = PlanningSchemas.TaskShapes(state, control).Single()!;
+            var shape = PlanningSchemas.TaskShapes(state, control, compactDraft: true).Single()!;
             var integerFields = new JsonObject();
             foreach (var (name, field) in shape["properties"]!.AsObject())
                 if (field?["type"]?.ToString() == "integer") integerFields[name] = field.DeepClone();

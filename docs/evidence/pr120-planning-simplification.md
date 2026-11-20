@@ -195,6 +195,30 @@ It cost EUR 34.09787. The audit counted 3,369 cumulative physical calls,
 EUR 1,612.99518 measured, EUR 489.11077 reserved for 54 HTTP attempts
 and EUR 144.51319 in retained Server holds. EUR 353.38087 remained.
 
+### Amazon loop diagnostics
+
+Two independent Server probes used the same 890-character diagnostic, the
+original accepted page source, the same model, native strict transport and
+270-second limit. In `amazon-control-20261120-06` the model returned a
+clarification asserting that the loop's `maxItems` field was absent. The
+captured HTTP schema required that integer. In `amazon-control-20261120-07`
+only the loop field and its two references in the schema description used
+the name `itemLimit`. The model returned a 100-item page loop containing
+a 200-item record loop. Both were sequential. The inner value read the
+record's text and both scopes exported their ordered results. Each response
+was complete and used one physical call. The respective costs were
+EUR 0.19743 and EUR 0.22451. These probes made no business visits.
+
+The compact draft grammar now uses `itemLimit` for the foreach task field.
+The planner restores the validated value to `PlanTask.MaxItems` while
+decoding task declarations. The regression failed for both an outer sequence
+and an outer loop before the correction. The 204 related tests passed.
+Cold validation of the model's unchanged response from probe 07 against the
+actual accepted source at revision 44 produced zero wire, construction or
+compiler findings. Both limits survived decoding, both loops remained
+sequential and the original accepted plan hash stayed the same. Review 29
+opened with 3,371 cumulative calls and EUR 352.95892 available.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

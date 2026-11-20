@@ -53,25 +53,31 @@ internal static partial class PlanningConstruction
         }
         if (normalized["extension"] is JsonObject contribution)
         {
-            RestoreExtractionOutputs(contribution);
+            RestoreTaskDeclarations(contribution);
             foreach (var group in (contribution["groups"] as JsonArray ?? []).OfType<JsonObject>())
-                if (group["body"] is JsonObject body) RestoreExtractionOutputs(body);
+                if (group["body"] is JsonObject body) RestoreTaskDeclarations(body);
         }
         return normalized;
 
         // Only task declarations from the validated wire response are visited.
         // Previously issued declarations keep their explicit output for validation.
-        static void RestoreExtractionOutputs(JsonObject scope)
+        static void RestoreTaskDeclarations(JsonObject scope)
         {
             foreach (var task in (scope["tasks"] as JsonArray ?? []).Concat(scope["always"] as JsonArray ?? []).OfType<JsonObject>())
             {
+                if (task["kind"]?.ToString() == "foreach" && task["itemLimit"] is { } limit)
+                {
+                    if (task.ContainsKey("maxItems")) throw new PlanningConflictException("The loop contains two iteration limits.");
+                    task.Remove("itemLimit");
+                    task["maxItems"] = limit;
+                }
                 if (task["kind"]?.ToString() == "transform" && task["mode"]?.ToString() == "extract" &&
                     task["each"] is JsonObject each && !each.ContainsKey("output") &&
                     task["resultType"]?["fields"] is JsonArray { Count: 1 } fields && fields[0]?["name"] is JsonValue name)
                     each["output"] = name.DeepClone();
-                if (task["body"] is JsonObject body) RestoreExtractionOutputs(body);
-                if (task["otherwise"] is JsonObject otherwise) RestoreExtractionOutputs(otherwise);
-                foreach (var branch in (task["branches"] as JsonArray ?? []).OfType<JsonObject>()) RestoreExtractionOutputs(branch);
+                if (task["body"] is JsonObject body) RestoreTaskDeclarations(body);
+                if (task["otherwise"] is JsonObject otherwise) RestoreTaskDeclarations(otherwise);
+                foreach (var branch in (task["branches"] as JsonArray ?? []).OfType<JsonObject>()) RestoreTaskDeclarations(branch);
             }
         }
 

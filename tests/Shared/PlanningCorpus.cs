@@ -100,8 +100,16 @@ public static class PlanningCorpus
         }
         if (value is null) return null;
         if (schema["properties"] is JsonObject properties)
+        {
+            if (properties.ContainsKey("itemLimit") && value is JsonObject loop &&
+                loop["kind"]?.ToString() == "foreach" && !loop.ContainsKey("itemLimit"))
+            {
+                value = loop.DeepClone();
+                value["itemLimit"] = loop["maxItems"]?.DeepClone();
+            }
             return new JsonObject(properties.Select(p => new KeyValuePair<string, JsonNode?>(p.Key,
                 evidenceObjects && p.Key == "evidenceRequests" ? value[p.Key]?.DeepClone() : Transport(value[p.Key], p.Value!.AsObject(), root))));
+        }
         if (schema["items"] is JsonObject item && value is JsonArray array) return new JsonArray(array.Select(v => Transport(v, item, root)).ToArray());
         return value.DeepClone();
     }
