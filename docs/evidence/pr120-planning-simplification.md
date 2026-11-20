@@ -9,6 +9,10 @@ carry the exact inspected description into the continued draft and remove
 its repeat-read choice. Both kept the selection and plan hash unchanged
 and made zero model calls. All 201 discovery protocol regressions passed,
 including changed content, a different scope and a denied capability.
+Six subsequent evidence requests followed the root-scope link that the
+output directory also advertised as evidence for the still-unbound report.
+The directory now offers binding evidence only when that caller output has
+an accepted root binding. Ordinary scope inspection remains available.
 
 The same session accepted nine checkpoints, including one clone, root cleanup,
 Copilot checks and review, and bounded iteration over diff pages and proposed

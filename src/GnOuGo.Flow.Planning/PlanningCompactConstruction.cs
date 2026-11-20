@@ -624,10 +624,9 @@ internal static partial class PlanningCompactConstruction
             ["items"] = new JsonArray(OutputPage(state).Select(o =>
             {
                 var item = new JsonObject { ["name"] = o.Name, ["typeKind"] = o.Type.Kind, ["evidence"] = "output:" + o.Name };
-                {
-                    item["bindingStatus"] = state.Plan?.Root.Outputs.Any(output => output.Name == o.Name) == true ? "accepted_declaration" : "not_bound";
-                    item["bindingEvidence"] = "scope:/root";
-                }
+                var bound = state.Plan?.Root.Outputs.Any(output => output.Name == o.Name) == true;
+                item["bindingStatus"] = bound ? "accepted_declaration" : "not_bound";
+                if (bound) item["bindingEvidence"] = "scope:/root";
                 return (JsonNode)item;
             }).ToArray()),
             ["next"] = offset + 8 < count ? "page:outputs:" + (offset + 8) : null };

@@ -810,6 +810,25 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
+    public async Task PublicResultsAdvertiseBindingEvidenceOnlyForAcceptedRootExports()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var root = state.Plan!.Root;
+        var original = Assert.Single(root.Outputs);
+        var name = original.Name;
+        var bound = Assert.Single(PlanningCompactConstruction.OutputDirectory(state)["items"]!.AsArray())!;
+        Assert.Equal("accepted_declaration", bound["bindingStatus"]!.ToString());
+        Assert.Equal("scope:/root", bound["bindingEvidence"]!.ToString());
+        root.Outputs.Clear();
+        state.Plan.Groups.Add(new() { Id = "internal", Body = new() { Outputs = [original] } });
+        var missing = Assert.Single(PlanningCompactConstruction.OutputDirectory(state)["items"]!.AsArray())!;
+        Assert.Equal(name, missing["name"]!.ToString());
+        Assert.Equal("not_bound", missing["bindingStatus"]!.ToString());
+        Assert.Null(missing["bindingEvidence"]);
+        Assert.Equal("output:" + name, missing["evidence"]!.ToString());
+    }
+
+    [Fact]
     public async Task PublicOutputDirectoryAndSchemaPageWithoutResendingTheCatalog()
     {
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
