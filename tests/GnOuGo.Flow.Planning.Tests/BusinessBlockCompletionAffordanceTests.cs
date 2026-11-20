@@ -7,9 +7,11 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class BusinessBlockCompletionAffordanceTests
 {
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ContinuedDraftCanSubmitTheAcceptedBlockForReviewWithoutAddingAnUnneededOperation(bool missingPublicOutput)
+    [InlineData(false, "empty")]
+    [InlineData(true, "empty")]
+    [InlineData(false, "declared")]
+    [InlineData(false, "unknown")]
+    public async Task ContinuedDraftCanSubmitTheAcceptedBlockForReviewWithoutAddingAnUnneededOperation(bool missingPublicOutput, string publicInterface)
     {
         var (state, runtime) = await Partial();
         var step = state.Construction!.Compact!.CurrentStep!;
@@ -23,6 +25,8 @@ public sealed class BusinessBlockCompletionAffordanceTests
         state.Catalog!.Capabilities.Add(capability);
         step.Kind = "sequence"; step.DiscoveryComplete = true; step.OperationIds = [capability.Id];
         if (missingPublicOutput) step.OutputNames = ["missing"];
+        if (publicInterface == "declared") state.Requirements!.Outputs = [new() { Name = "later", Type = new() { Kind = "number" } }];
+        if (publicInterface == "unknown") state.Requirements!.Outputs = null;
         var baseline = PlanningConstruction.Hash(state.Plan);
         var extension = new PlanningConstructionExtension { CompleteBlock = true, Scope = "/root", RequirementIds = ["work"] };
         runtime.Respond = (request, purpose) =>
@@ -30,11 +34,17 @@ public sealed class BusinessBlockCompletionAffordanceTests
             Assert.Equal(PlanningConstruction.DraftPurpose, purpose);
             var response = new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(extension, PlanningJsonContext.Default.PlanningConstructionExtension) };
             var schema = request.StructuredOutputSchema!.AsObject();
+            Assert.Equal(!missingPublicOutput && publicInterface == "empty", schema["description"]!.ToString().Contains("zero public outputs", StringComparison.Ordinal));
             var wire = PlanningCorpus.Transport(response, schema, schema)!;
             Assert.Empty(PlanningContractValidation.ValidateInstance(wire, request.StructuredOutputSchema!));
             return new() { Json = wire };
         };
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        if (publicInterface == "unknown")
+        {
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REQUIREMENTS_INVALID" && diagnostic.Required);
+            return;
+        }
         if (missingPublicOutput)
         {
             Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Required);

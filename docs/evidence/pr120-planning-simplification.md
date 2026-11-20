@@ -121,6 +121,16 @@ their first and last local task. A cold regression retrieves offsets 0, 8
 and 16 together using the ordinary evidence grammar.
 [Task directory regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftNavigationTests.cs)
 
+Request 66 assembled both the execution evidence and the proposed review in
+accepted root tasks. It deferred block completion to export those results.
+The original requirements explicitly declared zero public outputs. Request 67
+retrieved evidence again, request 68 submitted the unchanged block, and its
+ordinary business judge accepted it on request 69. In this situation, the
+draft contract now says a later block can consume accepted root results
+directly and the current contribution can claim completion when its result and
+cleanup are covered. An unknown or populated public interface receives no such
+hint. [Block closure regression](../../tests/GnOuGo.Flow.Planning.Tests/BusinessBlockCompletionAffordanceTests.cs)
+
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
 The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.
