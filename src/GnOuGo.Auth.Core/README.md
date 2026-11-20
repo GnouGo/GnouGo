@@ -12,7 +12,7 @@ string token = await provider.GetApiKeyAsync(cancellationToken);
 
 For private-key authentication, supply `PrivateKeyPem` instead of `ClientSecret`. Discovery resolves the token endpoint; assertions use RS256, the client ID as issuer/subject, and the token endpoint as audience. Secret authentication uses HTTP Basic. Keep a provider instance per credential configuration to share its token cache and synchronized refresh.
 
-Token lifetimes are never extended beyond the issuer's `expires_in`. The refresh margin is 10% of the lifetime, capped at 30 seconds, and acquisition time counts against it. Invalid lifetimes and tokens already expired during acquisition fail closed. Token endpoint failures report only the HTTP status, excluding response bodies and reason phrases. The original two-argument constructor is retained; an additional `TimeProvider` overload permits deterministic cache tests.
+The issuer's `expires_in` bounds the token lifetime. The cache reserves the HTTP client's timeout for an in-flight request, with a minimum target of 30 seconds and a cap of 10% of the issued lifetime. An infinite HTTP timeout uses the 10% cap. Acquisition time counts against the lifetime. Invalid lifetimes and tokens already expired during acquisition fail closed. Token endpoint failures report only the HTTP status, excluding response bodies and reason phrases. The original two-argument constructor is retained; an additional `TimeProvider` overload permits deterministic cache tests.
 
 ```bash
 dotnet build src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj

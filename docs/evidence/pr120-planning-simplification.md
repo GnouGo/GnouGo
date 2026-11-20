@@ -67,6 +67,14 @@ The Server stopped before execution. At 11:41:36 UTC GitHub still showed
 the original head, zero reviews and zero inline comments. The clone directory
 was absent.
 
+The last HTTP attempt started 3,557.57 seconds after the first and took
+44.55 seconds. A fresh request to the configured OIDC issuer succeeded and
+reported a 3,599-second lifetime. At that offset the old cache still issued
+the first bearer token to a five-minute HTTP client. A clock-controlled
+regression reproduces that choice and verifies renewal before dispatch. The
+longest measured provider wait in review 16 was 81.42 seconds.
+[OIDC cache regression](../../tests/GnOuGo.Auth.Core.Tests/OidcJwtApiKeyProviderTests.cs)
+
 ### Amazon source and execution evidence
 
 | Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
