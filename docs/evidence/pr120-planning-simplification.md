@@ -1,6 +1,58 @@
 # PR 120 planning simplification
 
-## Qualification outcome, 20 November 2026
+## Cumulative EUR 2,100 campaign, 20 November 2026
+
+At 06:13:10 UTC the operator applied the EUR 400 supplement to the existing
+campaign `pr120-live-20261107-400`. Read-only audits before and after the grant
+agreed on all 2,555 previous HTTP attempts, EUR 1,119.75822 in measured usage
+at captured tariffs, EUR 478.50045 in outstanding HTTP reservations and
+EUR 99.88219 in separate application reservations. The new available funding
+was EUR 401.85913. The authorization fingerprint is
+`25041a40a3c9336a98364ba6cf232c01e0c1df3ee9cbe26fbe7685b1685ef834`.
+
+### Amazon source and execution evidence
+
+| Fresh source capture | Search pages / records | Source GETs | Ordered products identified | Business visits | Browser closed and verified |
+| --- | ---: | ---: | ---: | ---: | --- |
+| 09 | 74 / 1,558 | 21 | 10 | 0 | Yes |
+| 10 | 74 / 1,582 | 21 | 10 | 0 | Yes |
+| 11 | 0 / 0 | 1 | 0 | 0 | Yes |
+
+Captures 09 and 10 each resolved 20 occurrences under the active grant.
+Three reads returned product evidence and 17 returned store evidence. Cold
+verification reproduced each capture's ordered selection. Capture 11 received
+HTTP 202 on its GET, Chromium reported `net::ERR_ABORTED`, and the committed
+document remained `about:blank`. It yielded no search records. All three used
+zero model calls. The fresh policy description on `351b26ef` includes both
+observed-navigation patterns and the separate static allowlist from the
+Browser configuration. The source and publication checks continue to use
+the existing permission grants. [Browser configuration regression](../../tests/GnOuGo.Agent.Server.Tests/AmazonAaxWorkflowTests.cs)
+
+Amazon session `5be178ac35e84f66811070c4f7989f1e` stopped in planning
+after six technical checkpoints. It produced zero business visits and no
+workbook. Receipts 20 and 21 used an accepted control export inside a
+predicate. Receipt 25 iterated the original collection used by a closed
+projection. The original validator rejected that receipt at
+`/tasks/indexed_source_pages`. Replaying the identical response through
+the issued grammar and compiler on `6fea9bf1` accepted it, with the original
+baseline `46c4da94bf9fbe19ab1914004b5272112ac09ffdef9c44848434be950917ed72`
+and zero provider calls. [Control composition regressions](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
+The run added 27 HTTP attempts with measured usage estimated at EUR 11.46215.
+A 28th application reservation of EUR 3.47928 had no campaign request,
+HTTP attempt or receipt. Its full amount remains held. The subsequent audit
+found 2,582 historical HTTP attempts, EUR 1,131.22037 in measured usage,
+EUR 478.50045 in outstanding HTTP reservations, EUR 103.36148 in application
+reservations and EUR 386.91770 available before the next live review.
+
+### Review admission
+
+The new Server guard checks mandatory terminal receipts before publication.
+A failed check blocks approval, as do missing or conflicting completions.
+An explained failure can support a request for changes. The review regression
+uses the same verdict check as the live prepublication hook. [Publication regression](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
+
+## Qualification at the previous EUR 1,700 ceiling, 20 November 2026
 
 | Case | Consecutive verified Server executions | Last fresh session | Observed outcome |
 | --- | ---: | --- | --- |
