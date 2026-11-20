@@ -32,6 +32,7 @@ identity and current permission.
 | 11 | 0 / 0 | 1 | 0 | 0 | Yes |
 | 12 | 77 / 1,616 | 1 | 0 | 0 | Yes |
 | 13 | 0 / 0 | 1 | 0 | 0 | Yes |
+| 14 | 78 / 1,606 | 21 | 10 | 0 | Yes |
 
 Captures 09 and 10 each resolved 20 occurrences under the active grant.
 Three reads returned product evidence and 17 returned store evidence. Cold
@@ -263,6 +264,13 @@ old receipt had no category. The corrected Browser MCP reports
 `connection_reset`, zero hops and no final URL, and successfully closes
 the browser. The original failure's underlying cause remains unknown.
 [Browser regression](../../tests/GnOuGo.Browser.Mcp.Tests/BrowserSemanticOccurrenceTests.cs)
+
+Fresh capture 14 on `aa2c5928` received HTTP 200 for the search at
+11:09:37 UTC. It resolved 20 occurrences in source order, with three product
+responses and 17 store responses. Reloading the receipts reproduced the
+ten-product selection. The browser closed and the follow-up probe verified
+closure. This source-only run incurred zero model calls, made zero business
+detail visits and created no workbook.
 
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 
