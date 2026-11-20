@@ -136,6 +136,17 @@ the issued grammar, including the nested loop under the sequence. Host
 validation findings remain visible.
 [Control reselection tests](../../tests/GnOuGo.Flow.Planning.Tests/ReselectionFeedbackTests.cs)
 
+### Amazon session 7c9e79deff9b4d48875766335af95fc3
+
+Fresh Server run 12 on `df98c056` stopped at its first logical request,
+during OIDC authentication. The campaign failure has kind `Transport`,
+stage `authentication` and no HTTP status. The generation journal contains
+zero physical attempts. The Server recorded one advisory warning and a
+EUR 0.99571 application reservation. There were zero checkpoints, product
+visits or business tool calls. No workbook was created. A separate
+authentication check at 15:55 UTC obtained HTTP 200 from the configured
+issuer and a token using the captured settings, with zero generation calls.
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,
