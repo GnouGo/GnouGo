@@ -56,6 +56,21 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Theory]
+    [InlineData("output_limit", 4096, "construction_implementation", true)]
+    [InlineData("output_limit", null, "construction_implementation", false)]
+    [InlineData("output_limit", 512, "construction_implementation", false)]
+    [InlineData("output_limit", 4096, "construction_draft", false)]
+    [InlineData("physical_limit_exceeded", 4096, "construction_implementation", false)]
+    public void ProviderCutoffWarnsOnlyForTheMeasuredIssuedAllocation(string result, int? tokens, string phase, bool warning)
+    {
+        var diagnostic = new PlanningDiagnostic("MODEL_OUTPUT_LIMIT", "/phases/construction_implementation", "Incomplete provider response.");
+        var receipt = new PlanningRequestMeasurement { Phase = phase, Admission = "admitted", Result = result,
+            IssuedOutputTokens = 4096, OutputTokens = tokens };
+        Assert.Equal(warning, ServerLiveDiagnostics.IsBudgetOverrun([diagnostic], receipt));
+        Assert.False(ServerLiveDiagnostics.IsBudgetOverrun([diagnostic, new("INVALID_CONTRACT", "/", "Invalid contract.")], receipt));
+    }
+
+    [Theory]
     [InlineData("LLM_BUDGET_EXCEEDED", null, true)]
     [InlineData("LLM_BUDGET_EXCEEDED", "CLEANUP_FAILED", false)]
     [InlineData("LLM_BUDGET_UNVERIFIABLE", null, false)]

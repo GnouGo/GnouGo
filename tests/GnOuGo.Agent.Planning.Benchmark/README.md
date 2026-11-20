@@ -411,6 +411,11 @@ hide those warnings. Corpus variants retain their available `model_usage`; a nul
 snapshot means no runtime budget snapshot was configured, not a measured zero.
 Collections keeps its existing local execution without runtime inference.
 
+The Server live harness reports a measured provider output cutoff as an
+unqualified budget warning when the last admitted call used its entire issued
+allocation in the diagnosed phase. The Server retains the incomplete receipt,
+and execution stops. Other required errors still fail the test.
+
 Preserve bulky historical evidence unchanged. Append concise source-bound results
 and list removed mechanisms and internal-format ruptures. Keep PR #120 Draft
 until live qualification passes; report efficiency separately.
