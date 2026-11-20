@@ -38,6 +38,40 @@ public sealed class CompactDraftNavigationTests
         }
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DiscoveryCanCiteDisplayedOriginalClausesWithoutRequestingThemAgain(bool differentRequirementText)
+    {
+        var state = State();
+        var compact = state.Construction!.Compact!;
+        var requirement = compact.Sources[1];
+        const string constraint = "Release the resource even on failure.";
+        const string globalId = "request:0:clause:1";
+        compact.Sources.Add(new() { Id = globalId, Kind = "global", Indexed = true, Text = constraint,
+            Version = PlanningGraphCompiler.Fingerprint(constraint) });
+        compact.GlobalSourceIds.Add(globalId);
+        if (differentRequirementText)
+            state.Requirements!.Outcomes[0] = state.Requirements.Outcomes[0] with { Description = "A shorter description." };
+        var request = PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state),
+            PlanningCompactConstruction.DiscoveryPurpose);
+        var context = Context(request);
+        var shown = context["requirements"]![0]!;
+        var link = shown["sources"]![0]!;
+        var choices = request.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString();
+        Assert.Equal("source:" + requirement.Id, link["evidence"]!.ToString());
+        Assert.Equal(requirement.Version, link["version"]!.ToString());
+        Assert.Equal(!differentRequirementText, shown["original"]!.ToString() == requirement.Text);
+        Assert.Equal(differentRequirementText, choices.Contains('"' + link["evidence"]!.ToString() + '"', StringComparison.Ordinal));
+        var global = Assert.Single(context["globalConstraints"]!.AsArray())!;
+        Assert.Equal(constraint, global["text"]!.ToString());
+        Assert.Equal("source:" + globalId, global["evidence"]!.ToString());
+        Assert.DoesNotContain('"' + global["evidence"]!.ToString() + '"', choices, StringComparison.Ordinal);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "source:" + globalId, out var original));
+        Assert.Equal(constraint, original!["text"]!.ToString());
+    }
+
     [Fact]
     public void EmptyRootEvidenceIsAlreadyPresentDuringSelectionAndDraftWithoutChangingTheSession()
     {

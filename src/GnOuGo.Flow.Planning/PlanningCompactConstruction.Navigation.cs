@@ -138,6 +138,13 @@ internal static partial class PlanningCompactConstruction
             .Concat((context["directoryEvidence"] as JsonObject ?? []).Select(item => item.Value))
             .Concat((context["evidence"] as JsonObject ?? []).Select(item => item.Value))));
         addresses.UnionWith(NavigationEvidence(state, [context["describedOperations"], context["knownOperations"], context["reselection"]]));
+        // Clause evidence contains exactly its identity, version and original text.
+        // Keep these identities available for citations even when no read is needed.
+        foreach (var global in (context["globalConstraints"] as JsonArray ?? []).OfType<JsonObject>())
+            RemoveDisplayedClause(global, global["text"]);
+        foreach (var requirement in (context["requirements"] as JsonArray ?? []).OfType<JsonObject>())
+            if (requirement["sources"] is JsonArray { Count: 1 } sources && sources[0] is JsonObject source)
+                RemoveDisplayedClause(source, requirement["original"]);
         // DiscoveryEvidence only omits original descriptions when the existing
         // exact single-read knowledge guard permits them to be restored.
         var rereads = (context["evidence"] as JsonObject ?? []).Where(item =>
@@ -156,6 +163,15 @@ internal static partial class PlanningCompactConstruction
         alternatives.Add((JsonNode)PlanningSchemas.Type("null"));
         schema["properties"]!["evidenceRequests"] = alternatives.Count == 1 ? PlanningSchemas.Type("null") :
             new JsonObject { ["anyOf"] = alternatives };
+
+        void RemoveDisplayedClause(JsonObject row, JsonNode? text)
+        {
+            if (text is null || row["id"]?.ToString() is not { } id ||
+                row["evidence"]?.ToString() != "source:" + id || !addresses.Contains("source:" + id)) return;
+            var original = State(state).Sources.SingleOrDefault(clause => clause.Id == id);
+            if (original is not null && original.Version == row["version"]?.ToString() && original.Text == text.ToString())
+                addresses.Remove("source:" + id);
+        }
     }
 
     private static bool IsOriginalAddress(string address) => address.StartsWith("requirement:", StringComparison.Ordinal) ||

@@ -837,7 +837,9 @@ public sealed partial class CompactDiscoveryProtocolTests
         var (state, runtime) = await Ready();
         state.Diagnostics = [new("CONSTRUCTION_EVIDENCE_UNKNOWN", "/evidenceRequests", "Resolved address."),
             new("CONSTRUCTION_EVIDENCE_LIMIT", "/evidenceRequests", "Previous batch was too large.")];
-        runtime.Respond = (request, _) => Wire(request, Evidence("source:request:0:clause:0"));
+        AddOperations(state, 1);
+        var address = DescriptionAddress(state);
+        runtime.Respond = (request, _) => Wire(request, Evidence(address));
         state = await Advance(state, runtime);
         Assert.Empty(state.Diagnostics); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(state.Construction!.Checkpoints);
     }
