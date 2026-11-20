@@ -281,16 +281,30 @@ internal static partial class PlanningCompactConstruction
             page["textOmitted"] = true;
             page["evidence"] = address;
         }
-        FactorDiscoveryVersions(state, evidence);
+        CompactDiscoveryEvidence(state, evidence);
         return evidence;
     }
 
-    private static void FactorDiscoveryVersions(PlanningSession state, JsonObject presentation)
+    private static void CompactDiscoveryEvidence(PlanningSession state, JsonObject presentation)
     {
         foreach (var (address, original) in state.Construction!.Evidence!)
         {
             if (original is not JsonObject page || presentation[address] is not JsonObject view) continue;
-            if (address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("source-description:", StringComparison.Ordinal))
+            if (address.StartsWith("contract:", StringComparison.Ordinal) && page["outputCount"]?.ToString() == "0" &&
+                page["outputs"] is JsonArray { Count: 0 } && page["id"] is JsonValue contractId && page["version"] is JsonValue contractVersion &&
+                page["outputDirectory"]?.ToString() == "port-page:" + ContractIdentity(contractId.ToString(), contractVersion.ToString()) + ":/output:0")
+            {
+                // The count and empty list already answer the named-port query.
+                // Union or opaque result schemas remain reachable through their own directory.
+                try
+                {
+                    if (ContractEvidenceCurrent(state, address, page) &&
+                        TaskOperations.Describe(ExactContract(state, contractId.ToString(), contractVersion.ToString())).Outputs.Count == 0)
+                        view.Remove("outputDirectory");
+                }
+                catch (PlanningResponseException) { /* Keep the issued link when the current contract cannot be verified. */ }
+            }
+            else if (address.StartsWith("description:", StringComparison.Ordinal) || address.StartsWith("source-description:", StringComparison.Ordinal))
             {
                 // The exact address already carries the version. Compare with
                 // the canonical original, not a potentially text-omitted view.

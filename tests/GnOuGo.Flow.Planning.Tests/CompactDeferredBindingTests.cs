@@ -820,6 +820,31 @@ public sealed class CompactDeferredBindingTests
         Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step));
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DiscoveryOmitsOnlyTheProvenEmptyOutputPortDirectory(bool hasNamedPort)
+    {
+        var (state, _) = Ready();
+        var capability = Contract();
+        if (hasNamedPort) capability.OutputSchema["properties"]!["result"] = new JsonObject { ["type"] = "string" };
+        AddContract(state, capability);
+        const string address = "contract:read@v1";
+        const string ports = "port-page:read@v1:/output:0";
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, address, false)!;
+        state.Construction!.Evidence = new() { [address] = original.DeepClone() };
+
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var presented = context["evidence"]![address]!;
+        var evidence = PlanningCompactConstruction.DiscoverySchema(state)["properties"]!["evidenceRequests"]!.ToJsonString();
+        Assert.Equal(hasNamedPort ? ports : null, (string?)presented["outputDirectory"]);
+        Assert.Equal(hasNamedPort, evidence.Contains(ports, StringComparison.Ordinal));
+        Assert.Contains("schema-page:read@v1:/output:0", evidence, StringComparison.Ordinal);
+        Assert.Equal(hasNamedPort ? 1 : 0, (int?)presented["outputCount"]);
+        Assert.True(JsonNode.DeepEquals(original, state.Construction.Evidence[address]));
+        Assert.Equal(hasNamedPort ? 1 : 0, (int?)PlanningCompactConstruction.LoadContractEvidence(state, ports, false)!["total"]);
+    }
+
     [Fact]
     public void DiscoveryDistinguishesOperationVersionsUsingTheSameCapabilityId()
     {

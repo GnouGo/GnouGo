@@ -1,5 +1,14 @@
 # PR 120 planning simplification
 
+## Fresh review session b959c396c5914233abf87b90271346f3, 20 November 2026
+
+Call 6 requested the named output port directory of an inspected operation
+whose contract already showed an empty list and a count of zero. Call 7 received
+the empty directory. Fresh discovery omits that link when the original contract
+identity, hash and empty port list agree. The structural output schema remains
+available, including all seven result alternatives for this GitHub operation.
+Historical receipts still resolve the original port directory.
+
 ## Fresh review session 553abdc993904ca0a052d6e38fa45223, 20 November 2026
 
 Calls 10 and 12 inspected the Copilot and command-runner contracts. Call 17
