@@ -1068,10 +1068,13 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
-    [InlineData("same")]
-    [InlineData("notResolved")]
-    [InlineData("changed")]
-    public void DiscoveryReusesTheExactPreviouslyResolvedContractWithoutAProviderInspection(string variant)
+    [InlineData("same", false)]
+    [InlineData("notResolved", false)]
+    [InlineData("changed", false)]
+    [InlineData("same", true)]
+    [InlineData("notResolved", true)]
+    [InlineData("changed", true)]
+    public void DiscoveryReusesTheExactPreviouslyResolvedContractWithoutAProviderInspection(string variant, bool earlierObjective)
     {
         var (state, _) = Ready();
         var capability = Contract();
@@ -1079,9 +1082,11 @@ public sealed class CompactDeferredBindingTests
         if (variant == "changed") operation.Description = "Changed producer declaration.";
         var summary = new CapabilitySummary("read", "source", "read", capability.Description, "mcp.call", "read", "v1",
             Operation: operation);
-        state.Discovery.Pages.Add(new("source", null, [summary], null, Query: Objective));
+        state.Discovery.Pages.Add(new("source", null, [summary], null, Query: earlierObjective ? "Read an earlier record." : Objective));
         if (variant != "notResolved") AddContract(state, capability);
         var context = PlanningCompactConstruction.DiscoveryContext(state);
+        if (earlierObjective && variant != "changed")
+            Assert.Contains(context["describedOperations"]!["items"]!.AsArray(), item => item!["id"]!.ToString() == "read");
         var schema = PlanningCompactConstruction.DiscoverySchema(state);
         var checks = (context["contractInspection"] as JsonArray ?? []).OfType<JsonObject>()
             .SelectMany(row => row["operationIds"]!.AsArray()).Select(id => id!.ToString());
@@ -1098,7 +1103,8 @@ public sealed class CompactDeferredBindingTests
         else
         {
             Assert.Null(context["knownOperations"]);
-            Assert.Contains("read", checks);
+            if (earlierObjective && variant == "changed") Assert.DoesNotContain("read", checks);
+            else Assert.Contains("read", checks);
         }
     }
 

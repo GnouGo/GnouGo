@@ -457,12 +457,12 @@ internal static partial class PlanningCompactConstruction
                     state.Discovery.Sources.Any(s => s.Id == c.SourceId)).ToArray()
             : [];
 
-    private static JsonObject? KnownDiscoveryContracts(PlanningSession state, JsonObject? descriptors)
+    private static JsonObject? KnownDiscoveryContracts(PlanningSession state, JsonObject? descriptors, JsonObject? described)
     {
         // A descriptor on a retrieved continuation can bind the same exact cached
         // contract as a descriptor on the first page. Resolution still checks its version and contents.
         var pages = (state.Construction!.Evidence ?? []).Where(item => item.Key.StartsWith("page:operations:", StringComparison.Ordinal))
-            .Select(item => item.Value).Prepend(descriptors);
+            .Select(item => item.Value).Prepend(descriptors).Append(described);
         var displayed = pages.OfType<JsonObject>().SelectMany(page => page["items"] as JsonArray ?? []).OfType<JsonObject>()
             .Where(row => row["id"] is not null && row["version"] is not null)
             .Select(row => (row["id"]!.ToString(), row["version"]!.ToString())).ToHashSet();
@@ -483,11 +483,11 @@ internal static partial class PlanningCompactConstruction
         return matches.Count > 0 ? new JsonObject { ["items"] = matches } : null;
     }
 
-    private static JsonArray ContractInspectionOptions(PlanningSession state, JsonObject? known)
+    private static JsonArray ContractInspectionOptions(PlanningSession state, JsonObject? known, JsonObject? describedOperations)
     {
         var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;
         var visible = ContractDescriptorPage(state)["items"]!.AsArray().OfType<JsonObject>()
-            .Concat((DescribedOperationChoices(state)?["items"] as JsonArray ?? []).OfType<JsonObject>())
+            .Concat((describedOperations?["items"] as JsonArray ?? []).OfType<JsonObject>())
             .Select(c => c["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         foreach (var (address, page) in state.Construction!.Evidence ?? [])
         {

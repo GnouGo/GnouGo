@@ -821,7 +821,8 @@ internal static partial class PlanningCompactConstruction
         var descriptors = DecisionOperationPage(state);
         var upcoming = UnseenOperationPages(state, descriptors)
             .Take(PlanningTokenThresholds.OptimizationAdvisory(state.Request) ? 3 : 1).ToArray();
-        var known = KnownDiscoveryContracts(state, descriptors);
+        var described = DescribedOperationChoices(state);
+        var known = KnownDiscoveryContracts(state, descriptors, described);
         var providerPage = PresentedProviderRequests(state);
         var context = new JsonObject
         {
@@ -834,7 +835,7 @@ internal static partial class PlanningCompactConstruction
             ["descriptors"] = descriptors,
             ["providerRequests"] = ProviderEvidencePage(state) is null ? providerPage : null,
             ["knownOperations"] = known,
-            ["contractInspection"] = ContractInspectionOptions(state, known),
+            ["contractInspection"] = ContractInspectionOptions(state, known, described),
             ["directoryEvidence"] = new JsonObject { ["sources"] = SourceDirectoryContinuation(state),
                 ["operations"] = upcoming.FirstOrDefault().Address, ["providers"] = ProviderDirectoryContinuation(state) },
             ["evidence"] = evidence?.DeepClone(),
@@ -862,7 +863,7 @@ internal static partial class PlanningCompactConstruction
         }
         AddRequirementNavigation(state, context);
         context["continuation"] = ContinuationContext(state);
-        if (DescribedOperationChoices(state) is { } described) context["describedOperations"] = described;
+        if (described is not null) context["describedOperations"] = described;
         AddNavigationCompositions(state, context, known: false);
         if (LocalComputationEligibility(state) is { } local) context["localComputations"] = local;
         if (ScopeOwnerNavigation(state) is { } owner)

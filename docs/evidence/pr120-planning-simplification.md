@@ -26,6 +26,22 @@ The discovery regression reproduced the omission and passed through the
 Server's offered and resolved contracts, alongside the independent readback
 tests. [GitHub MCP submission implementation](https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/pullrequests.go#L2180-L2200)
 
+The call 45 discovery menu also offered a second provider inspection for the
+same resolved contract. It displayed the versioned description from an
+earlier objective while checking the local contract only against directory
+pages. Replaying call 31 still required the initial inspection. Replaying
+call 45 offered the exact local contract hash and removed the second provider
+inspection. Both replays preserved selection and plan and made zero calls.
+The related discovery and binding suites passed 318 tests.
+
+The run stopped at revision 144 before execution. Its 46 measured physical
+calls cost EUR 32.74432. The Server reserved EUR 6.66068 for logical request
+47 before a campaign envelope was persisted. Retention receipt
+`db5f0d6d3258418fec0c32ac42d21d47a1adae60c9822948d923ddadb4d6e67a`
+preserved that full amount. The cumulative audit recorded 3,588 physical
+calls, EUR 1,743.50020 measured, EUR 489.11077 reserved for HTTP attempts
+and EUR 151.17387 in separate Server reservations, leaving EUR 216.21516.
+
 Review 31 (Server session `0ce0f69822344372b0dc11673b96b900`) reached three
 accepted checkpoints and requested clarification on its Copilot task. Call 13
 selected the literal `get_diff`, required its response to be nonnull and its
