@@ -416,14 +416,15 @@ internal static partial class PlanningCompactConstruction
     {
         if (descriptors?["items"] is not JsonArray { Count: > 0 } items) return null;
         var displayed = items.Select(item => (item!["id"]!.ToString(), item["version"]!.ToString())).ToHashSet();
-        var candidates = InspectionCandidates(state).Where(c => displayed.Contains((c.Operation!.Id, c.Version))).ToDictionary(c => c.Id);
+        var candidates = InspectionCandidates(state).Where(c => displayed.Contains((c.Operation!.Id, c.Version)))
+            .ToDictionary(c => (c.Operation!.Id, c.Version));
         var focus = PlanningDiscoveryFocus.Enabled(state) ? PlanningDiscoveryFocus.Choices(state)[0].Id : null;
         var matches = new JsonArray();
         foreach (var contract in KnownOperationContracts(state))
         {
-            if (!candidates.TryGetValue(contract.Id, out var candidate) || !PlanningDiscoveryContext.MatchesDescriptor(contract, candidate) ||
+            var id = TaskOperations.Describe(contract).Id;
+            if (!candidates.TryGetValue((id, contract.Version), out var candidate) || !PlanningDiscoveryContext.MatchesDescriptor(contract, candidate) ||
                 PlanningDiscoveryFocus.Failure(state, candidate.SourceId, PlanningDiscoveryFocus.Query(state, focus), focus) is not null) continue;
-            var id = candidate.Operation!.Id;
             var address = "contract:" + ContractIdentity(id, contract.Version);
             if (state.Construction!.Evidence?.ContainsKey(address) == true) continue;
             matches.Add((JsonNode)new JsonObject { ["id"] = id, ["version"] = contract.Version, ["hash"] = ContractHash(contract), ["evidence"] = address });

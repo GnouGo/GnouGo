@@ -820,6 +820,27 @@ public sealed class CompactDeferredBindingTests
         Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateSelection(state, step));
     }
 
+    [Fact]
+    public void DiscoveryDistinguishesOperationVersionsUsingTheSameCapabilityId()
+    {
+        var (state, _) = Ready();
+        var retained = Contract();
+        AddContract(state, retained);
+        var previous = new CapabilitySummary(retained.Id, "source", "read", retained.Description, retained.StepType, retained.EffectKind,
+            retained.Version, Operation: TaskOperations.Describe(retained));
+        var nextOperation = TaskOperations.Describe(retained);
+        nextOperation.Id = "read_next";
+        nextOperation.Version = "v2";
+        var next = previous with { Version = "v2", Operation = nextOperation };
+        state.Discovery.Pages.Add(new("source", null, [previous], "more", Query: Objective));
+        state.Discovery.Pages.Add(new("source", "more", [next], null, Query: Objective));
+
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        Assert.Equal("contract:read@v1", (string?)Assert.Single(context["knownOperations"]!["items"]!.AsArray())!["evidence"]);
+        var inspection = Assert.Single(context["contractInspection"]!.AsArray())!;
+        Assert.Equal("read_next", (string?)Assert.Single(inspection["operationIds"]!.AsArray()));
+    }
+
     [Theory]
     [InlineData("same")]
     [InlineData("notResolved")]
