@@ -142,9 +142,12 @@ public static class PlanningPromptPresentation
     }
 
     /// <summary>Guide consumers to reuse typed evidence without duplicating full observations.</summary>
-    internal static string PresentInferenceInputGuidance(string prompt)
+    internal static string PresentInferenceInputGuidance(string prompt, int? maxLoopIterations)
     {
-        var guidance = "\n" + PlanningCompactConstruction.TransformInputSemantics + " " + PlanningCompactConstruction.IterationCapacityGuidance + "\n";
+        var extractionLimit = maxLoopIterations is { } limit
+            ? FormattableString.Invariant($" On the captured host, each extraction accepts at most {limit} items per invocation. Preserve source groups when the flattened collection exceeds that limit.")
+            : "";
+        var guidance = "\n" + PlanningCompactConstruction.TransformInputSemantics + " " + PlanningCompactConstruction.IterationCapacityGuidance + extractionLimit + "\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + guidance : prompt.Insert(contextOffset, guidance);
     }

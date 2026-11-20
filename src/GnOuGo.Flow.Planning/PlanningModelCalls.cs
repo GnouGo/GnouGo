@@ -94,7 +94,7 @@ internal static partial class PlanningModelCalls
             var beforeInputGuidance = request.Prompt;
             if (PlanningPromptPresentation.OffersRuntimePrerequisite(request.StructuredOutputSchema!))
                 request.Prompt = PlanningPromptPresentation.PresentRuntimePrerequisiteGuidance(request.Prompt);
-            request.Prompt = PlanningPromptPresentation.PresentInferenceInputGuidance(request.Prompt);
+            request.Prompt = PlanningPromptPresentation.PresentInferenceInputGuidance(request.Prompt, state.Catalog?.MaxLoopIterations);
             if (!PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
                 ModelRequestAdmission.EstimateTokens(request) > PlanningConstructionPhasePolicies.Resolve(state.Request, purpose).TargetInputTokens)
                 request.Prompt = beforeInputGuidance;

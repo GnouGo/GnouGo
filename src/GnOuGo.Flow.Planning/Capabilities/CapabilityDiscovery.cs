@@ -10,10 +10,10 @@ namespace GnOuGo.Flow.Planning.Capabilities;
 public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCatalog, ICapabilitySnapshotCatalog
 {
     private readonly Dictionary<string, List<PlanningCapability>> _cache = new(StringComparer.Ordinal);
-    internal static Task<PlanningCatalog> DiscoverAsync(WorkflowEngine engine, PlanningRequest request, CancellationToken ct)
+    internal static Task<PlanningCatalog> DiscoverAsync(WorkflowEngine engine, PlanningRequest request, CancellationToken ct, int? maxLoopIterations = null)
     {
         ct.ThrowIfCancellationRequested();
-        var catalog = new PlanningCatalog { Policy = request.Policy };
+        var catalog = new PlanningCatalog { Policy = request.Policy, MaxLoopIterations = maxLoopIterations ?? engine.Limits.MaxLoopIterations };
         foreach (var (type, contract) in engine.Registry.GetContracts().OrderBy(p => p.Key, StringComparer.Ordinal))
         {
             if (type is "workflow.plan" or "workflow.execute" or "workflow.route" or "mcp.list" ||

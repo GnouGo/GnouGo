@@ -22,6 +22,29 @@ public sealed class PlanningPromptPresentationTests
         Assert.Empty(state.Construction!.Checkpoints);
     }
 
+    [Theory]
+    [InlineData(3)]
+    [InlineData(1000)]
+    public async Task IndependentExtractionUsesTheLimitCapturedFromItsHost(int limit)
+    {
+        var state = PlannerFixture.Session();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var engine = new GnOuGo.Flow.Core.Runtime.WorkflowEngine { Limits = new() { MaxLoopIterations = limit } };
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state = PlannerFixture.Clone(state);
+        engine.Limits.MaxLoopIterations++;
+        var request = PlanningModelCalls.PrepareRequest(state, "construction_draft", "Use all the observations.\n{}",
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }, null, null);
+        Assert.Contains($"each extraction accepts at most {limit} items per invocation", request.Prompt);
+        Assert.Contains("ordered groups", request.Prompt);
+        Assert.DoesNotContain($"at most {engine.Limits.MaxLoopIterations} items", request.Prompt);
+        state.Catalog = new();
+        var legacy = PlanningModelCalls.PrepareRequest(state, "construction_draft", "Use all the observations.\n{}",
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }, null, null);
+        Assert.DoesNotContain("each extraction accepts at most", legacy.Prompt);
+    }
+
     [Fact]
     public void RepeatedImportedSchemaShapesFactorWithoutChangingCardinalityOrLiteralData()
     {

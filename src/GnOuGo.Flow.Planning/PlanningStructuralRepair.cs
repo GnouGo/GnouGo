@@ -13,7 +13,7 @@ internal static class PlanningStructuralRepair
 
     internal static PlanningCatalog Catalog(PlanningSession state) => new()
     {
-        AllowedStepTypes = state.Catalog!.AllowedStepTypes, StepContracts = state.Catalog.StepContracts, Policy = state.Catalog.Policy,
+        MaxLoopIterations = state.Catalog!.MaxLoopIterations, AllowedStepTypes = state.Catalog.AllowedStepTypes, StepContracts = state.Catalog.StepContracts, Policy = state.Catalog.Policy,
         Capabilities = state.Catalog.Capabilities.Concat(state.Discovery.Resolved).DistinctBy(c => (c.Id, c.Version))
             .GroupBy(c => TaskOperations.Describe(c).Id, StringComparer.Ordinal).Where(g => g.Count() == 1)
             .Select(g => g.Single()).Where(c => TaskOperations.Validate(c).Count == 0 && state.Catalog.AllowedStepTypes.Contains(c.StepType) && !state.Catalog.Policy.DeniedCapabilityIds.Contains(c.Id)).ToList()

@@ -205,6 +205,9 @@ public sealed class PlanningEvidenceAddresses
 
 public sealed class PlanningCatalog
 {
+    /// <summary>Host loop limit observed at discovery, including independent extraction batches.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxLoopIterations { get; set; }
     public List<PlanningCapability> Capabilities { get; set; } = [];
     public List<string> AllowedStepTypes { get; set; } = [];
     public JsonObject StepContracts { get; set; } = new();

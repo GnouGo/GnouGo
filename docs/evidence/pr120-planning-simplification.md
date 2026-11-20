@@ -18,6 +18,7 @@ was EUR 401.85913. The authorization fingerprint is
 | 10 | 74 / 1,582 | 21 | 10 | 0 | Yes |
 | 11 | 0 / 0 | 1 | 0 | 0 | Yes |
 | 12 | 77 / 1,616 | 1 | 0 | 0 | Yes |
+| 13 | 0 / 0 | 1 | 0 | 0 | Yes |
 
 Captures 09 and 10 each resolved 20 occurrences under the active grant.
 Three reads returned product evidence and 17 returned store evidence. Cold
@@ -227,6 +228,21 @@ calls and eight checkpoints. Execution never started. No product pages
 were visited and no workbook was created. The run cost EUR 14.39361 at
 captured tariffs and added zero reservations. The cumulative balance was
 EUR 246.71860 after all outstanding HTTP and application reservations.
+
+The benchmark execution host also has a limit of 1,000 items per independent
+extraction call. The earlier complete captures had 1,558, 1,582 and 1,616
+records. The catalog now captures the actual host setting so the next draft
+can preserve the source's bounded groups. Runtime regressions process all
+1,504 records across 53 groups and 1,602 across 58 groups. An oversized flat
+input still fails before inference or publication. The final Amazon 06
+inspection measured a longest provider wait of 81.65 seconds.
+[Runtime regressions](../../tests/GnOuGo.Flow.Tests/Runtime/DynamicMappingAdaptiveTests.cs)
+
+Fresh source capture 13 used the configured browser on `b7697858` at
+10:49:13 UTC. Its only search GET returned `NAVIGATION_FAILED`. It recorded
+zero response hops, no final document URL and no HTTP status. The cold
+verifier likewise found zero products. A separate close probe verified
+browser closure. The probe made zero model calls and zero business visits.
 
 ### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
 

@@ -41,7 +41,7 @@ public sealed class WorkflowPlanningRuntime : IPlanningRuntime, IPlanningConstru
     public WorkflowPlanningRuntime(StepExecutionContext context, ILLMClient model, Func<PlanningSession, CancellationToken, Task> checkpoint, ILLMCapabilityResolver? capturedCapabilities,
         IPlanningCapabilitySnapshotJournal? capabilitySnapshots)
     { _context = context; _engine = context.Engine; Capabilities = new CapabilityDiscovery(context.Engine); _model = model; _checkpoint = checkpoint; _capturedCapabilities = capturedCapabilities; CapabilitySnapshots = capabilitySnapshots; }
-    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct);
+    public Task<PlanningCatalog> DiscoverAsync(PlanningRequest request, CancellationToken ct) => CapabilityDiscovery.DiscoverAsync(_engine, request, ct, _context.Limits.MaxLoopIterations);
     internal async Task AdmitAsync(LLMRequest request, int inputLimit, string purpose, CancellationToken ct, bool advisoryTokens = false)
     {
         await ModelRequestAdmission.ValidateAsync(request, _capturedCapabilities ?? _engine.LLMCapabilities ?? _model as ILLMCapabilityResolver ??
