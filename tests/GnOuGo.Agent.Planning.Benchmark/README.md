@@ -343,6 +343,12 @@ recorded transient error. Success, usage, conflicting status or uncertain prior
 attempts reject inspection. This administrative closure never retries the request
 or releases its conservative reservation.
 
+A single nonretryable HTTP 401 can use the same retention path when the
+captured status, complete error-only response and normalized authentication
+failure agree. The stopped planning request must have no model receipt or
+usage. The operator retains its entire financial reservation and permanently
+closes that request before a fresh run.
+
 ```sh
 dotnet run --project tests/GnOuGo.Agent.Planning.Benchmark -- \
   --schema-portability retain-uncertain-request --workspace <workspace> \

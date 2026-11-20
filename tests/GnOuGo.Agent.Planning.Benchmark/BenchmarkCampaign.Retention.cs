@@ -479,9 +479,18 @@ internal sealed partial class BenchmarkCampaign
         var effective = journal["effective_transport_policy"] as JsonObject;
         var retry = effective?["effective_retry_policy"];
         var timedOutProgressCancellation = HasExhaustedTimeoutEvidence(captured, attempts, failure);
-        if (state.Diagnostics.Any(d => d.Code == "MODEL_REQUEST_REJECTED") &&
-            (failure?["kind"]?.ToString() != "InvalidRequest" || failure["status_code"]?.GetValue<int>() != 400 ||
-             attempts.LastOrDefault()?["Status"]?.GetValue<int>() != 400)) return false;
+        var rejected = state.Diagnostics.Any(d => d.Code == "MODEL_REQUEST_REJECTED");
+        var terminal = attempts.LastOrDefault();
+        var rejectionStatus = failure?["status_code"]?.GetValue<int>();
+        var matchedRejection = terminal?["Status"]?.GetValue<int>() == rejectionStatus && (rejectionStatus, failure?["kind"]?.ToString()) switch
+        {
+            (400, "InvalidRequest") => true,
+            (401, "Authentication") => rejected && attempts.Count == 1 && terminal?["ObservedStatus"]?.GetValue<int>() == 401 &&
+                terminal["ResponseBodyComplete"]?.GetValue<bool>() == true && terminal["AssembledBody"] is null &&
+                terminal["ProtocolComplete"]?.GetValue<bool>() != true && terminal["UsageKnown"]?.GetValue<bool>() != true,
+            _ => false
+        };
+        if (rejected && !matchedRejection) return false;
         if (captured is null || effective?["version"]?.GetValue<int>() != 2 ||
             !JsonNode.DeepEquals(policy[PlanningTransportPolicies.OptionName], state.Request.Options[PlanningTransportPolicies.OptionName]) ||
             !JsonNode.DeepEquals(effective["planning_transport_policy"], policy[PlanningTransportPolicies.OptionName]) ||
@@ -543,9 +552,8 @@ internal sealed partial class BenchmarkCampaign
             }
             // A fully received nonretryable request rejection also exhausts the
             // captured policy. Retention preserves its unknown exposure; it never retries it.
-            if (attempt["Status"]!.GetValue<int>() == 400)
-                return i == attempts.Count - 1 && attempt["Failure"] is null && IsRetainedErrorOnlyBody(attempt["Body"]?.ToString()) &&
-                    failure["status_code"]?.GetValue<int>() == 400 && failure["kind"]?.ToString() == "InvalidRequest" &&
+            if (attempt["Status"]!.GetValue<int>() is 400 or 401)
+                return i == attempts.Count - 1 && matchedRejection && attempt["Failure"] is null && IsRetainedErrorOnlyBody(attempt["Body"]?.ToString()) &&
                     failure["retryable"]?.GetValue<bool>() == false && failure["retry_exhausted"]?.GetValue<bool>() == false;
             if (attempt["Status"]!.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
                 attempt["Failure"] is not null || !IsRetainedErrorOnlyBody(attempt["Body"]?.ToString())) return false;

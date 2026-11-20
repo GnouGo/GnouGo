@@ -295,11 +295,12 @@ public sealed partial class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
-    [InlineData(1)]
-    [InlineData(2)]
-    public async Task CapturedNonretryableRequestRejectionRetainsAllAttemptsWithoutReceipt(int count)
+    [InlineData(1, 400)]
+    [InlineData(2, 400)]
+    [InlineData(1, 401)]
+    public async Task CapturedNonretryableRequestRejectionRetainsAllAttemptsWithoutReceipt(int count, int status)
     {
-        var records = new Records(); var campaign = await SeedInvalidRequestAsync(records, count);
+        var records = new Records(); var campaign = await SeedInvalidRequestAsync(records, count, status);
         var before = records.Snapshot(excludeClosures: true);
         var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
         var proposal = await campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct,
@@ -351,7 +352,36 @@ public sealed partial class BenchmarkPermanentRetentionTests
         Assert.Equal(before, records.Snapshot());
     }
 
-    private static async Task<BenchmarkCampaign> SeedInvalidRequestAsync(Records records, int count)
+    [Theory]
+    [InlineData("incomplete")]
+    [InlineData("different_status")]
+    [InlineData("wrong_failure")]
+    [InlineData("model_response")]
+    [InlineData("usage")]
+    public async Task AmbiguousAuthenticationResponsesKeepFreshAdmissionBlocked(string defect)
+    {
+        var records = new Records();
+        var campaign = await SeedInvalidRequestAsync(records, 1, 401);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var terminal = journal["transport"]!["Attempts"]![0]!;
+        var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
+        switch (defect)
+        {
+            case "incomplete": terminal["ResponseBodyComplete"] = false; break;
+            case "different_status": terminal["ObservedStatus"] = 400; break;
+            case "wrong_failure": failure["kind"] = "InvalidRequest"; break;
+            case "model_response": terminal["Body"] = "{\"choices\":[]}"; break;
+            case "usage": journal["usage"] = new JsonObject(); break;
+        }
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
+        var before = records.Snapshot();
+        await Assert.ThrowsAsync<InvalidOperationException>(() => campaign.InspectPermanentRetentionAsync(
+            SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention));
+        Assert.Equal(before, records.Snapshot());
+    }
+
+    private static async Task<BenchmarkCampaign> SeedInvalidRequestAsync(Records records, int count, int status = 400)
     {
         var campaign = await SeedCapturedRetriesAsync(records, count, false);
         var run = (await campaign.LoadAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, Ct))!;
@@ -359,11 +389,17 @@ public sealed partial class BenchmarkPermanentRetentionTests
         await campaign.SaveAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, run, Ct);
         var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
         foreach (var attempt in journal["transport"]!["Attempts"]!.AsArray()) attempt!["Status"] = 500;
-        journal["transport"]!["Attempts"]![count - 1]!["Status"] = 400;
-        journal["transport"]!["Attempts"]![count - 1]!["Body"] = "{\"error\":{\"message\":\"Invalid response schema.\",\"type\":\"invalid_request_error\",\"param\":\"response_format\",\"code\":null}}";
+        var terminal = journal["transport"]!["Attempts"]![count - 1]!;
+        terminal["Status"] = status;
+        terminal["ObservedStatus"] = status;
+        terminal["ResponseBodyComplete"] = true;
+        terminal["Body"] = status == 401
+            ? "{\"errorCode\":\"unauthorized\",\"errorMessage\":\"Authentication failed.\",\"errorDetail\":\"Access token is expired.\"}"
+            : "{\"error\":{\"message\":\"Invalid response schema.\",\"type\":\"invalid_request_error\",\"param\":\"response_format\",\"code\":null}}";
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
         var failure = (await campaign.LoadAsync("planning-evaluation-failures", RequestId, Ct))!;
-        failure["kind"] = "InvalidRequest"; failure["retryable"] = false; failure["retry_exhausted"] = false; failure["status_code"] = 400;
+        failure["kind"] = status == 401 ? "Authentication" : "InvalidRequest";
+        failure["retryable"] = false; failure["retry_exhausted"] = false; failure["status_code"] = status;
         await campaign.SaveAsync("planning-evaluation-failures", RequestId, failure, Ct);
         return campaign;
     }
