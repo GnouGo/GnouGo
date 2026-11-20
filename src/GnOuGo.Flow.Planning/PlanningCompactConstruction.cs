@@ -49,7 +49,9 @@ internal static partial class PlanningCompactConstruction
         {RecursiveTaskBudgetGuidance(state)}
         Populate necessary containers with their related work and cleanup. scopeInterface contains existing exports; extension.outputs adds exports, [] preserves them. Close complete children/exports only. When this implementation cursor needs another fragment, retain a useful connected executable prefix with its required cleanup and set continueInScope to the exact original or block-owned open scope. Null finishes only this implementation cursor. completeBlock:true claims that the retained business objective, expected results and success criteria are fulfilled across all accepted contributions; it requires continueInScope:null. Keep completeBlock:false for technical prerequisites, helpers and incomplete business contributions, even when their technical cursor or scope finishes. requirementIds associates work without proving completion. Keep unfinished original obligations open. Reuse accepted producers without repeating their tasks or introducing wrappers merely to mark progress.
         Return one permitted action; other action fields null. Commitments accompany extension only. Evidence-only responses keep requirements, commitments and rollbackReason null. Reselect an unsuitable kind or premature claim, retrieve metadata as evidence, or clarify missing business facts. Typed suspension needs executable data-producing work. No outline, JavaScript or YAML.
-        """ + (CanReviewAcceptedBlock(state)
+        """ + (state.Plan?.Root.Outputs.Count > 0
+            ? "\nAn accepted public output already returns its bound value when execution finishes. Reuse it across later actions. A changed binding requires scoped revision."
+            : "") + (CanReviewAcceptedBlock(state)
             ? "\nWhen accepted work already fulfills this block and its cleanup, request ordinary business review with an empty extension, completeBlock:true and continueInScope:null. Leave scopes open. An unused implementation option requires no extra operation for this claim."
             : "");
 

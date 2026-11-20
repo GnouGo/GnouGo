@@ -172,6 +172,29 @@ original into the next draft and removed its duplicate retrieval choice.
 It preserved the accepted plan and bound operation IDs, with zero model
 calls. All 384 related discovery and navigation tests passed.
 
+The Server subsequently accepted 12 checkpoints. They included the public
+report, one clone and cleanup, Copilot checks and review, creation of a
+pending GitHub review, inline comments and confirmed submission. At call
+45, the model proposed binding a second output named `report` to a new
+value containing publication evidence. Root exports append to the plan.
+The grammar offered the accepted name again and the compiler rejected the
+duplicate. Call 46 contributed the submission. The following repairs
+again proposed a second report and made no progress.
+
+Two tests reproduced the same offer for immediate and deferred exports.
+The draft grammar now offers only unbound public names for additions.
+An existing report stays available across later actions. Its binding can
+change through the existing scoped revision path. Fresh schemas at the
+five original revisions 147, 153, 155, 157 and 159 all excluded the
+duplicate and allowed omission while keeping the report and cleanup.
+Those replays used zero inference calls. All 93 related tests passed.
+
+The run stopped at revision 167 with 53 settled physical calls, 112
+advisory warnings, zero pending requests and zero business dispatches.
+It cost EUR 34.09787. The audit counted 3,369 cumulative physical calls,
+EUR 1,612.99518 measured, EUR 489.11077 reserved for 54 HTTP attempts
+and EUR 144.51319 in retained Server holds. EUR 353.38087 remained.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

@@ -74,10 +74,12 @@ internal static partial class PlanningCompactConstruction
             ("always", PlanningSchemas.Array(PlanningSchemas.Ref(nestedTask), 0, maximum)));
         var taskArray = tasks.Count == 0 ? EmptyArray() : PlanningSchemas.Array(PlanningSchemas.Ref("task"), 0, maximum);
         var outputs = PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum);
+        var boundPublicOutputs = state.Plan?.Root.Outputs.Select(output => output.Name).ToHashSet(StringComparer.Ordinal) ?? [];
         if (step.Scope == "/root")
         {
-            if (step.OutputNames.Count == 0) outputs = EmptyArray();
-            else outputs = PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(step.OutputNames.ToArray())),
+            var unbound = step.OutputNames.Where(name => !boundPublicOutputs.Contains(name)).ToArray();
+            if (unbound.Length == 0) outputs = EmptyArray();
+            else outputs = PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(unbound)),
                 ("value", PlanningSchemas.Ref("value"))), 0, maximum);
         }
         var closure = ClosurePresentation(state);
@@ -146,16 +148,18 @@ internal static partial class PlanningCompactConstruction
         }
         var hasBoundaryTransitions = false;
         {
+            var unbound = (state.Requirements?.Outputs ?? []).Select(output => output.Name)
+                .Where(name => !boundPublicOutputs.Contains(name)).ToArray();
             var boundaries = BoundaryTargets(state, step.Scope).Where(boundary => step.RequirementIds.Count > 0 &&
                 // Selected closures are mandatory in this draft, so their
                 // boundaries cannot remain open for a deferred action.
                 (step.Kind != "close" || step.CloseScopes?.Contains(boundary, StringComparer.Ordinal) != true) &&
-                (boundary != "/root" || state.Requirements?.Outputs is { Count: > 0 }));
+                (boundary != "/root" || unbound.Length > 0));
             var transitions = boundaries.Select(boundary => PlanningSchemas.Object(("scope", PlanningSchemas.Enum(boundary)),
                 ("requirementIds", PlanningSchemas.Array(PlanningSchemas.Enum(step.RequirementIds.ToArray()), 1, step.RequirementIds.Count)),
-                ("outputs", boundary == "/root" ? state.Requirements?.Outputs is { Count: > 0 } publicPorts
-                    ? PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(publicPorts.Select(output => output.Name).ToArray())),
-                        ("value", PlanningSchemas.Ref("value"))), 1, maximum) : EmptyArray()
+                ("outputs", boundary == "/root"
+                    ? PlanningSchemas.Array(PlanningSchemas.Object(("name", PlanningSchemas.Enum(unbound)),
+                        ("value", PlanningSchemas.Ref("value"))), 1, maximum)
                     : PlanningSchemas.Array(PlanningSchemas.Ref("output"), 0, maximum)),
                 ("closeScope", boundary == "/root" ? new JsonObject { ["type"] = "boolean", ["enum"] = new JsonArray(false) } : PlanningSchemas.Type("boolean")))).ToArray();
             hasBoundaryTransitions = transitions.Length > 0;

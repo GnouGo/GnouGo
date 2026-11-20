@@ -215,6 +215,30 @@ public sealed class CompactConstructionClosureTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AppendDraftOffersOnlyUnboundPublicOutputs(bool deferred)
+    {
+        var state = State();
+        state.Plan = new() { Root = new() { Tasks = Leaf(false).Tasks, Outputs = Leaf(false).Outputs } };
+        state.Requirements!.Outputs!.Add(new() { Name = "summary", Type = new() { Kind = "string" } });
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.OutputNames = ["message", "summary"];
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        var property = ExtensionPropertyWithDefinitions(schema, deferred ? "boundaryTransitions" : "outputs");
+        foreach (var name in step.OutputNames)
+        {
+            var outputs = new JsonArray(new JsonObject { ["name"] = name,
+                ["value"] = new JsonObject { ["kind"] = "string", ["text"] = "Ready" } });
+            var declaration = deferred ? new JsonArray(new JsonObject { ["scope"] = "/root", ["closeScope"] = false,
+                ["requirementIds"] = new JsonArray("req"), ["outputs"] = outputs }) : outputs;
+            Assert.Equal(name == "summary", PlanningContractValidation.ValidateInstanceFindings(declaration, property).Count == 0);
+        }
+        Assert.Equal(step.BaseHash, PlanningConstruction.Hash(state.Plan));
+    }
+
     [Fact]
     public void SelectedRootCompletionOffersNoDeferredBoundaryClaim()
     {
