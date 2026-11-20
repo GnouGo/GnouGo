@@ -271,7 +271,16 @@ internal static partial class PlanningCompactConstruction
                 if (completionOnly) continue;
                 var local = branch.DeepClone().AsObject();
                 if (local["properties"]!["kind"]?["enum"] is not JsonArray callKinds || !callKinds.Any(kind => kind?.ToString() == "call"))
-                    local["properties"]!["kind"] = PlanningSchemas.Nullable(PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray()));
+                {
+                    // Pending discovery has no operation selection. Its domain object already
+                    // supplies the empty list, including when the session is reloaded.
+                    var deferred = local.DeepClone().AsObject();
+                    deferred["properties"]!["kind"] = PlanningSchemas.Type("null");
+                    deferred["properties"]!["closeScopes"] = PlanningSchemas.Type("null");
+                    deferred["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("closeScopes"));
+                    choices.Add((JsonNode)deferred);
+                    local["properties"]!["kind"] = PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray());
+                }
                 AddSelectionFields(local, local["properties"]!["kind"]?["enum"] is JsonArray selectedKinds &&
                     selectedKinds.Any(selected => selected?.ToString() == "call") && known.Length > 0
                     ? PlanningSchemas.Array(PlanningSchemas.Enum(known), 0, PlanningOptimizationThresholds.Maximum(state, state.Construction!.Limits.MaxTasksPerDraft)) : EmptyArray(), PlanningSchemas.Type("null"));

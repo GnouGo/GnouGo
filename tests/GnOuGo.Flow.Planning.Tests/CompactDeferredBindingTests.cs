@@ -88,6 +88,34 @@ public sealed class CompactDeferredBindingTests
         Assert.Empty(pages.Cursors); Assert.Empty(pages.Resolutions);
     }
 
+    [Fact]
+    public async Task DeferredImplementationSelectionCarriesImportsWithoutDeclaringOperationIds()
+    {
+        var (state, runtime) = ReadyKnown();
+        AddContract(state, Contract());
+        state.Requirements!.Inputs!.Add(new() { Name = "recordKey", Type = new() { Kind = "string" } });
+        state.Plan!.Inputs.Add(state.Requirements.Inputs.Single());
+        runtime.Respond = (request, _) =>
+        {
+            var response = SelectKnown(state, null);
+            var step = response["step"]!.AsObject();
+            step["inputs"] = new JsonArray(new JsonObject { ["kind"] = "input", ["source"] = "recordKey" });
+            step.Remove("operationIds");
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
+            var injected = response.DeepClone();
+            injected["step"]!["operationIds"] = new JsonArray("read");
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(injected, request.StructuredOutputSchema!));
+            return new() { Json = response };
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var selected = state.Construction!.Compact!.CurrentStep!;
+        Assert.Null(selected.Kind);
+        Assert.Empty(selected.OperationIds);
+        Assert.False(selected.DiscoveryComplete);
+        Assert.Equal("recordKey", Assert.Single(selected.Inputs).Source);
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("value")]

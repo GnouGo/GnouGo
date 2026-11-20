@@ -10,6 +10,25 @@ now identifies exact, policy-allowed contracts on the displayed descriptor page.
 It offers direct binding and a local evidence address for the original. Changed
 or unresolved descriptors retain their provider inspection path.
 
+The same run reached revision 119 with four accepted tasks for URL parsing, PR
+identity, the diff and revision extraction. Its two caller inputs were
+`pullRequestUrl` and `reviewText`. On call 32 the implementation response
+selected deferred discovery with three revision imports. After opening the
+mandatory empty `operationIds` array, it emitted 55,690 characters of whitespace.
+The provider used all 4,096 output tokens, including 173 reasoning tokens. The
+Server rejected the partial response. The 32 HTTP attempts had measured usage
+estimated at EUR 15.95087 and no unresolved reservations for this session.
+No workflow execution or publication took place. Fresh deferred selections can
+carry the same imports without spelling out an operation list. Direct operation
+bindings still require IDs and exact contracts.
+
+The fifth independent Amazon source capture returned 1,669 records. Twenty
+authorized resolutions returned seventeen store pages and three product links.
+The product links resolved to the same ASIN, but the independent verifier could
+not establish the whole card context under the active policy. Cold reloading the
+same evidence reproduced the findings and the independent browser closure probe
+found no active page. Business product visits and workbook writes were zero.
+
 ## Fresh ten-product and published-review qualification, 19 November 2026
 
 The ten-product Server attempt `bef26286efd94475bff02326756f3c60`
