@@ -32,11 +32,11 @@ internal static partial class PlanningCompactConstruction
         """;
 
     internal static string DiscoveryGuidance(PlanningSession state) => (PlanningDiscoveryFocus.Enabled(state)
-        ? "Select an issued focus for the immediate objective or retained prerequisite and justify each source from its description. Prefer suitable inspected contracts; stop once sufficient. Exploratory failures prove no capability absence and require alternatives, not invented results. " : "") + $"""
+        ? "Select an issued focus for the immediate objective or retained prerequisite and justify each source from its description. Bind suitable inspected IDs directly. Exploratory failures prove no capability absence and require alternatives, not invented results. " : "") + $"""
         Resolve the current implementation cursor within its selected scope and retained business obligations. Inspect original descriptions/constraints and exact continuations; incomplete inspection proves no absence.
         Return one action with others null: binding, discoveryRequests, evidenceRequests, reselectStep or clarifications. binding selects the anchor, inspected operationIds and optional closed groupId. Draft connected helpers later. closeScopes:[] closes no scope, [scope] the offered boundary; other actions use null.
         {ContainerBoundaryGuidance} value json_encode serializes supplied runtime values as JSON text without an encoder MCP. transform extract preserves observations; eligible interpret derives typed data from supplied inputs through the runtime LLM. Neither invents external facts nor performs external actions. {SelectedExpectationsSemantics}
-        Bind a knownOperations ID directly or read its exact evidence if needed. The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
+        The host verifies exact contracts before drafting. Never invent setup, handles, results or permissions. Runtime data needs executable prerequisites; clarify only missing business facts. Bind caller inputs at runtime.
         discoveryRequests uses source/cursor, query:null and operationIds:null; offered operationIds with cursor:null inspect contracts without binding. The host follows exact continuations. evidenceRequests may also select an offered earlier description. {EvidenceBatchGuidance(state)} Use supplied evidence; metadata grants no execution authority.
         """ + (CanClaimCurrentBlockCompletion(state)
             ? "\nA close binding with closeScopes:[] claims completion of this business block's accepted contributions for ordinary review. It adds no work and closes no workflow scope or original requirement. When accepted contributions fulfill the fixed goal and criteria, select this review claim; do not add a report or helper solely to obtain review. Ordinary review can reject a premature claim."
@@ -272,14 +272,19 @@ internal static partial class PlanningCompactConstruction
                 var local = branch.DeepClone().AsObject();
                 if (local["properties"]!["kind"]?["enum"] is not JsonArray callKinds || !callKinds.Any(kind => kind?.ToString() == "call"))
                 {
-                    // Pending discovery has no operation selection. Its domain object already
-                    // supplies the empty list, including when the session is reloaded.
-                    var deferred = local.DeepClone().AsObject();
-                    deferred["properties"]!["kind"] = PlanningSchemas.Type("null");
-                    deferred["properties"]!["closeScopes"] = PlanningSchemas.Type("null");
-                    deferred["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("closeScopes"));
-                    choices.Add((JsonNode)deferred);
-                    local["properties"]!["kind"] = PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray());
+                    var localKinds = PlanningSchemas.Enum(kinds.Where(kind => kind is not ("call" or "close")).ToArray());
+                    if (known.Length > 0)
+                    {
+                        // With known contracts on offer, separate deferred discovery
+                        // from any decision to bind operations. No IDs can be sent.
+                        var deferred = local.DeepClone().AsObject();
+                        deferred["properties"]!["kind"] = PlanningSchemas.Type("null");
+                        deferred["properties"]!["closeScopes"] = PlanningSchemas.Type("null");
+                        deferred["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("closeScopes"));
+                        choices.Add((JsonNode)deferred);
+                        local["properties"]!["kind"] = localKinds;
+                    }
+                    else local["properties"]!["kind"] = PlanningSchemas.Nullable(localKinds);
                 }
                 AddSelectionFields(local, local["properties"]!["kind"]?["enum"] is JsonArray selectedKinds &&
                     selectedKinds.Any(selected => selected?.ToString() == "call") && known.Length > 0

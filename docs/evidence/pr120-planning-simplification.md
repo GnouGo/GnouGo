@@ -18,14 +18,16 @@ mandatory empty `operationIds` array, it emitted 55,690 characters of whitespace
 The provider used all 4,096 output tokens, including 173 reasoning tokens. The
 Server rejected the partial response. The 32 HTTP attempts had measured usage
 estimated at EUR 15.95087 and no unresolved reservations for this session.
-No workflow execution or publication took place. Fresh deferred selections can
-carry the same imports without spelling out an operation list. Direct operation
-bindings still require IDs and exact contracts.
+No workflow execution or publication took place. When fresh selection offers inspected operations, its deferred-discovery option
+carries the same imports without spelling out an operation list. With no inspected
+operations on offer, the local and deferred choices share one compact schema.
+This keeps strict navigation admission within the existing 6,000-token allowance
+in the suspended-consumer tests. Direct bindings still require IDs and exact contracts.
 
 The fifth independent Amazon source capture returned 1,669 records. Twenty
 authorized resolutions returned seventeen store pages and three product links.
-The product links resolved to the same ASIN, but the independent verifier could
-not establish the whole card context under the active policy. Cold reloading the
+The product links resolved to the same ASIN, but the independent verifier found the bare auxiliary /deals link at record 506 in the same card.
+The active grant does not cover that bare destination. Cold reloading the
 same evidence reproduced the findings and the independent browser closure probe
 found no active page. Business product visits and workbook writes were zero.
 
