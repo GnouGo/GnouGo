@@ -1,5 +1,27 @@
 # PR 120 planning simplification
 
+## Cumulative EUR 2,600 campaign, 20 November 2026
+
+The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
+campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
+EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,
+their measured EUR 1,471.47722, the EUR 489.11077 reserved for 54 unresolved
+HTTP attempts, the separate EUR 139.56769 in Server reservations and the
+preceding spending authorizations all matched the pre-grant audit. This
+left EUR 499.84432 available for the new work. The grant fingerprint is
+`48f5df93db4ab5401d8612a9572c204b4eb8a542fe7cfecbb0ccc966ad437b39`.
+
+Before retrying the review, a cold inspection of run 20 on the current
+planner verified that the global judge's three cited tasks resolved to six
+permitted repair fields across their original checkpoints. It made zero
+inference calls and made no plan edits. The scoped-repair and delivery suite
+passed 28 tests and the native provider-stream suite passed 95. At 16:49 UTC,
+an independent authentication diagnostic obtained HTTP 200 from the configured
+issuer and acquired a token with zero generation attempts. The fresh review
+uses a single physical attempt per planning call with a 270-second local
+deadline. Run 21's last received bytes at 132 seconds and an eventual local
+deadline at 600 seconds do not establish when or why the upstream stopped.
+
 ## Cumulative EUR 2,100 campaign, 20 November 2026
 
 At 06:13:10 UTC the operator applied the EUR 400 supplement to the existing
