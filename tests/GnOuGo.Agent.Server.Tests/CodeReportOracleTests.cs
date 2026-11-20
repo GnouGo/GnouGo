@@ -167,6 +167,42 @@ public sealed class CodeReportOracleTests
         Assert.Equal(expected, LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = "APPROVE", ["body"] = "Verified." }) is null);
     }
 
+    [Fact]
+    public async Task PackageBoundariesComeFromThePinnedGitTree()
+    {
+        var root = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            var run = PublishedRun();
+            run.Remove("tracked_package_manifests");
+            var path = Path.Combine(root, run["workspace_relative"]!.ToString(), "repository");
+            var member = Path.Combine(path, "packages", "member with spaces");
+            Directory.CreateDirectory(member);
+            LibGit2Sharp.Repository.Init(path);
+            string head;
+            using (var repository = new LibGit2Sharp.Repository(path))
+            {
+                await File.WriteAllTextAsync(Path.Combine(path, "package.json"), "{}", TestContext.Current.CancellationToken);
+                await File.WriteAllTextAsync(Path.Combine(member, "package.json"), "{}", TestContext.Current.CancellationToken);
+                LibGit2Sharp.Commands.Stage(repository, "*");
+                var author = new LibGit2Sharp.Signature("Fixture", "fixture@example.test", DateTimeOffset.UnixEpoch.AddDays(1));
+                head = repository.Commit("Declare workspace and member", author, author, new LibGit2Sharp.CommitOptions()).Sha;
+            }
+            var temporaryPackage = Directory.CreateDirectory(Path.Combine(path, "temporary")).FullName;
+            await File.WriteAllTextAsync(Path.Combine(temporaryPackage, "package.json"), "{}", TestContext.Current.CancellationToken);
+            File.Delete(Path.Combine(member, "package.json"));
+            run["target_head"] = new string('0', 40);
+            run["target_base"] = head;
+            await LiveCodeEvidence.ObserveCheckoutAsync(root, run);
+            Assert.Null(run["tracked_package_manifests"]);
+            run["target_head"] = head;
+            await LiveCodeEvidence.ObserveCheckoutAsync(root, run);
+            Assert.Equal(new[] { "package.json", "packages/member with spaces/package.json" },
+                run["tracked_package_manifests"]!.AsArray().Select(value => value!.ToString()));
+        }
+        finally { Directory.Delete(root, recursive: true); }
+    }
+
     [Theory]
     [InlineData("passed", "APPROVE", "Verified.", true)]
     [InlineData("failed", "APPROVE", "All checks passed.", false)]

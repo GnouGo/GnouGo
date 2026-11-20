@@ -52,6 +52,13 @@ A failed check blocks approval, as do missing or conflicting completions.
 An explained failure can support a request for changes. The review regression
 uses the same verdict check as the live prepublication hook. [Publication regression](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
 
+At head `107c86fc`, PR 718's root test script runs the recursive workspace
+suite. The webapp's test script runs that package's Vitest suite. A green
+member-only receipt previously satisfied the root check. The guard on
+`a4c451e8` resolves package ownership from the pinned tree and recognizes
+explicit workspace-root commands. [Root scripts](https://github.com/AxaFrance/SmartGuide/blob/107c86fc87fcd89b529f6589736d27a09acb4206/package.json) ·
+[Webapp scripts](https://github.com/AxaFrance/SmartGuide/blob/107c86fc87fcd89b529f6589736d27a09acb4206/production/webapp/package.json)
+
 Review session `bc53bd8d6b844466858c34847f9b03ba` on `6fea9bf1` accepted
 eight technical checkpoints. Its TaskPlan contained URL and revision resolution,
 one clone, a Copilot review and root cleanup. Execution never started. The
@@ -71,6 +78,39 @@ The 38 HTTP attempts had measured usage estimated at EUR 27.25104. The
 subsequent campaign audit recorded 2,620 HTTP attempts, EUR 1,158.47140 in
 measured usage, EUR 478.50045 in HTTP reservations and EUR 103.36148 in other
 reservations. EUR 359.66667 remained available for the next run.
+
+### Amazon session 60e34eba2dfa44bdb98b7255a6d1e3ca
+
+The fresh Server run on `e034bdde` lasted from 07:27:50 to 08:21:03 UTC.
+It accepted 14 technical checkpoints, including a search and root cleanup.
+It stopped after receipt 54. Execution never started. The run directory
+contained no workbook and the workflow visited zero products.
+
+Request 52 iterated `index_sponsored_literal_links.linkMarkers`, an output of
+an accepted sibling control. The issued grammar accepted the response and the
+compiler returned zero findings. Intermediate validation rejected it with
+`CONSTRUCTION_STEP_INVALID`. A later repair proposed a lookup that failed
+`TASK_LOOKUP_INVALID`. On `784b0ed4`, offline replay accepted response 52
+with zero model calls and the same accepted-plan hash
+`ccf6ffb1ff3fa0d425c324a682cc983d0b786b4470c72108b6cda6a758fb5fc3`.
+The SHA-256 of the retained response JSON is
+`359e4f97ada2563aaf1b435a6db13c4d4cb0ef375b2fbd93f7a73f6e8eeb229b`.
+[Control composition regression](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
+Requests 35–37 traversed task pages at offsets 0, 8 and 16. Fresh drafts can
+retrieve pages containing visible producers in one batch. The run also built
+eight loops over the same source pages. Its grammar offered independent
+extraction, but the projected contract had lost the explanation of how to
+bind it. The fresh grammar describes the collection and result fields. The
+controlled 52-page extraction test checks all 1,488 records in order and
+retains repeated selections. [Navigation regressions](../../tests/GnOuGo.Flow.Planning.Tests/CompactDraftNavigationTests.cs) ·
+[Extraction execution regression](../../tests/GnOuGo.Flow.Planning.Tests/CompactObservationTests.cs)
+
+The financial audit recorded 54 measured HTTP attempts for the run and zero
+unresolved attempts. Their estimated usage at captured tariffs was EUR
+30.72961. Cumulative totals reached 2,674 attempts and EUR 1,189.20102 of
+measured usage. Existing HTTP reservations of EUR 478.50045 and separate
+application reservations of EUR 103.36148 left EUR 328.93705 available.
 
 ## Qualification at the previous EUR 1,700 ceiling, 20 November 2026
 
