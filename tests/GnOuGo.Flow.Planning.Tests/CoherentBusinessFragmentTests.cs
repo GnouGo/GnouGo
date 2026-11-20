@@ -617,15 +617,21 @@ public sealed class CoherentBusinessFragmentTests
         Assert.DoesNotContain("sequence", PlanningCompactConstruction.BusinessFragmentKinds(state));
     }
 
-    [Fact]
-    public async Task AnotherIterationCanUseTheSameOriginalCollectionForAnIndependentCheck()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnotherIterationCanUseTheSameOriginalCollectionForAnIndependentCheck(bool nestedField)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Compact!.CurrentStep!.Kind = "sequence";
-        static TaskValue Source(string port) => new() { Kind = "output", Source = "samples", Port = port };
+        TaskValue Source(string port) => nestedField
+            ? new() { Kind = "field", Port = port, Items = [new() { Kind = "output", Source = "samples", Port = "snapshot" }] }
+            : new() { Kind = "output", Source = "samples", Port = port };
         static TaskValue Samples() => new() { Kind = "array", Items = [new() { Kind = "number", Number = 7 }] };
         var original = new PlanTask { Id = "samples", Kind = "value", Objective = "Keep both series.",
-            Outputs = [new("measurements", Samples()), new("estimates", Samples())] };
+            Outputs = nestedField
+                ? [new("snapshot", new() { Kind = "object", Members = [new("measurements", Samples()), new("estimates", Samples())] })]
+                : [new("measurements", Samples()), new("estimates", Samples())] };
         var projection = new PlanTask { Id = "project", Kind = "foreach", Objective = "Project the measured values.",
             Items = Source("measurements"), Body = new() { Outputs = [new("measurement", new() { Kind = "item" })] } };
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()

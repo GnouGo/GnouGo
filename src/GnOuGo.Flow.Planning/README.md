@@ -142,6 +142,8 @@ continuation or boundary authority; the final global review still covers every o
 Their completion claims also leave requirements in progress and visible to selection.
 A consumed closed control retains its actual child actions, calls, exports and cleanup
 in the review projection, including previously reviewed producers.
+A later loop can independently verify the same original collection. Identity
+includes the output producer, port and complete sequence of field selections.
 Evidence-only prerequisite notes do not veto host preparation of an already selected
 unchanged-plan closure. They remain attached to its pending claim for review; no
 completion or execution authority is gained. The first such claim initializes its

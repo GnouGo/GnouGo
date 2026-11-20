@@ -2,6 +2,15 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 18's thirteenth request iterated the identical `snapshot.pages`
+field already used at the preceding checkpoint. Construction rejected the
+new loop because the original-collection check recognized a direct output
+port only. The regression now exercises both direct and nested collections,
+rejects a sibling collection and compiles the accepted workflow. Replaying
+the original native response at revision 36 produced zero extension or
+compiler findings and preserved the accepted plan. The replay made zero
+model calls. All 41 related regressions passed.
+
 Review 35 (`de9381281b6b43b99f9fd675b1c5c8b8`) generated a single clone,
 root cleanup and Copilot checks. At call 16 it bound the new
 `requirePageDirectory` input and iterated the comparison's ordered cursors.

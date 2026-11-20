@@ -110,9 +110,8 @@ internal static partial class PlanningCompactConstruction
             var iteratedCollections = controlExports.Select(export => export.Id).Distinct(StringComparer.Ordinal)
                 .Where(id => symbols.Tasks[id].Task.Kind == step.Kind)
                 .SelectMany(id => TaskPlanRevisions.Tasks(new TaskScope { Tasks = [symbols.Tasks[id].Task] }))
-                .Where(accepted => accepted.Kind == "foreach").Select(accepted => accepted.Items)
-                .OfType<TaskValue>().Where(items => items.Kind == "output")
-                .Select(items => (items.Source, items.Port)).ToHashSet();
+                .Where(accepted => accepted.Kind == "foreach").Select(accepted => OutputSelection(accepted.Items))
+                .OfType<string>().ToHashSet(StringComparer.Ordinal);
             // A checked value may forward a control result through several ports. Follow
             // only the binding of that output; a guard or sibling output is not its data.
             var accepted = BlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
@@ -123,8 +122,8 @@ internal static partial class PlanningCompactConstruction
             foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always)
                 .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
             {
-                if (task is { Kind: "foreach", Items: { Kind: "output" } collection } &&
-                    iteratedCollections.Contains((collection.Source, collection.Port))) continue;
+                if (task.Kind == "foreach" && OutputSelection(task.Items) is { } collection &&
+                    iteratedCollections.Contains(collection)) continue;
                 var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
                 if (!contribution.Values.Values.Any(site => ReadsControlExport(site.Value)))
                     PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id,
@@ -133,6 +132,13 @@ internal static partial class PlanningCompactConstruction
 
             bool ReadsControlExport(TaskValue binding) => TaskPlanCompiler.Values(binding).Any(value =>
                 value is { Kind: "output", Source: { } source, Port: { } port } && controlExports.Contains((source, port)));
+
+            static string? OutputSelection(TaskValue? items)
+            {
+                var root = items;
+                while (root is { Kind: "field", Items: [var parent] }) root = parent;
+                return root?.Kind == "output" ? JsonSerializer.Serialize(items!, PlanningJsonContext.Default.TaskValue) : null;
+            }
         }
         ValidateEmptyOpening(state, candidate);
         var added = candidate.TaskIds.ToHashSet(StringComparer.Ordinal);
