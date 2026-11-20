@@ -128,13 +128,18 @@ internal static class LiveCodeEvidence
         if (verdict == "APPROVE") return failures.Count == 0 ? null : "Approval requires all mandatory checks to pass.";
         if (verdict != "REQUEST_CHANGES") return "Unknown review verdict.";
         var body = submission["body"]?.ToString() ?? "";
+        var explanation = body;
         foreach (var (name, receipts) in failures)
         {
-            var references = receipts!.AsArray().OfType<JsonObject>().Select(c => c["command"]!.ToString()).Append(name.Replace('_', ' '));
-            if (!references.Any(reference => body.Contains(reference, StringComparison.OrdinalIgnoreCase) &&
-                body.Replace(reference, "", StringComparison.OrdinalIgnoreCase).Any(char.IsLetterOrDigit)))
+            var references = receipts!.AsArray().OfType<JsonObject>().Select(c => c["command"]!.ToString())
+                .Append(name.Replace('_', ' ')).Distinct(StringComparer.OrdinalIgnoreCase).OrderByDescending(reference => reference.Length).ToArray();
+            if (!references.Any(reference => body.Contains(reference, StringComparison.OrdinalIgnoreCase)))
                 return "The review must identify and explain the observed failure of " + name + ".";
+            foreach (var reference in references)
+                explanation = explanation.Replace(reference, "", StringComparison.OrdinalIgnoreCase);
         }
+        if (failures.Count > 0 && !explanation.Any(char.IsLetterOrDigit))
+            return "The review identifies failed checks but needs an explanation of their failures.";
         return null;
     }
 

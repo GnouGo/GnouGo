@@ -154,6 +154,8 @@ public sealed class CodeReportOracleTests
     [InlineData("failed", "REQUEST_CHANGES", "pnpm run e2e exited 1 when opening the checkout.", true)]
     [InlineData("failed", "REQUEST_CHANGES", "Looks fine.", false)]
     [InlineData("failed", "REQUEST_CHANGES", "pnpm run e2e", false)]
+    [InlineData("two_failures", "REQUEST_CHANGES", "pnpm run test\npnpm run e2e", false)]
+    [InlineData("two_failures", "REQUEST_CHANGES", "pnpm run test and pnpm run e2e both stopped because the test fixture was unavailable.", true)]
     [InlineData("missing", "APPROVE", "Verified.", false)]
     [InlineData("unknown", "APPROVE", "Verified.", false)]
     [InlineData("conflict_after_success", "APPROVE", "Verified.", false)]
@@ -162,9 +164,10 @@ public sealed class CodeReportOracleTests
     {
         var run = PublishedRun();
         var calls = run["events"]![1]!["result"]!["toolExecutions"]!.AsArray();
-        var integration = Call("integration", "pnpm run e2e", outcome == "failed" ? 1 : 0, "Test output");
+        var integration = Call("integration", "pnpm run e2e", outcome is "failed" or "two_failures" ? 1 : 0, "Test output");
         if (outcome == "unknown") integration["terminals"]![0]!.AsObject().Remove("exitCode");
         if (outcome != "missing") calls.Add(integration);
+        if (outcome == "two_failures") calls.Add(Call("other-check", "pnpm run test", 1, "Test output"));
         if (outcome == "conflict_after_success")
         {
             var uncertain = integration.DeepClone();
