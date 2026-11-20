@@ -114,7 +114,7 @@ public sealed class CompactSelectionActionTests
             ["scope"] = "/root", ["kind"] = "value",
             ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "accepted", ["port"] = "message" }),
             ["dependencyTaskIds"] = new JsonArray(),
-            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["groupId"] = null,
+            ["closeRequirementIds"] = new JsonArray(), ["groupId"] = null,
             ["operationIds"] = new JsonArray(), ["prerequisites"] = null, ["closeScopes"] = null
         },
         ["evidenceRequests"] = null, ["clarifications"] = null

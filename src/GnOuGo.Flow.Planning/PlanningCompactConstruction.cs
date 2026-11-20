@@ -235,8 +235,12 @@ internal static partial class PlanningCompactConstruction
             ("groupId", hasClosedGroup ? PlanningSchemas.Nullable(Text(state, 96)) : PlanningSchemas.Type("null")),
             ("dependencyTaskIds", Strings(state, 0, PlanningOptimizationThresholds.Maximum(state, 8))), ("expectedOutputs", Strings(state, 0, PlanningOptimizationThresholds.Maximum(state, 4))),
             ("closeRequirementIds", closingRequirements.Length == 0 ? EmptyArray() :
-                PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, PlanningOptimizationThresholds.Maximum(state, 4))), ("outputNames", outputs.Length == 0
-                ? PlanningSchemas.Array(Text(state, 256), 0, 0) : PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, PlanningOptimizationThresholds.Maximum(state, 8))));
+                PlanningSchemas.Array(PlanningSchemas.Enum(closingRequirements), 0, PlanningOptimizationThresholds.Maximum(state, 4))));
+        if (outputs.Length > 0)
+        {
+            step["properties"]!["outputNames"] = PlanningSchemas.Array(PlanningSchemas.Enum(outputs), 0, PlanningOptimizationThresholds.Maximum(state, 8));
+            step["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("outputNames"));
+        }
         {
             var prerequisiteRequirements = requirements.Concat((displayed["requirements"] as JsonArray ?? []).Select(row => row!["id"]!.ToString()))
                 .Concat(EvidenceRequirementIds(state)).Distinct(StringComparer.Ordinal);

@@ -1558,7 +1558,7 @@ public sealed class CompactAcceptedTaskNavigationTests
                 ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = "transform",
                     ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "output", ["source"] = "make", ["port"] = port }),
                     ["groupId"] = null, ["operationIds"] = new JsonArray(), ["dependencyTaskIds"] = new JsonArray(),
-                    ["closeRequirementIds"] = new JsonArray(), ["closeScopes"] = null, ["outputNames"] = new JsonArray(), ["prerequisites"] = null }
+                    ["closeRequirementIds"] = new JsonArray(), ["closeScopes"] = null, ["prerequisites"] = null }
             };
             Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, request.StructuredOutputSchema!));
             return new() { Json = response };

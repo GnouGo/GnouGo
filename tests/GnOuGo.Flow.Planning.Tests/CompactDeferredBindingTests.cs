@@ -1499,7 +1499,7 @@ public sealed class CompactDeferredBindingTests
         ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["evidenceRequests"] = null, ["clarifications"] = null,
         ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["operationIds"] = new JsonArray(), ["inputs"] = new JsonArray(), ["groupId"] = null,
             ["dependencyTaskIds"] = new JsonArray(),
-            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null }
+            ["closeRequirementIds"] = new JsonArray(), ["prerequisites"] = null }
     };
     private static JsonObject Binding(string kind) => new()
     {

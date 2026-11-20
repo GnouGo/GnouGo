@@ -178,7 +178,7 @@ public sealed class CompactDraftNavigationTests
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["evidenceRequests"] = null, ["clarifications"] = null,
             ["step"] = new JsonObject { ["scope"] = "/root", ["kind"] = kind, ["inputs"] = new JsonArray(), ["groupId"] = group,
                 ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(),
-                ["outputNames"] = new JsonArray(), ["operationIds"] = new JsonArray(), ["closeScopes"] = null,
+                ["operationIds"] = new JsonArray(), ["closeScopes"] = null,
                 ["prerequisites"] = prerequisite is null ? null : new JsonArray(new JsonObject
                     { ["need"] = "The required calculation must be available.", ["evidenceAddresses"] = new JsonArray(prerequisite) }) }
         };

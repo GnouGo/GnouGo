@@ -187,7 +187,7 @@ public sealed class CompactSelectionScopeTests
             ["scope"] = step.Scope, ["kind"] = step.Kind,
             ["inputs"] = JsonSerializer.SerializeToNode(step.Inputs, PlanningJsonContext.Default.ListTaskValue),
             ["dependencyTaskIds"] = new JsonArray(), ["operationIds"] = new JsonArray(),
-            ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(),
+            ["closeRequirementIds"] = new JsonArray(),
             ["groupId"] = null, ["prerequisites"] = null, ["closeScopes"] = null
         },
         ["evidenceRequests"] = null, ["clarifications"] = null

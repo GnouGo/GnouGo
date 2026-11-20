@@ -839,7 +839,7 @@ public sealed class CompactConstructionTests
         Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(state.Requirements.Outputs[8], PlanningJsonContext.Default.TaskInput), exact));
         state.Requirements.Outputs.Clear(); state.Construction!.Compact!.OutputOffset = 0;
         var response = Implement(request); response["step"]!["groupId"] = null;
-        response["step"]!["outputNames"] = new JsonArray();
+        response["step"]!.AsObject().Remove("outputNames");
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.ImplementationSchema(state)));
         response["step"]!["outputNames"] = new JsonArray("undeclared");
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.ImplementationSchema(state)));

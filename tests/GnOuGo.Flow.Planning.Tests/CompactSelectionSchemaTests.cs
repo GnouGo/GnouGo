@@ -7,6 +7,25 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactSelectionSchemaTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ImplementationAsksForOutputNamesOnlyWhenAPublicOutputIsOffered(bool hasPublicOutput)
+    {
+        var state = await Ready();
+        state.Requirements!.Outputs = hasPublicOutput ? [new() { Name = "result", Type = new() { Kind = "number" } }] : [];
+        var selection = PlanningCompactConstruction.ImplementationRequest(state);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.ImplementationPurpose,
+            selection.Prompt, selection.StructuredOutputSchema!.AsObject());
+        var schema = issued.StructuredOutputSchema!.AsObject();
+        foreach (var branch in StepBranches(schema).Where(branch => branch["properties"]!["inputs"] is not null))
+        {
+            Assert.Equal(hasPublicOutput, branch["properties"]!.AsObject().ContainsKey("outputNames"));
+            Assert.Equal(hasPublicOutput, branch["required"]!.AsArray().Any(field => field!.ToString() == "outputNames"));
+        }
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+    }
+
     [Fact]
     public async Task ScopeChoicesFollowTheDisplayedOpenFrontierAndItsExactNextPage()
     {
@@ -410,7 +429,7 @@ public sealed class CompactSelectionSchemaTests
         {
             ["scope"] = "/root", ["kind"] = "value",
             ["inputs"] = new JsonArray(), ["groupId"] = null, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["prerequisites"] = null, ["dependencyTaskIds"] = new JsonArray(),
-            ["closeRequirementIds"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()), ["outputNames"] = new JsonArray()
+            ["closeRequirementIds"] = new JsonArray(requirements.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray())
         }
     };
 

@@ -291,7 +291,7 @@ public sealed class CompactSelectionPresentationTests(ITestOutputHelper output)
         ["step"] = new JsonObject
         {
             ["scope"] = "/root", ["kind"] = "value", ["inputs"] = new JsonArray(), ["groupId"] = null, ["operationIds"] = new JsonArray(), ["closeScopes"] = null, ["prerequisites"] = null,
-            ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray()
+            ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray()
         }
     };
     private static async Task<PlanningSession> Ready(bool selectBlock = true)

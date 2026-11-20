@@ -431,7 +431,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
             ["scope"] = "/root", ["kind"] = "call", ["inputs"] = new JsonArray(Import("input")),
             ["groupId"] = "reusable", ["dependencyTaskIds"] = new JsonArray(),
             ["closeRequirementIds"] = new JsonArray(),
-            ["outputNames"] = new JsonArray(), ["prerequisites"] = null,
+            ["prerequisites"] = null,
             ["operationIds"] = new JsonArray(), ["closeScopes"] = null
         };
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, PlanningCompactConstruction.ImplementationSchema(state)));
@@ -450,7 +450,7 @@ public sealed class CompactSelectionObjectiveNavigationTests
         ["step"] = new JsonObject
         {
             ["scope"] = "/root", ["kind"] = "value", ["inputs"] = new JsonArray(Input(name)), ["groupId"] = null,
-            ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(), ["outputNames"] = new JsonArray(), ["prerequisites"] = null,
+            ["dependencyTaskIds"] = new JsonArray(), ["closeRequirementIds"] = new JsonArray(), ["prerequisites"] = null,
             ["operationIds"] = new JsonArray(), ["closeScopes"] = null
         }
     };

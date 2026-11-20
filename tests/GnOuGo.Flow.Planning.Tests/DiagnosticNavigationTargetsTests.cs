@@ -76,7 +76,7 @@ public sealed class DiagnosticNavigationTargetsTests
             ["inputs"] = new JsonArray(new JsonObject { ["kind"] = "field", ["port"] = field, ["items"] = new JsonArray(
                 new JsonObject { ["kind"] = "output", ["source"] = producerId, ["port"] = "record" }) }),
             ["dependencyTaskIds"] = new JsonArray(producerId), ["closeRequirementIds"] = new JsonArray(),
-            ["outputNames"] = new JsonArray(), ["prerequisites"] = null, ["operationIds"] = new JsonArray(),
+            ["prerequisites"] = null, ["operationIds"] = new JsonArray(),
             ["closeScopes"] = null
         };
         var authored = new JsonObject { ["baseHash"] = selected.BaseHash, ["step"] = step };
