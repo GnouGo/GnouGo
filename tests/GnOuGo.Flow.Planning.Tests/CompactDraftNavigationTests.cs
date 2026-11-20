@@ -8,6 +8,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactDraftNavigationTests
 {
     [Theory]
+    [InlineData("sequence", true)]
+    [InlineData("close", false)]
+    public void PreparedDraftExplainsIndependentExtractionWhenTheGrammarOffersIt(string kind, bool offered)
+    {
+        var state = State();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Construction!.Compact!.CurrentStep!.Kind = kind;
+        var draft = PlanningConstruction.DraftRequest(state, repair: false);
+        var request = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
+            draft.Prompt, draft.StructuredOutputSchema!.AsObject(), null, null);
+        Assert.Equal(offered, request.StructuredOutputSchema!.ToJsonString().Contains("\"each\":", StringComparison.Ordinal));
+        var semantics = request.StructuredOutputSchema["description"]!.ToString();
+        Assert.Equal(offered, semantics.Contains("each.input", StringComparison.Ordinal));
+        Assert.Equal(offered, semantics.Contains("each.output", StringComparison.Ordinal));
+        Assert.Equal(0, state.ModelCalls);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public void DraftSeparatesTheSelectedPrerequisiteFromTheBusinessBlocksFinalResults(bool inherited)

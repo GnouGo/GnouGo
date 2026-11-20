@@ -282,6 +282,8 @@ internal static partial class PlanningCompactConstruction
         if (nestedControls)
             hints.Add("For newly supplied child scopes, declare their output port names in body.outputs or branch outputs. The compiler derives each enclosing task's output contract from those declarations; a future task has no accepted interface to retrieve before it is declared. A later consumer binds that task's declared output port. Do not invent an implicit collection port or bypass the scope boundary.");
         if (kinds.Contains("value")) hints.Add(ValueSemantics);
+        if (kinds.Contains("transform"))
+            hints.Add("For independent extraction, each.input names the source collection and each.output the sole array result. Extract related fields together in one mapping over all items. Preserve order, repetitions and nested arrays. Mapping examples are bounded and the runtime checks every item. Use foreach for per-item actions and a separate comparison for cross-item decisions.");
         if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
         if (step.Kind == "operation")

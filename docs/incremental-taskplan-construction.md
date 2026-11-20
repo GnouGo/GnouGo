@@ -904,3 +904,8 @@ Original planning clauses, catalogue entries and policy identifiers are not inhe
 by execution. Needed rule facts must be bound or expressed completely in the task.
 The same inference-input guidance applies during fresh drafting and correction;
 it grants no new binding, permission or repair authority.
+
+A draft that offers independent extraction describes `each.input` and
+`each.output` in its issued grammar. One mapping can extract related fields
+from each observation in source order. Nested results keep their page
+boundaries. The runtime checks every item using the configured mapping budget.
