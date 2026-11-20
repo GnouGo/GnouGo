@@ -1,5 +1,16 @@
 # PR 120 planning simplification
 
+## Fresh review session c7b201b1b0ff4a04b4297176a768d8f6, 20 November 2026
+
+Call 2 asked for the original request page. Four displayed requirements and
+three displayed global constraints already contained all 1,321 characters.
+Call 3 received that page as text. Fresh business selection identifies the
+displayed rows in the original clause order when they reconstruct the entire
+indexed page exactly. Replaying selection against the captured session with
+the two builds confirmed that the redundant read disappeared and its seven
+ordered rows reproduced the full text. Partial pages still offer retrieval.
+[Source order regression](../../tests/GnOuGo.Flow.Planning.Tests/OverallProgressTests.cs)
+
 ## Fresh review session b959c396c5914233abf87b90271346f3, 20 November 2026
 
 Call 6 requested the named output port directory of an inspected operation
@@ -52,6 +63,15 @@ an exported port of the accepted control within the same business block.
 The compiler still checks the actual reference, scope and selected operations.
 Tests also cover an unrelated wrapper, a repeated wrapper and an open source.
 [Construction regressions](../../tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs)
+
+The earlier build continued reselecting pagination after it had retained
+three page operations. The operator stopped generation at revision 175 after
+the sixtieth response to run a fresh case on the fixes. Eight technical
+checkpoints had been recorded. The 60 HTTP attempts cost EUR 31.17658 at the
+captured tariffs, with zero outstanding reservations for this session. The
+longest recorded model call took 71.53 seconds. The repository never reached
+checkout or tests. GitHub still showed zero reviews and zero diff comments
+on the 52-file PR at head `107c86fc87fcd89b529f6589736d27a09acb4206`.
 
 The sixth independent Amazon source capture contained 1,642 records in
 79 pages. Nineteen authorized link resolutions returned sixteen store pages

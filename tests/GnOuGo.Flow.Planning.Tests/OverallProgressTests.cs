@@ -36,6 +36,36 @@ public sealed class OverallProgressTests
     }
 
     [Fact]
+    public async Task CompleteOrderedVisibleClausesSupplyTheOriginalPageDuringBusinessSelection()
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var compact = state.Construction!.Compact!;
+        var page = compact.Sources[0];
+        const string global = " Keep every occurrence in its original order.";
+        const string globalId = "request:0:clause:2";
+        state.Request.Prompt += global;
+        page.Text += global;
+        page.Version = PlanningGraphCompiler.Fingerprint(page.Text);
+        compact.Sources.Add(new() { Id = globalId, Kind = "global", Indexed = true, Text = global,
+            Version = PlanningGraphCompiler.Fingerprint(global) });
+        compact.GlobalSourceIds.Add(globalId);
+        var request = PlanningCompactConstruction.SelectionRequest(state);
+        const string address = "\"source:request:0\"";
+        Assert.DoesNotContain(address, request.StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var context = JsonNode.Parse(request.Prompt[(request.Prompt.LastIndexOf('\n') + 1)..])!;
+        var order = context["originalPageClauseOrder"]![page.Id]!.AsArray().Select(id => id!.ToString()).ToArray();
+        Assert.Equal(["work", "later", globalId], order);
+        var texts = context["requirements"]!.AsArray().Concat(context["globalConstraints"]!.AsArray())
+            .ToDictionary(row => row!["id"]!.ToString(), row => (row!["original"] ?? row["text"])!.ToString());
+        Assert.Equal(page.Text, string.Concat(order.Select(id => texts[id])));
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "source:" + page.Id, out var retained));
+        Assert.Equal(page.Text, retained!["text"]!.ToString());
+        page.Text += " A further unindexed clause.";
+        page.Version = PlanningGraphCompiler.Fingerprint(page.Text);
+        Assert.Contains(address, PlanningCompactConstruction.SelectionRequest(state).StructuredOutputSchema!.ToJsonString(), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task BusinessSelectionKeepsLoadedOriginalEvidenceWithoutOfferingTheSameReadAgain()
     {
         var (state, runtime) = await BusinessSelectionCoverageContextTests.PreparedGroup();

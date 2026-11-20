@@ -69,6 +69,8 @@ internal static partial class PlanningCompactConstruction
             ["overallProgress"] = OverallProgress(state, facts),
             ["evidence"] = BusinessSelectionEvidence(state)
         };
+        var pageOrder = VisibleOriginalPageOrder(state, context);
+        if (pageOrder.Count > 0) context["originalPageClauseOrder"] = pageOrder;
         var feasibility = BusinessFeasibilityObservations(state);
         if (feasibility.Count > 0) context["feasibilityObservations"] = feasibility;
         var coverage = facts.Findings;
@@ -90,6 +92,40 @@ internal static partial class PlanningCompactConstruction
         if (findings.Count > 0) context["actionFindings"] = findings;
         if (!string.IsNullOrWhiteSpace(state.Request.Policy.Instructions)) context["instructions"] = state.Request.Policy.Instructions;
         return context;
+    }
+
+    private static JsonObject VisibleOriginalPageOrder(PlanningSession state, JsonObject context)
+    {
+        var compact = State(state);
+        var shown = new Dictionary<string, (string Row, string Text)>(StringComparer.Ordinal);
+        foreach (var row in context["requirements"]!.AsArray().OfType<JsonObject>())
+        {
+            var id = row["id"]!.ToString();
+            if (compact.RequirementSources.TryGetValue(id, out var sources) && sources is [var only])
+                shown[only] = (id, row["original"]!.ToString());
+        }
+        foreach (var row in context["globalConstraints"]!.AsArray().OfType<JsonObject>())
+        {
+            var id = row["id"]!.ToString();
+            shown[id] = (id, row["text"]!.ToString());
+        }
+        var order = new JsonObject();
+        var clausesByPage = compact.Sources.ToLookup(source =>
+        {
+            var separator = source.Id.LastIndexOf(":clause:", StringComparison.Ordinal);
+            return separator >= 0 ? source.Id[..separator] : string.Empty;
+        }, StringComparer.Ordinal);
+        foreach (var page in compact.Sources.Where(source => source.Indexed && source.Kind == "page"))
+        {
+            if (state.Construction!.Evidence?.ContainsKey("source:" + page.Id) == true) continue;
+            var prefix = page.Id + ":clause:";
+            var clauses = clausesByPage[page.Id].ToArray();
+            if (clauses.Length == 0 || clauses.Where((clause, index) => !clause.Indexed || clause.Id != prefix + index ||
+                !shown.TryGetValue(clause.Id, out var visible) || visible.Text != clause.Text).Any() ||
+                string.Concat(clauses.Select(clause => clause.Text)) != page.Text) continue;
+            order[page.Id] = List(clauses.Select(clause => shown[clause.Id].Row));
+        }
+        return order;
     }
 
     private static JsonObject BusinessSelectionEvidence(PlanningSession state)
@@ -213,6 +249,7 @@ internal static partial class PlanningCompactConstruction
             ("successCriteria", PlanningSchemas.Array(BusinessText(state, 1024), 1)));
         var addresses = State(state).Sources.Where(source => source.Indexed).Select(source => "source:" + source.Id)
             .Concat(ProgressEvidence(state, context).Order(StringComparer.Ordinal))
+            .Where(address => !(address.StartsWith("source:", StringComparison.Ordinal) && context["originalPageClauseOrder"]?[address[7..]] is not null))
             .Where(address => state.Construction!.Evidence?.ContainsKey(address) != true).Distinct(StringComparer.Ordinal).ToArray();
         var actions = new JsonArray();
         if (requirements.Length > 0)
