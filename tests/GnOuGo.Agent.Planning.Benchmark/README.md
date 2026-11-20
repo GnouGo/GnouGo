@@ -720,6 +720,15 @@ operator preview/apply writes only the immutable closure; old evidence, applicat
 reservations and campaign exposure remain unchanged. The old run cannot resume or
 replay. A fresh independent run must still pass complete financial admission.
 
+Fresh Server planning in experimental forecast mode verifies the supplied external
+reservation total before creating session state. If an earlier Server stopped
+after reserving locally and before the campaign received the request,
+`admission-refused-before-campaign-envelope` can retain the full local hold.
+Inspection matches the stopped revision, pending request and structured financial
+diagnosis with `dispatchStatus: not_started` in both the run and the Server.
+It requires the original reservation and configuration, an empty transport and
+absent campaign envelope and receipts. Applying that receipt prevents replay.
+
 
 ### Financial audit and forecast experiment
 
