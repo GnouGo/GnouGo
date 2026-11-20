@@ -250,6 +250,8 @@ internal static partial class PlanningCompactConstruction
             if (page.ContainsKey("scopeContext"))
             {
                 var probe = page.DeepClone().AsObject(); probe.Remove("scopeContext");
+                foreach (var scope in (probe["scopes"] as JsonArray ?? []).OfType<JsonObject>())
+                    if (scope["path"]?.ToString() == "/root") scope["evidence"] = "scope:/root";
                 Consider("scopeContext", probe);
             }
             // A boundary's purpose is needed to choose work inside it. Keep its
@@ -260,6 +262,14 @@ internal static partial class PlanningCompactConstruction
                 for (var index = 0; index < (rows?.Count ?? 0); index++)
                 {
                     var row = rows![index]!;
+                    if (directory == "interfaces" && row["input"]?.ToString() is { } name && row["declaration"] is JsonObject)
+                    {
+                        var linkedPage = page.DeepClone().AsObject();
+                        var compact = linkedPage["interfaces"]![index]!.AsObject();
+                        compact.Remove("declaration");
+                        compact["evidence"] = "input:" + name;
+                        Consider("input:" + name, linkedPage);
+                    }
                     var field = directory == "knownOperations" ? "description" : "objective";
                     if (row[field] is not JsonValue || row["evidence"] is null && row[field + "Evidence"] is null) continue;
                     var identity = directory + ":" + (row["path"] ?? row["task"] ?? row["id"] ?? row["evidence"]) + ":" + field;

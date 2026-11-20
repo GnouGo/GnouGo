@@ -184,8 +184,10 @@ public sealed class CompactDraftNavigationTests
         var baseline = PlanningConstruction.Hash(state.Plan);
         var request = SelectionRequest(state);
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!.AsObject(), strict: true));
-        foreach (var address in new[] { "requirement:req", "source:request:0:clause:0", "group:worker", "input:caller", "scope:/root", "page:requirements:1" })
+        foreach (var address in new[] { "requirement:req", "source:request:0:clause:0", "group:worker", "input:caller", "page:requirements:1" })
             AssertSelectionEvidence(request, state, address, valid: true);
+        Assert.Equal("/root", Context(request)["scopeContext"]!["path"]!.ToString());
+        AssertSelectionEvidence(request, state, "scope:/root", valid: false);
         Assert.Single(Context(request)["requirements"]!.AsArray());
         AssertSelectionEvidence(request, state, "source:request:1:clause:0", valid: false);
         foreach (var address in new[] { "Find an authorized producer for this action.", "task:unknown", "request:0:clause:0", "page:requirements:2" })

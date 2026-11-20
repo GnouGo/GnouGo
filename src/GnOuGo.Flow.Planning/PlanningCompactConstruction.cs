@@ -574,7 +574,29 @@ internal static partial class PlanningCompactConstruction
                 context["continuation"]!.AsObject().Remove("prerequisite");
         }
         AddDecisionContext(state, context);
+        if (context["scopeContext"] is JsonObject root && root["path"]?.ToString() == "/root")
+        {
+            foreach (var scope in (context["scopes"] as JsonArray ?? []).OfType<JsonObject>())
+                if (scope["evidence"]?.ToString() == "scope:/root") scope.Remove("evidence");
+            if (state.Plan is null) ShowInitialCallerDeclarations(state, context);
+        }
         return TrimNavigation(context);
+    }
+
+    private static void ShowInitialCallerDeclarations(PlanningSession state, JsonObject context)
+    {
+        var remainingBytes = ContractDescriptionPageSize;
+        foreach (var row in (context["interfaces"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (row["input"]?.ToString() is not { } name || row["evidence"]?.ToString() != "input:" + name ||
+                state.Requirements?.Inputs?.SingleOrDefault(input => input.Name == name) is not { } input) continue;
+            var declaration = PlanningConstruction.Node(input, PlanningJsonContext.Default.TaskInput)!;
+            var bytes = System.Text.Encoding.UTF8.GetByteCount(declaration.ToJsonString());
+            if (bytes > remainingBytes) continue;
+            row["declaration"] = declaration;
+            row.Remove("evidence");
+            remainingBytes -= bytes;
+        }
     }
 
     private static IEnumerable<TaskInput> OutputPage(PlanningSession state) => (state.Requirements?.Outputs ?? []).Skip(State(state).OutputOffset).Take(8);

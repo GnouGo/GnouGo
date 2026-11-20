@@ -474,6 +474,47 @@ public sealed class CompactDeferredBindingTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void InitialSelectionExposesTheExactRootAndShortCallerDeclarationWithoutAnotherRead(bool largeDefault)
+    {
+        var (state, _) = ReadyKnown();
+        state.Plan = null;
+        var input = new TaskInput { Name = "subject", Type = new() { Kind = "string" }, Required = !largeDefault,
+            Default = largeDefault ? new() { Kind = "string", Text = new string('x', 5000) } : null };
+        state.Requirements!.Inputs!.Add(input);
+        var context = PlanningCompactConstruction.ImplementationContext(state);
+        var schema = PlanningCompactConstruction.ImplementationSchema(state, context);
+        var choices = Nodes(schema).OfType<JsonValue>().Select(value => value.ToString()).ToHashSet();
+        Assert.DoesNotContain("scope:/root", choices);
+        var row = Assert.Single(context["interfaces"]!.AsArray().OfType<JsonObject>(), item => item["input"]?.ToString() == input.Name);
+        var original = PlanningConstruction.Node(input, PlanningJsonContext.Default.TaskInput);
+        if (largeDefault) Assert.Equal("input:subject", row["evidence"]!.ToString());
+        else Assert.True(JsonNode.DeepEquals(original, row["declaration"]));
+        Assert.Equal(largeDefault, choices.Contains("input:subject"));
+        var prior = PlannerFixture.Clone(state);
+        PlanningConstruction.LoadEvidence(prior, ["scope:/root", "input:subject"]);
+        Assert.True(JsonNode.DeepEquals(context["scopeContext"], prior.Construction!.Evidence!["scope:/root"]));
+        Assert.True(JsonNode.DeepEquals(original, prior.Construction.Evidence["input:subject"]));
+    }
+
+    [Fact]
+    public void StrictSelectionPackingPreservesRetrievalForDisplacedInitialEvidence()
+    {
+        var (state, _) = ReadyKnown();
+        state.Plan = null;
+        state.Request.Options["construction_limits"]!["phasePolicy"]!["navigation"]!["targetInputTokens"] = 512;
+        state.Requirements!.Inputs!.Add(new() { Name = "subject", Default = new() { Kind = "string", Text = new string('x', 900) } });
+        var request = PlanningCompactConstruction.ImplementationRequest(state);
+        var context = OriginalContext(request);
+        Assert.Null(context["scopeContext"]);
+        var choices = Nodes(request.StructuredOutputSchema!).OfType<JsonValue>().Select(value => value.ToString()).ToHashSet();
+        Assert.Contains("scope:/root", choices);
+        Assert.Contains("input:subject", choices);
+        Assert.Equal("input:subject", Assert.Single(context["interfaces"]!.AsArray())!["evidence"]!.ToString());
+    }
+
+    [Theory]
     [InlineData("operation", 1, null, true)]
     [InlineData("operation", 2, null, true)]
     [InlineData("operation", 0, null, false)]
