@@ -2,6 +2,23 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 33 (`cc5abc5628034a3d811447e4f06a4e1c`) accepted eleven checkpoints.
+Its local judges accepted the pending review, verified inline comment loop,
+submission acknowledgement and the caller's bound report. Final technical
+validation found duplicate projection identifiers in two short-circuit
+branches of the comparison task's null guard. The selector requested four
+pages or batches of evidence, then asked for technical clarification.
+The Server stopped before execution after 46 measured physical requests
+(EUR 30.24965). Readback showed zero reviews and zero inline comments.
+
+Four regression cases reproduced the duplicate identifier and now exercise
+both evaluated and skipped reads of an optional field through the runtime.
+The compiler scopes each lazy projection to the predicate branch that owns
+it. All 195 related tests passed. Recompiling the original eleven-checkpoint
+TaskPlan at revision 143 retained its hash, cleared the only technical finding
+and made completion available to the global judge. The replay made no model
+requests and executed no workflow.
+
 Review 32 requested the same 235-character Git operation description at
 calls 14 and 16. The full operation was outside its selection, but the same
 versioned descriptor remained visible. Replays of revisions 59 and 65 now

@@ -66,6 +66,7 @@ public sealed partial class TaskPlanCompiler
         public Bound? Item { get; set; }
         public Bound? Index { get; set; }
         public List<PlanningNode>? Target { get; set; }
+        public string? PredicateBranch { get; set; }
         public bool Cleanup { get; set; }
     }
     private sealed class InvalidTask(string code, string location, string message) : Exception(message)
@@ -801,7 +802,7 @@ public sealed partial class TaskPlanCompiler
         if (scope.Target is null) return value; // Semantic preflight: no graph emission.
         var narrowing = value.WholeMcpResult && value.SelectionPath is { Count: 0 } && !JsonNode.DeepEquals(value.Schema, source.Schema)
             ? ":" + PlanningGraphCompiler.Fingerprint(value.Schema.ToJsonString()) : "";
-        var key = Key(scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString() + narrowing);
+        var key = Key(scope.PredicateBranch ?? scope.Workflow.Key, "select:" + _location + ":" + ValueIdentity(source.Value) + ":" + new JsonArray(value.SelectionPath!.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()).ToJsonString() + narrowing);
         if (!scope.Target.Any(n => n.Key == key))
         {
             var node = new PlanningNode { Key = key, Type = "set",
@@ -912,18 +913,22 @@ public sealed partial class TaskPlanCompiler
             var left = Value(value.Items[0], scope); RequireBoolean(left);
             var target = scope.Target;
             var location = _location; var rightNodes = new List<PlanningNode>(); Bound right;
+            // A field check belongs to the branch that evaluates it. Sibling
+            // predicates can read the same field at the same source location.
+            var parentBranch = scope.PredicateBranch;
+            var key = target is null ? null : Key(parentBranch ?? scope.Workflow.Key, "predicate:" + location + ":" + JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue));
+            scope.PredicateBranch = key;
             scope.Target = target is null ? null : rightNodes; _location += "/items/1";
             try
             {
                 using var facts = EnterRequirement(scope, value.Items[0], whenTrue: value.Predicate == "and");
                 right = Value(value.Items[1], scope); RequireBoolean(right);
             }
-            finally { scope.Target = target; _location = location; }
-            if (target is null || rightNodes.Count == 0)
+            finally { scope.Target = target; scope.PredicateBranch = parentBranch; _location = location; }
+            if (target is null || key is null || rightNodes.Count == 0)
                 return new(PlanningValues.Predicate(value.Predicate!, left.Value, right.Value), new() { ["type"] = "boolean" });
             // Checks of a selected field must short-circuit along with the predicate.
             // Use native control flow only when the right operand needs materialization.
-            var key = Key(scope.Workflow.Key, "predicate:" + location + ":" + JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue));
             var selected = Key(key, "selected"); var skipped = Key(key, "skipped"); var merged = Key(key, "result");
             var schema = ObjectSchema([("value", new JsonObject { ["type"] = "boolean" })]);
             if (!target.Any(n => n.Key == merged))
