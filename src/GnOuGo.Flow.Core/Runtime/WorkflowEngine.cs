@@ -97,6 +97,16 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         }
     }
 
+    private static void ValidateEntryInputs(WorkflowDef? definition, JsonNode? value)
+    {
+        if (definition?.Inputs is not { Count: > 0 }) return;
+        if (value is not JsonObject inputs)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "A workflow with declared inputs requires an input object.");
+        var errors = InputTypeValidator.Validate(definition, inputs);
+        if (errors.Count > 0)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Input validation failed: {string.Join("; ", errors)}");
+    }
+
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
         using var warnings = LLMUsageBudget?.ObserveTokenWarnings();
@@ -132,13 +142,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         };
 
         // Validate inputs against rich type schema
-        if (workflow.Source?.Inputs != null && data["inputs"] is JsonObject inputsObj)
-        {
-            var typeErrors = InputTypeValidator.Validate(workflow.Source, inputsObj);
-            if (typeErrors.Count > 0)
-                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                    $"Input validation failed: {string.Join("; ", typeErrors)}");
-        }
+        ValidateEntryInputs(workflow.Source, data["inputs"]);
 
         var result = new RunResult { Success = true };
 
@@ -246,13 +250,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             ["env"] = new JsonObject()
         };
 
-        if (workflow.Source?.Inputs != null && data["inputs"] is JsonObject inputsObj)
-        {
-            var typeErrors = InputTypeValidator.Validate(workflow.Source, inputsObj);
-            if (typeErrors.Count > 0)
-                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                    $"Input validation failed: {string.Join("; ", typeErrors)}");
-        }
+        ValidateEntryInputs(workflow.Source, data["inputs"]);
 
         var result = new RunResult { Success = true };
         var workflowInfo = new WorkflowTelemetryInfo

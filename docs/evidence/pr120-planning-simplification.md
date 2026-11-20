@@ -311,6 +311,28 @@ answer to the completed workflow outputs. Fresh v2 Review qualifications
 also check delivery of command and exit-code evidence. A wrong invocation,
 a missing answer, omitted commands and swapped exit codes fail qualification.
 
+The global judge accepted Review 30. Final semantic validation stopped at
+revision 141 on the MCP submission selector. In the actual generated YAML
+the parent passed its validated two-value enum to a local workflow, whose
+required input declared the same values. The validator rejected the exact
+input reference. The 40 physical calls settled at EUR 18.53698 with 83
+advisory warnings and no new reservations. Execution did not start.
+
+The regression reproduced the selector rejection and a separate non-object
+entry that skipped declared input validation. After the correction, the
+unchanged Review 30 plan compiled and passed semantic validation against its
+captured MCP contracts. Its plan hash remained
+`7c6a984de0de9412a8ce65b21b893685aa072b1a8c0533e6bc642289ab093ed4`.
+The replay used zero model calls. All 1,548 Flow tests passed, including
+rejection of invalid values before MCP dispatch and denial of proofs for
+optional, nullable, out-of-domain and shadowed inputs.
+
+The single paid Amazon follow-up returned an ordered per-page mapping with
+both original URLs and source positions, plus page identity. The source
+request had projected only positions. The complete response cost EUR 0.67410.
+The fresh Amazon 16 session started with 3,481 cumulative physical attempts
+and EUR 297.72181 available.
+
 The one-time EUR 500 supplement was recorded at 16:50:06 UTC on the existing
 campaign `pr120-live-20261107-400`. The pre-grant audit matched the closing
 EUR 2,100 audit byte for byte. After the grant, the 3,164 earlier attempts,

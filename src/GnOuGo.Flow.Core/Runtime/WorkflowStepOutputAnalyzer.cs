@@ -292,7 +292,7 @@ internal static class WorkflowStepOutputAnalyzer
             ["item"] = new(itemType, Required: true)
         });
 
-    private static IEnumerable<StepDef> EnumerateSteps(IEnumerable<StepDef>? steps)
+    internal static IEnumerable<StepDef> EnumerateSteps(IEnumerable<StepDef>? steps)
     {
         if (steps == null)
             yield break;

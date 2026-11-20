@@ -112,7 +112,11 @@ public static class WorkflowPlanSemanticValidator
             var allSteps = workflow.Steps.Concat(workflow.Finally).ToList();
             var allStepIds = CollectStepIds(allSteps).ToHashSet(StringComparer.Ordinal);
             var knownEmptyStringReferences = CollectKnownEmptySetStringReferences(allSteps);
-            var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds);
+            // A conditional assignment or a loop variable can replace the inputs object.
+            // Only an unchanged entry value still carries its runtime-checked domain.
+            var inputsRetainEntryValues = !WorkflowStepOutputAnalyzer.EnumerateSteps(allSteps)
+                .Any(s => s.Output == "inputs" || s.ItemVar == "inputs" || s.IndexVar == "inputs");
+            var symbols = WorkflowSymbolTable.Create(workflowName, workflow.Inputs, allStepIds, inputsRetainEntryValues);
             ValidateFunctionJsDoc(workflow.Functions, workflowName, errors);
             var allowedFunctionNames = BuildAllowedFunctionNames(workflow.Functions, globalFunctionNames);
             var functionDefinitions = BuildFunctionDefinitions(workflow.Functions, $"workflows.{workflowName}.functions", globalFunctionDefinitions);

@@ -30,6 +30,10 @@ result. Invalid fallbacks stop downstream execution with
 The semantic validator recognizes finite selector domains from direct references
 to validated structured `llm.call` results and checked `set` and `mapping.dynamic` outputs. A consumed selector must be a required,
 non-null string enum whose values are a subset of the consumer contract.
+The same check accepts a direct reference to a required workflow input with
+that enum. The entry point and local calls validate inputs before running
+steps. Assigning an output or a loop variable to `inputs` invalidates this
+proof for that workflow.
 Dynamic schemas, optional/nullable selectors and incompatible continuation outputs
 cannot establish that proof. TaskPlan string enums and deterministic JSON encoding
 are described in the separately published [planner package](../GnOuGo.Flow.Planning/README.md).
@@ -680,7 +684,7 @@ Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best to
 
 Resolved request properties whose discovered input schema marks them optional are omitted when their value is JSON `null`. This lets one typed request represent optional scalar fields without sending schema-invalid nulls. A null value for a required property is never omitted and still fails before transport.
 
-Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, and direct required enum references from runtime-checked `set`, `llm.call` and `mapping.dynamic` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
+Documented action selectors (`method`, `action`, `operation`, `command`, `mode`, `event`, `kind`, JSON Schema `const`, and explicit discriminators) must resolve to documented scalars. Validation accepts literals, proven finite expressions, direct required enum inputs that retain their validated entry values, and required enum references from runtime-checked `set`, `llm.call` and `mapping.dynamic` outputs. Array indexing itself does not prove item presence; select and check the scalar before consuming it. Optional, nullable, opaque, conditional, or unchecked fallback values cannot prove a selector. Generated expressions cannot hide or replace the logical MCP operation selected during planning.
 
 #### MCP progress events → thinking telemetry
 
