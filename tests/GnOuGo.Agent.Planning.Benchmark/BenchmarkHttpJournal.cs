@@ -154,7 +154,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 campaign.BudgetExceeded(sessionExhausted);
                 var error = new InvalidOperationException("The campaign or session cannot cover another HTTP attempt.");
                 decimal? required = null;
-                try { required = moneyExceeded ? LLMUsageBudgetScope.SumCostConservatively(totals["cost_upper_bound_eur"]!.GetValue<decimal>(), reviewCostHeadroom, retainedOtherReservations)
+                try { required = moneyExceeded ? LLMUsageBudgetScope.SumCostConservatively(totals["cost_upper_bound_eur"]!.GetValue<decimal>(), experimentalForecast ? 0m : reviewCostHeadroom, retainedOtherReservations)
                     : totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom; }
                 catch (OverflowException) { /* Exact admission already rejects unrepresentable exposure. */ }
                 error.Data[BenchmarkCampaign.BudgetRefusalData] = new JsonObject {

@@ -11,6 +11,16 @@ the two builds confirmed that the redundant read disappeared and its seven
 ordered rows reproduced the full text. Partial pages still offer retrieval.
 [Source order regression](../../tests/GnOuGo.Flow.Planning.Tests/OverallProgressTests.cs)
 
+Eleven HTTP attempts returned measured usage estimated at EUR 2.73275.
+The campaign refused the first draft before its first HTTP attempt. Its
+original record reported EUR 1,729.92444 against EUR 1,700. That figure
+included EUR 28.93668 of future review forecast. Current exposure including
+the requested reservation was EUR 1,700.98776. In experimental warning mode
+the refusal now reports the amount the ceiling actually enforces. The
+captured forecast remains separately available. The strict mode regression
+still includes the forecast in its required amount. This run reached
+neither approval nor execution. [Financial admission regression](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs)
+
 ## Fresh review session b959c396c5914233abf87b90271346f3, 20 November 2026
 
 Call 6 requested the named output port directory of an inspected operation

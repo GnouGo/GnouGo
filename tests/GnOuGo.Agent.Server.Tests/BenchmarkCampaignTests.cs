@@ -629,6 +629,24 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Theory]
+    [InlineData("experimental_warning", 60)]
+    [InlineData("strict", 90)]
+    public async Task RefusedAttemptReportsOnlyTheReservationEnforcedByItsCapturedPolicy(string mode, int required)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "current-exposure");
+        var journal = new BenchmarkHttpJournal(campaign, "fresh:1:hash", 10, 10, 60m, reviewCostHeadroom: 30m,
+            reviewAttemptHeadroom: 1, effectiveTransportPolicy: new JsonObject { ["financial_forecast_mode"] = mode });
+        await journal.PrepareAsync(Ct);
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            journal.SaveAsync(new() { Attempts = [new() { Id = "fresh:1:hash:1" }] }, Ct));
+        var refusal = Assert.IsType<JsonObject>(error.Data[BenchmarkCampaign.BudgetRefusalData]);
+        Assert.Equal((decimal)required, refusal["required_reservation"]!.GetValue<decimal>());
+        Assert.Equal(30m, refusal["mandatory_review_reserve_eur"]!.GetValue<decimal>());
+        Assert.Equal("not_started", refusal["dispatch_status"]!.ToString());
+        Assert.Empty((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
+    [Theory]
     [InlineData("valid")]
     [InlineData("missing")]
     [InlineData("material")]
