@@ -91,6 +91,14 @@ both pieces of information there.
 [Intake tests](../../tests/GnOuGo.Flow.Planning.Tests/CompactIntentIndexingTests.cs)
 and [delivery tests](../../tests/GnOuGo.Flow.Planning.Tests/DeliveryChannelGuidanceTests.cs)
 
+The reconsideration request repeated four unchanged target snapshots under
+both the prior and current observations. All four already appeared in the
+same review. A cold replay of the issued request reduced the prompt from
+76,057 to 59,762 UTF-8 bytes. Each of the four references resolved to both
+original snapshots. Changed snapshots, reasons and targets retain their
+original evidence.
+[Review presentation tests](../../tests/GnOuGo.Flow.Planning.Tests/PlanningPromptPresentationTests.cs)
+
 ### Amazon session f6054746b98d48ad80f73685e32f10f8
 
 The Server accepted six checkpoints, including the search, complete snapshot,

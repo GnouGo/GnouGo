@@ -257,6 +257,7 @@ public static class PlanningPromptPresentation
         var sharedTasks = ShareRepeatedTaskViews(context);
         var sharedTaskPages = ShareRepeatedTaskPages(context);
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
+        var sharedReviewSnapshots = ShareUnchangedReviewSnapshots(context);
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
@@ -324,7 +325,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !composedFields) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !composedFields) return prompt;
+        if (sharedReviewSnapshots)
+            context["reviewSnapshotPresentation"] = "unchangedAt points to the identical before and current snapshot for this concern in the present review.";
         if (composedFields)
             context["composedFieldPresentation"] = "composedFieldAt points to the same imported result's field schema in an earlier object. Resolve its local references within that object's interface schema. Each result retains its own binding and producer.";
         if (sharedPrefix)
@@ -493,6 +496,29 @@ public static class PlanningPromptPresentation
             else originals.Add(key, $"/interfaces/{index}/schema");
         }
         return changed;
+    }
+
+    private static bool ShareUnchangedReviewSnapshots(JsonObject context)
+    {
+        if (Text(context["review"]) != "completed_workflow" || context["priorConcerns"] is not JsonArray concerns) return false;
+        var shared = false;
+        foreach (var section in new[] { "actions", "scopes" })
+        {
+            if (context[section] is not JsonArray rows) continue;
+            for (var index = 0; index < rows.Count; index++)
+            {
+                if (rows[index] is not JsonObject row || Text(row["id"]) is not { } id) continue;
+                foreach (var concern in concerns.OfType<JsonObject>())
+                {
+                    if (concern["targets"] is not JsonArray { Count: 1 } targets || Text(targets[0]) != id ||
+                        !JsonNode.DeepEquals(row, concern["current"]) || !JsonNode.DeepEquals(row, concern["before"])) continue;
+                    concern.Remove("before"); concern.Remove("current");
+                    concern["unchangedAt"] = $"/{section}/{index}";
+                    shared = true;
+                }
+            }
+        }
+        return shared;
     }
 
     private static bool ShareReviewedOperationDetails(JsonObject context)

@@ -5,6 +5,37 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PlanningPromptPresentationTests
 {
+    [Fact]
+    public void GlobalReconsiderationSharesOnlyUnchangedSnapshotsAlreadyShownInTheReview()
+    {
+        var action = new JsonObject { ["id"] = "measure", ["instruction"] = new string('x', 500) };
+        var scope = new JsonObject { ["id"] = "/root", ["tasks"] = new JsonArray("measure"), ["outputs"] = new JsonArray() };
+        JsonObject Concern(JsonObject before, JsonObject current) => new()
+        {
+            ["targets"] = new JsonArray(current["id"]!.DeepClone()), ["reason"] = "The observed result needs delivery.",
+            ["before"] = before.DeepClone(), ["current"] = current.DeepClone()
+        };
+        var changed = action.DeepClone().AsObject(); changed["instruction"] = "Previous behavior";
+        var concerns = new JsonArray(Concern(action, action), Concern(scope, scope), Concern(changed, action), Concern(changed, changed));
+        var context = new JsonObject { ["review"] = "completed_workflow", ["actions"] = new JsonArray(action),
+            ["scopes"] = new JsonArray(scope), ["priorConcerns"] = concerns };
+        var prompt = "Inspect the original concern.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        var shown = JsonNode.Parse(compact[(compact.LastIndexOf('\n') + 1)..])!;
+        var rows = shown["priorConcerns"]!.AsArray();
+        for (var i = 0; i < 2; i++)
+        {
+            Assert.True(JsonNode.DeepEquals(concerns[i]!["current"], PlanningSchemaReferences.Read(shown,
+                rows[i]!["unchangedAt"]!.ToString())));
+            Assert.Null(rows[i]!["before"]); Assert.Null(rows[i]!["current"]);
+            Assert.True(JsonNode.DeepEquals(concerns[i]!["targets"], rows[i]!["targets"]));
+            Assert.Equal(concerns[i]!["reason"]!.ToString(), rows[i]!["reason"]!.ToString());
+        }
+        Assert.True(JsonNode.DeepEquals(concerns[2], rows[2]));
+        Assert.True(JsonNode.DeepEquals(concerns[3], rows[3]));
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+    }
+
     [Theory]
     [InlineData("construction_draft")]
     [InlineData("replan")]
