@@ -605,15 +605,15 @@ public sealed partial class TaskPlanCompiler
         public void Dispose() => scope.RequirementNonNullReferences = previous;
     }
 
-    private static RequirementFacts? EnterRequirement(Scope scope, TaskValue? requirement)
+    private static RequirementFacts? EnterRequirement(Scope scope, TaskValue? requirement, bool whenTrue = true)
     {
         if (requirement is null) return null;
-        var established = NonNullReferences(requirement, true);
+        var established = NonNullReferences(requirement, whenTrue);
         if (established.Count == 0) return null;
         var previous = scope.RequirementNonNullReferences;
-        // The assertion executes before this task's inputs and body. Siblings and
-        // outer finalizers can still observe a failure before that assertion passed.
-        scope.RequirementNonNullReferences = established;
+        // A nested predicate can add facts while evaluating its right operand.
+        // Restore the prior facts before inspecting a sibling or an outer finalizer.
+        scope.RequirementNonNullReferences = previous is null ? established : previous.Concat(established).ToHashSet(StringComparer.Ordinal);
         return new(scope, previous);
     }
 
@@ -660,7 +660,7 @@ public sealed partial class TaskPlanCompiler
     private Bound Value(TaskValue value, Scope scope, bool consume = true, bool requireNonNull = false)
     {
         var bound = ValueCore(value, scope, consume);
-        if (!consume || value.Kind is not ("input" or "output" or "field")) return bound;
+        if ((!consume && !requireNonNull) || value.Kind is not ("input" or "output" or "field")) return bound;
         var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
             if ((ancestor.NonNullReferences?.Contains(identity) == true ||
@@ -668,7 +668,8 @@ public sealed partial class TaskPlanCompiler
                 !JsonNode.DeepEquals(schema, bound.Schema))
             {
                 // Keep captured contracts intact; check the refined value in the selected branch.
-                return Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope);
+                return consume ? Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope)
+                    : bound with { Schema = schema };
             }
         return bound;
     }
@@ -900,17 +901,24 @@ public sealed partial class TaskPlanCompiler
                 .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port)).DefaultIfEmpty("the explicit " + value.Items[index].Kind + " binding")) + ".";
     }
 
+    private static bool ShortCircuits(TaskValue value) => value is { Kind: "predicate", Predicate: "and" or "or", Items.Count: 2 };
+
     private Bound Predicate(TaskValue value, Scope scope)
     {
-        if (value.Predicate is "and" or "or" && value.Items.Count == 2 && scope.Target is { } target)
+        if (ShortCircuits(value))
         {
             var left = Value(value.Items[0], scope); RequireBoolean(left);
+            var target = scope.Target;
             var location = _location; var rightNodes = new List<PlanningNode>(); Bound right;
-            scope.Target = rightNodes; _location += "/items/1";
-            try { right = Value(value.Items[1], scope); RequireBoolean(right); }
+            scope.Target = target is null ? null : rightNodes; _location += "/items/1";
+            try
+            {
+                using var facts = EnterRequirement(scope, value.Items[0], whenTrue: value.Predicate == "and");
+                right = Value(value.Items[1], scope); RequireBoolean(right);
+            }
             finally { scope.Target = target; _location = location; }
-            if (rightNodes.Count == 0)
-                return new(PlanningValues.Predicate(value.Predicate, left.Value, right.Value), new() { ["type"] = "boolean" });
+            if (target is null || rightNodes.Count == 0)
+                return new(PlanningValues.Predicate(value.Predicate!, left.Value, right.Value), new() { ["type"] = "boolean" });
             // Checks of a selected field must short-circuit along with the predicate.
             // Use native control flow only when the right operand needs materialization.
             var key = Key(scope.Workflow.Key, "predicate:" + location + ":" + JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue));

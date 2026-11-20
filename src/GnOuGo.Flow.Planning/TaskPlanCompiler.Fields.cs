@@ -24,7 +24,7 @@ public sealed partial class TaskPlanCompiler
         if (value.Items.Count != 1 || string.IsNullOrWhiteSpace(value.Port) || value.Source is not null ||
             value.Text is not null || value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
             Fail("TASK_FIELD_INVALID", "Field selection requires one business object and a nonblank literal field name.");
-        var source = Value(value.Items[0], scope, consume: false);
+        var source = Value(value.Items[0], scope, consume: false, requireNonNull: true);
         var schema = FieldContract(source.Schema, 0);
         // Only an unambiguous semantic location can grant producer-type repairs.
         var location = source.TypeLocation is { } declared && !value.Port!.Contains('/')
@@ -41,7 +41,9 @@ public sealed partial class TaskPlanCompiler
             if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
             {
                 if (alternatives.Count == 0 || alternatives.Any(a => a is not JsonObject)) Fail("TASK_FIELD_TYPE", "Field selection requires declared object alternatives.");
-                return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode)FieldContract(a!.AsObject(), depth + 1).DeepClone()).ToArray()) };
+                var projected = alternatives.Select(a => FieldContract(a!.AsObject(), depth + 1)).ToArray();
+                if (projected.All(field => JsonNode.DeepEquals(field, projected[0]))) return projected[0];
+                return new() { ["anyOf"] = new JsonArray(projected.Select(field => field.DeepClone()).ToArray()) };
             }
             // A nullable object still declares its fields. The checked projection fails
             // on a null container; it never supplies a default or establishes success.

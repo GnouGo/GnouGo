@@ -41,6 +41,15 @@ four field reads. The workflow entered clarification before execution.
 Measured campaign usage increased by EUR 22.05003, both reservation totals
 were unchanged and the remaining balance was EUR 477.79429.
 
+The compiler now follows the left operand's proven null check while
+validating and compiling a field read in a short-circuit predicate. Cold
+compilation of the unchanged run 24 candidate removed all four field
+findings. The regression passes the plan through the grammar, compiles it
+and executes the selected and skipped branches with both Boolean field
+values. Unsafe disjunctions, unrelated guards, undeclared fields and
+mixed scalar alternatives still fail semantic validation.
+[Guarded control result regression](../../tests/GnOuGo.Flow.Planning.Tests/NullOnlyContractTests.cs)
+
 ## Cumulative EUR 2,100 campaign, 20 November 2026
 
 At 06:13:10 UTC the operator applied the EUR 400 supplement to the existing

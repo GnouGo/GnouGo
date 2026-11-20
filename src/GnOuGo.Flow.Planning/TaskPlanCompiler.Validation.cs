@@ -198,7 +198,12 @@ public sealed partial class TaskPlanCompiler
             Bound? result = null;
             var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
             var valid = true;
-            foreach (var child in children) if (Read(child, scope, location) is null) valid = false;
+            for (var i = 0; i < children.Length; i++)
+            {
+                using var facts = valid && i == children.Length - 1 && ShortCircuits(value)
+                    ? EnterRequirement(scope, value.Items[0], whenTrue: value.Predicate == "and") : null;
+                if (Read(children[i], scope, location) is null) valid = false;
+            }
             if (!valid) return null;
             if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
             Check(location, () => result = Value(value, scope));
