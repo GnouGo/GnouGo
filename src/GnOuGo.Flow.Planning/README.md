@@ -13,6 +13,13 @@ validation and reference closure remain unchanged. Complete preparation measures
 this presentation and binds it to the issued identity; pending historical requests
 recover their original bytes. Other phases retain their existing presentation.
 
+When intent resumes after a clarification, the original source and its answer
+are visible together if the prepared request fits the captured input limit.
+Larger source sets remain retrievable through their exact evidence addresses.
+Only the current source is indexed on each call. An unnamed human-readable
+return can take its name from the request and use text when the caller
+leaves its representation open. Declared output interfaces take precedence.
+
 Implementation-selection evidence choices share the reader's accepted-producer,
 scope and version checks. Unselected operation contracts remain available through
 the selected implementation's discovery phase. Contract/schema inspection is

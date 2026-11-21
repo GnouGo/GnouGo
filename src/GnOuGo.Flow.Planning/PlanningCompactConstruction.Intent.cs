@@ -8,7 +8,7 @@ internal static partial class PlanningCompactConstruction
 {
     internal const string IntentInstructions = """
         Understand the exact original source in one pass. Return consecutive verbatim clauses whose text concatenates to the entire source, including whitespace, without omissions or duplication. Keep related actions and restrictions together; clauses are acceptance criteria, not tasks or scopes. Classify each as requirement or global (a crosscutting invariant).
-        Declare typed caller inputs and public returns per clause. Declare information requested for the caller, including a report without another delivery channel. Content delivered by a specified effect or file needs no duplicate return. Internal resources are private. Preserve names, types, requiredness, nullability, enums and literal defaults; do not invent types or defaults. Use any only for explicitly unconstrained data. Combine evidence about the same declaration. Existing interfaces are immutable. Absent array bounds are null; maxItems:0 permits only []. String enum:null is unrestricted. default:null is absent; {"kind":"null"} is an explicit null default. Public outputs have no defaults.
+        Declare typed caller inputs and public returns per clause. Declare information requested for the caller, including a report without another delivery channel. Give an unnamed human-readable return a source-derived name and string type when its representation is left open. Content delivered by a specified effect or file needs no duplicate return. Internal resources are private. Preserve names, types, requiredness, nullability, enums and literal defaults; do not invent types or defaults. Use any only for explicitly unconstrained data. Combine evidence about the same declaration. Existing interfaces are immutable. Absent array bounds are null; maxItems:0 permits only []. String enum:null is unrestricted. default:null is absent; {"kind":"null"} is an explicit null default. Public outputs have no defaults.
         Use originalContext and retrieved sources for linked naming/type constraints before clarification. A continuation's first clause keeps the preceding kind. Return exactly one action: clauses, evidenceRequests for missing displayed original addresses, or clarifications for genuinely missing business facts. Emit compact JSON, preserving original strings exactly. No tools, tasks or workflow outline.
         """;
 
@@ -36,21 +36,36 @@ internal static partial class PlanningCompactConstruction
             s.Id.StartsWith(source.ContinuationOf + ":clause:", StringComparison.Ordinal));
         JsonObject Original(PlanningConstructionSource item) => new()
         { ["id"] = item.Id, ["version"] = item.Version, ["text"] = item.Text, ["continuationOf"] = item.ContinuationOf };
-        var available = pages.Where(s => s.Id != source.Id && state.Construction!.Evidence?["source:" + s.Id] is not null).ToArray();
-        var missing = pages.Where(s => s.Id != source.Id && !available.Contains(s)).Select(s => "source:" + s.Id).ToArray();
-        var addresses = missing.Take(9).ToArray();
-        var context = new JsonObject
+        var others = pages.Where(s => s.Id != source.Id).ToArray();
+        var loaded = others.Where(s => state.Construction!.Evidence?["source:" + s.Id] is not null).ToHashSet();
+        // An answer can establish the interface of the very source being retried.
+        // Show both originals together when the complete issued request fits the captured input limit.
+        var related = others.Where(s => !loaded.Contains(s) && (source.Kind == "answer_page" || s.Kind == "answer_page" && !s.Indexed)).ToArray();
+        var limit = PlanningConstructionInputPolicy.EffectiveLimit(state.Request, IntentPurpose);
+        if (related.Length > 0 && related.Sum(s => (long)s.Text.Length) + source.Text.Length <= 3L * limit)
         {
-            ["sources"] = new JsonArray(Original(source)),
-            ["continuation"] = source.ContinuationOf is null ? null : new JsonObject { ["kind"] = preceding?.Kind ?? "requirement" },
-            ["originalContext"] = new JsonArray(available.Select(item => (JsonNode)Original(item)).ToArray()),
-            ["originalDirectory"] = new JsonArray(addresses.Take(8).Select(address => (JsonNode)new JsonObject { ["evidence"] = address }).ToArray()),
-            ["nextOriginal"] = addresses.ElementAtOrDefault(8),
-            ["existingInputs"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements?.Inputs ?? state.Plan?.Inputs ?? [], PlanningJsonContext.Default.ListTaskInput),
-            ["existingOutputs"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements?.Outputs ?? [], PlanningJsonContext.Default.ListTaskInput),
-            ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
-        };
-        return Request(IntentInstructions, context, IntentSchema(source, addresses, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), IntentPurpose);
+            var withAnswers = Build(loaded.Concat(related).ToHashSet());
+            var issued = PlanningModelCalls.PrepareRequest(state, IntentPurpose, withAnswers.Prompt, withAnswers.StructuredOutputSchema!.AsObject());
+            if (ModelRequestAdmission.EstimateTokens(issued) <= limit) return withAnswers;
+        }
+        return Build(loaded);
+
+        LLMRequest Build(HashSet<PlanningConstructionSource> visible)
+        {
+            var addresses = others.Where(s => !visible.Contains(s)).Take(9).Select(s => "source:" + s.Id).ToArray();
+            var context = new JsonObject
+            {
+                ["sources"] = new JsonArray(Original(source)),
+                ["continuation"] = source.ContinuationOf is null ? null : new JsonObject { ["kind"] = preceding?.Kind ?? "requirement" },
+                ["originalContext"] = new JsonArray(others.Where(visible.Contains).Select(item => (JsonNode)Original(item)).ToArray()),
+                ["originalDirectory"] = new JsonArray(addresses.Take(8).Select(address => (JsonNode)new JsonObject { ["evidence"] = address }).ToArray()),
+                ["nextOriginal"] = addresses.ElementAtOrDefault(8),
+                ["existingInputs"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements?.Inputs ?? state.Plan?.Inputs ?? [], PlanningJsonContext.Default.ListTaskInput),
+                ["existingOutputs"] = System.Text.Json.JsonSerializer.SerializeToNode(state.Requirements?.Outputs ?? [], PlanningJsonContext.Default.ListTaskInput),
+                ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
+            };
+            return Request(IntentInstructions, context, IntentSchema(source, addresses, PlanningTokenThresholds.OptimizationAdvisory(state.Request)), IntentPurpose);
+        }
     }
 
     private static (int Count, bool Continues) CoherentSourceLength(string text, int maximum)

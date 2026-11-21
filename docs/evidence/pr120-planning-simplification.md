@@ -1,5 +1,34 @@
 # PR 120 planning simplification
 
+## Review 48, 21 November 2026
+
+Fresh Server session `d74f1ef394ab48ba88484ba476452abd` opened on
+`b2e44aeb` with EUR 219.64921298 available. On the same build the
+unchanged Review 30 plan passed semantic validation, and Review 32's
+original publication fragment passed inline ordering and acknowledgement.
+The latter still had an unimplemented, separately selected read. Neither
+replay dispatched a model or a business operation. All 172 focused tests
+covering the publication oracle, review composition and admission passed.
+
+The first live call asked for a name and type for the caller's report.
+The delegated operator selected the offered text return at revision 2.
+Call 2 indexed the request with a technical name of its own. The operator's
+answer was available only behind an evidence address. Call 3 then requested
+the original source again, and call 4 asked to resolve the name conflict.
+At revision 9 the operator retained the already declared `rapport` text
+return with all requested contents. Both ordinary answer commands returned
+HTTP 200. Call 8 selected a review block with that single return, the
+checks, the confirmed submission and root cleanup.
+
+The generation change presents the answered source and the exact reply
+together when the complete prepared request fits its captured input limit.
+A detached replay of call 2 displayed all 361 UTF-8 bytes of the original
+answer. Call 3 displayed all 1,404 bytes of the initiating request. Neither
+offered a redundant read, changed the stored state or dispatched a model.
+Oversized originals retain their evidence addresses. New intent guidance
+also permits a source-derived name for unnamed, human-readable returns.
+All 3,289 planner tests passed on the resulting implementation.
+
 ## Review 47, 21 November 2026
 
 Fresh Server session `9d9c9b644bcb4b6e9dadc54640bf7f3f` started on

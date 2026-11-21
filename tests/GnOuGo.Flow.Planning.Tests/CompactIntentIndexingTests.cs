@@ -29,6 +29,7 @@ public sealed class CompactIntentIndexingTests
         var runtime = new TestRuntime { Respond = (request, _) =>
         {
             Assert.Contains("information requested for the caller", request.Prompt, StringComparison.Ordinal);
+            Assert.Contains("when its representation is left open", request.Prompt, StringComparison.Ordinal);
             Assert.Contains("delivered by a specified effect", request.Prompt, StringComparison.Ordinal);
             var outputs = callerReport ? Declarations(new TaskInput { Name = "measurements", Type = new() { Kind = "string" } }) : new JsonArray();
             return Wire(request, CurrentPlanningFixture.Intent(Context(request), outputs: outputs));
@@ -38,6 +39,53 @@ public sealed class CompactIntentIndexingTests
         Assert.Equal(original, Assert.Single(state.Requirements!.Outcomes).Description);
         Assert.Equal(callerReport ? new[] { "measurements" } : [], state.Requirements.Outputs!.Select(output => output.Name));
         Assert.Equal(0, runtime.Discoveries);
+    }
+
+    [Fact]
+    public async Task ResumedIntentIndexesTheSourceAndItsAnswerWithTheSamePublicReturn()
+    {
+        const string original = "Return the observed measurements to the caller.";
+        const string question = "What should the returned value be called?";
+        const string answer = "Use the public text output named measurements.";
+        var state = Fresh(original);
+        state.AnswerHistory = [new(2, [new("format", question, [], null)], [new("format", Text: answer)])];
+        var runtime = new TestRuntime { Respond = (request, _) =>
+        {
+            var context = Context(request);
+            var current = context["sources"]![0]!["text"]!.ToString();
+            var other = Assert.Single(context["originalContext"]!.AsArray())!["text"]!.ToString();
+            Assert.Equal(current == original ? question + "\nAnswer: " + answer : original, other);
+            Assert.Empty(context["originalDirectory"]!.AsArray());
+            var output = new TaskInput { Name = "measurements", Type = new() { Kind = "string" } };
+            return Wire(request, CurrentPlanningFixture.Intent(context, outputs: Declarations(output)));
+        } };
+        state = await Advance(state, runtime);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal("measurements", Assert.Single(state.Requirements!.Outputs!).Name);
+        Assert.True(PlanningCompactConstruction.SourcesComplete(state));
+        Assert.Equal(2, state.ModelCalls);
+    }
+
+    [Fact]
+    public void OversizedAnswerRemainsAvailableAsOriginalEvidence()
+    {
+        var state = Fresh();
+        PlanningCompactConstruction.InitializeSources(state);
+        var sources = state.Construction!.Compact!.Sources;
+        var original = Assert.Single(sources);
+        var text = new string('漢', 12_000);
+        var answer = new PlanningConstructionSource { Id = "answer:2:format:0", Kind = "answer_page", Text = text,
+            Version = PlanningGraphCompiler.Fingerprint(text) };
+        sources.Add(answer);
+
+        var request = PlanningCompactConstruction.IntentRequest(state, original);
+        var context = Context(request);
+        Assert.Empty(context["originalContext"]!.AsArray());
+        Assert.Equal("source:" + answer.Id, Assert.Single(context["originalDirectory"]!.AsArray())!["evidence"]!.ToString());
+        Assert.DoesNotContain(text, request.Prompt, StringComparison.Ordinal);
+        Assert.Equal(text, answer.Text);
+        Assert.False(answer.Indexed);
     }
 
     [Fact]
