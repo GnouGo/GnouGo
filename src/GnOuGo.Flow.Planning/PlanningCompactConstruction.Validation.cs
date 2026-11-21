@@ -455,7 +455,7 @@ internal static partial class PlanningCompactConstruction
                     row["fragment"] = checkpoint.Fragment.DeepClone();
                     row["step"] = JsonSerializer.SerializeToNode(checkpoint.Step, PlanningJsonContext.Default.PlanningConstructionStep);
                 }
-                items.Add(row);
+                items.Add((JsonNode)row);
             }
             value = new JsonObject { ["offset"] = next, ["total"] = checkpoints.Count, ["items"] = items,
                 ["next"] = !detail && next + items.Count < checkpoints.Count ? "page:" + parts[1] + ":" + (next + items.Count) : null };
