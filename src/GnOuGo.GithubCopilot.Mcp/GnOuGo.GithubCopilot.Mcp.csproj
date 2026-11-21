@@ -14,7 +14,7 @@
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
-    <CopilotCliVersion>1.0.114</CopilotCliVersion>
+    <CopilotCliVersion>1.0.112</CopilotCliVersion>
   </PropertyGroup>
 
   <!-- This Native AOT tool intentionally consumes the EF Core-backed KeyVault

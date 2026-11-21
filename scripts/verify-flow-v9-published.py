@@ -185,6 +185,9 @@ if args.copilot:
             rpc(1, 'initialize', {'protocolVersion': '2025-11-25', 'capabilities': {}, 'clientInfo': {'name': 'flow-v9-published', 'version': '1.0'}})
             mcp.stdin.write(json.dumps({'jsonrpc': '2.0', 'method': 'notifications/initialized'}) + '\n'); mcp.stdin.flush()
             tools = {tool['name']: tool for tool in rpc(10, 'tools/list', {})['tools']}
+            # A matching archive checksum alone cannot prove SDK protocol compatibility.
+            status = content(rpc(30, 'tools/call', {'name': 'copilot_status', 'arguments': {}}))
+            assert status['connectionState'] == 'connected' and status['protocolVersion'] and status['version'], status
             for index, name in enumerate(('copilot_session_send', 'copilot_one_shot', 'copilot_interactive_one_shot')):
                 properties = tools[name]['inputSchema']['properties']
                 assert 'attachmentsJson' not in properties
@@ -221,7 +224,7 @@ if args.copilot:
             assert receipt['result']['usage']['model_calls'] == 0
         finally:
             mcp.terminate(); mcp.wait(timeout=30)
-    print('PASS published Copilot MCP: typed attachment discovery/refusal, bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope')
+    print('PASS published Copilot MCP: SDK/runtime handshake, typed attachment discovery/refusal, bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope')
 
 for path in root.glob('*.db*'):
     assert marker.encode() not in path.read_bytes(), f'Unencrypted payload in {path.name}'

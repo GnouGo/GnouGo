@@ -11,10 +11,13 @@ runtime image tags are pinned to 11.0.100 and 11.0.0. The solution-wide NuGet
 checks for outdated packages and known vulnerabilities (including transitive
 dependencies) returned zero findings in 77 projects.
 
-The managed client uses GitHub.Copilot.SDK 1.0.34. The explicitly pinned Copilot
-runtime 1.0.114 replaces the SDK's default 1.0.112. The downloaded macOS arm64
-archive matched GitHub's SHA-256 `f357ec6679f05e12e238c99eb9112f34293ad7625bedc2a7e79122c8798887bb`.
-[Copilot CLI release](https://github.com/github/copilot-cli/releases/tag/v1.0.114)
+The managed client uses GitHub.Copilot.SDK 1.0.34, which supports protocol 3.
+A published MCP handshake against stable runtimes 1.0.114 and 1.0.113 found
+protocol 4. Runtime 1.0.112 returned version 1.0.112, protocol 3 and a connected
+session with zero inference calls. Both projects pin this compatible version.
+The arm64 release archive matched GitHub's SHA-256
+`3c924fb18d6b309adc21b592ff32c55916d43448df4107d37e5a9ad0daf9478f`.
+[Copilot runtime release](https://github.com/github/copilot-cli/releases/tag/v1.0.112)
 
 On macOS the native runtime package ships unavailable Swift debug-module paths in
 the Apple crypto archive, and duplicate GC debug object names and timestamps. The

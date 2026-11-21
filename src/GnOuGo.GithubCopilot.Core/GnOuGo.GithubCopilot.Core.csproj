@@ -18,7 +18,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
-    <CopilotCliVersion>1.0.114</CopilotCliVersion>
+    <CopilotCliVersion>1.0.112</CopilotCliVersion>
   </PropertyGroup>
 
   <ItemGroup>
