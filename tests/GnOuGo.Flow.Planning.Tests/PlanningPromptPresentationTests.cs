@@ -6,6 +6,29 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningPromptPresentationTests
 {
     [Fact]
+    public void RepairShowsIdenticalWitnessSnapshotsOnceAndPreservesChangedFindings()
+    {
+        var snapshot = new JsonObject { ["hash"] = "captured", ["bytes"] = 800, ["value"] = new string('x', 800) };
+        JsonObject Finding() => new() { ["before"] = snapshot.DeepClone(), ["current"] = snapshot.DeepClone(),
+            ["obligation"] = "Return the observation.", ["targets"] = new JsonArray("deliver") };
+        var changed = Finding();
+        changed["current"]!["value"] = new string('y', 800);
+        var missing = Finding();
+        missing.Remove("current");
+        var context = new JsonObject { ["repair"] = new JsonObject(), ["defectProgress"] = new JsonArray(Finding(), changed, missing) };
+        var prompt = "Check the cited observations.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        var shown = JsonNode.Parse(compact[(compact.LastIndexOf('\n') + 1)..])!;
+        var findings = shown["defectProgress"]!.AsArray();
+        Assert.Equal("/defectProgress/0/current", findings[0]!["beforePresentedAt"]?.ToString());
+        Assert.Null(findings[0]!["before"]);
+        findings[0]!["before"] = findings[0]!["current"]!.DeepClone();
+        findings[0]!.AsObject().Remove("beforePresentedAt");
+        Assert.True(JsonNode.DeepEquals(context["defectProgress"], findings));
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+    }
+
+    [Fact]
     public void GlobalReconsiderationSharesOnlyUnchangedSnapshotsAlreadyShownInTheReview()
     {
         var action = new JsonObject { ["id"] = "measure", ["instruction"] = new string('x', 500) };

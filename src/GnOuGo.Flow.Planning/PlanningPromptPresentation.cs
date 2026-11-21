@@ -259,6 +259,7 @@ public static class PlanningPromptPresentation
         var sharedTaskPages = ShareRepeatedTaskPages(context);
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
         var sharedReviewSnapshots = ShareUnchangedReviewSnapshots(context);
+        var sharedRepairSnapshots = ShareUnchangedRepairSnapshots(context);
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
@@ -326,7 +327,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !composedFields && !sharedReselection) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !sharedRepairSnapshots && !composedFields && !sharedReselection) return prompt;
+        if (sharedRepairSnapshots)
+            context["repairSnapshotPresentation"] = "beforePresentedAt points to this finding's identical current snapshot. The comparison and its original evidence pointers remain on the finding.";
         if (sharedReselection)
             context["reselectionEvidencePresentation"] = "unchangedEvidence lists archived items whose full value appears under the same address in this request's evidence.";
         if (sharedReviewSnapshots)
@@ -523,6 +526,22 @@ public static class PlanningPromptPresentation
             else originals.Add(key, $"/interfaces/{index}/schema");
         }
         return changed;
+    }
+
+    private static bool ShareUnchangedRepairSnapshots(JsonObject context)
+    {
+        if (context["repair"] is not JsonObject || context["defectProgress"] is not JsonArray findings) return false;
+        var shared = false;
+        for (var i = 0; i < findings.Count; i++)
+        {
+            if (findings[i] is not JsonObject finding || finding.ContainsKey("beforePresentedAt") ||
+                finding["before"] is not JsonObject snapshot || snapshot["value"] is null ||
+                !JsonNode.DeepEquals(snapshot, finding["current"]) || snapshot.ToJsonString().Length <= 320) continue;
+            finding.Remove("before");
+            finding["beforePresentedAt"] = $"/defectProgress/{i}/current";
+            shared = true;
+        }
+        return shared;
     }
 
     private static bool ShareUnchangedReviewSnapshots(JsonObject context)

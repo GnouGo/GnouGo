@@ -32,6 +32,34 @@ All 231 focused tests passed. Replaying the unchanged call 22 produced candidate
 `5344a28130e5d344318b4c757cb6f7818f36b1a9a1e8459de2c107f0a6d75e5b`
 and reached local review at revision 77 without another model call.
 
+The full compiler regression suite passed 3,284 tests. Review 30's original
+plan passed semantic validation again. Review 32's original publication
+fragment passed the inline-order and acknowledgement checks. Its selected
+read still prevented block closure. These two regressions used zero model
+calls and performed no writes.
+
+The first publication guard came from call 37. Replaying the original
+response produced an unconditional root operation with a failing assertion
+on the ineligible path. The draft guidance now describes how a conditional
+can preserve the caller's result on that path. Two engine cases returned the
+actual observed input and ran cleanup, with one effect on the eligible path
+and zero on the other. All 45 focused tests and 3,286 planner tests passed.
+
+One native comparison on call 37 kept the original grammar and changed only
+the control-flow guidance. It produced an eligibility assessment using four
+inputs, left the block open and performed no GitHub write. The unchanged
+response passed detached technical validation. The probe used 23,142 input
+and 1,005 output tokens and settled for EUR 0.79617904. Its receipt was
+complete. No publication branch or delivered report was verified by the probe.
+Review 47 opened with EUR 255.52557761 available.
+
+Call 46 also repeated four complete, identical before-and-current snapshots
+inside the same repair request. The presentation can point to the matching
+snapshot on that finding. Different or missing data retains its original
+representation. Reconstructing the entire recorded context reproduced all
+four comparisons. The prompt decreased from 183,744 to 170,692 UTF-8 bytes.
+All 99 focused tests passed. This comparison used zero provider calls.
+
 ## Review 45, 21 November 2026
 
 Fresh Server session `91788026b2c8409e8b5577dc340a798b` ran on
