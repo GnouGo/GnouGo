@@ -1,5 +1,38 @@
 # PR 120 planning simplification
 
+## EUR 3,100 campaign opening, 21 November 2026
+
+The opening audit matched the EUR 2,600 closeout byte for byte. The existing
+campaign `pr120-live-20261107-400` gained one authorization at 08:22 UTC.
+The new history has nine entries. Its first eight entries, every session's
+accounting and the separate Server reservations matched the opening audit.
+
+| Ledger at reopening | Before | After |
+| --- | ---: | ---: |
+| Cumulative ceiling | EUR 2,600.00 | EUR 3,100.00 |
+| Physical model requests | 3,917 | 3,917 |
+| Measured cost at captured tariffs | EUR 1,942.73429 | EUR 1,942.73429 |
+| Unresolved HTTP reservations (55) | EUR 492.52354 | EUR 492.52354 |
+| Separate Server reservations | EUR 162.25381 | EUR 162.25381 |
+| Available to reserve | EUR 2.48837 | EUR 502.48837 |
+
+The authorization hash is
+`a7b50a7cd0e065bd10955ccd49a7c2d9bac7451ee08099dbc77a361f1dbd80e7`.
+The post-grant audit SHA-256 is
+`8bfb587e6641ef2cbd45dbfea83308c647fc82b0a395d6905ff3bdf4d96460f7`.
+
+Two retained Review cases ran against source `51e54b1b` before fresh
+generation. Review 30 revision 141 compiled through YAML semantic validation
+with its original TaskPlan hash
+`7c6a984de0de9412a8ce65b21b893685aa072b1a8c0533e6bc642289ab093ed4`.
+Review 32 call 40 at revision 126 reproduced the ordered inline-comment loop
+and a confirmation bound to the GitHub submission response. Compilation
+returned zero findings. The original cursor still requires its third
+selected read and correctly refuses final block closure. Both replays
+preserved the accepted plan and used zero model requests. Separately, 103
+Server tests covering review composition, command reporting, clone cleanup
+and recorded review fields passed. Neither replay published a review.
+
 ## Closing observations, 21 November 2026
 
 Neither scenario achieved a complete qualified execution. Both ended with
