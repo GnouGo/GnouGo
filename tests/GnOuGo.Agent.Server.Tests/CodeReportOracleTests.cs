@@ -316,6 +316,38 @@ public sealed class CodeReportOracleTests
         Assert.Equal(expected is "failed" or "environment_blocked", run["required_check_failures"]!["kind_integration"] is not null);
     }
 
+    [Theory]
+    [InlineData(0L, true)]
+    [InlineData(127L, false)]
+    public void SdkProbeChecksTheTerminalExitInItsOriginalIntegerRepresentation(long exit, bool expected)
+    {
+        var commands = new JsonArray((JsonNode)new JsonObject { ["command"] = "python3 probe.py", ["exit_code"] = exit });
+        Assert.Equal(expected, LiveExecutionReadiness.ProbeCommandSucceeded(commands));
+        commands.Add(commands[0]!.DeepClone());
+        Assert.False(LiveExecutionReadiness.ProbeCommandSucceeded(commands));
+    }
+
+    [Fact]
+    public void LocalToolchainIsProcessScopedAndRejectsChangedOrUnrelatedExecutables()
+    {
+        var bin = Directory.CreateTempSubdirectory().FullName;
+        try
+        {
+            foreach (var tool in new[] { "node", "npm", "pnpm" }) File.WriteAllText(Path.Combine(bin, tool), tool);
+            var initial = Environment.GetEnvironmentVariable("PATH");
+            var captured = SlimFaasReviewProfile.CaptureToolchain(bin);
+            var options = new GnOuGo.AI.Core.McpServerOptions { EnvironmentVariables = new() { ["PATH"] = "previous" } };
+            SlimFaasReviewProfile.ApplyToolchain(captured, options);
+            Assert.Equal(bin + Path.PathSeparator + "previous", options.EnvironmentVariables["PATH"]);
+            Assert.Equal(initial, Environment.GetEnvironmentVariable("PATH"));
+            File.WriteAllText(Path.Combine(bin, "node"), "changed");
+            Assert.Throws<InvalidDataException>(() => SlimFaasReviewProfile.ApplyToolchain(captured, options));
+            File.WriteAllText(Path.Combine(bin, "git"), "other");
+            Assert.Throws<ArgumentException>(() => SlimFaasReviewProfile.CaptureToolchain(bin));
+        }
+        finally { Directory.Delete(bin, recursive: true); }
+    }
+
     private static JsonObject PublishedRun()
     {
         var run = Run();

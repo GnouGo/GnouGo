@@ -14,6 +14,10 @@ using GnOuGo.KeyVault.Core.Services;
 // explicit interaction; browser/document readiness dispatches no inference.
 internal static class LiveExecutionReadiness
 {
+    internal static bool ProbeCommandSucceeded(JsonArray commands) =>
+        commands.Count == 1 && commands[0]?["command"]?.ToString() == "python3 probe.py" &&
+        commands[0]?["exit_code"] is JsonValue exit && exit.TryGetValue<long>(out var observed) && observed == 0;
+
     internal static async Task CopilotAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string root)
     {
         var label = SchemaPortabilityCampaign.Option(args, "--run") ?? throw new ArgumentException("Supply a fresh --run.");
@@ -38,7 +42,7 @@ internal static class LiveExecutionReadiness
         var tenant = "probe-" + label;
         var state = new JsonObject { ["source_sha"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["label"] = label,
             ["provider_hash"] = model.ConfigurationFingerprint, ["readiness"] = await model.ReadinessAsync(CancellationToken.None),
-            ["accounting_before"] = await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
+            ["accounting_before"] = kindProbe ? await BenchmarkHttpJournal.AccountingAsync(campaign) : await campaign.InspectAsync(), ["events"] = new JsonArray(), ["passed"] = false };
         if (sdkChatToolsReasoningEffort is not null) state["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (sdkWireApi is not null) state["sdk_wire_api"] = sdkWireApi;
         if (sdkInferenceTransport is not null) state["sdk_inference_transport"] = sdkInferenceTransport;
@@ -46,6 +50,13 @@ internal static class LiveExecutionReadiness
         KeyVaultBenchmarkModel.RequireReady(state["readiness"]!.AsObject());
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, label, sdkChatToolsReasoningEffort, sdkWireApi, sdkInferenceTransport);
         var settings = LiveWorkflowEvaluation.Configuration(model.McpServers, "code", proxy.Endpoint, "Release");
+        if (SchemaPortabilityCampaign.Option(args, "--local-kind-toolchain") is { } bin)
+        {
+            if (!kindProbe) throw new ArgumentException("The toolchain requires --local-kind-profile.");
+            var toolchain = SlimFaasReviewProfile.CaptureToolchain(bin);
+            SlimFaasReviewProfile.ApplyToolchain(toolchain, settings["GnOuGo.GithubCopilot.Mcp"]);
+            state["local_kind_toolchain"] = toolchain;
+        }
         CampaignInferenceProxy.ConfigureWireApi(settings["GnOuGo.GithubCopilot.Mcp"], model.Provider, sdkWireApi);
         if (sdkInferenceTransport is not null)
         {
@@ -119,7 +130,7 @@ internal static class LiveExecutionReadiness
             }
             var commands = LiveCodeEvidence.Commands(state, directory);
             state["observed_commands"] = commands;
-            var exit = commands.Count == 1 && commands[0]?["command"]?.ToString() == "python3 probe.py" && commands[0]?["exit_code"]?.GetValue<int>() == 0;
+            var exit = ProbeCommandSucceeded(commands);
             var durable = receipts.Length == 1 && receipts[0]["operation"]?["completionVerified"]?.GetValue<bool>() == true && receipts[0]["task"]?["result"] is not null;
             // A new encrypted reader verifies receipt persistence without reconnecting or dispatching the SDK.
             var restarted = KeyVaultRecordStoreFactory.CreateWorkspaceStore(null, root);
@@ -138,7 +149,7 @@ internal static class LiveExecutionReadiness
         catch (Exception ex) { state["failure_type"] = ex.GetType().Name; state["failure"] = ex.Message; }
         finally
         {
-            proxy.ExecutionEnabled = false; state["execution_ms"] = clock.ElapsedMilliseconds; state["accounting"] = await campaign.InspectAsync();
+            proxy.ExecutionEnabled = false; state["execution_ms"] = clock.ElapsedMilliseconds; state["accounting"] = kindProbe ? await BenchmarkHttpJournal.AccountingAsync(campaign) : await campaign.InspectAsync();
             await campaign.SaveAsync(collection, label, state);
             Console.WriteLine(new JsonObject { ["run"] = label, ["passed"] = state["passed"]!.DeepClone(),
                 ["error"] = state["error"]?.DeepClone(), ["failure"] = state["failure"]?.DeepClone(), ["cleanup"] = state["cleanup"]?.DeepClone() }.ToJsonString());

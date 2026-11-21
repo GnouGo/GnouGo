@@ -13,6 +13,35 @@ internal static class SlimFaasReviewProfile
         "src/SlimFaasSite/package.json", "src/SlimFaasPlanetSaver/package.json", "src/SlimFaas/ClientApp/package.json",
         "src/SlimFaasMcp/ClientApp/package.json", "client/python/slimfaas-client/pyproject.toml", ".bin/test-annotation-policy.py"];
 
+    internal static JsonObject CaptureToolchain(string directory)
+    {
+        if (!Path.IsPathFullyQualified(directory) || directory.Contains(Path.PathSeparator))
+            throw new ArgumentException("The local toolchain requires one absolute executable directory.");
+        var bin = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+        var hashes = new JsonObject();
+        foreach (var entry in Directory.EnumerateFileSystemEntries(bin).Order(StringComparer.Ordinal))
+        {
+            var name = Path.GetFileName(entry);
+            if (name is not ("node" or "npm" or "npx" or "pnpm" or "corepack"))
+                throw new ArgumentException("The toolchain directory may supply only Node and its package managers.");
+            using var bytes = File.OpenRead(entry);
+            hashes[name] = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        }
+        if (!new[] { "node", "npm", "pnpm" }.All(hashes.ContainsKey))
+            throw new ArgumentException("The local toolchain must supply node, npm and pnpm.");
+        return new JsonObject { ["bin"] = bin, ["entrypoint_hashes"] = hashes };
+    }
+
+    internal static void ApplyToolchain(JsonObject captured, GnOuGo.AI.Core.McpServerOptions copilot)
+    {
+        var bin = captured["bin"]!.GetValue<string>();
+        if (!JsonNode.DeepEquals(captured, CaptureToolchain(bin)))
+            throw new InvalidDataException("The captured local toolchain entry points changed.");
+        copilot.EnvironmentVariables ??= new();
+        var path = copilot.EnvironmentVariables.GetValueOrDefault("PATH") ?? Environment.GetEnvironmentVariable("PATH");
+        copilot.EnvironmentVariables["PATH"] = bin + Path.PathSeparator + path;
+    }
+
     internal static string Cluster(string workspaceRelative) =>
         "gnougo-" + Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(workspaceRelative)))[..18];
 

@@ -153,6 +153,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
         if (scenario == "code")
         {
+            if (report["local_kind_toolchain"] is JsonObject toolchain && localKind)
+                SlimFaasReviewProfile.ApplyToolchain(toolchain, configurations["GnOuGo.GithubCopilot.Mcp"]);
             configurations["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"] = proxy.Endpoint;
             CampaignInferenceProxy.ConfigureWireApi(configurations["GnOuGo.GithubCopilot.Mcp"], model.Provider, report["sdk_wire_api"]?.ToString());
         }

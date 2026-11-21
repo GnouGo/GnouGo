@@ -595,6 +595,11 @@ internal static class ServerLiveDiagnostics
                 report["workspace_relative"] = relative;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" } : scenario == "code"
                     ? new JsonObject { ["pullRequestUrl"] = SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = SchemaPortabilityCampaign.Option(args, "--review-text") ?? LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
+                if (SchemaPortabilityCampaign.Option(args, "--local-kind-toolchain") is { } bin)
+                {
+                    if (scenario != "code") throw new ArgumentException("The local kind toolchain applies to the code review.");
+                    report["local_kind_toolchain"] = SlimFaasReviewProfile.CaptureToolchain(bin);
+                }
                 if (scenario == "amazon") report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
                 if (scenario is "amazon" or "code") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
                 if (scenario is "amazon" or "code")

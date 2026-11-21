@@ -1368,3 +1368,9 @@ for the requested head and the Copilot terminal events in the single checkout.
 The report distinguishes passed, failed, inconclusive, environment-blocked and
 unexecuted checks. The host observes the exact run cluster, its Podman nodes
 and the run kubeconfig before execution and after the journal terminates.
+
+For `copilot-probe --local-kind-profile` and fresh Server code runs,
+`--local-kind-toolchain <absolute-bin-directory>` captures the Node, npm and
+pnpm entrypoint hashes. Only the spawned Copilot MCP receives the additional
+PATH directory. The kind test uses a run-owned cluster name and kubeconfig.
+The live prerequisite used one-operation approvals under ordinary isolation.
