@@ -1,5 +1,27 @@
 # PR 120 planning simplification
 
+## Review 44, 21 November 2026
+
+Fresh Server session `f943a84102f64144b7d09c63da889415` started on
+`59a410c5` with EUR 338.29426024 available. Call 20 requested changes
+to the checks on the repository name and exact revisions. The plan read
+the PR at runtime, selected its base repository and head for a single
+full-history clone, compared the revisions from their merge base and
+checked the comparison's returned commit IDs. The judge saw the general
+Git descriptor. The delegated host already compared the clone's remote
+URL, head and confined destination before forwarding the operation.
+At call 22 the planner rolled back the clone and its dependent region.
+
+Delegated publication discovery now includes these three existing checks
+on the clone operation. The regression first reproduced the missing
+description through catalog capture and resolution. The runtime test
+admitted the captured arguments and rejected another valid commit ID, a
+different repository and another run's checkout. All 170 selected Server
+tests passed. Replaying the original call-20 verdict reproduced three
+task findings. Regenerating the judge request on the same checkpoint
+changed only the clone description, with the same TaskPlan, response
+grammar and 49 evidence addresses. This comparison made no provider calls.
+
 ## Review 43, 21 November 2026
 
 Fresh Server session `1190146a94804efab882f1d5a9682303` ran on

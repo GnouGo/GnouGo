@@ -59,23 +59,31 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     };
     private string Api => $"repos/{Owner}/{Repository}/pulls/{Number}";
 
-    // The qualification host intercepts this existing MCP call in ServerBusinessExecution.
-    // The underlying provider metadata and wire contracts may also be shared by other hosts.
-    internal static McpToolInfo DescribeGuardedWrite(McpToolInfo tool) => tool.Name != "pull_request_review_write" ? tool : new()
+    // These grants belong to the qualification host. The provider's metadata also serves other hosts.
+    internal static McpToolInfo DescribeGuardedTool(string server, McpToolInfo tool)
     {
-        Name = tool.Name, EffectKind = tool.EffectKind, InputSchema = tool.InputSchema, OutputSchema = tool.OutputSchema,
-        ArtifactContract = tool.ArtifactContract, CompositionContract = tool.CompositionContract, OutputContract = tool.OutputContract,
-        Meta = tool.Meta, ExampleResponse = tool.ExampleResponse,
-        Description = "Permitted write methods are create and submit_pending. The host checks for an existing pending review before create " +
-            "and refuses creation if it finds one. It verifies the new review's authenticated owner and head, and permits comments and submission " +
-            "only to the review created by this execution. GitHub acknowledges a completed submit_pending mutation with the message " +
-            "'pending pull request review successfully submitted'. This acknowledgement is available to the workflow with its submitted arguments. " +
-            "The host records the new review ID privately and, after workflow execution, reads back the submitted review and inline comments by that ID. " +
-            "If submission stops, leave the pending review intact for reconciliation. Retention is the intended failure outcome. " +
-            "delete_pending is outside this grant. The host checks recorded mandatory checks, asks for confirmation of the concrete verdict " +
-            "and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. " +
-            "Calling submit_pending invokes this guard directly.\n" + tool.Description
-    };
+        var guard = (server, tool.Name) switch
+        {
+            ("GnOuGo.Git.Mcp", "git_clone") => "The host checks remoteUrl, branch and targetDirectory before dispatch. " +
+                "They must identify the authorized repository, the exact captured pull request head and the confined checkout directory.",
+            ("Github", "pull_request_review_write") => "Permitted write methods are create and submit_pending. The host checks for an existing pending review before create " +
+                "and refuses creation if it finds one. It verifies the new review's authenticated owner and head, and permits comments and submission " +
+                "only to the review created by this execution. GitHub acknowledges a completed submit_pending mutation with the message " +
+                "'pending pull request review successfully submitted'. This acknowledgement is available to the workflow with its submitted arguments. " +
+                "The host records the new review ID privately and, after workflow execution, reads back the submitted review and inline comments by that ID. " +
+                "If submission stops, leave the pending review intact for reconciliation. Retention is the intended failure outcome. " +
+                "delete_pending is outside this grant. The host checks recorded mandatory checks, asks for confirmation of the concrete verdict " +
+                "and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. " +
+                "Calling submit_pending invokes this guard directly.",
+            _ => null
+        };
+        return guard is null ? tool : new()
+        {
+            Name = tool.Name, EffectKind = tool.EffectKind, InputSchema = tool.InputSchema, OutputSchema = tool.OutputSchema,
+            ArtifactContract = tool.ArtifactContract, CompositionContract = tool.CompositionContract, OutputContract = tool.OutputContract,
+            Meta = tool.Meta, ExampleResponse = tool.ExampleResponse, Description = guard + "\n" + tool.Description
+        };
+    }
 
     internal static async Task<PublishedReviewQualification> CaptureAsync(string url, CancellationToken ct)
     {

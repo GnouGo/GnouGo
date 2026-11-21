@@ -62,6 +62,25 @@ public sealed class DelegatedTestReviewTests
         else Assert.Throws<PlanningConflictException>(Validate);
     }
 
+    [Fact]
+    public async Task PublishedCloneChecksTheCapturedTargetBeforeCallingGit()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var target = new PublishedReviewQualification("AxaFrance", "SmartGuide", 718, new string('a', 40), new string('b', 40));
+        var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run",
+            PublishedReviewQualification.Scenario, Path.GetTempPath(), "frozen-source", reviewTarget: target);
+        var args = new JsonObject { ["remoteUrl"] = "https://github.com/AxaFrance/SmartGuide.git", ["branch"] = target.Head,
+            ["targetDirectory"] = "workflows/campaign/test-run/repository" };
+        authority.RequireTool("GnOuGo.Git.Mcp", "git_clone", args);
+        foreach (var (field, value) in new[] { ("branch", target.Base), ("remoteUrl", "https://github.com/example/other.git"),
+            ("targetDirectory", "workflows/campaign/another/repository") })
+        {
+            var changed = args.DeepClone().AsObject();
+            changed[field] = value;
+            Assert.Throws<PlanningConflictException>(() => authority.RequireTool("GnOuGo.Git.Mcp", "git_clone", changed));
+        }
+    }
+
     [Theory]
     [InlineData("workflows/campaign/fresh-server-run", true)]
     [InlineData("workflows/other/fresh-server-run", false)]

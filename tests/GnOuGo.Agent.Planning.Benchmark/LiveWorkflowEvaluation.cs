@@ -631,8 +631,8 @@ internal static class LiveWorkflowEvaluation
                 var tools = await inner.ListToolsAsync(ct);
                 if (owner._discoveryScenario is not { } scenario) return tools;
                 var allowed = tools.Where(t => DelegatedTestReviewAuthority.AllowsTool(scenario, ServerName, t.Name));
-                return scenario == PublishedReviewQualification.Scenario && ServerName == "Github"
-                    ? allowed.Select(PublishedReviewQualification.DescribeGuardedWrite).ToArray() : allowed.ToArray();
+                return scenario == PublishedReviewQualification.Scenario
+                    ? allowed.Select(t => PublishedReviewQualification.DescribeGuardedTool(ServerName, t)).ToArray() : allowed.ToArray();
             }
             public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => inner.ListResourcesAsync(ct);
             public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => owner._discoveryScenario is null

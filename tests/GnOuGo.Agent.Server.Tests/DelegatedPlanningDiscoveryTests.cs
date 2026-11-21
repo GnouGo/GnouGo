@@ -13,6 +13,28 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class DelegatedPlanningDiscoveryTests
 {
     [Fact]
+    public async Task PublishedReviewCloneDiscoveryDescribesItsThreePreDispatchChecks()
+    {
+        var inner = new Factory("GnOuGo.Git.Mcp", "git_clone", "git_status");
+        var clone = inner.Tools[0];
+        clone.Description = "Clone a repository and check out a revision.";
+        clone.EffectKind = "write";
+        var ct = TestContext.Current.CancellationToken;
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario, "bound-host");
+        var catalog = new CapabilityDiscovery(new() { McpClientFactory = discovery });
+        var snapshot = await catalog.CaptureAsync(CapabilityDiscovery.SourceId("GnOuGo.Git.Mcp"), ct);
+        var captured = Assert.Single(snapshot.Capabilities, cap => cap.Method == "git_clone");
+        var entry = Assert.Single(catalog.ReadPage(snapshot, null, null).Capabilities, cap => cap.Id == captured.Id);
+        var resolved = await catalog.ResolveAsync(entry, ct);
+        Assert.Contains("remoteUrl, branch and targetDirectory", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("captured pull request head", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("before dispatch", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains(clone.Description, resolved.Description, StringComparison.Ordinal);
+        Assert.Equal("Clone a repository and check out a revision.", clone.Description);
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
     public async Task PublishedReviewDiscoveryDescribesTheInstalledDispatchGuardOnTheUnderlyingWrite()
     {
         const string description = "The provider can create, submit or remove a pending review.";
