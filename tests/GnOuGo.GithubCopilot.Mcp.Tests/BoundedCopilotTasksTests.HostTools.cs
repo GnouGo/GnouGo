@@ -30,6 +30,9 @@ public sealed partial class BoundedCopilotTasksTests
         var tools = contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray()
             .Select(v => v!.GetValue<string>()).Where(id => id.StartsWith("mcp_", StringComparison.Ordinal)).ToArray();
         Assert.Equal(2, tools.Length);
+        Assert.DoesNotContain("project.read", contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>()));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ValidateAsync(fixture.Context with {
+            Task = fixture.Context.Task with { Capabilities = ["command.execute"] } }, ct));
         var task = fixture.Context.Task with { Capabilities = [.. tools], Budget = new() { MaxActions = 2 },
             Verification = [new("saved", "mcp.result", tools[1], JsonNode.Parse("""{"type":"object","required":["result"],"properties":{"result":{"type":"object","required":["saved"]}}}""")!.AsObject())] };
         fixture.Host.OnSend = async (configuration, handle, _, token) =>
@@ -54,6 +57,7 @@ public sealed partial class BoundedCopilotTasksTests
                     CompletedSequence = observed.Count * 2 + 2, CopilotSessionId = "session" });
                 args = value.GetRawText();
             }
+            if (upstream == "interrupted") throw new IOException("Provider lost the final turn after tool completion.");
             return new(handle, "session", "{}", null, []) { ToolExecutions = observed };
         };
         foreach (var variant in new[] { "first", "changed" })
@@ -69,10 +73,16 @@ public sealed partial class BoundedCopilotTasksTests
             var replay = await runner.ReconcileAsync(context, ct);
             Assert.Equal(variant, replay.Evidence.Single(e => e.Subject == tools[1]).Facts["result"]!["saved"]!.GetValue<string>());
         }
-        Assert.Equal(new[] { "first", "changed" }, writes);
+        upstream = "interrupted";
+        var interrupted = fixture.Context with { RunId = "interrupted", Task = task };
+        Assert.Equal("needs_reconciliation", (await runner.RunAsync(interrupted, ct)).Status);
+        var retained = await runner.ReconcileAsync(interrupted, ct);
+        Assert.Equal("needs_reconciliation", retained.Status);
+        Assert.Equal("interrupted", retained.Evidence.Single(e => e.Kind == "mcp.result" && e.Subject == tools[1]).Facts["result"]!["saved"]!.GetValue<string>());
+        Assert.Equal(new[] { "first", "changed", "interrupted" }, writes);
         write.InputSchema!["additionalProperties"] = true;
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ValidateAsync(fixture.Context with { Task = task }, ct));
-        Assert.Equal(2, fixture.Host.Sends);
+        Assert.Equal(3, fixture.Host.Sends);
     }
 
     [Fact]
@@ -107,7 +117,7 @@ public sealed partial class BoundedCopilotTasksTests
             server == ServerName ? Task.FromResult<IMcpSession>(this) : Servers.GetClientAsync(server, ct);
         public async Task<McpCallResult> CallToolAsync(string method, JsonNode? args, CancellationToken ct)
         {
-            if (method == "copilot_task_contract") return new() { Content = await tasks.ContractAsync(ct) };
+            if (method == "copilot_task_contract") return new() { Content = await tasks.ContractAsync(ct, args?["hostToolsOnly"]?.GetValue<bool>() == true) };
             if (method == "copilot_task_exchange")
                 return new() { Content = await _exchange!.ExchangeAsync(args!["receiptJson"] is { } receipt ? JsonNode.Parse(receipt.GetValue<string>())!.AsObject() : null, ct) };
             var context = JsonSerializer.Deserialize(args!["contextJson"]!.GetValue<string>(), AgentTaskJsonContext.Default.AgentTaskContext)!;

@@ -19,8 +19,17 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     private static readonly string[] Capabilities = ["project.read", "project.write", "command.execute"];
     internal string LockDirectory { get; init; } = GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/copilot-tasks-v9/owners");
 
-    internal async Task<JsonObject> ContractAsync(CancellationToken ct)
+    internal async Task<JsonObject> ContractAsync(CancellationToken ct, bool hostToolsOnly = false)
     {
+        if (hostToolsOnly)
+        {
+            var host = AgentTaskContracts.InputSchema;
+            host["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray();
+            host["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = new JsonArray("mcp.result");
+            return new() { ["schemaVersion"] = 9, ["hostToolProtocol"] = 1,
+                ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract(
+                    "Adaptive work using the calling workflow's approved MCP tools.", host), AgentTaskJsonContext.Default.AgentTaskRunnerContract) };
+        }
         var readiness = await ReadinessAsync(ct);
         var commands = readiness == CopilotSandboxReadiness.Configured && policy.DescribePolicy().AllowWrites;
         var schema = AgentTaskContracts.InputSchema;
@@ -109,7 +118,10 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                 var facts = action is null ? null : JsonNode.Parse(action.Value)?.AsObject();
                 if (facts?["scope_hash"]?.ToString() != scopeHash || facts["tool"]?.ToString() is not { } tool)
                     throw new InvalidDataException("Missing bounded task action evidence.");
-                evidence.Add(new("action:" + metadata.Key[prefix.Length..], "action.receipt", tool, facts));
+                var id = metadata.Key[prefix.Length..];
+                evidence.Add(new("action:" + id, "action.receipt", tool, facts));
+                if (facts["host_result"] is JsonObject hostResult && context.Task.Capabilities.Contains(tool))
+                    evidence.Add(new("mcp:" + id, "mcp.result", tool, hostResult));
             }
             cursor = page.HasMore ? page.Next ?? throw new InvalidDataException("Missing bounded task action cursor.") : null;
         } while (cursor is not null);

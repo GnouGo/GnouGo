@@ -10,7 +10,10 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
 {
     public IReadOnlySet<string> ObservationTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
 
-    private sealed record Entry(string Session, string Id, string Tool, string Signature, bool Observation, bool Verification, int Generation);
+    private sealed record Entry(string Session, string Id, string Tool, string Signature, bool Observation, bool Verification, int Generation)
+    {
+        internal JsonObject? HostResult { get; set; }
+    }
     internal Func<IReadOnlyList<CopilotToolExecutionObservation>>? ExecutionObservations { get; set; }
     private readonly SemaphoreSlim _gate = new(1, 1);
     private readonly HashSet<string> _claimedHostCalls = new(StringComparer.Ordinal);
@@ -77,7 +80,7 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
         finally { _gate.Release(); }
     }
 
-    internal async Task ClaimHostToolAsync(string tool, JsonElement arguments, CancellationToken ct)
+    internal async Task<string> ClaimHostToolAsync(string tool, JsonElement arguments, CancellationToken ct)
     {
         var signature = Identity(tool, Fingerprint(arguments));
         await _gate.WaitAsync(ct);
@@ -86,6 +89,24 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
             var admission = _pending.SingleOrDefault(pair => pair.Value.Tool == tool && pair.Value.Signature == signature);
             if (_unresolved || admission.Value is null || !_claimedHostCalls.Add(admission.Key))
                 throw new InvalidOperationException("Host dispatch requires an unused journaled SDK admission for these exact arguments.");
+            return admission.Key;
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal async Task RecordHostResultAsync(string admission, JsonObject request, JsonElement response)
+    {
+        await _gate.WaitAsync();
+        try
+        {
+            var entry = _pending[admission];
+            entry.HostResult = new() { ["request"] = request.DeepClone(), ["result"] = JsonNode.Parse(response.GetRawText()) };
+            await persist(admission, Receipt(entry, "host_result", Fingerprint(response)));
+        }
+        catch
+        {
+            _unresolved = true;
+            throw;
         }
         finally { _gate.Release(); }
     }
@@ -121,7 +142,7 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
     private static JsonObject Receipt(Entry action, string state, string? observed) => new()
     {
         ["session_id"] = action.Session, ["tool_call_id"] = action.Id, ["tool"] = action.Tool, ["action_hash"] = action.Signature, ["generation"] = action.Generation,
-        ["observation"] = action.Observation, ["state"] = state, ["result_hash"] = observed
+        ["observation"] = action.Observation, ["state"] = state, ["result_hash"] = observed, ["host_result"] = action.HostResult?.DeepClone()
     };
 
     private static string Identity(string? first, string? second) => Hash(new JsonArray(first, second).ToJsonString());

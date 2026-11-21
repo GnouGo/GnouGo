@@ -17,7 +17,7 @@ internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotH
     private const string Metadata = "{\"management\":{\"visibility\":\"management_only\"}}";
     [McpServerTool(Name = "copilot_task_contract", UseStructuredContent = true), Description("Exact schema-9 bounded task contract for the Flow.Copilot adapter.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
-    public Task<JsonObject> ContractAsync(CancellationToken cancellationToken) => tasks.ContractAsync(cancellationToken);
+    public Task<JsonObject> ContractAsync(CancellationToken cancellationToken, bool hostToolsOnly = false) => tasks.ContractAsync(cancellationToken, hostToolsOnly);
 
     [McpServerTool(Name = "copilot_task_validate", UseStructuredContent = true), Description("Validate an approved task scope without dispatching adaptive work.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
@@ -36,6 +36,8 @@ internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotH
         var context = Parse(contextJson);
         var manifest = CopilotTaskToolExchange.ParseManifest(context, toolsJson);
         if (manifest.Count == 0 && channel is null) return Receipt(await tasks.RunAsync(context, cancellationToken));
+        if (trace.Current?.RunId != context.RunId || trace.Current.StepId != context.InvocationId)
+            throw new McpException("The requested task channel differs from the transport invocation.");
         var key = ChannelKey(context.TenantId, context.RunId, context.InvocationId, channel);
         using var exchange = new CopilotTaskToolExchange(manifest);
         if (!Exchanges.TryAdd(key, exchange)) throw new McpException("This task channel is already owned.");

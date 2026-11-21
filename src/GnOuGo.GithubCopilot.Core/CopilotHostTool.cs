@@ -21,7 +21,9 @@ internal sealed class CopilotHostFunction(CopilotHostTool tool, CopilotExecution
             input[key] = JsonSerializer.SerializeToNode(value, CopilotCoreJsonContext.Default.Object);
         var parameters = JsonSerializer.SerializeToElement(input, CopilotCoreJsonContext.Default.JsonObject);
         var admissions = bounds.AdaptiveActions ?? throw new InvalidOperationException("Host tools require durable action admission.");
-        await admissions.ClaimHostToolAsync(tool.Name, parameters, cancellationToken);
-        return await tool.Invoke(parameters, cancellationToken);
+        var admission = await admissions.ClaimHostToolAsync(tool.Name, parameters, cancellationToken);
+        var result = await tool.Invoke(parameters, cancellationToken);
+        await admissions.RecordHostResultAsync(admission, input, result);
+        return result;
     }
 }

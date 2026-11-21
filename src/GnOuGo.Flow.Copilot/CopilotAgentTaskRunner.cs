@@ -15,7 +15,9 @@ public sealed partial class CopilotAgentTaskRunner(IMcpClientFactory transport, 
 
     public async Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
     {
-        var response = await CallAsync("copilot_task_contract", new JsonObject(), null, ct);
+        var arguments = new JsonObject();
+        if (allowedTools is { Count: > 0 }) arguments["hostToolsOnly"] = true;
+        var response = await CallAsync("copilot_task_contract", arguments, null, ct);
         if (response?["schemaVersion"]?.GetValue<int>() != 9)
             throw new InvalidOperationException("The Copilot server does not implement the schema-9 bounded task protocol.");
         var contract = JsonSerializer.Deserialize(response["contract"], AgentTaskJsonContext.Default.AgentTaskRunnerContract)
@@ -25,13 +27,14 @@ public sealed partial class CopilotAgentTaskRunner(IMcpClientFactory transport, 
             throw new InvalidOperationException("The configured Copilot MCP cannot dispatch host-scoped tools.");
         var schema = contract.InputSchema;
         var options = schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray();
+        options.Clear();
         var descriptors = new JsonObject();
         foreach (var tool in await DiscoverHostToolsAsync(ct))
         {
             options.Add((JsonNode?)JsonValue.Create(tool.Id));
             descriptors[tool.Id] = tool.Descriptor;
         }
-        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Add((JsonNode?)JsonValue.Create("mcp.result"));
+        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = new JsonArray("mcp.result");
         return new(contract.Description + " Selected MCP capabilities are named by their pinned live contracts. " +
             "Use mcp.result with the exact capability as subject and facts {request, result}. A finite max_actions is required. " +
             descriptors.ToJsonString(), schema);

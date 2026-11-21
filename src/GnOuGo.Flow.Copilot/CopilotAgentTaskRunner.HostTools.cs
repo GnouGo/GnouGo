@@ -26,6 +26,8 @@ public sealed partial class CopilotAgentTaskRunner
     private async Task<List<CopilotToolContract>> ResolveHostToolsAsync(AgentTaskDefinition task, CancellationToken ct)
     {
         var ids = task.Capabilities.Where(c => c.StartsWith("mcp_", StringComparison.Ordinal)).ToHashSet(StringComparer.Ordinal);
+        if (allowedTools is { Count: > 0 } && (ids.Count == 0 || ids.Count != task.Capabilities.Count))
+            throw new InvalidOperationException("This runner accepts only its configured MCP tools.");
         if (ids.Count == 0) return [];
         var tools = (await DiscoverHostToolsAsync(ct)).Where(tool => ids.Contains(tool.Id)).ToList();
         if (tools.Count != ids.Count || task.Budget.MaxActions is null)
@@ -59,10 +61,15 @@ public sealed partial class CopilotAgentTaskRunner
                 if (await Task.WhenAny(run, pending) == run)
                 {
                     await lifetime.CancelAsync();
-                    try { await pending; } catch (OperationCanceledException) { }
+                    // Terminal receipts are checked below against every locally observed result.
+                    // A concurrent close can also terminate the final long poll.
+                    try { await pending; }
+                    catch (Exception ex) when (ex is not OutOfMemoryException && run.IsCompleted) { }
                     break;
                 }
-                var action = await pending;
+                JsonNode? action;
+                try { action = await pending; }
+                catch (Exception ex) when (ex is not OutOfMemoryException && run.IsCompleted) { break; }
                 receipt = null;
                 if (action?["state"]?.ToString() == "waiting") continue;
                 if (action?["state"]?.ToString() == "closed") break;

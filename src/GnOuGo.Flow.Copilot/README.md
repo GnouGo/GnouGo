@@ -21,7 +21,7 @@ A Server operator can bind several existing MCP tools to a runner. For example:
 }
 ```
 
-Discovery reads the configured servers' current tool catalogs. Each selectable
+A runner with explicit tool bindings exposes only that allowlist. A separately registered project runner retains its project and command permissions. Discovery reads the configured servers' current tool catalogs. Each selectable
 capability identifies the server, method, schemas, effect and metadata by digest.
 The approved task selects individual capabilities, declares a finite action count
 and supplies verification conditions. A changed contract requires fresh approval.
@@ -35,7 +35,9 @@ call whose outcome is unknown remains subject to reconciliation.
 For an MCP observation, use verification kind `mcp.result` and the selected
 capability ID as the subject. Its evidence contains the actual `request` and
 `result`. The workflow adapter checks the terminal receipt against the responses
-it observed. A completed invocation can return its stored receipt without calling
+it observed. Successful host responses are recorded in the encrypted action
+journal before control returns to the SDK, so inspection can recover verified
+observations even if the final turn is lost. A completed invocation can return its stored receipt without calling
 a tool again.
 
 Discover the runner contract before approval. Task permissions, output schema,
