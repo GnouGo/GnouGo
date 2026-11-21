@@ -222,6 +222,9 @@ internal static partial class PlanningModelCalls
                 {
                     var key = replace(item.Key);
                     if (key != item.Key) { evidence.Remove(item.Key); evidence.Add(key, item.Value); }
+                    if ((item.Key.StartsWith("rejected:", StringComparison.Ordinal) || key.StartsWith("rejected:", StringComparison.Ordinal)) &&
+                        item.Value is JsonObject rejected && rejected["unchangedEvidence"] is JsonArray shared)
+                        Links(rejected, "unchangedEvidence", shared);
                     Metadata(item.Value);
                 }
             }

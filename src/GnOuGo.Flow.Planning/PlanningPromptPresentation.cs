@@ -250,6 +250,7 @@ public static class PlanningPromptPresentation
         // producer contracts differ through compiler-applied constraints. Factor
         // each schema independently; never substitute one owner's contract for
         // another or detach the original schema's reference scope.
+        var sharedReselection = ShareReselectionEvidence(context);
         var composedFields = ShareImportedObjectMembers(context);
         var shared = context["schemaPresentation"] is null && FactorImportedSchemaShapes(context);
         var sharedResults = ShareRepeatedOutputSchemas(context);
@@ -325,7 +326,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !composedFields) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !composedFields && !sharedReselection) return prompt;
+        if (sharedReselection)
+            context["reselectionEvidencePresentation"] = "unchangedEvidence lists archived items whose full value appears under the same address in this request's evidence.";
         if (sharedReviewSnapshots)
             context["reviewSnapshotPresentation"] = "unchangedAt points to the identical before and current snapshot for this concern in the present review.";
         if (composedFields)
@@ -347,6 +350,30 @@ public static class PlanningPromptPresentation
         if (sharedTaskPages)
             context["taskPagePresentation"] = "A task page's itemsPresentedAt points to its complete ordered items array in this context. Its offset, total and continuation belong to the page.";
         return prompt[..(offset + 1)] + PlanningJsonTransport.Prompt(context);
+    }
+
+    private static bool ShareReselectionEvidence(JsonObject context)
+    {
+        if (context["evidence"] is not JsonObject evidence) return false;
+        var changed = false;
+        foreach (var (address, row) in evidence)
+        {
+            if (!address.StartsWith("rejected:", StringComparison.Ordinal) || row is not JsonObject rejected ||
+                rejected["evidence"] is not JsonObject archived || rejected["step"] is not JsonObject ||
+                rejected["unchangedEvidence"] is not null) continue;
+            var shared = new JsonArray();
+            foreach (var (key, snapshot) in archived.ToArray())
+            {
+                if (key.StartsWith("rejected:", StringComparison.Ordinal) || snapshot is not (JsonObject or JsonArray) ||
+                    !JsonNode.DeepEquals(snapshot, evidence[key]) || snapshot.ToJsonString().Length <= key.Length + 320) continue;
+                shared.Add(key);
+                archived.Remove(key);
+            }
+            if (shared.Count == 0) continue;
+            rejected["unchangedEvidence"] = shared;
+            changed = true;
+        }
+        return changed;
     }
 
     private static bool ShareSelectedAncestorPrefix(JsonObject operation, JsonArray selected, string metadataName)

@@ -6,6 +6,44 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PlanningRepeatedTaskPresentationTests
 {
+    [Fact]
+    public void RejectedStepSharesOnlyItsUnchangedEvidenceAtTheSameIssuedAddress()
+    {
+        var current = new JsonObject { ["path"] = "/root", ["detail"] = new string('x', 1200) };
+        var previous = new JsonObject { ["detail"] = new string('y', 1200) };
+        var archive = new JsonObject
+        {
+            ["step"] = new JsonObject { ["scope"] = "/root" }, ["reason"] = "Keep the original requirements open.",
+            ["evidence"] = new JsonObject { ["scope:/root"] = current.DeepClone(), ["page:tasks:0"] = previous.DeepClone(),
+                ["scope:/other"] = current.DeepClone() }
+        };
+        var evidence = new JsonObject { ["scope:/root"] = current.DeepClone(), ["page:tasks:0"] = new JsonObject(),
+            ["rejected:0"] = archive.DeepClone() };
+        var state = PlannerFixture.Session();
+        var schema = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() };
+        var request = PlanningModelCalls.PrepareRequest(state, "construction_implementation", "Choose.\n" + new JsonObject { ["evidence"] = evidence }.ToJsonString(),
+            schema, null, null, out var map);
+        var call = new PlanningModelCall { Id = request.ClientRequestId!, Purpose = "construction_implementation", Request = request, EvidenceAddresses = map };
+        var restored = JsonSerializer.Deserialize(JsonSerializer.Serialize(call, PlanningJsonContext.Default.PlanningModelCall),
+            PlanningJsonContext.Default.PlanningModelCall)!;
+        PlanningModelCalls.ValidateEvidenceAddresses(restored);
+        foreach (var prompt in new[] { request.Prompt, PlanningModelCalls.CanonicalEvidenceRequest(restored).Prompt })
+        {
+            var rows = Read(prompt)["evidence"]!.AsObject();
+            var rejection = rows.Single(p => p.Value?["reason"] is not null).Value!;
+            var references = Assert.IsType<JsonArray>(rejection["unchangedEvidence"]);
+            var address = Assert.Single(references)!.ToString();
+            Assert.True(JsonNode.DeepEquals(current, rows[address]));
+            Assert.Equal(prompt == request.Prompt, address != "scope:/root");
+            Assert.Null(rejection["evidence"]!["scope:/root"]);
+            Assert.True(JsonNode.DeepEquals(previous, rejection["evidence"]!["page:tasks:0"]));
+            Assert.True(JsonNode.DeepEquals(current, rejection["evidence"]!["scope:/other"]));
+            Assert.Equal(archive["reason"]!.ToString(), rejection["reason"]!.ToString());
+        }
+        Assert.True(JsonNode.DeepEquals(current, archive["evidence"]!["scope:/root"]));
+        Assert.Equal(0, state.ModelCalls);
+    }
+
     [Theory]
     [InlineData("tasks", true)]
     [InlineData("always", true)]

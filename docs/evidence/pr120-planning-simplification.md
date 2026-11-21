@@ -44,6 +44,19 @@ full solution run on `0768ce86` passed 9,736 tests in 33 assemblies, with
 fragment passed their technical regressions again after the Review 45
 correction. Neither replay invoked a provider or published a review.
 
+The archived rejection in call 28 also repeated the same root scope and
+checkpoint page that the model had separately requested. The issued
+prompt occupied 194,532 UTF-8 bytes. A request now gives the model the
+address of an identical item already presented in that same request.
+Changed, missing and differently addressed historical items retain their
+full content. The original rejection stays in the session record.
+
+Rebuilding the issued request from the saved checkpoint reduced its prompt
+to 128,094 bytes. Following its two references reconstructed the entire
+original context, with the same 72 evidence addresses and the same wire
+choices after resolving their request-specific IDs. The replay used zero
+provider calls. All 218 selected evidence and presentation tests passed.
+
 ## Command discovery during Review 45, 21 November 2026
 
 Review 44 call 15 and Review 45 call 13 each included 18 command aliases
