@@ -96,7 +96,13 @@ public sealed class RepairPatchTests
     {
         var state = State(); var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var edit = Edit(state, "/tasks/consumer/inputs/position", "remove");
-        Assert.Throws<PlanningResponseException>(() => Apply(state, edit, edit.DeepClone().AsObject()));
+        var error = Assert.Throws<PlanningResponseException>(() => Apply(state, edit, edit.DeepClone().AsObject()));
+        var finding = Assert.Single(error.Diagnostics);
+        Assert.Equal("/tasks/consumer/inputs/position", finding.Location);
+        Assert.Contains(edit["slot"]!.ToString(), finding.Message, StringComparison.Ordinal);
+        Assert.Contains("edits[0]", finding.Message, StringComparison.Ordinal);
+        Assert.Contains("edits[1]", finding.Message, StringComparison.Ordinal);
+        Assert.Contains("one edit per slot", PlanningPrompt.RepairInstructions, StringComparison.OrdinalIgnoreCase);
         Assert.Throws<WorkflowRuntimeException>(() => Apply(state));
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }

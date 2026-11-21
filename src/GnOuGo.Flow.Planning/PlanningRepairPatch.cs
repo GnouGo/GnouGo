@@ -344,8 +344,10 @@ internal static class PlanningRepairPatch
         {
             if (!slots.TryGetValue(edit.Slot, out var slot) || !slot.Actions.Contains(edit.Action, StringComparer.Ordinal))
                 throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", "/patch/edits", "Only issued typed repair slots and actions are permitted.")]);
-            if (selected.Any(s => s.Id == slot.Id || s.Location.StartsWith(slot.Location + "/", StringComparison.Ordinal) || slot.Location.StartsWith(s.Location + "/", StringComparison.Ordinal)))
-                throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", slot.Location, "Duplicate or overlapping repair edits are not permitted.")]);
+            var previous = selected.FindIndex(s => s.Id == slot.Id || s.Location.StartsWith(slot.Location + "/", StringComparison.Ordinal) || slot.Location.StartsWith(s.Location + "/", StringComparison.Ordinal));
+            if (previous >= 0)
+                throw new PlanningResponseException([new("REVISION_SCOPE_CHANGED", slot.Location,
+                    $"edits[{previous}] ({selected[previous].Id}) and edits[{selected.Count}] ({slot.Id}) address the same or overlapping fields. Supply one edit per slot and choose nonoverlapping locations.")]);
             selected.Add(slot);
         }
         var before = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!;

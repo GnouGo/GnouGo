@@ -2,6 +2,16 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+The Amazon 19 correction diagnostic cost EUR 0.79708 in one native request.
+It used `array_length` against both the ordered selection and extracted
+rows, comparing each with ten. The wire response was complete. Two
+different edits nevertheless addressed the writer's guard, so applying it
+to a detached copy correctly failed. No plan changed. The repair request
+now states the one-edit-per-slot rule and explains how to combine guard
+conditions. A conflict identifies both edit positions and slot IDs. All 36
+focused repair and collection tests passed. The campaign audit after
+this diagnostic retained EUR 55.31470 available.
+
 Review 36 reached final review after 41 planning requests. All 24 tasks in
 revision 137 matched the individually reviewed tasks. The public `rapport`
 binds a French summary and complete command and publication receipts.
