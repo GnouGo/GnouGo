@@ -220,6 +220,32 @@ public sealed class BoundedCopilotTasksTests
         Assert.Equal(1, fixture.Host.Sends); Assert.Equal(1, inspected.Usage.ModelCalls);
     }
 
+    [Fact]
+    public async Task RecordedActionIntentRemainsInspectableWhenTheSessionEndsWithoutAReceipt()
+    {
+        await using var fixture = new Fixture();
+        var ct = TestContext.Current.CancellationToken;
+        var context = fixture.Context with { Task = fixture.Context.Task with { Budget = new() { MaxActions = 2 } } };
+        fixture.Host.OnSend = async (configuration, _, _, _) =>
+        {
+            var bounds = configuration.Request.Configuration.ExecutionBounds!;
+            Assert.Null(await bounds.AdaptiveActions!.AdmitAsync(bounds, "sdk", "read", "project_read", "input.txt"));
+            await bounds.AdaptiveActions.CompleteAsync(bounds, "sdk", "read", "project_read", "original", true);
+            Assert.Null(await bounds.AdaptiveActions.AdmitAsync(bounds, "sdk", "edit", "project_write", "output.txt"));
+            fixture.Records.FailReceipt = true;
+            throw new IOException("SDK disconnected");
+        };
+        await Assert.ThrowsAsync<IOException>(() => fixture.Tasks.RunAsync(context, ct));
+        fixture.Records.FailReceipt = false;
+        var inspected = await fixture.Tasks.InspectAsync(context, ct);
+        Assert.Equal("needs_reconciliation", inspected.Status);
+        Assert.Equal(2, inspected.Usage.Actions);
+        Assert.Equal("observed", Assert.Single(inspected.Evidence, e => e.Subject == "project_read").Facts["state"]!.ToString());
+        Assert.Equal("admitted", Assert.Single(inspected.Evidence, e => e.Subject == "project_write").Facts["state"]!.ToString());
+        Assert.Equal("needs_reconciliation", (await fixture.Tasks.RunAsync(context, ct)).Status);
+        Assert.Equal(1, fixture.Host.Sends);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "gnougo-bounded-" + Guid.NewGuid().ToString("N"));
@@ -246,10 +272,21 @@ public sealed class BoundedCopilotTasksTests
         }
         public async ValueTask DisposeAsync() { await Host.Manager.DisposeAsync(); _tenant.Dispose(); Directory.Delete(Root, true); }
     }
-    private sealed class Records : IKeyVaultRecordStore
+    private sealed class Records : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
         private readonly Dictionary<(string, string, string), KeyVaultRecordValue> _values = [];
         public bool FailReceipt { get; set; }
+        public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string collection, string tenantId, string prefix, string author,
+            KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default)
+        {
+            var rows = _values.Where(v => v.Key.Item1 == collection && v.Key.Item2 == tenantId && v.Key.Item3.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(v => new KeyVaultRecordMetadata(v.Key.Item3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, v.Value.Value.Length)).ToArray();
+            Assert.Null(after); Assert.InRange(rows.Length, 0, count);
+            return Task.FromResult(new KeyVaultRecordMetadataPage(rows, null, false));
+        }
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<KeyVaultRecordRange?> ReadRangeAsync(string collection, string tenantId, string key, string author, string? version,
+            int offset, int count, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KeyVaultRecordValue?> GetAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
             => Task.FromResult(_values.GetValueOrDefault((collection, tenantId, key)));
         public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)

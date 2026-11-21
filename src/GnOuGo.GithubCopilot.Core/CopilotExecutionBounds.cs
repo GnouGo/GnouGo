@@ -43,6 +43,8 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     private int _activeOperations;
     private int _sdkAdmissions;
     public int? MaxActions { get; init; }
+    public CopilotAdaptiveActions? AdaptiveActions { get; init; }
+    public bool HasUnresolvedActions => AdaptiveActions?.Unresolved == true;
     public int Actions { get { lock (_operationsGate) return _sdkAdmissions; } }
     private bool _unpairedSdkCompletion;
     private readonly Dictionary<string, int> _sdkActive = new(StringComparer.Ordinal);

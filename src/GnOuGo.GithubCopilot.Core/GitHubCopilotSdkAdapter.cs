@@ -293,29 +293,36 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy, CopilotExecutionBounds? bounds = null, CopilotInferenceBudget? logical = null, CopilotTransientSessionState? state = null)
         => new()
         {
-            OnPreToolUse = (input, _) =>
+            OnPreToolUse = async (input, invocation) =>
             {
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
                 if (logical is { AdmitsTools: false })
-                    return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The logical operation is stopped or its deadline elapsed." });
-                if (ValidateFileTool(input, filePolicy, state) is { } rejection) return Task.FromResult<PreToolUseHookOutput?>(rejection);
-                if (bounds is not null && !bounds.TryAdmitSdkTool(input.ToolName))
-                    return Task.FromResult<PreToolUseHookOutput?>(new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." });
-                return Task.FromResult<PreToolUseHookOutput?>(null);
+                    return new() { PermissionDecision = "deny", PermissionDecisionReason = "The logical operation is stopped or its deadline elapsed." };
+                if (ValidateFileTool(input, filePolicy, state) is { } rejection) return rejection;
+                if (bounds?.AdaptiveActions is { } actions)
+                {
+                    var finding = await actions.AdmitAsync(bounds, invocation.SessionId, input.ToolCallId, input.ToolName, input.ToolArgs);
+                    if (finding is not null) return new() { PermissionDecision = "deny", PermissionDecisionReason = finding };
+                }
+                else if (bounds is not null && !bounds.TryAdmitSdkTool(input.ToolName))
+                    return new() { PermissionDecision = "deny", PermissionDecisionReason = "The operation exceeds the approved task scope or deadline." };
+                return null;
             },
-            OnPostToolUse = (input, _) =>
+            OnPostToolUse = async (input, invocation) =>
             {
-                bounds?.CompleteSdkTool(input.ToolName);
+                if (bounds?.AdaptiveActions is { } actions)
+                    await actions.CompleteAsync(bounds, invocation.SessionId, input.ToolCallId, input.ToolName, input.ToolResult, true);
+                else bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogDebug("Copilot hook post-tool-use: {ToolName}", input.ToolName);
-                return Task.FromResult(logical?.TakeToolBudgetUpdate() is { } update
-                    ? new PostToolUseHookOutput { AdditionalContext = update } : null);
+                return logical?.TakeToolBudgetUpdate() is { } update ? new PostToolUseHookOutput { AdditionalContext = update } : null;
             },
-            OnPostToolUseFailure = (input, _) =>
+            OnPostToolUseFailure = async (input, invocation) =>
             {
-                bounds?.CompleteSdkTool(input.ToolName);
+                if (bounds?.AdaptiveActions is { } actions)
+                    await actions.CompleteAsync(bounds, invocation.SessionId, input.ToolCallId, input.ToolName, input.Error, false);
+                else bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogWarning("Copilot hook tool-failure: {ToolName}", input.ToolName);
-                return Task.FromResult(logical?.TakeToolBudgetUpdate() is { } update
-                    ? new PostToolUseFailureHookOutput { AdditionalContext = update } : null);
+                return logical?.TakeToolBudgetUpdate() is { } update ? new PostToolUseFailureHookOutput { AdditionalContext = update } : null;
             },
             OnUserPromptSubmitted = (input, _) =>
             {
@@ -978,6 +985,8 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
     public async Task<CopilotSendResult> SendAsync(string handle, CopilotSendRequest request, CancellationToken cancellationToken)
     {
         var observations = new CopilotExecutionObservations(SessionId, _state);
+        if (_configuration.ExecutionBounds?.AdaptiveActions is { } adaptive)
+            adaptive.ExecutionObservations = observations.Snapshot;
         var events = new List<CopilotStreamEvent>
         {
             new("request_send", "thinking", "Sending a message to Copilot.", DateTimeOffset.UtcNow)

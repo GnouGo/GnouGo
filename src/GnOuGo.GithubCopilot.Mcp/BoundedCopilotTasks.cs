@@ -83,11 +83,36 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     }
 
     internal async Task<AgentTaskResult> InspectAsync(AgentTaskContext context, CancellationToken ct)
+        => await InspectAsync(context, await ReadAsync(context, ct), ct);
+
+    private async Task<AgentTaskResult> InspectAsync(AgentTaskContext context, JsonObject? record, CancellationToken ct)
     {
-        var record = await ReadAsync(context, ct);
-        return record?["result"] is { } result
-            ? JsonSerializer.Deserialize(result, AgentTaskJsonContext.Default.AgentTaskResult)!
-            : Unknown(record, "No completed task receipt is available. The internal Copilot session is not automatically restored.");
+        var result = record?["result"] is { } receipt
+            ? JsonSerializer.Deserialize(receipt, AgentTaskJsonContext.Default.AgentTaskResult)!
+            : Unknown(record, "No completed task receipt is available. Inspect the original invocation.");
+        if (result.Status != "needs_reconciliation" || record is null || context.Task.Budget.MaxActions is not { } limit ||
+            records is not IKeyVaultRecordReader reader) return result;
+        var prefix = Key(context) + ":";
+        var scopeHash = ScopeHash(context);
+        var evidence = result.Evidence.ToList();
+        var count = 0;
+        KeyVaultRecordCursor? cursor = null;
+        do
+        {
+            var page = await reader.QueryMetadataAsync(Collection + "-actions", context.TenantId, prefix, Author, cursor, count: 100, ct: ct);
+            foreach (var metadata in page.Records)
+            {
+                if (++count > limit || !metadata.Key.StartsWith(prefix, StringComparison.Ordinal))
+                    throw new InvalidDataException("Invalid bounded task action index.");
+                var action = await records.GetAsync(Collection + "-actions", context.TenantId, metadata.Key, Author, ct);
+                var facts = action is null ? null : JsonNode.Parse(action.Value)?.AsObject();
+                if (facts?["scope_hash"]?.ToString() != scopeHash || facts["tool"]?.ToString() is not { } tool)
+                    throw new InvalidDataException("Missing bounded task action evidence.");
+                evidence.Add(new("action:" + metadata.Key[prefix.Length..], "action.receipt", tool, facts));
+            }
+            cursor = page.HasMore ? page.Next ?? throw new InvalidDataException("Missing bounded task action cursor.") : null;
+        } while (cursor is not null);
+        return result with { Evidence = evidence, Usage = result.Usage with { Actions = Math.Max(count, result.Usage.Actions ?? 0) } };
     }
 
     internal async Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct)
@@ -95,14 +120,15 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         Directory.CreateDirectory(LockDirectory);
         await using var owner = new FileStream(Path.Combine(LockDirectory, Hash(new JsonArray(context.TenantId, Key(context)).ToJsonString()) + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (await ReadAsync(context, ct) is { } existing)
-            return existing["result"] is { } prior ? JsonSerializer.Deserialize(prior, AgentTaskJsonContext.Default.AgentTaskResult)! : Unknown(existing, "This invocation was already dispatched; inspect or reconcile it without repeating its effects.");
+            return await InspectAsync(context, existing, ct);
         var validation = await ValidateAsync(context, ct);
         if (validation.Count > 0) return Failed("AGENT_SCOPE_UNSUPPORTED", string.Join(" ", validation));
         var started = DateTimeOffset.UtcNow;
+        var scopeHash = ScopeHash(context);
         var record = new JsonObject
         {
             ["schemaVersion"] = 9, ["tenantId"] = context.TenantId, ["runId"] = context.RunId,
-            ["invocationId"] = context.InvocationId, ["scopeHash"] = ScopeHash(context), ["status"] = "prepared",
+            ["invocationId"] = context.InvocationId, ["scopeHash"] = scopeHash, ["status"] = "prepared",
             ["startedAt"] = started.ToString("O"), ["deadline"] = started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds).ToString("O"),
             ["modelCalls"] = 0, ["chargedTokens"] = 0L
         };
@@ -113,6 +139,12 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds), tools, async (calls, tokens, token) =>
             { record["modelCalls"] = calls; record["chargedTokens"] = tokens; await SaveAsync(context, record, token); }) {
                 ApprovedPrompt = Prompt(context.Task), MaxActions = context.Task.Budget.MaxActions,
+                AdaptiveActions = context.Task.Budget.MaxActions.HasValue ? new CopilotAdaptiveActions(async (id, observation) =>
+                {
+                    observation["scope_hash"] = scopeHash;
+                    await records.UpsertAsync(Collection + "-actions", context.TenantId, Key(context) + ":" + id,
+                        observation.ToJsonString(), Author, CancellationToken.None);
+                }, context.Task.Verification.Where(v => v.Kind == "command.exit").Select(v => v.Subject).ToHashSet(StringComparer.Ordinal)) : null,
                 DeniedPaths = [Path.Combine(baseConfiguration.WorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder),
                     GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder)]
             };
@@ -152,6 +184,11 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             }, deadline.Token);
             var evidence = CommandEvidence(sent, runtime.WorkingDirectory, context.Task.Verification);
             var uncertain = !sent.Completed || !CessationObserved(sent, tools);
+            if (!uncertain && bounds.AdaptiveActions is not null)
+            {
+                await bounds.StopAsync(deadline.Token);
+                uncertain = bounds.HasUnresolvedActions || !bounds.ToolAdmissionsObserved(sent.ToolExecutions.Count);
+            }
             if (uncertain) result = Unknown(null, "The observed tool events do not establish that all dispatched work has stopped.");
             else
             {
@@ -294,6 +331,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         "Complete only the approved objective below, within its declared capabilities and workspace. " +
         "Run each required verification command exactly as written and wait for its structured exit status. " +
         "Do not leave background work running. Do not request scope expansion. Return only JSON matching output_schema; completion claims do not establish evidence.\n" +
+        (task.Budget.MaxActions.HasValue ? "Observe the current workspace, choose the next scoped action and verify its result. Reuse verified observations. Refresh changed inputs and inspect uncertain effects before repeating work.\n" : "") +
         JsonSerializer.Serialize(task, AgentTaskJsonContext.Default.AgentTaskDefinition);
 
     private static bool CommandCompleted(CopilotToolExecutionObservation tool, IReadOnlyList<CopilotToolExecutionObservation> all)

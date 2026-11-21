@@ -288,7 +288,12 @@ A task can set a positive `budget.max_actions`. The host charges each admitted
 SDK tool invocation before dispatch, including concurrent invocations and ones
 that fail. A completed result under this limit must include the observed
 `usage.actions` count. Flow rejects a capped task before dispatch when its
-runner cannot enforce this limit.
+runner cannot enforce this limit. For capped Copilot tasks the host retains an
+encrypted intent before each SDK action and records its observed result hash.
+It compares repeat reads until the workspace changes. A new effect requires
+completion evidence from the preceding effects. A declared verification
+command can run again after a workspace change. Inspection of an interrupted
+invocation returns its original action receipts and preserves the replay barrier.
 
 Task scope, intent, cumulative inference reservations and final receipts are stored
 through encrypted KeyVault record APIs. An invocation is never dispatched twice.
