@@ -534,7 +534,10 @@ internal static partial class PlanningCompactConstruction
                 .DistinctBy(item => (item!["sourceId"]!.ToString(), item["cursor"]?.ToString(), item["focusId"]?.ToString())).ToArray();
             if (supplied.Length > 0) visible = supplied;
         }
-        var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>()).ToArray();
+        var context = DiscoveryContext(state);
+        var available = visible.Where(request => (request!["canRequestPage"] ?? request["available"])!.GetValue<bool>())
+            .Concat(AvailableSourceDirectoryRequests(state, context)).DistinctBy(row =>
+                (row!["sourceId"]!.ToString(), row["cursor"]?.ToString(), row["focusId"]?.ToString()));
         // Factor only identical cursor branches. The accepted source/cursor pairs
         // stay exact; grouping every source with every cursor would widen authority.
         var alternatives = new JsonArray();
@@ -552,7 +555,6 @@ internal static partial class PlanningCompactConstruction
             }
             alternatives.Add((JsonNode)branch);
         }
-        var context = DiscoveryContext(state);
         foreach (var option in context["contractInspection"] as JsonArray ?? [])
         {
             var branch = PlanningSchemas.Object(("sourceId", PlanningSchemas.Enum(option!["sourceId"]!.ToString())),
@@ -614,6 +616,25 @@ internal static partial class PlanningCompactConstruction
         ConstrainDiscoveryEvidence(state, context, schema);
         ConstrainReselectionSchema(state, schema);
         return schema;
+    }
+
+    private static IEnumerable<JsonObject> AvailableSourceDirectoryRequests(PlanningSession state, JsonObject context)
+    {
+        var knownSources = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var (address, page) in context["evidence"] as JsonObject ?? [])
+        {
+            if (page is not JsonObject || !address.StartsWith("page:sources:", StringComparison.Ordinal) ||
+                page["offset"] is not JsonValue position || !position.TryGetValue<int>(out var offset) ||
+                offset < 0 || offset >= state.Discovery.Sources.Count ||
+                address != "page:sources:" + offset.ToString(CultureInfo.InvariantCulture) ||
+                !JsonNode.DeepEquals(page, SourceDescriptors(state, offset))) continue;
+            foreach (var row in page["items"]!.AsArray().OfType<JsonObject>())
+                if (row["descriptionComplete"]!.GetValue<bool>()) knownSources.Add(row["id"]!.ToString());
+        }
+        // A complete original source description supplies the same justification
+        // as reading it separately. Only its current source/focus/cursor tuples apply.
+        return knownSources.Count == 0 ? [] : ProviderRequestOptions(state)
+            .Where(option => option.Available && knownSources.Contains(option.SourceId)).Select(ProviderRequestIdentity);
     }
 
     internal static bool CanReselectDiscovery(PlanningSession state)

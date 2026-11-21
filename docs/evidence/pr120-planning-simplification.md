@@ -24,6 +24,17 @@ Review 32's retained call 40 again preserved inline ordering and submission
 acknowledgement. Its independently selected read remained unimplemented.
 Both regressions used zero model calls.
 
+At call 9 the model could see the coding provider's complete original
+description on source directory page 2. The issued schema omitted that
+provider, so the model requested its description again. At call 10 it
+selected the provider and focus. A detached replay at revision 26
+rejected that exact call 10 response on the original schema. With the
+corrected schema it passed with zero findings and no inference or state
+changes. Only a current, exact directory page with a complete description
+can supply this shortcut. The focused tests also checked the original
+cursor, a different provider, a truncated description and an altered page.
+All 205 discovery protocol tests passed.
+
 ## Review 48, 21 November 2026
 
 Fresh Server session `d74f1ef394ab48ba88484ba476452abd` opened on

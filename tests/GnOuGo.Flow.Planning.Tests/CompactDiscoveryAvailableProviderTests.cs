@@ -7,6 +7,28 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed partial class CompactDiscoveryProtocolTests
 {
     [Fact]
+    public async Task ACompleteSourceDescriptionOnARetainedDirectoryPageOffersItsCurrentContinuation()
+    {
+        var (state, _) = await Ready();
+        state.Discovery.Sources.AddRange([new("beta", "Second provider."), new("gamma", "A provider with another page."),
+            new("delta", new string('d', 1024))]);
+        state.Discovery.Pages.Add(new("gamma", null, [], "gamma-next", Query: Objective));
+        PlanningConstruction.LoadEvidence(state, [PlanningCompactConstruction.ProviderRequestAddress(state, 0), "page:sources:2"]);
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var request = DiscoveryFollowup(state);
+        var schema = request.StructuredOutputSchema!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(Wire(request, Discover("gamma", "gamma-next")).Json!, schema));
+        foreach (var invalid in new[] { Discover("gamma", null), Discover("delta", "gamma-next"), Discover("delta", null) })
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(invalid, schema));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+        Assert.Empty(state.Discovery.Resolved);
+
+        state.Construction!.Evidence!["page:sources:2"]!["items"]![0]!["description"] = "Another description.";
+        var changed = DiscoveryFollowup(state);
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Discover("gamma", "gamma-next"), changed.StructuredOutputSchema!));
+    }
+
+    [Fact]
     public async Task ProviderDecisionOverviewKeepsLaterChoicesVisibleWithoutCrossingCursorAuthority()
     {
         var (state, _) = await Ready();

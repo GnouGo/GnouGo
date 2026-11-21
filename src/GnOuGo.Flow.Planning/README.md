@@ -34,6 +34,11 @@ planning evidence; typed suspension prerequisites describe executable work produ
 runtime data. This keeps issued choices usable without admitting invalid fragments
 or changing the business decomposition, judges or execution permissions.
 
+A complete provider description on a previously read source page can justify
+discovery directly. The planner checks the page against the current directory
+and offers the available source, focus and cursor combinations. Truncated
+descriptions retain their link to the original text.
+
 Before projecting or exporting a producer contract, compilation expands its acyclic
 local JSON Schema references against the original root. Original catalogue payloads
 and identities remain unchanged. Referenced constraints, sibling constraints and
