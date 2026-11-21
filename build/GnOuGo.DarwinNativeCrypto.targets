@@ -5,9 +5,10 @@
        and link symbols. Never mutate NuGet packages or suppress diagnostics.
        The planner Native AOT smoke exercises certificate-chain validation.
        Remove this boundary when the distributed runtime archive is corrected. -->
-  <!-- The pinned x64 security library has an unaligned GSSAPI pointer. Mach-O
-       classic relocations support it. Xcode's legacy linker rejects this archive. -->
-  <PropertyGroup Condition="'$(TargetFramework)' == 'net11.0' and '$(RuntimeIdentifier)' == 'osx-x64'">
+  <!-- Select the current linker on both architectures, including installations
+       with just Command Line Tools. The x64 GSSAPI object also needs classic
+       relocations, supported by the current linker with -no_fixup_chains. -->
+  <PropertyGroup Condition="'$(TargetFramework)' == 'net11.0' and ('$(RuntimeIdentifier)' == 'osx-arm64' or '$(RuntimeIdentifier)' == 'osx-x64')">
     <UseLdClassicXCodeLinker>false</UseLdClassicXCodeLinker>
   </PropertyGroup>
   <ItemGroup Condition="'$(PublishAot)' == 'true' and '$(TargetFramework)' == 'net11.0' and '$(RuntimeIdentifier)' == 'osx-x64'">

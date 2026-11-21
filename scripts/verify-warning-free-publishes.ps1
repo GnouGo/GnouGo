@@ -590,6 +590,7 @@ $publishProfiles = @(
 # the diagnostic code and exact originating assembly/member. Small dependency sets are
 # listed directly. Large framework sets use a deterministic count and SHA-256 over the
 # sorted exact fingerprints, so any addition, removal, or changed origin fails audit.
+$duplicateFormsSubstitution = 'IL2101|Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
 $knownAuditFingerprints = @{
     'GnOuGo.Flow.Cli' = @(
         'IL2026|Jint.Options.Apply(Engine)',
@@ -630,6 +631,7 @@ $knownAuditFingerprints = @{
         'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
     )
     'GnOuGo.Agent.Mcp' = @{
+        NormalNotices = @($duplicateFormsSubstitution)
         FingerprintCount = 86
         Sha256 = '2575e0c408614d8bb2067f7a0212b734531b10e1678e28786d105071dfdcf39b'
         Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
@@ -640,6 +642,7 @@ $knownAuditFingerprints = @{
         Dependencies = 'Pinned EF Core SQLite closure.'
     }
     'GnOuGo.OtlpCollector.Server' = @{
+        NormalNotices = @($duplicateFormsSubstitution)
         FingerprintCount = 88
         Sha256 = '9fb6fbd5118fb83ed72ab0492bf7e07d35e7048bdc97e9023c8c8639cc52d4a4'
         Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
@@ -648,7 +651,7 @@ $knownAuditFingerprints = @{
         NormalNotices = @(
             'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
             'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental',
-            'IL2101|Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
+            $duplicateFormsSubstitution
         )
         # .NET 11 arm64 release audit, after using typed JSON for planning inspection and trace documents.
         FingerprintCount = 108
@@ -663,6 +666,7 @@ $knownAuditFingerprints = @{
 }
 
 $knownAuditFingerprints['GnOuGo.Flow.Server'] = $knownAuditFingerprints['GnOuGo.Flow.Cli']
+$knownAuditFingerprints['GnOuGo.Agent.Desktop']['NormalNotices'] = $knownAuditFingerprints['GnOuGo.Agent.Server']['NormalNotices']
 $publishDirectories = @{}
 try {
     Write-Host "Runtime identifier: $RuntimeIdentifier" -ForegroundColor Green
