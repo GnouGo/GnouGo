@@ -318,6 +318,39 @@ public sealed class CompactConstructionTests
         static TaskOutput Export(string name, string source) => new(name, new() { Kind = "output", Source = source, Port = "message" });
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("observations")]
+    [InlineData("large")]
+    public void RebuildIdentifiesTheOriginalPreconditionWhenTheReplacementAddsAConjunct(string? originalSource)
+    {
+        var state = Fresh();
+        state.Catalog = new();
+        state.Requirements = new() { Outcomes = [new("req_0", "Return the original value.")] };
+        var original = Value();
+        if (originalSource is not null)
+            original.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items =
+                [new() { Kind = "input", Source = originalSource == "large" ? new string('x', 1024) : originalSource }, new() { Kind = "null" }] };
+        state.Plan = new() { Root = new() { Tasks = [original] } };
+        state.Construction!.OpenScopes = ["/root"];
+        PlanningConstruction.Rollback(state, original.Id, "Rebuild the value with its original precondition.");
+        var candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", Tasks = [Value()],
+            ContinueInScope = "/root", RequirementIds = ["req_0"] });
+        var replacement = candidate.Plan.Root.Tasks.Single();
+        replacement.Requires = new() { Kind = "predicate", Predicate = "and", Items =
+            [new() { Kind = "present", Source = "producer" }, original.Requires ?? new() { Kind = "boolean", Boolean = true }] };
+        var finding = Assert.Single(PlanningConstruction.RebuildFindings(state, candidate.Plan, complete: true));
+        Assert.Equal("REVISION_SCOPE_CHANGED", finding.Code);
+        Assert.Equal("/tasks/greet/requires", finding.Location);
+        if (originalSource == "observations")
+            Assert.Contains(PlanningConstruction.TaskNode(original)["requires"]!.ToJsonString(), finding.Message, StringComparison.Ordinal);
+        else if (originalSource is null) Assert.Contains("absent", finding.Message, StringComparison.Ordinal);
+        else Assert.Contains("original task evidence", finding.Message, StringComparison.Ordinal);
+        Assert.True(finding.Message.Length < 700);
+        replacement.Requires = original.Requires;
+        Assert.Empty(PlanningConstruction.RebuildFindings(state, candidate.Plan, complete: true));
+    }
+
     [Fact]
     public async Task RebuildPresentationKeepsOriginalExportBindingsAfterAllTasksReturn()
     {

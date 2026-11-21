@@ -1,5 +1,21 @@
 # PR 120 planning simplification
 
+## Amazon 28 reconstruction diagnostic, 21 November 2026
+
+Draft 57 added a presence check to a previously accepted precondition. The
+next issued request named only the task and listed several unrelated kinds
+of possible scope changes. Its response requested three more evidence records.
+The rollback validator now identifies the changed `requires` field and
+returns the retained expression when it fits in 512 characters. Larger
+expressions remain available in the original task evidence. The validator
+still rejects the changed precondition.
+
+All three regression cases failed on the original code. All 83 focused tests
+passed after the change. Replaying the exact responses again accepted drafts
+23 and 38. Draft 57 reported only
+`/tasks/page_resolution_context/requires` and the original null guard.
+These replays made zero provider calls and executed zero tools.
+
 ## First SlimFaaS Server review, 21 November 2026
 
 The fresh Server session made 39 planning calls on `4c8b5711`. Calls 18

@@ -21,7 +21,6 @@ internal static partial class PlanningConstruction
                 restored.MaxItems == original.MaxItems && restored.MaxConcurrency == original.MaxConcurrency &&
                 original.DependsOn.SequenceEqual(restored.DependsOn, StringComparer.Ordinal) &&
                 JsonNode.DeepEquals(Node(original.Items, PlanningJsonContext.Default.TaskValue), Node(restored.Items, PlanningJsonContext.Default.TaskValue)) &&
-                JsonNode.DeepEquals(Node(original.Requires, PlanningJsonContext.Default.TaskValue), Node(restored.Requires, PlanningJsonContext.Default.TaskValue)) &&
                 JsonNode.DeepEquals(Node(original.Condition, PlanningJsonContext.Default.TaskValue), Node(restored.Condition, PlanningJsonContext.Default.TaskValue)) &&
                 original.Inputs.Select(i => i.Name).SequenceEqual(restored.Inputs.Select(i => i.Name)) &&
                 original.Inputs.Zip(restored.Inputs).All(pair => JsonNode.DeepEquals(Literals(pair.First.Value), Literals(pair.Second.Value))) &&
@@ -29,6 +28,18 @@ internal static partial class PlanningConstruction
                 original.Outputs.Zip(restored.Outputs).All(pair => JsonNode.DeepEquals(Literals(pair.First.Value), Literals(pair.Second.Value)));
             if (!preserved) yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + original.Id,
                 "Rollback preserves original objectives, effects, literal arguments, ordered assertions, decisions and iteration limits. Their change requires an explicit implementation or intent revision.");
+            var required = Node(original.Requires, PlanningJsonContext.Default.TaskValue);
+            if (!JsonNode.DeepEquals(required, Node(restored.Requires, PlanningJsonContext.Default.TaskValue)))
+            {
+                var expression = PlanningJsonTransport.TaskPlanPart(required)?.ToJsonString();
+                var correction = expression switch
+                {
+                    null => "The original precondition was absent. Omit requires.",
+                    { Length: <= 512 } => "Restore the original requires expression " + expression,
+                    _ => "Restore requires from the original task evidence."
+                };
+                yield return new("REVISION_SCOPE_CHANGED", "/tasks/" + original.Id + "/requires", correction);
+            }
             var placement = state.Construction.RebuildScopes.SingleOrDefault(s => s.Tasks.Contains(original.Id, StringComparer.Ordinal) || s.Always.Contains(original.Id, StringComparer.Ordinal));
             if (placement is null || symbols.Tasks[original.Id].Scope.Path != placement.Path ||
                 symbols.Phase(original.Id) != (placement.Always.Contains(original.Id, StringComparer.Ordinal) ? "always" : "tasks"))
