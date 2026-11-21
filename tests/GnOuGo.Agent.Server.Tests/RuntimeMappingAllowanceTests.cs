@@ -26,6 +26,18 @@ public sealed class RuntimeMappingAllowanceTests
         Assert.Contains("Flow:Execution:MaxMappingInputTokens", error.Message);
     }
 
+    [Theory]
+    [InlineData("0")]
+    [InlineData("-1")]
+    [InlineData("invalid")]
+    [InlineData("4294968")]
+    public void FinalizationTimeoutMustFitADurableTimer(string value)
+    {
+        var error = Assert.Throws<InvalidOperationException>(() => BudgetHost.Create(RuntimeExecutionBudgetTests.AdaptiveYaml,
+            new RuntimeExecutionBudgetTests.BudgetModel(), new FakeMcpClientFactory(), ["--Flow:Execution:FinalizationTimeoutSeconds=" + value]));
+        Assert.Contains("Flow:Execution:FinalizationTimeoutSeconds", error.Message);
+    }
+
     [Fact]
     public void NestedAllowanceIsRejected()
         => Assert.Throws<InvalidOperationException>(() => BudgetHost.Create(RuntimeExecutionBudgetTests.AdaptiveYaml,
@@ -70,16 +82,18 @@ public sealed class RuntimeMappingAllowanceTests
         var yaml = RuntimeExecutionBudgetTests.AdaptiveYaml.Replace("{records: [{label: first}, {label: second}, {label: first}]}",
             "{records: '${data.inputs.records}'}", StringComparison.Ordinal);
         var label = new string('x', 24000) + "é漢🙂\"\\";
-        await using (var host = BudgetHost.Create(yaml, model, transport, ["--Flow:Execution:MaxMappingInputTokens=80000"], store))
+        await using (var host = BudgetHost.Create(yaml, model, transport, ["--Flow:Execution:MaxMappingInputTokens=80000", "--Flow:Execution:FinalizationTimeoutSeconds=240"], store))
         {
             var events = await host.ExecuteAsync("mapping-policy", Ct, new JsonObject { ["records"] = new JsonArray(new JsonObject { ["label"] = label }) });
             Assert.DoesNotContain(events, e => e.Type == "error");
         }
         var saved = (await store.ReadAsync("local", "mapping-policy", Ct))!;
+        Assert.Equal(240, saved.Limits.FinalizationTimeoutSeconds);
         Assert.Equal(80000, saved.Limits.MaxMappingInputTokens); Assert.Equal(1, model.Calls); Assert.Equal(1, effects);
         Assert.Equal(label, saved.Result!.Outputs!["labels"]![0]!.GetValue<string>());
         await using var restarted = BudgetHost.Create(yaml, model, transport, ["--Flow:Execution:MaxMappingInputTokens=12000"], store);
         var recovered = await restarted.App.Services.GetRequiredService<WorkflowRunService>().CommandAsync("mapping-policy", "resume", new(saved.Revision), Ct);
+        Assert.Equal(240, recovered.Limits.FinalizationTimeoutSeconds);
         Assert.True(recovered.Result!.Success); Assert.Equal(80000, recovered.Limits.MaxMappingInputTokens);
         Assert.Equal(1, model.Calls); Assert.Equal(1, effects);
     }

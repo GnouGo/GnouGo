@@ -771,6 +771,12 @@ outcome became uncertain across restart. Existing sessions retain their capture.
 
 ### Runtime execution budgets
 
+`Flow:Execution:FinalizationTimeoutSeconds` sets the time available for a new
+workflow's root cleanup, including command completion and its receipt. The
+default is 30 seconds. Allow enough time for the configured cleanup operation
+to finish within this window. The Server stores the chosen value with the run
+and uses the recorded limit during recovery.
+
 `Flow:Execution:MaxMappingInputTokens` configures the existing per-request ceiling
 for mapping generation. Shipped appsettings uses **96,000**; omission
 retains Core's historical **12,000** ceiling. The effective allowance is the smaller

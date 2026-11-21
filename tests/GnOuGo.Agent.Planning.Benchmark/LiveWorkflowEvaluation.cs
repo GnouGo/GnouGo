@@ -360,6 +360,12 @@ internal static class LiveWorkflowEvaluation
                 if (existing.Any(alias => alias is not null && !string.Equals(alias, cleanup, StringComparison.OrdinalIgnoreCase)))
                     throw new PlanningConflictException("The existing Cmd command restriction excludes the delegated cleanup.");
                 clone.EnvironmentVariables[scope] = cleanup;
+                // An installed dependency tree can take longer than the default Cmd timeout to remove.
+                // Preserve any explicit alias setting and the command server's existing maximum.
+                var timeout = $"Cmd__AllowedCommands__{cleanup}__TimeoutMs";
+                if (!clone.EnvironmentVariables.Keys.Contains(timeout, StringComparer.OrdinalIgnoreCase) &&
+                    Environment.GetEnvironmentVariable(timeout) is null)
+                    clone.EnvironmentVariables[timeout] = "240000";
             }
             // This disposable evaluation must exercise the workflow's cleanup.
             // Override only the spawned browser's debug setting, not saved host policy.

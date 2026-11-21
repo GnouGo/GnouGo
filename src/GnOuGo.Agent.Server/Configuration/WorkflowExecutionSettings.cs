@@ -1,3 +1,6 @@
+using GnOuGo.Flow.Core.Models;
+using System.Globalization;
+
 namespace GnOuGo.Agent.Server.Configuration;
 
 /// <summary>Host limits for new executions; recovery uses the journal's limits.</summary>
@@ -6,21 +9,23 @@ public sealed class WorkflowExecutionSettings
     public const string SectionName = "Flow:Execution";
     public int? MaxMappingInputTokens { get; init; }
 
-    internal static WorkflowExecutionSettings Read(IConfiguration configuration)
+    public int FinalizationTimeoutSeconds { get; init; } = ExecutionLimits.DefaultFinalizationTimeoutSeconds;
+
+    internal static WorkflowExecutionSettings Read(IConfiguration configuration) => new()
     {
-        const string key = SectionName + ":MaxMappingInputTokens";
-        var section = configuration.GetSection(key);
-        if (!section.Exists()) return new();
-        try
-        {
-            if (section.GetChildren().Any()) throw new ArgumentException("The mapping allowance must be a scalar.");
-            var value = configuration.GetValue<int?>(key);
-            if (value is not > 0) throw new ArgumentException("The mapping allowance must be positive.");
-            return new() { MaxMappingInputTokens = value };
-        }
-        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
-        {
-            throw new InvalidOperationException($"{key} must be a positive integer.", error);
-        }
+        MaxMappingInputTokens = ReadLimit(configuration, nameof(MaxMappingInputTokens)),
+        // CancellationTokenSource accepts a timer interval of at most uint.MaxValue - 1 milliseconds.
+        FinalizationTimeoutSeconds = ReadLimit(configuration, nameof(FinalizationTimeoutSeconds), (int)((uint.MaxValue - 1) / 1000))
+            ?? ExecutionLimits.DefaultFinalizationTimeoutSeconds
+    };
+
+    private static int? ReadLimit(IConfiguration configuration, string name, int maximum = int.MaxValue)
+    {
+        var section = configuration.GetSection(SectionName + ":" + name);
+        if (!section.Exists()) return null;
+        if (section.GetChildren().Any() || !int.TryParse(section.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)
+            || value < 1 || value > maximum)
+            throw new InvalidOperationException($"{section.Path} must be an integer between 1 and {maximum}.");
+        return value;
     }
 }

@@ -26,6 +26,8 @@ public sealed class BenchmarkDiscoveryVisibilityTests
             configured[server].EnvironmentVariables = new() { ["Cmd__DefaultWorkingDirectory"] = root };
             var saved = JsonSerializer.Serialize(configured);
             var profile = LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source);
+            const string timeout = "Cmd__AllowedCommands__delete_directory__TimeoutMs";
+            Assert.Equal("240000", profile[server].EnvironmentVariables![timeout]);
             var ct = TestContext.Current.CancellationToken;
             await using var factory = new ConfiguredMcpClientFactory(new() { [server] = profile[server] });
             await using var session = await factory.GetClientAsync(server, ct);
@@ -44,6 +46,9 @@ public sealed class BenchmarkDiscoveryVisibilityTests
             Assert.False(cleanup.IsError);
             Assert.False(Directory.Exists(checkout));
             Assert.Equal(saved, JsonSerializer.Serialize(configured));
+            configured[server].EnvironmentVariables![timeout] = "20000";
+            Assert.Equal("20000", LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source)
+                [server].EnvironmentVariables![timeout]);
             configured[server].EnvironmentVariables!["GNOUGO_CMD_ONLY_COMMAND"] = "cat_file";
             Assert.Throws<PlanningConflictException>(() =>
                 LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source));

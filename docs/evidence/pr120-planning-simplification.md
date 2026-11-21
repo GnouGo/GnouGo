@@ -143,6 +143,16 @@ ninth request exactly, kept all 70 results, narrowed the schema and rejected
 the original four-tool response. It used zero provider calls. The frozen
 Review 50 full-solution run passed 9,778 tests and skipped 12.
 
+The normal Server chat and configuration execution paths now record the
+host's `Flow:Execution:FinalizationTimeoutSeconds` in each new run. The default
+remains 30 seconds. The disposable publication profile allows 270 seconds
+for finalization and a 240-second default for its sole Cmd alias when no
+alias timeout is configured. Cmd still enforces its installed maximum.
+All five new startup/persistence cases failed before the change. All 36
+focused Server checks and eight Flow finalization tests passed, including
+confined directory removal, denial of other aliases, an explicit shorter
+alias timeout and recovery with the original run's configured limits.
+
 ## Review 49, 21 November 2026
 
 Fresh Server session `68e895367b6f4024beb055975abe2deb` started on

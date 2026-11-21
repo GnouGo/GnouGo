@@ -123,6 +123,8 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
+        if (business?.Target is not null)
+            hostArgs = hostArgs.Append("--Flow:Execution:FinalizationTimeoutSeconds=270").ToArray();
         if (planningAllowance is { } amount)
             hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
                 "--WorkflowPlanningBudget:Amount=" + amount.ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();

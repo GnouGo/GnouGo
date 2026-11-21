@@ -434,6 +434,7 @@ public sealed partial class SmartFlowService
                 Logger = _logger,
                 Limits = new ExecutionLimits
                 {
+                    FinalizationTimeoutSeconds = _executionSettings.FinalizationTimeoutSeconds,
                     MaxMappingInputTokens = _executionSettings.MaxMappingInputTokens,
                     LogStepContent = false,
                     RunId = correlationId,
