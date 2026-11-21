@@ -160,19 +160,19 @@ public sealed class GitTools
     [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into an absent or empty workflow-owned directory below workflows/. Supplying a full commit ID in branch checks out that exact commit in the worktree before returning success. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. Declare one workspace-relative creation target and retain it for cleanup, including partial clone failure; do not create a directory first. After success, projectRootRelative is the materialized workspace.directory artifact for downstream repository operations. The reserved .GnOuGo directory is never a valid clone target.")]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson)]
     public GitCloneResult GitClone(
-        [Description("Remote Git URL to clone.")] string remoteUrl,
+        [Description("URL of the remote to clone. For a single clone comparing histories, choose an authorized remote that advertises both revisions through branches or other published refs. The pinned checkout and later origin fetches use this remote.")] string remoteUrl,
         [Description(GitCloneTargetContract.Description)] string targetDirectory,
         [Description("Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
-        [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
+        [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full ancestry for merge-base comparisons. Defaults to 1.")] int historyDepth = 1,
         [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
         [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
         => Execute("git_clone", () => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
 
-    [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches from a remote for an existing repository project root. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches a published ref from an existing named remote in the supplied repository. The clone's origin addresses its original URL. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public GitOperationResult GitFetch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
-        [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
+        [Description("Name of a configured remote, normally origin. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Optional fetch refspec with a fully qualified refs/... source and a controlled refs/remotes/..., refs/tags/..., or refs/heads/... destination; for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
         => Execute("git_fetch", () => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
 

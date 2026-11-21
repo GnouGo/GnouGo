@@ -47,6 +47,10 @@ public sealed class CloneTargetContractTests : IDisposable
         var tools = await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
         var tool = Assert.Single(tools, t => t.Name == "git_clone");
         Assert.Contains("checks out that exact commit", tool.Description, StringComparison.Ordinal);
+        var remoteUrl = tool.JsonSchema.GetProperty("properties").GetProperty("remoteUrl").GetProperty("description").GetString();
+        Assert.Contains("advertises both revisions", remoteUrl, StringComparison.OrdinalIgnoreCase);
+        var fetch = Assert.Single(tools, t => t.Name == "git_fetch");
+        Assert.Contains("existing named remote", fetch.Description, StringComparison.OrdinalIgnoreCase);
         var schema = tool.JsonSchema.GetProperty("properties").GetProperty("targetDirectory");
         var pattern = schema.GetProperty("pattern").GetString()!;
         Assert.Equal(11, schema.GetProperty("minLength").GetInt32());

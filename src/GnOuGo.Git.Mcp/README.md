@@ -27,6 +27,15 @@ When `git_stage` is called without explicit paths, it stages all current changes
 
 `git_clone` defaults to a minimal clone: one branch, one commit of history, and no tags. Use `branch` to select a plain branch name, a full 40- or 64-hex commit object ID, or a fully qualified remote `refs/...` value; use `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. A full object ID or fully qualified ref is fetched exactly and checked out detached. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch; if that cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
 
+For one checkout comparing revisions from different branches or repositories,
+select an authorized remote that publishes both histories. A host may expose
+a contributed head under a non-branch ref in the receiving repository.
+Pin the checkout to its resolved head object ID. Set `historyDepth` to zero
+when the comparison needs complete ancestry. Subsequent `git_fetch` calls
+use an existing named remote. Acquire the required base history there and
+pass the original base and head object IDs to `git_compare_refs`, including
+when the source branch has since advanced.
+
 Git tool failures return structured content in the advertised result type with `success: false`, `ok: false`, `error_code`, and `error_message`.
 
 To reproduce a pull request branch checkout equivalent to:
