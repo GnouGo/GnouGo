@@ -600,6 +600,13 @@ retargets a receipt. Partial or complete stale review files still fail; cancella
 and host shutdown cannot grant execution. Retained execution remains metadata-only
 and cannot resume generation or replay a stopped/executed session.
 
+With `--await-planning-clarification`, a fresh `server-live-plan --await-delegated-review`
+keeps its Server and observer running when the planner has questions. The run
+prints the session, revision and number of pending questions. An operator
+can answer through the ordinary planning page or its revision-checked command.
+The monitor resumes the same session after the operator answers. Execution
+still requires a separate review of the resulting artifact.
+
 Fresh Amazon requests explicitly require the same header row already checked by
 the independent workbook oracle: `Nom`, `Description`, `Prix`, followed by every
 product row in order. `document_write` treats headers as ordinary supplied rows;

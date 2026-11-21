@@ -31,6 +31,42 @@ on data already returned from a host check performed during dispatch.
 All 45 focused tests passed across requirement selection, discovery,
 drafting, review and execution of the two conditional paths.
 
+Call 52 produced a pending review, ordered inline comments and guarded
+submission. It retained the submitted arguments and comment receipts.
+Call 58 again asked for a contract that could turn host refusal into
+a normal result. The session stopped in clarification at revision 179.
+Its 58 physical requests settled for EUR 35.68215066. No workflow ran.
+Independent reads of the target PR returned zero reviews and zero inline
+comments. Review 30 and Review 32 remain separate technical regressions.
+
+A one-call comparison repeated the recorded call 34 with the same schema
+and changed only the description of dispatch checks. The native response
+bound eligibility to returned data, confirmation and head recheck to host
+submission, and durable success to the acknowledgement. It preserved the
+original report and cleanup obligations and propagated raised operation
+errors. Its complete receipt recorded 2,436 input and 780 output tokens
+at EUR 0.19421397. This selected a block and executed no workflow.
+
+The audit after the comparison counted 4,376 physical calls across the
+campaign, EUR 2,216.19367541 measured, EUR 492.52354211 in 55 HTTP holds
+and EUR 171.63356950 in separate application reservations. EUR 219.64921298
+remained under the EUR 3,100 ceiling. All prior session rows compared equal
+to the opening audit. The nine full Review runs since the supplement used
+414 calls (EUR 250.41986900), nine Review probes used EUR 5.33518013,
+and Amazon used 34 planning calls (EUR 16.41342795) and two execution
+calls (EUR 1.29091157). Both business streaks remain zero.
+
+The live harness used the planner's waiting status as an exit condition
+even when the operator had a pending question and an authenticated way to
+answer it. An opt-in fresh run now keeps the same Server session and observer
+open at that boundary. The browser regression reproduced the original first
+read exit and checks the next status read while the observer has no ability
+to answer. All 158 focused Server and browser tests passed, including the real
+planner page that submits a persisted question. The production UI build
+passed. Review and execution still have their own authorization. An
+independent full-solution run on `d275b8c2` passed 9,753 tests across
+33 assemblies with 13 skips and zero failures.
+
 ## Review 46, 21 November 2026
 
 Fresh Server session `3728171b83054226a72f748f89d32b2b` ran on

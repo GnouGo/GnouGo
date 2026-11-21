@@ -7,6 +7,17 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ServerLiveReviewWaitTests
 {
+    [Theory]
+    [InlineData("server-live-plan", false)]
+    [InlineData("server-live-execute", true)]
+    [InlineData("server-live-inspect", false)]
+    public void ClarificationWaitRequiresFreshInteractivePlanning(string mode, bool includeReview)
+    {
+        string[] args = ["--schema-portability", mode, "--await-planning-clarification"];
+        Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.RequiresInteraction(includeReview ? [.. args, "--await-delegated-review"] : args));
+        Assert.True(ServerLiveDiagnostics.RequiresInteraction(["--schema-portability", "server-live-plan", "--await-delegated-review", "--await-planning-clarification"]));
+    }
+
     [Fact]
     public async Task ActualScopedRevisionReturnsToRepairWithoutResettingAcceptedWorkOrUsage()
     {

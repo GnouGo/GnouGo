@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
-const { launch, url, session, output, mode, agent, inputs } = JSON.parse(input);
+const { launch, url, session, output, mode, agent, inputs, awaitPlanningClarification } = JSON.parse(input);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
 await mkdir(output, { recursive: true });
 let browser;
@@ -86,7 +86,8 @@ try {
     if (!active && await page.locator('.phase-active').count()) {
       await page.screenshot({ path: `${output}/live-active-phase.png`, fullPage: true }); active = true;
     }
-    if (['final_review', 'clarification', 'stopped', 'failed', 'cancelled'].includes(state.status)) break;
+    const awaitingAnswer = awaitPlanningClarification === true && state.status === 'clarification' && state.questions?.length > 0;
+    if (!awaitingAnswer && ['final_review', 'clarification', 'stopped', 'failed', 'cancelled'].includes(state.status)) break;
     await page.waitForTimeout(2000);
   }
   stage = 'planning inspection';

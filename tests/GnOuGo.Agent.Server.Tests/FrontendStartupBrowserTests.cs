@@ -117,15 +117,19 @@ public sealed class FrontendStartupBrowserTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task AuthenticatedObserverRetriesOnlyAStatusTimeoutAndKeepsHeadersPrivate(bool timeout)
+    [InlineData("timeout", false, 2, "stopped")]
+    [InlineData("disconnect", false, 1, null)]
+    [InlineData("question", false, 1, "clarification")]
+    [InlineData("question", true, 2, "stopped")]
+    [InlineData("empty", true, 1, "clarification")]
+    public async Task AuthenticatedObserverHandlesStatusAndKeepsHeadersPrivate(
+        string firstRead, bool awaitPlanningClarification, int expectedReads, string? finalStatus)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "GnOuGo.Agent.sln"))) root = root.Parent;
         Assert.NotNull(root);
-        var fault = new PlanningStatusFault(timeout);
+        var fault = new PlanningStatusFault(firstRead);
         var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:BackgroundProcessingEnabled=false", "--OtlpCollector:Enabled=false");
         await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root.FullName, "src/GnOuGo.Agent.Server"), false,
             services => services.AddSingleton<IStartupFilter>(fault));
@@ -139,7 +143,7 @@ public sealed class FrontendStartupBrowserTests
         using var browser = Process.Start(start)!;
         var stderr = browser.StandardError.ReadToEndAsync(ct);
         await browser.StandardInput.WriteAsync(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = launch.GetLeftPart(UriPartial.Authority),
-            session = state.Request.SessionId, output, mode = "observe" }));
+            session = state.Request.SessionId, output, mode = "observe", awaitPlanningClarification }));
         browser.StandardInput.Close();
         try { await browser.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(90), ct); }
         finally { if (!browser.HasExited) browser.Kill(entireProcessTree: true); }
@@ -147,15 +151,15 @@ public sealed class FrontendStartupBrowserTests
         Assert.True(fault.Authenticated, "The status read must carry the operator session cookie.");
         Assert.False(log.Contains("cookie:", StringComparison.OrdinalIgnoreCase), "The observer emitted authenticated request headers.");
         Assert.False(log.Contains(launch.Fragment[1..], StringComparison.Ordinal), "The observer emitted the bootstrap fragment.");
-        Assert.Equal(timeout ? 2 : 1, fault.Reads);
-        Assert.Equal(timeout ? 0 : 1, browser.ExitCode);
-        Assert.Contains("planning status", log, StringComparison.OrdinalIgnoreCase);
-        if (timeout)
-            Assert.Equal("stopped", JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "live-browser-result.json"), ct))!["status"]!.ToString());
+        Assert.Equal(expectedReads, fault.Reads);
+        Assert.Equal(finalStatus is null ? 1 : 0, browser.ExitCode);
+        if (firstRead is "timeout" or "disconnect") Assert.Contains("planning status", log, StringComparison.OrdinalIgnoreCase);
+        if (finalStatus is not null)
+            Assert.Equal(finalStatus, JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "live-browser-result.json"), ct))!["status"]!.ToString());
         await app.StopAsync(ct);
     }
 
-    private sealed class PlanningStatusFault(bool timeout) : IStartupFilter
+    private sealed class PlanningStatusFault(string firstRead) : IStartupFilter
     {
         internal int Reads;
         internal bool Authenticated;
@@ -168,8 +172,10 @@ public sealed class FrontendStartupBrowserTests
                 Authenticated |= context.Request.Cookies.Count > 0;
                 if (Interlocked.Increment(ref Reads) == 1)
                 {
-                    if (timeout) await Task.Delay(Timeout.InfiniteTimeSpan, context.RequestAborted);
-                    else context.Abort();
+                    if (firstRead == "timeout") await Task.Delay(Timeout.InfiniteTimeSpan, context.RequestAborted);
+                    else if (firstRead == "disconnect") context.Abort();
+                    else await context.Response.WriteAsJsonAsync(new { status = "clarification",
+                        questions = firstRead == "question" ? new[] { new { id = "q1", question = "Which existing result?" } } : [] }, context.RequestAborted);
                     return;
                 }
                 await context.Response.WriteAsJsonAsync(new { status = "stopped" }, context.RequestAborted);

@@ -39,8 +39,12 @@ internal static class ServerLiveDiagnostics
     }
 
     internal static bool RequiresInteraction(string[] args)
-        => args.ElementAtOrDefault(1) == "server-live-execute" ||
-            args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
+    {
+        var interactivePlan = args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
+        if (args.Contains("--await-planning-clarification", StringComparer.Ordinal) && !interactivePlan)
+            throw new ArgumentException("Waiting for planning answers requires a fresh server-live-plan with --await-delegated-review.");
+        return interactivePlan || args.ElementAtOrDefault(1) == "server-live-execute";
+    }
 
     internal static async Task RunAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string workspace)
     {
@@ -618,7 +622,8 @@ internal static class ServerLiveDiagnostics
                 var dto = await started.Content.ReadFromJsonAsync<JsonObject>(); var id = dto!["id"]!.ToString();
                 report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
                 Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
-                using var observer = StartObserver(app, root, url, id, run);
+                var awaitPlanningClarification = args.Contains("--await-planning-clarification", StringComparer.Ordinal);
+                using var observer = StartObserver(app, root, url, id, run, awaitPlanningClarification: awaitPlanningClarification);
                 long revision = -1;
                 var reportedWarnings = 0;
                 while (true)
@@ -628,9 +633,13 @@ internal static class ServerLiveDiagnostics
                     if (business is not null && report["execution_model_output_limit"] is null)
                         report["execution_model_output_limit"] = Math.Min(32768,
                             PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_draft").OutputTokens);
+                    var awaitingAnswer = awaitPlanningClarification && state.Status == PlanningStatus.Clarification && state.PendingQuestions is { Count: > 0 };
                     if (state.Revision != revision)
                     {
                         revision = state.Revision;
+                        if (awaitingAnswer)
+                            Console.WriteLine(new JsonObject { ["awaiting_planning_answer"] = id, ["revision"] = revision,
+                                ["questions"] = state.PendingQuestions!.Count }.ToJsonString());
                         if (state.ThresholdWarnings is { } warnings)
                         {
                             foreach (var warning in warnings.Skip(reportedWarnings))
@@ -646,7 +655,7 @@ internal static class ServerLiveDiagnostics
                             ["revision"] = revision, ["calls"] = state.ModelCalls,
                             ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => (JsonNode)JsonValue.Create(d.Code)).ToArray()) }.ToJsonString());
                     }
-                    if (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status))
+                    if (!awaitingAnswer && (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)))
                     {
                         var planningPassed = state.Status == PlanningStatus.FinalReview;
                         report["planning_passed"] = planningPassed;
@@ -1036,7 +1045,7 @@ internal static class ServerLiveDiagnostics
     private static JsonObject AssemblyEvidence(System.Reflection.Assembly assembly) => new() {
         ["path"] = assembly.Location, ["sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))) };
 
-    internal static Process StartObserver(WebApplication app, string root, string url, string? id, string run, string? agent = null, JsonObject? inputs = null)
+    internal static Process StartObserver(WebApplication app, string root, string url, string? id, string run, string? agent = null, JsonObject? inputs = null, bool awaitPlanningClarification = false)
     {
         var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(AppContext.BaseDirectory, "tools/GnOuGo.Browser.Mcp/.playwright/package/index.mjs");
         if (!File.Exists(module)) throw new PlanningConflictException("The staged Playwright module is missing; build bundled browser tools before live qualification.", "frontend_not_ready");
@@ -1051,7 +1060,7 @@ internal static class ServerLiveDiagnostics
         // Drain both pipes; authority-bearing browser input is never logged, including on child failure.
         _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stdout.log" : id is null ? "readiness.stdout.log" : "observer.stdout.log"), Redact(await process.StandardOutput.ReadToEndAsync())));
         _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stderr.log" : id is null ? "readiness.stderr.log" : "observer.stderr.log"), Redact(await process.StandardError.ReadToEndAsync())));
-        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, agent, inputs, mode = agent is not null ? "execute" : id is null ? "readiness" : "observe" }));
+        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, agent, inputs, awaitPlanningClarification, mode = agent is not null ? "execute" : id is null ? "readiness" : "observe" }));
         process.StandardInput.Close(); return process;
     }
     private sealed class CampaignClient(KeyVaultBenchmarkModel model, IPlanningSessionStore sessions,
