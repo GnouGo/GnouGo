@@ -28,6 +28,22 @@ and sent `rapport` for block review at revision 100 with zero additional
 model calls. No requirement, workflow scope or approval was closed by
 that replay.
 
+The 34 complete provider calls settled for EUR 22.14604258. The largest
+completed Server invocation took 49 seconds. The cancellation raced the
+next Server reservation. Its 35th request had no campaign HTTP envelope.
+Retention receipt
+`361fcc46d4c9cb5e4b1928a912f8c9668f240eb1774bd7dd6893314b448865cf`
+preserves the full EUR 4.33741583. The closing audit found 4,270 physical
+calls, EUR 2,155.24618632 in measured usage, 55 historical HTTP holds
+totaling EUR 492.52354211, and EUR 171.63356950 in separate application
+holds. EUR 280.59670206 remained available against the EUR 3,100 ceiling.
+
+All 3,275 tests in the corrected planner suite passed. The independent
+full solution run on `0768ce86` passed 9,736 tests in 33 assemblies, with
+13 skipped. The original Review 30 plan and Review 32 ordered publication
+fragment passed their technical regressions again after the Review 45
+correction. Neither replay invoked a provider or published a review.
+
 ## Command discovery during Review 45, 21 November 2026
 
 Review 44 call 15 and Review 45 call 13 each included 18 command aliases
