@@ -380,6 +380,11 @@ TaskPlan `string_operation` values use `text: concat` with two to sixteen string
 
 A task may declare `requires` as a boolean TaskValue. Omission preserves historical behavior. New strict provider responses use `requires: null` for omission; persisted TaskPlans omit the absent field. The compiler checks the condition with the existing `set` output schema before task inputs, inference or effects. False fails rather than skipping the task; normal finalization still applies. Keep both conditional exports explicit: require completeness before a publishing sequence instead of inventing an output for an incomplete branch.
 
+A conditional may return an artifact port in one branch and a literal null
+in the other. Guard that exact exported port before passing it to a consumer.
+The compiler checks the runtime value and traces its non-null origin through
+the control's exports to the declared producer.
+
 When a request calls for the reason that a check remained incomplete, branch on
 that observation before a failing assertion. Keep the dependent effect in the
 eligible branch and bind the observed reason from the other branch to its

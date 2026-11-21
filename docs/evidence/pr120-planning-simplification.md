@@ -1,5 +1,33 @@
 # PR 120 planning simplification
 
+## Review 51, 21 November 2026
+
+Fresh Server session `949b0bd5d04e4746abd7d4ee54d0ccca` started on
+`656c32a4` with EUR 77.23215512 available. The exact Review 30 plan and
+Review 32 publication fragment had the same technical results as on the
+preceding release. At call 12 the model bound Copilot's working directory
+to the successful clone's declared business port. The conditional returned a
+literal null on its ineligible branch. A sequence forwarded that port and
+the Copilot consumer checked the same value for null. The compiler rejected
+its artifact provenance. Call 13 selected a field of a different nullable
+output. Subsequent evidence reads and repair did not resolve the finding.
+At revision 62 the planner requested authority to revise earlier interfaces.
+The operator stopped at that question without changing the plan. No agent
+was saved and no checkout, report or publication was produced. The 17
+physical calls settled at EUR 10.35324782, leaving EUR 66.87890730.
+
+Replay of the unchanged call 12 reproduced the original lineage finding.
+TaskPlan validation now follows an exact guarded port through a sequence
+and ignores a literal-null alternative only when the other path proves
+the declared artifact. Executable validation independently requires the
+runtime projection that rejects null, and verifies every remaining origin.
+Regression tests ran both eligible and ineligible inputs and rejected
+literals, an unrelated return port, missing guards, an all-null result and
+a graph whose runtime check was weakened. All 41 focused tests and all
+3,306 planner tests passed. The unchanged original call 12 subsequently
+passed structural, compiler, executable graph and compiled YAML semantic
+validation with zero model calls and no operations.
+
 ## Amazon 27, 21 November 2026
 
 Fresh Server session `7fdf723768bc4225bb158fd972edbb4a` ran on

@@ -117,12 +117,35 @@ internal static class PlanningArtifactBindings
 
     internal static bool Proves(PlanningWorkflow workflow, PlanningValue value, string kind, PlanningCatalog catalog, PlanningGraph graph, HashSet<string> visited, string? originNode = null)
     {
-        return PlanningValueProvenance.Proves(workflow, value, graph, (producer, reference) =>
+        bool Registered(PlanningNode producer, PlanningValue reference)
         {
             var capability = catalog.Capabilities.FirstOrDefault(c => c.Id == producer.CapabilityId);
             return producer.Type == "mcp.call" &&
                 (originNode is null || producer.Key == originNode && PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).Contains(producer)) &&
                 capability?.ArtifactContract?.Produces.Any(p => p.Kind == kind && p.Pointer == "/" + string.Join("/", reference.Path.Select(PlanningSchemaReferences.Escape))) == true;
+        }
+        if (PlanningValueProvenance.Proves(workflow, value, graph, Registered, visited)) return true;
+        if (value is not { Kind: "output", Path: ["value"], ResultChannel: null }) return false;
+        var check = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source);
+        if (check is not { Type: "set", Input.Kind: "projection", If: null, OnError.Count: 0 } ||
+            PlanningGraphValidation.Member(check.Input, "each") is not null ||
+            PlanningGraphValidation.Member(check.Input, "paths") is not { Kind: "array", Items: [{ Kind: "array", Items.Count: 0 }] } ||
+            check.OutputSchema?.Contract?["properties"]?["value"] is not JsonObject contract ||
+            check.OutputSchema.Contract["required"] is not JsonArray required || !required.Any(p => p?.ToString() == "value") ||
+            PlanningContractValidation.ValidateInstance(null, contract).Count == 0 ||
+            PlanningGraphValidation.Member(check.Input, "value") is not { } original) return false;
+
+        // The checked identity projection cannot deliver a null. Every other source
+        // must still be a real artifact, including alternatives of nested controls.
+        var observedOrigin = false;
+        var valid = PlanningValueProvenance.Proves(workflow, original, graph, (producer, reference) =>
+        {
+            if (Registered(producer, reference)) { observedOrigin = true; return true; }
+            if (producer is not { Type: "workflow.call", If: null, OnError.Count: 0 } || reference.Path.Count != 1) return false;
+            var target = PlanningGraphValidation.Member(producer.Input, "ref")?.Source;
+            return graph.Workflows.FirstOrDefault(w => w.Key == target)?.Outputs
+                .Where(o => o.Name == reference.Path[0]).ToArray() is [{ Value.Kind: "null" }];
         });
+        return valid && observedOrigin;
     }
 }

@@ -124,6 +124,71 @@ public sealed class TaskArtifactBindingTests
     }
 
     [Theory]
+    [InlineData("null", true, true)]
+    [InlineData("null", false, false)]
+    [InlineData("literal", true, false)]
+    [InlineData("display", true, false)]
+    [InlineData("all_null", true, false)]
+    public async Task OnlyANonNullGuardedArtifactCanCrossAnOptionalExport(string alternate, bool guard, bool valid)
+    {
+        var (plan, catalog) = await Fixture();
+        var make = plan.Root.Tasks[0];
+        var consume = plan.Root.Tasks[1];
+        plan.Inputs = [new() { Name = "eligible", Type = new() { Kind = "boolean" } }];
+        plan.Root.Outputs.Clear();
+        var conditional = new PlanTask { Id = "optional", Kind = "conditional", Objective = "Expose the resource when eligible.",
+            Condition = new() { Kind = "input", Source = "eligible" },
+            Body = new() { Tasks = [make], Outputs = [new("handle", alternate == "all_null" ? new() : Reference("make", "handle"))] },
+            Otherwise = new() { Outputs = [new("handle", alternate switch {
+                "literal" => new() { Kind = "string", Text = "untrusted" },
+                "display" => Reference("unrelated", "display"), _ => new() })] } };
+        var outer = new PlanTask { Id = "forward", Kind = "sequence", Objective = "Forward the optional handle.",
+            Body = new() { Tasks = [conditional], Outputs = [new("handle", Reference("optional", "handle"))] } };
+        plan.Root.Tasks = [outer, consume];
+        if (alternate == "display")
+            plan.Root.Tasks.Insert(0, new() { Id = "unrelated", Operation = make.Operation, Objective = "Observe the unrelated display value." });
+        consume.Inputs = [new("location", Reference("forward", "handle"))];
+        if (guard) consume.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [Reference("forward", "handle"), new()] };
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        if (!valid)
+        {
+            Assert.Null(compilation.Graph);
+            Assert.Contains(compilation.Diagnostics, d => d.Required);
+            return;
+        }
+        Assert.Empty(compilation.Diagnostics);
+        var graph = Assert.IsType<PlanningGraph>(compilation.Graph);
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+        var received = new List<string>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("renamed", new()
+        {
+            Tools = catalog.Capabilities.Where(c => c.Server == "renamed").Select(c => new McpToolInfo
+                { Name = c.Method!, InputSchema = c.InputSchema, OutputSchema = c.OutputSchema }).ToList(),
+            ToolHandlers = new()
+            {
+                ["allocate"] = _ => new() { Content = new JsonObject { ["handle"] = "acquired", ["display"] = "label" } },
+                ["inspect"] = arguments => { received.Add(arguments!["location"]!.ToString()); return new() { Content = new JsonObject() }; }
+            }
+        });
+        foreach (var eligible in new[] { false, true })
+        {
+            var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["eligible"] = eligible },
+                new() { McpClientFactory = factory });
+            Assert.Equal(eligible, result.Success);
+            Assert.Equal(eligible ? new[] { "acquired" } : Array.Empty<string>(), received);
+        }
+
+        var root = graph.Workflows.Single(w => w.Key == graph.Entrypoint);
+        var inspect = root.Steps.Single(n => n.CapabilityId == "inspect");
+        var bound = PlanningGraphValidation.Member(PlanningGraphValidation.Member(inspect.Input, "request")!, "location")!;
+        var check = root.Steps.Single(n => n.Key == bound.Source);
+        check.OutputSchema!.Contract!["properties"]!["value"] = new JsonObject { ["type"] = new JsonArray("string", "null") };
+        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "ARTIFACT_BINDING_INVALID");
+    }
+
+    [Theory]
     [InlineData("sequence")]
     [InlineData("conditional")]
     [InlineData("parallel")]

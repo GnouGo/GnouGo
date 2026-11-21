@@ -383,7 +383,8 @@ public sealed partial class TaskPlanCompiler
                                     var relativePath = consumedPath.Skip(port.Path.Count).ToArray();
                                     if (!artifact.Required && TaskArtifactBindings.ExplicitlyAbsent(input.Value, relativePath)) continue;
                                     if (consumedPath.Take(port.Path.Count).SequenceEqual(port.Path, StringComparer.Ordinal) &&
-                                        !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind))
+                                        !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind,
+                                            input.Value.Kind == "output" && relativePath.Length == 0 && IsGuardedNonNull(input.Value, scope, includeRequirement: true)))
                                         findings.Add(artifact.Required && artifacts.MissingProducer(artifact.Kind)
                                             ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. A structural repair requires an exact policy-allowed producer contract and a complete dependency proof; otherwise an explicit semantic revision is required. Types, literals and transforms cannot manufacture provenance.")
                                             : new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));

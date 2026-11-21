@@ -672,21 +672,26 @@ public sealed partial class TaskPlanCompiler
     {
         var bound = ValueCore(value, scope, consume);
         if ((!consume && !requireNonNull) || value.Kind is not ("input" or "output" or "field")) return bound;
+        if (IsGuardedNonNull(value, scope, requireNonNull) && WithoutNull(bound.Schema) is { } schema && !JsonNode.DeepEquals(schema, bound.Schema))
+        {
+            // Keep captured contracts intact; check the refined value in the selected branch.
+            return consume ? Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope)
+                : bound with { Schema = schema };
+        }
+        return bound;
+    }
+
+    private static bool IsGuardedNonNull(TaskValue value, Scope scope, bool includeRequirement)
+    {
         var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
         {
-            if ((ancestor.NonNullReferences?.Contains(identity) == true ||
-                 requireNonNull && ancestor.RequirementNonNullReferences?.Contains(identity) == true) && WithoutNull(bound.Schema) is { } schema &&
-                !JsonNode.DeepEquals(schema, bound.Schema))
-            {
-                // Keep captured contracts intact; check the refined value in the selected branch.
-                return consume ? Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope)
-                    : bound with { Schema = schema };
-            }
+            if (ancestor.NonNullReferences?.Contains(identity) == true ||
+                includeRequirement && ancestor.RequirementNonNullReferences?.Contains(identity) == true) return true;
             // An enclosing loop's item has a different identity even when the field path is identical.
             if (ancestor.Item is not null && Values(value).Any(v => v.Kind is "item" or "index")) break;
         }
-        return bound;
+        return false;
     }
 
     private Bound ValueCore(TaskValue value, Scope scope, bool consume)
