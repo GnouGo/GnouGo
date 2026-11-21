@@ -29,4 +29,5 @@
       <Content Include="wwwroot/**/*" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
   </Target>
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>

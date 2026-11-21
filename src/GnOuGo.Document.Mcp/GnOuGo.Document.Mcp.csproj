@@ -40,4 +40,5 @@
     <Content Include="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>

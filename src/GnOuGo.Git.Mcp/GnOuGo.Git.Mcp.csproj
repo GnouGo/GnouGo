@@ -35,4 +35,5 @@
     <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
 
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>

@@ -45,4 +45,5 @@
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
 
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
 </Project>
