@@ -37,8 +37,10 @@ The current `main` tip differed from the base SHA in the PR response.
 A local real-Git regression compared pinned, divergent revisions after
 the base branch moved, through one read-only checkout with full history.
 All 87 Git MCP tests passed, including stdio discovery. The final Release
-solution build completed with zero warnings and errors. The funded live
-runs preceded the last two Git MCP changes.
+solution build completed with zero warnings and errors. Its planner suite
+passed all 3,246 tests. Separate Server selections passed 271 financial
+retention tests and 302 business and execution guard tests. These selections
+overlap. The funded live runs preceded the last two Git MCP changes.
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 

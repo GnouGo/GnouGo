@@ -127,5 +127,33 @@
     }
   },
   "amazon_20_502_retention_evidence_sha256": "fa9c46d6c39f351f84c4f89e5341d6a4a2c38809c8987f0512d4f4604c3f51be",
-  "review_37_cancelled_reservation_evidence_sha256": "2a1381750086c988a34005f9a02353c6310dda88c6664a69efa406d459d852db"
+  "review_37_cancelled_reservation_evidence_sha256": "2a1381750086c988a34005f9a02353c6310dda88c6664a69efa406d459d852db",
+  "technical_validation": {
+    "release_solution_build": {
+      "result": "passed",
+      "log_sha256": "f5367363d2f7540fb5b4aa9eaa0875a304942664dfb7447ab8d111de6a869732",
+      "warnings": 0,
+      "errors": 0
+    },
+    "release_planning_suite": {
+      "result": "passed",
+      "log_sha256": "38562632066715c976d8794a82c7666e38aa5de781a55506191f5e48c1ff639b",
+      "passed_tests": 3246
+    },
+    "git_mcp_suite": {
+      "result": "passed",
+      "log_sha256": "526a32bd5e4a117273fca80ba556cb8e4f93652081a556bd45abc36ea43ef2cf",
+      "passed_tests": 87
+    },
+    "server_financial_retention": {
+      "result": "passed",
+      "log_sha256": "42d7b78626bbe9071d88882dce7903fb485fd334f102ca3ce52daa35de4997b2",
+      "passed_tests": 271
+    },
+    "server_business_and_execution_guards": {
+      "result": "passed",
+      "log_sha256": "f599718d120c7824fbd9b32cdc5854bb1e0f83197bca1b6e20cea7d5c3e63409",
+      "passed_tests": 302
+    }
+  }
 }
