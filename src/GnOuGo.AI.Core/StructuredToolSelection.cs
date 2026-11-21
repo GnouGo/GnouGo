@@ -52,6 +52,9 @@ public sealed class StructuredToolSelection
         return new(allowed, finalAllowed, parallel);
     }
 
+    public StructuredToolSelection? RestrictToFinalResponse() =>
+        finalAllowed && allowed.Count > 0 ? new(new(StringComparer.Ordinal), true, false) : null;
+
     public static JsonArray CreateMessages(JsonObject original)
     {
         var messages = original["messages"]?.DeepClone().AsArray() ?? throw new InvalidDataException("Missing SDK conversation.");

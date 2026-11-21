@@ -107,10 +107,12 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
             throw new InvalidOperationException("A bounded task permits one turn with its approved objective and inputs. Inspect the original receipt.");
     }
 
-    internal async Task ReserveAsync(HttpRequestMessage request, CancellationToken ct)
+    internal Task ReserveAsync(HttpRequestMessage request, CancellationToken ct) => ReserveAsync(request, null, ct);
+
+    internal async Task ReserveAsync(HttpRequestMessage request, CopilotPreparedInference? prepared, CancellationToken ct)
     {
         if (_stopped) throw new InvalidOperationException("The bounded task no longer admits inference.");
-        try { await _inference.ReserveAsync(request, ct); }
+        try { await _inference.ReserveAsync(request, prepared, ct); }
         finally { if (_inference.AdmissionStop is not null) lock (_operationsGate) _stopped = true; }
     }
 

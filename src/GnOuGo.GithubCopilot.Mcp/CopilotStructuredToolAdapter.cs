@@ -63,6 +63,16 @@ internal sealed class CopilotStructuredToolAdapter : CopilotInferenceAdapter
         bool streaming, string requestId) : CopilotPreparedInference
     {
         public override HttpRequestMessage Request => request;
+        public override bool TryRequireFinalResponse(JsonObject body)
+        {
+            if (selection?.RestrictToFinalResponse() is not { } final ||
+                body["messages"] is not JsonArray messages || !messages.Any(m => m?["role"]?.ToString() == "tool"))
+                return false;
+            body["response_format"]!["json_schema"]!["schema"] = final.CreateSchema();
+            selection = final;
+            return true;
+        }
+
         public override async Task<HttpResponseMessage> RestoreResponseAsync(HttpResponseMessage response, CancellationToken ct)
         {
             if (selection is null || !response.IsSuccessStatusCode) return response;

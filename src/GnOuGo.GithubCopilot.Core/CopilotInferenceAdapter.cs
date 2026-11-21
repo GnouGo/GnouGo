@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
@@ -13,6 +14,8 @@ public abstract class CopilotInferenceAdapter
 public abstract class CopilotPreparedInference : IDisposable
 {
     public abstract HttpRequestMessage Request { get; }
+    /// <summary>Narrow a supported request and its decoder to a final answer based on observed tools.</summary>
+    public virtual bool TryRequireFinalResponse(JsonObject body) => false;
     public abstract Task<HttpResponseMessage> RestoreResponseAsync(HttpResponseMessage response, CancellationToken ct);
     public virtual void Dispose() => Request.Dispose();
 }
@@ -24,12 +27,12 @@ internal static class CopilotInferenceDispatch
 
     internal static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage original,
         GitHub.Copilot.CopilotRequestContext context, CopilotInferenceAdapter? adapter,
-        CopilotInferenceProxyHandler? proxy, Func<HttpRequestMessage, CancellationToken, Task>? reserve,
+        CopilotInferenceProxyHandler? proxy, Func<HttpRequestMessage, CopilotPreparedInference?, CancellationToken, Task>? reserve,
         Action? transportFailed)
     {
         using var prepared = adapter is null ? null : await adapter.PrepareAsync(original, context);
         var actual = prepared?.Request ?? original;
-        if (reserve is not null) await reserve(actual, context.CancellationToken);
+        if (reserve is not null) await reserve(actual, prepared, context.CancellationToken);
         HttpResponseMessage response;
         try
         {

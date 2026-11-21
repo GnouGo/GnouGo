@@ -131,6 +131,18 @@ markup and quotes failed its regression before the change. All 179
 Copilot Core tests then passed. The 218,017-byte difference is a replay
 measurement and has no effect on historical reservations.
 
+Review 50's ninth structured reply requested four more tools after 70 prior
+tool results. The runtime now uses a final-answer-only schema when the SDK
+allows a final answer, observed tool results are present, and another
+similarly sized request would exceed the remaining allowance. The decoder
+enforces that same schema. The regression covers call and token pressure,
+required tools, missing observations, normal capacity, complete reports and
+incomplete output. Three cases failed before the change. All 265 Copilot
+MCP and 179 Core tests passed. A detached replay reproduced the retained
+ninth request exactly, kept all 70 results, narrowed the schema and rejected
+the original four-tool response. It used zero provider calls. The frozen
+Review 50 full-solution run passed 9,778 tests and skipped 12.
+
 ## Review 49, 21 November 2026
 
 Fresh Server session `68e895367b6f4024beb055975abe2deb` started on

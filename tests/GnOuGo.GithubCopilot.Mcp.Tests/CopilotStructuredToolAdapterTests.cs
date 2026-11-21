@@ -92,6 +92,57 @@ public sealed class CopilotStructuredToolAdapterTests
         await Assert.ThrowsAsync<InvalidDataException>(() => prepared.RestoreResponseAsync(response, TestContext.Current.CancellationToken));
     }
 
+    [Theory]
+    [InlineData(2, 100000, "auto", true, "final", "stop", true)]
+    [InlineData(5, 11000, "auto", true, "tools", "stop", true)]
+    [InlineData(2, 100000, "auto", true, "final", "length", true)]
+    [InlineData(5, 100000, "auto", true, "tools", "stop", false)]
+    [InlineData(2, 100000, "required", true, "tools", "stop", false)]
+    [InlineData(2, 100000, "auto", false, "tools", "stop", false)]
+    public async Task LastAffordableStructuredTurnCanReportObservedTools(int calls, long tokens, string choice,
+        bool observedTool, string action, string finish, bool finalOnly)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        using var sdk = Request();
+        var original = JsonNode.Parse(await sdk.Content!.ReadAsStringAsync(ct))!.AsObject();
+        original["tool_choice"] = choice;
+        if (observedTool)
+            original["messages"]!.AsArray().Add((JsonNode)new JsonObject { ["role"] = "tool", ["tool_call_id"] = "observed",
+                ["content"] = "Install exited 1. Tests were not run." });
+        sdk.Content.Dispose();
+        sdk.Content = new StringContent(original.ToJsonString());
+        var budget = new CopilotInferenceBudget(calls, tokens, DateTimeOffset.UtcNow.AddMinutes(1),
+            (_, _, _) => Task.CompletedTask, initialCalls: 1, initialTokens: 1000);
+        using var http = new HttpClient(new InspectRequest(async request =>
+        {
+            var wire = JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!;
+            var alternatives = wire["response_format"]!["json_schema"]!["schema"]!["properties"]!["action"]!["anyOf"]!.AsArray();
+            var kinds = alternatives.Select(a => a!["properties"]!["kind"]!["enum"]![0]!.ToString()).ToArray();
+            Assert.Equal(finalOnly, !kinds.Contains("tools"));
+            if (observedTool) Assert.Contains(wire["messages"]!.AsArray(), m => JsonNode.DeepEquals(m, original["messages"]!.AsArray().Last()));
+            return Response(action == "tools" ? """{"action":{"kind":"tools","calls":[{"name":"execute","arguments":"{}"}]}}""" :
+                """{"action":{"kind":"final","content":"Install exited 1. Tests were not run."}}""", finish);
+        }));
+        var proxy = new CopilotInferenceProxyHandler(http, new Uri("http://127.0.0.1:8123/inference"));
+        Task<HttpResponseMessage> Send() => CopilotInferenceDispatch.SendAsync(sdk, Context(), new CopilotStructuredToolAdapter(),
+            proxy, budget.ReserveAsync, budget.RecordTransportFailure);
+        if (finish != "stop" || finalOnly && action == "tools") await Assert.ThrowsAsync<InvalidDataException>(Send);
+        else
+        {
+            using var result = await Send();
+            var message = JsonNode.Parse(await result.Content.ReadAsStringAsync(ct))!["choices"]![0]!["message"]!;
+            if (action == "final") Assert.Equal("Install exited 1. Tests were not run.", message["content"]!.ToString());
+            else Assert.NotNull(message["tool_calls"]);
+        }
+        Assert.Equal(2, budget.ModelCalls);
+        Assert.InRange(budget.ChargedTokens, 1001, tokens);
+    }
+
+    private sealed class InspectRequest(Func<HttpRequestMessage, Task<HttpResponseMessage>> inspect) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => inspect(request);
+    }
+
     [Fact]
     public async Task ProviderErrorsPassThroughWithoutInventingASelection()
     {

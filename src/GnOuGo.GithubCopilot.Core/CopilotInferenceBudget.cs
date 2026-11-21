@@ -30,7 +30,9 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
         await _gate.WaitAsync(ct);
         _gate.Release();
     }
-    internal async Task ReserveAsync(HttpRequestMessage request, CancellationToken ct)
+    internal Task ReserveAsync(HttpRequestMessage request, CancellationToken ct) => ReserveAsync(request, null, ct);
+
+    internal async Task ReserveAsync(HttpRequestMessage request, CopilotPreparedInference? prepared, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
         try
@@ -57,6 +59,14 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
             var wire = body.ToJsonString(WireJson);
             var inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
             var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
+            // If another turn of this size would not fit, use this one to report the observed results.
+            if ((ModelCalls + 1 == maxModelCalls || remaining - outputCeiling <= inputCeiling) &&
+                prepared?.TryRequireFinalResponse(body) == true)
+            {
+                wire = body.ToJsonString(WireJson);
+                inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
+                remaining = maxTotalTokens - ChargedTokens - inputCeiling;
+            }
             if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             if (outputCeiling > remaining)
             {
