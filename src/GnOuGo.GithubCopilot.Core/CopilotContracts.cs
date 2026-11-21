@@ -60,6 +60,7 @@ public sealed record CopilotRuntimeConfiguration(
     /// </summary>
     public bool EnableSandboxBypassGrants { get; init; }
     public bool UseSessionFileSystem { get; init; }
+    [JsonIgnore] public IReadOnlyList<CopilotHostTool> HostTools { get; init; } = [];
     [JsonIgnore] public CopilotExecutionBounds? ExecutionBounds { get; init; }
     [JsonIgnore] public CopilotInferenceBudget? LogicalInferenceBudget { get; init; }
     [JsonIgnore] public CopilotLogicalPermissions? LogicalPermissions { get; init; }

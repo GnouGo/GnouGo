@@ -8,7 +8,7 @@ using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
-public sealed class BoundedCopilotTasksTests
+public sealed partial class BoundedCopilotTasksTests
 {
     [Theory]
     [InlineData(CopilotSandboxReadiness.Configured)]

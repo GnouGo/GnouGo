@@ -20,6 +20,7 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILocalLLMRuntime? _localRuntime;
     private readonly LlmTraceCapture? _capture;
     private readonly IReadOnlyDictionary<string, string> _copilotRunners;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? _copilotTools;
     private readonly LlmDefaultsResolver? _defaults;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
@@ -35,7 +36,8 @@ public sealed class SecureWorkflowRuntimeFactory
         ILocalLLMRuntime? localRuntime = null,
         LlmTraceCapture? capture = null,
         IReadOnlyDictionary<string, string>? copilotRunners = null,
-        LlmDefaultsResolver? defaults = null)
+        LlmDefaultsResolver? defaults = null,
+        IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? copilotTools = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -48,6 +50,7 @@ public sealed class SecureWorkflowRuntimeFactory
         _capture = capture;
         _copilotRunners = copilotRunners ?? new Dictionary<string, string>();
         _defaults = defaults;
+        _copilotTools = copilotTools;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct, GnOuGo.Flow.Core.Planning.PlanningRequest? planning = null)
@@ -74,7 +77,7 @@ public sealed class SecureWorkflowRuntimeFactory
             planning?.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName] is not null
                 ? GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capabilities(options) : _llmCapabilityResolver,
             options,
-            http) { CopilotRunners = _copilotRunners };
+            http) { CopilotRunners = _copilotRunners, CopilotTools = _copilotTools };
     }
 }
 
@@ -104,7 +107,8 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
 
     public LLMOptions Options { get; }
     public IReadOnlyDictionary<string, string> CopilotRunners { get; init; } = new Dictionary<string, string>();
-    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners);
+    public IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? CopilotTools { get; init; }
+    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners, CopilotTools);
 
     public async ValueTask DisposeAsync()
     {

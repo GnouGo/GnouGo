@@ -36,6 +36,18 @@ public sealed class TransportTenantTests
     }
 
     [Theory]
+    [InlineData("wrong", "step", "run", "step")]
+    [InlineData("run", "step", "run", "other")]
+    public async Task ToolExchangeRequiresTransportRunAndInvocation(string run, string step, string requestedRun, string requestedStep)
+    {
+        var trace = new CodeMcpTraceContextAccessor();
+        using var request = trace.Push(Meta("owner") with { RunId = run, StepId = step });
+        var tools = new BoundedCopilotTools(null!, null!, trace);
+        await Assert.ThrowsAsync<McpException>(() => tools.ExchangeAsync(requestedRun, requestedStep,
+            Guid.NewGuid().ToString("N"), TestContext.Current.CancellationToken));
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("other")]
     public async Task BoundedEnvelopeCannotSupplyOrOverrideTransportOwnership(string? tenant)

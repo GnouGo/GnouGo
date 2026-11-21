@@ -130,15 +130,15 @@ public sealed class CopilotExecutionBoundsTests
     public async Task StopDrainsAdmittedFileWorkAndRejectsLateOperationsEvenAfterTimeout()
     {
         var bounds = new CopilotExecutionBounds(5, 200000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string> { "project_write" }, (_, _, _) => Task.CompletedTask);
-        var work = bounds.EnterFileOperation("project_write");
+        var work = bounds.EnterHostOperation("project_write");
         using var cancel = new CancellationTokenSource();
         var stopping = bounds.StopAsync(cancel.Token);
         Assert.False(stopping.IsCompleted);
-        Assert.Throws<InvalidOperationException>(() => bounds.EnterFileOperation("project_write"));
+        Assert.Throws<InvalidOperationException>(() => bounds.EnterHostOperation("project_write"));
         await cancel.CancelAsync(); await Assert.ThrowsAnyAsync<OperationCanceledException>(() => stopping);
         work.Dispose(); work.Dispose();
         await bounds.StopAsync(TestContext.Current.CancellationToken);
-        Assert.Throws<InvalidOperationException>(() => bounds.EnterFileOperation("project_write"));
+        Assert.Throws<InvalidOperationException>(() => bounds.EnterHostOperation("project_write"));
     }
 
     [Fact]

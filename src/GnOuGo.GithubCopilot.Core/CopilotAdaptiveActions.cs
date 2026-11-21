@@ -8,9 +8,12 @@ namespace GnOuGo.GithubCopilot.Core;
 /// <summary>Invocation-local action admissions and observations for an explicitly capped task.</summary>
 public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persist, IReadOnlySet<string> verificationCommands)
 {
+    public IReadOnlySet<string> ObservationTools { get; init; } = new HashSet<string>(StringComparer.Ordinal);
+
     private sealed record Entry(string Session, string Id, string Tool, string Signature, bool Observation, bool Verification, int Generation);
     internal Func<IReadOnlyList<CopilotToolExecutionObservation>>? ExecutionObservations { get; set; }
     private readonly SemaphoreSlim _gate = new(1, 1);
+    private readonly HashSet<string> _claimedHostCalls = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Entry> _pending = new(StringComparer.Ordinal);
     private readonly HashSet<string> _identities = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Entry> _effects = new(StringComparer.Ordinal);
@@ -32,7 +35,7 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
             var command = shell && args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var text) &&
                 text.ValueKind == JsonValueKind.String ? text.GetString() : null;
             var signature = Identity(tool, command is null ? Fingerprint(args) : Hash(command));
-            var observation = tool is "project_read" or "project_list" or "project_stat" or "read_bash" or "read_powershell";
+            var observation = ObservationTools.Contains(tool) || tool is "project_read" or "project_list" or "project_stat" or "read_bash" or "read_powershell";
             if (_unresolved) return "Inspect the original action receipt before dispatching more work.";
             if (_identities.Contains(key) || _pending.Values.Any(a => a.Signature == signature))
                 return "An identical operation was already admitted. Reconcile its observed outcome before repeating it.";
@@ -70,6 +73,19 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
         {
             _unresolved = true;
             return "The host could not retain the action intent.";
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal async Task ClaimHostToolAsync(string tool, JsonElement arguments, CancellationToken ct)
+    {
+        var signature = Identity(tool, Fingerprint(arguments));
+        await _gate.WaitAsync(ct);
+        try
+        {
+            var admission = _pending.SingleOrDefault(pair => pair.Value.Tool == tool && pair.Value.Signature == signature);
+            if (_unresolved || admission.Value is null || !_claimedHostCalls.Add(admission.Key))
+                throw new InvalidOperationException("Host dispatch requires an unused journaled SDK admission for these exact arguments.");
         }
         finally { _gate.Release(); }
     }

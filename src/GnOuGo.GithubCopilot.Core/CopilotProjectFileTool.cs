@@ -71,7 +71,7 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
     {
         static string Text(AIFunctionArguments args, string key) => args.TryGetValue(key, out var value)
             ? value is JsonElement json ? json.GetString() ?? "" : value?.ToString() ?? "" : throw new ArgumentException($"Missing '{key}'.");
-        using var admitted = bounds?.EnterFileOperation(Name);
+        using var admitted = bounds?.EnterHostOperation(Name);
         var path = Text(arguments, "path");
         ct.ThrowIfCancellationRequested();
         Validate(Name, Arguments(arguments), files, state);

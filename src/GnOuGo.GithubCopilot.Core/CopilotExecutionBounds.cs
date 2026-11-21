@@ -84,7 +84,7 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
         lock (_operationsGate) return _stopped && !_unpairedSdkCompletion && _sdkAdmissions == observedCalls && _sdkActive.Values.All(n => n == 0);
     }
 
-    internal IDisposable EnterFileOperation(string tool)
+    internal IDisposable EnterHostOperation(string tool)
     {
         lock (_operationsGate)
         {

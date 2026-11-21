@@ -29,6 +29,7 @@ using GnOuGo.AI.Core;
 using GnOuGo.AI.Local;
 using GnOuGo.DocIngestor.Mcp;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Files.Server;
 using GnOuGo.KeyVault.Core;
@@ -429,7 +430,10 @@ public static class GnOuGoAgentWebHost
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
             capture: sp.GetRequiredService<LlmTraceCapture>(),
             copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal),
-            defaults: sp.GetRequiredService<LlmDefaultsResolver>()));
+            defaults: sp.GetRequiredService<LlmDefaultsResolver>(),
+            copilotTools: builder.Configuration.GetSection("Flow:CopilotTools").GetChildren().ToDictionary(runner => runner.Key,
+                runner => (IReadOnlyList<CopilotToolBinding>)runner.GetChildren().SelectMany(server => server.GetChildren()
+                    .Select(tool => new CopilotToolBinding(server.Key, tool.Value ?? throw new InvalidOperationException("A Copilot tool binding requires a method name.")))).ToArray(), StringComparer.Ordinal)));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 

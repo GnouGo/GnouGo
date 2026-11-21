@@ -238,8 +238,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             AvailableTools = configuration.AvailableTools?.ToArray(),
             ExcludedTools = source.FileSystem is null ? configuration.ExcludedTools?.ToArray()
                 : (configuration.ExcludedTools ?? []).Concat(CopilotProjectFileTool.NativeFileTools).Distinct(StringComparer.Ordinal).ToArray(),
-            Tools = source.FileSystem is not null && request.PermissionMode != CopilotPermissionMode.Deny
-                ? CopilotProjectFileTool.Create(source.FileSystem, configuration.ExecutionBounds, source.SessionState) : null,
+            Tools = request.PermissionMode == CopilotPermissionMode.Deny ? null : BuildTools(source, configuration),
             McpServers = configuration.McpServers?.ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal),
             SkillDirectories = configuration.SkillDirectories?.ToArray(),
             DisabledSkills = configuration.DisabledSkills?.ToArray(),
@@ -289,6 +288,14 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         => string.IsNullOrWhiteSpace(content)
             ? null
             : new SystemMessageConfig { Mode = SystemMessageMode.Append, Content = content.Trim() };
+
+    private static ICollection<Microsoft.Extensions.AI.AIFunctionDeclaration>? BuildTools(CopilotSdkSessionConfiguration source, CopilotRuntimeConfiguration configuration)
+    {
+        var tools = source.FileSystem is null ? [] : CopilotProjectFileTool.Create(source.FileSystem, configuration.ExecutionBounds, source.SessionState).ToList();
+        if (configuration.ExecutionBounds is { } bounds)
+            tools.AddRange(configuration.HostTools.Select(tool => new CopilotHostFunction(tool, bounds)));
+        return tools.Count == 0 ? null : tools;
+    }
 
     private static SessionHooks BuildAuditHooks(ILogger logger, ICopilotFileAccessPolicy? filePolicy, CopilotExecutionBounds? bounds = null, CopilotInferenceBudget? logical = null, CopilotTransientSessionState? state = null)
         => new()

@@ -28,7 +28,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content") : new JsonArray("file.content");
         return new()
         {
-            ["schemaVersion"] = 9,
+            ["schemaVersion"] = 9, ["hostToolProtocol"] = 1,
             ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract(
                 "Adaptive project work through managed Copilot; available capabilities and evidence kinds are declared in this schema. " +
                 (commands ? "Mandatory command isolation policy is configured; session enforcement is checked again before inference. " :
@@ -41,7 +41,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         };
     }
 
-    internal async Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct)
+    internal async Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct, JsonObject? hostTools = null)
     {
         var errors = new List<string>();
         if (string.IsNullOrWhiteSpace(context.TenantId) || string.IsNullOrWhiteSpace(context.RunId) || string.IsNullOrWhiteSpace(context.InvocationId))
@@ -54,10 +54,11 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         { errors.Add("AGENT_WORKSPACE_UNAVAILABLE: The approved workspace must be an existing directory within the host's permitted roots, outside reserved paths and without filesystem links."); }
         if (!policy.DescribePolicy().AllowWrites && context.Task.Capabilities.Any(c => c is "project.write" or "command.execute"))
             errors.Add("Host policy disables writes and adaptive command execution.");
-        if (context.Task.Capabilities.Any(c => !Capabilities.Contains(c, StringComparer.Ordinal))) errors.Add("The task requests an unsupported capability.");
+        if (context.Task.Capabilities.Any(c => !Capabilities.Contains(c, StringComparer.Ordinal) && hostTools?.ContainsKey(c) != true)) errors.Add("The task requests an unsupported capability.");
         if (context.Task.Capabilities.Contains("project.write") && !context.Task.Capabilities.Contains("project.read")) errors.Add("Project writes require project.read for verification.");
         foreach (var requirement in context.Task.Verification)
         {
+            if (requirement.Kind == "mcp.result" && hostTools?.ContainsKey(requirement.Subject) == true) continue;
             if (requirement.Kind is not ("command.exit" or "file.content")) errors.Add("The required evidence kind is unavailable.");
             if (requirement.Kind == "command.exit" && !context.Task.Capabilities.Contains("command.execute")) errors.Add("Command evidence requires command.execute.");
             if (requirement.Kind == "file.content" && (!context.Task.Capabilities.Contains("project.read") || Path.IsPathRooted(requirement.Subject) || requirement.Subject.Split('/', '\\').Contains("..")))
@@ -115,13 +116,16 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         return result with { Evidence = evidence, Usage = result.Usage with { Actions = Math.Max(count, result.Usage.Actions ?? 0) } };
     }
 
-    internal async Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct)
+    internal async Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct, CopilotTaskToolExchange? exchange = null)
     {
         Directory.CreateDirectory(LockDirectory);
         await using var owner = new FileStream(Path.Combine(LockDirectory, Hash(new JsonArray(context.TenantId, Key(context)).ToJsonString()) + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
         if (await ReadAsync(context, ct) is { } existing)
+        {
+            if (exchange is not null) exchange.Recovered = true;
             return await InspectAsync(context, existing, ct);
-        var validation = await ValidateAsync(context, ct);
+        }
+        var validation = await ValidateAsync(context, ct, exchange?.Descriptors);
         if (validation.Count > 0) return Failed("AGENT_SCOPE_UNSUPPORTED", string.Join(" ", validation));
         var started = DateTimeOffset.UtcNow;
         var scopeHash = ScopeHash(context);
@@ -134,6 +138,8 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         };
         await SaveAsync(context, record, ct);
         var tools = Tools(context.Task.Capabilities);
+        var hostTools = exchange?.BuildTools() ?? [];
+        tools.UnionWith(hostTools.Select(tool => tool.Name));
         var baseConfiguration = configuration.Build(context.Task.Workspace);
         var bounds = new CopilotExecutionBounds(context.Task.Budget.MaxModelCalls, context.Task.Budget.MaxTotalTokens,
             started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds), tools, async (calls, tokens, token) =>
@@ -144,13 +150,14 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                     observation["scope_hash"] = scopeHash;
                     await records.UpsertAsync(Collection + "-actions", context.TenantId, Key(context) + ":" + id,
                         observation.ToJsonString(), Author, CancellationToken.None);
-                }, context.Task.Verification.Where(v => v.Kind == "command.exit").Select(v => v.Subject).ToHashSet(StringComparer.Ordinal)) : null,
+                }, context.Task.Verification.Where(v => v.Kind == "command.exit").Select(v => v.Subject).ToHashSet(StringComparer.Ordinal))
+                { ObservationTools = exchange?.Descriptors.Where(p => p.Value?["effect"]?.ToString() is "read" or "none").Select(p => p.Key).ToHashSet(StringComparer.Ordinal) ?? [] } : null,
                 DeniedPaths = [Path.Combine(baseConfiguration.WorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder),
                     GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder)]
             };
         var runtime = baseConfiguration with
         {
-            ExecutionBounds = bounds, EnableApproveAll = false, EnableSandboxBypassGrants = false,
+            ExecutionBounds = bounds, HostTools = hostTools, EnableApproveAll = false, EnableSandboxBypassGrants = false,
             AvailableTools = tools.ToArray(), EnableConfigDiscovery = false, McpServers = null, SkillDirectories = [], DisabledSkills = ["*"],
             RequestTimeoutSeconds = Math.Max(1, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d)),
             ManagedSessionTtlSeconds = Math.Max(60, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d) + 60)
@@ -183,7 +190,8 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                 Progress = e => reporter.Report(e.Kind, e.Level, e.Message, fallbackServer: Author, fallbackMethod: "copilot_task_run", fallbackMcpKind: "tool")
             }, deadline.Token);
             var evidence = CommandEvidence(sent, runtime.WorkingDirectory, context.Task.Verification);
-            var uncertain = !sent.Completed || !CessationObserved(sent, tools);
+            if (exchange is not null) evidence.AddRange(exchange.Evidence);
+            var uncertain = exchange?.Uncertain == true || !sent.Completed || !CessationObserved(sent, tools);
             if (!uncertain && bounds.AdaptiveActions is not null)
             {
                 await bounds.StopAsync(deadline.Token);
@@ -252,7 +260,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         record["sessionClosed"] = sessionClosed;
         if (bounds.AdmissionStop is { } admission)
         {
-            var terminal = sessionClosed && (admissionObserved || result.Status == "budget_exhausted");
+            var terminal = sessionClosed && exchange?.Uncertain != true && (admissionObserved || result.Status == "budget_exhausted");
             result = result with { Status = terminal ? "budget_exhausted" : "needs_reconciliation", Output = null,
                 Failure = BudgetFailure(admission, terminal) };
         }
