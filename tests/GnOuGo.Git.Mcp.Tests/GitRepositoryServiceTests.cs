@@ -377,8 +377,10 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Assert.NotNull(repository.Refs["refs/remotes/origin/gnougo-requested-ref"]);
     }
 
-    [Fact]
-    public void OneCloneCanCompareDivergedRevisionsAdvertisedByItsOrigin()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OneCloneCanCompareDivergedRevisionsAdvertisedByItsOrigin(bool allBranches)
     {
         var source = CreateService(_root, allowNetwork: true);
         var common = WriteCommit(source, "common.txt", "original", "common", root: _root);
@@ -398,10 +400,13 @@ public sealed class GitRepositoryServiceTests : IDisposable
         var basis = WriteCommit(source, "base.txt", "base only", "review base", root: _root);
         WriteCommit(source, "base.txt", "later base change", "move base branch", root: _root);
         var review = CreateService(allowNetwork: true, allowMutations: false, reviewReadOnly: true);
-        var clone = review.Clone(_root, "workflows/compare-advertised", branch: head.Sha, historyDepth: 0);
+        var clone = review.Clone(_root, "workflows/compare-advertised", branch: head.Sha, historyDepth: 0, fetchAllBranches: allBranches);
         var project = clone.ProjectRootRelative!;
-        var fetch = review.Fetch(project, "origin", $"refs/heads/{baseBranch}:refs/remotes/origin/{baseBranch}");
-        Assert.Equal(project, fetch.RepositoryRootRelative);
+        if (!allBranches)
+        {
+            var fetch = review.Fetch(project, "origin", $"refs/heads/{baseBranch}:refs/remotes/origin/{baseBranch}");
+            Assert.Equal(project, fetch.RepositoryRootRelative);
+        }
         Assert.Throws<InvalidOperationException>(() => review.Fetch(".", "origin"));
         var comparison = review.CompareRefs(project, basis.Sha, head.Sha);
 

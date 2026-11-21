@@ -50,6 +50,9 @@ public sealed class CloneTargetContractTests : IDisposable
         Assert.Contains("Rejects an occupied target before writing", tool.Description, StringComparison.Ordinal);
         var remoteUrl = tool.JsonSchema.GetProperty("properties").GetProperty("remoteUrl").GetProperty("description").GetString();
         Assert.Contains("advertises both revisions", remoteUrl, StringComparison.OrdinalIgnoreCase);
+        var allBranches = tool.JsonSchema.GetProperty("properties").GetProperty("fetchAllBranches").GetProperty("description").GetString();
+        Assert.Contains("historyDepth=0", allBranches, StringComparison.Ordinal);
+        Assert.Contains("already local for comparison", allBranches, StringComparison.Ordinal);
         var fetch = Assert.Single(tools, t => t.Name == "git_fetch");
         Assert.Contains("existing named remote", fetch.Description, StringComparison.OrdinalIgnoreCase);
         var schema = tool.JsonSchema.GetProperty("properties").GetProperty("targetDirectory");

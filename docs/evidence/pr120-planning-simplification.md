@@ -1,5 +1,22 @@
 # PR 120 planning simplification
 
+## Review 41, 21 November 2026
+
+Fresh Server session `10b4480b8a77459fa4b1ba4df4dff81f` used source
+`641e64d5`. It generated both runtime inputs, a pinned clone in the
+declared fresh directory, and a root finalizer. The preliminary deletion
+from Review 40 disappeared. The draft still fetched the base branch
+immediately after cloning all remote branches at full depth. The saved
+comparison used the pinned revisions and their merge base.
+
+The Git MCP now describes the comparison history already available from
+that clone. A local repository regression compared divergent pinned commits
+after the remote base branch advanced and the head was available only
+through a non-branch ref. A full all-branches clone compared both revisions
+directly. The selected-ref clone used one additional fetch. All 88 Git MCP
+tests passed, including the stdio discovery check that failed on the previous
+description.
+
 ## Amazon 22, 21 November 2026
 
 Fresh Server session `5b20855cb70245d39d8df20c75ed13b9` started on

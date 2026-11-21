@@ -164,7 +164,7 @@ public sealed class GitTools
         [Description(GitCloneTargetContract.Description)] string targetDirectory,
         [Description("Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
         [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full ancestry for merge-base comparisons. Defaults to 1.")] int historyDepth = 1,
-        [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
+        [Description("When true, fetch all remote branches. With historyDepth=0, commits reachable from those branches are already local for comparison. When false (default), fetch only the selected/default branch or requested revision.")] bool fetchAllBranches = false,
         [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
         => Execute("git_clone", () => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
 
