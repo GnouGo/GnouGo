@@ -1356,3 +1356,9 @@ Fresh Server code-review runs target SlimPlanet/SlimFaas #519 under
 the checkout to the receiving repository and captured head, and readback to
 the review created by the current run. The original v1/v2 profiles resolve
 their recorded SmartGuide target when historical evidence is inspected.
+
+The disposable `copilot-probe --local-kind-profile` runs a host-supplied
+Python probe through the actual SDK. It records command exits, package-registry
+responses, cluster creation, a node query and deletion under a private kubeconfig.
+A provider or tool interruption retains its ordinary campaign receipt. Probe
+results are prerequisites and do not qualify a business review.

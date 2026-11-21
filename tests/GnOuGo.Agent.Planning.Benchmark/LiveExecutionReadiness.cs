@@ -29,6 +29,7 @@ internal static class LiveExecutionReadiness
         if (sdkWireApi == "responses" && sdkChatToolsReasoningEffort is not null) throw new ArgumentException("Responses uses the existing medium reasoning setting.");
         model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
+        var kindProbe = args.Contains("--local-kind-profile", StringComparer.Ordinal);
         const string collection = "planning-copilot-probes";
         if (await campaign.LoadAsync(collection, label) is not null) throw new InvalidOperationException("Probe already retained; never replay an external invocation.");
         var directory = Path.Combine(root, "workflows", campaign.Id, label);
@@ -64,7 +65,9 @@ internal static class LiveExecutionReadiness
         Directory.CreateDirectory(directory);
         var seed = "observed-" + label;
         await File.WriteAllTextAsync(Path.Combine(directory, "seed.txt"), seed);
-        await File.WriteAllTextAsync(Path.Combine(directory, "probe.py"), """
+        var script = kindProbe
+            ? await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "Profiles", "local-kind-probe.py"))
+            : """
             import json
             from pathlib import Path
             value = Path('seed.txt').read_text()
@@ -72,10 +75,14 @@ internal static class LiveExecutionReadiness
                 log.write('command\n')
             Path('report.json').write_text(json.dumps({'observed': value, 'exit_code': 0}))
             print(value)
-            """);
+            """;
+        await File.WriteAllTextAsync(Path.Combine(directory, "probe.py"), script);
+        if (kindProbe) state["local_profile"] = PublishedReviewQualification.LocalKindVersion;
         var objective = "In this disposable project, run exactly `python3 probe.py` once, with this project as working directory. " +
             "Read report.json through project_read, then return a concise final report containing the observed value and actual exit code. " +
-            "Do not modify source files, install dependencies, access networks or other directories, or repeat the command to retrieve its output. " +
+            (kindProbe ? "This exact host-supplied script probes local tools, package registries and its own disposable kind cluster. " :
+                "Do not access networks or other directories. ") +
+            "Do not modify files or repeat the command. " +
             "If denied or unsuccessful, return a truthful final failure. All evidence stays local.";
         var request = new JsonObject { ["projectRoot"] = Path.GetRelativePath(root, directory), ["task"] = objective,
             ["provider"] = model.Provider, ["contextFiles"] = new JsonArray("probe.py") };
@@ -104,6 +111,12 @@ internal static class LiveExecutionReadiness
             var report = File.Exists(Path.Combine(directory, "report.json")) ? JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(directory, "report.json"))) : null;
             state["report"] = report?.DeepClone(); state["command_count"] = commandCount;
             var response = state["events"]!.AsArray().LastOrDefault(e => e?["tool"]?.ToString() == "code_agent_edit")?["result"];
+            if (kindProbe)
+            {
+                if (await File.ReadAllTextAsync(Path.Combine(directory, "probe.py")) != script)
+                    throw new InvalidOperationException("The SDK probe source changed during execution.");
+                state["local_profile_observations"] = report?.DeepClone();
+            }
             var commands = LiveCodeEvidence.Commands(state, directory);
             state["observed_commands"] = commands;
             var exit = commands.Count == 1 && commands[0]?["command"]?.ToString() == "python3 probe.py" && commands[0]?["exit_code"]?.GetValue<int>() == 0;
