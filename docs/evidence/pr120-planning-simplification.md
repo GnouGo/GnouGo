@@ -47,6 +47,29 @@ on this path, and the workflow cleanup. The original contract regression
 failed, then all 170 related Server tests passed. The installed guard
 and its write authority are unchanged.
 
+Call 61 asked which contract could turn refusal into normal delivery. At
+revision 171 the operator answered through the Server that the original
+request permits propagated failure and root cleanup on refusal or a
+changed target. The Server accepted that factual clarification with
+HTTP 200. Call 62 indexed the original answer. The prompts at calls 63
+and 64 omitted it while retaining the earlier generated publication
+criteria. Call 64 asked the same question again. At the stable clarification
+the operator cancelled this trial. The Server recorded revision 179.
+There was no pending inference, approved agent or workflow execution.
+Independent GitHub readback remained at zero reviews and zero inline
+comments. The 64 calls settled at EUR 30.26795852. The audit counted
+4,497 physical attempts, EUR 2,287.48322235 measured, EUR 492.52354211
+in 55 HTTP holds and EUR 171.63356950 in application reservations.
+EUR 148.35966604 remained. Opening historical session rows compared equal.
+
+The clarification regression failed on the original implementation. The
+host now associates an accepted answer with the block that asked for it.
+On detached snapshots the original revision-171 answer command established
+the association. Fresh call 63 and 64 presentations each exposed all
+1,090 UTF-8 bytes of the question and answer. Both retained the original
+plan hash and used zero model calls. All 3,294 planner tests passed,
+including restart, multi-page answers and isolation between blocks.
+
 ## Review 48, 21 November 2026
 
 Fresh Server session `d74f1ef394ab48ba88484ba476452abd` opened on

@@ -39,6 +39,11 @@ discovery directly. The planner checks the page against the current directory
 and offers the available source, focus and cursor combinations. Truncated
 descriptions retain their link to the original text.
 
+When an operator answers a question about an active business block, the
+accepted answer revision is associated with that block. Implementation,
+discovery, drafting and review can use its original question and answer
+after a restart. Larger answer pages keep their source addresses.
+
 Before projecting or exporting a producer contract, compilation expands its acyclic
 local JSON Schema references against the original root. Original catalogue payloads
 and identities remain unchanged. Referenced constraints, sibling constraints and

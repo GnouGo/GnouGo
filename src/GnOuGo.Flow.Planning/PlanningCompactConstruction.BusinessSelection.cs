@@ -34,14 +34,34 @@ internal static partial class PlanningCompactConstruction
             throw new PlanningConflictException("The implementation cursor belongs to a different business block.");
     }
 
-    internal static JsonObject BusinessBlockContext(PlanningConstructionBlock block) => new()
+    internal static JsonObject BusinessBlockContext(PlanningSession state, PlanningConstructionBlock block)
     {
-        ["objective"] = block.Objective, ["requirementIds"] = List(block.RequirementIds),
-        ["informationNeeds"] = List(block.InformationNeeds), ["expectedResults"] = List(block.ExpectedResults),
-        ["dependencies"] = new JsonArray(block.Dependencies.Select(dependency => (JsonNode)new JsonObject
-            { ["resultId"] = dependency.ResultId, ["reason"] = dependency.Reason }).ToArray()),
-        ["successCriteria"] = List(block.SuccessCriteria)
-    };
+        var context = new JsonObject
+        {
+            ["objective"] = block.Objective, ["requirementIds"] = List(block.RequirementIds),
+            ["informationNeeds"] = List(block.InformationNeeds), ["expectedResults"] = List(block.ExpectedResults),
+            ["dependencies"] = new JsonArray(block.Dependencies.Select(dependency => (JsonNode)new JsonObject
+                { ["resultId"] = dependency.ResultId, ["reason"] = dependency.Reason }).ToArray()),
+            ["successCriteria"] = List(block.SuccessCriteria)
+        };
+        if (block.AnswerRevisions is not { Count: > 0 } revisions) return context;
+        var pages = State(state).Sources.Where(source => source.Kind == "answer_page" && revisions.Any(revision =>
+            source.Id.StartsWith(FormattableString.Invariant($"answer:{revision}:"), StringComparison.Ordinal)));
+        var answers = Sources(state, pages.Select(source => source.Id));
+        var remainingBytes = ContinuedScopePreviewBytes;
+        foreach (var answer in answers.OfType<JsonObject>().Reverse())
+        {
+            var bytes = System.Text.Encoding.UTF8.GetByteCount(answer["text"]!.ToJsonString());
+            if (bytes > remainingBytes) answer.Remove("text");
+            else
+            {
+                remainingBytes -= bytes;
+                answer.Remove("evidence");
+            }
+        }
+        if (answers.Count > 0) context["clarificationAnswers"] = answers;
+        return context;
+    }
 
     private static string[] BusinessRequirementIds(PlanningSession state, IReadOnlyList<PlanningValidationResult>? coverage = null)
     {
@@ -320,6 +340,7 @@ internal static partial class PlanningCompactConstruction
             block.Dependencies.Any(dependency => !available.Contains(dependency.ResultId) || string.IsNullOrWhiteSpace(dependency.Reason)))
             PlanningConstruction.Fail("CONSTRUCTION_BLOCK_INVALID", "/block", "Select an observable business responsibility tied to original obligations and existing results.");
         block.Id = "block_" + (compact.Blocks!.Count + 1);
+        block.AnswerRevisions = null;
         block.CompletionCheckpoint = null;
         compact.Blocks.Add(block); compact.CurrentBlockId = block.Id;
         state.Diagnostics.Clear();

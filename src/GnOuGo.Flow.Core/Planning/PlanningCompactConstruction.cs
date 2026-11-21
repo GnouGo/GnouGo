@@ -144,6 +144,8 @@ public sealed class PlanningConstructionBlock
     public List<PlanningConstructionBlockDependency> Dependencies { get; set; } = [];
     public List<string> SuccessCriteria { get; set; } = [];
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public List<long>? AnswerRevisions { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public int? CompletionCheckpoint { get; set; }
 }
 

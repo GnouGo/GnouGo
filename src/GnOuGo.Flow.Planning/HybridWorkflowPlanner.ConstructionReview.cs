@@ -251,7 +251,7 @@ public sealed partial class HybridWorkflowPlanner
         };
         if (extension.CompleteBlock is { } completeBlock) claims["completeBlock"] = completeBlock;
         if (state.Construction!.Compact!.Blocks?.SingleOrDefault(block => block.Id == step.BlockId) is { } block)
-            claims["businessBlock"] = PlanningCompactConstruction.BusinessBlockContext(block);
+            claims["businessBlock"] = PlanningCompactConstruction.BusinessBlockContext(state, block);
         if (extension.ContinueInScope is not null) claims["continueInScope"] = extension.ContinueInScope;
         return claims;
     }

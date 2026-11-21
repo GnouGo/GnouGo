@@ -341,6 +341,44 @@ public sealed class BusinessSelectionArchitectureTests
         Assert.Equal(11, state.SchemaVersion);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AnswerToAnActiveBlockRemainsVisibleAtImplementationAfterRestart(bool large)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        state.Construction!.Candidate = null;
+        state.Construction.Compact!.CurrentStep = null;
+        var answer = large ? new string('λ', 4000) : "Use the returned value on success and propagate the operation error after cleanup.";
+        var questions = new List<PlanningQuestion> { new("failure", "What result is required on failure?", [], null) };
+        PlanningClarifications.Suspend(state, questions);
+        state.PendingQuestions = questions;
+        state.Status = PlanningStatus.Clarification;
+        PlanningClarifications.Answer(state, new() { Answers = [new("failure", Text: answer)] });
+        PlanningCompactConstruction.InitializeSources(state);
+        var restored = PlannerFixture.Clone(state);
+        var plan = PlanningConstruction.Hash(restored.Plan);
+        var block = PlanningCompactConstruction.ImplementationContext(restored)["block"]!;
+        var rows = block["clarificationAnswers"]!.AsArray().OfType<JsonObject>().ToArray();
+        Assert.Equal(large, rows.Any(row => row["text"] is null));
+        var recovered = string.Concat(rows.Select(row =>
+        {
+            if (row["text"] is { } text)
+            {
+                Assert.Null(row["evidence"]);
+                return text.ToString();
+            }
+            Assert.True(PlanningCompactConstruction.LoadEvidence(restored, row["evidence"]!.ToString(), out var source));
+            return source!["text"]!.ToString();
+        }));
+        Assert.Equal(questions[0].Question + "\nAnswer: " + answer, recovered);
+        var other = new PlanningConstructionBlock { Id = "later-block", Objective = "Unrelated work", RequirementIds = ["later"] };
+        restored.Construction!.Compact!.Blocks!.Add(other);
+        restored.Construction.Compact.CurrentBlockId = other.Id;
+        Assert.Null(PlanningCompactConstruction.ImplementationContext(restored)["block"]!["clarificationAnswers"]);
+        Assert.Equal(plan, PlanningConstruction.Hash(restored.Plan));
+    }
+
     [Fact]
     public async Task CapturedBusinessDecisionAndImplementationGrammarSurviveRestart()
     {
@@ -348,8 +386,8 @@ public sealed class BusinessSelectionArchitectureTests
         state.Construction!.Candidate = null;
         state.Construction.Compact!.CurrentStep = null;
         var restored = PlannerFixture.Clone(state);
-        Assert.Equal(PlanningCompactConstruction.BusinessBlockContext(PlanningCompactConstruction.CurrentBlock(state)!).ToJsonString(),
-            PlanningCompactConstruction.BusinessBlockContext(PlanningCompactConstruction.CurrentBlock(restored)!).ToJsonString());
+        Assert.Equal(PlanningCompactConstruction.BusinessBlockContext(state, PlanningCompactConstruction.CurrentBlock(state)!).ToJsonString(),
+            PlanningCompactConstruction.BusinessBlockContext(restored, PlanningCompactConstruction.CurrentBlock(restored)!).ToJsonString());
         Assert.True(JsonNode.DeepEquals(PlanningCompactConstruction.ImplementationSchema(state), PlanningCompactConstruction.ImplementationSchema(restored)));
         var text = PlanningCompactConstruction.ImplementationSchema(restored).ToJsonString();
         Assert.DoesNotContain("\"expectedOutputs\"", text, StringComparison.Ordinal);

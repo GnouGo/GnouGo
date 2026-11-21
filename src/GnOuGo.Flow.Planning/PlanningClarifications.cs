@@ -103,6 +103,8 @@ internal static class PlanningClarifications
                         new JsonObject { ["answerIndex"] = index });
         state.AnswerHistory ??= [];
         state.AnswerHistory.Add(new(state.Revision, questions, [.. answers]));
+        if (state.Construction?.Compact is not null && PlanningCompactConstruction.CurrentBlock(state) is { } owner)
+            (owner.AnswerRevisions ??= []).Add(state.Revision);
         state.Request.Options.Remove(ContextKey);
         state.PendingQuestions = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
         state.Status = PlanningStatus.Generating;

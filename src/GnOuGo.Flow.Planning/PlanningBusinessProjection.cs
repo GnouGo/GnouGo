@@ -110,7 +110,7 @@ internal static class PlanningBusinessProjection
         {
             ["review"] = global ? "completed_workflow" : "current_block",
             ["businessBlock"] = PlanningCompactConstruction.CurrentBlock(state) is { } businessBlock
-                ? PlanningCompactConstruction.BusinessBlockContext(businessBlock) : null,
+                ? PlanningCompactConstruction.BusinessBlockContext(state, businessBlock) : null,
             ["requirements"] = requirements, ["globalConstraints"] = globals,
             ["inputs"] = new JsonArray(plan.Inputs.Where(input => global || interfaceClaims.Count > 0 || applicableInputs.Contains(input.Name) || rootInputs.Contains(input.Name))
                 .Select(input =>

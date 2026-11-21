@@ -518,7 +518,7 @@ internal static partial class PlanningCompactConstruction
                 suppliedRequirements.Contains(outcomes[nextRequirement].Id)) nextRequirement++;
         var context = new JsonObject
         {
-            ["block"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null,
+            ["block"] = CurrentBlock(state) is { } block ? BusinessBlockContext(state, block) : null,
             ["overallProgress"] = OverallProgress(state, progress),
             ["availableResults"] = progress.Results,
             ["baseHash"] = PlanningConstruction.Hash(state.Plan),
@@ -676,7 +676,7 @@ internal static partial class PlanningCompactConstruction
         {
             ["baseHash"] = PlanningConstruction.Hash(state.Plan), ["candidateHash"] = draft?.Hash,
             ["maxTasksPerDraft"] = construction.Limits.MaxTasksPerDraft,
-            ["block"] = CurrentBlock(state) is { } businessBlock ? BusinessBlockContext(businessBlock) : null,
+            ["block"] = CurrentBlock(state) is { } businessBlock ? BusinessBlockContext(state, businessBlock) : null,
             ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["requirements"] = RequirementNodes(state, step.RequirementIds.Concat(EvidenceRequirementIds(state))),
             ["publicOutputs"] = state.Requirements?.Outputs is null ? null : UnseenOutputDirectory(state),
@@ -861,7 +861,7 @@ internal static partial class PlanningCompactConstruction
         if (ReselectionContext(state) is { } reselection) context["reselection"] = reselection;
         if (PlanningDiscoveryFocus.Enabled(state))
         {
-            context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(block) : null;
+            context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(state, block) : null;
             context["discoveryFocuses"] = PlanningDiscoveryFocus.Presentation(state);
             context["discoveryLimitations"] = new JsonArray(PlanningDiscoveryRecoveryActions.Failures(state).Select(f => (JsonNode)new JsonObject
                 { ["sourceId"] = f.SourceId, ["focusId"] = f.FocusId, ["outcome"] = f.Category,
