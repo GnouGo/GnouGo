@@ -936,6 +936,36 @@ public sealed class BenchmarkAdmissionTests
         else await model.CallExecutionAsync(new() { ClientRequestId = RuntimeId(false), Prompt = prompt, MaxTokens = output }, Ct);
     }
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SdkProxyRecordsTransportStageWithoutRedispatch(bool afterHeaders)
+    {
+        using var fixture = new Fixture();
+        using var handler = new RuntimeHandler(0) { BrokenBody = afterHeaders };
+        using var http = new HttpClient(handler) { Timeout = Timeout.InfiniteTimeSpan };
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        var error = await Record.ExceptionAsync(() => InvokeRuntime(model, proxy: true));
+        Assert.IsAssignableFrom<HttpRequestException>(error);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!;
+        var attempt = Assert.Single(journal["transport"]!["Attempts"]!.AsArray())!;
+        Assert.Equal(afterHeaders ? "response_body_interrupted" : "response_headers_unavailable", attempt["TerminationStatus"]?.ToString());
+        Assert.Equal(afterHeaders ? 200 : (int?)null, attempt["ObservedStatus"]?.GetValue<int>());
+        Assert.Equal("HttpRequestException", attempt["Failure"]?.ToString());
+        Assert.Null(attempt["Body"]);
+        Assert.Null(attempt["Status"]);
+        Assert.NotNull(attempt["CompletedAtUtc"]);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => InvokeRuntime(model, proxy: true));
+        Assert.Equal(1, handler.Calls);
+    }
+
+    private sealed class InterruptedContent : HttpContent
+    {
+        protected override Task SerializeToStreamAsync(Stream stream, System.Net.TransportContext? context)
+            => Task.FromException(new IOException("Fixture response body interrupted"));
+        protected override bool TryComputeLength(out long length) { length = 0; return false; }
+    }
+
+    [Theory]
     [InlineData("stop", true, true)]
     [InlineData("stop", false, false)]
     [InlineData("length", true, false)]
@@ -962,6 +992,7 @@ public sealed class BenchmarkAdmissionTests
 
     private sealed class RuntimeHandler(int status) : HttpMessageHandler
     {
+        internal bool BrokenBody { get; init; }
         internal string? EventStream { get; init; }
         internal int Calls;
         internal Func<Task>? BeforeSend;
@@ -969,6 +1000,7 @@ public sealed class BenchmarkAdmissionTests
         {
             Calls++;
             if (BeforeSend is not null) await BeforeSend();
+            if (BrokenBody) return new(System.Net.HttpStatusCode.OK) { Content = new InterruptedContent() };
             if (EventStream is not null) return new(System.Net.HttpStatusCode.OK)
                 { Content = new StringContent(EventStream, System.Text.Encoding.UTF8, "text/event-stream") };
             if (status == 0) throw new HttpRequestException("Offline fixture transport outcome unavailable");

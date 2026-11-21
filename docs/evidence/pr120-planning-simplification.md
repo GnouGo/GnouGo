@@ -1,5 +1,35 @@
 # PR 120 planning simplification
 
+## SlimFaaS Review 02 and fresh Amazon admission, 21 November 2026
+
+Server session `11ff84808e0a45358f5de80b1af5cee0` on `b2aebffd` approved
+the generated 28-task artifact `c95c540479dae96a4fbe0670a6240135bbe45cb3621ab98db5b4d1c93ea8dac5`.
+Chat invocation `690a1adf14b6bb909df42deb3b06c228` read the PR and
+cloned it once. Git verified base `e4deed940d34719b44db32e8d0ad7821e66f7e41`
+and head `9585afcbaeefddd5f634b795d589e4383243a8a5` and read twelve manifest blobs.
+Copilot reported two model failure events and a turn retry in 26.976 seconds.
+Its receipt contains zero command executions. The Server executed the directory
+cleanup. Independent inspection found no run cluster or kubeconfig. Installation,
+lint, unit and kind tests were unexecuted. GitHub retained four reviews and six
+inline comments. Chat returned a failure without the requested review report.
+
+The campaign recorded 43 planning attempts (EUR 29.7694323), one transform
+(EUR 0.1289028), and one SDK attempt with a EUR 3.2908297 hold. Its HTTP record
+contains no completed response, status or usage. The elapsed time does not
+establish an authentication failure or the 300-second proxy cutoff. Two isolated
+transport interruptions reproduced the missing diagnostics. The SDK proxy now
+records the failure stage and observed headers, retains the full hold and rejects
+a second dispatch. All 93 admission tests passed, including both reproductions.
+
+The fresh Amazon 29 launch on `99b7af73` stopped at campaign admission with
+`campaign_uncertain_request_requires_recovery`, before planning or browser access.
+The campaign's planning-only administrative retention excludes executed workflows.
+The read-only ledger recorded 4,806 physical attempts, EUR 2,476.7233424 in
+measured-token estimates, EUR 495.8143718 held on 56 attempts, and EUR 171.6335695
+in separate application holds. EUR 455.8287162 remained under the existing
+EUR 3,600 ceiling. Amazon 29 added zero attempts or charges. Neither scenario has
+a verified complete execution in this series.
+
 ## SlimFaaS checkpoint discovery, 21 November 2026
 
 In the second fresh SlimFaaS session, discovery call 25 requested the

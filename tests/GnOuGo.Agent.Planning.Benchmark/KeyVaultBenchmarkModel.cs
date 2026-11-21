@@ -929,7 +929,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     state.RequestMethod = "POST";
                     state.Endpoint = new UriBuilder(upstream) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
                     state.RequestBody = body;
-                    state.Attempts.Add(new() { Id = id });
+                    var timeoutMs = transportPolicy!["timeout_ms"]!.GetValue<long>();
+                    var started = _time.GetUtcNow();
+                    var physical = new LLMHttpAttempt { Id = id, StartedAtUtc = started, DeadlineAtUtc = started.AddMilliseconds(timeoutMs) };
+                    state.Attempts.Add(physical);
                     await journal.SaveAsync(state, token);
                     using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
                     foreach (var header in headers)
@@ -938,12 +941,28 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     // ResponseHeadersRead ends HttpClient.Timeout at the headers. Apply the
                     // captured physical deadline to the body as well, including stalled streams.
                     using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    var timeoutMs = transportPolicy!["timeout_ms"]!.GetValue<long>();
                     if (timeoutMs > 0) attempt.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
-                    using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, attempt.Token);
-                    var receivedText = await result.Content.ReadAsStringAsync(attempt.Token);
-                    state.Attempts[0].Status = (int)result.StatusCode; state.Attempts[0].Body = receivedText;
-                    state.Attempts[0].ContentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
+                    try
+                    {
+                        using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, attempt.Token);
+                        physical.ObservedStatus = (int)result.StatusCode;
+                        physical.ContentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
+                        physical.Body = await result.Content.ReadAsStringAsync(attempt.Token);
+                        physical.ResponseBodyComplete = true;
+                        physical.Status = physical.ObservedStatus;
+                    }
+                    catch (Exception failure) when (failure is HttpRequestException or IOException or OperationCanceledException or InvalidOperationException)
+                    {
+                        physical.Failure = failure.GetType().Name;
+                        physical.TerminationStatus = physical.ObservedStatus.HasValue ? "response_body_interrupted" : "response_headers_unavailable";
+                        if (failure is OperationCanceledException)
+                            physical.CancellationSource = token.IsCancellationRequested ? "caller" : attempt.IsCancellationRequested ? "attempt_deadline" : "transport";
+                        physical.ResponseBodyComplete = false;
+                        physical.CompletedAtUtc = _time.GetUtcNow();
+                        await journal.SaveAsync(state, CancellationToken.None);
+                        throw;
+                    }
+                    physical.CompletedAtUtc = _time.GetUtcNow();
                     await journal.SaveAsync(state, CancellationToken.None);
                 }
                 if (state.Fingerprint != wireFingerprint || state.Attempts.Count != 1 ||
@@ -1035,6 +1054,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             "Execution inference lacks a bounded output allowance." => "bounded_output_missing",
             "Unsupported inference protocol." => "unsupported_inference_protocol",
             "No exact completed SDK inference response is available." => "saved_sdk_response_unavailable",
+            "Runtime inference has no exact completed response; another dispatch is forbidden." => "unresolved_physical_attempt",
             "Execution request exceeds the campaign input allowance." => "input_allowance",
             "The campaign or session cannot cover another HTTP attempt." => "spending_or_attempt_allowance",
             "No currency quote." => "currency_quote_unavailable",
