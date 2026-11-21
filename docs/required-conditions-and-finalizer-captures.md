@@ -60,7 +60,7 @@ dotnet pack src/GnOuGo.Flow.Core -c Release -m:1 -warnaserror
 dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 \
   --self-contained true -m:1 -warnaserror
-tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke
+tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net11.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke
 ```
 
 `TaskPreconditionTests` and `FinalizerCaptureTests` exercise real Flow execution with

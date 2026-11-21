@@ -16,7 +16,7 @@ This service receives OpenTelemetry data (traces, metrics, logs) over OTLP/gRPC 
 
 ## Prerequisites
 
-- .NET SDK 10.0+
+- .NET SDK 11.0.100 as pinned in `global.json`
 - Node.js 24+
 - pnpm 10+
 

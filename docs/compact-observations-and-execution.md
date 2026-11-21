@@ -50,7 +50,7 @@ Release packages, planning Native AOT, Cmd/Document Native AOT publication, Brow
 Live evaluation uses the existing frozen harness/oracles and `schema-portability-20261002` campaign. Read its ledger before dispatch. Use fresh run IDs and keep prior uncertain invocations stopped:
 
 ```sh
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability inspect --campaign schema-portability-20261002 --workspace /path/to/workspace
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net11.0/GnOuGo.Agent.Planning.Benchmark.dll --schema-portability inspect --campaign schema-portability-20261002 --workspace /path/to/workspace
 # On the clean frozen candidate, run readiness for both cases, then planning.
 # Review the retained artifact before execute with its exact --artifact-hash.
 # Use --schema-portability mapping --run <fresh-id> for the untyped matrix.
@@ -120,7 +120,7 @@ The current candidate passed [22 CI checks, with four skipped and none failed](e
 Reproduce the retained report without dispatching inference:
 
 ```sh
-dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net10.0/GnOuGo.Agent.Planning.Benchmark.dll \
+dotnet tests/GnOuGo.Agent.Planning.Benchmark/bin/Debug/net11.0/GnOuGo.Agent.Planning.Benchmark.dll \
   --schema-portability report --cohort observations4 \
   --campaign schema-portability-20261002 --workspace /path/to/workspace
 ```
