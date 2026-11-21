@@ -1,5 +1,20 @@
 # PR 120 planning simplification
 
+## Amazon 25, 21 November 2026
+
+Fresh session `3a2a72fb2fcf4accb0722f0098d45ea0` ran on `082a64fb`.
+At call 13 scoped repair corrected the lookup of a single source record
+by selecting an array of IDs and indexing the first result. At call 20
+the model forwarded a previously accepted control output through a value
+and consumed its `records` output inside a subsequent ten-visit loop
+in the same contribution. Structural validation rejected that connection.
+The equivalent forwarding through a separate checkpoint already worked.
+The validator now follows preceding value outputs within the candidate,
+port by port. Both new cases failed on the original build. All 85 focused
+tests subsequently passed, including rejection of an unrelated sibling
+output. Replay of the unchanged call 20 no longer reports the control
+error. It uncovered a separate integer-index compiler finding.
+
 ## Amazon source check 24, 21 November 2026
 
 At 15:00 UTC a new search under the existing v10 grant returned HTTP 200

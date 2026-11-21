@@ -552,11 +552,13 @@ public sealed class CoherentBusinessFragmentTests
     }
 
     [Theory]
-    [InlineData(false, false)]
-    [InlineData(true, false)]
-    [InlineData(false, true)]
-    [InlineData(true, true)]
-    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope(bool predicateOperand, bool forwardThroughValues)
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, false)]
+    [InlineData(true, true, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, true)]
+    public async Task ContinuedControlCanComposeItsExportInAnotherControlAtTheSameScope(bool predicateOperand, bool forwardThroughValues, bool sameFragment)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Construction!.Compact!.CurrentStep!.Kind = "conditional";
@@ -578,6 +580,7 @@ public sealed class CoherentBusinessFragmentTests
         var consumer = Value(2);
         consumer.Outputs[0] = new("result", new() { Kind = "number", Number = 3 });
         var accepted = new TaskValue { Kind = "output", Source = "choose", Port = "result" };
+        List<PlanTask> localValues = [];
         if (forwardThroughValues)
         {
             var verified = new PlanTask { Id = "verify", Kind = "value", Objective = "Retain the checked quantity.",
@@ -586,10 +589,14 @@ public sealed class CoherentBusinessFragmentTests
             var forward = new PlanTask { Id = "forward", Kind = "value", Objective = "Expose both quantities.",
                 Outputs = [new("quantity", new() { Kind = "output", Source = "verify", Port = "checked" }),
                     new("other", new() { Kind = "output", Source = "verify", Port = "unrelated" })] };
-            state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
-                CompleteBlock = false, ContinueInScope = "/root", Tasks = [verified, forward] });
-            state = await Advance(state, runtime);
-            Assert.Empty(state.Diagnostics);
+            if (sameFragment) localValues = [verified, forward];
+            else
+            {
+                state.Construction!.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+                    CompleteBlock = false, ContinueInScope = "/root", Tasks = [verified, forward] });
+                state = await Advance(state, runtime);
+                Assert.Empty(state.Diagnostics);
+            }
             accepted = new() { Kind = "output", Source = "forward", Port = "quantity" };
         }
         if (predicateOperand)
@@ -599,7 +606,7 @@ public sealed class CoherentBusinessFragmentTests
         var extension = new PlanningConstructionExtension
         {
             Scope = "/root", RequirementIds = ["work"], CompleteBlock = false,
-            Tasks = [new() { Id = "use_result", Kind = "sequence", Objective = "Process the chosen quantity.", Body = new() { Tasks = [consumer] } }]
+            Tasks = [..localValues, new() { Id = "use_result", Kind = "sequence", Objective = "Process the chosen quantity.", Body = new() { Tasks = [consumer] } }]
         };
         AssertDraftAccepts(state, extension);
         var candidate = PlanningConstruction.Apply(state, extension);

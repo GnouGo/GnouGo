@@ -117,11 +117,11 @@ internal static partial class PlanningCompactConstruction
             var accepted = BlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
             var scope = symbols.Scopes.Single(scope => scope.Path == step.Scope).Source;
             foreach (var producer in scope.Tasks.Where(task => task.Kind == "value" && accepted.Contains(task.Id)))
-                foreach (var output in producer.Outputs)
-                    if (ReadsControlExport(output.Value)) controlExports.Add((producer.Id, output.Name));
-            foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always)
-                .Where(task => NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) && task.Kind != step.Kind))
+                AddForwardedExports(producer);
+            foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always))
             {
+                if (task.Kind == "value") AddForwardedExports(task);
+                if (!NestedControlKinds.Contains(task.Kind, StringComparer.Ordinal) || task.Kind == step.Kind) continue;
                 if (task.Kind == "foreach" && OutputSelection(task.Items) is { } collection &&
                     iteratedCollections.Contains(collection)) continue;
                 var contribution = new TaskPlanSymbols(new TaskPlan { Root = new() { Tasks = [task] } });
@@ -132,6 +132,12 @@ internal static partial class PlanningCompactConstruction
 
             bool ReadsControlExport(TaskValue binding) => TaskPlanCompiler.Values(binding).Any(value =>
                 value is { Kind: "output", Source: { } source, Port: { } port } && controlExports.Contains((source, port)));
+
+            void AddForwardedExports(PlanTask producer)
+            {
+                foreach (var output in producer.Outputs)
+                    if (ReadsControlExport(output.Value)) controlExports.Add((producer.Id, output.Name));
+            }
 
             static string? OutputSelection(TaskValue? items)
             {
