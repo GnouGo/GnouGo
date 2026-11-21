@@ -307,13 +307,15 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             {
                 bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogDebug("Copilot hook post-tool-use: {ToolName}", input.ToolName);
-                return Task.FromResult<PostToolUseHookOutput?>(null);
+                return Task.FromResult(logical?.TakeToolBudgetUpdate() is { } update
+                    ? new PostToolUseHookOutput { AdditionalContext = update } : null);
             },
             OnPostToolUseFailure = (input, _) =>
             {
                 bounds?.CompleteSdkTool(input.ToolName);
                 logger.LogWarning("Copilot hook tool-failure: {ToolName}", input.ToolName);
-                return Task.FromResult<PostToolUseFailureHookOutput?>(null);
+                return Task.FromResult(logical?.TakeToolBudgetUpdate() is { } update
+                    ? new PostToolUseFailureHookOutput { AdditionalContext = update } : null);
             },
             OnUserPromptSubmitted = (input, _) =>
             {

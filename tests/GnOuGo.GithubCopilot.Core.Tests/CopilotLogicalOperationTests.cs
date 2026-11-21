@@ -97,6 +97,33 @@ public sealed class CopilotLogicalOperationTests
     }
 
     [Fact]
+    public async Task ManagedSdkReceivesRemainingAllowanceAfterToolUseWithoutChangingTheToolReceipt()
+    {
+        var budget = new CopilotInferenceBudget(32, 2_000_000, DateTimeOffset.UtcNow.AddMinutes(10),
+            (_, _, _) => Task.CompletedTask, initialCalls: 8, initialTokens: 1_800_000);
+        var config = new CopilotRuntimeConfiguration(Path.GetTempPath(), "model") { LogicalInferenceBudget = budget };
+        var source = new CopilotSdkSessionConfiguration(new(new("tenant"), config), null, null);
+        await using var client = new GitHubCopilotSdkClient(new CopilotClient(new CopilotClientOptions()), config,
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance);
+        var hooks = client.BuildCreateConfig(source).Hooks!;
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://example.test/responses")
+        { Content = new StringContent("""{"input":"inspect","max_output_tokens":12}""") };
+        await budget.ReserveAsync(request, TestContext.Current.CancellationToken);
+        var output = await hooks.OnPostToolUse!(new() { ToolName = "project_read" }, new());
+        Assert.NotNull(output);
+        Assert.Contains((2_000_000 - budget.ChargedTokens).ToString(System.Globalization.CultureInfo.InvariantCulture), output.AdditionalContext);
+        Assert.Contains("23", output.AdditionalContext);
+        Assert.Null(output.ModifiedResult);
+        Assert.Null(await hooks.OnPostToolUse!(new() { ToolName = "project_list" }, new()));
+        await budget.ReserveAsync(request, TestContext.Current.CancellationToken);
+        var failed = await hooks.OnPostToolUseFailure!(new() { ToolName = "bash" }, new());
+        Assert.NotNull(failed);
+        Assert.Contains("final response", failed.AdditionalContext);
+        Assert.Null(await hooks.OnPostToolUse!(new() { ToolName = "project_read" }, new()));
+        Assert.Equal(10, budget.ModelCalls);
+    }
+
+    [Fact]
     public async Task RetainedBudgetCannotRenewCallsOrReservationsAndStopClosesAdmission()
     {
         var persisted = new List<(int, long)>();

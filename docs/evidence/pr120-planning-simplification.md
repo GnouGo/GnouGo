@@ -2,6 +2,21 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 36 executed through the saved chat form. GitHub returned the
+requested PR. The Git MCP cloned its pinned head once. The Copilot
+operation observed 96 tool calls, including exit 0 for the Node dependency
+install and .NET restore. Python dependency installation exited 1. The
+network-disabled execution environment lacked the cached
+`mkdocs-material==9.7.7` wheel. Later commands were denied after 64
+permission interactions. The retained Copilot receipt recorded nine
+inference requests, 1,827,405 reserved tokens and 334,100 tokens required
+for the next input under the 2,000,000-token operation limit. It recorded
+verified termination and failed the operation. The workflow's finalizer
+deleted its clone. No verdict, inline comment or report was delivered.
+This run used 41 planning, one workflow and nine Copilot HTTP requests,
+costing EUR 37.82909 in measured usage at captured tariffs. The audit
+left EUR 56.11178 available.
+
 The Amazon 19 correction diagnostic cost EUR 0.79708 in one native request.
 It used `array_length` against both the ordered selection and extracted
 rows, comparing each with ten. The wire response was complete. Two

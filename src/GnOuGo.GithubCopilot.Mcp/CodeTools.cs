@@ -74,7 +74,7 @@ internal sealed class CodeTools
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
-        [Description("Requested coding task, limited to actions permitted by the existing project scope, available SDK tools and host permission/sandbox policy.")] string task,
+        [Description("One independently verifiable objective within the project scope and host permissions. Include known commands and prior observations. Budget interactive reads, command execution and a complete final response.")] string task,
         [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         RequestContext<CallToolRequestParams>? requestContext = null,

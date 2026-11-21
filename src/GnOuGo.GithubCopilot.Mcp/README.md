@@ -123,6 +123,8 @@ The review session has no tools, no configuration discovery, no write permission
 
 Review analysis does not publish or authorize a GitHub mutation. Workflows use the configured official GitHub MCP for those operations, with normal workflow approval, generic runtime confirmation and MCP elicitation. No host-managed draft, publication gate, fresh-head check or publication replay guarantee is supplied. See [MCP workflow execution and removed publication APIs](../../docs/github-mcp-workflow-execution.md).
 
+Managed interactive operations tell the SDK their shared interaction and inference limits. After an admitted inference request, the first tool completion or failure gives the model the remaining call and token allowance. This evidence helps it finish with the observed command outcomes and identify unfinished work. The host continues to enforce its original reservations and validates the terminal receipt.
+
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
 When provided, the MCP reads the matching provider from its typed `CodeCopilotSettings.Providers` dictionary and passes it as a custom Copilot SDK provider for that call. At process startup, the MCP uses the storage-agnostic `IKeyVaultSecretCatalogReader` contract to map shared provider secrets and MCP-specific leaf overrides into the `Code:Copilot` configuration namespace before typed settings are created. Database resolution, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core`.
 Supported provider section names are:

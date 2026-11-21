@@ -47,6 +47,8 @@ public sealed class CopilotAttachmentTests
         });
         fixture.Host.OnSend = async (configuration, handle, _, ct) =>
         {
+            Assert.Contains("64 interactions", configuration.Request.Configuration.SystemMessage, StringComparison.Ordinal);
+            Assert.Contains("complete final response", configuration.Request.Configuration.SystemMessage, StringComparison.Ordinal);
             using var callback = fixture.Host.Trace.Push(null);
             var answers = await Task.WhenAll(Enumerable.Range(0, 14).Select(i => configuration.HumanInputProvider!.RequestAsync(
                 new(new("fixture-tenant"), "permission", "permission-" + i, ["Allow once", "Refuse"], false), ct)));

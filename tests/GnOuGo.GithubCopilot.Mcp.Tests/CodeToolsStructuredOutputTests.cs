@@ -25,6 +25,7 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             Microsoft.Extensions.Logging.Abstractions.NullLogger<CodeTools>.Instance, host.Human);
         var tool = McpServerTool.Create(method, target, new McpServerToolCreateOptions { SerializerOptions = CodeMcpJson.SerializerOptions });
         var schema = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText())!;
+        Assert.Contains("independently verifiable objective", schema["properties"]!["task"]!["description"]!.ToString());
         Assert.Null(schema["properties"]?["requestContext"]);
         Assert.Null(schema["properties"]?["tenantId"]);
         var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
