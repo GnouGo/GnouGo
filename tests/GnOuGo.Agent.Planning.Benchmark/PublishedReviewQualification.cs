@@ -71,6 +71,7 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
             "only to the review created by this execution. GitHub acknowledges a completed submit_pending mutation with the message " +
             "'pending pull request review successfully submitted'. This acknowledgement is available to the workflow with its submitted arguments. " +
             "The host records the new review ID privately and, after workflow execution, reads back the submitted review and inline comments by that ID. " +
+            "If submission stops, leave the pending review intact for reconciliation. Retention is the intended failure outcome. " +
             "delete_pending is outside this grant. The host checks recorded mandatory checks, asks for confirmation of the concrete verdict " +
             "and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. " +
             "Calling submit_pending invokes this guard directly.\n" + tool.Description

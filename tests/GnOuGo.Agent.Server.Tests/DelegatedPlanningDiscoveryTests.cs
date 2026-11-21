@@ -41,6 +41,7 @@ public sealed class DelegatedPlanningDiscoveryTests
         var page = catalog.ReadPage(snapshot, null, null);
         var resolved = await catalog.ResolveAsync(Assert.Single(page.Capabilities, capability => capability.Id == captured.Id), ct);
         Assert.Contains("Calling submit_pending invokes this guard directly", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("leave the pending review intact for reconciliation", resolved.Description, StringComparison.Ordinal);
         Assert.Contains("Permitted write methods are create and submit_pending", resolved.Description, StringComparison.Ordinal);
         Assert.Contains("checks for an existing pending review before create", resolved.Description, StringComparison.Ordinal);
         Assert.Contains("only to the review created by this execution", resolved.Description, StringComparison.Ordinal);

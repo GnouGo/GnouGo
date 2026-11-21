@@ -16,6 +16,16 @@ stdio discovery regression failed against the previous description. All
 87 Git tests passed after the change, including a check that an existing
 file kept its contents. End-of-run cleanup remains independently required.
 
+The new plan bound the check and Copilot observations to its public report
+without a publication-readiness assertion. At call 39 the model withdrew
+the selected GitHub write sequence because it assumed that a failed
+submission required deletion of the pending review. The host already
+retains that review and its ID. The guarded GitHub write description now
+states what to do after a stopped submission. A discovery regression
+failed on the former description. The updated publication, composition and
+reporting selection passed 123 tests. The publication grant still excludes
+deletion.
+
 ## Review 39, 21 November 2026
 
 Fresh Server session `62d120702f6d4c5ea0bccff67367ebd4` used source
