@@ -1,0 +1,20 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "change": {
+    "previousCeilingEur": 3100,
+    "ceilingEur": 3600,
+    "authorizedAtUtc": "2026-11-21T18:17:49.5340210+00:00",
+    "authorizationHash": "41e536cde0735fd527c508d8192cae68972b7eea25d51b922e4548bb18b0deca"
+  },
+  "authorizations": 10,
+  "before_sha256": "0d38e4058fe6617b1834994d9787b561b9ff180420a29110b7826635e0e6de09",
+  "after_sha256": "7c0a35bc2ab8f795ba0494f4a5d6bc86b16e77b11616c82bbf4aa39d57aafdb8",
+  "physical_calls": 4718,
+  "cost_at_captured_tariff_eur": "2427.3878620871815745198929088",
+  "unresolved_http_attempts": 55,
+  "http_reservations_eur": "492.52354211169232933854268655",
+  "application_reservations_eur": "171.63356950311035727717154657",
+  "available_before_eur": "8.45502629801573886439285803",
+  "available_after_eur": "508.4550262980157388643928580",
+  "accounting_unchanged": true
+}

@@ -6,7 +6,7 @@ Amazon Server session `33299bc91181442f8b8a7422bdaea6d3` used
 `0b7a9d9d`. The operator stopped the session at the reconstruction question
 on revision 167. Revision 168 recorded cancellation. Planning made 72 model
 calls and estimated EUR 46.14524. The session saved no workflow and produced
-no workbook. The separate Browser prerequisite observed 1,409 original records
+no workbook. Its 72 settled HTTP attempts cost EUR 46.13684 at the captured provider tariff. The separate Browser prerequisite observed 1,409 original records
 across 64 transport pages, resolved 13 store links and verified browser closure.
 
 Replaying original drafts 23, 38 and 57 reproduced `TASK_INDEX_INVALID`.
@@ -30,6 +30,14 @@ The SDK transport applies its captured deadline to headers and the entire
 response body and validates native stream termination before releasing output.
 [Review guard](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs) ·
 [Provider boundary](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionTests.cs)
+
+The campaign moved from EUR 3,100 to EUR 3,600 once at 18:17 UTC.
+Immediately before the increase, EUR 8.45503 was available. Immediately
+afterwards, EUR 508.45503 was available. Both audits counted 4,718 physical
+requests, EUR 2,427.38786 in measured usage at the captured tariffs,
+EUR 492.52354 held on 55 HTTP attempts and EUR 171.63357 in separate
+application reservations. The original nine authorization entries were preserved.
+[Ledger comparison](pr120-live-20261121/slim519-authorization.json)
 
 ## Review 52, 21 November 2026
 
