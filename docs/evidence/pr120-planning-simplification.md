@@ -45,6 +45,13 @@ preserved the accepted plan hash and allowed the rejected completion
 claim to be withdrawn. Revalidation and a new business review remain
 required. The replay used zero provider calls and executed no tasks.
 
+The Browser MCP discovery description and published snapshot schema now
+explain that related DOM records can span pages and keep their
+snapshot-local identities. The original schema regression failed. A real
+loopback browser capture limited to one record per page kept the same
+ancestor index for the related links and a different index for a separate
+ancestor with the same attribute value. All 19 focused Browser tests passed.
+
 ## Amazon source check 24, 21 November 2026
 
 At 15:00 UTC a new search under the existing v10 grant returned HTTP 200

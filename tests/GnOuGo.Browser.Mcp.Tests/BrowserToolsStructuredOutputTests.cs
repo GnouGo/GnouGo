@@ -75,6 +75,7 @@ public sealed class BrowserToolsStructuredOutputTests
         var properties = PublishedContentProperties();
         var snapshotPages = properties["observationSnapshot"]!["properties"]!["pages"]!;
         Assert.Equal(100, (int?)snapshotPages["maxItems"]);
+        Assert.Contains("span pages", (string?)snapshotPages["description"], StringComparison.Ordinal);
         Assert.Equal(100, (int?)properties["observationManifest"]!["properties"]!["pages"]!["maxItems"]);
         Assert.Equal(200, (int?)properties["observation"]!["properties"]!["records"]!["maxItems"]);
         Assert.Equal(200, (int?)snapshotPages["items"]!["properties"]!["records"]!["maxItems"]);

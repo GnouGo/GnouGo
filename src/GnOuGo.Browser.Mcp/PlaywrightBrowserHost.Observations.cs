@@ -38,7 +38,9 @@ public sealed record BrowserObservation(string Id,
 public sealed record BrowserObservationPage(string Cursor, int RecordCount);
 public sealed record BrowserObservationManifest(string Id, [property: Description("Frozen page descriptors, at most 100 or the stricter host/response allowance. ManifestTruncated identifies an incomplete list.")] IReadOnlyList<BrowserObservationPage> Pages,
     int RecordCount, bool CaptureTruncated, bool ManifestTruncated);
-public sealed record BrowserObservationSnapshot(string Id, IReadOnlyList<BrowserObservation> Pages, int RecordCount,
+public sealed record BrowserObservationSnapshot(string Id,
+    [property: Description("Ordered record chunks of one snapshot. Related records for the same DOM group, occurrence or captured ancestor can span pages. Collect related records across all pages before interpreting an occurrence, preserving source order.")]
+    IReadOnlyList<BrowserObservation> Pages, int RecordCount,
     bool CaptureTruncated, bool ManifestTruncated);
 public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
 public sealed record BrowserSnapshotNavigation(long Generation, string Url, string? Title, string? Method, int? StatusCode);

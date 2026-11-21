@@ -53,8 +53,9 @@ public sealed class BrowserAncestorAttributeTests
             ? "{\"ObservationAncestorAttributes\":[\"data-code\"]}" : "{}")!;
         settings.AllowedHosts = ["127.0.0.1"];
         await using var host = new PlaywrightBrowserHost(Options.Create(settings), NullLogger<PlaywrightBrowserHost>.Instance);
-        var result = await host.GetContentAsync(site.Origin, "domcontentloaded", null, "main", "observation_complete", null, false, ct);
+        var result = await host.GetContentAsync(site.Origin, "domcontentloaded", null, "main", "observation_complete", null, false, ct, maxRecords: 1);
         Assert.False(result.ObservationSnapshot!.CaptureTruncated);
+        Assert.All(result.ObservationSnapshot.Pages, page => Assert.Single(page.Records));
         var records = result.ObservationSnapshot.Pages.SelectMany(p => p.Records).Where(r => r.Kind == "link").ToArray();
         var wire = records.Select(r => JsonSerializer.SerializeToNode(r, BrowserMcpJsonContext.Default.BrowserObservationRecord)!).ToArray();
         Assert.DoesNotContain("SECRET", JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult), StringComparison.Ordinal);

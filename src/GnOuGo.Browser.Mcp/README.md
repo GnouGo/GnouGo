@@ -261,8 +261,10 @@ Use `browser_get_content(format: "observation_complete")` when every page is
 needed before interpreting or acting. `observationSnapshot` contains `id`, ordered
 `pages` (each with typed `records` and the same `id`), `recordCount`,
 `captureTruncated: false` and `manifestTruncated: false`. The pages have no
-continuation cursors. Flat `content` stays empty. Process these pages with ordinary
-collection bindings; keep extraction and interpretation outside Browser.
+continuation cursors. Flat `content` stays empty. Page boundaries can split a DOM
+group, occurrence or captured ancestor. When an interpretation depends on related
+records, associate their snapshot-local identities across all pages and retain
+source order. Use collection bindings for extraction and interpretation.
 
 The producer buffers the full acquisition and checks its document generation
 before publishing. Navigation, including same-URL reloads, discards the entire
