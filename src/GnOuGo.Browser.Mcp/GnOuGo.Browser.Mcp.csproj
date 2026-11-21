@@ -53,6 +53,7 @@
     </PropertyGroup>
     <Message Importance="high" Text="Installing published Playwright Chromium browsers into $(PublishedPlaywrightBrowsersDir)..." />
     <MakeDir Directories="$(PublishedPlaywrightBrowsersDir)" />
+    <Exec Command="node &quot;$(MSBuildThisFileDirectory)../../build/stage-playwright-browsers.mjs&quot; &quot;$(PublishedPlaywrightCli)&quot; &quot;$(PublishedPlaywrightBrowsersDir)&quot;" WorkingDirectory="$(TargetDir)" />
     <Exec Command="node &quot;$(PublishedPlaywrightCli)&quot; install chromium" WorkingDirectory="$(PublishDirFullPath)" EnvironmentVariables="PLAYWRIGHT_BROWSERS_PATH=$(PublishedPlaywrightBrowsersDir)" StandardOutputImportance="low" IgnoreStandardErrorWarningFormat="true" />
   </Target>
 

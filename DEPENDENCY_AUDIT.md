@@ -31,6 +31,14 @@ executable and reports two alignment warnings from that object. The locally
 cross-compiled Intel release archive passed its extracted-binary HTTP,
 streaming, provider and configuration checks.
 
+The Browser MCP package includes the Chromium, headless shell and FFmpeg
+revisions selected by its pinned Playwright installer. A Desktop publish
+timed out fetching an already installed headless shell from the CDN. The
+publish target now stages complete, matching installations from the build
+cache and runs Playwright's normal installer against the release directory.
+A disconnected check matched the SHA-256 of all three executables and ran
+Chrome for Testing 159.0.8154.6 from that directory.
+
 SDK 11.0.100 exports its development hot-reload module from referenced web
 applications. This broke the Agent Server Debug build with four unmatched module
 endpoints. The scoped build target exports the referenced applications' ordinary
