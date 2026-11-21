@@ -33,4 +33,27 @@
   <ItemGroup>
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+  <!-- Copilot's release archives give different versions the same 1985 mtime.
+       Stamp the verified, project-local extraction once so incremental copies can
+       distinguish even equal-sized wrappers when a consumer upgrades or downgrades. -->
+  <Target Name="GnOuGoDateCopilotCache" AfterTargets="_DownloadCopilotCli"
+          Condition="'$(CopilotCliBinaryPath)' == '' and Exists('$(_CopilotRuntimeBundleCompleteMarker)')"
+          Inputs="$(_CopilotRuntimeBundleCompleteMarker)"
+          Outputs="$(IntermediateOutputPath)gnougo-copilot-$(CopilotCliVersion)-$(_CopilotPlatform).stamp">
+    <ItemGroup>
+      <_GnOuGoCopilotCacheFile Include="$(_CopilotCacheDir)/**/*"
+          Exclude="$(_CopilotRuntimeBundleCompleteMarker);$(_CopilotArchivePath);$(_CopilotChecksumPath)" />
+    </ItemGroup>
+    <Touch Files="@(_GnOuGoCopilotCacheFile)"
+           Time="$([System.IO.File]::GetLastWriteTimeUtc('$(_CopilotRuntimeBundleCompleteMarker)').ToString('o'))" />
+    <Touch Files="$(IntermediateOutputPath)gnougo-copilot-$(CopilotCliVersion)-$(_CopilotPlatform).stamp" AlwaysCreate="true" />
+  </Target>
+
+  <Target Name="GnOuGoPropagateCopilotRuntime" AfterTargets="_RegisterCopilotCliForCopy"
+          Condition="'$(CopilotCliBinaryPath)' == '' and Exists('$(_CopilotRuntimeBundleCompleteMarker)')">
+    <ItemGroup>
+      <ContentWithTargetPath Update="$(_CopilotCliBinaryPath);$(_CopilotRuntimeNodePath);@(_CopilotRuntimeRootAsset);@(_CopilotRuntimePrebuildAsset)"
+          CopyToOutputDirectory="IfDifferent" CopyToPublishDirectory="IfDifferent" />
+    </ItemGroup>
+  </Target>
 </Project>
