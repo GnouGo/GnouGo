@@ -22,6 +22,8 @@ internal sealed class AdaptiveLiveProfile(string scenario)
 
     private readonly Dictionary<string, JsonObject> _approved = new(StringComparer.Ordinal);
     private readonly AsyncLocal<McpCorrelationContext?> _call = new();
+    private static readonly IReadOnlySet<string> AwaitingManifest = new HashSet<string>(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<(string Run, string Step), IReadOnlySet<string>> _running = new();
     internal static bool IsMetadata(string server, string method, JsonNode? args) => server == Backend &&
         method == "copilot_task_contract" && args is JsonObject { Count: 1 } &&
         args["hostToolsOnly"] is JsonValue value && value.TryGetValue<bool>(out var only) && only;
@@ -55,9 +57,17 @@ internal sealed class AdaptiveLiveProfile(string scenario)
         if (call.TenantId != "benchmark" || call.RunId != run || call.StepType != "agent.run" || call.StepId is null ||
             !_approved.Keys.Any(suffix => call.StepId.EndsWith(suffix, StringComparison.Ordinal)))
             throw new PlanningConflictException("Adaptive execution requires the reviewed Server stage.");
+        var key = (run, call.StepId);
+        var opensRun = call.MethodName == "copilot_task_run";
+        if (opensRun && !_running.TryAdd(key, AwaitingManifest))
+            throw new PlanningConflictException("The adaptive invocation already has an active run.");
         var previous = _call.Value;
         _call.Value = call;
-        return new CallScope(() => _call.Value = previous);
+        return new CallScope(() =>
+        {
+            _call.Value = previous;
+            if (opensRun) _running.TryRemove(key, out _);
+        });
     }
 
     internal void Require(string method, JsonNode? args)
@@ -81,7 +91,20 @@ internal sealed class AdaptiveLiveProfile(string scenario)
             manifest.Any(p => p.Value is not JsonObject item || AgentTaskContracts.McpToolId(item) != p.Key ||
                 !Tools.Contains(new(item["server"]!.GetValue<string>(), item["method"]!.GetValue<string>()))))
             throw new PlanningConflictException("The run requested a tool outside its approved observation profile.");
+        if (method == "copilot_task_run" && !_running.TryUpdate((context.RunId, step),
+            context.Task.Capabilities.ToHashSet(StringComparer.Ordinal), AwaitingManifest))
+            throw new PlanningConflictException("This invocation already validated its execution manifest.");
     }
+
+    internal bool AllowsPermission(HumanInputRequest request) =>
+        request.ParentInvocationId is { Length: > 0 } step && request.StepId.StartsWith(step + "/human/", StringComparison.Ordinal) &&
+        request.StepId.Length > step.Length + "/human/".Length && request.Mode == HumanInputContract.ModeChoice &&
+        request.Prompt == "Allow this Copilot operation?" && request.Context?["mcp_server"]?.ToString() == Backend &&
+        request.Context["mcp_method"]?.ToString() == "copilot_task_run" &&
+        request.Context["requested_capability"]?.ToString() is { } capability &&
+        _running.TryGetValue((request.RunId, step), out var approved) && approved.Contains(capability) &&
+        request.Fields is [{ Name: "answer", Type: "select", Required: true, Options: { } options }] &&
+        options.Contains("Allow once", StringComparer.Ordinal) && options.Contains("Refuse", StringComparer.Ordinal);
 
     internal sealed class CallScope(Action close) : IDisposable { public void Dispose() => close(); }
 }

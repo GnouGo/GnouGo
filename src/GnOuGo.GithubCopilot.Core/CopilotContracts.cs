@@ -99,7 +99,10 @@ public sealed record CopilotHumanInputRequest(
     IReadOnlyList<string> Choices,
     bool AllowFreeform,
     string? Details = null,
-    JsonElement? RequestedSchema = null);
+    JsonElement? RequestedSchema = null)
+{
+    public string? RequestedHostTool { get; init; }
+}
 
 public sealed record CopilotHumanInputResponse(
     bool Accepted,

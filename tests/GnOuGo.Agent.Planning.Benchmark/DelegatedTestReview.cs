@@ -331,6 +331,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             request.Context is null && request.Fields is null && request.AllowAbandon &&
             request.Choices is { Count: 2 } choices && choices.SequenceEqual(["approve", "reject"]))
             return true; // The unmodified host-owned gate for this reviewed artifact and single execution.
+        if (request.RunId == ExecutionId && adaptive?.AllowsPermission(request) == true) return false;
         if (request.RunId != ExecutionId || scenario is not ("code" or PublishedReviewQualification.Scenario) || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
             !_runtimeInvocationSuffixes.Any(s => request.ParentInvocationId.EndsWith(s, StringComparison.Ordinal)) ||
             !request.StepId.StartsWith(request.ParentInvocationId + "/human/", StringComparison.Ordinal) ||

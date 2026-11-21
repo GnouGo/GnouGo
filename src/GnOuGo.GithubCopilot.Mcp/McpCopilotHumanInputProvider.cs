@@ -2,6 +2,7 @@ using GnOuGo.GithubCopilot.Core;
 using ModelContextProtocol.Protocol;
 using ModelContextProtocol.Server;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
@@ -73,12 +74,15 @@ internal sealed class McpCopilotHumanInputProvider : ICopilotHumanInputProvider
         ElicitResult result;
         try
         {
+            var meta = current.TraceContext?.ToMcpMeta();
+            if (request.RequestedHostTool is { } tool && meta?["gnougo"] is JsonObject owner)
+                owner["requestedCapability"] = tool;
             result = await current.Server.ElicitAsync(new ElicitRequestParams
             {
                 Mode = "form",
                 Message = request.Prompt,
                 RequestedSchema = schema,
-                Meta = current.TraceContext?.ToMcpMeta()
+                Meta = meta
             }, cancellationToken);
         }
         catch (OperationCanceledException)

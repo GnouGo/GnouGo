@@ -93,6 +93,24 @@ public class ConfiguredMcpClientFactoryTests
         Assert.Equal("Shell command: dotnet test", Assert.Single(provider.LastRequest!.Fields!).Description);
     }
 
+    [Theory]
+    [InlineData("copilot", "agent.run", true)]
+    [InlineData("other", "agent.run", false)]
+    [InlineData("copilot", "mcp.call", false)]
+    public async Task ElicitationCarriesHostToolIdentityOnlyForTheCallingAdaptiveServer(string declaredServer, string stepType, bool expected)
+    {
+        var capability = "mcp_" + new string('a', 43);
+        var provider = new ScriptedHumanInputProvider(new JsonObject { ["response"] = "Refuse" });
+        var handler = ConfiguredMcpClientFactory.CreateClientOptions(provider, "copilot").Handlers!.ElicitationHandler!;
+        await handler(new ElicitRequestParams
+        {
+            Mode = "form", Message = "Allow this Copilot operation?", RequestedSchema = new(),
+            Meta = new JsonObject { ["gnougo"] = new JsonObject { ["runId"] = "run", ["stepId"] = "step",
+                ["stepType"] = stepType, ["mcpServer"] = declaredServer, ["mcpMethod"] = "copilot_task_run", ["requestedCapability"] = capability } }
+        }, TestContext.Current.CancellationToken);
+        Assert.Equal(expected ? capability : null, provider.LastRequest!.Context?["requested_capability"]?.GetValue<string>());
+    }
+
     [Fact]
     public async Task ElicitationHandler_PublishesCallScopedWaitingAndResumedSignals()
     {

@@ -588,7 +588,12 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 "Allow this Copilot operation?",
                 choices,
                 false,
-                details),
+                details)
+            {
+                RequestedHostTool = !sandboxBypass && source.Request.Configuration.ExecutionBounds is not null &&
+                    request is PermissionRequestCustomTool tool && source.Request.Configuration.HostTools.Any(t => t.Name == tool.ToolName)
+                    ? tool.ToolName : null
+            },
             CancellationToken.None);
 
         if (!response.Accepted

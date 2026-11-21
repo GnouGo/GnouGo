@@ -298,7 +298,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
             ParentInvocationId = correlation?.StepId,
             Prompt = request.Message,
             Mode = fields is { Count: > 1 } ? HumanInputContract.ModeForm : HumanInputContract.ModeChoice,
-            Context = BuildMcpHumanInputContext(correlation),
+            Context = BuildMcpHumanInputContext(correlation, serverName, request.Meta),
             Fields = fields,
             Choices = fields is { Count: 1 } ? fields[0].Options : null,
             TimeoutMs = HumanInputContract.DefaultTimeoutMs
@@ -361,12 +361,15 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
         return new ElicitResult { Action = "accept", Content = content };
     }
 
-    private static JsonObject? BuildMcpHumanInputContext(McpCorrelationContext? correlation)
+    private static JsonObject? BuildMcpHumanInputContext(McpCorrelationContext? correlation, string? serverName, JsonObject? meta)
     {
         if (correlation is null)
             return null;
 
         var context = new JsonObject();
+        if (correlation.StepType == "agent.run" && serverName == correlation.ServerName && meta?["gnougo"] is JsonObject metadata &&
+            ReadMetaString(metadata, "requestedCapability") is { Length: 47 } capability && capability.StartsWith("mcp_", StringComparison.Ordinal))
+            context["requested_capability"] = capability;
         if (!string.IsNullOrWhiteSpace(correlation.ServerName))
             context["mcp_server"] = correlation.ServerName;
         if (!string.IsNullOrWhiteSpace(correlation.MethodName))

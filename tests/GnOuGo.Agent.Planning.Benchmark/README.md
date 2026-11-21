@@ -18,6 +18,12 @@ call. Clone, test execution, publication, XLSX output and cleanup use their
 existing guarded contracts. Both profiles route Copilot inference through the
 campaign admission proxy. Original sessions retain their captured profile.
 
+When the SDK requests permission to call a host tool, the MCP includes the
+selected capability ID in the permission request. The live reviewer receives
+the existing one-use dialog only while that exact run and invocation are active
+and the capability belongs to the reviewed manifest. The reviewer can grant
+one use or refuse it. The host records the request, answer and tool receipt.
+
 ## Responsibilities
 
 Compiler/host validation establishes technical facts: exact contracts and values,
