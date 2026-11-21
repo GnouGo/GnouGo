@@ -6,6 +6,26 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotInferenceAdapterTests
 {
+    [Fact]
+    public async Task ReservationUsesTheUtf8JsonSentToTheProvider()
+    {
+        const string content = "Check l’été, the patch <old> & <new>, and the quoted line \"résultat\".";
+        var original = new JsonObject { ["input"] = content, ["max_tokens"] = 64 };
+        var normalized = new JsonObject { ["input"] = content, ["max_output_tokens"] = 64 };
+        var json = normalized.ToJsonString(new System.Text.Json.JsonSerializerOptions
+            { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        var ceiling = 4096 + Encoding.UTF8.GetByteCount(json) + 64;
+        long persisted = 0;
+        var budget = new CopilotInferenceBudget(1, ceiling, DateTimeOffset.UtcNow.AddMinutes(1),
+            (_, tokens, _) => { persisted = tokens; return Task.CompletedTask; });
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/responses")
+            { Content = new StringContent(original.ToJsonString()) };
+        await budget.ReserveAsync(request, TestContext.Current.CancellationToken);
+        Assert.Equal(json, await request.Content!.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(ceiling, persisted);
+        Assert.Equal(ceiling, budget.ChargedTokens);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

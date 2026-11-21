@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Encodings.Web;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
@@ -8,6 +10,8 @@ namespace GnOuGo.GithubCopilot.Core;
 public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,
     Func<int, long, CancellationToken, Task> persistReservation, int initialCalls = 0, long initialTokens = 0)
 {
+    // This JSON is sent as application/json, including non-ASCII text in the original data.
+    private static readonly JsonSerializerOptions WireJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile bool _stopped;
     private string? _toolBudgetUpdate;
@@ -42,16 +46,24 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
                 ?? throw new InvalidOperationException("Invalid bounded inference request.");
             if (body["previous_response_id"] is not null || body["conversation"] is not null || !TextOnly(body))
                 throw new InvalidOperationException("Opaque conversation state and non-text inference cannot be charged safely.");
-            // The supported byte-BPE text protocols consume at most one token per UTF-8 byte.
-            // Charge all serialized metadata as well, plus an explicit framing allowance.
-            var inputCeiling = checked(Encoding.UTF8.GetByteCount(body.ToJsonString()) + 4096L);
-            var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
-            if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             var field = path.EndsWith("/responses", StringComparison.Ordinal) ? "max_output_tokens" : "max_completion_tokens";
             var requested = body[field]?.GetValue<long>() ?? body["max_tokens"]?.GetValue<long>() ?? 8192;
             if (requested < 1) throw new InvalidOperationException("Invalid inference output ceiling.");
-            var outputCeiling = Math.Min(requested, Math.Min(remaining, 32768));
-            body.Remove("max_tokens"); body[field] = outputCeiling;
+            var outputCeiling = Math.Min(requested, 32768);
+            body.Remove("max_tokens");
+            body[field] = outputCeiling;
+            // Byte-BPE consumes at most one token per UTF-8 byte. Include every metadata
+            // byte and the framing allowance. Lowering the output ceiling can only shorten the wire.
+            var wire = body.ToJsonString(WireJson);
+            var inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
+            var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
+            if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
+            if (outputCeiling > remaining)
+            {
+                outputCeiling = remaining;
+                body[field] = outputCeiling;
+                wire = body.ToJsonString(WireJson);
+            }
             // Multiple completions would multiply the reserved output allowance.
             if (body["n"] is { } count && count.GetValue<int>() != 1)
                 throw new InvalidOperationException("Bounded inference permits one completion per request.");
@@ -66,7 +78,7 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
             Volatile.Write(ref _toolBudgetUpdate, FormattableString.Invariant(
                 $"Operation allowance remaining: {maxModelCalls - ModelCalls} inference requests, {available} reservable tokens. Last request reserved {recent}. {advice}"));
             var original = request.Content;
-            request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(wire, Encoding.UTF8, "application/json");
             original.Dispose();
         }
         finally { _gate.Release(); }

@@ -91,6 +91,46 @@ Review 32 call 40 preserved inline order and submission acknowledgement.
 Its separately selected read still prevented closure. Both regressions
 used zero inference calls and executed no workflow.
 
+The local judge accepted checks and review at call 20, publication at
+call 32 and report delivery at call 40. Call 42 accepted the entire
+plan. Final technical validation passed at revision 135. The delegated
+operator reviewed all 20 tasks, both runtime inputs, the compiled
+`rapport` return, the pending-review guard and root cleanup. The saved
+agent then ran in chat. Git cloned once, and independent inspection
+verified the pinned head and base and 52 changed files.
+
+The first Copilot operation completed 30 observed shell commands.
+The frozen Node install, Python root test/CI install and both .NET
+restores exited zero. Other Python installations failed. The logical
+task recorded verified failure after consuming its nonrenewable 2,000,000
+token reservation in nine inference calls. The next request needed
+368,169 input tokens. This preceded the operation deadline. No lint,
+test suite, diff review, caller report or GitHub publication was verified.
+The original cleanup call lost its receipt when the 30-second finalizer
+cancelled deletion. The 3.5 GB checkout was still partially present.
+After confirming the command process had stopped, the operator reconciled
+that exact invocation as failed. An independent retry using the same
+Cmd alias timed out at its default 60 seconds. A second confined call
+with an explicit timeout inside the existing Cmd policy exited zero.
+Physical absence was verified. The original workflow settled as failed
+at revision 66. [Server execution and recovery](pr120-review50-server-execution.json)
+
+The 42 planning, nine Copilot and one workflow model calls settled at
+EUR 39.05395742. No new HTTP holds remained. The ledger counted 4,577
+physical calls and EUR 92.84520097 available. A fresh Amazon 27 session
+started on `b509478b` after the independent source check.
+
+The nine retained Copilot HTTP bodies contained 1,675,612 UTF-8 bytes.
+Re-encoding the same JSON with the default encoder took 1,893,629 bytes.
+The budget handler had introduced that escaping before the configured
+policy proxy serialized the provider request. The handler now reserves
+the UTF-8 application/json representation it forwards, including the
+normalized output limit, all metadata, the original framing allowance
+and the output reservation. A bounded request containing non-ASCII text,
+markup and quotes failed its regression before the change. All 179
+Copilot Core tests then passed. The 218,017-byte difference is a replay
+measurement and has no effect on historical reservations.
+
 ## Review 49, 21 November 2026
 
 Fresh Server session `68e895367b6f4024beb055975abe2deb` started on
