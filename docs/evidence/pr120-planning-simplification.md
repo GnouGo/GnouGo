@@ -22,7 +22,11 @@ short-circuit evaluation path. Facts about a loop item expire at the
 iteration that introduced it. A regression executed positive, zero and
 null inputs with cleanup on every path. Reversing the checks and testing
 an outer item's rank before using an inner item's rank both failed
-validation as required. Sixty focused planner tests passed.
+validation as required. Sixty focused planner tests and the full 3,262-test
+planner suite passed. The positive, zero and null cases also passed after
+round-tripping the plan through the TaskPlan wire grammar. The independent
+full solution run on frozen revision `c5a8b0b9` passed 9,729 tests with
+13 skipped.
 
 Replaying the original call 36 on its encrypted checkpoint reproduced all
 five findings before the fix. The identical response now reached the local

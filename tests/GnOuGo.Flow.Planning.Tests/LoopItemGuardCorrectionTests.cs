@@ -35,7 +35,11 @@ public sealed class LoopItemGuardCorrectionTests
         var consumer = loop.Body!.Tasks.Single();
         consumer.Requires = new() { Kind = "predicate", Predicate = "and", Items = [RankPresent(), RankPositive()] };
 
-        var result = new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request);
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!, grammar, grammar)!;
+        Assert.Empty(PlanningModelCalls.ValidateResponseFindings(wire, grammar));
+        var received = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var result = new TaskPlanCompiler().Compile(received, state.Catalog!, state.Request);
         Assert.Empty(result.Diagnostics);
         Assert.Empty(PlanningExecutableValidation.Validate(result.Graph!, state.Catalog!));
         var yaml = new PlanningGraphCompiler().Compile(result.Graph!, state.Catalog!);

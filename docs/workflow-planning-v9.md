@@ -49,6 +49,9 @@ Use `array_length` on a nonnullable array to compare its observed count in a
 predicate. For example, a guard can count the ordered rows exported by a
 `foreach` before writing them. Repeated elements each count once. A nullable
 array can be checked in the right operand of a short-circuit presence guard.
+For a nullable numeric field, `field != null && field > 0` checks presence
+before ordering. Inside a nested `foreach`, the inner item needs its own
+presence check.
 
 Typed repair preserves requirements, effects, executable literals and unrelated work.
 Explicit accepted-work revision invalidates affected approval. Code checks contracts,
