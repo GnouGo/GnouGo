@@ -44,7 +44,7 @@ public sealed class McpListExecutor : IStepExecutor
         When workflow.plan provides an `<available_mcp_servers>` section, pick those exact names.
         Lists the selected server contracts. Workflow planning uses its injected capability catalog and cached discovery receipts.
         Prefer `mcp.list` first when the exact tool or prompt name is not known in advance.
-        The output of `mcp.list` can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts` when you want an LLM-guided MCP selection step.
+        Use an authorized agent.run for adaptive tool selection from observations.
         Every item in `tools`, `resources`, and `prompts` includes a `server` field so downstream steps know where it came from.
         Do not go directly from `mcp.list` to `mcp.call` with only `server` unless the explicit goal is to call every available capability on that server.
         ```yaml

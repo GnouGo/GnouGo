@@ -182,7 +182,7 @@ export const STEP_TYPES: StepTypeDef[] = [
     icon: '📞',
     category: 'mcp',
     color: '#f97316',
-    description: 'Call MCP tool or prompt',
+    description: 'Call an explicitly selected MCP tool, prompt or batch',
     fields: [
       { name: 'server', label: 'Server', type: 'string', required: true, placeholder: 'demo' },
       { name: 'kind', label: 'Kind', type: 'select', options: ['tool', 'prompt'], defaultValue: 'tool' },
@@ -213,7 +213,7 @@ export const STEP_TYPES: StepTypeDef[] = [
     color: '#a855f7',
     description: 'Discover and select workflows, prepare their declared inputs and execute them.',
     fields: [
-      { name: 'prompt', label: 'Request', type: 'text', required: true },
+      { name: 'prompt', label: 'Request', type: 'text' },
       { name: 'history', label: 'Conversation history', type: 'expression' },
       { name: 'candidates', label: 'Workflow candidates or sources', type: 'json', required: true },
       { name: 'selection', label: 'Selection rules', type: 'json' },

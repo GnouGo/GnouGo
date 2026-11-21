@@ -583,7 +583,7 @@ Flattened `tools`, `resources`, and `prompts` entries each include a `server` fi
 
 ### `mcp.call` — Call MCP Tools or Prompts
 
-Calls one or more capabilities on an MCP server. Three modes are available:
+Select a configured server and an exact tool or prompt with `method`, or supply an explicit batch in `methods`. For actions that depend on observations during execution, use an approved `agent.run`.
 
 #### Direct tool call (preferred when tool names are known)
 
@@ -632,42 +632,9 @@ An optional context object can carry non-secret application metadata to a specia
 
 **Output:** `{ status: "ok", text: "...", messages: [...] }`
 
-#### LLM-assisted call (auto-selects the right tool)
+#### Migrating earlier selection modes
 
-Combine `mcp.list` → `mcp.call` with a prompt to let an LLM choose the best tool:
-
-```yaml
-- id: discover
-  type: mcp.list
-  input:
-    servers: [inventory]
-
-- id: smart_call
-  type: mcp.call
-  input:
-    server: inventory
-    model: gpt-4o-mini
-    temperature: 0.2
-    prompt: "Find and call the right tool to list available items"
-    tools: "${data.steps.discover.tools}"
-    prompts: "${data.steps.discover.prompts}"
-    structured_output:
-      schema_inline:
-        type: object
-        properties:
-          repos:
-            type: array
-            items:
-              type: object
-              properties:
-                name: { type: string }
-                url: { type: string }
-              required: [name, url]
-        required: [repos]
-      strict: true
-```
-
-**Output (LLM-assisted):** `{ status: "ok", selection_mode: "llm", text: "...", tool_calls: [...], results: [...], json: {...} }`
+Stored workflows can still execute the original prompt-based selection and discovery modes. For a known operation, bind its server, method and request directly. For a sequence chosen from live observations, approve an `agent.run` with a bounded tool set and tool-result verification. Use `llm.call` when only a structured decision or summary is needed. Existing approved artifacts retain their original inputs and effects.
 
 #### Output access patterns
 

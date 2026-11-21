@@ -28,7 +28,7 @@ internal static partial class PlanningCompactConstruction
     internal static string ImplementationGuidance(PlanningSession state) => $"""
         Use overallProgress, accepted work and contracts for this block's fixed criteria. Clauses record obligations. Resume ready consumers or build prerequisites. Reopening requires invalidation. Origins do not claim completion.
         Bind runtime caller inputs. Discover interfaces with kind:null or bind inspected operationIds directly. Local kinds need no discovery. Containers own control/reuse/cleanup/exports and capture ancestors. {ReusableGroupSemantics}
-        {ValueSemantics} Map observed data with extract. Use interpret for derived values. For variable actions use an authorized, bounded agent.run and verify tool results.
+        {ValueSemantics} Use known operations directly. Map observed data with extract and derive values with interpret. When observations change which actions are needed, use an authorized bounded agent.run with a goal, typed inputs and output, and tool-based verification. Keep known finalization explicit.
         Resolve input/dependency hints. Prerequisites produce runtime data and cite original evidence. Read metadata via discovery/evidence. expectedOutputs are provisional. Reselect unsupported mechanisms. outputNames declares public root results. Preserve objectives, literals, results and cleanup.
         For fulfilled obligations, closeScopes:[] closes requirements, [scope] the offered boundary, otherwise null. Choose one step, offered resumeStep, evidenceRequests or missing-fact clarifications. Others null. Evidence grants no edit/execution authority.
         """;

@@ -293,9 +293,8 @@ workflows:
         Assert.Contains("Even when `kind: prompt`, `request` contains the named prompt arguments expected by the MCP server", mcpCallSnippet);
         Assert.Contains("Single prompt call:", mcpCallSnippet);
         Assert.Contains("request: { text: \"Long document here\" }", mcpCallSnippet);
-        Assert.Contains("do NOT use `mcp.call` with only `server` as the default next step after `mcp.list`", mcpCallSnippet);
-        Assert.Contains("use `mcp.list` first -> pass `tools` and/or `prompts` from that step into `mcp.call`", mcpCallSnippet);
-        Assert.Contains("For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.", mcpCallSnippet);
+        Assert.Contains("Generated calls select an exact `method` or explicit `methods`", mcpCallSnippet);
+        Assert.Contains("bounded agent.run", mcpCallSnippet);
         // Output access patterns
         Assert.Contains("Output access patterns:", mcpCallSnippet);
         Assert.Contains("data.steps.<id>.status", mcpCallSnippet);
@@ -305,7 +304,6 @@ workflows:
         var mcpListSnippet = engine.Registry.Get("mcp.list")?.DslSnippet;
         Assert.NotNull(mcpListSnippet);
         Assert.Contains("injected capability catalog and cached discovery receipts", mcpListSnippet);
-        Assert.Contains("can be passed directly into `mcp.call.input.tools` and/or `mcp.call.input.prompts`", mcpListSnippet);
         Assert.Contains("Do not go directly from `mcp.list` to `mcp.call` with only `server`", mcpListSnippet);
 
         var llmCallSnippet = engine.Registry.Get("llm.call")?.DslSnippet;
