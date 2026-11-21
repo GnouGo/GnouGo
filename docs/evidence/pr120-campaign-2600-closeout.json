@@ -1,0 +1,131 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "currency": "EUR",
+  "accounting_basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection.",
+  "latest_spending_authorization": {
+    "previousCeilingEur": 2100,
+    "ceilingEur": 2600,
+    "authorizedAtUtc": "2026-11-20T16:50:06.1753600+00:00",
+    "authorizationHash": "48f5df93db4ab5401d8612a9572c204b4eb8a542fe7cfecbb0ccc966ad437b39"
+  },
+  "audited_ledger_sha256": "50938c329258f6deb5d801f9dff8d6550747744f3cb9c9de8f5e01a233145955",
+  "physical_requests": 3917,
+  "measured_cost_eur": "1942.73428676",
+  "unresolved_http_attempts": 55,
+  "unresolved_http_reservations_eur": "492.52354211",
+  "separate_server_reservations_eur": "162.25380608",
+  "available_eur": "2.48836505",
+  "since_last_authorization": {
+    "physical_requests": 753,
+    "measured_cost_eur": "471.25706878",
+    "by_activity": {
+      "Review live": {
+        "physical_requests": 546,
+        "measured_cost_eur": "356.81525655",
+        "unresolved_http_reservations_eur": "0.00000000"
+      },
+      "Amazon live": {
+        "physical_requests": 181,
+        "measured_cost_eur": "93.27958515",
+        "unresolved_http_reservations_eur": "3.41277293"
+      },
+      "Review live copilot": {
+        "physical_requests": 9,
+        "measured_cost_eur": "10.62854803",
+        "unresolved_http_reservations_eur": "0.00000000"
+      },
+      "Review live execution": {
+        "physical_requests": 1,
+        "measured_cost_eur": "0.08687227",
+        "unresolved_http_reservations_eur": "0.00000000"
+      },
+      "Amazon diagnostic": {
+        "physical_requests": 11,
+        "measured_cost_eur": "6.58190502",
+        "unresolved_http_reservations_eur": "0.00000000"
+      },
+      "Review diagnostic": {
+        "physical_requests": 5,
+        "measured_cost_eur": "3.86490175",
+        "unresolved_http_reservations_eur": "0.00000000"
+      }
+    }
+  },
+  "qualification": {
+    "review_consecutive_successes": 0,
+    "amazon_consecutive_successes": 0,
+    "required_per_scenario": 2
+  },
+  "selected_server_runs": {
+    "review_36": {
+      "run_key": "code718-verified-20261121-36",
+      "source": "98f33d784d4c58fe3f530bb7da857b94bc9ec1f4",
+      "session_id": "69e7dafb432e4ac8ac1b0de33d401b73",
+      "planner_revision": 137,
+      "planner_status": "final_review",
+      "qualified": false,
+      "execution_status": "failed",
+      "retrieved_record_sha256": "f85d7decbb5c25bbcbe4e20f905db0863793dfd69090894c6313b93676a18f3e",
+      "artifact_sha256": "eaafe35478372dce6296fee1744f7174868398f6b90b19ec03be0acea0f4b63a",
+      "execution_run_id": "02869fd100f5cb0caa7521945f7ba408",
+      "finalization_completed": true
+    },
+    "review_37": {
+      "run_key": "code718-verified-20261121-37",
+      "source": "2dbc3eefe8f5a1fcb29a5b0df144b6fee959ed8c",
+      "session_id": "398858f0243c473ca22dc2a1b89dea9b",
+      "planner_revision": 115,
+      "planner_status": "cancelled",
+      "qualified": false,
+      "execution_status": "not_started",
+      "retrieved_record_sha256": "5a22941234b3d5adad7fd664fc99cb06c81be9f487dc50997beb073bf0e3aa2d"
+    },
+    "review_38": {
+      "run_key": "code718-verified-20261121-38",
+      "source": "f39b1195e4ef7143f6afaec65ba552852bf85328",
+      "session_id": "29afd6c0bab54050b52c9b9934560acf",
+      "planner_revision": 74,
+      "planner_status": "stopped",
+      "qualified": false,
+      "execution_status": "not_started",
+      "retrieved_record_sha256": "5ad0c427460562bc9a51331cc3ed72b26555bddf79dfc1a5a4909e438f6fc910",
+      "refused_reservation_eur": "4.63332120",
+      "refused_request_dispatch": "not_started"
+    },
+    "amazon_18": {
+      "run_key": "amazon-first-ten-20261120-18",
+      "source": "5c13f8bd9e4ef7bbfb4d9b5c94cddc203ee788f5",
+      "session_id": "de184fff78244137ae9042e48df5ff47",
+      "planner_revision": 99,
+      "planner_status": "final_review",
+      "qualified": false,
+      "execution_status": "not_started",
+      "retrieved_record_sha256": "57b68e0e42e0e1f6dc4fb8d122d9331ecc467265e0a878f7f42ad7987eb2e983",
+      "artifact_sha256": "5863c77bba27d43abc81dba5c36a2e4e0638f21340d27c42ec399d101b0589bf"
+    },
+    "amazon_20": {
+      "run_key": "amazon-first-ten-20261121-20",
+      "source": "3209390421b42a93d46ac2565c91619fdae274ee",
+      "session_id": "34e97f57f85741ccb31e081ad264ccc0",
+      "planner_revision": 23,
+      "planner_status": "stopped",
+      "qualified": false,
+      "execution_status": "not_started",
+      "retrieved_record_sha256": "7db635553b8c75d8ca205179390889610cc126ab259560f5e2e89203b39ad233"
+    },
+    "amazon_21": {
+      "run_key": "amazon-first-ten-20261121-21",
+      "source": "f39b1195e4ef7143f6afaec65ba552852bf85328",
+      "session_id": "b5fc4969701040c4b8252a63e4d04896",
+      "planner_revision": 27,
+      "planner_status": "stopped",
+      "qualified": false,
+      "execution_status": "not_started",
+      "retrieved_record_sha256": "8376a7e1a26f38ef8d544bcb23672c3ebfca044d28d0024637fdff0b5e73863b",
+      "refused_reservation_eur": "3.14044586",
+      "refused_request_dispatch": "not_started"
+    }
+  },
+  "amazon_20_502_retention_evidence_sha256": "fa9c46d6c39f351f84c4f89e5341d6a4a2c38809c8987f0512d4f4604c3f51be",
+  "review_37_cancelled_reservation_evidence_sha256": "2a1381750086c988a34005f9a02353c6310dda88c6664a69efa406d459d852db"
+}

@@ -1,5 +1,45 @@
 # PR 120 planning simplification
 
+## Closing observations, 21 November 2026
+
+Neither scenario achieved a complete qualified execution. Both ended with
+zero consecutive successes. The single EUR 500 authorization raised the
+cumulative ceiling from EUR 2,100 to EUR 2,600. The audit checked all
+earlier per-session balances and the authorization history.
+
+| Campaign accounting | Physical requests | EUR |
+| --- | ---: | ---: |
+| Measured usage at captured tariffs | 3,862 | 1,942.73429 |
+| HTTP attempts with unresolved usage | 55 | 492.52354 reserved |
+| Separate Server reservations | | 162.25381 reserved |
+| Available for a fresh reservation | | 2.48837 |
+
+Across the supplement there were 753 physical requests and EUR 471.25707
+in measured usage. The last Amazon run had eight completed requests. It
+prepared a search and its finalizer before the ninth request required
+EUR 3.14045. Admission stopped the request before dispatch. The previous
+Review run had already stopped on a required EUR 4.63332 reservation.
+Both test reports emitted a budget warning. The detailed accounting gives
+the per-scenario split, terminal run identifiers and evidence hashes.
+[Campaign closeout](pr120-campaign-2600-closeout.json)
+
+Review 36 executed the saved workflow, cloned the exact head and deleted
+its checkout after the bounded Copilot check failed. GitHub still returned
+zero reviews and zero inline comments for PR 718 at closeout. Amazon 18
+reached global review. Its saved form did not reach the Server chat before
+the composer fix. No subsequent run produced the required ten-row workbook
+and observed browser closure.
+
+The Git MCP now tells the planner to select a remote which advertises
+both revisions for a single-clone comparison. An independent read of the
+target's advertised refs found the frozen head at `refs/pull/718/head`.
+The current `main` tip differed from the base SHA in the PR response.
+A local real-Git regression compared pinned, divergent revisions after
+the base branch moved, through one read-only checkout with full history.
+All 87 Git MCP tests passed, including stdio discovery. The final Release
+solution build completed with zero warnings and errors. The funded live
+runs preceded the last two Git MCP changes.
+
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
 Review 38 verified the rollback mechanism on the original Review 37
