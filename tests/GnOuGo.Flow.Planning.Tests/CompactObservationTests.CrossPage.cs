@@ -56,13 +56,29 @@ public sealed partial class CompactObservationTests
         var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "cross_page", true, true, true);
         Assert.DoesNotContain("mapping.dynamic", yaml);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
-        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["pages"] = pages.DeepClone() }, PlannerFixture.Ct);
-        Assert.True(result.Success, result.Error?.Message);
-        Assert.Equal(new[] { "exact\t— café\n漢🙂", "exact\t— café\n漢🙂" }, result.Outputs!["labels"]!.AsArray().Select(v => v!.ToString()));
-        Assert.Equal(original, result.Outputs["originals"]!.ToJsonString());
+        var workflow = document.Workflows[document.Entrypoint!];
+        var regrouped = new JsonArray(pages.SelectMany(p => p!["records"]!.AsArray()).Chunk(45)
+            .Select(chunk => (JsonNode)new JsonObject { ["records"] = new JsonArray(chunk.Select(r => r!.DeepClone()).ToArray()) }).ToArray());
+        var changed = (JsonArray)regrouped.DeepClone();
+        var related = changed.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["group"]?.ToString() == "shared").ToArray();
+        related[0]!["label"] = "first";
+        related[1]!["label"] = "second";
+        var absent = (JsonArray)changed.DeepClone();
+        foreach (var rowWithGroup in absent.SelectMany(p => p!["records"]!.AsArray()).Where(r => r!["group"]?.ToString() == "shared"))
+            rowWithGroup!["group"] = null;
+        foreach (var (source, labels) in new[] { (pages, new[] { "exact\t— café\n漢🙂", "exact\t— café\n漢🙂" }),
+                     (regrouped, new[] { "exact\t— café\n漢🙂", "exact\t— café\n漢🙂" }), (changed, new[] { "first", "second" }), (absent, Array.Empty<string>()) })
+        {
+            var before = source.ToJsonString();
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["pages"] = source.DeepClone() }, PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(labels, result.Outputs!["labels"]!.AsArray().Select(v => v!.ToString()));
+            Assert.Equal(before, result.Outputs["originals"]!.ToJsonString());
+            Assert.Equal(before, source.ToJsonString());
+        }
         Assert.Equal(original, pages.ToJsonString());
-        Assert.Equal(1, client.Calls);
-        output.WriteLine($"Complete pages=53, records=1581, global decisions=1, mapping inference=0, request estimate={client.Estimate}, original identities unchanged.");
+        Assert.Equal(4, client.Calls);
+        output.WriteLine("One compiled workflow, four observations of 1581 records, one global decision per observation, zero mapping inference.");
     }
 
     private sealed class CrossPageModel : ILLMClient
@@ -70,7 +86,7 @@ public sealed partial class CompactObservationTests
         internal int Calls, Estimate;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            Calls++; Assert.Equal(1, Calls);
+            Calls++;
             Estimate = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject());
             PlannerFixture.ObserveInputBudget(Estimate, 96000);
             Assert.DoesNotContain("original/", request.Prompt); Assert.DoesNotContain(new string('x', 100), request.Prompt);

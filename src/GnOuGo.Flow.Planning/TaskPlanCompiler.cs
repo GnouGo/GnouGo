@@ -887,8 +887,8 @@ public sealed partial class TaskPlanCompiler
         if (value.Items.Count != 2 || value.Port is not null || value.Source is not null || value.Text is not null ||
             value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
             Fail("TASK_INDEX_INVALID", "at_index requires exactly two operands, the array and its zero-based position.");
-        var collection = Value(value.Items[0], scope);
-        var index = Value(value.Items[1], scope);
+        var collection = Value(value.Items[0], scope, requireNonNull: true);
+        var index = Value(value.Items[1], scope, requireNonNull: true);
         var selection = new PlanningValue { Kind = "at_index", Items = [collection.Value, index.Value] };
         JsonObject element;
         try { element = PlanningValues.ComputationContract(selection, operand => ReferenceEquals(operand, collection.Value) ? collection.Schema : index.Schema); }

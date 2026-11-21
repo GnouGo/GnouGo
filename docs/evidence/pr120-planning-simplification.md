@@ -1,5 +1,36 @@
 # PR 120 planning simplification
 
+## Amazon 28 and SlimFaaS review prerequisites, 21 November 2026
+
+Amazon Server session `33299bc91181442f8b8a7422bdaea6d3` used
+`0b7a9d9d`. The operator stopped the session at the reconstruction question
+on revision 167. Revision 168 recorded cancellation. Planning made 72 model
+calls and estimated EUR 46.14524. The session saved no workflow and produced
+no workbook. The separate Browser prerequisite observed 1,409 original records
+across 64 transport pages, resolved 13 store links and verified browser closure.
+
+Replaying original drafts 23, 38 and 57 reproduced `TASK_INDEX_INVALID`.
+The loop asserted that an array was present, then its body indexed that array.
+Positional lookup now consumes the established null check at the point of use.
+Drafts 23 and 38 passed construction validation unchanged. Draft 57 cleared
+the index error and retained its independent rollback-scope finding. The
+runtime regression exercised populated and null inputs and separately rejected
+an unguarded lookup. One compiled workflow also processed four variants of
+the same 1,581-record observation, including changed pagination, changed labels
+and absent group identities. This fixture uses a scripted interpretation call.
+[Positional lookup](../../tests/GnOuGo.Flow.Planning.Tests/PositionalBindingTests.cs) ·
+[Cross-page observations](../../tests/GnOuGo.Flow.Planning.Tests/CompactObservationTests.CrossPage.cs)
+
+Fresh review qualification targets SlimPlanet/SlimFaas PR 519. Historical review
+versions retain their captured targets. A regression on the original verifier
+permitted approval with only the former repository's terminal checks. The new
+verifier reads the target's pinned Git blobs and matches checks to the command
+and checkout directory. It tracks the run-owned cluster and kubeconfig.
+The SDK transport applies its captured deadline to headers and the entire
+response body and validates native stream termination before releasing output.
+[Review guard](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs) ·
+[Provider boundary](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionTests.cs)
+
 ## Review 52, 21 November 2026
 
 Fresh Server session `19249a4b0d2049929a9ce170e47b1a50` ran on

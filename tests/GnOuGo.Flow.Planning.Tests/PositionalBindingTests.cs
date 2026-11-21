@@ -66,6 +66,38 @@ public sealed class PositionalBindingTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task IndexInsideIterationUsesOnlyTheArrayGuardThatActuallyRan(bool guard)
+    {
+        var plan = Plan();
+        plan.Inputs[1].Type.Nullable = true;
+        if (guard) plan.Root.Tasks[0].Requires = new() { Kind = "predicate", Predicate = "not_equal",
+            Items = [LookupCompilationTests.Input("flags"), new() { Kind = "null" }] };
+        var state = PlannerFixture.Session();
+        var engine = new WorkflowEngine();
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var validated = TaskPlanCompiler.ValidateConstruction(plan, catalog, state.Request, new HashSet<string>());
+        if (!guard)
+        {
+            Assert.Contains(validated.Diagnostics, diagnostic => diagnostic.Code == "TASK_INDEX_INVALID");
+            return;
+        }
+        Assert.Empty(validated.Diagnostics);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var inputs = JsonNode.Parse("""{"observations":["a","a"],"flags":[{"flag":false},{"flag":true}]}""")!.AsObject();
+        var ordered = await LookupCompilationTests.Execute(yaml, inputs, engine);
+        Assert.True(ordered.Success, ordered.Error?.Message);
+        Assert.Equal("[false,true]", ordered.Outputs!["flags"]!.ToJsonString());
+        inputs["flags"] = null;
+        var absent = await LookupCompilationTests.Execute(yaml, inputs, engine);
+        Assert.False(absent.Success);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task OnlyTheOriginalArrayCanEstablishArtifactOwnership(bool mixed)
