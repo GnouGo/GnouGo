@@ -1,5 +1,24 @@
 # PR 120 planning simplification
 
+## Review 47, 21 November 2026
+
+Fresh Server session `9d9c9b644bcb4b6e9dadc54640bf7f3f` started on
+`b1ef90ed`. Its first local judge accepted the preparation and Copilot
+review block at call 33. Call 25 bound the entire check response to the
+next Copilot operation. Its consumers also received the original prompt
+and progress events. The source MCP now describes the existing summary,
+tool observations, completion status and diagnostic stream at discovery.
+
+The earlier real Review 36 receipt measured 264,897 UTF-8 bytes. Keeping
+`summary`, `toolExecutions`, `success`, `error_code` and `error_message`
+retained all 96 SDK observations in 74,587 bytes. The full receipt remains
+at the producer. The rendered output incorrectly began “Copilot agent
+completed.” while the same receipt recorded `success:false` and
+`COPILOT_LIMIT_REACHED`. Rendering now uses the same completion flag as
+the structured result. Both complete and interrupted operations passed
+their regressions, and all 259 Copilot MCP tests passed. The full planner
+suite after sharing repair snapshots passed 3,287 tests.
+
 ## Review 46, 21 November 2026
 
 Fresh Server session `3728171b83054226a72f748f89d32b2b` ran on

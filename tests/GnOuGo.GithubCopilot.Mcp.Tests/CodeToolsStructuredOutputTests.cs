@@ -29,7 +29,11 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Null(schema["properties"]?["requestContext"]);
         Assert.Null(schema["properties"]?["tenantId"]);
         var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
-        Assert.NotNull(output["properties"]?["toolExecutions"]);
+        var fields = output["properties"]!;
+        Assert.Contains("Original input", fields["task"]?["description"]?.ToString() ?? "");
+        Assert.Contains("returned text", fields["summary"]?["description"]?.ToString() ?? "");
+        Assert.Contains("terminal exit codes", fields["toolExecutions"]?["description"]?.ToString() ?? "");
+        Assert.Contains("Progress stream", fields["progressEvents"]?["description"]?.ToString() ?? "");
     }
 
     [Theory]

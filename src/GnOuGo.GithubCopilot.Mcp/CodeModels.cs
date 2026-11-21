@@ -102,12 +102,15 @@ public sealed record CodeSuggestionResult(
 }
 
 public sealed record CodeAgentEditResult(
+    [property: Description("Original input instructions echoed for traceability.")]
     string Task,
     IReadOnlyList<string> ContextFiles,
     IReadOnlyList<string> ModifiedFiles,
+    [property: Description("Copilot's returned text. Read success and error_code for completion, and toolExecutions for observed work.")]
     string Summary,
     string? Model,
     string? UsageJson,
+    [property: Description("Progress stream for diagnostics. Use summary and toolExecutions for downstream results.")]
     IReadOnlyList<CodeProgressEvent> ProgressEvents = null!,
     string? Output = null,
     string? TraceId = null,
@@ -117,6 +120,7 @@ public sealed record CodeAgentEditResult(
     [property: JsonPropertyName("error_code")] string? ErrorCode = null,
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
+    [Description("SDK tool observations including original arguments and terminal exit codes when observed. A missing exit code remains unknown.")]
     public IReadOnlyList<GnOuGo.GithubCopilot.Core.CopilotToolExecutionObservation> ToolExecutions { get; init; } = [];
     public bool Ok => Success;
 }

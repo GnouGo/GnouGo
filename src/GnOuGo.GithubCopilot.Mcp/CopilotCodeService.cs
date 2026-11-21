@@ -62,7 +62,7 @@ internal sealed class CopilotCodeService(
             var error = value.Completed ? null : value.Content.StartsWith("COPILOT_LIMIT_REACHED:", StringComparison.Ordinal)
                 ? "COPILOT_LIMIT_REACHED" : value.Content.StartsWith("COPILOT_SESSION_LIMIT:", StringComparison.Ordinal) ? "COPILOT_SESSION_LIMIT" : "COPILOT_TURN_FAILED";
             return receipt = new(task, contextFiles.Select(f => f.Path).ToArray(), value.ModifiedFiles, value.Content, value.Model,
-                Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value.Content, value.ModifiedFiles, value.Model, context, events, value.Usage),
+                Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value, context, events),
                 context?.TraceId, context?.CorrelationId, context?.TraceParent, Success: value.Completed, ErrorCode: error,
                 ErrorMessage: value.Completed ? null : value.Content) { ToolExecutions = value.ToolExecutions };
         }
@@ -145,37 +145,35 @@ internal sealed class CopilotCodeService(
     }
 
     private static string BuildAgentEditOutput(
-        string summary,
-        IReadOnlyList<string> modifiedFiles,
-        string? model,
+        CopilotSendResult result,
         CodeMcpTraceContext? traceContext,
-        IReadOnlyList<CodeProgressEvent> progressEvents,
-        CopilotUsage? data)
+        IReadOnlyList<CodeProgressEvent> progressEvents)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Copilot agent completed.");
+        sb.AppendLine(result.Completed ? "Copilot agent completed." : "Copilot response incomplete.");
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(summary))
+        if (!string.IsNullOrWhiteSpace(result.Content))
         {
             sb.AppendLine("Summary:");
-            sb.AppendLine(summary.Trim());
+            sb.AppendLine(result.Content.Trim());
             sb.AppendLine();
         }
 
-        if (!string.IsNullOrWhiteSpace(model))
-            sb.AppendLine($"Model: {model}");
+        if (!string.IsNullOrWhiteSpace(result.Model))
+            sb.AppendLine($"Model: {result.Model}");
 
         if (!string.IsNullOrWhiteSpace(traceContext?.TraceId))
             sb.AppendLine($"OpenTelemetry trace_id: {traceContext.TraceId}");
         if (!string.IsNullOrWhiteSpace(traceContext?.CorrelationId))
             sb.AppendLine($"Correlation ID: {traceContext.CorrelationId}");
-        if (!string.IsNullOrWhiteSpace(data?.RequestId))
-            sb.AppendLine($"Copilot request_id: {data.RequestId}");
-        if (!string.IsNullOrWhiteSpace(data?.InteractionId))
-            sb.AppendLine($"Copilot interaction_id: {data.InteractionId}");
+        if (!string.IsNullOrWhiteSpace(result.Usage?.RequestId))
+            sb.AppendLine($"Copilot request_id: {result.Usage.RequestId}");
+        if (!string.IsNullOrWhiteSpace(result.Usage?.InteractionId))
+            sb.AppendLine($"Copilot interaction_id: {result.Usage.InteractionId}");
 
         sb.AppendLine();
+        var modifiedFiles = result.ModifiedFiles;
         sb.AppendLine(modifiedFiles.Count == 0
             ? "Modified files: none reported."
             : $"Modified files ({modifiedFiles.Count}):");

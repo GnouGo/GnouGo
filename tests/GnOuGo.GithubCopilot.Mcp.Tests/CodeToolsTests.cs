@@ -160,6 +160,7 @@ public sealed class CodeToolsTests : IDisposable
         Assert.DoesNotContain("before editing", assistant.LastRequest.Prompt, StringComparison.Ordinal);
         Assert.Equal(task, result.Task);
         Assert.Equal(!unavailable, result.Success);
+        Assert.Equal(unavailable ? "Copilot response incomplete." : "Copilot agent completed.", result.Output?.Split('\n')[0].TrimEnd());
         Assert.Empty(result.ModifiedFiles);
         Assert.Empty(result.ToolExecutions);
         Assert.Equal(original, File.ReadAllText(Path.Combine(_root, "src", "Program.cs")));

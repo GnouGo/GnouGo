@@ -174,7 +174,11 @@ does not contain shell commands.
 
 Tenant-scoped calls require transport metadata `_meta.gnougo.tenantId`. Business tools no longer accept `tenantId`; there is no environment, activity or default-tenant fallback for ownership. Bounded task envelopes must match the transport tenant. Standalone callers must send metadata; Agent.Server supplies the execution owner. Refresh discovery and revise/regenerate workflows using the removed argument; do not turn tenant identity into a workflow input. Agentic execution defaults to interactive permission requests and fails
 closed when human input is unavailable. Broad approval is disabled in shipped defaults.
-`code_agent_edit` additionally exposes Core's `toolExecutions` observations.
+`code_agent_edit` exposes the Copilot text in `summary`, the SDK observations
+in `toolExecutions` and completion in `success` and `error_code`. Consumers
+can bind those fields directly. The whole response also includes the original
+input task and the progress stream. An interrupted response is identified as
+incomplete in the rendered `output`.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
 
 - `Code:AllowWrites` must be `true`.
