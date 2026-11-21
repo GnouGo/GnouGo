@@ -1,5 +1,28 @@
 # PR 120 planning simplification
 
+## Command discovery during Review 45, 21 November 2026
+
+Review 44 call 15 and Review 45 call 13 each included 18 command aliases
+in the selected `cmd_run` contract. The publication grant admitted one,
+`delete_directory`, with a separate check on the exact checkout path. In
+both captured drafts, the description occupied 5,114 characters and the
+compact input schema occupied 12,724 characters.
+
+A regression opened the actual Cmd stdio session from the publication
+profile and reproduced all 18 advertised aliases. This profile now starts
+Cmd with its delegated cleanup alias as a process restriction. The MCP
+derives discovery and execution from the same configured allowlist. The
+regression verified a single selector and schema branch, denial of
+`create_directory` before any directory appeared, actual removal of a
+fixture checkout, and preservation of the saved configuration.
+
+An independent stdio listing took the native description from 5,114 to
+885 characters and the native input schema from 14,292 to 1,314. All 148
+selected Server tests and 93 Cmd tests passed. Seven Windows-only tests
+were skipped on macOS. The comparison used zero provider requests.
+Review 45 had already started from the frozen commit `534854f4`. Its
+execution evidence must be evaluated against that source.
+
 ## Review 44, 21 November 2026
 
 Fresh Server session `f943a84102f64144b7d09c63da889415` started on

@@ -12,6 +12,46 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkDiscoveryVisibilityTests
 {
     [Fact]
+    public async Task PublishedReviewCmdListsAndExecutesOnlyItsConfiguredCleanupAlias()
+    {
+        var source = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+        var build = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        const string server = "GnOuGo.Cmd.Mcp";
+        var root = Directory.CreateTempSubdirectory("review-cmd-").FullName;
+        try
+        {
+            var configured = new[] { "Git", "Cmd", "GithubCopilot", "Document" }
+                .ToDictionary(n => $"GnOuGo.{n}.Mcp", _ => new McpServerOptions());
+            configured["Github"] = new() { Type = "http" };
+            configured[server].EnvironmentVariables = new() { ["Cmd__DefaultWorkingDirectory"] = root };
+            var saved = JsonSerializer.Serialize(configured);
+            var profile = LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source);
+            var ct = TestContext.Current.CancellationToken;
+            await using var factory = new ConfiguredMcpClientFactory(new() { [server] = profile[server] });
+            await using var session = await factory.GetClientAsync(server, ct);
+            var cmd = Assert.Single(await session.ListToolsAsync(ct), t => t.Name == "cmd_run");
+            Assert.Equal("delete_directory", Assert.Single(cmd.InputSchema!["properties"]!["commandName"]!["enum"]!.AsArray())!.ToString());
+            Assert.Single(cmd.InputSchema["oneOf"]!.AsArray());
+            Assert.DoesNotContain("create_directory", cmd.Description);
+            Assert.Contains("delete_directory", cmd.Description);
+            var parameters = new JsonObject { ["path"] = "checkout" };
+            var denied = await session.CallToolAsync("cmd_run", new JsonObject { ["commandName"] = "create_directory", ["parameters"] = parameters.DeepClone() }, ct);
+            Assert.True(denied.IsError);
+            var checkout = Path.Combine(root, "checkout");
+            Assert.False(Directory.Exists(checkout));
+            Directory.CreateDirectory(checkout);
+            var cleanup = await session.CallToolAsync("cmd_run", new JsonObject { ["commandName"] = "delete_directory", ["parameters"] = parameters.DeepClone() }, ct);
+            Assert.False(cleanup.IsError);
+            Assert.False(Directory.Exists(checkout));
+            Assert.Equal(saved, JsonSerializer.Serialize(configured));
+            configured[server].EnvironmentVariables!["GNOUGO_CMD_ONLY_COMMAND"] = "cat_file";
+            Assert.Throws<PlanningConflictException>(() =>
+                LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Fact]
     public async Task MetadataConfigurationStartsActualCopilotWithoutAnExecutionProxyPlaceholder()
     {
         var root = Directory.CreateTempSubdirectory("benchmark-discovery-").FullName;

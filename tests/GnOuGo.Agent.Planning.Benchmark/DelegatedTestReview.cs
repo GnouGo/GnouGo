@@ -28,6 +28,7 @@ internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
     DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null)
 {
+    internal const string CleanupCommand = "delete_directory";
     private string? _boundExecutionId;
     private string ExecutionId => _boundExecutionId ?? run;
     internal void BindServerRun(string executionId)
@@ -231,7 +232,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             }
             else if (tool == "cmd_run")
             {
-                if (args["commandName"]?.ToString() != "delete_directory") throw new PlanningConflictException("Only confined clone cleanup is delegated to Cmd.");
+                if (args["commandName"]?.ToString() != CleanupCommand) throw new PlanningConflictException("Only confined clone cleanup is delegated to Cmd.");
                 RequirePath(args["parameters"]?["path"]?.ToString(), relative + "/repository", exact: true);
             }
             else if (tool != "document_write") RequirePath(args["projectRoot"]?.ToString(), relative + "/repository", exact: true);

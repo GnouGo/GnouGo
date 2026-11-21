@@ -351,6 +351,16 @@ internal static class LiveWorkflowEvaluation
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();
+            if (name == "Cmd" && scenario == PublishedReviewQualification.Scenario)
+            {
+                const string scope = "GNOUGO_CMD_ONLY_COMMAND";
+                var cleanup = DelegatedTestReviewAuthority.CleanupCommand;
+                var existing = clone.EnvironmentVariables.Where(p => string.Equals(p.Key, scope, StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.Value).Append(Environment.GetEnvironmentVariable(scope));
+                if (existing.Any(alias => alias is not null && !string.Equals(alias, cleanup, StringComparison.OrdinalIgnoreCase)))
+                    throw new PlanningConflictException("The existing Cmd command restriction excludes the delegated cleanup.");
+                clone.EnvironmentVariables[scope] = cleanup;
+            }
             // This disposable evaluation must exercise the workflow's cleanup.
             // Override only the spawned browser's debug setting, not saved host policy.
             if (name == "Browser") clone.EnvironmentVariables["Browser__KeepBrowserOpen"] = "false";
