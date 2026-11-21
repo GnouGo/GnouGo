@@ -24,6 +24,9 @@ A draft can pass selected receipt fields directly to a model consumer. When
 its input is text, the same binding can serialize an object of observed
 values and completion status. The producer retains the entire original receipt.
 
+A checkpoint page can refer back to the same selected step within that page.
+Each row retains its own plan hash, step baseline and contributed fragment.
+
 Implementation-selection evidence choices share the reader's accepted-producer,
 scope and version checks. Unselected operation contracts remain available through
 the selected implementation's discovery phase. Contract/schema inspection is

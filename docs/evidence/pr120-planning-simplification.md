@@ -40,6 +40,24 @@ executed the field selection and JSON conversion over a real engine
 with an in-memory MCP. It preserved the observed failure and command
 records. All 245 focused tests passed. Review 48 runs its frozen source.
 
+Call 37 retrieved a page of four checkpoints. Each retained a different
+plan baseline, but the same selected step and schema coordinates. Fresh
+presentation keeps the first complete selection and the individual hashes
+and fragments. A detached replay at revision 119 reconstructed all three
+repeated steps. The prompt fell from 126,391 to 113,014 UTF-8 bytes. The
+206 focused presentation, measurement and binding tests passed.
+
+Call 27 accepted the Copilot review block. Call 42 placed the pending
+review, serial inline comments and submission inside the eligible branch.
+The ineligible branch returned an explanation. Call 45 repaired the
+report binding after `TASK_OUTPUT_UNKNOWN`. At call 48 the global judge
+accepted the plan and final technical validation passed at revision 151.
+The operator reviewed the 22 tasks of artifact
+`83e32a68835ab344a8b7966c4dba8d1f60a7e7f34e61bdf2b255628055167dfc`.
+The saved agent `a4cd27fc-26c0-4670-a933-e8a7295cc8de` started chat
+workflow `d8e1c3ba3ed8f1b420aef7d583b79134`. GitHub resolution and one
+clone succeeded. The recorded checkout head and base matched the target.
+
 ## Review 47, 21 November 2026
 
 Fresh Server session `9d9c9b644bcb4b6e9dadc54640bf7f3f` started on

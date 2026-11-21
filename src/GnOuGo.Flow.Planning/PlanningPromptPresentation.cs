@@ -260,6 +260,7 @@ public static class PlanningPromptPresentation
         var sharedReviewContracts = ShareReviewedOperationDetails(context);
         var sharedReviewSnapshots = ShareUnchangedReviewSnapshots(context);
         var sharedRepairSnapshots = ShareUnchangedRepairSnapshots(context);
+        var sharedCheckpointSteps = ShareCheckpointSteps(context);
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
@@ -327,7 +328,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !sharedRepairSnapshots && !composedFields && !sharedReselection) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !sharedRepairSnapshots && !sharedCheckpointSteps && !composedFields && !sharedReselection) return prompt;
+        if (sharedCheckpointSteps)
+            context["checkpointStepPresentation"] = "sameStepAsItem refers to the full step at that zero-based item in this checkpoint page. Replace only its baseHash with the displayed baseHash.";
         if (sharedRepairSnapshots)
             context["repairSnapshotPresentation"] = "beforePresentedAt points to this finding's identical current snapshot. The comparison and its original evidence pointers remain on the finding.";
         if (sharedReselection)
@@ -526,6 +529,30 @@ public static class PlanningPromptPresentation
             else originals.Add(key, $"/interfaces/{index}/schema");
         }
         return changed;
+    }
+
+    private static bool ShareCheckpointSteps(JsonObject context)
+    {
+        if (context["evidence"] is not JsonObject evidence) return false;
+        var shared = false;
+        foreach (var (address, page) in evidence)
+        {
+            if (!address.StartsWith("page:checkpoints:", StringComparison.Ordinal) || page is not JsonObject ||
+                page["items"] is not JsonArray rows) continue;
+            var firstItem = new Dictionary<string, int>(StringComparer.Ordinal);
+            for (var index = 0; index < rows.Count; index++)
+            {
+                if (rows[index] is not JsonObject row || row["step"] is not JsonObject step ||
+                    step["baseHash"] is not JsonValue baseline || step.ContainsKey("sameStepAsItem")) continue;
+                var selection = step.DeepClone().AsObject();
+                selection.Remove("baseHash");
+                var exact = selection.ToJsonString();
+                if (exact.Length <= 320 || firstItem.TryAdd(exact, index)) continue;
+                row["step"] = new JsonObject { ["sameStepAsItem"] = firstItem[exact], ["baseHash"] = baseline.DeepClone() };
+                shared = true;
+            }
+        }
+        return shared;
     }
 
     private static bool ShareUnchangedRepairSnapshots(JsonObject context)

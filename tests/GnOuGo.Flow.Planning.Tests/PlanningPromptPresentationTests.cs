@@ -6,6 +6,34 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningPromptPresentationTests
 {
     [Fact]
+    public void CheckpointPageSharesRepeatedSelectionsAndPreservesEachBaseAndFragment()
+    {
+        JsonObject Row(string baseline, string objective) => new()
+        {
+            ["sequence"] = 7, ["fragment"] = new JsonObject { ["value"] = baseline },
+            ["step"] = new JsonObject { ["id"] = "collect", ["objective"] = objective, ["baseHash"] = baseline,
+                ["schemaPointers"] = new JsonArray(new string('p', 800)) }
+        };
+        var rows = new JsonArray(Row("first", "Gather"), Row("second", "Gather"), Row("third", "Return"));
+        var page = new JsonObject { ["items"] = rows };
+        var context = new JsonObject { ["evidence"] = new JsonObject {
+            ["page:checkpoints:0"] = page, ["description:external"] = page.DeepClone() } };
+        var prompt = "Instructions.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        Assert.True(compact.Length < prompt.Length);
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+        var restored = JsonNode.Parse(compact.Split('\n').Last())!.AsObject();
+        var shown = restored["evidence"]!["page:checkpoints:0"]!["items"]!.AsArray();
+        var reference = shown[1]!["step"]!;
+        Assert.Equal(0, reference["sameStepAsItem"]!.GetValue<int>());
+        var step = shown[0]!["step"]!.DeepClone();
+        step["baseHash"] = reference["baseHash"]!.DeepClone();
+        shown[1]!["step"] = step;
+        restored.Remove("checkpointStepPresentation");
+        Assert.True(JsonNode.DeepEquals(context, restored));
+    }
+
+    [Fact]
     public void RepairShowsIdenticalWitnessSnapshotsOnceAndPreservesChangedFindings()
     {
         var snapshot = new JsonObject { ["hash"] = "captured", ["bytes"] = 800, ["value"] = new string('x', 800) };
