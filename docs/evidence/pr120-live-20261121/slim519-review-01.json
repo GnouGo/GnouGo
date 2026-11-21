@@ -1,0 +1,53 @@
+{
+  "run": "slim519-verified-20261121-01",
+  "session": "810f3994d0a54b80aa03428c700fafe7",
+  "source": "4c8b5711",
+  "pr": {
+    "base": "e4deed940d34719b44db32e8d0ad7821e66f7e41",
+    "baseRepository": "SlimPlanet/SlimFaas",
+    "files": 8,
+    "head": "9585afcbaeefddd5f634b795d589e4383243a8a5",
+    "headRepository": "NopeCharon/SlimFaas",
+    "state": "open"
+  },
+  "status": "cancelled",
+  "revision": 123,
+  "settled_question_revision": 122,
+  "issue_at_calls": [
+    18,
+    28,
+    39
+  ],
+  "logical_calls": 39,
+  "estimated_planning_eur": "17.907188353048227",
+  "physical_calls": 39,
+  "measured_tariff_cost_eur": "17.903930131004366812227074248",
+  "http_hold_delta_eur": "0E-26",
+  "saved": false,
+  "execution_started": false,
+  "cluster_created": false,
+  "clone_created": false,
+  "git_reviews_before_after": [
+    "5965332934",
+    "5965449885",
+    "5965450275",
+    "5965450631"
+  ],
+  "git_inline_before_after": [
+    "4620992966",
+    "4620992982",
+    "4620992998",
+    "4621091918",
+    "4621092251",
+    "4621092563"
+  ],
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "3600",
+  "cumulative_physical_calls": 4761,
+  "cumulative_measured_tariff_eur": "2446.825007283688124738233522",
+  "cumulative_http_hold_eur": "492.52354211169232933854268655",
+  "retained_application_hold_eur": "171.63356950311035727717154657",
+  "available_eur": "489.01788110150918864605224483",
+  "unresolved_run_http_attempts": 0,
+  "unresolved_run_http_hold_eur": "0"
+}

@@ -8,7 +8,10 @@ delete the repository, while the kind test's own finalizer could leave
 resources after an interruption. At revision 122 the planner asked for an
 independent cleanup operation. The operator cancelled at revision 123
 with no pending request. The session reached no execution. GitHub still
-had its four original reviews and six inline comments.
+had its four original reviews and six inline comments. All 39 physical
+attempts settled at EUR 17.90393. No new reservation remained. The
+campaign had EUR 489.01788 available after this run.
+[Server and ledger readback](pr120-live-20261121/slim519-review-01.json)
 
 The new local profile advertises the permitted Copilot terminal operation
 and extends the existing confined checkout release. Its failure-path
