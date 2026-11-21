@@ -43,6 +43,16 @@ captured tariffs. The 55 unresolved requests retained EUR 492.52354 and
 the separate application reservations retained EUR 162.25381. EUR 383.35616
 remained available under the EUR 3,100 ceiling.
 
+One independent provider request then used the corrected grammar on the
+original call-16 checkpoint. It returned a single `review_report` task,
+bound `review_report.rapport` to the root, and left both the cursor and
+the business completion claim in the required states. The ordinary
+coordinator consumed the complete response and reached local review at
+revision 66 with zero required findings. The candidate hash was
+`edadb210fc4cdf8456bc5f9dd02877c154b7ee5427e3f552fe7b292596abed83`.
+The probe cost EUR 1.13562 for one settled HTTP request. It performed
+zero workflow operations. The full planner suite passed all 3,256 tests.
+
 ## Amazon 22, 21 November 2026
 
 Fresh Server session `5b20855cb70245d39d8df20c75ed13b9` started on
