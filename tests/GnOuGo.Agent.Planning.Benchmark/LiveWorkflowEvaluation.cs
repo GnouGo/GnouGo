@@ -42,7 +42,7 @@ internal static class LiveWorkflowEvaluation
         "\nDeux entrées texte obligatoires, sans valeur par défaut : pullRequestUrl et reviewText. " +
         "Résous la PR depuis pullRequestUrl à chaque exécution et transmets les consignes reviewText intégrales à Copilot pour la revue du diff de sa base et de sa tête. " +
         "Clone sa révision une seule fois dans " + relative + "/repository. Retourne à l’utilisateur un rapport avec les commandes, leurs codes de sortie et les vérifications incomplètes. " +
-        "Utilise le dépôt de base qui expose la tête de la PR. Pour les tests kind prévus par le dépôt, utilise le nom de cluster temporaire et le kubeconfig propres à cette exécution. Vérifie leur nettoyage même après échec. " +
+        "Utilise le dépôt de base qui expose la tête de la PR. Depuis sa racine, le profil local autorise le test kind avec cette commande : `" + SlimFaasReviewProfile.KindCommand(SlimFaasReviewProfile.Cluster(relative)) + "`. Vérifie le nettoyage du cluster et du kubeconfig même après échec. " +
         "Publie réellement sur cette PR la décision GitHub d’approbation ou de demande de changements, sa justification et les commentaires sur les lignes modifiées. " +
         "Ancre au moins une observation vérifiée dans le diff. Lors de la soumission, l’hôte demande la confirmation du verdict et des commentaires concrets, " +
         "puis revérifie la tête de la PR avant de transmettre la soumission à GitHub.";

@@ -29,6 +29,19 @@ internal static class LiveCodeEvidence
                 .Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
         if (run["repository_manifest"] is not null) return;
         var manifest = new JsonObject();
+        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion)
+        {
+            if (run["checkout_head"]?.ToString() != expectedHead) return;
+            foreach (var file in SlimFaasReviewProfile.ManifestPaths)
+            {
+                var revision = expectedHead + ":" + file;
+                if (await Git(repository, "rev-parse", "--verify", revision) is { Length: 40 } blob &&
+                    await Git(repository, "cat-file", "blob", blob) is { } content)
+                    manifest[file] = new JsonObject { ["git_blob"] = blob, ["content"] = content };
+            }
+            run["repository_manifest"] = manifest;
+            return;
+        }
         foreach (var file in new[] { "AGENTS.md", ".nvmrc", ".python-version", "package.json", "pyproject.toml", ".github/workflows/quality_pipeline.yml" })
         {
             var path = Path.Combine(repository, file);
@@ -113,7 +126,9 @@ internal static class LiveCodeEvidence
             ["pinned_base"] = run["checkout_base"]?.ToString() == (run["target_base"]?.ToString() ?? LiveWorkflowEvaluation.Base),
             ["manifest_observed"] = run["repository_manifest"] is not null,
         };
-        if (PublishedReviewQualification.UsesPublicationChecks(run))
+        if (run["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion)
+            SlimFaasReviewProfile.Verify(run, repository, commands, inconclusive, checks);
+        else if (PublishedReviewQualification.UsesPublicationChecks(run))
         {
             var package = run["repository_manifest"]?["package.json"]?["content"]?.ToString();
             var scripts = package is null ? null : JsonNode.Parse(package)?["scripts"];

@@ -166,6 +166,9 @@ internal static partial class LiveWorkflowOracles
             if (Directory.Exists(repository) || !events.Any(e => e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
                 e["arguments"]?["commandName"]?.ToString() == "delete_directory" && e["error"]?.GetValue<bool>() == false))
                 findings.Add("repository_not_cleaned_by_workflow");
+            if (run["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion &&
+                run["kind_cluster_after"]?["absent"]?.GetValue<bool>() != true)
+                findings.Add("run_cluster_or_kubeconfig_cleanup_unverified");
             var readback = await target.ReadBackAsync(run["events"]!.AsArray(), CancellationToken.None);
             run["github_readback"] = readback;
             findings.AddRange(readback["findings"]!.AsArray().Select(f => f!.ToString()));

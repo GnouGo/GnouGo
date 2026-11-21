@@ -279,6 +279,43 @@ public sealed class CodeReportOracleTests
                 ["body"] = "pnpm run e2e exited 1 when opening the checkout." }));
     }
 
+    [Fact]
+    public void LocalKindReviewCannotApproveWithOnlyHistoricalProjectChecks()
+    {
+        var run = PublishedRun();
+        run["oracle_version"] = PublishedReviewQualification.LocalKindVersion;
+        run["events"]![1]!["result"]!["toolExecutions"]!.AsArray().Add(Call("historical", "pnpm run e2e", 0, "Passed"));
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.NotNull(LiveCodeEvidence.SubmissionFinding(run, new() { ["event"] = "APPROVE", ["body"] = "Verified." }));
+        Assert.Equal("not_executed", run["required_check_status"]?["kind_integration"]?.ToString());
+    }
+
+    [Theory]
+    [InlineData("correct", "passed")]
+    [InlineData("other_cluster", "not_executed")]
+    [InlineData("other_cwd", "not_executed")]
+    [InlineData("unknown", "inconclusive")]
+    [InlineData("failed", "failed")]
+    [InlineData("unavailable", "environment_blocked")]
+    [InlineData("masked", "not_executed")]
+    public void KindCheckRequiresTheRunClusterKubeconfigAndTerminal(string variant, string expected)
+    {
+        var run = PublishedRun();
+        run["oracle_version"] = PublishedReviewQualification.LocalKindVersion;
+        var cluster = SlimFaasReviewProfile.Cluster(run["workspace_relative"]!.ToString());
+        var command = SlimFaasReviewProfile.KindCommand(variant == "other_cluster" ? cluster + "-other" : cluster);
+        var receipt = Call("kind-check", variant == "masked" ? command + " || true" : command,
+            variant == "unavailable" ? 127 : variant == "failed" ? 1 : 0,
+            variant == "unavailable" ? "python3: command not found" : "Test output");
+        if (variant == "other_cwd") receipt["terminals"]![0]!["workingDirectory"] = Path.Combine(Repository, "nested");
+        if (variant == "unknown") receipt["completionObserved"] = false;
+        run["events"]![1]!["result"]!["toolExecutions"]!.AsArray().Add(receipt);
+        LiveCodeEvidence.Verify(run, Repository);
+        Assert.Equal(expected, run["required_check_status"]!["kind_integration"]!.ToString());
+        Assert.Equal(expected is "passed" or "failed", run["verified_checks"]!["kind_integration"]!.GetValue<bool>());
+        Assert.Equal(expected is "failed" or "environment_blocked", run["required_check_failures"]!["kind_integration"] is not null);
+    }
+
     private static JsonObject PublishedRun()
     {
         var run = Run();

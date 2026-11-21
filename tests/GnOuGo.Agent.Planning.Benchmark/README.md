@@ -1362,3 +1362,9 @@ Python probe through the actual SDK. It records command exits, package-registry
 responses, cluster creation, a node query and deletion under a private kubeconfig.
 A provider or tool interruption retains its ordinary campaign receipt. Probe
 results are prerequisites and do not qualify a business review.
+
+The local kind review verifies its check list against the captured Git blobs
+for the requested head and the Copilot terminal events in the single checkout.
+The report distinguishes passed, failed, inconclusive, environment-blocked and
+unexecuted checks. The host observes the exact run cluster, its Podman nodes
+and the run kubeconfig before execution and after the journal terminates.

@@ -129,6 +129,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             return await service.GetAsync(state.Request.SessionId, ct) ?? throw new PlanningConflictException("The session disappeared.");
         }
         var inputs = report["inputs"]!.AsObject();
+        var localKind = report["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion;
+        var relative = report["workspace_relative"]!.ToString();
         RequireInputs(state.Plan, inputs);
         _authority = authority;
         var approved = await CommandAsync(authority.Command());
@@ -219,6 +221,14 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         });
         foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);
         if (scenario == "code" && !proxy.Ready) throw new PlanningConflictException("SDK inference admission is unavailable.");
+        if (localKind)
+        {
+            var before = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
+            report["kind_cluster_before"] = before;
+            await Save();
+            if (!before["absent"]!.GetValue<bool>())
+                throw new PlanningConflictException("The host could not verify a fresh run-owned kind cluster and kubeconfig.");
+        }
         report["execution_started"] = DateTimeOffset.UtcNow;
         await Save();
         proxy.ExecutionEnabled = true;
@@ -274,6 +284,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));
                 report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
             }
+            if (localKind) report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
             report["oracle"] = await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
             report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
             report["result"]!["execution_status"] = journal.Status;
@@ -288,6 +299,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         finally
         {
             proxy.ExecutionEnabled = false;
+            if (localKind && report["kind_cluster_after"] is null)
+                report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None);
             _execution = null;
             _executionModel = null;
             if (!browser.HasExited) browser.Kill(entireProcessTree: true);
