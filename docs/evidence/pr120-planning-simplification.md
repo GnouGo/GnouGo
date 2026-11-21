@@ -16,6 +16,18 @@ The observer now retries a timed-out status read, reports the failed stage
 without logging request headers, and submits each workflow only once.
 All eight startup and saved-form browser cases passed.
 
+A detached replay of Review 36 revision 129 isolated the cost of the
+local status projection. One inspection allocated 70,401,576,264 bytes
+and took 18.77 seconds. Scope availability enumerated every nested
+property even though its consumers only used the producer and result
+channel. Validation also rebuilt the graph resolver for each consumer
+expression. Reusing the workflow resolver and indexing producer roots
+reduced the same replay to 3,929,984,216 bytes and 3.44 seconds. Both
+serialized projections had SHA-256
+`5a5116540d43b551c8446b2f94d8efb60df5c03f1090cb1795199f0dca8be81b`.
+All 20 graph contract tests passed, including exact field validation and
+unavailable finalizer bindings. The replay made zero provider requests.
+
 The second Review 35 diagnostic used the new withdrawal action. Its single
 complete native response cost EUR 0.84591. Applying it to a detached copy
 of revision 83 preserved the finding, open scope, requirements and accepted
