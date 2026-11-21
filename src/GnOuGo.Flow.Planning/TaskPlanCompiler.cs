@@ -710,8 +710,11 @@ public sealed partial class TaskPlanCompiler
                 // Workflow defaults and transform results keep their declared (possibly broader) types.
                 return new(new() { Kind = "string", Text = value.Text }, new() { ["type"] = "string", ["const"] = value.Text });
             case "number":
-                if (value.Number is null || !double.IsFinite(value.Number.Value)) Fail("TASK_LITERAL_INVALID", "A finite number is required.");
-                return new(Number(value.Number!.Value), new() { ["type"] = "number" });
+                var number = value.Number ?? double.NaN;
+                if (!double.IsFinite(number)) Fail("TASK_LITERAL_INVALID", "A finite number is required.");
+                var numericType = Math.Abs(number) <= 9007199254740991d && Math.Truncate(number) == number
+                    ? "integer" : "number";
+                return new(Number(number), new() { ["type"] = numericType });
             case "boolean":
                 if (value.Boolean is null) Fail("TASK_LITERAL_INVALID", "Boolean is required.");
                 return new(new() { Kind = "boolean", Boolean = value.Boolean }, new() { ["type"] = "boolean" });

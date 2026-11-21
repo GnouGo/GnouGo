@@ -15,6 +15,24 @@ tests subsequently passed, including rejection of an unrelated sibling
 output. Replay of the unchanged call 20 no longer reports the control
 error. It uncovered a separate integer-index compiler finding.
 
+The next compiler diagnostic was reproducible on the same call. Its indexed
+loop iterated the literal positions zero through nine. The compiler had
+widened whole-number literals to `number` when deriving the item schema.
+Safe whole-number literals now retain the `integer` type. An executable
+regression indexes an array in reverse order. Fractional and unsafe
+positions are rejected. All 116 focused checks passed. The unchanged
+call 20 then passed structural and compiler validation with zero findings,
+model calls or operations.
+
+At call 25 the business judge found that classification discarded related
+records on adjacent snapshot pages. On the independent source check 24,
+46 of 79 page boundaries split a DOM group, and 36 of 90 distinct
+nonempty captured ancestor IDs (snapshot-local element indexes) occurred
+on multiple pages. Call 26 fetched original evidence. Call 27 confirmed
+the finding and the run stopped at revision 73. No agent was saved, no
+workflow ran and no workbook was produced. The 27 physical calls settled
+at EUR 15.58064956, leaving EUR 132.77901647.
+
 ## Amazon source check 24, 21 November 2026
 
 At 15:00 UTC a new search under the existing v10 grant returned HTTP 200
@@ -27,6 +45,16 @@ read confirmed it had no active page. The diagnostic used zero model
 calls. Business visits, an on-disk workbook and the full workflow still
 require a fresh run. The SHA-256 of the capture is
 `d76a95c438e122dc874d6c3d29ad50cde17f7c84e633471ec6f3f151db6b5ef8`.
+
+## Review 50, 21 November 2026
+
+A one-call probe of Review 49 call 64 preserved its original request and
+response schema and included the complete operator answer in the active
+block. The provider returned a complete conditional step on the retained
+base. There was no repeat clarification or execution. The diagnostic
+used 30,576 input and 277 output tokens, EUR 0.87985808. The settled audit
+before fresh session `a98a6c3424304ba28432a566d643e2d9` on `89fd5143`
+counted 4,525 attempts and EUR 131.89915839 available.
 
 ## Review 49, 21 November 2026
 

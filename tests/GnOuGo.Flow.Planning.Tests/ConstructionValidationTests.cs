@@ -58,7 +58,7 @@ public sealed class ConstructionValidationTests(ITestOutputHelper output)
         Assert.Empty(result.Diagnostics);
         var visible = Assert.Single(result.Interfaces["/root"]);
         Assert.Equal("accepted", visible.Value.Source);
-        Assert.Equal("number", visible.Schema["type"]!.ToString());
+        Assert.Equal("integer", visible.Schema["type"]!.ToString());
         Assert.Equal("cleanup", Assert.Single(result.Interfaces["/root/always"]).Value.Source);
         Assert.DoesNotContain(result.Interfaces.Values.SelectMany(v => v), s => s.Value.Source == "branch_value");
     }

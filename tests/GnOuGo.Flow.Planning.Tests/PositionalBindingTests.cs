@@ -81,6 +81,33 @@ public sealed class PositionalBindingTests
     }
 
     [Theory]
+    [InlineData(0d, true)]
+    [InlineData(0.5d, false)]
+    [InlineData(9007199254740992d, false)]
+    public async Task LiteralIterationPositionsKeepTheirCheckedType(double last, bool integral)
+    {
+        var plan = Plan();
+        var loop = plan.Root.Tasks.Single();
+        loop.Items = new() { Kind = "array", Items = [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = last }] };
+        loop.Body!.Outputs[1] = new("observation", At(LookupCompilationTests.Input("observations"), new() { Kind = "item" }));
+        var state = PlannerFixture.Session();
+        var engine = new WorkflowEngine();
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+        if (!integral)
+        {
+            Assert.Contains(compiled.Diagnostics, diagnostic => diagnostic.Code == "TASK_INDEX_INVALID");
+            return;
+        }
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var result = await LookupCompilationTests.Execute(yaml, JsonNode.Parse("""{"observations":["first","second"],"flags":[{"flag":true},{"flag":false}]}""")!.AsObject(), engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal("""["second","first"]""", result.Outputs!["observations"]!.ToJsonString());
+    }
+
+    [Theory]
     [InlineData("string", null)]
     [InlineData("number", -1d)]
     [InlineData("number", 1.25d)]
