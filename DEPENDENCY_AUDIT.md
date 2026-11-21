@@ -47,6 +47,13 @@ and the Agent Server Debug build passed with zero warnings. Remove the target
 when updating to an SDK containing the upstream fix.
 [.NET SDK fix](https://github.com/dotnet/sdk/pull/57196)
 
+The planning browser test starts its source host in Development. With Debug
+assets and a Production host, every page requested the SDK hot-reload settings
+and received HTTP 404. The framework supplies the disabled-settings response in
+Development. The same browser test then passed, including cancellation and
+cold restart, with zero browser errors.
+[ASP.NET Core 11 settings endpoint](https://github.com/dotnet/aspnetcore/blob/v11.0.0/src/Components/Endpoints/src/Builder/BrowserToolsHotReloadSettings.cs)
+
 EF Core 11 uses a Roslyn design-time process when precompiling SQLite queries.
 Its JSON protocol requires reflection. The Files and Flow persistence projects
 use the framework-dependent tool build for this step, including when the caller

@@ -9,7 +9,11 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1080
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
-page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+page.on('console', message => {
+  if (message.type() !== 'error') return;
+  const source = message.location().url;
+  errors.push(source ? `${message.text()} (${new URL(source, url).pathname})` : message.text());
+});
 try {
   const anonymous = await request.newContext();
   assert.equal((await anonymous.get(`${url}/api/planning`)).status(), 200);
