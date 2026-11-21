@@ -59,7 +59,10 @@ internal sealed class PlanningModelJournal(
             throw new InvalidOperationException("The reserved model request changed before dispatch.");
         await using var db = await contexts.CreateDbContextAsync(ct);
         var journaled = planning is not null && PlanningTransportPolicies.Read(planning) is not null;
-        var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenantId && c.SessionId == sessionId && c.RequestHash == key, ct);
+        var tenant = tenantId;
+        var session = sessionId;
+        var queryCancellation = ct;
+        var existing = await db.Calls.AsNoTracking().SingleOrDefaultAsync(c => c.TenantId == tenant && c.SessionId == session && c.RequestHash == key, queryCancellation);
         if (existing is not null)
         {
             var record = await records.GetAsync(Collection, tenantId, existing.PayloadKey, EfPlanningSessionStore.Author, ct);

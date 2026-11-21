@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+﻿<Project Sdk="Microsoft.NET.Sdk.Web" TreatAsLocalProperty="PublishSingleFile">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -11,6 +11,7 @@
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
     <EFScaffoldModelStage>disabled</EFScaffoldModelStage>
+    <GnOuGoEfNeedsDesignHost>true</GnOuGoEfNeedsDesignHost>
     <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
     <TrimmerSingleWarn>true</TrimmerSingleWarn>
     <StaticWebAssetBasePath>_gnougo-files-server</StaticWebAssetBasePath>
@@ -64,4 +65,6 @@
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; install --frozen-lockfile" />
     <Exec Command="$(PnpmCommand) --dir &quot;$(ClientAppDir)&quot; build" />
   </Target>
+  <Import Project="../../build/GnOuGo.DarwinNativeCrypto.targets" />
+  <Import Project="../../build/GnOuGo.EfDesignTime.targets" />
 </Project>

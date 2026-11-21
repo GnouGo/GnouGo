@@ -82,7 +82,9 @@ public sealed partial class PlanningSessionService(
         }
         await using var db = await contexts.CreateDbContextAsync(ct);
         var tenant = Tenant;
-        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == id, ct);
+        var session = id;
+        var queryCancellation = ct;
+        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
         return row is null ? null : await EfPlanningSessionStore.InspectAsync(records, row, ct);
     }
 
@@ -260,15 +262,17 @@ public sealed partial class PlanningSessionService(
             // Select index coordinates first; never decrypt the tenant's historical
             // sessions just to wake active owners or deliver cancellation markers.
             await using var db = await contexts.CreateDbContextAsync(ct);
+            var queryCancellation = ct;
+            var tenant = Tenant;
             string? after = null;
             while (true)
             {
-                var ids = await db.Sessions.AsNoTracking().Where(s => s.TenantId == Tenant &&
+                var ids = await db.Sessions.AsNoTracking().Where(s => s.TenantId == tenant &&
                     s.Status != PlanningStatus.Clarification && s.Status != PlanningStatus.FinalReview && s.Status != PlanningStatus.DiscoveryRecovery &&
                     s.Status != PlanningStatus.Approved && s.Status != PlanningStatus.Saved && s.Status != PlanningStatus.Stopped &&
                     s.Status != PlanningStatus.Failed && s.Status != PlanningStatus.Cancelled &&
                     (after == null || string.Compare(s.SessionId, after) > 0))
-                    .OrderBy(s => s.SessionId).Select(s => s.SessionId).Take(100).ToListAsync(ct);
+                    .OrderBy(s => s.SessionId).Select(s => s.SessionId).Take(100).ToListAsync(queryCancellation);
                 foreach (var id in ids) _queue.Writer.TryWrite(id);
                 if (ids.Count < 100) break;
                 after = ids[^1];
@@ -280,8 +284,11 @@ public sealed partial class PlanningSessionService(
                 {
                     var page = await reader.QueryMetadataAsync(Cancellations, Tenant, "", EfPlanningSessionStore.Author, cursor, ct: ct);
                     foreach (var marker in page.Records)
-                        if (await db.Sessions.AsNoTracking().AnyAsync(s => s.TenantId == Tenant && s.SessionId == marker.Key &&
-                            s.Status != PlanningStatus.Cancelled && s.Status != PlanningStatus.Saved, ct)) _queue.Writer.TryWrite(marker.Key);
+                    {
+                        var id = marker.Key;
+                        if (await db.Sessions.AsNoTracking().AnyAsync(s => s.TenantId == tenant && s.SessionId == id &&
+                            s.Status != PlanningStatus.Cancelled && s.Status != PlanningStatus.Saved, queryCancellation)) _queue.Writer.TryWrite(id);
+                    }
                     if (!page.HasMore) break;
                     cursor = page.Next ?? throw new InvalidOperationException("Missing cancellation metadata cursor.");
                 }
@@ -443,8 +450,13 @@ public sealed partial class PlanningSessionService(
             if (command.Kind == "resume_response")
             {
                 await using var db = await contexts.CreateDbContextAsync(ct);
-                if (!await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == current.Request.SessionId &&
-                    c.RequestHash == command.RequestId && c.PayloadKey == current.Request.SessionId + ":" + command.RequestId, ct))
+                var tenant = Tenant;
+                var session = current.Request.SessionId;
+                var requestId = command.RequestId;
+                var payloadKey = session + ":" + requestId;
+                var queryCancellation = ct;
+                if (!await db.Calls.AnyAsync(c => c.TenantId == tenant && c.SessionId == session &&
+                    c.RequestHash == requestId && c.PayloadKey == payloadKey, queryCancellation))
                     throw new PlanningConflictException("The original dispatch reservation is unavailable. Reconcile it before resuming.");
                 await PlanningModelRecovery.ResumeAsync(current, records, command.RequestId, ct, limits);
             }

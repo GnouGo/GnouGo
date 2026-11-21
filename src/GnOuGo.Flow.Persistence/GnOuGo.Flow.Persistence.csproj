@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishSingleFile">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <LangVersion>15.0</LangVersion>
@@ -16,6 +16,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
     <EFScaffoldModelStage>disabled</EFScaffoldModelStage>
+    <GnOuGoEfNeedsDesignHost>true</GnOuGoEfNeedsDesignHost>
     <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
   </PropertyGroup>
   <ItemGroup>
@@ -27,4 +28,5 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="11.0.0" PrivateAssets="all" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+  <Import Project="../../build/GnOuGo.EfDesignTime.targets" />
 </Project>

@@ -15,7 +15,10 @@ public sealed partial class PlanningSessionService
         if (state.Request.TenantId != Tenant || !PlanningDiscoveryRecoveryActions.Eligible(state) || await IsCancellationRequestedAsync(state, ct))
             throw new PlanningConflictException("Discovery recovery is unavailable for this session.");
         await using var db = await contexts.CreateDbContextAsync(ct);
-        var calls = await db.Calls.AsNoTracking().Where(c => c.TenantId == Tenant && c.SessionId == state.Request.SessionId).ToArrayAsync(ct);
+        var tenant = Tenant;
+        var session = state.Request.SessionId;
+        var queryCancellation = ct;
+        var calls = await db.Calls.AsNoTracking().Where(c => c.TenantId == tenant && c.SessionId == session).ToArrayAsync(queryCancellation);
         if (calls.Length < state.ModelCalls || calls.Any(c => c.Status != "completed"))
             throw new PlanningConflictException("Resolve the existing model journal before recovering metadata; no dispatch was replayed.");
         var expected = calls.Select(c => c.PayloadKey).ToHashSet(StringComparer.Ordinal);

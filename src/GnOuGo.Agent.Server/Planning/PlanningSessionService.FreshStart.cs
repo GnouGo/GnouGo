@@ -10,7 +10,10 @@ public sealed partial class PlanningSessionService
         if (state.Request.TenantId != Tenant || state.Status != PlanningStatus.Stopped || state.PendingCall is not null ||
             state.ModelCalls != 0 || state.Usage is { Calls: > 0 } || !state.Diagnostics.Any(d => d.Code == "LLM_BUDGET_EXCEEDED")) return false;
         await using var db = await contexts.CreateDbContextAsync(ct);
-        if (await db.Calls.AnyAsync(c => c.TenantId == Tenant && c.SessionId == state.Request.SessionId, ct)) return false;
+        var tenant = Tenant;
+        var session = state.Request.SessionId;
+        var queryCancellation = ct;
+        if (await db.Calls.AnyAsync(c => c.TenantId == tenant && c.SessionId == session, queryCancellation)) return false;
         var saved = await records.GetAsync(PlanningBudgetSink.Collection, Tenant, state.Request.SessionId, EfPlanningSessionStore.Author, ct);
         if (saved is not null)
         {

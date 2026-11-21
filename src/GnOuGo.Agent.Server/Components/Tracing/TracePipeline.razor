@@ -69,8 +69,6 @@
         catch (Exception) { _message = "Journal summaries are currently unavailable; retained telemetry is still shown."; }
     }
     internal static string? Value(TraceSpanDto span, params string[] names) => TraceDebugUiHelpers.GetFirstAttribute(span.Attributes, names);
-    internal static long? Number(TraceSpanDto span, params string[] names) => long.TryParse(Value(span, names), out var value) ? value : null;
     internal static string Phase(string? stage) => LlmInspectionLabels.Phase(stage);
-    internal static List<TraceSpanDto> Calls(TraceGroupDto trace) => LlmCallProjection.Calls(trace);
     public void Dispose() { var load = _load; _load = null; load?.Cancel(); load?.Dispose(); }
 }

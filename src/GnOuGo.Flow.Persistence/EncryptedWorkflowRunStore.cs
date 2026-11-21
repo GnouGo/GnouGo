@@ -185,7 +185,7 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
                 """, ct);
             var tenant = run.TenantId;
             var id = run.RunId;
-            // EF Core 10.0.12 query precompilation resolves local tokens but fails on a method parameter.
+            // EF Core 11.0.0 query precompilation resolves local tokens but fails on a method parameter.
             var queryCancellation = ct;
             var row = await db.Runs.SingleOrDefaultAsync(r => r.TenantId == tenant && r.RunId == id, queryCancellation);
             if (row is null) { row = new() { TenantId = tenant, RunId = id }; db.Runs.Add(row); }

@@ -6,7 +6,7 @@ namespace GnOuGo.Agent.Server.Planning;
 /// <summary>Only non-content indexes and references are persisted here. Payloads belong to KeyVault.</summary>
 public sealed class PlanningDbContext : DbContext
 {
-    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "EF Core 10.0.12 compiled planning model; host registration and published encrypted persistence smoke use that model explicitly.")]
+    [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "EF Core 11.0.0 compiled planning model; host registration and published encrypted persistence smoke use that model explicitly.")]
     public PlanningDbContext(DbContextOptions<PlanningDbContext> options) : base(options) { }
     public DbSet<PlanningSessionIndex> Sessions => Set<PlanningSessionIndex>();
     public DbSet<PlanningCallIndex> Calls => Set<PlanningCallIndex>();
@@ -24,7 +24,8 @@ public sealed class PlanningDbContext : DbContext
     }
 }
 
-public sealed class PlanningSessionIndex
+// The EF 11 materializer emits a conditional interface cast for each entity.
+public class PlanningSessionIndex
 {
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = "";
@@ -34,7 +35,7 @@ public sealed class PlanningSessionIndex
     public string PayloadKey { get; set; } = "";
 }
 
-public sealed class PlanningCallIndex
+public class PlanningCallIndex
 {
     public string TenantId { get; set; } = "";
     public string SessionId { get; set; } = "";

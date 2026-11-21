@@ -259,6 +259,11 @@
     <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The publish target assembles the RID-specific MCP bundle itself. Development
+       staging expects managed apphosts, which SDK 11 omits for AOT publish builds. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <GnOuGoStageBundledMcpTools>false</GnOuGoStageBundledMcpTools>
+  </PropertyGroup>
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
 </Project>

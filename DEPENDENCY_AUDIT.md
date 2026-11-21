@@ -36,6 +36,17 @@ and the Agent Server Debug build passed with zero warnings. Remove the target
 when updating to an SDK containing the upstream fix.
 [.NET SDK fix](https://github.com/dotnet/sdk/pull/57196)
 
+EF Core 11 uses a Roslyn design-time process when precompiling SQLite queries.
+Its JSON protocol requires reflection. The Files and Flow persistence projects
+use the framework-dependent tool build for this step, including when the caller
+publishes a trimmed single file. The two index entities in Agent Server allow
+the generated conditional service cast. Captured tenant keys and cancellation
+tokens use local variables throughout the precompiled query. Generated query
+files with nullable annotations receive an explicit annotation context. Agent
+Server's interactive Blazor release retains its existing partial-trim profile.
+The published binary verified encrypted planning recovery, the health endpoint,
+the root page and Blazor negotiation.
+
 ## Previous audit of 7 November 2026
 
 The frontend exceptions below were reviewed on 2 August 2026.

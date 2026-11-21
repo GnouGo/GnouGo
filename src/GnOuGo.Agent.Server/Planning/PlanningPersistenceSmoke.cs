@@ -172,7 +172,8 @@ internal static class PlanningPersistenceSmoke
         state.Revision = 2;
         Check(!await reopened.TrySaveAsync(state, 0, CancellationToken.None), "stale update rejection");
         string key;
-        await using (var db = factory.CreateDbContext()) key = (await db.Sessions.SingleAsync(s => s.SessionId == state.Request.SessionId)).PayloadKey;
+        var capturedSessionId = state.Request.SessionId;
+        await using (var db = factory.CreateDbContext()) key = (await db.Sessions.SingleAsync(s => s.SessionId == capturedSessionId)).PayloadKey;
         var retired = JsonNode.Parse(original)!; retired["schemaVersion"] = 10;
         var archive = await records.UpsertAsync(EfPlanningSessionStore.Collection, "smoke", key, retired.ToJsonString(), "smoke");
         try { await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None); throw new InvalidOperationException("Retired planning format was admitted."); }

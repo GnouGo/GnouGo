@@ -21,7 +21,11 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     {
         ValidateKey(tenantId, sessionId);
         await using var db = await contexts.CreateDbContextAsync(ct);
-        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenantId && s.SessionId == sessionId, ct);
+        // EF precompilation resolves captured locals, including the original cancellation token.
+        var tenant = tenantId;
+        var session = sessionId;
+        var queryCancellation = ct;
+        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
         return row is null ? null : (await InspectAsync(records, row, ct)).RequireSession();
     }
 
@@ -34,7 +38,8 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
         await using var db = await contexts.CreateDbContextAsync(ct);
         var tenant = snapshot.Request.TenantId;
         var session = snapshot.Request.SessionId;
-        var row = await db.Sessions.SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, ct);
+        var queryCancellation = ct;
+        var row = await db.Sessions.SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
         if (expectedRevision is null ? row is not null : row?.Revision != expectedRevision) return false;
         var payloadKey = session + ":" + snapshot.Revision + ":" + Guid.NewGuid().ToString("N");
         await records.UpsertAsync(Collection, tenant, payloadKey, System.Text.Json.JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, ct);
@@ -53,7 +58,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
             // The immutable losing payload is unreferenced. Never delete another revision.
             await records.DeleteAsync(Collection, tenant, payloadKey, Author, CancellationToken.None);
             await using var check = await contexts.CreateDbContextAsync(ct);
-            var current = await check.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, ct);
+            var current = await check.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
             if (current is not null && current.Revision != expectedRevision) return false;
             throw;
         }
@@ -66,7 +71,9 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         await using var db = await contexts.CreateDbContextAsync(ct);
-        var rows = await db.Sessions.AsNoTracking().Where(s => s.TenantId == tenantId).OrderByDescending(s => s.UpdatedAtTicks).ToListAsync(ct);
+        var tenant = tenantId;
+        var queryCancellation = ct;
+        var rows = await db.Sessions.AsNoTracking().Where(s => s.TenantId == tenant).OrderByDescending(s => s.UpdatedAtTicks).ToListAsync(queryCancellation);
         var snapshots = new List<PlanningSessionInspection>();
         foreach (var row in rows) snapshots.Add(await InspectAsync(records, row, ct));
         return snapshots;
