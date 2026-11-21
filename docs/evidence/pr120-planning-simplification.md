@@ -168,6 +168,7 @@ requests (EUR 1.29091). All settled. The closing audit recorded 4,084
 campaign requests and EUR 406.56094 available, with the historical holds
 unchanged. The Server run and the independent source capture each had zero
 qualified business outcomes.
+[Server execution, source records, closure and accounting](pr120-amazon22-server-execution.json)
 
 ## Review 40, 21 November 2026
 
