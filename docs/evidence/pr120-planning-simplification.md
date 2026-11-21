@@ -53,6 +53,27 @@ planning data and returned HTTP 200 for health, the root page and Blazor
 transport negotiation.
 [Published-binary verification](../../scripts/verify-flow-v9-published.py)
 
+The full Release suite at `8758918d` passed 9,858 tests across 33 assemblies,
+with 13 skipped. Seven require Windows, five use a paid provider and one
+requires an explicit Playwright module. The Release build at `1f6bef49` then
+completed with zero warnings or errors across 77 projects. The 2,747 passes in
+its component reruns include both the browser diagnostic and the previously
+skipped clarification test, which passed with the bundled Playwright module.
+Each of the six independently packed Flow libraries contains its `net11.0`
+assembly and matching NuGet dependency group.
+
+A separate 311-case Server run passed against controlled fixtures. It
+exercised product visits and workbook contents, alternative MCP page
+observations, report bindings, a real local clone and cleanup. GitHub
+publication in these fixtures used a test double.
+
+The macOS arm64 publish matrix built eight frontends and 14 release profiles,
+including nine Native AOT hosts. Its published-process smoke tests passed.
+The managed hosts' framework warning exceptions and the compatible Copilot
+runtime pin are recorded in the dependency audit.
+[Validation counts, commands and log digests](pr120-live-20261121/net11-validation.json) ·
+[Framework and packaging exceptions](../../DEPENDENCY_AUDIT.md)
+
 A repeat read-only financial audit on .NET 11 matched the preceding audit across
 all fields, including the entire ceiling history, costs and reservations. New
 physical provider calls and charges in these checks were zero. Both scenario
@@ -87,10 +108,20 @@ a second dispatch. All 93 admission tests passed, including both reproductions.
 The fresh Amazon 29 launch on `99b7af73` stopped at campaign admission with
 `campaign_uncertain_request_requires_recovery`, before planning or browser access.
 The campaign's planning-only administrative retention excludes executed workflows.
+On `1f6bef49`, the fresh `slim519-adaptive-20261121-03` review launch
+supplied the PR URL, review instructions, adaptive tool profile and local kind
+toolchain. Its source-verified harness passed the interactive preflight. The
+same upstream request stopped campaign admission before a planning session,
+tool action or new provider attempt. The HTTP fingerprint and all available
+receipt fields are in the Review 02 readback above.
+An independent GitHub read after Review 03 returned the same four review IDs
+and the same six inline comment IDs.
+[Review 03 admission and before/after audit digests](pr120-live-20261121/slim519-review-03.json)
+
 The read-only ledger recorded 4,806 physical attempts, EUR 2,476.7233424 in
 measured-token estimates, EUR 495.8143718 held on 56 attempts, and EUR 171.6335695
 in separate application holds. EUR 455.8287162 remained under the existing
-EUR 3,600 ceiling. Amazon 29 added zero attempts or charges. Neither scenario has
+EUR 3,600 ceiling. Amazon 29 and Review 03 added zero attempts or charges. Neither scenario has
 a verified complete execution in this series.
 
 ## SlimFaaS checkpoint discovery, 21 November 2026

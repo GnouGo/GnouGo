@@ -1,0 +1,28 @@
+{
+  "source": "1f6bef49a953d096e1914fcc824acb14715b3b1c",
+  "run": "slim519-adaptive-20261121-03",
+  "campaign": "pr120-live-20261107-400",
+  "target": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+  "entryPoint": "server-live-plan",
+  "case": "code",
+  "reviewInstructionsSupplied": true,
+  "inputProfiles": {
+    "adaptiveMcpTools": true,
+    "localKindToolchain": true,
+    "transport": "server-proxy-270s",
+    "financialForecast": "experimental_warning"
+  },
+  "interactiveSourcePreflight": "passed",
+  "admission": "campaign_uncertain_request_requires_recovery",
+  "newPlanningSessions": 0,
+  "newWorkflowExecutions": 0,
+  "newPhysicalProviderAttempts": 0,
+  "newCostEur": 0,
+  "blockingAttemptEvidence": "slim519-review-02.json#/unreconciled_provider_attempt",
+  "financialAuditBeforeSha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+  "financialAuditAfterSha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+  "githubReadbackAfterAdmission": {
+    "existingReviewIds": [5965332934, 5965449885, 5965450275, 5965450631],
+    "existingInlineCommentIds": [4620992966, 4620992982, 4620992998, 4621091918, 4621092251, 4621092563]
+  }
+}
