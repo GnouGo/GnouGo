@@ -18,32 +18,47 @@ public sealed partial class BoundedCopilotTasksTests
         var ct = TestContext.Current.CancellationToken;
         var transport = new HostToolTransport(fixture.Tasks);
         var observe = new McpToolInfo { Name = "observe", InputSchema = new JsonObject { ["type"] = "object" }, EffectKind = "read" };
+        var resolve = new McpToolInfo { Name = "resolve", InputSchema = JsonNode.Parse("""{"type":"object","required":["cursor"],"properties":{"cursor":{"type":"string"}},"additionalProperties":false}"""), EffectKind = "read" };
         var write = new McpToolInfo { Name = "write", InputSchema = JsonNode.Parse("""{"type":"object","required":["value"],"properties":{"value":{"type":"string"}},"additionalProperties":false}"""), EffectKind = "write" };
         var writes = new List<string>();
+        var cursorReads = new List<string>();
         var upstream = "first";
-        transport.Servers.RegisterServer("source", new() { Tools = [observe], ToolHandlers = { ["observe"] = _ => new() { Content = new JsonObject { ["value"] = upstream } } } });
+        transport.Servers.RegisterServer("source", new() { Tools = [observe, resolve], ToolHandlers = {
+            ["observe"] = _ => new() { Content = upstream == "changed" ? new JsonObject { ["cursor"] = "page-2" } : new JsonObject { ["value"] = upstream } },
+            ["resolve"] = input =>
+            {
+                cursorReads.Add(input!["cursor"]!.GetValue<string>());
+                return new() { Content = new JsonObject { ["value"] = upstream } };
+            }
+        } });
         transport.Servers.RegisterServer("destination", new() { Tools = [write], ToolHandlers = { ["write"] = input =>
         {
             writes.Add(input!["value"]!.GetValue<string>());
             return new() { Content = new JsonObject { ["saved"] = writes[^1] } };
         } } });
-        var runner = new CopilotAgentTaskRunner(transport, "managed", [new("source", "observe"), new("destination", "write")]);
+        var runner = new CopilotAgentTaskRunner(transport, "managed", [new("source", "observe"), new("source", "resolve"), new("destination", "write")]);
         var contract = await runner.DescribeAsync(ct);
         var tools = contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray()
             .Select(v => v!.GetValue<string>()).Where(id => id.StartsWith("mcp_", StringComparison.Ordinal)).ToArray();
-        Assert.Equal(2, tools.Length);
+        Assert.Equal(3, tools.Length);
         Assert.DoesNotContain("project.read", contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Select(v => v!.GetValue<string>()));
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ValidateAsync(fixture.Context with {
             Task = fixture.Context.Task with { Capabilities = ["command.execute"] } }, ct));
-        var task = fixture.Context.Task with { Capabilities = [.. tools], Budget = new() { MaxActions = 2 },
-            Verification = [new("saved", "mcp.result", tools[1], JsonNode.Parse("""{"type":"object","required":["result"],"properties":{"result":{"type":"object","required":["saved"]}}}""")!.AsObject())] };
-        fixture.Host.OnSend = async (configuration, handle, _, token) =>
+        var task = fixture.Context.Task with { Capabilities = [.. tools], Budget = new() { MaxActions = 3 },
+            Verification = [new("saved", "mcp.result", tools[2], JsonNode.Parse("""{"type":"object","required":["result"],"properties":{"result":{"type":"object","required":["saved"]}}}""")!.AsObject())] };
+        fixture.Host.OnSend = async (configuration, handle, request, token) =>
         {
             var runtime = configuration.Request.Configuration;
             var bounds = runtime.ExecutionBounds!;
             var observed = new List<CopilotToolExecutionObservation>();
-            var args = "{}";
-            foreach (var id in tools)
+            var current = await Call(tools[0], "{}");
+            if (current.TryGetProperty("cursor", out _))
+                current = await Call(tools[1], current.GetRawText());
+            await Call(tools[2], current.GetRawText());
+            if (upstream == "interrupted") throw new IOException("Provider lost the final turn after tool completion.");
+            return new(handle, "session", "{}", null, []) { ToolExecutions = observed };
+
+            async Task<JsonElement> Call(string id, string args)
             {
                 var function = runtime.HostTools.Single(t => t.Name == id);
                 var call = $"call-{observed.Count}";
@@ -57,10 +72,8 @@ public sealed partial class BoundedCopilotTasksTests
                 await bounds.AdaptiveActions.CompleteAsync(bounds, "session", call, id, value, true);
                 observed.Add(new(call, null, id, args, true, true, false, [], null) { StartedSequence = observed.Count * 2 + 1,
                     CompletedSequence = observed.Count * 2 + 2, CopilotSessionId = "session" });
-                args = value.GetRawText();
+                return value;
             }
-            if (upstream == "interrupted") throw new IOException("Provider lost the final turn after tool completion.");
-            return new(handle, "session", "{}", null, []) { ToolExecutions = observed };
         };
         var yaml = """
             version: 1
@@ -85,18 +98,20 @@ public sealed partial class BoundedCopilotTasksTests
             var context = fixture.Context with { RunId = variant, InvocationId = invocation.Id, Task = task };
             var result = await runner.RunAsync(context, ct);
             Assert.Equal("completed", result.Status);
-            Assert.Equal(2, result.Usage.Actions);
+            Assert.Equal(variant == "changed" ? 3 : 2, result.Usage.Actions);
             Assert.True(Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
             var replay = await runner.ReconcileAsync(context, ct);
-            Assert.Equal(variant, replay.Evidence.Single(e => e.Subject == tools[1]).Facts["result"]!["saved"]!.GetValue<string>());
+            Assert.Equal(variant, replay.Evidence.Single(e => e.Subject == tools[2]).Facts["result"]!["saved"]!.GetValue<string>());
+            Assert.Equal(result.Usage.Actions, replay.Evidence.Count(e => e.Kind == "mcp.result"));
         }
         upstream = "interrupted";
         var interrupted = fixture.Context with { RunId = "interrupted", Task = task };
         Assert.Equal("needs_reconciliation", (await runner.RunAsync(interrupted, ct)).Status);
         var retained = await runner.ReconcileAsync(interrupted, ct);
         Assert.Equal("needs_reconciliation", retained.Status);
-        Assert.Equal("interrupted", retained.Evidence.Single(e => e.Kind == "mcp.result" && e.Subject == tools[1]).Facts["result"]!["saved"]!.GetValue<string>());
+        Assert.Equal("interrupted", retained.Evidence.Single(e => e.Kind == "mcp.result" && e.Subject == tools[2]).Facts["result"]!["saved"]!.GetValue<string>());
         Assert.Equal(new[] { "first", "changed", "interrupted" }, writes);
+        Assert.Equal(new[] { "page-2" }, cursorReads);
         write.InputSchema!["additionalProperties"] = true;
         await Assert.ThrowsAsync<InvalidOperationException>(() => runner.ValidateAsync(fixture.Context with { Task = task }, ct));
         Assert.Equal(3, fixture.Host.Sends);

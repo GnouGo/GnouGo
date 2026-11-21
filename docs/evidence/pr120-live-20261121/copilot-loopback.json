@@ -1,0 +1,49 @@
+{
+  "scope": "Native Copilot MCP with a scripted loopback provider and a fixture file read",
+  "runtime": {
+    "version": "1.0.112",
+    "protocolVersion": "3",
+    "connectionState": "connected"
+  },
+  "sdk": "1.0.34",
+  "paidProviderRequests": 0,
+  "qualifyingBusinessRuns": 0,
+  "loopbackModelRequests": 2,
+  "hostToolCalls": 1,
+  "grantedCapability": "mcp_wkmGiDlhnBl5_9CbNApuxMJc6i8fH4ewp5NoQAjIrLs",
+  "permissionAnswer": "Allow once",
+  "result": {
+    "status": "completed",
+    "output": {
+      "saved": true
+    },
+    "evidence": [
+      {
+        "id": "f67e8d5c678048f087637a2a750c2efb",
+        "kind": "mcp.result",
+        "subject": "mcp_wkmGiDlhnBl5_9CbNApuxMJc6i8fH4ewp5NoQAjIrLs",
+        "facts": {
+          "request": {
+            "key": "current"
+          },
+          "result": {
+            "value": "record-a"
+          }
+        }
+      }
+    ],
+    "artifacts": [],
+    "usage": {
+      "model_calls": 2,
+      "total_tokens": 62525,
+      "elapsed_milliseconds": 240.039,
+      "metering": "reserved_upper_bound",
+      "actions": 1
+    },
+    "message": null,
+    "verification": []
+  },
+  "inspectEvidenceEqual": true,
+  "repeatRecovered": true,
+  "repeatStatus": "completed"
+}
