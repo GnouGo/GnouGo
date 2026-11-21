@@ -127,7 +127,8 @@ public sealed partial class HybridWorkflowPlanner
             "transform" => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/objective"],
             "operation" or "call" when offerMissingGuard && task.Requires is null => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/requires"],
             "operation" or "call" => ["/tasks/" + task.Id + "/inputs"],
-            _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal))
+            _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal) ||
+                task.Kind == "foreach" && path == "/tasks/" + task.Id + "/items")
         };
     }
 

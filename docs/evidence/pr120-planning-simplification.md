@@ -33,6 +33,18 @@ the finding and the run stopped at revision 73. No agent was saved, no
 workflow ran and no workbook was produced. The 27 physical calls settled
 at EUR 15.58064956, leaving EUR 132.77901647.
 
+The judge cited the loop and two transforms from intact, pending
+checkpoints. The loop exposed no task-level output binding. Repair
+therefore discarded the two transform targets as well and issued an
+evidence-only request. The loop's existing `items` binding is now an
+eligible slot for this finding. One regression failed before the change,
+then all 18 scoped-repair checks passed. A detached Server replay used
+the original issued call 25 and the unchanged provider response. At
+revision 69 it offered seven existing paths on the three cited tasks,
+preserved the accepted plan hash and allowed the rejected completion
+claim to be withdrawn. Revalidation and a new business review remain
+required. The replay used zero provider calls and executed no tasks.
+
 ## Amazon source check 24, 21 November 2026
 
 At 15:00 UTC a new search under the existing v10 grant returned HTTP 200

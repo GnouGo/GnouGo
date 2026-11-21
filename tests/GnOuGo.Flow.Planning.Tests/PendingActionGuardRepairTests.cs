@@ -7,6 +7,52 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class PendingActionGuardRepairTests
 {
+    [Fact]
+    public async Task FindingOnPendingLoopAndConsumerOffersItsExistingCollectionAndConsumerBindings()
+    {
+        var (state, runtime) = await Ready();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "foreach";
+        step.CloseRequirementIds.Clear();
+        construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["work"], CompleteBlock = false, ContinueInScope = "/root",
+            Tasks = [new()
+            {
+                Id = "measure_each", Kind = "foreach", Objective = "Measure each input.",
+                Items = new() { Kind = "array", Items = [new() { Kind = "input", Source = "x" }] },
+                Body = new()
+                {
+                    Tasks = [new()
+                    {
+                        Id = "measure", Kind = "transform", Mode = "interpret", Objective = "Measure the supplied number.",
+                        Inputs = [new("number", new() { Kind = "item" })],
+                        ResultType = new() { Kind = "object", Fields = [new() { Name = "amount", Type = new() { Kind = "number" } }] }
+                    }],
+                    Outputs = [new("amount", new() { Kind = "output", Source = "measure", Port = "amount" })]
+                }
+            }]
+        });
+        state = await Advance(state, runtime);
+        construction = state.Construction!;
+        var baseline = PlanningConstruction.Hash(state.Plan);
+        Assert.True(Assert.Single(construction.Checkpoints).Fragment["businessReviewPending"]!.GetValue<bool>());
+        construction.Compact!.CurrentStep = new() { Id = "claim", BlockId = construction.Compact.CurrentBlockId,
+            Kind = "sequence", Scope = "/root", Objective = "Complete the measurements.", RequirementIds = ["work"],
+            BaseHash = baseline, DiscoveryComplete = true };
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"], CompleteBlock = true });
+        PlanningCompactConstruction.StageCommitments(state, null, construction.Candidate);
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject {
+            ["verdict"] = "needs_change", ["reason"] = "The iteration and measurement omit a required source value.",
+            ["obligations"] = new JsonArray("work"), ["targets"] = new JsonArray("measure_each", "measure") } } };
+        state = await Advance(state, runtime);
+        var paths = Assert.IsType<List<string>>(state.Construction!.Candidate!.AuthorizedPaths);
+        Assert.Equal(new[] { "/tasks/measure_each/items", "/tasks/measure/inputs", "/tasks/measure/objective", "/tasks/measure/requires" }.Order(), paths.Order());
+        Assert.True(HybridWorkflowPlanner.CanWithdrawRejectedClaim(state));
+        Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
+    }
+
     [Theory]
     [InlineData(false, false)]
     [InlineData(true, false)]
