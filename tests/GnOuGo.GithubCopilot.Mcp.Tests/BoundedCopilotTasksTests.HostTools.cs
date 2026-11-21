@@ -2,6 +2,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.GithubCopilot.Core;
 using Xunit;
 
@@ -60,16 +62,31 @@ public sealed partial class BoundedCopilotTasksTests
             if (upstream == "interrupted") throw new IOException("Provider lost the final turn after tool completion.");
             return new(handle, "session", "{}", null, []) { ToolExecutions = observed };
         };
+        var yaml = """
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: collect
+                    type: agent.run
+                    input:
+            """.TrimEnd() + " " + JsonSerializer.Serialize(task, AgentTaskJsonContext.Default.AgentTaskDefinition);
+        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml)).Workflows["main"];
+        var store = new InMemoryWorkflowRunStore();
         foreach (var variant in new[] { "first", "changed" })
         {
             upstream = variant;
-            var context = fixture.Context with { RunId = variant, Task = task };
-            Assert.Empty(await runner.ValidateAsync(context, ct));
+            var engine = new WorkflowEngine { McpClientFactory = transport, RunStore = store, Limits = new() { TenantId = "tenant", RunId = variant } };
+            engine.AgentTaskRunners[task.Runner] = runner;
+            var executed = await engine.ExecuteAsync(workflow, null, ct);
+            Assert.True(executed.Success, executed.Error?.Message);
+            var journal = await store.ReadAsync("tenant", variant, ct);
+            var invocation = Assert.Single(journal!.Invocations.Values);
+            var context = fixture.Context with { RunId = variant, InvocationId = invocation.Id, Task = task };
             var result = await runner.RunAsync(context, ct);
             Assert.Equal("completed", result.Status);
             Assert.Equal(2, result.Usage.Actions);
             Assert.True(Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
-            Assert.Equal("completed", (await runner.RunAsync(context, ct)).Status);
             var replay = await runner.ReconcileAsync(context, ct);
             Assert.Equal(variant, replay.Evidence.Single(e => e.Subject == tools[1]).Facts["result"]!["saved"]!.GetValue<string>());
         }

@@ -200,6 +200,14 @@ if args.copilot:
                     assert rejected.get('isError') and rejected['structuredContent']['code'] == 'INVALID_INPUT', rejected
                     assert rejected['structuredContent']['message'].startswith('attachments'), rejected
             assert content(rpc(2, 'tools/call', {'name': 'copilot_task_contract', 'arguments': {}}))['schemaVersion'] == 9
+            host_contract = content(rpc(31, 'tools/call', {'name': 'copilot_task_contract', 'arguments': {'hostToolsOnly': True}}))
+            assert host_contract['hostToolProtocol'] == 1
+            assert host_contract['contract']['input_schema']['properties']['capabilities']['items']['enum'] == []
+            assert tools['copilot_task_exchange']['_meta']['gnougo']['management']['visibility'] == 'management_only'
+            rejected = rpc(32, 'tools/call', {'name': 'copilot_task_exchange', 'arguments': {
+                'runId': 'wrong', 'invocationId': 'main/task', 'channel': 'a' * 32},
+                '_meta': {'gnougo': {'tenantId': 'smoke', 'runId': 'run', 'stepId': 'main/task'}}})
+            assert rejected.get('isError'), rejected
             context = {'tenant_id': 'smoke', 'run_id': 'rejected-fixture', 'invocation_id': 'main/task', 'task': {
                 'runner': 'coding', 'objective': 'This invalid scope must never dispatch inference.', 'workspace': str(root),
                 'inputs': {}, 'output_schema': {'type': 'object'}, 'capabilities': ['unsupported-fixture-capability'],
