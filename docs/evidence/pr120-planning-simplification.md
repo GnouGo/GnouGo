@@ -1,5 +1,33 @@
 # PR 120 planning simplification
 
+## Review 45, 21 November 2026
+
+Fresh Server session `91788026b2c8409e8b5577dc340a798b` ran on
+`534854f4`. Its discovery showed the grant's repository, revision and
+destination checks. The accepted tasks included the runtime URL, a
+single clone with root cleanup, an ordered diff cursor loop, Copilot
+checks and review, and the caller's bound report. Call 23 selected five
+original requirements for closure. Call 26 withdrew that tentative
+claim. At call 28 the model explicitly selected review of the accepted
+block, keeping the original requirements and root open. The Server
+retained the restriction on the replacement scope and asked for another
+draft. Calls 30, 31 and 33 returned identical empty extensions with
+`completeBlock:false`. Cancellation completed at revision 113. The
+saved workflow did not run. GitHub returned zero reviews and zero inline
+comments for the captured PR head.
+
+The coordinator can now submit that explicitly selected unchanged plan
+to the ordinary business judge. The previous and replacement selections
+must match the same plan, block, scope and obligations. The exception
+requires a tentative claim with no rejected candidate or business
+finding. Missing outputs, different owners and stale hashes still require
+correction. All 122 focused planning tests passed. Offline replay of the
+original call 28 passed its issued grammar, preserved plan
+`eed550b1f9aba2b6cb613b39a3fb9ab02aa00ddf5522a824a7e4f1562d0bf185`
+and sent `rapport` for block review at revision 100 with zero additional
+model calls. No requirement, workflow scope or approval was closed by
+that replay.
+
 ## Command discovery during Review 45, 21 November 2026
 
 Review 44 call 15 and Review 45 call 13 each included 18 command aliases

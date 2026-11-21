@@ -128,7 +128,8 @@ internal static partial class PlanningCompactConstruction
         var construction = state.Construction!; var compact = State(state);
         if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || step.CloseRequirementIds.Count > 0 ||
-            compact.ReplacementScope is not null || compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
+            compact.ReplacementScope is not null && !WithdrewTentativeRequirementClosure(state) ||
+            compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
             compact.PendingCommitments.Any(item => item.Value.Count > 0) || construction.RebuildTasks.Count > 0)
             return null;
         var checkpoint = step.ReuseScopeOutputs ? AcceptedScopeCheckpoint(state, step.Scope)

@@ -177,6 +177,66 @@ public sealed class BusinessBlockCompletionAffordanceTests
     }
 
     [Theory]
+    [InlineData("withdrawn")]
+    [InlineData("other_owner")]
+    [InlineData("stale")]
+    [InlineData("business_finding")]
+    [InlineData("rejected_candidate")]
+    [InlineData("missing_output")]
+    public async Task WithdrawingATentativeRequirementClaimCanSubmitTheUnchangedBlockForReview(string evidence)
+    {
+        var (state, runtime) = await Partial(selectedBoundOutput: true);
+        var compact = state.Construction!.Compact!;
+        var selection = compact.CurrentStep!;
+        selection.Kind = "close";
+        selection.CloseScopes = [];
+        selection.DiscoveryComplete = true;
+        selection.CloseRequirementIds = ["work"];
+        state.Diagnostics.Add(new("CONSTRUCTION_TENTATIVE_SELECTION", "/construction/compact/currentStep", "Keep the original obligation open."));
+        PlanningCompactConstruction.Reselect(state, "Submit only the accepted block for review.");
+        state.Diagnostics.Clear(); // The coordinator archived the tentative diagnosis before selecting the replacement.
+        selection.CloseRequirementIds = [];
+        selection.Id = "replacement_close";
+        compact.CurrentStep = selection;
+        var rejected = compact.RejectedSteps.Last();
+        switch (evidence)
+        {
+            case "other_owner": rejected["step"]!["blockId"] = "another_block"; break;
+            case "stale": rejected["step"]!["baseHash"] = "stale"; break;
+            case "business_finding": rejected["diagnostics"]![0]!["code"] = "BUSINESS_REVIEW_FAILED"; break;
+            case "rejected_candidate": rejected["candidateHash"] = selection.BaseHash; break;
+            case "missing_output": selection.OutputNames = ["absent"]; break;
+        }
+        if (evidence != "withdrawn")
+        {
+            Assert.Null(PlanningCompactConstruction.PrepareSelectedClosure(state));
+            return;
+        }
+        var before = PlanningConstruction.Hash(state.Plan);
+        runtime.Respond = (_, _) => throw new InvalidOperationException("An unchanged block needs no drafting call.");
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var candidate = Assert.IsType<PlanningConstructionCandidate>(state.Construction!.Candidate);
+        Assert.Equal(before, candidate.Hash);
+        Assert.True(candidate.Extension.CompleteBlock);
+        Assert.Empty(candidate.Extension.CloseScopes);
+        Assert.True(HybridWorkflowPlanner.NeedsBusinessReview(state, candidate));
+        Assert.Contains("/root", state.Construction.OpenScopes);
+        Assert.False(PlanningCompactConstruction.RequirementCompletionClaimed(state, "work"));
+        Assert.Null(state.ApprovedHash);
+        runtime.Respond = (_, purpose) =>
+        {
+            Assert.Equal(PlanningConstruction.LocalPurpose, purpose);
+            return new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        };
+        state = await BusinessReviewProtocolTests.Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Null(state.Construction!.Compact!.CurrentBlockId);
+        Assert.False(PlanningCompactConstruction.RequirementCompletionClaimed(state, "work"));
+        Assert.Equal(before, PlanningConstruction.Hash(state.Plan));
+    }
+
+    [Theory]
     [InlineData("unrelated")]
     [InlineData("invalidated")]
     [InlineData("empty")]

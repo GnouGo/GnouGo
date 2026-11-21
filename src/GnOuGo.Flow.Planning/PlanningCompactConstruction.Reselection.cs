@@ -5,7 +5,7 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
-    private static JsonObject? ReselectionContext(PlanningSession state)
+    private static JsonObject? MatchingRejectedStep(PlanningSession state)
     {
         var compact = State(state);
         if (compact.ReplacementScope is null || compact.ReplacementRequirements is null ||
@@ -19,10 +19,31 @@ internal static partial class PlanningCompactConstruction
         if (compact.CurrentStep is { } current && (current.BaseHash != previous["baseHash"]!.ToString() ||
             current.Scope != compact.ReplacementScope || current.BlockId != compact.CurrentBlockId ||
             !current.RequirementIds.ToHashSet(StringComparer.Ordinal).SetEquals(compact.ReplacementRequirements))) return null;
+        return rejected;
+    }
+
+    private static bool WithdrewTentativeRequirementClosure(PlanningSession state)
+    {
+        if (State(state).CurrentStep is not { Kind: "close", CloseRequirementIds.Count: 0, CloseScopes.Count: 0 } ||
+            MatchingRejectedStep(state) is not { } rejected) return false;
+        return rejected["candidateHash"] is null && rejected["extension"] is null &&
+            rejected["reviews"] is JsonArray { Count: 0 } &&
+            rejected["step"]?["kind"]?.ToString() == "close" &&
+            rejected["step"]?["closeRequirementIds"] is JsonArray { Count: > 0 } &&
+            rejected["step"]?["closeScopes"] is JsonArray { Count: 0 } &&
+            rejected["diagnostics"] is JsonArray { Count: 1 } diagnostics &&
+            diagnostics[0]?["code"]?.ToString() == "CONSTRUCTION_TENTATIVE_SELECTION";
+    }
+
+    private static JsonObject? ReselectionContext(PlanningSession state)
+    {
+        if (MatchingRejectedStep(state) is not { } rejected) return null;
+        var compact = State(state);
+        var previous = rejected["step"]!.AsObject();
         var feedback = new JsonObject
         {
             ["scope"] = compact.ReplacementScope,
-            ["requirementIds"] = requirements.DeepClone(),
+            ["requirementIds"] = previous["requirementIds"]!.DeepClone(),
             ["reason"] = rejected["reason"]?.DeepClone(),
             ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1)
         };
