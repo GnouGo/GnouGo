@@ -1,5 +1,29 @@
 # PR 120 planning simplification
 
+## Amazon source check 24, 21 November 2026
+
+At 15:00 UTC a new search under the existing v10 grant returned HTTP 200
+and all 1,637 records in 80 pages. The previous source check was at
+10:14 UTC. In the new snapshot (`2bd95456b7964144a4753dde5c078bd9`),
+17 permitted source resolutions established ten ordered products. Cold
+verification of the captured events returned the same selection. There
+were zero unclassified headings. The browser closed and a subsequent
+read confirmed it had no active page. The diagnostic used zero model
+calls. Business visits, an on-disk workbook and the full workflow still
+require a fresh run. The SHA-256 of the capture is
+`d76a95c438e122dc874d6c3d29ad50cde17f7c84e633471ec6f3f151db6b5ef8`.
+
+## Review 49, 21 November 2026
+
+Fresh Server session `68e895367b6f4024beb055975abe2deb` started on
+`a2827267` with EUR 178.62762455 available after settlement. Its first
+response bound the two runtime inputs and declared the requested caller
+report directly. No clarification was needed at intake. On this build,
+the unchanged Review 30 plan again passed full semantic validation.
+Review 32's retained call 40 again preserved inline ordering and submission
+acknowledgement. Its independently selected read remained unimplemented.
+Both regressions used zero model calls.
+
 ## Review 48, 21 November 2026
 
 Fresh Server session `d74f1ef394ab48ba88484ba476452abd` opened on
@@ -92,6 +116,16 @@ The first installation request came after 32 earlier permissions. The
 coding task now tells both the planner and the SDK to retain host caches,
 read the project material needed for the next action and run independent
 checks as separate terminal commands. All 259 Copilot MCP tests passed.
+
+An isolated provider diagnostic repeated Review 48 call 18 with only
+the discovered `task` input description changed. One complete, schema-valid
+response used 29,187 input and 776 output tokens (EUR 0.92366266). Its
+generated Copilot task explicitly retained host caches and offline settings,
+requested an independent terminal invocation and exit status for each
+installation and check, and limited extra output reads to missing evidence.
+It kept the runtime review instructions and the existing clone binding.
+This diagnostic left the source plan untouched and executed no business
+tools.
 
 ## Review 47, 21 November 2026
 
