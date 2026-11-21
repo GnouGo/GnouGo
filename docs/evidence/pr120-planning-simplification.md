@@ -23,6 +23,29 @@ cursor iteration, a bounded Copilot task and root cleanup. The extra base
 fetch from Review 41 disappeared. These are generated tasks. Publication,
 chat delivery and cleanup require execution receipts.
 
+Call 29 withdrew the local report step because the model believed caller
+delivery required another operation. The issued context declared the public
+string `rapport` and its binding slot. It omitted how a bound root output
+reaches the caller. After inspecting document providers and their contracts,
+call 38 suspended the report for a delivery operation. Call 39 asked the
+user for its ID and acknowledgement. The session ended at revision 119
+with zero business dispatches.
+
+When authoring a selected public output, discovery and drafting now state
+that workflow completion returns the bound value to the caller. An external
+destination requested separately still needs its own operation. Replaying
+the original withdrawal on revision 95 preserved plan
+`d770cf4618a6d70a1afc2e43272c5ebb2fbadc3235d6ffecf67b2d6720b5c504`.
+The revised request added this delivery contract, preserving the same
+response schema and 97 evidence addresses. The focused planner selection
+passed 83 tests. Eleven Server tests passed, including saved form invocations
+that compared actual chat text with the run's root outputs.
+
+Review 42 settled 39 physical requests for EUR 20.93824. The closing
+audit had 4,151 requests and EUR 2,083.94035 in measured usage at the
+captured tariffs. The existing EUR 492.52354 in HTTP holds and EUR
+162.25381 in application reservations left EUR 361.28231 available.
+
 The complete solution on the frozen earlier revision `8d1f7b9c` passed
 9,725 tests with 13 skipped.
 

@@ -240,6 +240,25 @@ public sealed class CompactConstructionClosureTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void DraftDescribesCallerDeliveryWhenAPublicReturnIsDeclared(bool declaresPublicReturn)
+    {
+        var state = State();
+        if (!declaresPublicReturn)
+        {
+            state.Requirements!.Outputs = [];
+            state.Construction!.Compact!.CurrentStep!.OutputNames.Clear();
+        }
+        var draft = PlanningConstruction.DraftRequest(state, false);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningConstruction.DraftPurpose,
+            draft.Prompt, draft.StructuredOutputSchema!.AsObject());
+        Assert.Equal(declaresPublicReturn, issued.Prompt.Contains("returns bound root outputs to the caller", StringComparison.Ordinal));
+        if (declaresPublicReturn)
+            Assert.Contains("separately requested delivery", issued.Prompt, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
     [InlineData(PlanningConstruction.DraftPurpose)]
     [InlineData("replan")]
     public void IssuedDraftSeparatesAnOpenScopeContinuationFromADeferredPublicBinding(string purpose)
