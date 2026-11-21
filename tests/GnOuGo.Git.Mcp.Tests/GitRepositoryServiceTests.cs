@@ -378,6 +378,44 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void OneCloneCanCompareDivergedRevisionsAdvertisedByItsOrigin()
+    {
+        var source = CreateService(_root, allowNetwork: true);
+        var common = WriteCommit(source, "common.txt", "original", "common", root: _root);
+        string baseBranch;
+        using (var repo = new Repository(_root))
+        {
+            baseBranch = repo.Head.FriendlyName;
+            Commands.Checkout(repo, repo.CreateBranch("contribution"));
+        }
+        var head = WriteCommit(source, "change.txt", "contribution", "contribution", root: _root);
+        using (var repo = new Repository(_root))
+        {
+            repo.Refs.Add("refs/changes/123/head", head.Sha);
+            Commands.Checkout(repo, baseBranch);
+            repo.Branches.Remove("contribution");
+        }
+        var basis = WriteCommit(source, "base.txt", "base only", "review base", root: _root);
+        WriteCommit(source, "base.txt", "later base change", "move base branch", root: _root);
+        var review = CreateService(allowNetwork: true, allowMutations: false, reviewReadOnly: true);
+        var clone = review.Clone(_root, "workflows/compare-advertised", branch: head.Sha, historyDepth: 0);
+        var project = clone.ProjectRootRelative!;
+        var fetch = review.Fetch(project, "origin", $"refs/heads/{baseBranch}:refs/remotes/origin/{baseBranch}");
+        Assert.Equal(project, fetch.RepositoryRootRelative);
+        Assert.Throws<InvalidOperationException>(() => review.Fetch(".", "origin"));
+        var comparison = review.CompareRefs(project, basis.Sha, head.Sha);
+
+        Assert.Equal(common.Sha, comparison.MergeBaseSha);
+        Assert.Equal(head.Sha, comparison.HeadSha);
+        Assert.Equal(basis.Sha, comparison.BaseSha);
+        Assert.Equal("change.txt", Assert.Single(comparison.Files).Path);
+        using var checkout = new Repository(Path.Combine(_root, project));
+        Assert.True(checkout.Info.IsHeadDetached);
+        Assert.Equal(head.Sha, checkout.Head.Tip.Sha);
+        Assert.Equal(_root, Assert.Single(checkout.Network.Remotes).Url);
+    }
+
+    [Fact]
     public void Clone_FullCommitObjectId_FetchesExactlyAndChecksOutDetached()
     {
         var source = Path.Combine(_root, "source-exact-object-id");
@@ -535,15 +573,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
         WriteCommit(sourceService, "README.md", "fixture\n", "fixture", source);
-        var settings = new GitServerSettings
-        {
-            DefaultWorkingDirectory = _root,
-            AllowedWorkingRoots = [_root],
-            AllowMutations = false,
-            AllowNetworkOperations = true,
-            ReviewReadOnly = true
-        };
-        var reviewService = new GitRepositoryService(new GitPolicy(settings, _root), Options.Create(settings));
+        var reviewService = CreateService(allowMutations: false, allowNetwork: true, reviewReadOnly: true);
 
         var clone = reviewService.Clone(source, "workflows/review-run", historyDepth: 0);
 
@@ -564,13 +594,14 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return service.Commit(".", message, "Test User", "test@example.local");
     }
 
-    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000, int maxComparePageSize = 100)
+    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000, int maxComparePageSize = 100, bool reviewReadOnly = false)
     {
         var settings = new GitServerSettings
         {
             DefaultWorkingDirectory = defaultWorkingDirectory ?? _root,
             AllowedWorkingRoots = [_root],
             AllowMutations = allowMutations,
+            ReviewReadOnly = reviewReadOnly,
             AllowNetworkOperations = allowNetwork,
             MaxComparePatchCharactersPerFile = maxComparePatchCharactersPerFile,
             MaxComparePageSize = maxComparePageSize,

@@ -844,7 +844,7 @@ public sealed class GitRepositoryService
         => ToWorkspaceRelativePath(path) ?? path;
 
     private string? ToWorkspaceRelativePath(string? path)
-        => GnOuGoWorkspace.ToWorkspaceRelativePath(path, _policy.DefaultWorkingDirectory);
+        => string.IsNullOrWhiteSpace(path) ? null : GnOuGoWorkspace.ToWorkspaceRelativePath(_policy.WorkspaceSpelling(path), _policy.DefaultWorkingDirectory);
 
     private Repository OpenRepository(string projectRoot, out string repositoryRoot)
     {

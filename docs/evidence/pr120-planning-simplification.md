@@ -2,6 +2,25 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 38 verified the rollback mechanism on the original Review 37
+checkpoint before starting fresh. One independent Server request cost
+EUR 0.29299. The model selected `fetchReviewBaseHistory` from the three
+offered tasks. On the detached checkpoint, the ordinary rollback reopened
+seven dependent tasks, preserved seven others and produced zero required
+technical findings. The fresh Review 38 plan declared both caller inputs,
+the report, one pinned clone, its finalizer and Copilot checks. After 21
+physical requests its next draft needed EUR 4.63332 reserved. The campaign
+had EUR 4.53659 available. The Server stopped before sending the draft
+and emitted its budget warning. No business execution started.
+
+The local Git regression used a pinned head advertised under a non-branch
+ref, a divergent base branch and their actual merge base. It also exposed
+a separate runtime defect on macOS. Libgit2 returned the physical
+`/private/var` spelling of a checkout below a workspace configured through
+`/var`. The read-only fetch rejected its own clone. Git now maps the
+physical spelling of the configured workspace back to its declared path.
+Review fetch still requires a repository below its workflow directory.
+
 Amazon 20 (session `34e97f57f85741ccb31e081ad264ccc0`) stopped at
 revision 23 in capability discovery. Its eighth physical request received
 a complete HTTP 502 error in 2.24 seconds. The captured policy allowed one

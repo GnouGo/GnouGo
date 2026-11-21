@@ -12,6 +12,22 @@ public sealed class GitPolicyTests : IDisposable
     }
 
     [Fact]
+    public void ReviewReadOnlyRecognizesThePhysicalSpellingOfTheConfiguredWorkspace()
+    {
+        if (OperatingSystem.IsWindows()) return; // Creating a directory symlink can require an elevated token.
+        var actual = Directory.CreateDirectory(Path.Combine(_root, "physical")).FullName;
+        var alias = Directory.CreateSymbolicLink(Path.Combine(_root, "alias"), actual).FullName;
+        var settings = CreateSettings();
+        settings.ReviewReadOnly = true;
+        settings.DefaultWorkingDirectory = alias;
+        var policy = new GitPolicy(settings, _root);
+        var physical = Path.Combine(new DirectoryInfo(alias).ResolveLinkTarget(true)!.FullName, "workflows", "review");
+        policy.EnsureReviewWorkspace(physical);
+        Assert.Equal(Path.Combine(alias, "workflows", "review"), policy.WorkspaceSpelling(physical));
+        Assert.Throws<InvalidOperationException>(() => policy.EnsureReviewWorkspace(Path.Combine(actual, "other")));
+    }
+
+    [Fact]
     public void DefaultWorkingDirectory_UsesDesktopGnOuGoWhenConfiguredPathIsRelative()
     {
         var desktop = Path.Combine(_root, "Desktop");
