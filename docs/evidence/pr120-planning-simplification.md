@@ -1,5 +1,35 @@
 # PR 120 planning simplification
 
+## Review 52, 21 November 2026
+
+Fresh Server session `19249a4b0d2049929a9ce170e47b1a50` ran on
+`0b7a9d9d`. A check of the detached replay binaries found that their first
+build still referenced Review 50. After rebuilding against Review 52 and
+checking the SHA-256 of both loaded Flow assemblies, the unchanged Review 30
+plan passed. Review 32 retained inline ordering and submission acknowledgement.
+Its separately selected read still prevented fragment closure. Review 52 generated a single
+checkout, its root finalizer and a Copilot check bound to the guarded project
+directory. At call 16 the comparison selected the observed base and head from
+the PR response forwarded through a conditional and a sequence. Both branches
+returned the original MCP response. The eligible branch had already checked it
+for null. Validation reported four missing fields. Call 17 read the cited
+evidence and call 18 asked to widen the repair scope. The operator stopped at
+revision 66 without editing the plan. The run settled at revision 67 with 18
+physical calls, EUR 10.89473253 and no external effect. The settled campaign
+counted 4,646 calls and EUR 54.59187128 available.
+
+The unchanged issued call 16 reproduced all four findings. The compiler now
+preserves a forwarded tool response and joins its checked non-null contract
+with the original contract. The graph validator independently proves this
+inclusion even when the remaining alternatives of a `oneOf` overlap. Four
+regression cases failed on the original build. The corrected tests exercise
+both branches, wrong runtime alternatives, a mixed-source return and a union
+whose null value would violate exclusivity. All 50 operation result tests
+passed. The original call 16 then passed structural validation, compilation,
+executable graph validation and compiled YAML semantics with zero model calls
+and zero effects. The fresh GitHub read before the run counted zero reviews
+and zero inline comments on the 52-file head `107c86fc87fc`.
+
 ## Review 51, 21 November 2026
 
 Fresh Server session `949b0bd5d04e4746abd7d4ee54d0ccca` started on

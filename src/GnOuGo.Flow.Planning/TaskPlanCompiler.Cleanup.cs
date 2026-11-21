@@ -73,6 +73,7 @@ public sealed partial class TaskPlanCompiler
             _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
             var location = _location;
             var bound = Value(output.Value, scope);
+            scope.Exports.Add(output.Name, bound);
             var afterCleanup = PlanningGraphTopology.ReferencedStages(bound.Value)
                 .Concat(pending.SelectMany(PlanningGraphTopology.References).SelectMany(PlanningGraphTopology.ReferencedStages))
                 .Any(finalizers.Contains);

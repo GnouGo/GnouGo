@@ -65,6 +65,7 @@ public sealed partial class TaskPlanCompiler
     {
         public PlanningWorkflow Workflow { get; } = workflow;
         public Scope? Parent { get; } = parent;
+        public Dictionary<string, Bound> Exports { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Bound> Inputs { get; } = new(StringComparer.Ordinal);
         public Dictionary<string, Dictionary<string, Bound>> Tasks { get; } = new(StringComparer.Ordinal);
         public List<PlanningMember> Captures { get; } = [];
@@ -87,7 +88,7 @@ public sealed partial class TaskPlanCompiler
     private PlanningGraph _graph = new();
     private readonly Dictionary<string, string> _sources = new(StringComparer.Ordinal);
     private readonly HashSet<string> _compilingGroups = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, PlanningWorkflow> _groups = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Scope> _groups = new(StringComparer.Ordinal);
     internal const int MaximumIterationItems = 10_000;
     internal const string CompactProfile = "compact-bindings-v15";
     internal static bool UsesCompactBindings(PlanningRequest request) => request.Options["compilation_profile"]?.ToString() is "compact-bindings-v1" or "compact-bindings-v2" or "compact-bindings-v3" or "compact-bindings-v4" or "compact-bindings-v5" or "compact-bindings-v6" or "compact-bindings-v7" or "compact-bindings-v8" or "compact-bindings-v9" or "compact-bindings-v10" or "compact-bindings-v11" or "compact-bindings-v12" or "compact-bindings-v13" or "compact-bindings-v14" or CompactProfile;
@@ -261,6 +262,7 @@ public sealed partial class TaskPlanCompiler
             _location = (_sources.GetValueOrDefault(key) ?? "/root") + "/outputs/" + output.Name;
             _sources[key + "/outputs/" + scope.Workflow.Outputs.Count] = _location;
             var bound = Value(output.Value, scope);
+            scope.Exports.Add(output.Name, bound);
             if (bound.Value.Kind is "object" or "array")
             {
                 // Outputs are evaluated after cleanup. Materialize structured values there,
@@ -326,11 +328,11 @@ public sealed partial class TaskPlanCompiler
                 var definition = _plan.Groups.SingleOrDefault(g => g.Id == task.Group);
                 if (definition is null) Fail("TASK_GROUP_UNKNOWN", "Choose a declared reusable task group.");
                 var group = Group(definition!);
-                var args = BindArguments(task.Inputs, scope, group.Inputs);
-                target.Add(Call(key, group.Key, args)); outputs = WorkflowResult(key, group); break;
+                var args = BindArguments(task.Inputs, scope, group.Workflow.Inputs);
+                target.Add(Call(key, group.Workflow.Key, args)); outputs = WorkflowResult(key, group.Workflow, group.Exports); break;
             case "sequence":
                 var sequence = Child(task.Body ?? MissingScope(), scope, key, "body");
-                target.Add(sequence.Call); outputs = WorkflowResult(sequence.Call.Key, sequence.Workflow); break;
+                target.Add(sequence.Call); outputs = WorkflowResult(sequence.Call.Key, sequence.Workflow, sequence.Exports); break;
             case "conditional":
                 var condition = Value(task.Condition ?? MissingValue(), scope); RequireBoolean(condition);
                 var yes = Child(task.Body ?? MissingScope(), scope, key, "yes", NonNullReferences(task.Condition, true));
@@ -344,12 +346,14 @@ public sealed partial class TaskPlanCompiler
                 {
                     var schema = PlanningGraphCompiler.ToJsonSchema(output.Schema, _catalog);
                     var alternate = PlanningGraphCompiler.ToJsonSchema(no.Workflow.Outputs.Single(o => o.Name == output.Name).Schema, _catalog);
-                    if (!JsonNode.DeepEquals(schema, alternate)) schema = new() { ["anyOf"] = new JsonArray(schema, alternate) };
+                    var contract = BranchContract(schema, alternate, yes.Exports[output.Name].WholeMcpResult && no.Exports[output.Name].WholeMcpResult);
+                    schema = contract.Schema;
                     var projection = Key(key, "merge:" + output.Name); _sources[projection] = _location;
                     target.Add(new() { Key = projection, Type = "set", Input = Projection([
                         new("value", Reference(key)), new("paths", Array([Strings([yes.Call.Key, "outputs", output.Name]), Strings([no.Call.Key, "outputs", output.Name])]))]),
                         OutputSchema = Contract(ObjectSchema([("value", schema)])) });
-                    outputs.Add(output.Name, Output(projection, "set", ["value"], schema));
+                    var selected = Output(projection, "set", ["value"], schema);
+                    outputs.Add(output.Name, selected with { WholeMcpResult = contract.WholeMcpResult });
                 }
                 outputs = Aggregate(outputs, key, target); break;
             case "parallel":
@@ -362,7 +366,7 @@ public sealed partial class TaskPlanCompiler
                     {
                         if (outputs.ContainsKey(output.Name)) Fail("TASK_BRANCH_OUTPUTS", "Parallel branches must export distinct business output names.");
                         var schema = PlanningGraphCompiler.ToJsonSchema(output.Schema, _catalog);
-                        outputs.Add(output.Name, Output(key, "parallel", ["branches", i.ToString(CultureInfo.InvariantCulture), children[i].Call.Key, "outputs", output.Name], schema));
+                        outputs.Add(output.Name, Output(key, "parallel", ["branches", i.ToString(CultureInfo.InvariantCulture), children[i].Call.Key, "outputs", output.Name], schema).Retaining(children[i].Exports[output.Name]));
                     }
                 outputs = Aggregate(outputs, key, target); break;
             case "foreach":
@@ -579,23 +583,23 @@ public sealed partial class TaskPlanCompiler
         return OperationResults(key, capability, input);
     }
 
-    private (PlanningWorkflow Workflow, PlanningNode Call) Child(TaskScope source, Scope parent, string key, string role, IReadOnlySet<string>? nonNull = null)
+    private (PlanningWorkflow Workflow, PlanningNode Call, Dictionary<string, Bound> Exports) Child(TaskScope source, Scope parent, string key, string role, IReadOnlySet<string>? nonNull = null)
     {
         var childKey = Key(key, role); var workflow = new PlanningWorkflow { Key = childKey };
         _graph.Workflows.Add(workflow); _sources[childKey] = _location + "/" + (role switch
         { "yes" or "iteration" => "body", "no" => "otherwise", _ => role.Replace("branch:", "branches/", StringComparison.Ordinal) });
         var location = _location; var child = new Scope(workflow, parent) { NonNullReferences = nonNull, FailurePath = parent.FailurePath || parent.Cleanup }; CompileScope(source, child, childKey); _location = location;
-        return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)));
+        return (workflow, Call(Key(childKey, "call"), childKey, Object(child.Captures)), child.Exports);
     }
 
-    private PlanningWorkflow Group(TaskGroup group)
+    private Scope Group(TaskGroup group)
     {
         if (_compilingGroups.Contains(group.Id)) Fail("TASK_GROUP_CYCLE", "Reusable groups cannot recurse.");
         if (_groups.TryGetValue(group.Id, out var existing)) return existing;
         var workflow = new PlanningWorkflow { Key = Key("group", group.Id) };
-        _graph.Workflows.Add(workflow); _sources[workflow.Key] = "/groups/" + group.Id + "/body"; _groups.Add(group.Id, workflow); _compilingGroups.Add(group.Id);
+        _graph.Workflows.Add(workflow); _sources[workflow.Key] = "/groups/" + group.Id + "/body"; _compilingGroups.Add(group.Id);
         var location = _location; var scope = new Scope(workflow, null); AddInputs(scope, group.Inputs, "/groups/" + group.Id + "/inputs"); CompileScope(group.Body, scope, workflow.Key); _location = location;
-        _compilingGroups.Remove(group.Id); return workflow;
+        _compilingGroups.Remove(group.Id); _groups.Add(group.Id, scope); return scope;
     }
 
     private PlanningValue BindArguments(List<TaskOutput> arguments, Scope scope, List<PlanningPort> ports)
@@ -648,31 +652,11 @@ public sealed partial class TaskPlanCompiler
         return references;
     }
 
-    private static JsonObject? WithoutNull(JsonObject source)
-    {
-        var schema = source.DeepClone().AsObject();
-        if (schema["type"]?.ToString() == "null") return null;
-        if (schema["type"] is JsonArray types)
-        {
-            var remaining = types.Where(t => t?.ToString() != "null").Select(t => t!.DeepClone()).ToArray();
-            if (remaining.Length == 0) return null;
-            schema["type"] = remaining.Length == 1 ? remaining[0] : new JsonArray(remaining);
-        }
-        foreach (var keyword in new[] { "anyOf", "oneOf" })
-            if (schema[keyword] is JsonArray alternatives && alternatives.All(a => a is JsonObject))
-            {
-                var remaining = alternatives.Cast<JsonObject>().Select(WithoutNull).OfType<JsonObject>().ToArray();
-                if (remaining.Length == 0) return null;
-                schema[keyword] = new JsonArray(remaining.Select(s => (JsonNode)s).ToArray());
-            }
-        return schema;
-    }
-
     private Bound Value(TaskValue value, Scope scope, bool consume = true, bool requireNonNull = false)
     {
         var bound = ValueCore(value, scope, consume);
         if ((!consume && !requireNonNull) || value.Kind is not ("input" or "output" or "field")) return bound;
-        if (IsGuardedNonNull(value, scope, requireNonNull) && WithoutNull(bound.Schema) is { } schema && !JsonNode.DeepEquals(schema, bound.Schema))
+        if (IsGuardedNonNull(value, scope, requireNonNull) && PlanningContractShapes.WithoutNull(bound.Schema) is { } schema && !JsonNode.DeepEquals(schema, bound.Schema))
         {
             // Keep captured contracts intact; check the refined value in the selected branch.
             return consume ? Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope)
@@ -994,9 +978,21 @@ public sealed partial class TaskPlanCompiler
     {
         var aggregate = Key(key, "outputs"); var schema = ObjectSchema(outputs.Select(p => (p.Key, p.Value.Schema)));
         target.Add(new() { Key = aggregate, Type = "set", Input = Object(outputs.Select(p => new PlanningMember(p.Key, p.Value.Value))), OutputSchema = Contract(schema) });
-        return Result(aggregate, "set", schema);
+        return Result(aggregate, "set", schema, RetainedMembers(outputs.Select(p => (p.Key, p.Value))));
     }
-    private static Dictionary<string, Bound> WorkflowResult(string key, PlanningWorkflow workflow) => Result(key, "workflow.call", ObjectSchema(workflow.Outputs.Select(o => (o.Name, o.Schema.Contract!))));
+    private static (JsonObject Schema, bool WholeMcpResult) BranchContract(JsonObject first, JsonObject second, bool wholeResults)
+    {
+        if (JsonNode.DeepEquals(first, second)) return (first, wholeResults);
+        // A guarded export can carry the same tool contract with only its null alternative removed.
+        // On merge the broader original contract applies again, including all its root constraints.
+        if (wholeResults && PlanningContractShapes.IsNonNullVariantOf(first, second)) return (second, true);
+        if (wholeResults && PlanningContractShapes.IsNonNullVariantOf(second, first)) return (first, true);
+        return (new() { ["anyOf"] = new JsonArray(first.DeepClone(), second.DeepClone()) }, false);
+    }
+
+    private static Dictionary<string, Bound> WorkflowResult(string key, PlanningWorkflow workflow, IReadOnlyDictionary<string, Bound>? exports = null) =>
+        Result(key, "workflow.call", ObjectSchema(workflow.Outputs.Select(o => (o.Name, o.Schema.Contract!))),
+            exports is null ? null : RetainedMembers(exports.Select(p => (p.Key, p.Value))));
     private static Dictionary<string, Bound> Result(string key, string type, JsonObject schema, IReadOnlyDictionary<string, Bound>? retained = null)
     {
         var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, type, [], schema) with { RetainedMembers = retained } };

@@ -5,6 +5,40 @@ internal static class PlanningContractShapes
     internal static JsonObject Opaque() => new() { ["x-gnougo-opaque"] = true };
     internal static bool IsOpaque(JsonObject schema) => schema["x-gnougo-opaque"]?.ToString() == "true";
 
+    // The conditional kept every non-null alternative, including overlapping oneOf branches.
+    // Prove the narrowed domain excludes null before using the original union as its upper bound.
+    internal static bool IsNonNullVariantOf(JsonObject narrowed, JsonObject original) =>
+        (narrowed["oneOf"] is JsonArray && original["oneOf"] is JsonArray ||
+         narrowed["anyOf"] is JsonArray && original["anyOf"] is JsonArray) &&
+        ExcludesNull(narrowed) && JsonNode.DeepEquals(narrowed, WithoutNull(original));
+
+    private static bool ExcludesNull(JsonObject schema)
+    {
+        if (schema["type"] is JsonValue type && type.ToString() is "object" or "array" or "string" or "integer" or "number" or "boolean") return true;
+        return (schema["oneOf"] ?? schema["anyOf"]) is JsonArray { Count: > 0 } branches &&
+            branches.All(branch => branch is JsonObject item && ExcludesNull(item));
+    }
+
+    internal static JsonObject? WithoutNull(JsonObject source)
+    {
+        var schema = source.DeepClone().AsObject();
+        if (schema["type"]?.ToString() == "null") return null;
+        if (schema["type"] is JsonArray types)
+        {
+            var remaining = types.Where(t => t?.ToString() != "null").Select(t => t!.DeepClone()).ToArray();
+            if (remaining.Length == 0) return null;
+            schema["type"] = remaining.Length == 1 ? remaining[0] : new JsonArray(remaining);
+        }
+        foreach (var keyword in new[] { "anyOf", "oneOf" })
+            if (schema[keyword] is JsonArray alternatives && alternatives.All(a => a is JsonObject))
+            {
+                var remaining = alternatives.Cast<JsonObject>().Select(WithoutNull).OfType<JsonObject>().ToArray();
+                if (remaining.Length == 0) return null;
+                schema[keyword] = new JsonArray(remaining.Select(s => (JsonNode)s).ToArray());
+            }
+        return schema;
+    }
+
     // Business types need not encode technical value restrictions. A checked
     // identity mapping can validate those without changing data or invoking inference.
     // Never override a finite domain, known constraint, shape or nullability.

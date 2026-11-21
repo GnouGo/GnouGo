@@ -186,7 +186,7 @@ public sealed partial class TaskPlanCompiler
             foreach (var output in source.Outputs)
             {
                 var value = Read(output.Value, scope, path + "/outputs/" + output.Name);
-                if (value is not null && scope.Workflow.Outputs.All(o => o.Name != output.Name))
+                if (value is not null && scope.Exports.TryAdd(output.Name, value))
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
             inspect?.Invoke(path + "/outputs", scope);
@@ -467,7 +467,7 @@ public sealed partial class TaskPlanCompiler
                     var body = Child(task.Body, "body");
                     if (body is not null) ports = Exports(body);
                     declared.AddRange(task.Body?.Outputs.Select(o => o.Name) ?? []);
-                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() }, TypeLocation = null };
+                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() }, TypeLocation = null, WholeMcpResult = false, RetainedMembers = null };
                     break;
                 case "conditional":
                     if (task.Condition is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/condition", "A conditional requires a predicate."));
@@ -488,7 +488,9 @@ public sealed partial class TaskPlanCompiler
                             if (alternatives.TryGetValue(name, out var alternative))
                             {
                                 branchContracts[(task.Id, name)] = [(path + "/body/outputs/" + name, value.Schema), (path + "/otherwise/outputs/" + name, alternative.Schema)];
-                                ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) }, TypeLocation = null };
+                                var contract = BranchContract(value.Schema, alternative.Schema, value.WholeMcpResult && alternative.WholeMcpResult);
+                                ports[name] = value with { Schema = contract.Schema, TypeLocation = null,
+                                    WholeMcpResult = contract.WholeMcpResult, RetainedMembers = null };
                             }
                     }
                     break;
@@ -517,7 +519,8 @@ public sealed partial class TaskPlanCompiler
             scope.Tasks.TryAdd(task.Id, ports);
             contracts.TryAdd(task.Id, ports);
         }
-        Dictionary<string, Bound> Exports(Scope scope) => scope.Workflow.Outputs.ToDictionary(o => o.Name, o => Output("semantic", "workflow.call", [o.Name], o.Schema.Contract!), StringComparer.Ordinal);
+        Dictionary<string, Bound> Exports(Scope scope) => scope.Exports.ToDictionary(p => p.Key,
+            p => Output("semantic", "workflow.call", [p.Key], p.Value.Schema).Retaining(p.Value), StringComparer.Ordinal);
     }
 
     private static JsonObject? SelectedInputBranch(JsonObject request, JsonObject contract)

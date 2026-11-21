@@ -57,6 +57,10 @@ A value task can retain a whole MCP result inside a named object member.
 Selecting a field from that member checks the actual response against the same
 closed union alternatives as a direct selection. Numeric array indexes cannot
 satisfy a named object field. Unknown or opaque alternatives still fail validation.
+A scope can also forward a whole tool response. A conditional preserves its
+closed result contract when both paths supply that contract, including a path
+that removed null after checking the response. At the merge, the original union
+applies again. Consumers check the observed alternative before selecting a field.
 
 Internal planning format **11** has one active protocol. Retired sessions and approvals
 are rejected without migration; original encrypted records remain unchanged. TaskPlan

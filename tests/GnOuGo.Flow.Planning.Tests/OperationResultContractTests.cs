@@ -176,9 +176,18 @@ public sealed class OperationResultContractTests
     [InlineData("opaque_contract", true)]
     [InlineData("open_contract", true)]
     [InlineData("undeclared_field", true)]
-    public async Task RequiredFieldOfAClosedMcpResultVariantChecksBeforeDispatch(string variant, bool retainInObject = false)
+    [InlineData("matching", false, true)]
+    [InlineData("matching", false, true, true)]
+    [InlineData("array_index", false, true)]
+    [InlineData("other_object", false, true)]
+    [InlineData("open_contract", false, true)]
+    [InlineData("unproven_alternative", false, true)]
+    public async Task RequiredFieldOfAClosedMcpResultVariantChecksBeforeDispatch(string variant, bool retainInObject = false,
+        bool forwardThroughBranches = false, bool alternate = false)
     {
         var resultSchema = Schema("""{"oneOf":[{"type":"null"},{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false},{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false},{"type":"array","items":{"type":"string"}}]}""");
+        if (forwardThroughBranches)
+            resultSchema["oneOf"]!.AsArray().Add(Schema("""{"type":"object","properties":{"label":{"type":"string"},"extra":{"type":"string"}},"required":["label"],"additionalProperties":false}"""));
         if (variant == "opaque_contract") resultSchema["oneOf"]!.AsArray().Add(new JsonObject());
         if (variant == "open_contract") resultSchema["oneOf"]![1]!["additionalProperties"] = true;
         if (variant == "root_constraint") resultSchema["maxProperties"] = 0;
@@ -207,7 +216,7 @@ public sealed class OperationResultContractTests
         string Operation(string method) => TaskOperations.Describe(catalog.Capabilities.Single(c => c.Server == "service" && c.Method == method)).Id;
         TaskValue Whole() => retainInObject
             ? TaskFieldBindingTests.Field(Reference("retain", "bundle"), "observation")
-            : Reference("obtain", null);
+            : forwardThroughBranches ? Reference("forward", "observed") : Reference("obtain", null);
         TaskValue Field() => TaskFieldBindingTests.Field(Whole(), variant == "undeclared_field" ? "missing" : selectedField);
         TaskValue Compare(string op, params TaskValue[] operands) => new() { Kind = "predicate", Predicate = op, Items = [.. operands] };
         var plan = new TaskPlan { Root = new() { Tasks = [
@@ -218,13 +227,25 @@ public sealed class OperationResultContractTests
         if (retainInObject)
             plan.Root.Tasks.Insert(1, new() { Id = "retain", Kind = "value", Objective = "Retain the complete source observation.",
                 Outputs = [new("bundle", new() { Kind = "object", Members = [new("observation", Reference("obtain"))] })] });
+        if (forwardThroughBranches)
+        {
+            var choose = new PlanTask
+            {
+                Id = "choose", Kind = "conditional", Objective = "Return the observation from either path.",
+                Condition = alternate ? new() { Kind = "boolean", Boolean = false } : Compare("not_equal", Reference("obtain"), new()),
+                Body = new() { Outputs = [new("observed", Reference("obtain"))] },
+                Otherwise = new() { Outputs = [new("observed", variant == "unproven_alternative" ? Text("fallback") : Reference("obtain"))] }
+            };
+            plan.Root.Tasks.Insert(1, new() { Id = "forward", Kind = "sequence", Objective = "Forward the observation.",
+                Body = new() { Tasks = [choose], Outputs = [new("observed", Reference("choose", "observed"))] } });
+        }
         var state = PlannerFixture.Session();
         state.Requirements = PlannerFixture.Requirements(); state.Catalog = catalog;
         var grammar = PlanningSchemas.TaskPlanGrammar(state);
         var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), grammar, grammar)!;
         Assert.Empty(PlanningContractValidation.ValidateInstance(wire, grammar));
         var parsed = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        if (variant is "opaque_contract" or "open_contract" or "undeclared_field")
+        if (variant is "opaque_contract" or "open_contract" or "undeclared_field" or "unproven_alternative")
         {
             Assert.Contains(new TaskPlanCompiler().Compile(parsed, catalog).Diagnostics, d => d.Code is "TASK_FIELD_TYPE" or "TASK_FIELD_UNKNOWN");
             return;
@@ -236,6 +257,16 @@ public sealed class OperationResultContractTests
             Assert.Equal(variant == "matching", run.Success);
             Assert.Equal(variant == "matching" ? new[] { "observed" } : [], received);
         }
+    }
+
+    [Fact]
+    public void RemovingANullAlternativeCannotGrantAValueExcludedByOneOf()
+    {
+        var original = Schema("""{"oneOf":[{"type":"null"},{}]}""");
+        var changed = Schema("""{"oneOf":[{}]}""");
+        Assert.Empty(PlanningContractValidation.ValidateInstance(null, changed));
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(null, original));
+        Assert.False(PlanningContractCompatibility.Fits(changed, original));
     }
 
     [Fact]
