@@ -57,6 +57,9 @@ internal static class ServerLiveDiagnostics
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var adaptiveRequested = args.Contains("--adaptive-mcp-tools", StringComparer.Ordinal);
+        if (adaptiveRequested && delegatedScenario is null)
+            throw new ArgumentException("Select the adaptive tool profile only for a fresh Amazon or Review plan.");
         var amazonQuery = SchemaPortabilityCampaign.Option(args, "--amazon-query");
         if (amazonQuery is not null && (delegatedScenario != "amazon" || string.IsNullOrWhiteSpace(amazonQuery)))
             throw new ArgumentException("Supply a nonempty --amazon-query for a fresh Amazon plan. Retained runs use their captured inputs.");
@@ -110,6 +113,9 @@ internal static class ServerLiveDiagnostics
             discoveryScenario = retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : "amazon";
             browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
         }
+        var adaptive = adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
+            ? new AdaptiveLiveProfile(discoveryScenario!) : null;
+        if (business is not null) business.Adaptive = adaptive;
         if (business is not null && discoveryScenario == PublishedReviewQualification.Scenario)
             business.Target = await PublishedReviewQualification.CaptureAsync(
                 retainedReport?["inputs"]?["pullRequestUrl"]?.GetValue<string>() ?? SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl,
@@ -176,7 +182,7 @@ internal static class ServerLiveDiagnostics
                     IMcpClientFactory? discovery = null;
                     if (discoveryScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy);
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null);
                         var policyHash = DelegatedDiscoveryPolicyHash();
                         discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), discoveryScenario!, policyHash,
                             async ct =>
@@ -186,7 +192,7 @@ internal static class ServerLiveDiagnostics
                                 var current = await sp.GetRequiredService<LlmDefaultsResolver>().ResolveAsync(ct);
                                 var agent = current.McpServers["GnOuGo.Agent.Mcp"];
                                 return new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions> { ["GnOuGo.Agent.Mcp"] = agent });
-                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup);
+                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup, adaptive is not null);
                     }
                     var planningClient = new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
                         sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>());
@@ -198,7 +204,7 @@ internal static class ServerLiveDiagnostics
                     return new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
                         sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                         llmClientOverride: (ILLMClient?)business ?? planningClient,
-                        mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>());
+                        mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>(), copilotRunners: adaptive?.Runners, copilotTools: adaptive?.Bindings);
                 });
             });
         if (!planning && business is null)
@@ -596,6 +602,7 @@ internal static class ServerLiveDiagnostics
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
+                if (adaptive is not null) report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
                 report["workspace_relative"] = relative;
                 if (localKindCleanup) report["kind_cleanup_profile"] = SlimFaasReviewProfile.CleanupProfile;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = amazonQuery ?? "chaussure geox homme 45" } : scenario == "code"
@@ -619,7 +626,7 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
                         browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.LocalKindVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
                     ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
@@ -865,11 +872,12 @@ internal static class ServerLiveDiagnostics
             ?? throw new PlanningConflictException("The retained session disappeared.");
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
         var discoveryScenario = PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
-        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString());
+        var adaptive = report["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version ? new AdaptiveLiveProfile(discoveryScenario) : null;
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null);
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
         await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), discoveryScenario,
-            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile);
+            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile, adaptive: adaptive is not null);
         var previousRevision = current.Revision;
         var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
         {
@@ -877,7 +885,7 @@ internal static class ServerLiveDiagnostics
             if (state.Revision <= previousRevision) state.Revision = previousRevision + 1;
             if (!await store.TrySaveAsync(state, previousRevision, ct)) throw new PlanningConflictException("The revalidated artifact changed concurrently.");
             previousRevision = state.Revision;
-        });
+        }, adaptive);
         var restored = await ServerLiveArtifactValidation.RevalidateAsync(current, reviewed, expectedRevision, expectedHash, runtime, CancellationToken.None);
         report["approval_validation_recovery"] = new JsonObject
         {
@@ -1093,7 +1101,7 @@ internal static class ServerLiveDiagnostics
 
     internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
         Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null, Func<string, JsonNode?, bool>? authorizedAgentCall = null,
-        bool localKindCleanup = false)
+        bool localKindCleanup = false, bool adaptive = false)
         : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
     {
         private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario, localKindCleanup: localKindCleanup);
@@ -1101,19 +1109,20 @@ internal static class ServerLiveDiagnostics
         public IReadOnlyList<McpServerMetadata> ServerMetadata => _filtered.ServerMetadata.Where(s => s.Name != AgentServer).ToArray();
         public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
             ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash
+                + (adaptive ? "\n" + AdaptiveLiveProfile.Version : "")
                 + (localKindCleanup && serverName is "GnOuGo.Cmd.Mcp" or "GnOuGo.GithubCopilot.Mcp" ? "\n" + SlimFaasReviewProfile.CleanupProfile : ""))
             : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
         {
             if (serverName != AgentServer || hostLookupFactory is null)
-                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct));
+                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct), adaptive: adaptive);
             var factory = await hostLookupFactory(ct);
             if (factory is not IAsyncDisposable owner) throw new InvalidOperationException("The host lookup transport must have an owned lifetime.");
             try { return new ReadOnlySession(await factory.GetClientAsync(serverName, ct), owner, authorizedAgentCall); }
             catch { await owner.DisposeAsync(); throw; }
         }
         public ValueTask DisposeAsync() => inner is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
-        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null, Func<string, JsonNode?, bool>? allowAgentCall = null) : IMcpSession
+        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null, Func<string, JsonNode?, bool>? allowAgentCall = null, bool adaptive = false) : IMcpSession
         {
             public string ServerName => inner.ServerName;
             public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => ServerName == AgentServer
@@ -1124,7 +1133,7 @@ internal static class ServerLiveDiagnostics
             public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
                 => throw new InvalidOperationException("Delegated planning permits metadata discovery only.");
             public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
-                => ServerName == AgentServer && (toolName == "agent_get_by_name" && arguments is JsonObject { Count: 1 } value &&
+                => adaptive && AdaptiveLiveProfile.IsMetadata(ServerName, toolName, arguments) || ServerName == AgentServer && (toolName == "agent_get_by_name" && arguments is JsonObject { Count: 1 } value &&
                    value["name"] is JsonValue name && name.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text) || allowAgentCall?.Invoke(toolName, arguments) == true)
                     ? inner.CallToolAsync(toolName, arguments, ct)
                     : throw new InvalidOperationException("Business tools require the later artifact-bound delegated execution; only the host agent-name lookup is permitted before planning.");

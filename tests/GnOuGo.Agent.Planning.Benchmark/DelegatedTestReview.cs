@@ -26,7 +26,7 @@ internal sealed record DelegatedTestReviewDocument(PlanningApprovalReview Receip
 internal partial class DelegatedTestJsonContext : JsonSerializerContext;
 
 internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization authorization,
-    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null)
+    DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null, AdaptiveLiveProfile? adaptive = null)
 {
     internal const string CleanupCommand = "delete_directory";
     private string? _boundExecutionId;
@@ -51,6 +51,8 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal IDisposable BeginCall(McpCallExecutionContext context)
     {
         var call = context.Correlation;
+        if (adaptive is not null && AdaptiveLiveProfile.IsControl(call.ServerName ?? "", call.MethodName ?? ""))
+            return adaptive.Enter(call, ExecutionId);
         if (call.ServerName != "GnOuGo.GithubCopilot.Mcp" || call.MethodName != "code_agent_edit") return new CallRegistration(() => { });
         if (call.TenantId != "benchmark" || call.RunId != ExecutionId || call.StepType != "mcp.call" || call.StepId is null ||
             !_runtimeInvocationSuffixes.Any(s => call.StepId.EndsWith(s, StringComparison.Ordinal)))
@@ -121,7 +123,13 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         {
             var capability = state.Catalog?.Capabilities.SingleOrDefault(c => (c.Operation?.Id ?? c.Id) == task.Operation)
                 ?? throw new PlanningConflictException("A reviewed operation has no owned contract.");
-            RequireTool(capability.Server ?? "", capability.Method ?? "", null, inspectOnly: true);
+            if (capability.StepType == "agent.run" && adaptive is not null)
+            {
+                var stages = state.Graph!.Workflows.SelectMany(w => PlanningGraphCompiler.Enumerate(w.Steps.Concat(w.Finally)))
+                    .Where(n => n.Type == "agent.run" && n.CapabilityId == capability.Id);
+                foreach (var stage in stages) adaptive.BindStage(stage, capability);
+            }
+            else RequireTool(capability.Server ?? "", capability.Method ?? "", null, inspectOnly: true);
         }
         var confirmation = state.Graph?.Workflows.SingleOrDefault(w => w.Key == state.Graph.Entrypoint)?.Steps
             .SingleOrDefault(s => s.Key == PlanningConfirmationGuards.Confirm && s.InternalRole == "confirmation");
@@ -174,6 +182,12 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
 
     internal void RequireTool(string server, string tool, JsonNode? arguments, bool inspectOnly = false)
     {
+        if (!inspectOnly && adaptive is not null && AdaptiveLiveProfile.IsMetadata(server, tool, arguments)) return;
+        if (!inspectOnly && adaptive is not null && AdaptiveLiveProfile.IsControl(server, tool))
+        {
+            adaptive.Require(tool, arguments);
+            return;
+        }
         if (!AllowsTool(scenario, server, tool)) throw new PlanningConflictException("The operation is outside delegated isolated-test authority.");
         if (inspectOnly) return;
         if (arguments is not JsonObject args) throw new PlanningConflictException("Concrete operation arguments are required.");

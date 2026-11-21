@@ -5,6 +5,19 @@ TaskPlan compiler and JavaScript → YAML v15 runtime. Previous planning protoco
 cannot be selected, continued, replayed or upgraded. Their encrypted records,
 financial evidence and committed reports remain unchanged historical data.
 
+## Adaptive live qualification
+
+Add `--adaptive-mcp-tools` to a fresh Amazon or published-review
+`server-live-plan` session to expose the `observe` Copilot runner. The capture
+records `host-mcp-observations-v1`, the selected binaries and their source.
+The Amazon profile exposes the existing guarded browser read. The review profile
+exposes the existing Git comparison and Copilot file read. The generated task
+declares the selected contract IDs, action limit and verification conditions.
+Each physical read uses the same argument guard and event recorder as an explicit
+call. Clone, test execution, publication, XLSX output and cleanup use their
+existing guarded contracts. Both profiles route Copilot inference through the
+campaign admission proxy. Original sessions retain their captured profile.
+
 ## Responsibilities
 
 Compiler/host validation establishes technical facts: exact contracts and values,

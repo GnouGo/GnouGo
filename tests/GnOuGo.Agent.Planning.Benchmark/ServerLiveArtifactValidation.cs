@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Copilot;
 using System.Text.Json;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
@@ -7,8 +8,12 @@ using GnOuGo.Flow.Planning;
 internal static class ServerLiveArtifactValidation
 {
     internal static WorkflowPlanningRuntime Runtime(IMcpClientFactory? metadata, PlanningPolicy policy,
-        Func<PlanningSession, CancellationToken, Task> checkpoint)
-        => new(new WorkflowEngine { McpClientFactory = metadata, PlanningPolicy = policy }, checkpoint);
+        Func<PlanningSession, CancellationToken, Task> checkpoint, AdaptiveLiveProfile? adaptive = null)
+    {
+        var engine = new WorkflowEngine { McpClientFactory = metadata, PlanningPolicy = policy };
+        if (adaptive is not null) engine.WithCopilotRunners(adaptive.Runners, adaptive.Bindings);
+        return new(engine, checkpoint);
+    }
 
     internal static async Task<PlanningSession> RevalidateAsync(PlanningSession current, PlanningSession reviewed,
         long expectedRevision, string expectedArtifactHash, IPlanningRuntime runtime, CancellationToken ct)

@@ -13,6 +13,20 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class DelegatedPlanningDiscoveryTests
 {
     [Fact]
+    public async Task AdaptiveDiscoveryExposesOnlyHostToolContractBeforeArtifactApproval()
+    {
+        var inner = new Factory(AdaptiveLiveProfile.Backend, "code_read_file", "copilot_task_run");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario,
+            "bound-host", adaptive: true);
+        await using var session = await discovery.GetClientAsync(AdaptiveLiveProfile.Backend, TestContext.Current.CancellationToken);
+        await session.CallToolAsync("copilot_task_contract", new JsonObject { ["hostToolsOnly"] = true }, TestContext.Current.CancellationToken);
+        Assert.Equal(1, inner.BusinessCalls);
+        foreach (var method in new[] { "copilot_task_contract", "copilot_task_run", "code_read_file" })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync(method, new JsonObject(), TestContext.Current.CancellationToken));
+        Assert.Equal(1, inner.BusinessCalls);
+    }
+
+    [Fact]
     public async Task PublishedReviewCloneDiscoveryDescribesItsThreePreDispatchChecks()
     {
         var inner = new Factory("GnOuGo.Git.Mcp", "git_clone", "git_status");

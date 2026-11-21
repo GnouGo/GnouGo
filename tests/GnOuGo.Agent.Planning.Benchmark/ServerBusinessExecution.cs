@@ -17,6 +17,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     internal ServerLiveDiagnostics.DelegatedPlanningDiscovery Discovery { private get; set; } = null!;
     internal ILLMClient PlanningModel { private get; set; } = null!;
     internal PublishedReviewQualification? Target { get; set; }
+    internal AdaptiveLiveProfile? Adaptive { get; set; }
     private LiveWorkflowEvaluation.ObservedMcp? _execution;
     private ILLMClient? _executionModel;
     private DelegatedTestReviewAuthority? _authority;
@@ -48,6 +49,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => (_executionModel ?? PlanningModel).CallAsync(request, ct);
     public IDisposable BeginCall(McpCallExecutionContext context)
     {
+        if (Adaptive is not null && context.Correlation is { ServerName: AdaptiveLiveProfile.Backend, MethodName: "copilot_task_contract", RunId: null })
+            return new AdaptiveLiveProfile.CallScope(() => { });
         if (_execution is null || context.Correlation.TenantId != "benchmark" || _savedId is null ||
             context.Correlation.AgentId != _savedId || context.Correlation.AgentName != _agentName ||
             context.Correlation.RunId is not { Length: > 0 } runId)
@@ -114,7 +117,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         var grant = scenario == "code" ? PublishedReviewQualification.Scenario : scenario;
         var source = report["source"]!.ToString();
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, grant, null, "Release",
-            report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString());
+            report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null);
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, source), report["mcp_builds"]))
             throw new PlanningConflictException("Execution requires the original tool builds.");
         var service = app.Services.GetRequiredService<PlanningSessionService>();
@@ -152,7 +155,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
             report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
-        if (scenario == "code")
+        if (scenario == "code" || Adaptive is not null)
         {
             if (report["local_kind_toolchain"] is JsonObject toolchain && localKind)
                 SlimFaasReviewProfile.ApplyToolchain(toolchain, configurations["GnOuGo.GithubCopilot.Mcp"]);
