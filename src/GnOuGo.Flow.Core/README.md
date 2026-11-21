@@ -1254,6 +1254,10 @@ Use this same shape for every resolver-supported reference. The built-in resolve
 
 ---
 
+### Conversation history through MCP
+
+For a workflow using the retired `chat_history.get` or `chat_history.append` step names, use `mcp.call` with the configured Agent MCP. Select `user_chat_history_get` with `conversationId` and optional `topK`, or `user_chat_history_append` with `messagesJson` and optional `conversationId`. Read the tool result from the step's `response` field. [Runnable chat history example](../GnOuGo.Flow.Cli/examples/chat-history.yaml)
+
 ### `workflow.route` — Route to Workflow Candidates
 
 Selects one or more workflow candidates, executes them, and returns either raw results, the first answer, or an LLM-synthesized answer.
