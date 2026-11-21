@@ -4,8 +4,13 @@ using System.Text;
 namespace GnOuGo.AI.Core;
 
 /// <summary>Consumes real provider events and returns the existing complete native response shape.</summary>
-internal static class NativeStreamingResponse
+public static class NativeStreamingResponse
 {
+    /// <summary>Read one native response using the same framing and completion checks as the HTTP client.</summary>
+    public static Task<JsonObject> ReadAsync(Stream stream, string protocol, CancellationToken ct = default)
+        => ReadAsync(stream, protocol, new LLMHttpAttempt(), static () => Task.CompletedTask, ct);
+
+
     internal static async Task<JsonObject> ReadAsync(Stream stream, string protocol, LLMHttpAttempt attempt, Func<Task> checkpoint, CancellationToken ct)
     {
         return protocol switch

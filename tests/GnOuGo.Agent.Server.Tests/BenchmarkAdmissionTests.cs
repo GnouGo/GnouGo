@@ -935,14 +935,42 @@ public sealed class BenchmarkAdmissionTests
             }, new JsonObject { ["model"] = "pinned", ["messages"] = new JsonArray(new JsonObject { ["role"] = "user", ["content"] = prompt }), ["max_completion_tokens"] = output }.ToJsonString(), Ct);
         else await model.CallExecutionAsync(new() { ClientRequestId = RuntimeId(false), Prompt = prompt, MaxTokens = output }, Ct);
     }
+    [Theory]
+    [InlineData("stop", true, true)]
+    [InlineData("stop", false, false)]
+    [InlineData("length", true, false)]
+    public async Task SdkProxyRequiresProtocolCompletionAndCapturesThePhysicalDeadline(string reason, bool done, bool valid)
+    {
+        using var fixture = new Fixture();
+        using var handler = new RuntimeHandler(200)
+        {
+            EventStream = "data: " + new JsonObject { ["choices"] = new JsonArray(new JsonObject {
+                ["index"] = 0, ["delta"] = new JsonObject { ["content"] = "observed" }, ["finish_reason"] = reason }),
+                ["usage"] = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 2 } }.ToJsonString() +
+                "\r\n\r\n" + (done ? "data: [DONE]\r\n\r\n" : "")
+        };
+        using var http = new HttpClient(handler) { Timeout = TimeSpan.FromMinutes(10) };
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        var error = await Record.ExceptionAsync(() => InvokeRuntime(model, proxy: true));
+        if (valid) Assert.Null(error);
+        else if (done) Assert.IsType<InvalidDataException>(error);
+        else Assert.IsType<IOException>(error);
+        var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!;
+        Assert.Equal(270_000, journal["effective_transport_policy"]!["timeout_ms"]!.GetValue<long>());
+        Assert.Equal(1, handler.Calls);
+    }
+
     private sealed class RuntimeHandler(int status) : HttpMessageHandler
     {
+        internal string? EventStream { get; init; }
         internal int Calls;
         internal Func<Task>? BeforeSend;
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
             Calls++;
             if (BeforeSend is not null) await BeforeSend();
+            if (EventStream is not null) return new(System.Net.HttpStatusCode.OK)
+                { Content = new StringContent(EventStream, System.Text.Encoding.UTF8, "text/event-stream") };
             if (status == 0) throw new HttpRequestException("Offline fixture transport outcome unavailable");
             return new((System.Net.HttpStatusCode)status) { Content = new StringContent(status == 200
                 ? """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""

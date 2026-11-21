@@ -900,11 +900,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             BenchmarkHttpJournal? journal = null;
             var wireFingerprint = PlanningGraphCompiler.Fingerprint("POST\n" + upstream.AbsoluteUri + "\n" + body);
             var retained = await RuntimeJournalAsync(request, ct, wireFingerprint);
-            var transportPolicy = retained is null ? RuntimeTransportPolicy("sdk_proxy_single_attempt", request) :
+            var transportPolicy = retained is null ? RuntimeTransportPolicy("sdk_proxy_single_attempt", request, 270_000) :
                 retained["effective_transport_policy"]?.DeepClone().AsObject();
             if (retained is null)
             {
-                transportPolicy!["timeout_ms"] = (long)_http.Timeout.TotalMilliseconds;
+                var policy = RuntimeRetryPolicy(transportPolicy);
+                transportPolicy!["timeout_ms"] = _http.Timeout == Timeout.InfiniteTimeSpan ? policy.AttemptTimeoutMilliseconds :
+                    Math.Min(policy.AttemptTimeoutMilliseconds, (long)_http.Timeout.TotalMilliseconds);
                 transportPolicy["wire_fingerprint"] = wireFingerprint;
                 if (preserveSdkReasoning)
                 {
@@ -933,8 +935,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     foreach (var header in headers)
                         if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) && header.Key is not ("Host" or "Content-Length" or "Content-Type"))
                             message.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                    using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, token);
-                    var receivedText = await result.Content.ReadAsStringAsync(token);
+                    // ResponseHeadersRead ends HttpClient.Timeout at the headers. Apply the
+                    // captured physical deadline to the body as well, including stalled streams.
+                    using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
+                    var timeoutMs = transportPolicy!["timeout_ms"]!.GetValue<long>();
+                    if (timeoutMs > 0) attempt.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
+                    using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, attempt.Token);
+                    var receivedText = await result.Content.ReadAsStringAsync(attempt.Token);
                     state.Attempts[0].Status = (int)result.StatusCode; state.Attempts[0].Body = receivedText;
                     state.Attempts[0].ContentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
                     await journal.SaveAsync(state, CancellationToken.None);
@@ -944,13 +951,16 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     throw new InvalidOperationException("No exact completed SDK inference response is available.");
                 var completed = state.Attempts[0];
                 var text = completed.Body!; var contentType = completed.ContentType ?? "application/json";
-                JsonNode? usage = null;
-                if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase))
+                JsonNode? native;
+                if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase) && completed.Status is >= 200 and < 300)
                 {
-                    foreach (var line in text.Split('\n').Where(l => l.StartsWith("data: ", StringComparison.Ordinal) && l != "data: [DONE]"))
-                    { var item = JsonNode.Parse(line[6..]); usage = item?["usage"] ?? item?["response"]?["usage"] ?? usage; }
+                    using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text), writable: false);
+                    var protocol = upstream.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal) ?
+                        LLMTransportResolver.Responses : LLMTransportResolver.ChatCompletions;
+                    native = await NativeStreamingResponse.ReadAsync(stream, protocol, token);
                 }
-                else usage = JsonNode.Parse(text)?["usage"];
+                else native = JsonNode.Parse(text);
+                var usage = native?["usage"];
                 JsonObject? measured = null;
                 if (completed.Status is >= 200 and < 300 && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
                     (usage?["output_tokens"] ?? usage?["completion_tokens"])?.GetValue<long>() is { } usedOutput)
@@ -958,6 +968,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput,
                         ["benchmark_cost_eur"] = await CompletedCostAsync(id, usedInput, usedOutput) }, CancellationToken.None);
                 }
+                if (completed.Status is >= 200 and < 300 &&
+                    (native?["status"]?.ToString() is "incomplete" or "failed" ||
+                     (native?["choices"] as JsonArray)?.Any(choice => choice?["finish_reason"]?.ToString() is "length" or "content_filter") == true))
+                    throw new InvalidDataException("The SDK provider did not complete its response.");
                 return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType }, Usage = measured };
             }, ct, allowHttpRecovery: true);
             return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
