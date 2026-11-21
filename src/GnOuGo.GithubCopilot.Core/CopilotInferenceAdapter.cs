@@ -28,27 +28,48 @@ internal static class CopilotInferenceDispatch
     internal static async Task<HttpResponseMessage> SendAsync(HttpRequestMessage original,
         GitHub.Copilot.CopilotRequestContext context, CopilotInferenceAdapter? adapter,
         CopilotInferenceProxyHandler? proxy, Func<HttpRequestMessage, CopilotPreparedInference?, CancellationToken, Task>? reserve,
-        Action? transportFailed)
+        Action? transportFailed, TimeSpan? attemptTimeout = null)
     {
         using var prepared = adapter is null ? null : await adapter.PrepareAsync(original, context);
         var actual = prepared?.Request ?? original;
         if (reserve is not null) await reserve(actual, prepared, context.CancellationToken);
-        HttpResponseMessage response;
+        var deadline = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
+        deadline.CancelAfter(attemptTimeout ?? TimeSpan.FromSeconds(270));
+        HttpResponseMessage? response = null;
+        var streaming = false;
         try
         {
             response = proxy is null
-                ? await Direct.SendAsync(actual, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(actual, context);
+                ? await Direct.SendAsync(actual, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
+                : await proxy.DispatchAsync(actual, context, deadline.Token);
+            if (prepared is not null)
+            {
+                var restored = await prepared.RestoreResponseAsync(response, deadline.Token);
+                if (!ReferenceEquals(restored, response))
+                {
+                    response.Dispose();
+                    return restored;
+                }
+            }
+            var content = response.Content;
+            var body = await content.ReadAsStreamAsync(deadline.Token);
+            var bounded = new StreamContent(new CopilotInferenceStream(body, content, deadline, transportFailed));
+            foreach (var header in content.Headers) bounded.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            response.Content = bounded;
+            streaming = true;
+            return response;
         }
-        catch { transportFailed?.Invoke(); throw; }
-        if (prepared is null) return response;
-        try
+        catch (Exception ex)
         {
-            var restored = await prepared.RestoreResponseAsync(response, context.CancellationToken);
-            if (!ReferenceEquals(restored, response)) response.Dispose();
-            return restored;
+            response?.Dispose();
+            if (response is null || ex is HttpRequestException or OperationCanceledException or IOException)
+                transportFailed?.Invoke();
+            throw;
         }
-        catch { response.Dispose(); throw; }
+        finally
+        {
+            if (!streaming) deadline.Dispose();
+        }
     }
 }
 

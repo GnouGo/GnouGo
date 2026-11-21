@@ -19,12 +19,10 @@ public class CopilotInferenceProxyHandler : CopilotRequestHandler
         _client = client; _endpoint = endpoint;
     }
 
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-        => await ForwardAsync(request, context).ConfigureAwait(false);
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, null, this, null, null);
 
-    internal Task<HttpResponseMessage> DispatchAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context) => SendRequestAsync(request, context);
-
-    private async Task<HttpResponseMessage> ForwardAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+    internal async Task<HttpResponseMessage> DispatchAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context, CancellationToken ct)
     {
         var upstream = request.RequestUri ?? throw new InvalidOperationException("Inference has no upstream URI.");
         using var forwarded = new HttpRequestMessage(request.Method, _endpoint) { Content = request.Content };
@@ -35,7 +33,7 @@ public class CopilotInferenceProxyHandler : CopilotRequestHandler
         forwarded.Headers.TryAddWithoutValidation(RequestHeader, context.RequestId);
         // The policy host owns ceilings, receipts and forwarding. No direct fallback
         // or automatic HTTP retry can bypass an unavailable/rejecting policy host.
-        return await _client.SendAsync(forwarded, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken).ConfigureAwait(false);
+        return await _client.SendAsync(forwarded, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);
     }
 
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context) =>

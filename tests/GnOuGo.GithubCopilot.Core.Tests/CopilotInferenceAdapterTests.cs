@@ -84,6 +84,35 @@ public sealed class CopilotInferenceAdapterTests
     }
 
     [Fact]
+    public async Task PhysicalDeadlineIncludesTheFirstUnfinishedStreamingRead()
+    {
+        var failed = false;
+        var sends = 0;
+        using var http = new HttpClient(new Handler(_ =>
+        {
+            sends++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StalledBody()) });
+        }));
+        var proxy = new CopilotInferenceProxyHandler(http, new Uri("http://127.0.0.1:8123/inference"));
+        using var original = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/chat/completions");
+        using var reply = await CopilotInferenceDispatch.SendAsync(original, Context(), null, proxy, null, () => failed = true,
+            TimeSpan.FromMilliseconds(100));
+        using var stream = await reply.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await stream.ReadExactlyAsync(new byte[1], TestContext.Current.CancellationToken));
+        Assert.True(failed);
+        Assert.Equal(1, sends);
+    }
+
+    private sealed class StalledBody : MemoryStream
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, ct);
+            return 0;
+        }
+    }
+
+    [Fact]
     public void CapturedAdapterCannotSilentlyUseAnUnregisteredNativeTransport()
     {
         var config = new CopilotRuntimeConfiguration(Path.GetTempPath(), "configured") { InferenceTransport = "explicit-test-format" };
