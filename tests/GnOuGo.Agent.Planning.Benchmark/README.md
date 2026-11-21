@@ -1311,6 +1311,10 @@ independent browser closure probe. The GitHub check supplies `pullRequestUrl`
 and `reviewText` to the composer and captures the current PR head and base.
 It checks the clone, completed Copilot commands and cleanup. After publication,
 it reads the submitted review and inline comments back from GitHub by review ID.
+If the operator declines the concrete submission or the reviewed head or base
+changes, the host returns the MCP error `DELEGATED_PERMISSION_DENIED` before
+dispatch. The workflow enters its failure path and runs cleanup. Only a
+successful submission returns the provider's acknowledgement.
 Before submission, each mandatory check needs a conclusive terminal receipt from
 the pinned checkout. When a Copilot shell command completes through a later
 terminal read, the guard verifies its owner using the SDK observations from that

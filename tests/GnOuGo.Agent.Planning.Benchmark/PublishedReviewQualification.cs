@@ -73,7 +73,9 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
                 "The host records the new review ID privately and, after workflow execution, reads back the submitted review and inline comments by that ID. " +
                 "If submission stops, leave the pending review intact for reconciliation. Retention is the intended failure outcome. " +
                 "delete_pending is outside this grant. The host checks recorded mandatory checks, asks for confirmation of the concrete verdict " +
-                "and inline comments, then rechecks the pull request head and base before transmission. Refusal or a changed target stops submission. " +
+                "and inline comments, then rechecks the pull request head and base before transmission. " +
+                "Refusal or a changed target fails the operation before transmission with DELEGATED_PERMISSION_DENIED. " +
+                "This failure has no normal result or submission acknowledgement. The workflow propagates the error and runs its cleanup. " +
                 "Calling submit_pending invokes this guard directly.",
             _ => null
         };

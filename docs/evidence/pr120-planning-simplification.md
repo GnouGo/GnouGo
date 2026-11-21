@@ -35,6 +35,18 @@ can supply this shortcut. The focused tests also checked the original
 cursor, a different provider, a truncated description and an altered page.
 All 205 discovery protocol tests passed.
 
+Call 28 accepted the review and check block. The generated Copilot task
+kept the host caches and separate commands. Call 33 accepted the report
+block with a public `rapport` bound to the observed commands, their exits
+and the qualification limits. At calls 42 and 52 the planner abandoned
+the same publication composition, looking for a normal refusal result
+from `submit_pending`. The actual guard returns a local MCP error before
+dispatch on refusal or a changed head/base. Its discovery description
+now names `DELEGATED_PERMISSION_DENIED`, the missing success acknowledgement
+on this path, and the workflow cleanup. The original contract regression
+failed, then all 170 related Server tests passed. The installed guard
+and its write authority are unchanged.
+
 ## Review 48, 21 November 2026
 
 Fresh Server session `d74f1ef394ab48ba88484ba476452abd` opened on
