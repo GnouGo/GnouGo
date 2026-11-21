@@ -18,7 +18,7 @@ public sealed class AgentRunExecutor : IStepExecutor
     public string DslSnippet => """
         ### agent.run — Bounded adaptive work
         Input declares runner, objective, inputs, output_schema, workspace, capabilities,
-        budget (max_elapsed_milliseconds, max_model_calls, max_total_tokens), and verification
+        budget (max_elapsed_milliseconds, max_model_calls, max_total_tokens, optional max_actions), and verification
         requirements (id, kind, subject, facts_schema). The host supplies the runner.
         Successful output requires observed evidence for every approved requirement.
         """;
@@ -34,6 +34,8 @@ public sealed class AgentRunExecutor : IStepExecutor
                 throw Failure(ErrorCodes.InputValidation, "Agent execution requires tenant and run identities.");
             if (!ctx.Engine.AgentTaskRunners.TryGetValue(taskDefinition.Runner, out runner!))
                 throw Failure("AGENT_RUNNER_UNAVAILABLE", "The configured agent runner is unavailable.");
+            if (taskDefinition.Budget.MaxActions.HasValue && !runner.SupportsActionLimit)
+                throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved tool action limit.");
             context = new(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, taskDefinition)
             {
                 ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName,
@@ -90,6 +92,7 @@ public sealed class AgentRunExecutor : IStepExecutor
             PlanningTokenThresholds.Warn("agent.run", "total_tokens", result.Usage.TotalTokens, task.Budget.MaxTotalTokens);
         if (result.Usage.ModelCalls < 0 || result.Usage.TotalTokens < 0 || !double.IsFinite(result.Usage.ElapsedMilliseconds) ||
             result.Usage.ElapsedMilliseconds < 0 || result.Usage.ModelCalls > task.Budget.MaxModelCalls ||
+            task.Budget.MaxActions is { } limit && (result.Usage.Actions is not { } count || count < 0 || count > limit) ||
             result.Usage.TotalTokens > task.Budget.MaxTotalTokens && !advisoryTokenThresholds || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)
             throw Failure("AGENT_BUDGET_EXCEEDED", "Observed agent usage violates the approved budget.");
         if (JsonSchemaContractValidator.ValidateInstance(result.Output, task.OutputSchema).Count > 0)

@@ -15,11 +15,19 @@ public static class AgentTaskContracts
           "inputs":{"type":"object"},"output_schema":{"type":"object"},"workspace":{"type":"string","minLength":1},
           "capabilities":{"type":"array","items":{"type":"string"},"uniqueItems":true},
           "budget":{"type":"object","additionalProperties":false,"required":["max_elapsed_milliseconds","max_model_calls","max_total_tokens"],
-            "properties":{"max_elapsed_milliseconds":{"type":"integer","minimum":1},"max_model_calls":{"type":"integer","minimum":1},"max_total_tokens":{"type":"integer","minimum":1}}},
+            "properties":{"max_actions":{"type":"integer","minimum":1,"maximum":2147483647},"max_elapsed_milliseconds":{"type":"integer","minimum":1},"max_model_calls":{"type":"integer","minimum":1},"max_total_tokens":{"type":"integer","minimum":1}}},
           "verification":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,
             "required":["id","kind","subject","facts_schema"],"properties":{"id":{"type":"string"},"kind":{"type":"string"},
               "subject":{"type":"string"},"facts_schema":{"type":"object"}}}}}}
         """)!.AsObject();
+
+    internal static JsonObject RunnerInputSchema(bool supportsActionLimit)
+    {
+        var schema = InputSchema;
+        if (!supportsActionLimit)
+            schema["properties"]!["budget"]!["properties"]!.AsObject().Remove("max_actions");
+        return schema;
+    }
 
     public static AgentTaskDefinition Parse(JsonNode? input)
     {

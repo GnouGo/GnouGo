@@ -142,6 +142,26 @@ public sealed class CopilotExecutionBoundsTests
     }
 
     [Fact]
+    public async Task ActionAllowanceIsSharedAcrossConcurrentToolsAndNeverRefunded()
+    {
+        var bounds = new CopilotExecutionBounds(8, 4096, DateTimeOffset.UtcNow.AddMinutes(1),
+            new HashSet<string> { "read", "verify" }, (_, _, _) => Task.CompletedTask) { MaxActions = 2 };
+        Assert.False(bounds.TryAdmitSdkTool("unavailable"));
+        var admitted = await Task.WhenAll(Enumerable.Range(0, 16).Select(i => Task.Run(() =>
+        {
+            var tool = i % 2 == 0 ? "read" : "verify";
+            if (!bounds.TryAdmitSdkTool(tool)) return false;
+            bounds.CompleteSdkTool(tool);
+            return true;
+        })));
+        Assert.Equal(2, admitted.Count(a => a));
+        Assert.Equal(2, bounds.Actions);
+        Assert.False(bounds.TryAdmitSdkTool("verify"));
+        await bounds.StopAsync(TestContext.Current.CancellationToken);
+        Assert.True(bounds.ToolAdmissionsObserved(2));
+    }
+
+    [Fact]
     public async Task SdkAdmissionsCannotDisappearBetweenHookAndExecutionEvent()
     {
         var bounds = new CopilotExecutionBounds(5, 200000, DateTimeOffset.UtcNow.AddMinutes(1), new HashSet<string> { "shell" }, (_, _, _) => Task.CompletedTask);

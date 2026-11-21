@@ -112,7 +112,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         var bounds = new CopilotExecutionBounds(context.Task.Budget.MaxModelCalls, context.Task.Budget.MaxTotalTokens,
             started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds), tools, async (calls, tokens, token) =>
             { record["modelCalls"] = calls; record["chargedTokens"] = tokens; await SaveAsync(context, record, token); }) {
-                ApprovedPrompt = Prompt(context.Task),
+                ApprovedPrompt = Prompt(context.Task), MaxActions = context.Task.Budget.MaxActions,
                 DeniedPaths = [Path.Combine(baseConfiguration.WorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder),
                     GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder)]
             };
@@ -187,6 +187,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             // Timeout leaves the prepared/dispatched record unresolved. Never save a completion while
             // a reservation writer or a managed file operation can still change the invocation.
             await bounds.StopAsync(stop.Token);
+            if (bounds.MaxActions is not null) record["actions"] = bounds.Actions;
             if (observed is not null)
                 record["executionObservations"] = JsonSerializer.SerializeToNode(observed, CopilotCoreJsonContext.Default.CopilotSendResult);
             if (bounds.AdmissionStop is not null)
@@ -264,7 +265,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     private static string Hash(string text) => Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(text)));
     private static AgentTaskUsage Usage(JsonObject? record, DateTimeOffset? started = null) => new(
         record?["modelCalls"]?.GetValue<int>() ?? 0, record?["chargedTokens"]?.GetValue<long>() ?? 0,
-        started is null ? 0 : (DateTimeOffset.UtcNow - started.Value).TotalMilliseconds) { Metering = "reserved_upper_bound" };
+        started is null ? 0 : (DateTimeOffset.UtcNow - started.Value).TotalMilliseconds) { Metering = "reserved_upper_bound", Actions = record?["actions"]?.GetValue<int>() };
     private static AgentTaskResult Unknown(JsonObject? record, string message)
     {
         var result = new AgentTaskResult("needs_reconciliation", null, [], [], Usage(record), message);

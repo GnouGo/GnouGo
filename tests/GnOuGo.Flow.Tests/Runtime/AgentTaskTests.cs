@@ -116,6 +116,28 @@ public sealed class AgentTaskTests
         Assert.True(result.Outputs?["done"]?.GetValue<bool>());
     }
 
+    [Theory]
+    [InlineData(false, null, "AGENT_SCOPE_UNSUPPORTED")]
+    [InlineData(true, null, "AGENT_BUDGET_EXCEEDED")]
+    [InlineData(true, -1, "AGENT_BUDGET_EXCEEDED")]
+    [InlineData(true, 3, "AGENT_BUDGET_EXCEEDED")]
+    [InlineData(true, 2, null)]
+    public async Task ActionLimitRequiresAdmissionAndAnObservedCount(bool supported, int? actions, string? expectedError)
+    {
+        var runner = new Runner
+        {
+            SupportsActionLimit = supported,
+            Result = Result() with { Usage = new(1, 50, 1) { Actions = actions } }
+        };
+        var description = await ((IAgentTaskRunner)runner).DescribeAsync(TestContext.Current.CancellationToken);
+        var properties = description.InputSchema["properties"]!["budget"]!["properties"]!.AsObject();
+        Assert.Equal(supported, properties.ContainsKey("max_actions"));
+        var result = await Execute(runner, maxActions: 2);
+        Assert.Equal(expectedError, result.Error?.Code);
+        Assert.Equal(supported ? 1 : 0, runner.Dispatches);
+        Assert.Equal(expectedError is null, result.Success);
+    }
+
     [Fact]
     public async Task UnsupportedScopeStopsBeforeDispatch()
     {
@@ -197,7 +219,7 @@ public sealed class AgentTaskTests
         if (fabricated) Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
         else Assert.True(result.Outputs!["done"]!.GetValue<bool>());
     }
-    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null, bool authoredWorkspaceReference = false, bool advisoryTokens = false)
+    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null, bool authoredWorkspaceReference = false, bool advisoryTokens = false, int? maxActions = null)
     {
         var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
         if (advisoryTokens) engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 8 });
@@ -239,7 +261,9 @@ public sealed class AgentTaskTests
                     input: { done: "${data.steps.work.output.done}" }
                 outputs:
                   done: "${data.steps.consume.done}"
-            """.Replace("workspace: fixture-workspace", authoredWorkspaceReference ? "workspace: ${data.inputs.workspace}" : "workspace: fixture-workspace", StringComparison.Ordinal)));
+            """.Replace("max_model_calls: 8", maxActions is { } limit
+                ? $"max_model_calls: 8\n            max_actions: {limit}" : "max_model_calls: 8", StringComparison.Ordinal)
+                .Replace("workspace: fixture-workspace", authoredWorkspaceReference ? "workspace: ${data.inputs.workspace}" : "workspace: fixture-workspace", StringComparison.Ordinal)));
         return engine.ExecuteAsync(document.Workflows["main"], null, TestContext.Current.CancellationToken);
     }
 
@@ -248,6 +272,7 @@ public sealed class AgentTaskTests
 
     private sealed class Runner : IAgentTaskRunner
     {
+        public bool SupportsActionLimit { get; init; }
         public AgentTaskResult Result { get; init; } = AgentTaskTests.Result();
         public IReadOnlyList<string> Rejections { get; init; } = [];
         public int Dispatches { get; private set; }

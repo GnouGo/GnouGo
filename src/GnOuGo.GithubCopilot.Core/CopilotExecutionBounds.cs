@@ -42,6 +42,8 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     private readonly object _operationsGate = new();
     private int _activeOperations;
     private int _sdkAdmissions;
+    public int? MaxActions { get; init; }
+    public int Actions { get { lock (_operationsGate) return _sdkAdmissions; } }
     private bool _unpairedSdkCompletion;
     private readonly Dictionary<string, int> _sdkActive = new(StringComparer.Ordinal);
     private TaskCompletionSource _drained = CompletedDrain();
@@ -59,7 +61,8 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     {
         lock (_operationsGate)
         {
-            if (_stopped || DateTimeOffset.UtcNow >= Deadline || !Tools.Contains(tool)) return false;
+            if (_stopped || DateTimeOffset.UtcNow >= Deadline || !Tools.Contains(tool) ||
+                MaxActions is { } limit && _sdkAdmissions >= limit) return false;
             _sdkAdmissions++; _sdkActive[tool] = _sdkActive.GetValueOrDefault(tool) + 1;
             return true;
         }

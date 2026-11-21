@@ -284,6 +284,12 @@ It supports the published Native AOT binary and performs no remote publication.
 from general workflow capability discovery; planners select the registered
 `agent.run` contract instead. Each task uses the existing managed session lifecycle.
 
+A task can set a positive `budget.max_actions`. The host charges each admitted
+SDK tool invocation before dispatch, including concurrent invocations and ones
+that fail. A completed result under this limit must include the observed
+`usage.actions` count. Flow rejects a capped task before dispatch when its
+runner cannot enforce this limit.
+
 Task scope, intent, cumulative inference reservations and final receipts are stored
 through encrypted KeyVault record APIs. An invocation is never dispatched twice.
 After a process crash, inspection returns a saved receipt or `needs_reconciliation`;

@@ -22,6 +22,8 @@ public sealed record AgentTaskBudget
 {
     public int MaxElapsedMilliseconds { get; init; } = 120_000;
     public int MaxModelCalls { get; init; } = 8;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? MaxActions { get; init; }
     public long MaxTotalTokens { get; init; } = 128_000;
 }
 
@@ -33,6 +35,8 @@ public sealed record AgentTaskUsage(int ModelCalls, long TotalTokens, double Ela
 {
     /// <summary>"observed" or a conservative "reserved_upper_bound"; never treat reservations as measured usage.</summary>
     public string Metering { get; init; } = "observed";
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Actions { get; init; }
 }
 public sealed record AgentTaskResult(string Status, JsonNode? Output, IReadOnlyList<AgentTaskEvidence> Evidence,
     IReadOnlyList<AgentTaskArtifact> Artifacts, AgentTaskUsage Usage, string? Message = null)
@@ -57,8 +61,10 @@ public sealed record AgentVerificationFinding(string RequirementId, bool Passed,
 public interface IAgentTaskRunner
 {
     string Description => "Bounded adaptive tasks with host-enforced scopes and observed evidence.";
+    /// <summary>Whether this runner can charge each tool action before dispatch.</summary>
+    bool SupportsActionLimit => false;
     Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
-        => Task.FromResult(new AgentTaskRunnerContract("Bounded adaptive execution; the host validates the approved scope before dispatch.", AgentTaskContracts.InputSchema));
+        => Task.FromResult(new AgentTaskRunnerContract("Bounded adaptive execution; the host validates the approved scope before dispatch.", AgentTaskContracts.RunnerInputSchema(SupportsActionLimit)));
     /// <summary>Reject unsupported permissions, workspace constraints or unenforceable budgets before dispatch.</summary>
     Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct);
     Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct);

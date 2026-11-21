@@ -7,6 +7,7 @@ namespace GnOuGo.Flow.Copilot;
 /// <summary>Transport adapter only. The MCP host owns the existing managed Copilot session implementation.</summary>
 public sealed class CopilotAgentTaskRunner(IMcpClientFactory transport, string serverName) : IAgentTaskRunner
 {
+    public bool SupportsActionLimit => true;
     public string Description => "Adaptive project editing and testing through managed Copilot with bounded permissions and verified command/file evidence.";
 
     public async Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
