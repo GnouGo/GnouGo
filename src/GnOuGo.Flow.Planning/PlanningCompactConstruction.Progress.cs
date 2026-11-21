@@ -81,19 +81,29 @@ internal static partial class PlanningCompactConstruction
         var missing = outputs.Where(output => output.Required && state.Plan?.Root.Outputs.Any(binding => binding.Name == output.Name) != true).ToArray();
         var declared = new JsonArray(outputPage.Select(output =>
         {
-            var bound = state.Plan?.Root.Outputs.Any(binding => binding.Name == output.Name) == true;
+            var binding = state.Plan?.Root.Outputs.FirstOrDefault(item => item.Name == output.Name);
             var connections = (state.Requirements?.Outcomes ?? []).SelectMany(requirement =>
                 (requirement.Commitments ?? []).Select((commitment, index) => (requirement, commitment, index)))
                 .Where(item => item.commitment.Result?.Output == output.Name)
                 .Select(item => facts.Coverage.SingleOrDefault(result => result.Id ==
                     "coverage:" + Uri.EscapeDataString(item.requirement.Id) + ":" + item.index + ":result")?.Outcome).ToArray();
-            return (JsonNode)new JsonObject
+            var declaration = new JsonObject
             {
                 ["name"] = output.Name, ["required"] = output.Required, ["evidence"] = "output:" + output.Name,
-                ["bindingStatus"] = bound ? "accepted_declaration" : "not_bound",
+                ["bindingStatus"] = binding is null ? "not_bound" : "accepted_declaration",
                 ["producerConnection"] = connections.Length == 0 ? "not_required" : connections.Contains("violation", StringComparer.Ordinal)
                     ? "disconnected" : connections.All(outcome => outcome == "verified") ? "established" : "unverified"
             };
+            if (binding?.Value is { Kind: "output", Source: { } source } &&
+                state.Plan!.Root.Tasks.Any(task => task.Id == source))
+            {
+                var owners = state.Construction!.Checkpoints.Where(checkpoint =>
+                        checkpoint.InvalidatedTaskIds.Count == 0 && checkpoint.TaskIds.Contains(source))
+                    .Select(checkpoint => checkpoint.Step?.BlockId).OfType<string>().Distinct(StringComparer.Ordinal).ToArray();
+                if (owners.Length == 1 && facts.Results.Any(result => result!["id"]!.ToString() == "result:" + owners[0]))
+                    declaration["directSourceContribution"] = "result:" + owners[0];
+            }
+            return (JsonNode)declaration;
         }).ToArray());
         // Originals, criteria and accepted contribution descriptions already have
         // canonical presentation/evidence. Index them without copying their text,

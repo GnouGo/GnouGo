@@ -26,6 +26,33 @@ failed on the former description. The updated publication, composition and
 reporting selection passed 123 tests. The publication grant still excludes
 deletion.
 
+The third local judge accepted the GitHub publication block at call 70.
+At revision 205 the planner offered final review, with all declared results
+bound and technical validation passed. Call 71 selected a fourth block to
+add GitHub submission details to the caller's report. The original request
+specified commands, exit codes and incomplete checks for that report. The
+accepted second block supplied it. The third block recorded submission
+separately. Call 91 asked how to rewrite the public binding. The session
+ended at revision 246 before execution. No clone, review, publication or
+chat delivery was observed.
+
+The original call-71 request showed the public binding and the three
+contributions separately. A regression reproduced the missing connection.
+Business selection now identifies which accepted contribution supplies a
+directly bound public result when the root producer has one owner. Rebuilding
+the request from the encrypted revision added exactly that link to the
+second block. The plan hash remained
+`49439d7477dbe07a2623a6821ff7c55581ca557077f5f210110fbda142941700`.
+Resolving the request-local aliases produced the same response schema.
+All 3,253 planner tests passed, including the checks for invalidated,
+group-local and literal sources. This replay made zero provider requests.
+
+The closing audit counted 91 physical Review 40 requests and EUR 49.99492
+of measured usage at captured tariffs. Across the campaign it recorded
+4,048 physical requests, EUR 2,020.95738 of known costs, EUR 492.52354
+held for 55 unknown HTTP attempts and EUR 162.25381 of separate Server
+reservations. EUR 424.26528 remained for independent work.
+
 ## Review 39, 21 November 2026
 
 Fresh Server session `62d120702f6d4c5ea0bccff67367ebd4` used source

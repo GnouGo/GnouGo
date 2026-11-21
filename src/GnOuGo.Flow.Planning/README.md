@@ -112,6 +112,11 @@ another business block, implementation or draft. Uncovered obligations, invalida
 unresolved sources, missing public bindings, pending repairs and other open boundaries
 remain ineligible. A rejecting global verdict still blocks artifact approval.
 
+For a public result bound directly to a root task, `directSourceContribution`
+identifies the accepted business block that supplied the task when ownership is
+unambiguous. Selection can consult that block's objective and review status.
+The link records the current binding. Global review still assesses the content.
+
 Successful block review may abandon an earlier entirely unimplemented navigation
 chain belonging to that block. The exact cursor/prerequisite/evidence records remain
 as abandoned history, with no invented binding or prerequisite fulfillment. Accepted

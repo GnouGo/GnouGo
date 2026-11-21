@@ -206,6 +206,8 @@ internal static partial class PlanningModelCalls
             Links(progress, "requirementsDirectory", progress["requirementsDirectory"]);
             Links(progress, "nextDeclaredResults", progress["nextDeclaredResults"]);
             foreach (var name in new[] { "expectedResults", "declaredResults", "missingDeliverableBindings" }) Metadata(progress[name]);
+            foreach (var result in (progress["declaredResults"] as JsonArray ?? []).OfType<JsonObject>())
+                Links(result, "directSourceContribution", result["directSourceContribution"]);
         }
         foreach (var result in (context["availableResults"] as JsonArray ?? []).OfType<JsonObject>())
             if (result["id"] is JsonValue resultId) result["id"] = replace(resultId.GetValue<string>());

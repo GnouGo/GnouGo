@@ -111,6 +111,33 @@ public sealed class OverallProgressTests
     }
 
     [Fact]
+    public async Task BusinessSelectionIdentifiesTheAcceptedContributionDirectlyBoundToAPublicResult()
+    {
+        var (state, _) = await BusinessSelectionCoverageContextTests.PreparedGroup();
+        state.Requirements!.Outputs = [new() { Name = "result", Required = true, Type = new() { Kind = "number" } }];
+        state.Plan!.Root.Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })];
+        var context = PlanningCompactConstruction.SelectionContext(state);
+        var block = context["availableResults"]![0]!;
+        var declaration = Result(context["overallProgress"]!);
+        Assert.Equal(block["id"]!.ToString(), declaration["directSourceContribution"]?.ToString());
+        Assert.False(context["overallProgress"]!["executionObserved"]!.GetValue<bool>());
+        var selection = PlanningCompactConstruction.SelectionRequest(state);
+        var issued = PlanningModelCalls.PrepareRequest(state, PlanningCompactConstruction.SelectPurpose,
+            selection.Prompt, selection.StructuredOutputSchema!.AsObject());
+        var wire = JsonNode.Parse(issued.Prompt[(issued.Prompt.LastIndexOf('\n') + 1)..])!;
+        Assert.Equal(wire["availableResults"]![0]!["id"]!.ToString(),
+            Result(wire["overallProgress"]!)["directSourceContribution"]!.ToString());
+
+        state.Plan.Root.Outputs = [new("result", new() { Kind = "number", Number = 2 })];
+        Assert.Null(Result(View(state))["directSourceContribution"]);
+        state.Plan.Root.Outputs = [new("result", new() { Kind = "output", Source = "calculate", Port = "result" })];
+        Assert.Null(Result(View(state))["directSourceContribution"]); // group-local producer
+        state.Plan.Root.Outputs = [new("result", new() { Kind = "output", Source = "compute", Port = "result" })];
+        state.Construction!.Checkpoints[0].InvalidatedTaskIds.Add("compute");
+        Assert.Null(Result(View(state))["directSourceContribution"]);
+    }
+
+    [Fact]
     public async Task RequiredDeliverableConnectionTracksActualLineageAndMissingBindings()
     {
         var (state, _) = await BusinessSelectionCoverageContextTests.PreparedGroup();
