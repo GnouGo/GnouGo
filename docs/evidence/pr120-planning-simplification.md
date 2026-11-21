@@ -1,5 +1,31 @@
 # PR 120 planning simplification
 
+## Review 42, 21 November 2026
+
+Fresh Server session `16dccd8847724813abf21b07ea7682b8` started on
+`8959515b` with EUR 382.22054 available. Call 12 requested the full
+`git_diff` contract to determine whether it could compare pinned commits.
+Its description was already visible in that request and described a bounded
+patch without naming either side of the comparison. Call 15 requested the
+separate commit comparison tool. Decrypting the early directory requests
+also showed that the two reads of the source directory used different
+offsets, 0 and 2.
+
+The Git MCP now identifies the unstaged working tree and staged index in
+the `git_diff` description and names `git_compare_refs` for commit pairs.
+The discovery test failed on the old descriptor. In a real repository,
+different committed, indexed and working copies produced the expected two
+patches. All 89 Git MCP tests passed.
+
+At revision 85 the first local judge had accepted the review preparation.
+Its plan used one full-history clone, a direct pinned comparison, ordered
+cursor iteration, a bounded Copilot task and root cleanup. The extra base
+fetch from Review 41 disappeared. These are generated tasks. Publication,
+chat delivery and cleanup require execution receipts.
+
+The complete solution on the frozen earlier revision `8d1f7b9c` passed
+9,725 tests with 13 skipped.
+
 ## Review 41, 21 November 2026
 
 Fresh Server session `10b4480b8a77459fa4b1ba4df4dff81f` used source

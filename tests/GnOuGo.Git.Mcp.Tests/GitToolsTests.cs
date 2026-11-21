@@ -103,6 +103,10 @@ public sealed class GitToolsTests : IDisposable
         Assert.All(tools, tool => AssertValidRequiredDeclarations(
             JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()),
             tool.ProtocolTool.Name));
+        var diff = Assert.Single(tools, tool => tool.ProtocolTool.Name == "git_diff").ProtocolTool;
+        Assert.Contains("unstaged working tree", diff.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("staged index", diff.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("git_compare_refs", diff.Description, StringComparison.Ordinal);
         var compare = Assert.Single(tools, static tool =>
             string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
         var input = JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText())!;

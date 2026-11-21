@@ -40,7 +40,7 @@ public sealed class GitTools
     public GitStatusResult GitStatus([Description(RequiredProjectRootDescription)] string projectRoot)
         => Execute("git_status", () => _gitRepositoryService.GetStatus(projectRoot));
 
-    [McpServerTool(Name = "git_diff", UseStructuredContent = true, OutputSchemaType = typeof(GitDiffResult)), Description("Returns a truncated Git patch for an existing repository project root, optionally limited to one relative path." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_diff", UseStructuredContent = true, OutputSchemaType = typeof(GitDiffResult)), Description("Show unstaged working tree changes or, with staged=true, staged index changes. Use git_compare_refs to compare two commits. The patch is bounded and can be limited to one relative path." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public GitDiffResult GitDiff(
         [Description(RequiredProjectRootDescription)] string projectRoot,

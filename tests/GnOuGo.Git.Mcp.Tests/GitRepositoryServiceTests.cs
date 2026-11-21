@@ -29,6 +29,23 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void GetDiffDistinguishesTheWorkingTreeAndStagedIndex()
+    {
+        var service = CreateService();
+        const string file = "diff.txt";
+        WriteCommit(service, file, "committed\n", "base");
+        var path = Path.Combine(_root, file);
+        File.WriteAllText(path, "indexed\n");
+        service.Stage(".", [file]);
+        File.WriteAllText(path, "working\n");
+
+        var workingTree = service.GetDiff(".", file).Patch;
+        Assert.Contains("-indexed\n+working", workingTree, StringComparison.Ordinal);
+        var index = service.GetDiff(".", file, staged: true).Patch;
+        Assert.Contains("-committed\n+indexed", index, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StageAndCommit_CreatesCommitAndClearsStatus()
     {
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");

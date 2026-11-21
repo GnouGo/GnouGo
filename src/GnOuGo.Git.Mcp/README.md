@@ -10,7 +10,7 @@ This stdio server uses the stable C# MCP SDK `2.4.0` with automatic protocol neg
 
 - Inspect the active policy with `git_get_policy`.
 - Read repository metadata with `git_repository_info`.
-- Inspect working tree status, diffs, branches, and logs with `git_status`, `git_diff`, `git_branches`, and `git_log`.
+- Inspect working tree status, branches, and logs with `git_status`, `git_branches`, and `git_log`. Use `git_diff` for unstaged changes or pass `staged=true` for the staged index patch.
 - Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_switch_branch`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, `git_push`, and `git_delete_remote_branch` when `Git:AllowNetworkOperations=true`.
 - Compare exact PR revisions with `git_compare_refs`. It resolves base/head/merge-base SHAs, detects renames, reports binaries and submodules, paginates files, and includes per-file truncation metadata without consulting the working tree.
