@@ -28,6 +28,14 @@ executable and reports two alignment warnings from that object. The locally
 cross-compiled Intel release archive passed its extracted-binary HTTP,
 streaming, provider and configuration checks.
 
+SDK 11.0.100 exports its development hot-reload module from referenced web
+applications. This broke the Agent Server Debug build with four unmatched module
+endpoints. The scoped build target exports the referenced applications' ordinary
+assets and keeps each application's own debug module. A two-host reproduction
+and the Agent Server Debug build passed with zero warnings. Remove the target
+when updating to an SDK containing the upstream fix.
+[.NET SDK fix](https://github.com/dotnet/sdk/pull/57196)
+
 ## Previous audit of 7 November 2026
 
 The frontend exceptions below were reviewed on 2 August 2026.

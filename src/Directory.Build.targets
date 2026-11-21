@@ -1,0 +1,13 @@
+<Project>
+  <!-- SDK 11.0.100 exports its Debug hot-reload modules from referenced Web
+       hosts. Keep them available to the declaring application only (dotnet/sdk#57196). -->
+  <PropertyGroup Condition="'$(NETCoreSdkVersion)' == '11.0.100' and '$(UsingMicrosoftNETSdkWeb)' == 'true' and '$(Configuration)' == 'Debug'">
+    <StaticWebAssetsGetBuildAssetsTargets>GnOuGoGetReferencedWebAssets</StaticWebAssetsGetBuildAssetsTargets>
+  </PropertyGroup>
+  <Target Name="GnOuGoGetReferencedWebAssets" DependsOnTargets="GetCurrentProjectBuildStaticWebAssetItems" Returns="@(_GnOuGoReferencedWebAssets)">
+    <ItemGroup>
+      <_GnOuGoReferencedWebAssets Include="@(_CachedBuildStaticWebAssetItems)"
+          Condition="!$([System.String]::Copy('%(_CachedBuildStaticWebAssetItems.RelativePath)').StartsWith('_framework/Microsoft.NET.Sdk.BlazorWeb.HotReload')) and !$([System.String]::Copy('%(_CachedBuildStaticWebAssetItems.Identity)').StartsWith('_framework/Microsoft.NET.Sdk.BlazorWeb.HotReload'))" />
+    </ItemGroup>
+  </Target>
+</Project>
