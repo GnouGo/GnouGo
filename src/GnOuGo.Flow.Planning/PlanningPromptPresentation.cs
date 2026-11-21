@@ -366,7 +366,7 @@ public static class PlanningPromptPresentation
             {
                 if (key.StartsWith("rejected:", StringComparison.Ordinal) || snapshot is not (JsonObject or JsonArray) ||
                     !JsonNode.DeepEquals(snapshot, evidence[key]) || snapshot.ToJsonString().Length <= key.Length + 320) continue;
-                shared.Add(key);
+                shared.Add((JsonNode?)JsonValue.Create(key));
                 archived.Remove(key);
             }
             if (shared.Count == 0) continue;
