@@ -1,5 +1,46 @@
 # PR 120 planning simplification
 
+## Review 43, 21 November 2026
+
+Fresh Server session `1190146a94804efab882f1d5a9682303` ran on
+`2939a741`. Two local business reviews accepted the preparation and
+pending-review blocks. The candidate included the runtime URL and review
+instructions, one clone with a finalizer, and Copilot checks and review.
+No workflow was dispatched, no clone was created, and no GitHub review
+or comment was published.
+
+Call 36 supplied a bounded loop over prepared inline comments. The write
+required a non-null path, line, body and side and a positive line number.
+The response passed the issued grammar. Technical validation rejected the
+numeric comparison even though its left-hand guard had checked the same
+line for null. The resulting argument diagnostics covered four inputs.
+Call 37 requested authority to change the upstream producer. The session
+ended in clarification at revision 117.
+
+Numeric ordering now consumes the non-null facts available along its
+short-circuit evaluation path. Facts about a loop item expire at the
+iteration that introduced it. A regression executed positive, zero and
+null inputs with cleanup on every path. Reversing the checks and testing
+an outer item's rank before using an inner item's rank both failed
+validation as required. Sixty focused planner tests passed.
+
+Replaying the original call 36 on its encrypted checkpoint reproduced all
+five findings before the fix. The identical response now reached the local
+judge at revision 115 with candidate
+`a00f5f99bc44072627eea4f3cfd6c26cef7a156ca7d11860eadadd45a4bf3934`.
+The unchanged candidate passed TaskPlan compilation and executable graph
+validation. Its captured Server profile produced YAML fingerprint
+`c2058493767d7d5991c2b7c71532c03bb03c466f9b5850dfa2dfd7966967d149`.
+The separate default-profile diagnostic hit the existing mapping nesting
+limit when projecting a whole container. The replay made zero provider
+requests and executed zero business operations.
+
+All 37 physical requests settled for EUR 22.27931223. The closing audit
+recorded 4,189 physical calls and EUR 2,106.92839156 in measured usage.
+The outstanding HTTP holds of EUR 492.52354211 and separate application
+reservations of EUR 162.25380608 left EUR 338.29426024 under the EUR
+3,100 ceiling.
+
 ## Review 42, 21 November 2026
 
 Fresh Server session `16dccd8847724813abf21b07ea7682b8` started on

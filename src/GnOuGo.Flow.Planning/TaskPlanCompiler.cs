@@ -664,6 +664,7 @@ public sealed partial class TaskPlanCompiler
         if ((!consume && !requireNonNull) || value.Kind is not ("input" or "output" or "field")) return bound;
         var identity = JsonSerializer.Serialize(value, PlanningJsonContext.Default.TaskValue);
         for (var ancestor = scope; ancestor is not null; ancestor = ancestor.Parent)
+        {
             if ((ancestor.NonNullReferences?.Contains(identity) == true ||
                  requireNonNull && ancestor.RequirementNonNullReferences?.Contains(identity) == true) && WithoutNull(bound.Schema) is { } schema &&
                 !JsonNode.DeepEquals(schema, bound.Schema))
@@ -672,6 +673,9 @@ public sealed partial class TaskPlanCompiler
                 return consume ? Consume(bound with { Schema = schema, SelectionSource = bound, SelectionPath = [] }, scope)
                     : bound with { Schema = schema };
             }
+            // An enclosing loop's item has a different identity even when the field path is identical.
+            if (ancestor.Item is not null && Values(value).Any(v => v.Kind is "item" or "index")) break;
+        }
         return bound;
     }
 
@@ -955,13 +959,14 @@ public sealed partial class TaskPlanCompiler
             }
             return Output(merged, "set", ["value"], new() { ["type"] = "boolean" });
         }
-        var operands = value.Items.Select(i => Value(i, scope)).ToArray();
+        var ordering = value.Predicate is "less" or "less_equal" or "greater" or "greater_equal";
+        var operands = value.Items.Select(i => Value(i, scope, requireNonNull: ordering)).ToArray();
         var unary = value.Predicate == "not";
         if (operands.Length != (unary ? 1 : 2)) Fail("TASK_PREDICATE_INVALID", "Predicate arity is invalid.");
         var op = value.Predicate switch { "not" => "!", "and" => "&&", "or" => "||", "equal" => "===", "not_equal" => "!==", "less" => "<", "less_equal" => "<=", "greater" => ">", "greater_equal" => ">=", _ => null };
         if (op is null) Fail("TASK_PREDICATE_INVALID", "Unknown typed predicate.");
         if (value.Predicate is "and" or "or" or "not") foreach (var operand in operands) RequireBoolean(operand);
-        else if (value.Predicate is not ("equal" or "not_equal") && operands.Any(b => b.Schema["type"]?.ToString() is not ("number" or "integer")))
+        else if (ordering && operands.Any(b => b.Schema["type"]?.ToString() is not ("number" or "integer")))
             Fail("TASK_PREDICATE_TYPE", "Ordering predicates require numeric operands.");
         return new(PlanningValues.Predicate(value.Predicate!, operands.Select(o => o.Value).ToArray()), new() { ["type"] = "boolean" });
     }

@@ -13,6 +13,56 @@ public sealed class LoopItemGuardCorrectionTests
     private static TaskValue Present() => new() { Kind = "predicate", Predicate = "not_equal", Items = [Field("reference"), new() { Kind = "null" }] };
     private static TaskValue Conjunction(TaskValue flag) => new() { Kind = "predicate", Predicate = "and", Items = [Present(), flag] };
 
+    private static TaskValue RankPresent() => new() { Kind = "predicate", Predicate = "not_equal", Items = [Field("rank"), new() { Kind = "null" }] };
+    private static TaskValue RankPositive() => new() { Kind = "predicate", Predicate = "greater", Items = [Field("rank"), new() { Kind = "number", Number = 0 }] };
+
+    private static async Task<(PlanningSession State, TaskPlan Plan, PlanTask Loop)> RankedLoop()
+    {
+        var (state, _) = await Fixture();
+        var plan = state.Construction!.Candidate!.Plan;
+        plan.Inputs.Single(input => input.Name == "items").Type.Items!.Fields.Add(
+            new() { Name = "rank", Type = new() { Kind = "integer", Nullable = true } });
+        return (state, plan, plan.Root.Tasks.Single(t => t.Id == "loop"));
+    }
+
+    [Theory]
+    [InlineData(3, true)]
+    [InlineData(0, false)]
+    [InlineData(null, false)]
+    public async Task OrderingConsumesTheItemFieldCheckedByItsLeftOperand(int? rank, bool succeeds)
+    {
+        var (state, plan, loop) = await RankedLoop();
+        var consumer = loop.Body!.Tasks.Single();
+        consumer.Requires = new() { Kind = "predicate", Predicate = "and", Items = [RankPresent(), RankPositive()] };
+
+        var result = new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request);
+        Assert.Empty(result.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(result.Graph!, state.Catalog!));
+        var yaml = new PlanningGraphCompiler().Compile(result.Graph!, state.Catalog!);
+        var run = await LookupCompilationTests.Execute(yaml, new JsonObject { ["x"] = 7, ["items"] = new JsonArray(
+            new JsonObject { ["rank"] = rank, ["reference"] = null, ["allowed"] = true }) }, new WorkflowEngine());
+        Assert.Equal(succeeds, run.Success);
+        Assert.Contains(run.StepResults, step => step.Output?["cleaned"]?.GetValue<bool>() == true);
+        if (!succeeds) Assert.Equal("INPUT_VALIDATION", run.Error!.Code);
+
+        consumer.Requires.Items.Reverse();
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request).Diagnostics,
+            finding => finding.Code == "TASK_PREDICATE_TYPE");
+    }
+
+    [Fact]
+    public async Task OuterItemGuardCannotEstablishTheValueOfAnInnerItem()
+    {
+        var (state, plan, loop) = await RankedLoop();
+        var body = loop.Body!;
+        body.Tasks.Single().Requires = RankPositive();
+        loop.Body = new() { Tasks = [new() { Id = "inside", Kind = "foreach", Objective = "Use each inner item",
+            Requires = RankPresent(), Items = new() { Kind = "input", Source = "items" }, MaxItems = 2, Body = body }] };
+
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request).Diagnostics,
+            finding => finding.Code == "TASK_PREDICATE_TYPE" && finding.Location == Path);
+    }
+
     [Theory]
     [InlineData("observed", true, true)]
     [InlineData(null, true, false)]
