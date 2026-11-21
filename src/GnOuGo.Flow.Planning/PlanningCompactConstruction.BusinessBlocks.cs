@@ -113,9 +113,15 @@ internal static partial class PlanningCompactConstruction
             !candidate.OpenScopes.Contains(path, StringComparer.Ordinal))
             PlanningConstruction.Fail("CONSTRUCTION_BLOCK_CONTINUATION_INVALID", "/extension/continueInScope",
                 "Continue only an unfinished business block in an exact open scope, without completion or deferred consumer/boundary claims.");
-        var checkpoints = BusinessBlockCheckpoints(state).ToArray();
+        // Rollback can reopen a surviving container after removing one of its children.
+        // Its creation still establishes scope ownership; the fragment still needs review.
+        var rebuildingScope = state.Construction!.RebuildScopes.Any(placement => placement.Path == path);
+        var checkpoints = state.Construction.Checkpoints.Where(checkpoint =>
+            checkpoint.Step?.BlockId is { } block && block == step.BlockId &&
+            (checkpoint.InvalidatedTaskIds.Count == 0 || rebuildingScope)).ToArray();
         var origin = BlockCheckpoints(state).FirstOrDefault()?.Step?.Scope ?? step.Scope;
-        var ownedTasks = checkpoints.SelectMany(checkpoint => checkpoint.TaskIds).Concat(candidate.TaskIds).ToHashSet(StringComparer.Ordinal);
+        var ownedTasks = checkpoints.SelectMany(checkpoint => checkpoint.TaskIds.Except(checkpoint.InvalidatedTaskIds, StringComparer.Ordinal))
+            .Concat(candidate.TaskIds).ToHashSet(StringComparer.Ordinal);
         var ownedGroups = checkpoints.SelectMany(checkpoint => (checkpoint.Fragment["groups"] as JsonArray ?? []).Select(group => group!.ToString()))
             .Concat(candidate.Extension.Groups.Select(group => group.Id)).ToHashSet(StringComparer.Ordinal);
         var symbols = new TaskPlanSymbols(candidate.Plan);

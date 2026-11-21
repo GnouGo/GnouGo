@@ -22,6 +22,27 @@ task findings. Regenerating the judge request on the same checkpoint
 changed only the clone description, with the same TaskPlan, response
 grammar and 49 evidence addresses. This comparison made no provider calls.
 
+At call 35 the model restored the first comparison and continued into the
+open body of the sequence collecting the remaining pages. Rollback had
+removed two of the sequence's children and a dependent consumer. The
+container itself survived in its original block. The validator discarded
+the creator checkpoint because some of its tasks had been invalidated.
+It rejected the correct continuation. Calls 42–44 then repeated the same
+request to enter that scope without restoring any tasks. The operator
+requested cancellation after receiving call 46's complete receipt. The
+Server recorded cancellation at revision 128. No workflow was dispatched.
+
+The validator now retains ownership of surviving task IDs when rollback
+reopens their recorded scope. The original fragment remains invalidated
+for business completion. The regression also rejects a removed creator,
+an imported container, another block and an unrelated open scope. A
+reopened group needs its own creation record. All 57 focused planning
+tests passed. Offline replay of the unchanged call 35
+restored candidate `e2d74258a059afba1caefca7b649290fdc850c7e9fc422abe56804575f62fdeb`
+from baseline `5cb02a1e91c2515e4132931d24146489417cd601338697ab469a1f27d1f18092`.
+The next coordinator advance entered the original body at revision 103
+with zero required findings and zero additional model calls.
+
 ## Review 43, 21 November 2026
 
 Fresh Server session `1190146a94804efab882f1d5a9682303` ran on

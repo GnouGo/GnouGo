@@ -721,6 +721,69 @@ public sealed class CoherentBusinessFragmentTests
         Assert.Empty(state.Construction.Checkpoints);
     }
 
+    [Theory]
+    [InlineData("surviving", true)]
+    [InlineData("removed", false)]
+    [InlineData("imported", false)]
+    [InlineData("other_block", false)]
+    [InlineData("unrelated_open_scope", false)]
+    public async Task ReopenedScopeRetainsOnlyItsSurvivingCreatorsOwnership(string variant, bool canContinue)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var construction = state.Construction!;
+        construction.Candidate = null;
+        const string path = "/tasks/container/body";
+        state.Plan!.Root.Tasks.Add(new() { Id = "container", Kind = "sequence", Objective = "Collect the observations.", Body = new() });
+        construction.OpenScopes.Add(path);
+        if (variant != "unrelated_open_scope") construction.RebuildScopes.Add(new() { Path = path, Tasks = ["child"] });
+        var step = construction.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Checkpoints.Add(new()
+        {
+            Step = new() { BlockId = variant == "other_block" ? "another" : step.BlockId, Id = "earlier", Scope = "/root" },
+            TaskIds = variant == "imported" ? ["child"] : ["container", "child"],
+            ImportedTaskIds = variant == "imported" ? ["container"] : [],
+            InvalidatedTaskIds = variant == "removed" ? ["container", "child"] : ["child"]
+        });
+        var candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"],
+            Tasks = [Value(0)], ContinueInScope = path });
+        if (canContinue)
+        {
+            PlanningCompactConstruction.ValidateExtension(state, candidate);
+            Assert.Empty(PlanningCompactConstruction.BusinessBlockCheckpoints(state));
+        }
+        else
+            Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics,
+                finding => finding.Code == "CONSTRUCTION_BLOCK_CONTINUATION_INVALID");
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ReopenedGroupRequiresItsOwnCreationRecord(bool created)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var construction = state.Construction!;
+        construction.Candidate = null;
+        const string path = "/groups/worker/body";
+        state.Plan!.Groups.Add(new() { Id = "worker", Body = new() });
+        construction.OpenScopes.Add(path);
+        construction.RebuildScopes.Add(new() { Path = path, Tasks = ["child"] });
+        var step = construction.Compact!.CurrentStep!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Checkpoints.Add(new()
+        {
+            Step = new() { BlockId = step.BlockId, Id = "earlier", Scope = "/root" },
+            Fragment = new() { ["groups"] = new JsonArray(created ? "worker" : "other") },
+            TaskIds = ["child"], InvalidatedTaskIds = ["child"]
+        });
+        var candidate = PlanningConstruction.Apply(state, new() { CompleteBlock = false, Scope = "/root", RequirementIds = ["work"],
+            Tasks = [Value(0)], ContinueInScope = path });
+        if (created) PlanningCompactConstruction.ValidateExtension(state, candidate);
+        else Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics,
+            finding => finding.Code == "CONSTRUCTION_BLOCK_CONTINUATION_INVALID");
+    }
+
     [Fact]
     public async Task ContinuingGroupCannotPrematurelyCloseTheWorkflowRoot()
     {

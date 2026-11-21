@@ -54,6 +54,9 @@ before ordering. Inside a nested `foreach`, the inner item needs its own
 presence check.
 
 Typed repair preserves requirements, effects, executable literals and unrelated work.
+If rollback removes a child and reopens its original scope, the block that
+created the surviving container can continue rebuilding in that scope.
+The invalidated fragment still needs business review.
 Explicit accepted-work revision invalidates affected approval. Code checks contracts,
 references, scope isolation, dependencies, permission/provenance, final graph and YAML.
 A favorable Judge or successful compilation never grants execution authority.
