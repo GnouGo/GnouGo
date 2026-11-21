@@ -5,12 +5,17 @@ let input = ''; for await (const chunk of process.stdin) input += chunk;
 const { launch, url, session, output, mode, agent, inputs } = JSON.parse(input);
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
 await mkdir(output, { recursive: true });
-const browser = await chromium.launch({ headless: true });
-const page = await browser.newPage({ viewport: { width: 1440, height: 1080 } });
-const errors = []; page.on('pageerror', e => errors.push(e.message));
-page.on('console', m => { if (m.type() === 'error' && /unhandled exception/i.test(m.text())) errors.push(m.text()); });
+let browser;
+let stage = 'browser startup';
+const timedOut = error => error?.name === 'TimeoutError' || /^(?:apiRequestContext\.get: )?Timeout \d+ms exceeded\./.test(error?.message ?? '');
 try {
+  browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1080 } });
+  const errors = []; page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error' && /unhandled exception/i.test(m.text())) errors.push(m.text()); });
+  stage = 'operator sign-in';
   await page.goto(launch); await page.waitForURL('**/planning');
+  stage = 'frontend readiness';
   for (const [asset, contentType] of [['/ui/app.js', /javascript/], ['/ui/app.css', /css/]]) {
     const response = await page.request.get(new URL(asset, url).href);
     assert.equal(response.status(), 200, `Required frontend asset unavailable: ${asset}; build Agent.Server/ClientApp`);
@@ -25,6 +30,7 @@ try {
     await writeFile(`${output}/frontend-readiness.json`, JSON.stringify({ evidence: 'actual Agent.Server; browser readiness only; no inference',
       assetsDelivered: true, helperRegistered: true, interactiveCircuit: true, errors }, null, 2));
   } else if (mode === 'execute') {
+    stage = 'saved workflow form';
     await page.goto(url);
     await page.getByTitle('Select a GnOuGo agent', { exact: true }).click();
     await page.getByRole('menuitemradio', { name: agent, exact: true }).click();
@@ -45,6 +51,7 @@ try {
     }
     const submit = composer.getByRole('button', { name: structured ? 'Run workflow' : 'Send', exact: true });
     const previous = await page.getByLabel('Your message', { exact: true }).count();
+    stage = 'workflow submission';
     await submit.click();
     const message = page.getByLabel('Your message', { exact: true }).nth(previous);
     await message.waitFor();
@@ -52,6 +59,7 @@ try {
     assert.match(run ?? '', /^[0-9a-f]{32}$/);
     await writeFile(output + '/form-invocation.tmp', JSON.stringify({ agent, run }), { flag: 'wx' });
     await rename(output + '/form-invocation.tmp', output + '/form-invocation.json');
+    stage = 'workflow response';
     // Keep the Blazor circuit alive through all runtime confirmations.
     await submit.waitFor({ timeout: 0 });
     assert.deepEqual(errors, []);
@@ -60,18 +68,28 @@ try {
     const text = await answer.isVisible() ? await answer.innerText() : null;
     await writeFile(output + '/form-response.json', JSON.stringify({ agent, run, text }), { flag: 'wx' });
   } else {
+  stage = 'planning page';
   await page.goto(`${url}/planning/${session}`);
   await page.locator('#planningReview[data-interactive="true"]').waitFor();
   let active = false;
   let state;
   for (;;) {
-    state = await (await page.request.get(`${url}/api/planning/${session}`)).json();
+    stage = 'planning status';
+    try {
+      state = await (await page.request.get(`${url}/api/planning/${session}`)).json();
+    } catch (error) {
+      if (!timedOut(error)) throw error;
+      console.warn('Warning: the local planning status read timed out. Retrying the read.');
+      await page.waitForTimeout(2000);
+      continue;
+    }
     if (!active && await page.locator('.phase-active').count()) {
       await page.screenshot({ path: `${output}/live-active-phase.png`, fullPage: true }); active = true;
     }
     if (['final_review', 'clarification', 'stopped', 'failed', 'cancelled'].includes(state.status)) break;
     await page.waitForTimeout(2000);
   }
+  stage = 'planning inspection';
   await page.waitForTimeout(2500);
   await page.screenshot({ path: `${output}/live-final-state.png`, fullPage: true });
   const exchanges = page.getByRole('button', { name: 'Inspect LLM exchange', exact: true });
@@ -93,4 +111,15 @@ try {
   await writeFile(`${output}/live-browser-result.json`, JSON.stringify({ evidence: 'live-provider', session, status: state.status,
     activePhaseObserved: active, sharedInspectorOpened: inspected, logicalRequestIds: identities, duplicateCalls: false, errors }, null, 2));
   }
-} finally { await browser.close(); }
+} catch (error) {
+  // Playwright transport errors can contain the authenticated request headers and full launch URL.
+  const reason = timedOut(error) ? 'timeout' : error?.code === 'ERR_ASSERTION' ? 'assertion failed' : 'browser operation failed';
+  console.error(`Observer stopped during ${stage} (${reason}).`);
+  process.exitCode = 1;
+} finally {
+  try { await browser?.close(); }
+  catch {
+    console.error('Observer could not close the browser.');
+    process.exitCode = 1;
+  }
+}

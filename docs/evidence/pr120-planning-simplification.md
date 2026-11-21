@@ -2,6 +2,20 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 36 reached final review after 41 planning requests. All 24 tasks in
+revision 137 matched the individually reviewed tasks. The public `rapport`
+binds a French summary and complete command and publication receipts.
+The saved workflow started from the chat form with both runtime inputs as
+Server run `02869fd100f5cb0caa7521945f7ba408`. The journal recorded a
+successful PR read and one successful clone.
+
+A separate 30-second timeout reading local planning status had already
+terminated the observation browser. The Server continued generating. Two
+real-browser regressions reproduced the authenticated transport failure.
+The observer now retries a timed-out status read, reports the failed stage
+without logging request headers, and submits each workflow only once.
+All eight startup and saved-form browser cases passed.
+
 The second Review 35 diagnostic used the new withdrawal action. Its single
 complete native response cost EUR 0.84591. Applying it to a detached copy
 of revision 83 preserved the finding, open scope, requirements and accepted

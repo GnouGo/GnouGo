@@ -116,6 +116,68 @@ public sealed class FrontendStartupBrowserTests
         await app.StopAsync(ct);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task AuthenticatedObserverRetriesOnlyAStatusTimeoutAndKeepsHeadersPrivate(bool timeout)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var root = new DirectoryInfo(AppContext.BaseDirectory);
+        while (root is not null && !File.Exists(Path.Combine(root.FullName, "GnOuGo.Agent.sln"))) root = root.Parent;
+        Assert.NotNull(root);
+        var fault = new PlanningStatusFault(timeout);
+        var args = TelemetryTestHostArgs.Create("--TypedWorkflowPlanning:BackgroundProcessingEnabled=false", "--OtlpCollector:Enabled=false");
+        await using var app = TelemetryTestHostArgs.Build(args, "http://127.0.0.1:0", Path.Combine(root.FullName, "src/GnOuGo.Agent.Server"), false,
+            services => services.AddSingleton<IStartupFilter>(fault));
+        await app.StartAsync(ct);
+        var state = await app.Services.GetRequiredService<PlanningSessionService>().StartAsync("observer fixture", "Return a string", false, ct);
+        var launch = app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(new Uri(GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!));
+        var output = Path.Combine(root.FullName, "artifacts/server-startup/browser", Guid.NewGuid().ToString("N"));
+        var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardError = true, WorkingDirectory = root.FullName };
+        start.ArgumentList.Add(Path.Combine(root.FullName, "scripts/observe-live-planning.mjs"));
+        start.Environment["PLAYWRIGHT_MODULE_PATH"] = Path.Combine(AppContext.BaseDirectory, "tools/GnOuGo.Browser.Mcp/.playwright/package/index.mjs");
+        using var browser = Process.Start(start)!;
+        var stderr = browser.StandardError.ReadToEndAsync(ct);
+        await browser.StandardInput.WriteAsync(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = launch.GetLeftPart(UriPartial.Authority),
+            session = state.Request.SessionId, output, mode = "observe" }));
+        browser.StandardInput.Close();
+        try { await browser.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(90), ct); }
+        finally { if (!browser.HasExited) browser.Kill(entireProcessTree: true); }
+        var log = await stderr;
+        Assert.True(fault.Authenticated, "The status read must carry the operator session cookie.");
+        Assert.False(log.Contains("cookie:", StringComparison.OrdinalIgnoreCase), "The observer emitted authenticated request headers.");
+        Assert.False(log.Contains(launch.Fragment[1..], StringComparison.Ordinal), "The observer emitted the bootstrap fragment.");
+        Assert.Equal(timeout ? 2 : 1, fault.Reads);
+        Assert.Equal(timeout ? 0 : 1, browser.ExitCode);
+        Assert.Contains("planning status", log, StringComparison.OrdinalIgnoreCase);
+        if (timeout)
+            Assert.Equal("stopped", JsonNode.Parse(await File.ReadAllTextAsync(Path.Combine(output, "live-browser-result.json"), ct))!["status"]!.ToString());
+        await app.StopAsync(ct);
+    }
+
+    private sealed class PlanningStatusFault(bool timeout) : IStartupFilter
+    {
+        internal int Reads;
+        internal bool Authenticated;
+        public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+        {
+            app.Use(async (context, continuation) =>
+            {
+                if (!context.Request.Path.StartsWithSegments("/api/planning") || !HttpMethods.IsGet(context.Request.Method))
+                { await continuation(context); return; }
+                Authenticated |= context.Request.Cookies.Count > 0;
+                if (Interlocked.Increment(ref Reads) == 1)
+                {
+                    if (timeout) await Task.Delay(Timeout.InfiniteTimeSpan, context.RequestAborted);
+                    else context.Abort();
+                    return;
+                }
+                await context.Response.WriteAsJsonAsync(new { status = "stopped" }, context.RequestAborted);
+            });
+            next(app);
+        };
+    }
+
     private sealed class AssetFault(string scenario) : IStartupFilter
     {
         public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
