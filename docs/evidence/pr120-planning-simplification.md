@@ -43,6 +43,26 @@ from baseline `5cb02a1e91c2515e4132931d24146489417cd601338697ab469a1f27d1f18092`
 The next coordinator advance entered the original body at revision 103
 with zero required findings and zero additional model calls.
 
+The terminal Server counter was 47. The campaign recorded 46 physical
+requests, all settled for EUR 25.85171943. The cancellation raced the
+next Server reservation, leaving EUR 5.04234759 with no campaign HTTP
+envelope. The retention receipt
+`e104c52471cc6c97fdcc0469f60ecd90f07a3bbdfa6bcfab1d9b27be2e6d964d`
+preserved that entire hold and closed replay of the pending request.
+The closing audit had 4,235 physical calls, EUR 2,132.78011100 in measured
+usage, 55 historical HTTP holds totaling EUR 492.52354211 and separate
+application reservations totaling EUR 167.29615367. The available
+balance was EUR 307.40019322.
+
+One fresh native comparison of call 20 returned `ok` for the same
+business block with the clone guard visible. It settled for EUR 0.32003275.
+Attempting to apply that verdict to the detached historical checkpoint
+exposed two different fingerprints for the same catalog identity. The
+coordinator enforced its receipt check. No approval or execution followed.
+The full corrected planner suite passed 3,269 tests. The unchanged Review
+30 plan and Review 32 publication probe also passed their original
+technical regressions again, with zero provider calls or GitHub writes.
+
 ## Review 43, 21 November 2026
 
 Fresh Server session `1190146a94804efab882f1d5a9682303` ran on
