@@ -181,6 +181,16 @@ focused Server checks and eight Flow finalization tests passed, including
 confined directory removal, denial of other aliases, an explicit shorter
 alias timeout and recovery with the original run's configured limits.
 
+The retained shell receipts identified 11 frozen Python installs that
+exited 1 because their requested wheel was absent from the offline cache.
+All 11 failures reproduced against the existing Python 3.11.13. The
+corresponding lockfile blobs matched the captured PR head. The existing host
+provisioning route fetched the exact binary wheels with their pinned
+SHA-256 hashes, totalling 279,955,016 compressed bytes. Each fresh offline
+probe then exited zero. These probes executed no project code, used zero
+model calls and created no clone. Complete dependency installation and
+project checks still require SDK receipts. [Per-wheel proof](pr120-review50-offline-wheels.json)
+
 ## Review 49, 21 November 2026
 
 Fresh Server session `68e895367b6f4024beb055975abe2deb` started on

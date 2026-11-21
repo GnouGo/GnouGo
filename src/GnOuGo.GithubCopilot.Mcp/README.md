@@ -420,6 +420,10 @@ Upstream inference is one bounded JSON response. A complete decision is validate
 before tool calls are exposed; SDK streaming is restored as ordinary SSE chunks
 with the actual provider usage. Error responses pass through. The existing policy
 proxy retains the original provider response, while logical budgets charge the
-expanded request before sending. Selecting this transport does not authorize any
+complete UTF-8 request before sending. When prior SDK tool results exist and the
+last call or remaining token allowance cannot support another request of similar
+size, the adapter restricts an optional tool decision to a final report. The same
+decoder enforces that restriction and rejects truncated or refused responses.
+The SDK continues to require an observed terminal receipt. Selecting this transport does not authorize any
 new endpoint or tool effect. Capture changed settings in a new immutable campaign
 amendment before a fresh live run; stopped native sessions remain stopped.
