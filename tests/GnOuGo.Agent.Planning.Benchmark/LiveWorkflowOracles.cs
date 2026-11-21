@@ -152,17 +152,17 @@ internal static partial class LiveWorkflowOracles
         else if (PublishedReviewQualification.UsesPublicationChecks(run))
         {
             var repository = Path.Combine(folder, "repository");
-            var target = await PublishedReviewQualification.CaptureAsync(run["inputs"]!["pullRequestUrl"]!.GetValue<string>(), CancellationToken.None);
+            var target = await PublishedReviewQualification.CaptureAsync(run["inputs"]!["pullRequestUrl"]!.GetValue<string>(), run["oracle_version"]?.GetValue<string>(), CancellationToken.None);
             if (run["target_head"]?.ToString() != target.Head || run["target_base"]?.ToString() != target.Base)
                 findings.Add("reviewed_head_or_base_changed");
             LiveCodeEvidence.Verify(run, repository);
-            if (run["oracle_version"]?.ToString() == PublishedReviewQualification.DeliveryVersion &&
+            if (PublishedReviewQualification.RequiresChatReport(run) &&
                 PublishedReviewQualification.ReturnedReportFinding(run) is { } deliveryFinding)
                 findings.Add(deliveryFinding);
             if (run["required_checks_verified"]?.GetValue<bool>() != true) findings.Add("repository_required_checks_not_independently_verified");
             var clones = events.Where(e => e["tool"]?.ToString() == "git_clone").ToArray();
             if (clones.Length != 1 || clones[0]["error"]?.GetValue<bool>() != false || clones[0]["result"]?["success"]?.GetValue<bool>() != true ||
-                clones[0]["arguments"]?["branch"]?.ToString() != target.Head) findings.Add("single_pinned_clone_not_observed");
+                clones[0]["arguments"] is not JsonObject cloneArgs || !target.AllowsClone(cloneArgs)) findings.Add("single_pinned_clone_not_observed");
             if (Directory.Exists(repository) || !events.Any(e => e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
                 e["arguments"]?["commandName"]?.ToString() == "delete_directory" && e["error"]?.GetValue<bool>() == false))
                 findings.Add("repository_not_cleaned_by_workflow");

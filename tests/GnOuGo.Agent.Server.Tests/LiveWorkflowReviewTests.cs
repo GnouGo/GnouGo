@@ -19,7 +19,9 @@ public sealed class LiveWorkflowReviewTests
     [Fact]
     public void PublicationQualificationTakesItsTargetAndInstructionsAtRuntime()
     {
+        Assert.Equal("https://github.com/SlimPlanet/SlimFaas/pull/519", LiveWorkflowEvaluation.ReviewUrl);
         var prompt = LiveWorkflowEvaluation.CodeEvaluationPrompt("workflows/campaign/run");
+        Assert.Contains("kubeconfig", prompt, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pullRequestUrl", prompt);
         Assert.Contains("reviewText", prompt);
         Assert.DoesNotContain("github.com/", prompt);

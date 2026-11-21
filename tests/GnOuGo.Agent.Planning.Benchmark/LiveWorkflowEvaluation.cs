@@ -35,13 +35,14 @@ internal static class LiveWorkflowEvaluation
 
     internal const int QualificationProductCount = 10;
     internal const string QualificationProfile = "server-business-outcomes-v1";
-    internal const string ReviewUrl = "https://github.com/AxaFrance/SmartGuide/pull/718";
+    internal const string ReviewUrl = "https://github.com/SlimPlanet/SlimFaas/pull/519";
     internal const string ReviewInstructions = "Review correctness, regressions and test coverage across the pull-request diff. Anchor each inline comment to a concrete finding or a verified behavior on a changed line.";
 
     internal static string CodeEvaluationPrompt(string relative) => CodePrompt +
         "\nDeux entrées texte obligatoires, sans valeur par défaut : pullRequestUrl et reviewText. " +
         "Résous la PR depuis pullRequestUrl à chaque exécution et transmets les consignes reviewText intégrales à Copilot pour la revue du diff de sa base et de sa tête. " +
         "Clone sa révision une seule fois dans " + relative + "/repository. Retourne à l’utilisateur un rapport avec les commandes, leurs codes de sortie et les vérifications incomplètes. " +
+        "Utilise le dépôt de base qui expose la tête de la PR. Pour les tests kind prévus par le dépôt, utilise le nom de cluster temporaire et le kubeconfig propres à cette exécution. Vérifie leur nettoyage même après échec. " +
         "Publie réellement sur cette PR la décision GitHub d’approbation ou de demande de changements, sa justification et les commentaires sur les lignes modifiées. " +
         "Ancre au moins une observation vérifiée dans le diff. Lors de la soumission, l’hôte demande la confirmation du verdict et des commentaires concrets, " +
         "puis revérifie la tête de la PR avant de transmettre la soumission à GitHub.";

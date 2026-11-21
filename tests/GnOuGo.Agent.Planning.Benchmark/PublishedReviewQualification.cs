@@ -11,8 +11,26 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     internal const string Scenario = "code-publish";
     internal const string Version = "github-published-review-v1";
     internal const string DeliveryVersion = "github-published-review-v2";
+    internal const string LocalKindVersion = "github-published-kind-review-v1";
+    internal const string HistoricalReviewUrl = "https://github.com/AxaFrance/SmartGuide/pull/718";
     internal static bool UsesPublicationChecks(JsonObject run) =>
-        run["oracle_version"]?.ToString() is Version or DeliveryVersion;
+        run["oracle_version"]?.ToString() is Version or DeliveryVersion or LocalKindVersion;
+
+    internal static bool RequiresChatReport(JsonObject run) =>
+        run["oracle_version"]?.ToString() is DeliveryVersion or LocalKindVersion;
+
+    internal bool AllowsClone(JsonObject arguments) =>
+        arguments["branch"]?.ToString() == Head && MatchesCloneRemote(arguments["remoteUrl"]?.ToString(), Owner, Repository);
+
+    internal static bool MatchesCloneRemote(string? url, string owner, string repository) =>
+        url == $"https://github.com/{owner}/{repository}" || url == $"https://github.com/{owner}/{repository}.git";
+
+    internal static bool AuthorizesTarget(string url, string? version) => version switch
+    {
+        LocalKindVersion => url == LiveWorkflowEvaluation.ReviewUrl,
+        Version or DeliveryVersion => url == HistoricalReviewUrl,
+        _ => false
+    };
 
     internal static string? ReturnedReportFinding(JsonObject run)
     {
@@ -87,9 +105,9 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
         };
     }
 
-    internal static async Task<PublishedReviewQualification> CaptureAsync(string url, CancellationToken ct)
+    internal static async Task<PublishedReviewQualification> CaptureAsync(string url, string? version, CancellationToken ct)
     {
-        if (url != LiveWorkflowEvaluation.ReviewUrl)
+        if (!AuthorizesTarget(url, version))
             throw new PlanningConflictException("The live publication grant covers only the requested pull request.");
         var parts = new Uri(url).AbsolutePath.Trim('/').Split('/');
         var number = int.Parse(parts[3], CultureInfo.InvariantCulture);

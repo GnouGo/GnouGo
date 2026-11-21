@@ -1348,3 +1348,11 @@ the response, bindings and state. Warnings show the phase, estimated tokens,
 target and measured request bytes by component when available. The campaign still enforces its spending
 authorization and preserves outstanding reservations. A funding refusal or
 planning-only result cannot qualify a business case.
+
+
+Fresh Server code-review runs target SlimPlanet/SlimFaas #519 under
+`github-published-kind-review-v1`. The benchmark passes `--review-url` and
+`--review-text` as chat inputs. The profile binds publication to that PR,
+the checkout to the receiving repository and captured head, and readback to
+the review created by the current run. The original v1/v2 profiles resolve
+their recorded SmartGuide target when historical evidence is inspected.

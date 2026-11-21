@@ -107,7 +107,9 @@ internal static class ServerLiveDiagnostics
             browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
         }
         if (business is not null && discoveryScenario == PublishedReviewQualification.Scenario)
-            business.Target = await PublishedReviewQualification.CaptureAsync(LiveWorkflowEvaluation.ReviewUrl, CancellationToken.None);
+            business.Target = await PublishedReviewQualification.CaptureAsync(
+                retainedReport?["inputs"]?["pullRequestUrl"]?.GetValue<string>() ?? SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl,
+                retainedReport?["oracle_version"]?.GetValue<string>() ?? PublishedReviewQualification.LocalKindVersion, CancellationToken.None);
         var hostArgs = new[]
         {
             "--DevMode:Enabled=true", "--ApplicationLlmBudget:Mode=limited",
@@ -592,7 +594,7 @@ internal static class ServerLiveDiagnostics
                 report["scenario"] = scenario;
                 report["workspace_relative"] = relative;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" } : scenario == "code"
-                    ? new JsonObject { ["pullRequestUrl"] = LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
+                    ? new JsonObject { ["pullRequestUrl"] = SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = SchemaPortabilityCampaign.Option(args, "--review-text") ?? LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
                 if (scenario == "amazon") report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
                 if (scenario is "amazon" or "code") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
                 if (scenario is "amazon" or "code")
@@ -606,7 +608,7 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedProductPolicy.Id ? LiveWorkflowOracles.AmazonResolvedProductVersion :
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
-                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.DeliveryVersion;
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.LocalKindVersion;
                     report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,

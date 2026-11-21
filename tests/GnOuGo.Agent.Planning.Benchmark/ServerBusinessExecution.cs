@@ -268,7 +268,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             report["finished_utc"] = DateTimeOffset.UtcNow;
             report["execution"] = new JsonObject { ["success"] = journal.Status == WorkflowRunStatus.Completed && journal.Result?.Success == true,
                 ["status"] = journal.Status, ["finalization_completed"] = journal.FinalizationCompleted };
-            if (report["oracle_version"]?.ToString() == PublishedReviewQualification.DeliveryVersion)
+            if (PublishedReviewQualification.RequiresChatReport(report))
             {
                 var answer = Path.Combine(output, "form-response.json");
                 if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));

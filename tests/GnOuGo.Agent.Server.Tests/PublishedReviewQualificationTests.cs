@@ -30,6 +30,23 @@ public sealed class PublishedReviewQualificationTests
         Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
     }
 
+    [Fact]
+    public void ForkReviewPinsTheReceivingRepositoryAndKeepsHistoricalGrantsSeparate()
+    {
+        var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, "head", "base");
+        var args = new JsonObject { ["branch"] = "head", ["remoteUrl"] = "https://github.com/SlimPlanet/SlimFaas.git" };
+        Assert.True(target.AllowsClone(args));
+        args["remoteUrl"] = "https://github.com/NopeCharon/SlimFaas.git";
+        Assert.False(target.AllowsClone(args));
+        args["remoteUrl"] = "https://github.com/SlimPlanet/SlimFaas";
+        args["branch"] = "main";
+        Assert.False(target.AllowsClone(args));
+        Assert.True(PublishedReviewQualification.AuthorizesTarget(LiveWorkflowEvaluation.ReviewUrl, PublishedReviewQualification.LocalKindVersion));
+        Assert.False(PublishedReviewQualification.AuthorizesTarget(PublishedReviewQualification.HistoricalReviewUrl, PublishedReviewQualification.LocalKindVersion));
+        Assert.False(PublishedReviewQualification.AuthorizesTarget(LiveWorkflowEvaluation.ReviewUrl, PublishedReviewQualification.DeliveryVersion));
+        Assert.True(PublishedReviewQualification.AuthorizesTarget(PublishedReviewQualification.HistoricalReviewUrl, PublishedReviewQualification.DeliveryVersion));
+    }
+
     private static readonly PublishedReviewQualification Target = new("AxaFrance", "SmartGuide", 718, "head", "base");
 
     [Theory]

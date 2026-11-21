@@ -225,8 +225,9 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             var expectedHead = reviewTarget?.Head ?? LiveWorkflowEvaluation.Head;
             if (tool == "git_clone")
             {
-                if (args["remoteUrl"]?.ToString() is not ("https://github.com/AxaFrance/SmartGuide" or "https://github.com/AxaFrance/SmartGuide.git") ||
-                    args["branch"]?.ToString() != expectedHead)
+                var allowed = reviewTarget?.AllowsClone(args) ??
+                    (PublishedReviewQualification.MatchesCloneRemote(args["remoteUrl"]?.ToString(), "AxaFrance", "SmartGuide") && args["branch"]?.ToString() == expectedHead);
+                if (!allowed)
                     throw new PlanningConflictException("The repository is not the frozen review target.");
                 RequirePath(args["targetDirectory"]?.ToString(), relative + "/repository", exact: true);
             }
