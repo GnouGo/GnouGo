@@ -5,4 +5,8 @@
   <Import
     Project="$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props"
     Condition="Exists('$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props')" />
+  <ItemGroup>
+    <Content Update="$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/LLamaSharpRuntimes/**/*"
+             ExcludeFromSingleFile="true" />
+  </ItemGroup>
 </Project>

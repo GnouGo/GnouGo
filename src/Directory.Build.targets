@@ -10,4 +10,14 @@
           Condition="!$([System.String]::Copy('%(_CachedBuildStaticWebAssetItems.RelativePath)').StartsWith('_framework/Microsoft.NET.Sdk.BlazorWeb.HotReload')) and !$([System.String]::Copy('%(_CachedBuildStaticWebAssetItems.Identity)').StartsWith('_framework/Microsoft.NET.Sdk.BlazorWeb.HotReload'))" />
     </ItemGroup>
   </Target>
+  <!-- Single-file hosts embed their own runtimeconfig. Referenced executables
+       retain separate runtimeconfig files beside the bundle. -->
+  <Target Name="GnOuGoKeepReferencedRuntimeConfigs" BeforeTargets="_ComputeFilesToBundle"
+          Condition="'$(PublishSingleFile)' == 'true' and '$(ProjectRuntimeConfigFileName)' != ''">
+    <ItemGroup>
+      <ResolvedFileToPublish Update="@(ResolvedFileToPublish)"
+          Condition="$([System.String]::Copy('%(ResolvedFileToPublish.RelativePath)').EndsWith('.runtimeconfig.json')) and '%(ResolvedFileToPublish.RelativePath)' != '$(ProjectRuntimeConfigFileName)'"
+          ExcludeFromSingleFile="true" />
+    </ItemGroup>
+  </Target>
 </Project>

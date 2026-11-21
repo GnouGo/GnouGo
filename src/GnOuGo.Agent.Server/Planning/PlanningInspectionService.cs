@@ -20,7 +20,7 @@ public sealed class PlanningInspectionService(PlanningSessionService planning, L
         {
             var requestId = call.RequestId;
             var measurement = state.RequestMeasurements?.SingleOrDefault(m => m.RequestId == requestId);
-            calls.Add(new JsonObject { ["key"] = call.JournalKey, ["requestId"] = requestId, ["createdAtUtc"] = call.CreatedAt,
+            calls.Add((JsonNode)new JsonObject { ["key"] = call.JournalKey, ["requestId"] = requestId, ["createdAtUtc"] = call.CreatedAt,
                 ["provider"] = call.Provider, ["model"] = call.Model, ["source"] = call.Source,
                 ["responseStatus"] = call.ResponseStatus, ["technicalValidation"] = call.TechnicalValidation, ["businessReview"] = call.BusinessReview,
                 ["status"] = measurement?.Result ??

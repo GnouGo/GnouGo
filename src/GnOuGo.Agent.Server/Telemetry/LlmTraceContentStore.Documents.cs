@@ -88,7 +88,7 @@ public sealed partial class LlmTraceContentStore
             var hash = Digest(text);
             var id = "document:" + Digest(collection + "\n" + key + "\n" + title + "\n" + hash);
             await records.UpsertAsync(DocumentCollection, tenant, id, text, Author, ct);
-            docs.Add(new JsonObject { ["id"] = id, ["title"] = title, ["version"] = hash, ["characters"] = text.Length, ["bytes"] = Encoding.UTF8.GetByteCount(text) });
+            docs.Add((JsonNode)new JsonObject { ["id"] = id, ["title"] = title, ["version"] = hash, ["characters"] = text.Length, ["bytes"] = Encoding.UTF8.GetByteCount(text) });
         }
     }
 

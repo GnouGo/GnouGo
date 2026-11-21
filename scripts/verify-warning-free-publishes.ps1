@@ -70,7 +70,7 @@ function Get-DiagnosticCode {
 }
 
 function Get-PublishWarningLines {
-    param([Parameter(Mandatory)] [string[]] $Lines)
+    param([Parameter(Mandatory)] [AllowEmptyString()] [string[]] $Lines)
 
     return @($Lines | Where-Object {
         $_ -match '(?i)\b(?:warning|avertissement)\s+(?:IL|CS|NETSDK|ASP)\d{4}\s*:' -or
@@ -88,6 +88,13 @@ function Get-AuditOrigin {
 
     if ($Line.Contains('NativeAOT support is experimental and can change in the future.', [System.StringComparison]::Ordinal)) {
         return 'Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
+    }
+
+    # ASP.NET Core 11.0.0 embeds a duplicate of the Forms substitution in Endpoints.
+    # Identify the signed owner, resource and foreign assembly for this precise exception.
+    if ($Line.Contains('resource ILLink.Substitutions.xml in Microsoft.AspNetCore.Components.Endpoints, Version=11.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60', [StringComparison]::Ordinal) -and
+        $Line.Contains('Embedded XML in assembly ''Microsoft.AspNetCore.Components.Endpoints'' contains assembly "fullname" attribute for another assembly ''Microsoft.AspNetCore.Components.Forms, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null''', [StringComparison]::Ordinal)) {
+        return 'Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
     }
 
     $assembly = [regex]::Match($Line, '(?i)(?<assembly>[A-Za-z0-9_.-]+\.dll)\s*:\s*(?:warning|avertissement)')
@@ -128,26 +135,31 @@ function Get-FingerprintSetHash {
 function Assert-PublishDiagnostics {
     param(
         [Parameter(Mandatory)] [string] $ProjectName,
-        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)] [AllowEmptyString()] [string[]] $Lines,
         [Parameter(Mandatory)] [hashtable] $KnownAuditFingerprints
     )
 
-    $warnings = Get-PublishWarningLines -Lines $Lines
+    $warnings = @(Get-PublishWarningLines -Lines $Lines)
     if (-not $AuditKnownTrimWarnings) {
-        $baseline = @($KnownAuditFingerprints[$ProjectName])
+        $policy = $KnownAuditFingerprints[$ProjectName]
+        $baseline = if ($policy -is [hashtable]) {
+            @($policy['NormalNotices'])
+        } else {
+            @($policy | Where-Object { $_ -like 'EFCORETASKS|*' })
+        }
         $unexpectedWarnings = @($warnings | Where-Object {
             $code = Get-DiagnosticCode -Line $_
             $origin = Get-AuditOrigin -Line $_
             $fingerprint = "$code|$origin"
-            $code -ne 'EFCORETASKS' -or $fingerprint -notin $baseline
+            $fingerprint -notin $baseline
         })
         if ($unexpectedWarnings.Count -gt 0) {
             throw "$ProjectName emitted $($unexpectedWarnings.Count) warning line(s):`n$($unexpectedWarnings -join "`n")"
         }
 
-        $auditedNotices = @($warnings | Where-Object { (Get-DiagnosticCode -Line $_) -eq 'EFCORETASKS' })
+        $auditedNotices = @($warnings)
         if ($auditedNotices.Count -gt 0) {
-            Write-Host "Accepted $($auditedNotices.Count) exact pinned EF Core Tasks experimental notice(s) for $ProjectName." -ForegroundColor DarkYellow
+            Write-Host "Accepted $($auditedNotices.Count) exact dependency notice(s) for $ProjectName." -ForegroundColor DarkYellow
         }
 
         return
@@ -633,9 +645,14 @@ $knownAuditFingerprints = @{
         Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.Agent.Server' = @{
-        # Re-audited against parent 46c2c77: 106 origins -> 105; the compiled planning model removes its application IL2026.
-        FingerprintCount = 105
-        Sha256 = 'e81aebe48518ed041b326e3f5d8198fa640868779687d3de64c60a324ce0e9d2'
+        NormalNotices = @(
+            'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
+            'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental',
+            'IL2101|Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
+        )
+        # .NET 11 arm64 release audit, after using typed JSON for planning inspection and trace documents.
+        FingerprintCount = 108
+        Sha256 = '1f246002cb8719b1e6f3f845455e806037b5bf61e3691df794af571400365f28'
         Dependencies = 'Pinned .NET 11 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
     }
     'GnOuGo.Agent.Desktop' = @{

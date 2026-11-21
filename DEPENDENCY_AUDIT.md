@@ -47,6 +47,16 @@ Server's interactive Blazor release retains its existing partial-trim profile.
 The published binary verified encrypted planning recovery, the health endpoint,
 the root page and Blazor negotiation.
 
+The host single-file bundle leaves LLamaSharp native libraries and referenced
+executables' runtime configurations beside the executable. The pinned ASP.NET
+Core Endpoints assembly embeds a second copy of the Forms hot-reload substitution.
+The managed release reports IL2101 for this resource. Both the signed assembly
+identity and the foreign resource target are checked by the publish validator.
+The macOS arm64 host audit recorded 108 distinct warning origins after switching
+the planning HTTP responses and trace JSON arrays to typed serialization.
+[Endpoints resource](https://github.com/dotnet/aspnetcore/blob/v11.0.0/src/Components/Endpoints/src/Properties/ILLink.Substitutions.xml) ·
+[Forms resource](https://github.com/dotnet/aspnetcore/blob/v11.0.0/src/Components/Forms/src/Properties/ILLink.Substitutions.xml)
+
 ## Previous audit of 7 November 2026
 
 The frontend exceptions below were reviewed on 2 August 2026.

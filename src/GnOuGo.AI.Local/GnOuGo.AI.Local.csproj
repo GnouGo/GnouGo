@@ -31,7 +31,7 @@
        this package, which would flatten RID/CPU variants and trigger NU51xx. -->
   <ItemGroup>
     <Content Update="$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/LLamaSharpRuntimes/**/*"
-             Pack="false" />
+             ExcludeFromSingleFile="true" Pack="false" />
   </ItemGroup>
 
   <ItemGroup>

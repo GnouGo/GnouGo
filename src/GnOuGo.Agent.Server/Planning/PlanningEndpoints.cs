@@ -10,6 +10,8 @@ namespace GnOuGo.Agent.Server.Planning;
 
 internal static class PlanningEndpoints
 {
+    private static IResult Json(JsonObject value) => Results.Json(value, PlanningInspectionJsonContext.Default.JsonObject);
+
     public static void MapPlanningEndpoints(this WebApplication app)
     {
         app.MapGet("/api/traces/llm/export", async (string reference, string trace, string span, string? session, LocalOperatorAccess access, LlmTraceContentStore content, CancellationToken ct) =>
@@ -18,7 +20,7 @@ internal static class PlanningEndpoints
             var detail = await content.TraceDocumentsAsync(reference, trace, span, string.IsNullOrEmpty(session) ? null : session, ct);
             return detail is null ? Results.NotFound() : Results.Stream(stream => content.ExportDocumentsAsync(detail, stream, ct), "application/json", "llm-exchange-redacted.json");
         }).WithMetadata(new LocalOperatorRequired());
-        app.MapGet("/api/application-llm-budget", (ApplicationLlmBudgetPolicy policy) => Results.Json(policy.Describe()))
+        app.MapGet("/api/application-llm-budget", (ApplicationLlmBudgetPolicy policy) => Json(policy.Describe()))
             .WithMetadata(new LocalOperatorRequired());
         app.MapPost("/api/application-llm-budget", async (JsonObject request, ApplicationLlmBudgetPolicy policy, LocalOperatorAccess access, CancellationToken ct) =>
         {
@@ -28,7 +30,7 @@ internal static class PlanningEndpoints
                     return Results.BadRequest("A mode selection is required.");
                 if (request.ContainsKey("financialForecastMode") && (request["financialForecastMode"] is not System.Text.Json.Nodes.JsonValue forecast || !forecast.TryGetValue<string>(out _)))
                     return Results.BadRequest("Invalid financial forecast mode.");
-                await policy.SetAsync(selected, access, ct, request["financialForecastMode"]?.GetValue<string>()); return Results.Json(policy.Describe());
+                await policy.SetAsync(selected, access, ct, request["financialForecastMode"]?.GetValue<string>()); return Json(policy.Describe());
             }
             catch (ArgumentException) { return Results.BadRequest("Use unlimited/limited consumption and strict/experimental_warning financial forecasts."); }
         }).WithMetadata(new LocalOperatorRequired());
@@ -41,7 +43,7 @@ internal static class PlanningEndpoints
         app.MapGet("/api/planning/antiforgery", (HttpContext context, Microsoft.AspNetCore.Antiforgery.IAntiforgery antiforgery) =>
         {
             var tokens = antiforgery.GetAndStoreTokens(context);
-            return Results.Json(new JsonObject { ["headerName"] = tokens.HeaderName, ["requestToken"] = tokens.RequestToken });
+            return Json(new JsonObject { ["headerName"] = tokens.HeaderName, ["requestToken"] = tokens.RequestToken });
         });
         app.MapGet("/api/chat/conversations/{conversationId}/planning", async (string conversationId, ChatPlanningService service, CancellationToken ct) =>
             Results.Json((await service.ListAsync(conversationId, ct)).ToList(), ChatJsonContext.Default.ListPlanningSessionDto));
@@ -55,7 +57,7 @@ internal static class PlanningEndpoints
         });
         app.MapGet("/api/planning/{id}/financial", async (string id, bool? workflow, PlanningInspectionService inspection, CancellationToken ct) =>
         {
-            try { return Results.Json(await inspection.FinancialAsync(id, workflow == true, ct)); }
+            try { return Json(await inspection.FinancialAsync(id, workflow == true, ct)); }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
         }).WithMetadata(new LocalOperatorRequired());
@@ -65,7 +67,7 @@ internal static class PlanningEndpoints
             {
                 if (callsAfter?.Length > 8192) return Results.BadRequest("Invalid call cursor.");
                 var cursor = callsAfter is null ? null : System.Text.Json.JsonSerializer.Deserialize(callsAfter, PlanningInspectionJsonContext.Default.LlmCallCursor);
-                return Results.Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct, cursor));
+                return Json(await inspection.ReadAsync(id, workflow == true, after ?? 0, ct, cursor));
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
             catch (KeyNotFoundException) { return Results.NotFound(); }
@@ -92,15 +94,15 @@ internal static class PlanningEndpoints
         {
             try
             {
-                if (document is null) return Results.Json(await inspection.CallAsync(id, workflow == true, key, ct));
+                if (document is null) return Json(await inspection.CallAsync(id, workflow == true, key, ct));
                 if (!string.IsNullOrEmpty(search))
                 {
                     if (version is null) return Results.BadRequest("A document version is required for search.");
                     var found = await inspection.SearchAsync(id, workflow == true, key, document, version, search, offset ?? 0, ct);
-                    return Results.Json(new JsonObject { ["nextMatch"] = found.Match, ["nextOffset"] = found.NextOffset, ["complete"] = found.Complete, ["version"] = found.Version });
+                    return Json(new JsonObject { ["nextMatch"] = found.Match, ["nextOffset"] = found.NextOffset, ["complete"] = found.Complete, ["version"] = found.Version });
                 }
                 var page = await inspection.PageAsync(id, workflow == true, key, document, version, offset ?? 0, count ?? 32768, ct);
-                return Results.Json(new JsonObject { ["text"] = page.Text, ["offset"] = page.Offset, ["totalCharacters"] = page.TotalCharacters,
+                return Json(new JsonObject { ["text"] = page.Text, ["offset"] = page.Offset, ["totalCharacters"] = page.TotalCharacters,
                     ["nextOffset"] = page.NextOffset, ["complete"] = page.Complete, ["version"] = page.Version });
             }
             catch (UnauthorizedAccessException) { return Results.Forbid(); }
