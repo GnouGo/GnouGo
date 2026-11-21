@@ -377,6 +377,11 @@ See [recovery and execution validation](../../docs/planning-recovery-and-live-bl
 
 ## Logical task completion receipts
 
+The interactive coding task exposes the same work guidance to discovery and
+the SDK. It preserves the package caches and offline configuration supplied by
+the host, requests independent command exit records and uses bounded reads
+for the evidence still needed to complete the task.
+
 Interactive tasks distinguish verified terminal completion from eligibility to continue
 in another SDK session. A verified stop without a valid final response, including an
 inference admission limit, returns a completed MCP transport task with `isError: true`

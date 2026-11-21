@@ -29,6 +29,8 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Null(schema["properties"]?["requestContext"]);
         Assert.Null(schema["properties"]?["tenantId"]);
         var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
+        Assert.Contains("host-provided package caches",
+            tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("task").GetProperty("description").GetString(), StringComparison.Ordinal);
         var fields = output["properties"]!;
         Assert.Contains("Original input", fields["task"]?["description"]?.ToString() ?? "");
         Assert.Contains("returned text", fields["summary"]?["description"]?.ToString() ?? "");

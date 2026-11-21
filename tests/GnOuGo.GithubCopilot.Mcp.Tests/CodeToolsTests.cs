@@ -156,6 +156,8 @@ public sealed class CodeToolsTests : IDisposable
             { ["gnougo"] = new JsonObject { ["tenantId"] = "test" } }));
         var result = await tools.AgentEditAsync(".", task, ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
         Assert.Contains(task, assistant.LastRequest!.Prompt, StringComparison.Ordinal);
+        Assert.Contains("host-provided package caches", assistant.LastRequest.Prompt, StringComparison.Ordinal);
+        Assert.Contains("separate terminal commands", assistant.LastRequest.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("Implement the requested change", assistant.LastRequest.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("before editing", assistant.LastRequest.Prompt, StringComparison.Ordinal);
         Assert.Equal(task, result.Task);

@@ -58,6 +58,41 @@ The saved agent `a4cd27fc-26c0-4670-a933-e8a7295cc8de` started chat
 workflow `d8e1c3ba3ed8f1b420aef7d583b79134`. GitHub resolution and one
 clone succeeded. The recorded checkout head and base matched the target.
 
+The first Copilot operation stopped at the nonrenewable token limit after
+seven inference calls and 36 permission interactions. It had reserved
+1,537,971 tokens. The next input alone required 462,091, exceeding the
+remaining 462,029. The stop preceded the 30-minute operation deadline.
+The terminal record confirms failure. No lint, unit/integration completion,
+GitHub publication or caller report was observed. Node and Python installs
+exited 1 in offline mode and two .NET restores reported exit 0. The root
+finalizer returned exit 0 and the checkout was absent on disk. Readback
+again found zero reviews and zero inline comments. [Server execution](pr120-review48-server-execution.json)
+
+The generation used 48 requests (EUR 30.26140830), the workflow used one
+(EUR 0.10100983) and Copilot used seven (EUR 9.73550764). The settled
+audit counted 4,432 physical attempts, EUR 2,256.29160117 measured, 55
+unresolved HTTP holds (EUR 492.52354211) and separate application
+reservations of EUR 171.63356950. EUR 179.55128722 was available. The
+financial inspector rejected a concurrent read while the campaign changed.
+The settled inspection compared equal to the opening historical rows.
+The independent solution run passed 9,775 tests in 33 assemblies with
+12 skips. The persisted-question browser test ran with Playwright enabled.
+
+The live install commands redirected both package caches into the new
+checkout. Under the original launcher, fetching the pinned Node lock
+reused the provisioned store with zero downloads and exit 0. The default
+Python cache supplied `langchain-community==0.4.1`. A separate wheel
+missing in Review 36, `mkdocs-material==9.7.7`, also failed an offline
+registry install. The existing host cache-provisioning route downloaded
+that single wheel with its pinned SHA-256, binary-only and without
+dependencies or repository scripts. A fresh offline install then exited
+0. These probes did not run the repository checks.
+
+The first installation request came after 32 earlier permissions. The
+coding task now tells both the planner and the SDK to retain host caches,
+read the project material needed for the next action and run independent
+checks as separate terminal commands. All 259 Copilot MCP tests passed.
+
 ## Review 47, 21 November 2026
 
 Fresh Server session `9d9c9b644bcb4b6e9dadc54640bf7f3f` started on

@@ -110,12 +110,15 @@ internal sealed class CopilotCodeService(
         return sb.ToString();
     }
 
+    internal const string BoundedWorkGuidance = "Read the applicable project instructions and the manifest entries needed for the next action. Run requested independent checks as separate terminal commands so their exit codes remain observable. Preserve host-provided package caches and offline settings. Read additional output ranges only for missing evidence, leaving room for the remaining actions and a complete response.";
+
     private static string BuildAgentEditPrompt(string task, string projectRoot, IReadOnlyList<CodeFileContent> contextFiles)
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are a coding agent operating on a local project through a controlled session filesystem.");
         sb.AppendLine("Carry out the requested coding task. Inspect, review, run checks or edit only as requested and permitted by available tools and policy.");
         sb.AppendLine("Do not assume a tool or command is available. Report missing, denied, failed or incomplete observations explicitly; do not invent command results or exit codes.");
+        sb.AppendLine(BoundedWorkGuidance);
         sb.AppendLine("Only create, update, rename, or delete files required by the task.");
         sb.AppendLine("Respect the project structure and avoid unrelated formatting changes.");
         sb.AppendLine("When finished, summarize what was actually performed, any unverified work and the files changed.");
