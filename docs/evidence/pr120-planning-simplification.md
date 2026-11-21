@@ -1,5 +1,17 @@
 # PR 120 planning simplification
 
+## Amazon source check 26, 21 November 2026
+
+A new live search on `b509478b` returned 1,633 records over 79 pages
+(snapshot `ec9dbad6fade4d849c2fe2031685314c`). Under the existing v10
+grant, 20 permitted resolutions (three product and 17 store) established
+the first ten ordered products with no unclassified heading. Reopening
+the captured events produced the same selection. The browser closed and
+the post-close probe returned no active page. The 21 source reads used
+zero model calls. No business visits or XLSX were produced by this check.
+Capture SHA-256 `ea597df3d5066e179df4f621c00d2c3d194751d3296abb0eb752f132e7aa7e17`.
+All 3,300 planner and 230 Browser MCP tests passed on the corrected source.
+
 ## Amazon 25, 21 November 2026
 
 Fresh session `3a2a72fb2fcf4accb0722f0098d45ea0` ran on `082a64fb`.
@@ -73,7 +85,11 @@ block. The provider returned a complete conditional step on the retained
 base. There was no repeat clarification or execution. The diagnostic
 used 30,576 input and 277 output tokens, EUR 0.87985808. The settled audit
 before fresh session `a98a6c3424304ba28432a566d643e2d9` on `89fd5143`
-counted 4,525 attempts and EUR 131.89915839 available.
+counted 4,525 attempts and EUR 131.89915839 available. On the same
+frozen build, the unchanged Review 30 plan passed full semantic validation.
+Review 32 call 40 preserved inline order and submission acknowledgement.
+Its separately selected read still prevented closure. Both regressions
+used zero inference calls and executed no workflow.
 
 ## Review 49, 21 November 2026
 
