@@ -271,6 +271,12 @@ recovery precedes this check and does not require fresh capability metadata.
 For the explicitly approved Amazon observed-redirect policy, fresh Server planning
 receives its existing literal-link, redirect and browser-lifetime restrictions.
 The original business clauses and the v4/v5 oracles remain unchanged.
+The exhausted-retries retention path can identify a completed HTTP 502
+JSON gateway envelope containing exactly a nonblank `code`, a nonblank
+`message` and an empty `details` array. The retained HTTP status,
+completion and content type must agree. The operator's hash-bound
+closure preserves the full financial reservation and forbids replay.
+
 The read-only `financial-audit` also reports `retainedApplicationReservationsEur`
 using admission's verified, ordered conservative decimal sum. Use this exact
 value for separately retained application holds; it grants no funding and releases

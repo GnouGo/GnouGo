@@ -2,6 +2,23 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Amazon 20 (session `34e97f57f85741ccb31e081ad264ccc0`) stopped at
+revision 23 in capability discovery. Its eighth physical request received
+a complete HTTP 502 error in 2.24 seconds. The captured policy allowed one
+attempt with a 270-second deadline. OIDC discovery returned 200 and a
+separate token check succeeded with zero generation requests. The Server
+recorded no model completion and applied no fragment. Neither browser nor
+workbook execution began. Seven known calls cost EUR 1.70617. The single
+unknown attempt reserved EUR 3.41277, leaving EUR 17.51525 available.
+
+The ledger correctly blocked the next independent request before dispatch.
+Its retention reader did not recognize the completed gateway error envelope
+with `code`, `message` and empty `details`. A detached replay isolated
+the envelope shape while preserving the captured transport policy, request
+and reservation. Administrative retention now recognizes this shape only
+for a fully received JSON HTTP 502 with matching observed status and no
+protocol completion, assembled response, partial bytes or known usage.
+
 Review 37 (session `398858f0243c473ca22dc2a1b89dea9b`) spent EUR 28.62975
 on 36 physical requests. Its local judge found that the plan fetched a base
 branch from the head repository, which can fail for forked pull requests.

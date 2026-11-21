@@ -295,6 +295,52 @@ public sealed partial class BenchmarkPermanentRetentionTests
     }
 
     [Theory]
+    [InlineData("complete")]
+    [InlineData("fragment")]
+    [InlineData("assembled")]
+    [InlineData("partial")]
+    [InlineData("protocol")]
+    [InlineData("usage")]
+    [InlineData("detail")]
+    [InlineData("duplicate")]
+    [InlineData("wrong_status")]
+    public async Task GatewayErrorRetentionRequiresACompleteErrorOnlyResponse(string variant)
+    {
+        var records = new Records();
+        var campaign = await SeedCapturedRetriesAsync(records, 1, false);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        var attempt = journal["transport"]!["Attempts"]![0]!;
+        attempt["Status"] = 502;
+        attempt["ObservedStatus"] = variant == "wrong_status" ? 200 : 502;
+        attempt["ResponseBodyComplete"] = variant != "fragment";
+        attempt["ContentType"] = "application/json; charset=utf-8";
+        attempt["Body"] = variant switch
+        {
+            "duplicate" => """{"code":"GatewayError","code":"other","message":"upstream unavailable","details":[]}""",
+            "detail" => """{"code":"GatewayError","message":"upstream unavailable","details":[{"choices":[]}]}""",
+            _ => """{"code":"GatewayError","message":"upstream unavailable","details":[]}"""
+        };
+        if (variant == "assembled") attempt["AssembledBody"] = """{"choices":[]}""";
+        if (variant == "usage") attempt["UsageKnown"] = true;
+        if (variant == "partial") attempt["PartialBodyBase64"] = "e30=";
+        if (variant == "protocol") attempt["ProtocolComplete"] = true;
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var balance = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct);
+        Task<JsonObject> Preview() => campaign.InspectPermanentRetentionAsync(SchemaPortabilityCampaign.Collection,
+            "run:" + Session, RequestId, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+        if (variant == "complete")
+        {
+            var preview = await Preview();
+            await campaign.ApplyPermanentRetentionAsync(SchemaPortabilityCampaign.Collection, "run:" + Session, RequestId,
+                preview["evidence_hash"]!.ToString(), Operator, Authorization, Ct, BenchmarkCampaign.ExhaustedPlanningRetriesRetention);
+            Assert.True(preview["reservation_retained"]!.GetValue<bool>());
+            Assert.True(preview["request_replay_forbidden"]!.GetValue<bool>());
+        }
+        else await Assert.ThrowsAsync<InvalidOperationException>(Preview);
+        Assert.True(JsonNode.DeepEquals(balance, await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct)));
+    }
+
+    [Theory]
     [InlineData(1, 400)]
     [InlineData(2, 400)]
     [InlineData(1, 401)]

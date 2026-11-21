@@ -558,7 +558,7 @@ internal sealed partial class BenchmarkCampaign
                 return i == attempts.Count - 1 && matchedRejection && attempt["Failure"] is null && IsRetainedErrorOnlyBody(attempt["Body"]?.ToString()) &&
                     failure["retryable"]?.GetValue<bool>() == false && failure["retry_exhausted"]?.GetValue<bool>() == false;
             if (attempt["Status"]!.GetValue<int>() is not (429 or 500 or 502 or 503 or 504) ||
-                attempt["Failure"] is not null || !IsRetainedErrorOnlyBody(attempt["Body"]?.ToString())) return false;
+                attempt["Failure"] is not null || !(IsRetainedErrorOnlyBody(attempt["Body"]?.ToString()) || IsCompletedGatewayError(attempt))) return false;
         }
         return unfundedRetry || failure["retry_exhausted"]?.GetValue<bool>() == true && failure["retryable"]?.GetValue<bool>() == true &&
             failure["status_code"]?.GetValue<int>() == attempts[^1]!["Status"]!.GetValue<int>() &&
@@ -697,6 +697,26 @@ internal sealed partial class BenchmarkCampaign
                 attempt["PartialBody"]!.ToString() == System.Text.Encoding.UTF8.GetString(bytes));
         }
         catch (FormatException) { return false; }
+    }
+
+    private static bool IsCompletedGatewayError(JsonNode attempt)
+    {
+        if (attempt["Status"]?.GetValue<int>() != 502 || attempt["ObservedStatus"]?.GetValue<int>() != 502 ||
+            attempt["ResponseBodyComplete"]?.GetValue<bool>() != true || attempt["AssembledBody"] is not null ||
+            attempt["PartialBodyBase64"] is not null || attempt["ProtocolComplete"]?.GetValue<bool>() == true ||
+            attempt["UsageKnown"]?.GetValue<bool>() == true || attempt["StreamFailure"] is not null ||
+            !string.Equals(attempt["ContentType"]?.ToString().Split(';')[0].Trim(), "application/json", StringComparison.OrdinalIgnoreCase) ||
+            attempt["Body"]?.ToString() is not { Length: > 0 and <= 65_536 } body) return false;
+        try
+        {
+            using var document = JsonDocument.Parse(body, new JsonDocumentOptions { MaxDepth = 2 });
+            var root = document.RootElement;
+            return root.ValueKind == JsonValueKind.Object && root.EnumerateObject().Count() == 3 &&
+                root.TryGetProperty("code", out var code) && code.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(code.GetString()) &&
+                root.TryGetProperty("message", out var message) && message.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(message.GetString()) &&
+                root.TryGetProperty("details", out var details) && details.ValueKind == JsonValueKind.Array && details.GetArrayLength() == 0;
+        }
+        catch (JsonException) { return false; }
     }
 
     private static bool IsRetainedErrorOnlyBody(string? body)
