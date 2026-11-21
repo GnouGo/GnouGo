@@ -1,0 +1,41 @@
+{
+  "source": "3584141080bf6aed5434b61c242e0aaee7468699",
+  "run": "slim519-sdk-kind-20261121-01",
+  "physical_provider_calls": 4,
+  "measured_usage_tariff_estimate_eur": "1.5332150655021834061135371179",
+  "http_hold_for_run_eur": "0",
+  "campaign_calls_after": 4722,
+  "campaign_available_after_eur": "506.9218112325135554582793208",
+  "command": "python3 probe.py",
+  "command_id": "527321b9-fb21-4708-86d5-7627b3c1c1d9:call_3f0e1e6ddac6001300101b55",
+  "command_count": 1,
+  "exit_code": 0,
+  "sandbox_bypass": false,
+  "cluster": "gnougo-545349a88a56d2e197",
+  "tool_versions": {
+    "python": "Python 3.14.4",
+    "kubectl": "Client Version: v1.37.1\nKustomize Version: v5.8.1",
+    "kind": "kind v0.33.0 go1.26.7 darwin/arm64",
+    "engine": "6.0.2",
+    "node": "v22.20.0",
+    "pnpm": "10.19.0",
+    "uv": "uv 0.9.0 (Homebrew 2025-10-07)",
+    "sdk": "10.0.203 [/usr/local/share/dotnet/sdk]\n10.0.300 [/usr/local/share/dotnet/sdk]\n10.0.403 [/usr/local/share/dotnet/sdk]\n11.0.100 [/usr/local/share/dotnet/sdk]"
+  },
+  "registry_http": {
+    "nuget": 200,
+    "pypi": 200,
+    "npm": 200,
+    "images": 401
+  },
+  "created": true,
+  "observed_nodes": "node/gnougo-545349a88a56d2e197-control-plane",
+  "deleted": true,
+  "cluster_and_containers_absent": true,
+  "kubeconfig_absent": true,
+  "original_probe_passed": false,
+  "original_harness_error": "A value of type 'System.Int64' cannot be converted to a 'System.Int32'.",
+  "sdk_receipt_reloaded_independently": true,
+  "disposable_directory_removed_by_operator": true,
+  "business_review_executed": false
+}

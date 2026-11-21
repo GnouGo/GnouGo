@@ -39,6 +39,19 @@ EUR 492.52354 held on 55 HTTP attempts and EUR 171.63357 in separate
 application reservations. The original nine authorization entries were preserved.
 [Ledger comparison](pr120-live-20261121/slim519-authorization.json)
 
+The first SlimFaaS prerequisite dispatched four paid SDK requests
+(EUR 1.53322). Through the real Copilot MCP, Python invoked kind, kubectl
+and Podman and reached all four registries. The temporary node came up and
+the script verified deletion of the cluster, labelled container and kubeconfig.
+The original harness recorded failure after command exit 0 when reading its
+64-bit terminal code as a 32-bit integer. Independent cold readback recovered
+the matching SDK receipt. The operator verified the absent resources and
+removed the four disposable probe files. Node 22 and pnpm 10 were present
+in the default MCP environment. The local review profile now accepts a
+process-scoped tool directory for the repository's Node 26.13.1 and pnpm
+12.21.0. The prerequisite left EUR 506.92181 available.
+[SDK evidence and costs](pr120-live-20261121/slim519-sdk-kind-01.json)
+
 ## Review 52, 21 November 2026
 
 Fresh Server session `19249a4b0d2049929a9ce170e47b1a50` ran on
