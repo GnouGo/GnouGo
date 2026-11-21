@@ -907,7 +907,7 @@ public sealed class BenchmarkAdmissionTests
             return new(compatible ? System.Net.HttpStatusCode.OK : System.Net.HttpStatusCode.BadRequest)
             {
                 Content = new StringContent(compatible
-                    ? """{"choices":[{"message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""
+                    ? """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""
                     : """{"error":{"type":"invalid_request_error","param":"reasoning_effort","message":"Function tools require reasoning_effort none on this fixture route."}}""",
                     System.Text.Encoding.UTF8, "application/json")
             };
@@ -966,6 +966,22 @@ public sealed class BenchmarkAdmissionTests
     }
 
     [Theory]
+    [InlineData("""{"choices":[{"message":{"content":"fragment"}}]}""")]
+    [InlineData("""{"choices":[]}""")]
+    [InlineData("""{"choices":[{"finish_reason":"length","message":{"content":"fragment"}}]}""")]
+    public async Task SdkProxyRequiresTerminalNonstreamingChoice(string body)
+    {
+        using var fixture = new Fixture();
+        using var handler = new RuntimeHandler(200) { JsonBody = body };
+        using var http = new HttpClient(handler);
+        using var model = RuntimeModel(fixture, RuntimeOptions(), http);
+        await Assert.ThrowsAsync<InvalidDataException>(() => InvokeRuntime(model, proxy: true));
+        _ = await Record.ExceptionAsync(() => InvokeRuntime(model, proxy: true));
+        Assert.Equal(1, handler.Calls);
+        Assert.Null(await fixture.Campaign.LoadAsync("planning-evaluation-receipts", RuntimeId(true), Ct));
+    }
+
+    [Theory]
     [InlineData("stop", true, true)]
     [InlineData("stop", false, false)]
     [InlineData("length", true, false)]
@@ -992,6 +1008,7 @@ public sealed class BenchmarkAdmissionTests
 
     private sealed class RuntimeHandler(int status) : HttpMessageHandler
     {
+        internal string? JsonBody { get; init; }
         internal bool BrokenBody { get; init; }
         internal string? EventStream { get; init; }
         internal int Calls;
@@ -1000,10 +1017,14 @@ public sealed class BenchmarkAdmissionTests
         {
             Calls++;
             if (BeforeSend is not null) await BeforeSend();
+            if (JsonBody is not null) return new(System.Net.HttpStatusCode.OK) { Content = new StringContent(JsonBody, System.Text.Encoding.UTF8, "application/json") };
             if (BrokenBody) return new(System.Net.HttpStatusCode.OK) { Content = new InterruptedContent() };
             if (EventStream is not null) return new(System.Net.HttpStatusCode.OK)
                 { Content = new StringContent(EventStream, System.Text.Encoding.UTF8, "text/event-stream") };
             if (status == 0) throw new HttpRequestException("Offline fixture transport outcome unavailable");
+            if (status == 200 && request.RequestUri?.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal) == true)
+                return new(System.Net.HttpStatusCode.OK) { Content = new StringContent(
+                    """{"status":"completed","output":[],"usage":{"input_tokens":10,"output_tokens":2}}""", System.Text.Encoding.UTF8, "application/json") };
             return new((System.Net.HttpStatusCode)status) { Content = new StringContent(status == 200
                 ? """{"choices":[{"finish_reason":"stop","message":{"role":"assistant","content":"done"}}],"usage":{"prompt_tokens":10,"completion_tokens":2}}"""
                 : """{"error":{"code":"rate_limit_exceeded","message":"temporary fixture failure"}}""", System.Text.Encoding.UTF8, "application/json") };

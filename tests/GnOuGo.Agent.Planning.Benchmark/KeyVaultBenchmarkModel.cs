@@ -987,10 +987,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                     measured = await journal.CompleteAsync(new() { ["input_tokens"] = usedInput, ["output_tokens"] = usedOutput,
                         ["benchmark_cost_eur"] = await CompletedCostAsync(id, usedInput, usedOutput) }, CancellationToken.None);
                 }
-                if (completed.Status is >= 200 and < 300 &&
-                    (native?["status"]?.ToString() is "incomplete" or "failed" ||
-                     (native?["choices"] as JsonArray)?.Any(choice => choice?["finish_reason"]?.ToString() is "length" or "content_filter") == true))
-                    throw new InvalidDataException("The SDK provider did not complete its response.");
+                if (completed.Status is >= 200 and < 300)
+                {
+                    var complete = upstream.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal)
+                        ? native?["status"]?.ToString() == "completed" && native["output"] is JsonArray
+                        : native?["choices"] is JsonArray { Count: 1 } choices && choices[0]?["message"] is JsonObject &&
+                          choices[0]?["finish_reason"]?.ToString() is "stop" or "tool_calls" or "function_call";
+                    if (!complete) throw new InvalidDataException("The SDK provider did not complete its response.");
+                }
                 return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType }, Usage = measured };
             }, ct, allowHttpRecovery: true);
             return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
