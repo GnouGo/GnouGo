@@ -17,6 +17,32 @@ directly. The selected-ref clone used one additional fetch. All 88 Git MCP
 tests passed, including the stdio discovery check that failed on the previous
 description.
 
+At call 16 the model produced a report from the accepted Copilot task.
+It tried to bind that report to the root output and continue the same
+implementation cursor in one fragment. The issued grammar accepted this
+combination. Technical validation rejected it. Corrections alternated
+between the same conflict and unrelated control wrappers. The operator
+stopped the session after receiving the settled receipt for call 26.
+The Server recorded cancellation at revision 87. No workflow ran and no
+review or inline comment was published.
+
+The draft and repair response grammars now express the two supported
+choices. A fragment can continue its cursor, or submit a deferred binding
+with a null cursor while later business work stays open. Replaying the
+original response on encrypted revision 65 reproduced
+`CONSTRUCTION_BLOCK_CONTINUATION_INVALID`. The new grammar rejects that
+same response and accepts each legal form with the original 190 evidence
+addresses and plan hash
+`411cf7427b8befca7356a3cfac2f8be33e1d86e018d4a7a72e2967d42e309af8`.
+The replay used zero provider calls. All 43 targeted closure and repair
+tests passed.
+
+Review 41 settled 26 physical requests at EUR 23.10950. The closing audit
+recorded 4,111 campaign requests and EUR 2,061.86649 in measured usage at
+captured tariffs. The 55 unresolved requests retained EUR 492.52354 and
+the separate application reservations retained EUR 162.25381. EUR 383.35616
+remained available under the EUR 3,100 ceiling.
+
 ## Amazon 22, 21 November 2026
 
 Fresh Server session `5b20855cb70245d39d8df20c75ed13b9` started on

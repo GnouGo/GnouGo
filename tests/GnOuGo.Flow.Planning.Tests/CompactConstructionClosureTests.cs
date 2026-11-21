@@ -239,6 +239,38 @@ public sealed class CompactConstructionClosureTests
         Assert.Equal(step.BaseHash, PlanningConstruction.Hash(state.Plan));
     }
 
+    [Theory]
+    [InlineData(PlanningConstruction.DraftPurpose)]
+    [InlineData("replan")]
+    public void IssuedDraftSeparatesAnOpenScopeContinuationFromADeferredPublicBinding(string purpose)
+    {
+        var state = State();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.OutputNames.Clear();
+        step.CloseRequirementIds.Clear();
+        var proposal = PlanningConstruction.DraftRequest(state, false);
+        var schema = PlanningModelCalls.PrepareRequest(state, purpose,
+            proposal.Prompt, proposal.StructuredOutputSchema!.AsObject()).StructuredOutputSchema!;
+        var extension = Leaf(complete: false);
+        extension.BoundaryTransitions = [new() { Scope = "/root", RequirementIds = ["req"], Outputs = extension.Outputs }];
+        extension.Outputs = [];
+        extension.ContinueInScope = "/root";
+        var wire = Response(state, extension, proposal.StructuredOutputSchema.AsObject());
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
+            d => d.Code == "CONSTRUCTION_BLOCK_CONTINUATION_INVALID");
+
+        wire["extension"]!["continueInScope"] = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        wire["extension"]!["continueInScope"] = "/root";
+        wire["extension"]!["boundaryTransitions"] = null;
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        wire["extension"]!["boundaryTransitions"] = new JsonArray();
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
+    }
+
     [Fact]
     public void SelectedRootCompletionOffersNoDeferredBoundaryClaim()
     {

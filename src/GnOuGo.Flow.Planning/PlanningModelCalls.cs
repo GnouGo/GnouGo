@@ -51,6 +51,8 @@ internal static partial class PlanningModelCalls
             schema = schema.DeepClone().AsObject();
             schema["title"] = purpose;
             schema["$comment"] = UnicodeStringLengths;
+            if (purpose is PlanningConstruction.DraftPurpose or "replan")
+                PlanningCompactConstruction.ProjectIssuedBlockContinuation(schema);
         }
         var request = PlanningConstructionPhasePolicies.Apply(new LLMRequest
         {

@@ -245,6 +245,25 @@ internal static partial class PlanningCompactConstruction
         }
     }
 
+    internal static void ProjectIssuedBlockContinuation(JsonObject schema)
+    {
+        if (schema["properties"]?["extension"]?["anyOf"] is not JsonArray alternatives ||
+            alternatives.OfType<JsonObject>().FirstOrDefault(option => option["properties"]?["continueInScope"] is not null) is not { } extension)
+            return;
+
+        var original = extension["properties"]!.AsObject();
+        if (!original.ContainsKey("boundaryTransitions") && !original.ContainsKey("continuationBinding")) return;
+
+        // Deferred exports are reviewed at the end of a fragment.
+        // A continuing cursor can still contribute tasks and close child scopes.
+        var continuing = extension.DeepClone().AsObject();
+        var fields = continuing["properties"]!.AsObject();
+        if (fields.ContainsKey("boundaryTransitions")) fields["boundaryTransitions"] = PlanningSchemas.Nullable(EmptyArray());
+        if (fields.ContainsKey("continuationBinding")) fields["continuationBinding"] = PlanningSchemas.Type("null");
+        original["continueInScope"] = PlanningSchemas.Type("null");
+        alternatives.Insert(alternatives.IndexOf(extension) + 1, continuing);
+    }
+
     private static void OmitHostFixedDraftFields(JsonObject schema, JsonObject extension)
     {
         // These are envelope facts already fixed by the retained step, or DTO
