@@ -195,6 +195,64 @@ public sealed class CompactDeferredBindingTests
             new JsonArray("  repeated\tlabel  ")), Assert.Single(writes)));
     }
 
+    [Fact]
+    public async Task IncompleteObservationCanReachItsReportBeforeAnyConditionalEffect()
+    {
+        var (state, runtime) = ReadyKnown();
+        var eligible = new TaskInput { Name = "eligible", Type = new() { Kind = "boolean" } };
+        var reason = new TaskInput { Name = "reason", Type = new() { Kind = "string" } };
+        state.Requirements!.Inputs!.AddRange([eligible, reason]);
+        state.Plan!.Inputs.AddRange([eligible, reason]);
+        state.Requirements.Outputs = [new() { Name = "report", Type = new() { Kind = "string" }, Required = true }];
+        var sink = Contract();
+        AddContract(state, sink);
+        state.Catalog!.AllowedStepTypes.AddRange(["set", "switch", "workflow.call"]);
+        runtime.Respond = (request, _) =>
+        {
+            var selection = SelectKnown(state, "conditional", sink.Id);
+            selection["step"]!["outputNames"] = new JsonArray("report");
+            return Wire(request, selection);
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        runtime.Respond = (request, _) =>
+        {
+            Assert.Contains("preserve the observed reason in otherwise", request.Prompt);
+            var conditional = new PlanTask { Id = "deliver", Kind = "conditional", Objective = "Deliver eligible work and report either outcome.",
+                Condition = new() { Kind = "input", Source = "eligible" },
+                Body = new() { Tasks = [new() { Id = "persist", Operation = sink.Id, Objective = "Persist complete work.",
+                    Inputs = [new("target", new() { Kind = "string", Text = "ready" })] }],
+                    Outputs = [new("status", new() { Kind = "string", Text = "delivered" })] },
+                Otherwise = new() { Outputs = [new("status", new() { Kind = "input", Source = "reason" })] } };
+            var response = Draft(state);
+            response["extension"] = PlanningConstruction.Node(new PlanningConstructionExtension
+                { RequirementIds = ["req_0"], CompleteBlock = false, Tasks = [conditional],
+                    Outputs = [new("report", new() { Kind = "output", Source = "deliver", Port = "status" })] }, PlanningJsonContext.Default.PlanningConstructionExtension);
+            var wire = Wire(request, response);
+            Assert.Empty(PlanningContractValidation.ValidateInstance(wire.Json, request.StructuredOutputSchema!));
+            return wire;
+        };
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var plan = Assert.IsType<PlanningConstructionCandidate>(state.Construction!.Candidate).Plan;
+        var compiled = new TaskPlanCompiler().Compile(plan, state.Catalog!, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog!);
+        var effects = 0;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer(sink.Server!, new() { Tools = [new() { Name = sink.Method!, InputSchema = sink.InputSchema,
+            OutputSchema = sink.OutputSchema }], ToolHandlers = new() { [sink.Method!] = _ =>
+                { effects++; return new() { Content = new JsonObject() }; } } });
+        foreach (var ready in new[] { false, true })
+        {
+            var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["eligible"] = ready, ["reason"] = "missing sample" },
+                new() { McpClientFactory = factory });
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.Equal(ready ? "delivered" : "missing sample", result.Outputs!["report"]!.ToString());
+            Assert.Equal(ready ? 1 : 0, effects);
+        }
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1,5 +1,33 @@
 # PR 120 planning simplification
 
+## Amazon 27, 21 November 2026
+
+Fresh Server session `7fdf723768bc4225bb158fd972edbb4a` ran on
+`b509478b`. The first block gathered all transport pages before ranking
+and bound ten ordered visits to their original hrefs. Its local judge
+accepted the block at call 20. Call 29 drafted the conditional workbook
+write. At call 30 a second judge found that earlier assertions on
+cardinality and unresolved observations would stop execution before the
+incomplete branch. That branch also kept its reason local. Call 31
+retrieved original evidence, and call 32 confirmed the finding. The run
+stopped at revision 90 before execution. There were zero Browser or
+Document operations, no saved agent and no workbook. All 32 planning calls
+settled at EUR 15.61304585. The campaign counted 4,609 physical calls
+and EUR 77.23215512 available.
+
+Detached replay of the original call 30 reproduced the six findings, the
+empty repair scope and the unchanged accepted plan. The first block had
+already passed its judge. The later finding also cited a new branch with
+no export to replace. Draft guidance now addresses this earlier decision
+by placing a reportable outcome in a conditional before a failing assertion.
+The issued-grammar regression executes both paths. The incomplete observation
+returns its original reason and performs zero effects. The complete
+observation performs exactly one effect. The same draft guidance explains
+the per-item cost of an interpretation inside a loop and the existing
+ordered extraction contract for repeated field rules. These are technical
+checks. All 3,301 planner tests passed. A fresh provider response and
+execution are tracked separately.
+
 ## Amazon source check 26, 21 November 2026
 
 A new live search on `b509478b` returned 1,633 records over 79 pages
