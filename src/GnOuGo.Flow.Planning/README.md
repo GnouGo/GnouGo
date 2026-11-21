@@ -363,6 +363,9 @@ and the work that depends on it in the eligible branch of a conditional. Export
 the observed reason on the other branch. A subsequent task can then deliver
 the original observations on either path. An exception raised while executing
 an eligible effect still propagates through normal finalization.
+When the host handles confirmation and freshness checks during dispatch,
+the workflow can consume the operation's acknowledgement once it returns.
+Branch eligibility before dispatch uses data already available to the workflow.
 
 Fresh implementation/discovery requests also present these same finalization rules
 when their binding schema offers a local control. TaskPlan control kinds, the

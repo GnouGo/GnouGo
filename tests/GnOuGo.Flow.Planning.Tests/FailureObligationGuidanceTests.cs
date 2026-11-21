@@ -43,6 +43,8 @@ public sealed class FailureObligationGuidanceTests
         Assert.Contains("False requires stops the workflow", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("place the effect and its dependent actions inside conditional.body", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("otherwise and continue to the requested result", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("already returned data", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("approval and freshness checks run inside the operation", request.Prompt, StringComparison.Ordinal);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         if (phase.EndsWith("review", StringComparison.Ordinal))
         {

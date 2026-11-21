@@ -19,6 +19,18 @@ the structured result. Both complete and interrupted operations passed
 their regressions, and all 259 Copilot MCP tests passed. The full planner
 suite after sharing repair snapshots passed 3,287 tests.
 
+At call 34 the model added a success criterion that required a normal
+workflow result after the host refused confirmation or detected a changed
+target. The user's request placed both checks inside submission. The
+documented grant raises an error on refusal. Call 41 withdrew the selected
+operations and calls 42–48 looked for another way to observe the host's
+checks. Call 49 returned to the original obligations, and call 51 rebound
+the same two previously inspected write operations without another
+contract lookup. Fresh selection guidance distinguishes a decision based
+on data already returned from a host check performed during dispatch.
+All 45 focused tests passed across requirement selection, discovery,
+drafting, review and execution of the two conditional paths.
+
 ## Review 46, 21 November 2026
 
 Fresh Server session `3728171b83054226a72f748f89d32b2b` ran on
