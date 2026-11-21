@@ -1,5 +1,67 @@
 # PR 120 planning simplification
 
+## .NET 11 adaptive execution verification, 21 November 2026
+
+One compiled workflow ran twice through the workflow engine with the same
+approved Copilot tool scope. A complete observation took two tool calls. An
+observation containing only a cursor took three, including a read using the
+observed cursor. Each run wrote its current value exactly once to the second
+MCP. Repeating either invocation recovered its receipt. In an interrupted third
+invocation, the SDK fixture lost its final reply after the write. Inspection
+recovered the observation. A separate cancellation regression checks that a
+queued request cannot execute after its waiter cancels. These tests use a
+controlled decision policy and zero provider calls.
+[Compiled workflow regression](../../tests/GnOuGo.GithubCopilot.Mcp.Tests/BoundedCopilotTasksTests.HostTools.cs)
+
+The published arm64 Copilot MCP connected with SDK 1.0.34 and runtime 1.0.112
+using protocol 3. Runtime versions 1.0.113 and 1.0.114 requested protocol 4.
+A loopback-only provider returned two streamed turns. After one exact
+permission grant, the host read the fixture file once and returned its
+contents through the MCP exchange. Inspection and replay recovered the same
+evidence. The receipt's token count is a conservative reservation for the
+fixture. The upstream network was disabled for this check.
+[Native MCP receipt](pr120-live-20261121/copilot-loopback.json) ·
+[Dependency audit](../../DEPENDENCY_AUDIT.md)
+
+The .NET 11 planner compiled the original Review 30 TaskPlan with its hash
+intact. Review 32's recorded inline loop and submission acknowledgement
+passed. Its proposed block still omitted one independently selected read,
+and the validator kept the block open. Amazon 28's drafts 23 and 38 passed.
+Draft 57 produced one diagnostic identifying the altered null guard. These
+replays used the saved inputs and dispatched zero tools or model requests.
+[Replay output and compiled YAML digest](pr120-live-20261121/net11-retained-replays.json)
+
+The existing mapping cache regression exercises process restart, tenant and
+schema isolation, and reuse on compatible input structure. The planner continues
+to use one TaskPlan, its typed compiler and its existing judges. The two
+qualification profiles use guarded MCP reads. Cloning, publishing, writing a
+workbook and cleanup retain their explicit effect contracts. The frontend build
+and editor regressions passed after removing the two history DSL entries.
+[Mapping cache](../../tests/GnOuGo.Flow.Tests/Runtime/DynamicMappingTests.cs) ·
+[Server qualification profiles](../../tests/GnOuGo.Agent.Planning.Benchmark/README.md)
+
+All 3,320 planner tests, 274 Copilot MCP tests and 183 Copilot Core tests passed
+on .NET 11. A 141-case Server selection exercised the adaptive profile and
+authorization. A 96-case selection covered financial admission, incomplete
+replies and uncertain recovery. These selections can overlap. Native macOS
+arm64 releases exercised the planner, CLI, Flow Server and Copilot MCP. The
+published stdio process reported the host-only tool contract and rejected an
+exchange for the wrong run. CLI and Server checked encrypted persistence across
+restart, tenant isolation, revision checks and streamed human input. The 124
+MCP transport tests passed. The published Agent Server reopened encrypted
+planning data and returned HTTP 200 for health, the root page and Blazor
+transport negotiation.
+[Published-binary verification](../../scripts/verify-flow-v9-published.py)
+
+A repeat read-only financial audit on .NET 11 matched the preceding audit across
+all fields, including the entire ceiling history, costs and reservations. New
+physical provider calls and charges in these checks were zero. Both scenario
+streaks remain 0/2. The next live step requires the provider response or usage
+needed to reconcile the Review 02 SDK dispatch. Its workflow had already invoked
+the clone operation, making it ineligible for planning-only administrative
+retention.
+[Campaign audit and ceiling history](pr120-live-20261121/campaign-balance.json)
+
 ## SlimFaaS Review 02 and fresh Amazon admission, 21 November 2026
 
 Server session `11ff84808e0a45358f5de80b1af5cee0` on `b2aebffd` approved
@@ -12,6 +74,7 @@ Its receipt contains zero command executions. The Server executed the directory
 cleanup. Independent inspection found no run cluster or kubeconfig. Installation,
 lint, unit and kind tests were unexecuted. GitHub retained four reviews and six
 inline comments. Chat returned a failure without the requested review report.
+[Executed steps, check statuses and independent readback](pr120-live-20261121/slim519-review-02.json)
 
 The campaign recorded 43 planning attempts (EUR 29.7694323), one transform
 (EUR 0.1289028), and one SDK attempt with a EUR 3.2908297 hold. Its HTTP record

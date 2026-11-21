@@ -1,0 +1,21 @@
+{
+  "source": "60958f3c",
+  "scope": "Historical inputs replayed by the .NET 11 planner",
+  "providerCalls": 0,
+  "workflowExecutions": 0,
+  "review30": [
+    "Original TaskPlan 7c6a984de0de9412a8ce65b21b893685aa072b1a8c0533e6bc642289ab093ed4, full semantic validation passed without inference or dispatch."
+  ],
+  "review32": [
+    "request=40 revision=126 extensionFindings=1 compilerFindings=0 unchangedPlan=True inferenceCalls=0",
+    "REQUIREMENT_OPERATION_MISSING /construction/candidate The selected business operation is absent from this completed block: cap_e0b759aca76a490f87ad21ca",
+    "Retained submission acknowledgement and inline loop passed. The independently selected read still prevents block closure."
+  ],
+  "amazon28": [
+    "call=23 rev=62 findings=0 compilerFindings=0 originalPlanUnchanged=True modelCalls=0 operations=0",
+    "call=38 rev=94 findings=0 compilerFindings=0 originalPlanUnchanged=True modelCalls=0 operations=0",
+    "call=57 rev=136 findings=1 compilerFindings=0 originalPlanUnchanged=True modelCalls=0 operations=0",
+    "REVISION_SCOPE_CHANGED /tasks/page_resolution_context/requires Restore the original requires expression {\"kind\":\"predicate\",\"items\":[{\"kind\":\"output\",\"source\":\"amazon_search\",\"port\":\"observationSnapshot\"},{\"kind\":\"null\"}],\"predicate\":\"not_equal\"}"
+  ],
+  "review30CompiledYamlSha256": "c92ab1d7faaf7234a88e19eeab5a4a4d4ffecbe2089ee835579177b68e2d3bb2"
+}
