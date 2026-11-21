@@ -1,9 +1,11 @@
 using GnOuGo.AI.Core;
 using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Flow.Copilot;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using System.Text.Json.Nodes;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -11,6 +13,20 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class SecureWorkflowRuntimeFactoryTests
 {
+    [Theory]
+    [InlineData("Flow:CopilotTools", "read")]
+    [InlineData("Flow:CopilotTools:collect", "")]
+    [InlineData("Flow:CopilotTools:collect:documents", "")]
+    [InlineData("Flow:CopilotTools:collect:documents:0", " ")]
+    [InlineData("Flow:CopilotTools:misspelled:documents:0", "read")]
+    public void InvalidToolScopesFailWhenReadingHostConfiguration(string key, string value)
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Flow:CopilotRunners:collect"] = "managed", [key] = value
+        }).Build();
+        Assert.Throws<InvalidOperationException>(() => CopilotRunnerConfiguration.Read(config));
+    }
+
     [Theory]
     [InlineData("github", "pull_request_read", "pull_request_review_write")]
     [InlineData("configured-service", "inspect", "update")]

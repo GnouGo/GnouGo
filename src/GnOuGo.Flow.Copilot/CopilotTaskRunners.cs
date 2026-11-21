@@ -4,6 +4,9 @@ namespace GnOuGo.Flow.Copilot;
 
 public static class CopilotTaskRunners
 {
+    public static WorkflowEngine WithCopilotRunners(this WorkflowEngine engine, CopilotRunnerConfiguration configuration)
+        => engine.WithCopilotRunners(configuration.Runners, configuration.Tools);
+
     /// <summary>Explicit host configuration maps approved runner identifiers to MCP server identifiers.</summary>
     public static WorkflowEngine WithCopilotRunners(this WorkflowEngine engine, IEnumerable<KeyValuePair<string, string>> runners)
         => engine.WithCopilotRunners(runners, null);

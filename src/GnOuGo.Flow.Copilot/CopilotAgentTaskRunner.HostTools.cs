@@ -9,7 +9,7 @@ public sealed partial class CopilotAgentTaskRunner
     private async Task<List<CopilotToolContract>> DiscoverHostToolsAsync(CancellationToken ct)
     {
         var contracts = new List<CopilotToolContract>();
-        foreach (var group in (allowedTools ?? []).Distinct().GroupBy(tool => tool.Server, StringComparer.Ordinal))
+        foreach (var group in (_allowedTools ?? []).Distinct().GroupBy(tool => tool.Server, StringComparer.Ordinal))
         {
             await using var client = await transport.GetClientAsync(group.Key, ct);
             var catalog = await client.ListToolsAsync(ct);
@@ -26,7 +26,7 @@ public sealed partial class CopilotAgentTaskRunner
     private async Task<List<CopilotToolContract>> ResolveHostToolsAsync(AgentTaskDefinition task, CancellationToken ct)
     {
         var ids = task.Capabilities.Where(c => c.StartsWith("mcp_", StringComparison.Ordinal)).ToHashSet(StringComparer.Ordinal);
-        if (allowedTools is { Count: > 0 } && (ids.Count == 0 || ids.Count != task.Capabilities.Count))
+        if (_allowedTools is not null && (ids.Count == 0 || ids.Count != task.Capabilities.Count))
             throw new InvalidOperationException("This runner accepts only its configured MCP tools.");
         if (ids.Count == 0) return [];
         var tools = (await DiscoverHostToolsAsync(ct)).Where(tool => ids.Contains(tool.Id)).ToList();

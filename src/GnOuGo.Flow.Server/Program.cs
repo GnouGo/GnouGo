@@ -162,8 +162,7 @@ builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
-var copilotRunners = builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren()
-    .ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal);
+var copilotRunners = CopilotRunnerConfiguration.Read(builder.Configuration);
 var app = builder.Build();
 
 app.UseCors();
@@ -421,14 +420,14 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILogger logger,
     string? runId,
     CancellationToken ct,
-    IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
+    IWorkflowRunStore? runStore, string? tenantId, CopilotRunnerConfiguration copilotRunners, IPlanningRuntimeFactory planningFactory)
 {
     return CreateWorkflowEngine(telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, runStore, tenantId, copilotRunners, planningFactory)
         .ExecuteAsync(workflow, inputs, ct);
 }
 
 static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMClient llm, IMcpClientFactory mcpFactory,
-    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
+    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, CopilotRunnerConfiguration copilotRunners, IPlanningRuntimeFactory planningFactory)
     => new WorkflowEngine
     {
         WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
@@ -442,7 +441,7 @@ static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMCli
         Telemetry = telemetry,
         Logger = logger,
         Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(tenantId) ? "default" : tenantId.Trim() }
-    }.WithCopilotRunners(copilotRunners ?? new Dictionary<string, string>());
+    }.WithCopilotRunners(copilotRunners);
 
 static WorkflowRunResponse ToWorkflowRunResponse(RunResult result) => new()
 {

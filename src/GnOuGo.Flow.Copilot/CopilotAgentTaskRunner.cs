@@ -7,6 +7,9 @@ namespace GnOuGo.Flow.Copilot;
 /// <summary>Transport adapter only. The MCP host owns the existing managed Copilot session implementation.</summary>
 public sealed partial class CopilotAgentTaskRunner(IMcpClientFactory transport, string serverName, IReadOnlyList<CopilotToolBinding>? allowedTools = null) : IAgentTaskRunner
 {
+    private readonly IReadOnlyList<CopilotToolBinding>? _allowedTools = allowedTools is { Count: 0 }
+        ? throw new ArgumentException("An explicit MCP tool scope must contain at least one tool.", nameof(allowedTools))
+        : allowedTools?.ToArray();
     private sealed record ValidatedScope(string Definition, List<CopilotToolContract> Tools);
     private readonly System.Runtime.CompilerServices.ConditionalWeakTable<AgentTaskContext, ValidatedScope> _validated = new();
 
@@ -16,13 +19,13 @@ public sealed partial class CopilotAgentTaskRunner(IMcpClientFactory transport, 
     public async Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
     {
         var arguments = new JsonObject();
-        if (allowedTools is { Count: > 0 }) arguments["hostToolsOnly"] = true;
+        if (_allowedTools is not null) arguments["hostToolsOnly"] = true;
         var response = await CallAsync("copilot_task_contract", arguments, null, ct);
         if (response?["schemaVersion"]?.GetValue<int>() != 9)
             throw new InvalidOperationException("The Copilot server does not implement the schema-9 bounded task protocol.");
         var contract = JsonSerializer.Deserialize(response["contract"], AgentTaskJsonContext.Default.AgentTaskRunnerContract)
             ?? throw new InvalidOperationException("The Copilot server did not declare its bounded task contract.");
-        if (allowedTools is not { Count: > 0 }) return contract;
+        if (_allowedTools is null) return contract;
         if (response["hostToolProtocol"]?.GetValue<int>() != 1)
             throw new InvalidOperationException("The configured Copilot MCP cannot dispatch host-scoped tools.");
         var schema = contract.InputSchema;

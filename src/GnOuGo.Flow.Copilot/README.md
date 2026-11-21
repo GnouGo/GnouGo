@@ -8,7 +8,8 @@ its existing managed session APIs. This package contains no SDK execution loop.
 engine.AgentTaskRunners["coding"] = new CopilotAgentTaskRunner(mcpFactory, configuredServerName);
 ```
 
-A Server operator can bind several existing MCP tools to a runner. For example:
+Agent Server, Flow Server and the Flow CLI read the same runner configuration.
+One runner can select from several MCP servers.
 
 ```json
 {
@@ -21,7 +22,10 @@ A Server operator can bind several existing MCP tools to a runner. For example:
 }
 ```
 
-A runner with explicit tool bindings exposes only that allowlist. A separately registered project runner retains its project and command permissions. Discovery reads the configured servers' current tool catalogs. Each selectable
+A runner with explicit tool bindings exposes only that allowlist. Empty scopes
+and bindings for unknown runners fail configuration. A separately registered
+project runner retains its project and command permissions. Discovery reads the
+configured servers' current tool catalogs. Each selectable
 capability identifies the server, method, schemas, effect and metadata by digest.
 The approved task selects individual capabilities, declares a finite action count
 and supplies verification conditions. A changed contract requires fresh approval.

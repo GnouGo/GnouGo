@@ -286,8 +286,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };
 
-        engine.WithCopilotRunners(appConfig.GetSection("Flow:CopilotRunners").GetChildren()
-            .Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."))));
+        engine.WithCopilotRunners(CopilotRunnerConfiguration.Read(appConfig));
 
         var workflow = compiled.Workflows[entrypoint];
         inputObj = WorkflowInputDefaults.Apply(workflow.Source, inputObj);
@@ -450,8 +449,7 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
                 throw new ArgumentException("Reconciliation requires --id, --revision and --invocation.");
             var options = config.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
             await using var transport = new ConfiguredMcpClientFactory(options.McpServers, new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
-            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(
-                config.GetSection("Flow:CopilotRunners").GetChildren().Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new ArgumentException("A Copilot runner requires a server name."))));
+            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(CopilotRunnerConfiguration.Read(config));
             var reconciled = await engine.ReconcileAsync(tenant, id, revision, invocation, parsed.GetValue(stoppedOption), ct);
             Console.WriteLine(JsonSerializer.Serialize(reconciled, WorkflowRunJsonContext.Default.WorkflowRun));
         }

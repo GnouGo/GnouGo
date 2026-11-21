@@ -8,6 +8,18 @@ namespace GnOuGo.Flow.Copilot.Tests;
 public sealed class CopilotAgentTaskRunnerTests
 {
     [Fact]
+    public void ExplicitEmptyToolScopeCannotEnableProjectPermissions()
+    {
+        var transport = new Transport();
+        var engine = new WorkflowEngine { McpClientFactory = transport };
+        Assert.Throws<ArgumentException>(() => engine.WithCopilotRunners(
+            new Dictionary<string, string> { ["observer"] = transport.ServerName },
+            new Dictionary<string, IReadOnlyList<CopilotToolBinding>> { ["observer"] = [] }));
+        Assert.Empty(engine.AgentTaskRunners);
+        Assert.Empty(transport.Calls);
+    }
+
+    [Fact]
     public async Task FailedTaskReceiptsRemainTerminalAndCanBeReconciled()
     {
         var runner = new CopilotAgentTaskRunner(new Transport { TaskStatus = "failed" }, "configured-server");

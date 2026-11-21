@@ -419,6 +419,7 @@ public static class GnOuGoAgentWebHost
         // the encrypted runtime configuration without restarting the host.
         // SecureWorkflowRuntimeFactory must build a fresh MCP factory from the
         // latest KeyVault-backed options for every workflow execution.
+        var copilot = CopilotRunnerConfiguration.Read(builder.Configuration);
         builder.Services.AddSingleton<SecureWorkflowRuntimeFactory>(sp => new SecureWorkflowRuntimeFactory(
             sp.GetRequiredService<LLMRuntimeOptionsStore>(),
             sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(),
@@ -429,11 +430,9 @@ public static class GnOuGoAgentWebHost
             humanInputProvider: sp.GetRequiredService<AgentHumanInputProvider>(),
             localRuntime: sp.GetRequiredService<ILocalLLMRuntime>(),
             capture: sp.GetRequiredService<LlmTraceCapture>(),
-            copilotRunners: builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren().ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal),
+            copilotRunners: copilot.Runners,
             defaults: sp.GetRequiredService<LlmDefaultsResolver>(),
-            copilotTools: builder.Configuration.GetSection("Flow:CopilotTools").GetChildren().ToDictionary(runner => runner.Key,
-                runner => (IReadOnlyList<CopilotToolBinding>)runner.GetChildren().SelectMany(server => server.GetChildren()
-                    .Select(tool => new CopilotToolBinding(server.Key, tool.Value ?? throw new InvalidOperationException("A Copilot tool binding requires a method name.")))).ToArray(), StringComparer.Ordinal)));
+            copilotTools: copilot.Tools));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 
