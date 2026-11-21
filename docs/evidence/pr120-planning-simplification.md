@@ -46,6 +46,14 @@ audit had 4,151 requests and EUR 2,083.94035 in measured usage at the
 captured tariffs. The existing EUR 492.52354 in HTTP holds and EUR
 162.25381 in application reservations left EUR 361.28231 available.
 
+One independent native request on the original call-29 checkpoint proposed
+the report and its root binding. The ordinary coordinator consumed the
+complete response and reached local review at revision 96 with zero
+required findings. Its candidate hash was
+`32c8e594c462ba893017fd7a8df725389e9007dc44488ed9ddbe8f9838c31b8d`.
+The probe cost EUR 0.70873 for one settled HTTP request. It performed zero
+workflow operations. All 3,258 planner tests passed on the corrected source.
+
 The complete solution on the frozen earlier revision `8d1f7b9c` passed
 9,725 tests with 13 skipped.
 
