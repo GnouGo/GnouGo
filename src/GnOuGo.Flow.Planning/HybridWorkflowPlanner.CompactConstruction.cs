@@ -227,6 +227,14 @@ public sealed partial class HybridWorkflowPlanner
             exactRequest = PlanningCompactConstruction.ImplementationRequest(state), ct, correction, request => exactRequest = request);
         if (response["baseHash"]!.ToString() != PlanningConstruction.Hash(state.Plan))
             throw new PlanningConflictException("The step selection identifies a stale accepted checkpoint.");
+        if (response["rollback"] is { } rollback)
+        {
+            if (new[] { "step", "resumeStep", "evidenceRequests", "clarifications" }.Any(name => response[name] is not null))
+                PlanningConstruction.Fail("PROPOSAL_ACTION_INVALID", "/rollback", "Choose one cited rollback as the only selection action.");
+            correction.Reselect();
+            PlanningCompactConstruction.RollbackReplacement(state, rollback);
+            return;
+        }
         if (response["resumeStep"] is { } resume)
         {
             if (new[] { "step", "evidenceRequests", "clarifications" }.Any(name => response[name] is not null))

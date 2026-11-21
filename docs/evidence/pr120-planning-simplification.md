@@ -2,6 +2,26 @@
 
 ## Cumulative EUR 2,600 campaign, 20 November 2026
 
+Review 37 (session `398858f0243c473ca22dc2a1b89dea9b`) spent EUR 28.62975
+on 36 physical requests. Its local judge found that the plan fetched a base
+branch from the head repository, which can fail for forked pull requests.
+The model twice withdrew an append-only repair because the new operation
+would execute after its consumer. Implementation selection offered only
+a new step, evidence or clarification. An explicit rollback at selection
+now reuses the existing dependency invalidation and reconstruction checks.
+The issued choice is limited to same-scope tasks whose inputs or results
+the current business finding already allowed the planner to repair.
+A detached replay of revision 108 offered exactly the three cited tasks.
+The original checkpoint hash and the retained finding remained intact.
+The unissued campaign request at cancellation retained EUR 3.28854 in
+the Server ledger. The audited remaining balance was EUR 22.63419.
+
+A second Amazon 19 diagnostic cost EUR 0.76223 for one complete response.
+The model combined two actual collection-length checks in one edit to the
+workbook writer's guard. On the detached original checkpoint the edit
+passed compilation and changed the evidence for all three findings.
+Renewed business review remained pending.
+
 Review 36 executed through the saved chat form. GitHub returned the
 requested PR. The Git MCP cloned its pinned head once. The Copilot
 operation observed 96 tool calls, including exit 0 for the Node dependency

@@ -26,6 +26,12 @@ internal static partial class PlanningCompactConstruction
             ["reason"] = rejected["reason"]?.DeepClone(),
             ["evidence"] = "rejected:" + (compact.RejectedSteps.Count - 1)
         };
+        var targets = ReplacementRollbackTargets(state, compact, rejected, previous);
+        if (targets.Length > 0)
+        {
+            feedback["rollbackTaskIds"] = List(targets);
+            feedback["rollbackEffect"] = "When an appended step would execute too late, select rollback with one cited task and the ordering reason. Its dependent region reopens for reconstruction. Preserve original objectives, effects, literals, cleanup and relative order; ordinary validation and business review follow.";
+        }
         if (compact.CurrentStep is not { DiscoveryComplete: true, Kind: { } kind } ||
             !NestedControlKinds.Contains(kind, StringComparer.Ordinal) || !NestedControlKinds.Contains(previous["kind"]?.ToString(), StringComparer.Ordinal) ||
             state.Construction!.Candidate is not null || rejected["candidateHash"] is not null ||
@@ -50,5 +56,38 @@ internal static partial class PlanningCompactConstruction
                 if (field?["type"]?.ToString() == "integer") integerFields[name] = field.DeepClone();
             return new() { ["kind"] = control, ["required"] = shape["required"]!.DeepClone(), ["integerFields"] = integerFields };
         }
+    }
+
+    internal static void RollbackReplacement(PlanningSession state, JsonNode rollback)
+    {
+        var task = rollback["taskId"]!.ToString();
+        if (ReselectionContext(state)?["rollbackTaskIds"] is not JsonArray ids || !ids.Any(id => id!.ToString() == task))
+            PlanningConstruction.Fail("CONSTRUCTION_ROLLBACK_SCOPE", "/rollback/taskId", "The cited task must still belong to the current rejected claim.");
+        PlanningConstruction.Rollback(state, task, rollback["reason"]!.ToString());
+    }
+
+    private static string[] ReplacementRollbackTargets(PlanningSession state, PlanningCompactConstructionState compact,
+        JsonObject rejected, JsonObject previous)
+    {
+        if (compact.CurrentStep is not null || state.Construction!.Candidate is not null || state.EditablePaths is not null ||
+            state.ApprovedHash is not null || compact.SuspendedSteps?.Any(Active) == true ||
+            rejected["disposition"]?.ToString() != "abandon" || state.Request.Options["automatic_correction"]?.ToString() == "false" ||
+            !PlanningModelCalls.HasRepairCapacity(state) || !PlanningModelCalls.HasDraftRepairCapacity(state, state.Construction.DraftCorrections))
+            return [];
+
+        var review = (rejected["reviews"] as JsonArray)?.OfType<JsonObject>().LastOrDefault(row =>
+            row["purpose"]?.ToString() == PlanningConstruction.LocalPurpose);
+        var baseline = previous["baseHash"]!.ToString();
+        if (review?["outcome"]?.ToString() != "needs_change" || review["candidateHash"]?.ToString() != baseline ||
+            review["baselineHash"]?.ToString() != baseline || review["pendingRepairPaths"] is not JsonArray paths ||
+            review["defectWitness"] is not JsonObject || !HybridWorkflowPlanner.BusinessSourcesAndContractsValid(state, review))
+            return [];
+
+        var symbols = new TaskPlanSymbols(state.Plan!);
+        if (state.Construction.RebuildTasks.Any(task => !symbols.Tasks.ContainsKey(task.Id))) return [];
+        return paths.Select(path => path?.ToString().Split('/')).OfType<string[]>()
+            .Where(parts => parts.Length >= 4 && parts[0] == "" && parts[1] == "tasks" &&
+                symbols.Tasks.TryGetValue(parts[2], out var task) && task.Scope.Path == compact.ReplacementScope)
+            .Select(parts => parts[2]).Distinct(StringComparer.Ordinal).ToArray();
     }
 }

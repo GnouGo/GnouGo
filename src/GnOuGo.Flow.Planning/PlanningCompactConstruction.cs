@@ -365,6 +365,12 @@ internal static partial class PlanningCompactConstruction
             ("step", requirements is { Length: 0 } || scopes is { Length: 0 } ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(step)),
             ("evidenceRequests", PlanningSchemas.Nullable(PlanningSchemas.Array(Text(state, 2048), 1, PlanningOptimizationThresholds.Maximum(state, 4)))),
             ("clarifications", PlanningSchemas.Nullable(PlanningSchemas.Clarifications(PlanningTokenThresholds.OptimizationAdvisory(state.Request)))));
+        if (displayed["reselection"]?["rollbackTaskIds"] is JsonArray { Count: > 0 } targets)
+        {
+            schema["properties"]!["rollback"] = PlanningSchemas.Nullable(PlanningSchemas.Object(
+                ("taskId", PlanningSchemas.Enum(targets.Select(id => id!.ToString()).ToArray())), ("reason", Text(2048))));
+            schema["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("rollback"));
+        }
         ConstrainSelectionBindings(state, displayed, schema);
         ConstrainSelectionEvidence(state, displayed, schema);
         var result = PlanningSchemas.Compact(schema);

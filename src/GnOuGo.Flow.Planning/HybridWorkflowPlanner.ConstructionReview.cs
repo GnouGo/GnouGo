@@ -296,7 +296,7 @@ public sealed partial class HybridWorkflowPlanner
         !string.IsNullOrEmpty(row["requestId"]?.ToString()) && state.RequestMeasurements?.Any(measurement => measurement.Admission == "admitted" &&
             measurement.RequestHash == row["requestHash"]?.ToString() && measurement.RequestId == row["requestId"]?.ToString() && measurement.Phase == purpose) == true &&
         BusinessSourcesAndContractsValid(state, row);
-    private static bool BusinessSourcesAndContractsValid(PlanningSession state, JsonObject row)
+    internal static bool BusinessSourcesAndContractsValid(PlanningSession state, JsonObject row)
     {
         if (row["policyHash"]?.ToString() != BusinessPolicyHash(state) || row["intentHash"]?.ToString() != BusinessIntentHash(state) ||
             !JsonNode.DeepEquals(row["sources"], BusinessSources(state)) || row["contracts"] is not JsonArray contracts ||
