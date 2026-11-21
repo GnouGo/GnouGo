@@ -444,8 +444,8 @@ public sealed class LivePullRequestReviewTests
 #endif
         var candidates = new[]
         {
-            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[0], "net10.0", $"{projectName}.dll"),
-            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[1], "net10.0", $"{projectName}.dll")
+            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[0], "net11.0", $"{projectName}.dll"),
+            Path.Combine(repositoryRoot, "src", projectName, "bin", configurations[1], "net11.0", $"{projectName}.dll")
         };
         return candidates.FirstOrDefault(File.Exists)
                ?? throw new FileNotFoundException($"Build {projectName} before running the live E2E test.");

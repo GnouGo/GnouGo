@@ -39,10 +39,10 @@ cannot establish that proof. TaskPlan string enums and deterministic JSON encodi
 are described in the separately published [planner package](../GnOuGo.Flow.Planning/README.md).
 
 <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="NuGet version"></a>
-<a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt=".NET 11.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="NuGet downloads"></a>
 
-Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 10).
+Declarative workflow engine based on a YAML DSL, **NativeAOT**-compatible (.NET 11).
 Write YAML workflows that orchestrate LLMs, MCP servers, templates, loops, human input, and dynamic code generation — all from a single file.
 
 ## Typed planning

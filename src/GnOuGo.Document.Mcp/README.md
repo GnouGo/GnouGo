@@ -93,7 +93,7 @@ dotnet test tests/GnOuGo.Document.Mcp.Tests/
 ## Run
 
 ```bash
-dotnet src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+dotnet src/GnOuGo.Document.Mcp/bin/Debug/net11.0/GnOuGo.Document.Mcp.dll
 ```
 
 ## Native AOT Publish (win-x64)

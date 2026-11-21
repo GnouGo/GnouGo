@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>15.0</LangVersion><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible><IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Copilot</PackageId><Authors>GnOuGo</Authors>
     <PackageReleaseNotes>Preserve Copilot numeric MCP contracts and exact permission boundaries. Planning consumers now use internal format 11 with mandatory business review; retired planning sessions are rejected unchanged and encrypted historical accounting remains retained.</PackageReleaseNotes>

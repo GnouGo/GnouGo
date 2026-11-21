@@ -1,6 +1,6 @@
 # GnOuGo.ProxyCopilot.Server
 
-A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure LLM endpoints in a typed, ignored `appsettings.Development.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
+A standalone .NET 11 loopback proxy for VS Code Chat and Agent mode. Configure LLM endpoints in a typed, ignored `appsettings.Development.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
 
 ![Live traffic with synthetic providers](docs/screenshots/live-traffic.png)
 

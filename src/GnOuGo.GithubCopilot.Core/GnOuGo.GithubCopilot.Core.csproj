@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>15.0</LangVersion>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.GithubCopilot.Core</PackageId>
     <Authors>GnOuGo</Authors>
@@ -18,7 +18,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <JsonSerializerIsReflectionEnabledByDefault>false</JsonSerializerIsReflectionEnabledByDefault>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
-    <CopilotCliVersion>1.0.107</CopilotCliVersion>
+    <CopilotCliVersion>1.0.114</CopilotCliVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -27,8 +27,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.29" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.14" />
+    <PackageReference Include="GitHub.Copilot.SDK" Version="1.0.34" />
   </ItemGroup>
 
   <ItemGroup>

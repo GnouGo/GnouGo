@@ -33,12 +33,17 @@ public sealed class OpenAiPlanningMetadataTests
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => send(request, ct);
     }
+    public static TheoryData<string, decimal, decimal, decimal, bool> OfficialModelPrices => new()
+    {
+        { "gpt-6-astra", 10m, 50m, 1m, false },
+        { "gpt-6.1-sol", 2m, 10m, .1m, false },
+        { "gpt-6.1-terra", 1m, 5m, .05m, true },
+        { "gpt-6-luna", .1m, .5m, .01m, true },
+        { "gpt-6-sol", 2m, 10m, .2m, true }
+    };
+
     [Theory]
-    [InlineData("gpt-6-astra", 10, 50, 1, false)]
-    [InlineData("gpt-6.1-sol", 2, 10, .1, false)]
-    [InlineData("gpt-6.1-terra", 1, 5, .05, true)]
-    [InlineData("gpt-6-luna", .1, .5, .01, true)]
-    [InlineData("gpt-6-sol", 2, 10, .2, true)]
+    [MemberData(nameof(OfficialModelPrices))]
     public void OfficialMetadataRoundTripsWithoutHeuristicCapabilityChanges(string model, decimal input, decimal output, decimal cache, bool none)
     {
         Assert.True(ModelMetadataCatalog.TryGetBuiltin("openai", model, out var value));

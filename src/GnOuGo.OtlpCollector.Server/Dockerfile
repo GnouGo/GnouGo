@@ -41,7 +41,7 @@ RUN test -f src/GnOuGo.OtlpCollector.Server/wwwroot/index.html
 # Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
 # The publish output is Native AOT and targets the container runtime RID.
 # This avoids QEMU emulation for protoc/grpc_csharp_plugin which segfault under QEMU.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100-resolute AS build
 
 ARG TARGETARCH
 
@@ -99,11 +99,11 @@ RUN export DOTNET_RID="linux-x64" \
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image
 # ──────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/runtime-deps:10.0-noble AS runtime
+FROM mcr.microsoft.com/dotnet/runtime-deps:11.0.0-resolute AS runtime
 
-# Install curl for healthcheck + ICU runtime for globalization (non-invariant)
+# Install curl for the health check. The runtime base includes ICU.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
-    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 curl libicu74 \
+    && apt-get install -y --no-install-recommends -o Acquire::Retries=5 curl \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

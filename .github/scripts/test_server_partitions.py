@@ -125,7 +125,7 @@ def main():
     proof = {"source": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
              "success": False, "results_directory": str(directory.relative_to(root))}
     try:
-        binary_root = root / "tests/GnOuGo.Agent.Server.Tests/bin/Debug/net10.0"
+        binary_root = root / "tests/GnOuGo.Agent.Server.Tests/bin/Debug/net11.0"
         before = fingerprint_binaries(binary_root)
         discovery = subprocess.check_output(["dotnet", "test", PROJECT, "--no-build", "--no-restore",
                                              "--list-tests"], text=True)

@@ -141,7 +141,7 @@ dotnet publish src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.cspro
 
 ## Docker
 
-The Dockerfile builds `linux/amd64` and `linux/arm64` trimmed self-contained images through Docker Buildx using the `mcr.microsoft.com/dotnet/aspnet:10.0` runtime base image.
+The Dockerfile builds `linux/amd64` and `linux/arm64` trimmed self-contained images through Docker Buildx using the `mcr.microsoft.com/dotnet/aspnet:11.0.0` runtime base image.
 
 Local validation example:
 

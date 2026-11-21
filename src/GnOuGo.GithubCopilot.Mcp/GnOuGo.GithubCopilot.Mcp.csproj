@@ -2,10 +2,10 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>15.0</LangVersion>
     <InvariantGlobalization>false</InvariantGlobalization>
     <PublishAot>true</PublishAot>
     <PublishTrimmed>true</PublishTrimmed>
@@ -14,7 +14,7 @@
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
-    <CopilotCliVersion>1.0.107</CopilotCliVersion>
+    <CopilotCliVersion>1.0.114</CopilotCliVersion>
   </PropertyGroup>
 
   <!-- This Native AOT tool intentionally consumes the EF Core-backed KeyVault
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
     <PackageReference Include="ModelContextProtocol" Version="2.4.0" />
     <PackageReference Include="ModelContextProtocol.Extensions.Tasks" Version="2.4.0" />
   </ItemGroup>

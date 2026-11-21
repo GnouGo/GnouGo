@@ -246,7 +246,7 @@ Then on the MCP side:
 ```powershell
 dotnet build .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 
-.\src\GnOuGo.Cmd.Mcp\bin\Debug\net10.0\GnOuGo.Cmd.Mcp.exe
+.\src\GnOuGo.Cmd.Mcp\bin\Debug\net11.0\GnOuGo.Cmd.Mcp.exe
 ```
 
 ## Native AOT Publish (win-x64)

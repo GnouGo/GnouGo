@@ -33,7 +33,7 @@ RUN pnpm --dir src/GnOuGo.Agent.Server/ClientApp build
 # ----------------------------------------------
 FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS node-runtime
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100 AS build
 ARG TARGETARCH
 ARG TARGETOS
 
@@ -119,7 +119,7 @@ RUN case "${TARGETOS:-linux}-${TARGETARCH:-amd64}" in \
 # ----------------------------------------------
 # Stage 3: Final runtime image
 # ----------------------------------------------
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0 AS runtime
 WORKDIR /app
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
     && apt-get install -y --no-install-recommends -o Acquire::Retries=5 ca-certificates curl \

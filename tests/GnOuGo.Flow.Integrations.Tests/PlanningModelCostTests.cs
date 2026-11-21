@@ -8,9 +8,14 @@ namespace GnOuGo.Flow.Integrations.Tests;
 
 public sealed class PlanningModelCostTests
 {
+    public static TheoryData<string, decimal> CacheRetentionCosts => new()
+    {
+        { "30m", .00225m },
+        { "12h", .0035m }
+    };
+
     [Theory]
-    [InlineData("30m", .00225)]
-    [InlineData("12h", .0035)]
+    [MemberData(nameof(CacheRetentionCosts))]
     public void SettlementAppliesCapturedCacheRetention(string retention, decimal expected)
     {
         var options = new LLMOptions { DefaultProvider = "gateway", DefaultModel = "gpt-6.1-sol",

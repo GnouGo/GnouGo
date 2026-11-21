@@ -72,7 +72,7 @@ Do not commit real tokens.
 
 ```powershell
 dotnet build .\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj
-.\src\GnOuGo.Git.Mcp\bin\Debug\net10.0\GnOuGo.Git.Mcp.exe
+.\src\GnOuGo.Git.Mcp\bin\Debug\net11.0\GnOuGo.Git.Mcp.exe
 ```
 
 ## Build

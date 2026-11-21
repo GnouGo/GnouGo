@@ -1,6 +1,6 @@
 # GnOuGo.Auth.Core
 
-Independent .NET 10 authentication abstractions and credential providers. The package has no GnOuGo project dependencies.
+Independent .NET 11 authentication abstractions and credential providers. The package has no GnOuGo project dependencies.
 
 `IApiKeyProvider` is implemented by `StaticApiKeyProvider`, `CopilotApiKeyProvider`, and `OidcJwtApiKeyProvider`. Consumers own configuration binding, credential storage, and authorization-header selection.
 

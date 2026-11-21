@@ -612,15 +612,15 @@ $knownAuditFingerprints = @{
         'IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll',
         'IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()',
         'IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()',
-        'CS8669|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
-        'CS9270|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
+        'CS8669|src/GnOuGo.Files.Server/obj/Release/net11.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
+        'CS9270|src/GnOuGo.Files.Server/obj/Release/net11.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
         'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
         'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
     )
     'GnOuGo.Agent.Mcp' = @{
         FingerprintCount = 86
         Sha256 = '2575e0c408614d8bb2067f7a0212b734531b10e1678e28786d105071dfdcf39b'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core partial-trim and EF Core SQLite closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.KeyVault.Mcp' = @{
         FingerprintCount = 3
@@ -630,18 +630,18 @@ $knownAuditFingerprints = @{
     'GnOuGo.OtlpCollector.Server' = @{
         FingerprintCount = 88
         Sha256 = '9fb6fbd5118fb83ed72ab0492bf7e07d35e7048bdc97e9023c8c8639cc52d4a4'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core partial-trim and EF Core SQLite closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.Agent.Server' = @{
         # Re-audited against parent 46c2c77: 106 origins -> 105; the compiled planning model removes its application IL2026.
         FingerprintCount = 105
         Sha256 = 'e81aebe48518ed041b326e3f5d8198fa640868779687d3de64c60a324ce0e9d2'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
     }
     'GnOuGo.Agent.Desktop' = @{
         FingerprintCount = 101
         Sha256 = '936ea2746f534c3a45a15e1fe7db28538c753835dca594e1d4866ff52d47715a'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and embedded Agent Server closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and embedded Agent Server closure.'
     }
 }
 

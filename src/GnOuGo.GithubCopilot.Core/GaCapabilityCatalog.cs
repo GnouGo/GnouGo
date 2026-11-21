@@ -5,7 +5,7 @@ public static class GaCapabilityCatalog
     public const string McpPackageVersion = "2.4.0";
     public const string RequiredMcpRevision = "2026-07-28";
     public const string FallbackMcpRevision = "2025-11-25";
-    public const string CopilotSdkPackageVersion = "1.0.29";
+    public const string CopilotSdkPackageVersion = "1.0.34";
 
     private static readonly CopilotCapability[] Allowed =
     [

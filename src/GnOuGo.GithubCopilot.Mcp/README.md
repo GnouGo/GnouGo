@@ -206,7 +206,7 @@ PowerShell example:
 
 ```powershell
 dotnet build .\src\GnOuGo.GithubCopilot.Mcp\GnOuGo.GithubCopilot.Mcp.csproj
-.\src\GnOuGo.GithubCopilot.Mcp\bin\Debug\net10.0\GnOuGo.GithubCopilot.Mcp.exe
+.\src\GnOuGo.GithubCopilot.Mcp\bin\Debug\net11.0\GnOuGo.GithubCopilot.Mcp.exe
 ```
 
 The first build may download the Copilot CLI binary through the `GitHub.Copilot.SDK` package targets.
@@ -257,7 +257,7 @@ flattened into broader permissions. See [diagnosis and execution evidence](../..
 
 ## Native AOT publish
 
-macOS Release AOT publishes normalize a local copy of the .NET 10 Apple cryptography
+macOS Release AOT publishes normalize a local copy of the .NET 11 Apple cryptography
 archive's incomplete debug information. Code and link symbols are retained; the
 NuGet cache is unchanged. See the [published certificate-chain smoke and framework
 workaround](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).

@@ -1,5 +1,27 @@
 # Dependency audit exceptions
 
+## 21 November 2026 · .NET 11
+
+The 77 solution projects target `net11.0` and C# 15. Building uses SDK 11.0.100.
+Framework-dependent deployments and library consumers require the .NET 11 runtime.
+The refresh checked the 59 existing direct package IDs against the stable NuGet
+indexes, removed references supplied by the new framework, and regenerated the five
+compiled SQLite models with EF Core 11.0.0. CI uses the pinned SDK. Linux SDK and
+runtime image tags are pinned to 11.0.100 and 11.0.0.
+
+The managed client uses GitHub.Copilot.SDK 1.0.34. The explicitly pinned Copilot
+runtime 1.0.114 replaces the SDK's default 1.0.112. The downloaded macOS arm64
+archive matched GitHub's SHA-256 `f357ec6679f05e12e238c99eb9112f34293ad7625bedc2a7e79122c8798887bb`.
+[Copilot CLI release](https://github.com/github/copilot-cli/releases/tag/v1.0.114)
+
+On macOS the native runtime package ships unavailable Swift debug-module paths in
+the Apple crypto archive, and duplicate GC debug object names and timestamps. The
+Release AOT target prepares publish-local copies. The second GC object receives
+a unique archive member name of equal length, preserving its machine code, debug
+contents and symbol offsets. Python 3 is used by this Darwin publish target.
+The encrypted Copilot recovery and planner smoke binaries ran on macOS arm64.
+
+
 NuGet last reviewed: 2026-11-07. Frontend exceptions below were last reviewed on 2026-08-02.
 
 All 59 direct NuGet package IDs, including conditional Linux native references, were checked against the official NuGet registry. The refresh updates 51 IDs across 238 references in 63 projects to their latest stable releases. The .NET 10 target and pinned SDK policy remain unchanged. NuGet reports no deprecated or vulnerable packages, including transitive dependencies. Detailed versions and validation are recorded in [the .NET refresh report](docs/evidence/dotnet-dependency-update-2026-11-07/README.md).

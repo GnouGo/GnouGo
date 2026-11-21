@@ -117,8 +117,8 @@ Windows PowerShell example:
 
 ```powershell
 dotnet build .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj
-powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\playwright.ps1 install chromium
-.\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\GnOuGo.Browser.Mcp.exe
+powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net11.0\playwright.ps1 install chromium
+.\src\GnOuGo.Browser.Mcp\bin\Debug\net11.0\GnOuGo.Browser.Mcp.exe
 ```
 
 ## Visual Debug Mode
@@ -195,7 +195,7 @@ Example MCP configuration in `LLMOptions`:
 - Navigations are restricted to absolute `http` and `https` URLs with escaped whitespace. `browser_get_content` publishes this syntax in its input schema. Decode an encoded whole URL or resolve a relative reference against its observed page URL before calling; the host still enforces scheme and allowed-host policy. Null/omission reads the current page; an explicit empty URL is invalid. Refresh discovery after this contract change.
 - `file://`, `data:`, and other non-web schemes are rejected.
 - If `AllowedHosts` is empty, any HTTP/HTTPS destination is allowed.
-- The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll`.
+- The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net11.0/GnOuGo.Browser.Mcp.dll`.
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.
 
 ### Compact observations

@@ -45,7 +45,7 @@ public sealed class LiveControlledEditingTests(ITestOutputHelper output)
         var approvals = 0;
         var refusals = 0;
         var refuseEverything = false;
-        var defaultExecutable = Path.Combine(root, "src", "GnOuGo.GithubCopilot.Mcp", "bin", "Debug", "net10.0", "GnOuGo.GithubCopilot.Mcp");
+        var defaultExecutable = Path.Combine(root, "src", "GnOuGo.GithubCopilot.Mcp", "bin", "Debug", "net11.0", "GnOuGo.GithubCopilot.Mcp");
         var executable = Environment.GetEnvironmentVariable("GNOU_GO_COPILOT_SMOKE_BINARY") ?? defaultExecutable;
         Assert.True(File.Exists(executable), "Build the Copilot MCP host before running this fixture.");
         var keyVault = KeyVaultDatabasePathResolver.Resolve(null, root);

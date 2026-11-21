@@ -1456,7 +1456,6 @@
     {
         CloseTopbarMenus();
         await RefreshAvailableAgentsAsync();
-        StateHasChanged();
     }
 
     private void ResetWorkflowInputValues()
@@ -2180,7 +2179,6 @@
             TouchActive();
 
             _needsMarkdownEnhance = true;
-            StateHasChanged();
         }
     }
 
@@ -2663,7 +2661,6 @@
         RecordHumanInput(_pendingHumanInput.Prompt, answer);
 
         ResetHumanInputState();
-        StateHasChanged();
     }
 
     private async Task SubmitHumanInputFields()
@@ -2701,7 +2698,6 @@
         }
 
         ResetHumanInputState();
-        StateHasChanged();
     }
 
     private async Task AbandonHumanInput()
@@ -2716,7 +2712,6 @@
         await HumanInputProvider.TrySubmitResponseAsync(_pendingHumanInput.RunId, _pendingHumanInput.StepId, response);
         RecordHumanInput(_pendingHumanInput.Prompt, AbandonHumanInputLabel);
         ResetHumanInputState();
-        StateHasChanged();
     }
 
     private static JsonNode? BuildHumanInputFieldValue(HumanInputFieldModel field, string value, IReadOnlyCollection<string> selectedOptions)
@@ -3222,7 +3217,6 @@
     private Task CloseTraceSidebarAsync()
     {
         CloseTraceSidebar();
-        StateHasChanged();
         return Task.CompletedTask;
     }
 

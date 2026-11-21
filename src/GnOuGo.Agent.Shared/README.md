@@ -1,7 +1,7 @@
 # GnOuGo.Agent.Shared
 
 Provider-neutral chat and planning API DTOs for Agent.Server and its consumers.
-This .NET 10 library has no project dependencies and can be packaged separately.
+This .NET 11 library has no project dependencies and can be packaged separately.
 
 Planning clients create a session with `PlanningStartDto` and submit
 `PlanningCommandDto` with the observed revision. Final approval also carries the

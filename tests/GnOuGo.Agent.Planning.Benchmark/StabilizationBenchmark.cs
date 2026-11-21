@@ -54,7 +54,7 @@ internal static class StabilizationBenchmark
         var selected = Option("--cases")?.Split(',', StringSplitOptions.TrimEntries) ?? Cases;
         if (selected.Length == 0 || selected.Distinct().Count() != selected.Length || selected.Any(n => !Cases.Contains(n))) throw new ArgumentException("Unknown or repeated cases.");
         var repetitions = cohort == "diagnostic" ? 1 : 3;
-        var executable = Path.GetFullPath(Option("--cmd-executable") ?? "src/GnOuGo.Cmd.Mcp/bin/Release/net10.0/GnOuGo.Cmd.Mcp");
+        var executable = Path.GetFullPath(Option("--cmd-executable") ?? "src/GnOuGo.Cmd.Mcp/bin/Release/net11.0/GnOuGo.Cmd.Mcp");
         if (!File.Exists(executable)) throw new ArgumentException("Build the Release Cmd MCP executable first.");
         var manifest = Manifest(executable);
         var leasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");

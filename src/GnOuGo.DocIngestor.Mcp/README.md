@@ -16,7 +16,7 @@ dotnet build src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj
 
 ## Native AOT publish
 
-macOS Release AOT publishes normalize a local copy of the .NET 10 Apple cryptography
+macOS Release AOT publishes normalize a local copy of the .NET 11 Apple cryptography
 archive's incomplete debug information. Code and link symbols are retained; the
 NuGet cache is unchanged. See the [published certificate-chain smoke and framework
 workaround](../../tests/GnOuGo.Flow.Planning.Smoke/README.md).

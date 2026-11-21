@@ -1,7 +1,7 @@
 # GnOuGo.Assets.Animation
 
 <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Animation.svg" alt="NuGet version"></a>
-<a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt=".NET 11.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Animation.svg" alt="NuGet downloads"></a>
 
 Autonomous, deterministic SVG team animation library for GnOuGo. It parses a

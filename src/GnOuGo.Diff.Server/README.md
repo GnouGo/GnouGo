@@ -138,7 +138,7 @@ public class DiffEntry
 
 ## 🔧 Technologies
 
-- **.NET 10** - Backend
+- **.NET 11** - Backend
 - **Entity Framework Core** - ORM
 - **SQLite** - Database
 - **DiffPlex** - Diff computation

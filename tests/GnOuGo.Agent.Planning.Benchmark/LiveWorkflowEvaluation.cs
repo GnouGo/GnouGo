@@ -348,7 +348,7 @@ internal static class LiveWorkflowEvaluation
             var key = "GnOuGo." + name + ".Mcp";
             if (!configured.TryGetValue(key, out var settings)) throw new InvalidOperationException("Missing configured MCP: " + key);
             var clone = JsonSerializer.Deserialize<McpServerOptions>(JsonSerializer.Serialize(settings))!;
-            var assembly = Path.GetFullPath(Path.Combine(sourceRoot ?? Directory.GetCurrentDirectory(), "src", key, "bin", buildConfiguration, "net10.0", key + ".dll"));
+            var assembly = Path.GetFullPath(Path.Combine(sourceRoot ?? Directory.GetCurrentDirectory(), "src", key, "bin", buildConfiguration, "net11.0", key + ".dll"));
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();

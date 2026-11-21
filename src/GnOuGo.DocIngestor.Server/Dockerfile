@@ -39,7 +39,7 @@ RUN pnpm --dir src/GnOuGo.DocIngestor.Server/ClientApp build
 # Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
 # The publish output is framework-dependent (pure IL) — no RID needed.
 # This avoids QEMU emulation which can crash during dotnet build.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100 AS build
 
 WORKDIR /src
 
@@ -77,15 +77,14 @@ RUN dotnet publish src/GnOuGo.DocIngestor.Server/GnOuGo.DocIngestor.Server.cspro
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image
 # ──────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0 AS runtime
 
 # SkiaSharp (PDF rendering) needs native libs: fontconfig + libfreetype
-# ICU is needed for non-invariant globalization. Use runtime libraries only.
+# The .NET runtime base supplies ICU for globalization.
 RUN apt-get update -o Acquire::Retries=5 -o Acquire::http::Timeout=30 \
     && apt-get install -y --no-install-recommends -o Acquire::Retries=5 \
     libfontconfig1 \
     libfreetype6 \
-    libicu74 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

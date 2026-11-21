@@ -42,7 +42,7 @@ jobs:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.100'
       - uses: pnpm/action-setup@v6.1.0
         with:
           version: 10.14.0
@@ -60,7 +60,7 @@ jobs:
       - name: Prepare local browser execution
         run: |
           dotnet build src/GnOuGo.Browser.Mcp -m:1 -warnaserror
-          node src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/cli.js install --with-deps chromium
+          node src/GnOuGo.Browser.Mcp/bin/Debug/net11.0/.playwright/package/cli.js install --with-deps chromium
       - name: Test planner, runtime and host integration
         run: |
           dotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror

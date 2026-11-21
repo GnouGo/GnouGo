@@ -56,7 +56,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "11.0.100"
 
       - name: Ensure OTLP proto files
         uses: ./.github/actions/ensure-otlp-protos

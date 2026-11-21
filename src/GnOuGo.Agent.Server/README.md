@@ -449,7 +449,7 @@ The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, 
 }
 ```
 
-Normal `GnOuGo.Agent.Server` and `GnOuGo.Agent.Desktop` builds stage framework-dependent apphosts for these servers under their own `bin/<Configuration>/net10.0/tools/` directories. `appsettings.Development.json` only extends discovery and call timeouts and continues to use these clean direct commands; it never places `dotnet run` on the MCP stdout transport.
+Normal `GnOuGo.Agent.Server` and `GnOuGo.Agent.Desktop` builds stage framework-dependent apphosts for these servers under their own `bin/<Configuration>/net11.0/tools/` directories. `appsettings.Development.json` only extends discovery and call timeouts and continues to use these clean direct commands; it never places `dotnet run` on the MCP stdout transport.
 
 Published outputs now bundle the MCP stdio tools under `tools/`:
 
@@ -479,7 +479,7 @@ pwsh scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier win-x64
 pwsh scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier win-x64 -AuditKnownTrimWarnings
 ```
 
-The Docker image is built from `mcr.microsoft.com/dotnet/aspnet:10.0` and starts the executable directly:
+The Docker image is built from `mcr.microsoft.com/dotnet/aspnet:11.0.0` and starts the executable directly:
 
 ```powershell
 Set-Location "C:\github\GnouGo"
