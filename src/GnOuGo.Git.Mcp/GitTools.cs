@@ -40,7 +40,7 @@ public sealed class GitTools
     public GitStatusResult GitStatus([Description(RequiredProjectRootDescription)] string projectRoot)
         => Execute("git_status", () => _gitRepositoryService.GetStatus(projectRoot));
 
-    [McpServerTool(Name = "git_diff", UseStructuredContent = true, OutputSchemaType = typeof(GitDiffResult)), Description("Returns a truncated Git patch for an existing repository project root, optionally limited to one relative path." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_diff", UseStructuredContent = true, OutputSchemaType = typeof(GitDiffResult)), Description("Show unstaged working tree changes or, with staged=true, staged index changes. Use git_compare_refs to compare two commits. The patch is bounded and can be limited to one relative path." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public GitDiffResult GitDiff(
         [Description(RequiredProjectRootDescription)] string projectRoot,
@@ -48,16 +48,23 @@ public sealed class GitTools
         [Description("When true, returns staged/index changes instead of unstaged working tree changes.")] bool staged = false)
         => Execute("git_diff", () => _gitRepositoryService.GetDiff(projectRoot, relativePath, staged));
 
-    [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Resolves exact base/head/merge-base commits and returns a paginated per-file patch comparison with rename, binary, submodule, and truncation metadata. This is read-only and does not depend on the working tree." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_compare_refs", UseStructuredContent = true, OutputSchemaType = typeof(GitCompareRefsResult)), Description("Compare exact commit trees with per-file patches, renames, binary, submodule and truncation metadata. For bounded iteration set requirePageDirectory=true. On success remainingPageCursors then lists every remaining cursor in order for these revisions, comparison mode and page size. By default, large comparisons can be streamed using nextCursor." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompareRefsMetadataJson)]
     public GitCompareRefsResult GitCompareRefs(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Exact base commit SHA or fetched ref.")] string baseRef,
         [Description("Exact head commit SHA or fetched ref.")] string headRef,
         [Description("When true (default), compare merge-base to head as GitHub PRs do; exact base/head/merge-base SHAs are always returned.")] bool compareFromMergeBase = true,
-        [Description("Opaque pagination cursor returned by a previous call.")] string? cursor = null,
-        [Description("Maximum files in this page, capped by Git:MaxComparePageSize.")] int pageSize = 50)
-        => Execute("git_compare_refs", () => _gitRepositoryService.CompareRefs(projectRoot, baseRef, headRef, compareFromMergeBase, cursor, pageSize));
+        [Description("Opaque cursor from nextCursor or remainingPageCursors of the same comparison.")] string? cursor = null,
+        [Description("Maximum files in this page, capped by Git:MaxComparePageSize.")] int pageSize = 50,
+        [Description("Require a complete remainingPageCursors directory within the configured bound. Fails without returning a partial page when it cannot fit.")] bool requirePageDirectory = false)
+        => Execute("git_compare_refs", () =>
+        {
+            var page = _gitRepositoryService.CompareRefs(projectRoot, baseRef, headRef, compareFromMergeBase, cursor, pageSize);
+            if (requirePageDirectory && page.RemainingPageCursors is null)
+                throw new InvalidOperationException("The complete cursor directory exceeds Git:MaxComparePageSize. Use a larger permitted pageSize or stream the comparison with nextCursor.");
+            return page;
+        });
 
     [McpServerTool(Name = "git_log", UseStructuredContent = true, OutputSchemaType = typeof(GitLogResult)), Description("Returns recent commits for an existing repository project root." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
@@ -150,22 +157,22 @@ public sealed class GitTools
         [Description("Resolution strategy: ours, theirs, or stage_existing.")] string strategy)
         => Execute("git_resolve_conflict", () => _gitRepositoryService.ResolveConflict(projectRoot, relativePath, strategy));
 
-    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into an absent or empty workflow-owned directory below workflows/. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. Declare one workspace-relative creation target and retain it for cleanup, including partial clone failure; do not create a directory first. After success, projectRootRelative is the materialized workspace.directory artifact for downstream repository operations. The reserved .GnOuGo directory is never a valid clone target.")]
+    [McpServerTool(Name = "git_clone", UseStructuredContent = true, OutputSchemaType = typeof(GitCloneResult)), Description("Clones a Git repository into an absent or empty workflow-owned directory below workflows/. Supplying a full commit ID in branch checks out that exact commit in the worktree before returning success. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. Rejects an occupied target before writing. Pass a fresh destination directly without first creating or deleting it. Retain that path for cleanup, including partial clone failure. After success, projectRootRelative is the materialized workspace.directory artifact for downstream repository operations. The reserved .GnOuGo directory is never a valid clone target.")]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryProducerProjectRootRelativeJson)]
     public GitCloneResult GitClone(
-        [Description("Remote Git URL to clone.")] string remoteUrl,
+        [Description("URL of the remote to clone. For a single clone comparing histories, choose an authorized remote that advertises both revisions through branches or other published refs. The pinned checkout and later origin fetches use this remote.")] string remoteUrl,
         [Description(GitCloneTargetContract.Description)] string targetDirectory,
         [Description("Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.")] string? branch = null,
-        [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.")] int historyDepth = 1,
-        [Description("When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.")] bool fetchAllBranches = false,
+        [Description("Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full ancestry for merge-base comparisons. Defaults to 1.")] int historyDepth = 1,
+        [Description("When true, fetch all remote branches. With historyDepth=0, commits reachable from those branches are already local for comparison. When false (default), fetch only the selected/default branch or requested revision.")] bool fetchAllBranches = false,
         [Description("Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.")] string tagFetchMode = "none")
         => Execute("git_clone", () => _gitRepositoryService.Clone(remoteUrl, targetDirectory, branch, historyDepth, fetchAllBranches, tagFetchMode));
 
-    [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches from a remote for an existing repository project root. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "git_fetch", UseStructuredContent = true, OutputSchemaType = typeof(GitOperationResult)), Description("Fetches a published ref from an existing named remote in the supplied repository. The clone's origin addresses its original URL. Requires Git:AllowNetworkOperations=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
     public GitOperationResult GitFetch(
         [Description(RequiredProjectRootDescription)] string projectRoot,
-        [Description("Remote name. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
+        [Description("Name of a configured remote, normally origin. Defaults to Git:DefaultRemoteName.")] string? remoteName = null,
         [Description("Optional fetch refspec with a fully qualified refs/... source and a controlled refs/remotes/..., refs/tags/..., or refs/heads/... destination; for example refs/heads/my-branch:refs/remotes/origin/my-branch.")] string? refSpec = null)
         => Execute("git_fetch", () => _gitRepositoryService.Fetch(projectRoot, remoteName, refSpec));
 

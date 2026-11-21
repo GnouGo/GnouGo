@@ -1,0 +1,101 @@
+{
+  "source": "e25ef5f66ad8bbeb3daf4966671558bfa0fe4228",
+  "complete_solution_coverage": true,
+  "assemblies": 33,
+  "distinct_cases_passed_after_isolated_verification": 8746,
+  "existing_skips": 12,
+  "initial_solution_remainder_exit_code": 1,
+  "initial_failed_cases": [
+    "GnOuGo.ProxyCopilot.Server.Tests.AnthropicThinkingTests.ThinkingByDefaultUpstreamCompletesToolLoopInTextMode(streaming: True)",
+    "GnOuGo.ProxyCopilot.Server.Tests.AgentToolStreamTests.InterleavedToolsStreamBeforeCompletionAndRoundTripThroughCopilotConsumer(type: \"copilot\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.ProtocolRoundTripTests.ConversationParallelToolsAndReversedResultsCompleteAcrossNativeProtocols(type: \"ollama\", streaming: False)",
+    "GnOuGo.ProxyCopilot.Server.Tests.ReasoningSetupTests.InvalidOrStaleReasoningSelectionFailsBeforeDispatch(type: \"copilot\", selected: \"\\\"max\\\"\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.TemperatureTests.SupportedOrUnknownTemperatureIsPreserved(type: \"ollama\", supportsTemperature: \"true\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.TopPSamplingTests.UnsupportedTopPIsOmittedWithoutChangingSupportedHintsToolsOrCaptures(type: \"ollama\", streaming: False)",
+    "GnOuGo.ProxyCopilot.Server.Tests.OutputTokenLimitTests.UnspecifiedLimitPolicyIsPreserved(mode: \"Omit\", expected: null)",
+    "GnOuGo.ProxyCopilot.Server.Tests.EndpointTemplateTests.ConcurrentAliasesReachTheirOwnEncodedDeploymentWithMatchingBody(streaming: True)",
+    "GnOuGo.ProxyCopilot.Server.Tests.TransportTests.OidcIsCachedAcrossConcurrentCallsAndClientCredentialsNeverReachUpstream",
+    "GnOuGo.ProxyCopilot.Server.Tests.OutputTokenLimitTests.InvalidOrUntranslatableParametersStillFailBeforeDispatch(type: \"openai\", fields: \"{\\\"max_tokens\\\":\\\"100\\\"}\", unsupported: \"max_tokens\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.ProtocolRoundTripTests.ConversationParallelToolsAndReversedResultsCompleteAcrossNativeProtocols(type: \"openai\", streaming: True)",
+    "GnOuGo.ProxyCopilot.Server.Tests.ReasoningSetupTests.AdvertisedEffortReachesUpstreamWithToolsAndHistory(type: \"openai\", streaming: True, effort: \"none\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.TopPSamplingTests.UnsupportedTopPIsOmittedWithoutChangingSupportedHintsToolsOrCaptures(type: \"openai\", streaming: True)",
+    "GnOuGo.ProxyCopilot.Server.Tests.TransportTests.TrafficEventsStartWithInvalidationAndHistoryCanBeCleared",
+    "GnOuGo.ProxyCopilot.Server.Tests.TemperatureTests.SupportedOrUnknownTemperatureIsPreserved(type: \"anthropic\", supportsTemperature: null)",
+    "GnOuGo.ProxyCopilot.Server.Tests.TopPSamplingTests.UnsupportedTopPIsOmittedWithoutChangingSupportedHintsToolsOrCaptures(type: \"ollama\", streaming: True)",
+    "GnOuGo.ProxyCopilot.Server.Tests.TemperatureTests.SupportedOrUnknownTemperatureIsPreserved(type: \"openai\", supportsTemperature: null)",
+    "GnOuGo.ProxyCopilot.Server.Tests.ProtocolRoundTripTests.ConversationParallelToolsAndReversedResultsCompleteAcrossNativeProtocols(type: \"copilot\", streaming: False)",
+    "GnOuGo.ProxyCopilot.Server.Tests.TransportTests.UnknownModelsInvalidJsonOversizedBodiesAndCrossOriginRequestsAreRejected",
+    "GnOuGo.ProxyCopilot.Server.Tests.OutputTokenLimitTests.InvalidOrUntranslatableParametersStillFailBeforeDispatch(type: \"anthropic\", fields: \"{\\\"max_tokens\\\":100}\", unsupported: \"max_tokens\")",
+    "GnOuGo.ProxyCopilot.Server.Tests.ReasoningSetupTests.AdvertisedEffortReachesUpstreamWithToolsAndHistory(type: \"copilot\", streaming: False, effort: \"high\")"
+  ],
+  "initial_failure": "21 ProxyCopilot loopback tests exceeded their unchanged 15-second client timeout. Concurrency/resource cause is not established.",
+  "isolated_verification": {
+    "assembly": "GnOuGo.ProxyCopilot.Server.Tests",
+    "passed": 177,
+    "failed": 0,
+    "skipped": 0,
+    "rebuilt": false,
+    "timeout_changed": false,
+    "trx_sha256": "8df08ab94199c637e5acba6d3958fa4512b26ba5e24f75c035c72c0b91ab88b3"
+  },
+  "server_passed": 2065,
+  "fixture_cases": 216,
+  "whole_method_inventory_matches": true,
+  "frozen_server_managed_binaries_unchanged": true,
+  "fixture_shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "release_build_warnings": 0,
+  "release_build_errors": 0,
+  "frontend_production_build": "passed",
+  "release_packs": [
+    "AI.Core",
+    "Flow.Core",
+    "Flow.Planning"
+  ],
+  "published_native_aot": {
+    "rid": "osx-arm64",
+    "published_binary_passed": true,
+    "new_journal_fields_roundtrip": true,
+    "encrypted_storage_restart_ownership_and_unicode_checks": "passed",
+    "provider_inference": false
+  },
+  "private_log_sha256": {
+    "next-frozen-full-remainder.log": "c05f37c4eb7f190f3ba21ffb84f3d49e7e7563bd88b8138eb6b7412445110b05",
+    "next-frozen-fixture-shard1.log": "4a628ba9c710a64407623f331483f64444f7dd33b528c7e0add522d56c9d3020",
+    "next-frozen-fixture-shard2.log": "4e8fbcb46e9a53fdd76191ec5a3742be4825d08ed349cb4ede22f4ca7588ddc7",
+    "next-frozen-fixture-shard3.log": "5680da3229d7b5e2151f5fb20aa088c45684bf66389dea596cc4a57c2598e39d",
+    "next-frozen-fixture-shard4.log": "88714db739990204177d405d2d7485148a8717e701378051a80f7d71ae54609b",
+    "next-proxy-isolated.log": "9ef6254a7736aa0dc7c838c34bcb613bc882e7b9a0270481c2c8cc4672013c16",
+    "next-frozen-release-build.log": "cd103fe36dc5e2d2a10dfd8c034787adb28cd050a3caf5210b4100e025ea44b3",
+    "next-frozen-server-tests-build.log": "cd3e6df4aefd7d2bb2f4fd16e771cbb767b6562d91a800108fe5cfb7cf2dfd67",
+    "next-frozen-server-test-inventory.log": "55343b1ea179070cabdb6537664b778a01ff24fd876908f0750274c1f0480df7",
+    "next-frozen-frontend-build.log": "7caaaa8beeadbbc2fb35db04b51f312db9f1ef91cb329ca97b5d536df1983ae2",
+    "next-frozen-ai-pack.log": "907c37f3bc433adc54d7a63b6ecf2045dba9615b079eca3f08bce68b9c9236e5",
+    "next-frozen-core-pack.log": "5995d202270a954aad77df7513355fab3818f0b110ef6546671daa6471379d4f",
+    "next-frozen-planning-pack.log": "3dc8360344fdd807bdb7bd60fc7d0087e343b7614383668c8df04ee68e71575d",
+    "next-frozen-aot-publish.log": "11492976280fcef60013a6bf96f1c0252f5b67bf1ccc4c2f52f7f2a30ed62834",
+    "next-frozen-aot-smoke.log": "126a1952b7eb023442be49f5b249841b473d3318461637593cc287ec1d5db462"
+  },
+  "limitations": [
+    "Initial full solution invocation failed; isolated verification does not erase its 21 failures.",
+    "Complete disjoint solution coverage with one isolated assembly rerun; not a single clean unfiltered invocation.",
+    "Seven Windows-only and five existing Copilot E2E opt-in/platform cases remain skipped.",
+    "These controlled tests do not establish live Code or Amazon qualification."
+  ]
+}

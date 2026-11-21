@@ -1,0 +1,144 @@
+{
+  "source": "f87bbdbe65dd065ccdcf5ee8eb248e706f88a433",
+  "run": "convergence-code-20261108-04",
+  "phase_policy_sha256": "f41151449ddee6e2decc39bfb527591db0b97c9cf166efd82871be5ec1811f41",
+  "logical_calls": 100,
+  "physical_attempts": 100,
+  "complete_receipts": 99,
+  "status": "cancelled",
+  "accepted_checkpoints": 6,
+  "favorable_local_reviews": 1,
+  "first_favorable_local_review": {
+    "logical_calls": 30,
+    "physical_attempts": 30,
+    "known_usage_tariff_estimate_eur": "14.4067174205105239587998208687",
+    "seconds_from_first_dispatch": 504.242511
+  },
+  "known_usage_tariff_estimate_eur": "67.268652037617554858934169319",
+  "uncertain_full_reservation_eur": "11.186278549037169726824899238",
+  "global_review": false,
+  "approved": false,
+  "executed": false,
+  "business_result_correct": false,
+  "time_or_cost_to_business_success": null,
+  "optional_discovery_schema_presentation": {
+    "verified_calls": [
+      5,
+      10
+    ],
+    "active": false,
+    "reason": "Expanded complete requests exceeded this frozen profile navigation input hint of 6000. These live calls do not qualify the optional presenter."
+  },
+  "phase_component_measurements": {
+    "construction_intent": {
+      "requests": 1,
+      "complete_request_bytes_min": 8726,
+      "complete_request_bytes_max": 8726,
+      "component_serialized_bytes_sum": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 435,
+        "instructions": 1889,
+        "intent": 2351,
+        "interfaces": 59,
+        "response_schema": 3937
+      }
+    },
+    "construction_select": {
+      "requests": 3,
+      "complete_request_bytes_min": 11168,
+      "complete_request_bytes_max": 14737,
+      "component_serialized_bytes_sum": {
+        "construction_context": 11308,
+        "envelope": 1501,
+        "evidence": 2165,
+        "instructions": 7782,
+        "requirements": 9387,
+        "response_schema": 6915
+      }
+    },
+    "construction_implementation": {
+      "requests": 17,
+      "complete_request_bytes_min": 22858,
+      "complete_request_bytes_max": 235085,
+      "component_serialized_bytes_sum": {
+        "construction_context": 235525,
+        "envelope": 8683,
+        "evidence": 1111163,
+        "instructions": 49181,
+        "interfaces": 125748,
+        "requirements": 314427,
+        "response_schema": 153873,
+        "diagnostics": 287
+      }
+    },
+    "construction_discovery": {
+      "requests": 57,
+      "complete_request_bytes_min": 27099,
+      "complete_request_bytes_max": 221949,
+      "component_serialized_bytes_sum": {
+        "construction_context": 793702,
+        "envelope": 28878,
+        "instructions": 185934,
+        "mcp_descriptors": 285567,
+        "objective": 20385,
+        "requirements": 1006589,
+        "response_schema": 488436,
+        "evidence": 2306453,
+        "interfaces": 850964,
+        "mcp_contracts": 433615
+      }
+    },
+    "construction_draft": {
+      "requests": 26,
+      "complete_request_bytes_min": 54229,
+      "complete_request_bytes_max": 261931,
+      "component_serialized_bytes_sum": {
+        "construction_context": 347472,
+        "diagnostics": 676,
+        "envelope": 13235,
+        "evidence": 717666,
+        "fragment": 572,
+        "instructions": 88192,
+        "interfaces": 294366,
+        "mcp_contracts": 1485086,
+        "objective": 9484,
+        "requirements": 425052,
+        "response_schema": 748683
+      }
+    },
+    "replan": {
+      "requests": 3,
+      "complete_request_bytes_min": 145497,
+      "complete_request_bytes_max": 145672,
+      "component_serialized_bytes_sum": {
+        "construction_context": 30732,
+        "diagnostics": 1444,
+        "envelope": 1527,
+        "evidence": 52593,
+        "fragment": 66,
+        "instructions": 10533,
+        "interfaces": 2004,
+        "mcp_contracts": 209880,
+        "objective": 1170,
+        "requirements": 19347,
+        "response_schema": 107370
+      }
+    },
+    "construction_local_judge": {
+      "requests": 1,
+      "complete_request_bytes_min": 39371,
+      "complete_request_bytes_max": 39371,
+      "component_serialized_bytes_sum": {
+        "construction_context": 5117,
+        "envelope": 502,
+        "fragment": 24263,
+        "instructions": 1986,
+        "interfaces": 1007,
+        "requirements": 4576,
+        "response_schema": 1920
+      }
+    }
+  },
+  "available_campaign_eur_after_all_holds": "3.3773757277205553067622013295"
+}

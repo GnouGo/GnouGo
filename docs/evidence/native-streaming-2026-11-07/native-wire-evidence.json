@@ -1,0 +1,28 @@
+[
+  {
+    "file": "stream-availability02-native.sse.gz",
+    "partial": false,
+    "protocol_complete": true,
+    "first_byte_utc": "2026-11-07T16:25:39.415316+00:00",
+    "last_byte_utc": "2026-11-07T16:25:39.80314+00:00",
+    "terminal_done_present": true,
+    "compression": "gzip",
+    "native_bytes": 17160,
+    "native_sha256": "becf77ae9f7f0c60879d248e558d5922b57f99b8df6e8722140f5ac019af11cd",
+    "stored_bytes": 1024,
+    "stored_sha256": "11bf38dfd64c1c4452bb858bcc51d55591691fbd6f063054a78616e0b091d49a"
+  },
+  {
+    "file": "stream-fragment-native-prefix.sse.gz",
+    "partial": true,
+    "protocol_complete": null,
+    "first_byte_utc": "2026-11-07T16:26:09.452339+00:00",
+    "last_byte_utc": "2026-11-07T16:26:09.452339+00:00",
+    "terminal_done_present": false,
+    "compression": "gzip",
+    "native_bytes": 745,
+    "native_sha256": "cbb0677c4bd23a9d60a856b4e33377a2a07224433241a736fbf3f565c867a544",
+    "stored_bytes": 385,
+    "stored_sha256": "b84203826af75035b165756984ec238de714abb537ba2c3a31eebf439995ddb3"
+  }
+]

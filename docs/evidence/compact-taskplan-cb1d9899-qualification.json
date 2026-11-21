@@ -1,0 +1,105 @@
+{
+  "source": "cb1d9899bf30d48b679dcbe3a04fe64fe2ba61bf",
+  "original_full_execution_source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+  "full_solution": {
+    "project_count": 33,
+    "all_solution_test_projects_executed": true,
+    "counts": {
+      "passed": 8687,
+      "failed": 2,
+      "skipped": 13
+    },
+    "compiler_warnings": 0,
+    "compiler_errors": 0,
+    "warning_as_error": true,
+    "exit_code": 1,
+    "all_tests_passed": false,
+    "elapsed_seconds": 5193.363,
+    "timing_limitation": "Shared host with live evaluation and other isolated validation; elapsed duration is not a performance or efficacy comparison. Full runner used nice10 and one MSBuild node."
+  },
+  "full_failures": [
+    {
+      "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDefaultWorkingDirectory_RelativePath_ResolvesUnderDesktop",
+      "message": "System.IO.IOException : The file '/Users/a115vc/Desktop/GnOuGo' already exists.",
+      "classification": "Preserved default-directory confinement failure; no retry, skip, policy relaxation or source change."
+    },
+    {
+      "test": "GnOuGo.Workspace.Tests.GnOuGoWorkspaceTests.ResolveDefaultWorkingDirectory_DefaultPath_CreatesGnOuGoSubfolder",
+      "message": "System.IO.IOException : The file '/Users/a115vc/Desktop/GnOuGo' already exists.",
+      "classification": "Preserved default-directory confinement failure; no retry, skip, policy relaxation or source change."
+    }
+  ],
+  "source_binding": {
+    "path": "/private/tmp/gnougo-v8-final-validation-preparation-uqsm_wzu/successor-full-source-binding-safe.json",
+    "sha256": "35eef62d848e1cc64767bb10356838bf82a327603bf9fcc9a54691fbb63744fd"
+  },
+  "qualification_limits": [
+    "Full solution remains attributed to exact88; unchanged shared sources are qualified to cb1.",
+    "The sole smoke-only technical change was separately publication-tested; four changed/new reporting files are inert.",
+    "No full pass, runtime acceptance or performance improvement is claimed."
+  ],
+  "authorized_retention": {
+    "campaign": "schema-portability-20261019-incremental",
+    "source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+    "run": "compactr88f338bf3amz22j20v8p8a-amazon-1",
+    "request_id": "compactr88f338bf3amz22j20v8p8a-amazon-1:2:5c54dbd7610ede8d775d43a88d5cc34a4a4612c441991dd9d98ec0ff5cb88f3e",
+    "evidence_hash": "c1c67c237693355f3a36e6142ff533d41bc5ac0fd07039f73dfbc5c650c9f6dc",
+    "authorization_reference": "call_6fea5a6fd68b4d13818f9187ea519db0",
+    "authorization_hash": "a726a549878526b04ab2440bbdd030dc67b0e907b47a017682da78bd8373fc93",
+    "retained_at": "2026-10-26T18:38:15.9722560+00:00",
+    "full_unknown_reservation_eur": "0.9308701472556894243641231593",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "original_records_unchanged": true,
+    "restarted_public_inspection_verified": true,
+    "replay_or_continuation_attempted": false,
+    "provider_termination_claimed": false,
+    "before_after_accounting_exactly_unchanged": true,
+    "prior_retained_inconclusive_requests": 32,
+    "retained_inconclusive_requests": 33,
+    "receiptless_requests": 33,
+    "unresolved_receiptless_requests": 0,
+    "known_cost_eur": "215.87692621012799085794881293",
+    "reserved_cost_eur": "65.122509925361566530347224969",
+    "cost_upper_bound_eur": "280.99943613548955738829603790",
+    "cost_ceiling_eur": "440.0301038327063045424449473",
+    "available_eur": "159.03066769721674715414890940",
+    "available_basis": "Exact high-precision subtraction of retained ceiling minus retained transport cost upper bound; no reserve released.",
+    "physical_attempts": 4515,
+    "unknown_usage_attempts": 81,
+    "provider_readiness": true,
+    "readiness_completed_utc": "2026-10-26T18:38:37.535714+00:00",
+    "evidence_files": {
+      "revalidated-inspection.jsonl": "4984eeab12de0148fa920d39d99539cc5b7f8fdf6419cdb86056efe81588e507",
+      "authorization-safe.json": "237da18baee4773235889127fd7bebee56c848addb306ab0d1f9524286421785",
+      "apply.jsonl": "b978a220f5f7b908747231b42e56fd717b7652a08894e13bcc0a9bcfba4eb3e4",
+      "restarted-readback.jsonl": "780c0dd89083a10de84cff77b9778117355bd6fd4725a2598e73afa3ccf20d04",
+      "before-readiness.jsonl": "7c647adaf5ab417573c2d5439f3c11080f2b0cbed78df03c310c32bd3b5b6909",
+      "after-readiness.jsonl": "a8d0cd40410dbfda7656f938c646f54a65de6608fa288f2a01715ae0f4801d90",
+      "operation-complete-safe.json": "e712ac6f6c4f12ebd57b871cbb3a41c1fc9b901be918fed3ccf6d77ad7fc78fc"
+    },
+    "interpretation": "Fresh-process inspection validates the immutable closure and its permanent request/run prohibition. Existing guarded entry points enforce those flags; no uncertain invocation was attempted as a test. Fresh diagnostics require their own normal source, artifact, financial and effect admission.",
+    "projection_note": "The first local projection check treated retained identity lists as counts; it was corrected to compare exact sets and counts. Original records/results were not changed or operations repeated.",
+    "new_model_or_execution_calls": 0
+  },
+  "evidence_references": {
+    "full": {
+      "path": "/private/tmp/gnougo-v8-final-validation-preparation-uqsm_wzu/full-qualified-safe.json",
+      "sha256": "3cf0b9239695a20fbb4b8b58748b1c7528f016b0a25a77a4d4e1c992f7dc3923"
+    },
+    "full_peer": {
+      "path": "/private/tmp/gnougo-v8-final-validation-preparation-uqsm_wzu/independent-full-source-result-review-safe.json",
+      "sha256": "6723d3a2088576e9d1fc2abab69ae05ea91e0e81958cbbed7c4783a2591fa988"
+    },
+    "closure": {
+      "path": "/private/var/folders/5j/c3fzgxh96_bgmjhkf57_g5xw0000gp/T/gnougo-88-amazon-terminal-wx7xkqsx/authorized-retention/authorized-retention-result-safe.json",
+      "sha256": "55de4498cabcf1774f485e7431f8f55a5bf1ff29891088cdede4100d1bcd7772"
+    }
+  },
+  "publication_evidence": {
+    "file": "compact-taskplan-88f338bf-technical.json",
+    "scope": "Twelve successful independent package/publication stages, including Native AOT and encrypted storage; original88 plus smoke fixture correction qualified to cb1. Original failure and execution attribution retained."
+  },
+  "source_record_sha256": "5fa68fe2bdccae2f1248ee9f76639a0e11c26d33802340875463ae915463aed5"
+}

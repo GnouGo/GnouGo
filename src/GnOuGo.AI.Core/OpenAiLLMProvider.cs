@@ -33,6 +33,8 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
     public async Task<LLMClientResponse> CallAsync(
         string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
     {
+        request = LocalLLMProvider.CloneRequest(request);
+        request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
         _logger.LogInformation(
             "OpenAI provider call mode selected. Model={Model}; ProviderType={ProviderType}; UseBackgroundMode={UseBackgroundMode}",
             model,
@@ -112,6 +114,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
             if (!string.IsNullOrWhiteSpace(bearerToken))
                 HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
             return requestMessage;
         }
 
@@ -214,6 +217,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
             if (!string.IsNullOrWhiteSpace(bearerToken))
                 HttpRequestHelper.SetBearerAuth(requestMessage, bearerToken);
+            LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
             return requestMessage;
         }
 

@@ -14,6 +14,7 @@ namespace DocIngestor.Core.Ocr;
 public sealed class OpenAiVisionOcrEngine : IOcrEngine
 {
     private readonly HttpClient _http;
+    private readonly ModelProviderOptions _transportOptions;
     private readonly IApiKeyProvider _apiKeyProvider;
     private readonly string _endpointUrl;
     private readonly string _model;
@@ -24,18 +25,28 @@ public sealed class OpenAiVisionOcrEngine : IOcrEngine
     /// <param name="apiKeyProvider">Provides the Bearer token.</param>
     /// <param name="http">Shared HttpClient.</param>
     /// <param name="telemetry">Optional GenAI telemetry for cost/trace tracking.</param>
+    /// <param name="providerOptions">Common generation transport policy and exact model overrides; the constructor endpoint remains authoritative.</param>
     public OpenAiVisionOcrEngine(
         string endpointUrl,
         string model,
         IApiKeyProvider apiKeyProvider,
         HttpClient http,
-        GenAiTelemetry? telemetry = null)
+        GenAiTelemetry? telemetry = null,
+        ModelProviderOptions? providerOptions = null)
     {
         _endpointUrl = endpointUrl ?? "https://api.openai.com/v1";
         _model = model ?? "gpt-4o-mini";
         _apiKeyProvider = apiKeyProvider;
         _http = http;
         _telemetry = telemetry;
+        _transportOptions = new ModelProviderOptions
+        {
+            Type = "openai", Url = _endpointUrl,
+            RequestPolicy = providerOptions?.RequestPolicy.Clone() ?? new(),
+            RetryPolicy = providerOptions?.RetryPolicy.Clone() ?? new() { MaxAttempts = 1 },
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(providerOptions?.ModelTransportOverrides)
+        };
+        LLMOptionsValidation.ValidateProvider("generation", _transportOptions);
     }
 
     /// <inheritdoc />
@@ -49,6 +60,8 @@ public sealed class OpenAiVisionOcrEngine : IOcrEngine
         // Down-scale large images to avoid excessive token usage / payload size
         imageBytes = OcrImageHelper.ResizeIfNeeded(imageBytes);
 
+        var transport = LLMTransportResolver.Resolve(_model, _transportOptions, false,
+            new LLMModelMetadataResolver(new LLMOptions()).ResolveDeclaredMetadata("openai", _model)?.Capabilities);
         var url = OpenAiEndpoints.ChatCompletions(_endpointUrl);
         var dataUrl = ImageHelper.ToDataUrl(imageBytes);
 
@@ -69,11 +82,15 @@ public sealed class OpenAiVisionOcrEngine : IOcrEngine
 
         try
         {
-            using var req = HttpRequestHelper.CreateJsonPost(url, payload);
             var apiKey = await _apiKeyProvider.GetApiKeyAsync(ct);
-            HttpRequestHelper.SetBearerAuth(req, apiKey);
-
-            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            HttpRequestMessage CreateRequest()
+            {
+                var req = HttpRequestHelper.CreateJsonPost(url, payload);
+                LLMTransportResolver.Apply(req, transport);
+                HttpRequestHelper.SetBearerAuth(req, apiKey);
+                return req;
+            }
+            using var resp = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, _transportOptions.RetryPolicy, ct);
 
             if (!resp.IsSuccessStatusCode)
             {

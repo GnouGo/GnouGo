@@ -1,6 +1,8 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -8,6 +10,175 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class LLMUsageBudgetTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task IncompleteFiniteHistoryCannotFinancePlanningOrExecution(bool experimental, bool uncertain)
+    {
+        var snapshot = new LLMUsageBudgetSnapshot { StartedAtUtc = DateTimeOffset.UtcNow,
+            Calls = 1, EstimatedCostCurrency = "EUR", CostEstimateAvailable = uncertain,
+            UncertainCalls = uncertain ? 1 : 0, CostUnavailableReason = uncertain ? null : "historical_pricing_unavailable" };
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }, snapshot)
+            { AdvisoryFinancialForecasts = experimental };
+        var ct = TestContext.Current.CancellationToken; var estimator = new FixedCurrencyCostEstimator(1m, "EUR");
+        var planning = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.EnsureAllowanceAsync(Request(), estimator, 10, [10], "planning", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", planning.Code);
+        var client = new StubClient(Usage(1, 1));
+        var execution = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.CallAsync(client, estimator, Request(), "execution", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", execution.Code);
+        Assert.Equal(1, scope.Snapshot.Calls); Assert.Equal(0m, scope.Snapshot.EstimatedCost);
+    }
+
+    [Fact]
+    public async Task ChangingForecastCannotUnderstateTheCurrentPhysicalReservation()
+    {
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }) { AdvisoryFinancialForecasts = true };
+        var estimator = new ChangingCostEstimator();
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.ReserveJournaledAttemptAsync("current:1", Request(), estimator,
+            10, 10, [10], "planning", TestContext.Current.CancellationToken));
+        Assert.Equal(0, scope.Snapshot.Calls); Assert.Equal(0m, scope.Snapshot.EstimatedCost); Assert.Null(scope.Snapshot.JournaledAttempts);
+    }
+    private sealed class ChangingCostEstimator : IModelUsageCostEstimator
+    {
+        private int _calls;
+        public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 3m;
+        public ModelUsageCostEstimate? EstimateCostWithCurrency(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null)
+            => new(++_calls == 1 ? 12m : 3m, "EUR");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ForecastOptInWarnsForFutureReviewsButKeepsCurrentSpendAndUnknownHistoryHard(bool experimental)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var estimator = new FixedCurrencyCostEstimator(6m, "EUR");
+        var scope = new LLMUsageBudgetScope(new() { MaxEstimatedCost = new(10m, "EUR") }) { AdvisoryFinancialForecasts = experimental };
+        var request = Request(); request.ClientRequestId = "session:1:hash";
+        if (!experimental)
+        {
+            await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct));
+            Assert.Equal(0, scope.Snapshot.Calls); return;
+        }
+        await scope.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct);
+        Assert.Equal(0, scope.Snapshot.Calls); // Forecasts never become physical reservations.
+        await scope.ReserveJournaledAttemptAsync("session:1:hash:attempt:1", request, estimator, 10, 10, [10], "planning", ct);
+        Assert.Equal(6m, scope.Snapshot.EstimatedCost); Assert.Equal(1, scope.Snapshot.Calls);
+        Assert.Contains(scope.Snapshot.Warnings!, w => w.Kind == "financial_forecast" && w.RequestId == request.ClientRequestId && w.Details!["currentReservationEnforced"]!.GetValue<bool>());
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.ReserveJournaledAttemptAsync("session:2:hash:attempt:1", request, estimator, 10, 10, [], "planning", ct));
+        Assert.Equal(6m, scope.Snapshot.EstimatedCost);
+        await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.SettleJournaledAttemptAsync("session:1:hash:attempt:1", request,
+            new FixedCurrencyCostEstimator(11m, "EUR"), Usage(1, 1), "planning", ct));
+        Assert.Equal(11m, scope.Snapshot.EstimatedCost); // Actual overrun is recorded before rejection.
+        var incomplete = new LLMUsageBudgetScope(new LLMUsageBudgetLimits { MaxEstimatedCost = new(10m, "EUR") }, new LLMUsageBudgetSnapshot {
+            StartedAtUtc = DateTimeOffset.UtcNow, EstimatedCostCurrency = "EUR", CostEstimateAvailable = false }) { AdvisoryFinancialForecasts = true };
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => incomplete.EnsureAllowanceAsync(request, estimator, 10, [10, 10], "planning", ct));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        var child = scope.CreateChild(new() { MaxEstimatedCost = new(20m, "EUR") });
+        Assert.False(child.AdvisoryFinancialForecasts);
+    }
+
+    [Fact]
+    public void FinancialProjectionDoesNotPromoteUnpricedConsumptionOrReservationsToInvoicesOrAvailableFunds()
+    {
+        var snapshot = new LLMUsageBudgetSnapshot { Calls = 3, EstimatedCost = 9m, EstimatedCostCurrency = "EUR", CostEstimateAvailable = false,
+            CostUnavailableReason = "cache_write_tariff_unavailable", JournaledAttempts = new Dictionary<string, LLMJournaledAttempt> {
+                ["one"] = new(10, 10, 5m, 0, new(1, 2, 3, 2m, 0, "a")),
+                ["two"] = new(10, 10, 8m, 0, new(1, 2, 3, 0, 0, "b", "cache_write_tariff_unavailable")),
+                ["three"] = new(10, 10, 7m, 0) } };
+        var report = LLMFinancialProjection.Describe(snapshot, new(10m, "EUR"));
+        Assert.Equal(2m, report["measuredUsageTariffEstimate"]!.GetValue<decimal>());
+        Assert.Equal(7m, report["uncertainReservations"]!.GetValue<decimal>());
+        Assert.Equal(8m, report["unpricedCompletedNominalReservations"]!.GetValue<decimal>());
+        Assert.False(report["historyComplete"]!.GetValue<bool>()); Assert.Null(report["providerReportedCost"]); Assert.Null(report["availableForAdmission"]);
+        Assert.Equal(9m, snapshot.EstimatedCost);
+    }
+
+    [Fact]
+    public async Task DiagnosticCallAndElapsedWarningsSurviveSerializationWithoutResettingUsage()
+    {
+        var clock = new MutableTimeProvider(); var sink = new CancellationCheckingSink();
+        var limits = new LLMUsageBudgetLimits { MaxCalls = 1, MaxTotalTokens = 1, MaxElapsed = TimeSpan.FromSeconds(1) };
+        var scope = new LLMUsageBudgetScope(false, limits, sink: sink, timeProvider: clock, advisoryOptimization: true);
+        var client = new StubClient(Usage(2, 3)); var request = Request(); request.ClientRequestId = "first";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        clock.Advance(TimeSpan.FromSeconds(2)); request.ClientRequestId = "second";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.Current == 2 && warning.Threshold == 1 && warning.RequestId == "second");
+        Assert.Contains(sink.Last.Warnings!, warning => warning.Kind == "elapsed_ms" && warning.Current == 2000 && warning.RequestId == "second");
+        var saved = JsonSerializer.Serialize(sink.Last, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        scope = new(false, limits, restored, sink: sink, timeProvider: clock, advisoryOptimization: true);
+        Assert.Equal(saved, JsonSerializer.Serialize(scope.Snapshot, PlanningJsonContext.Default.LLMUsageBudgetSnapshot));
+        request.ClientRequestId = "third";
+        await scope.CallAsync(client, null, request, "planning", TestContext.Current.CancellationToken);
+        Assert.Equal(3, scope.Snapshot.Calls); Assert.Equal(15, scope.Snapshot.TotalTokens);
+        Assert.Contains(sink.Last!.Warnings!, warning => warning.Kind == "calls" && warning.Current == 3 && warning.RequestId == "third");
+        Assert.Equal(2, sink.Last.Warnings!.Count(warning => warning.Kind == "elapsed_ms"));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TokenOnlyAuthorityKeepsCallAndElapsedGuardsHard(bool elapsed)
+    {
+        var clock = new MutableTimeProvider();
+        var scope = new LLMUsageBudgetScope(true, new() { MaxCalls = elapsed ? 10 : 1, MaxElapsed = TimeSpan.FromSeconds(1) }, timeProvider: clock);
+        var client = new StubClient(Usage(1, 1));
+        await scope.CallAsync(client, null, Request(), "planning", TestContext.Current.CancellationToken);
+        if (elapsed) clock.Advance(TimeSpan.FromSeconds(2));
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => scope.CallAsync(client, null, Request(), "planning", TestContext.Current.CancellationToken));
+        Assert.Equal(elapsed ? "elapsed_ms" : "calls", failure.Details!["limit_kind"]!.ToString());
+        Assert.Equal(1, client.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExplicitChildExecutionBoundsRemainHardUnderDiagnosticSessionAuthority(bool elapsed)
+    {
+        var clock = new MutableTimeProvider();
+        var parent = new LLMUsageBudgetScope(false, new() { MaxCalls = 1, MaxElapsed = TimeSpan.FromSeconds(1) }, timeProvider: clock, advisoryOptimization: true);
+        var child = parent.CreateChild(new() { MaxCalls = elapsed ? 10 : 1, MaxElapsed = TimeSpan.FromSeconds(1) });
+        Assert.True(child.AdvisoryOptimizationThresholds);
+        var client = new StubClient(Usage(1, 1));
+        await child.CallAsync(client, null, Request(), "execution", TestContext.Current.CancellationToken);
+        child = child.RestoreSnapshot(child.Limits, child.Snapshot);
+        Assert.True(child.AdvisoryOptimizationThresholds);
+        if (elapsed) clock.Advance(TimeSpan.FromSeconds(2));
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => child.CallAsync(client, null, Request(), "execution", TestContext.Current.CancellationToken));
+        Assert.Equal(elapsed ? "elapsed_ms" : "calls", failure.Details!["limit_kind"]!.ToString());
+        Assert.Equal(1, client.CallCount); Assert.Equal(1, child.Snapshot.Calls); Assert.Equal(1, parent.Snapshot.Calls);
+    }
+
+    [Fact]
+    public async Task DiagnosticReviewCallHeadroomWarnsButFinancialHeadroomStillBlocks()
+    {
+        var scope = new LLMUsageBudgetScope(false, new() { MaxCalls = 1, MaxEstimatedCostUsd = 1 }, advisoryOptimization: true);
+        var request = Request(); request.ClientRequestId = "draft-and-review";
+        await scope.EnsureAllowanceAsync(request, new FixedCostEstimator(0.01m), 10, [10, 10], "planning", TestContext.Current.CancellationToken);
+        Assert.Contains(scope.Snapshot.Warnings!, warning => warning.Kind == "calls" && warning.Current == 2 && warning.RequestId == request.ClientRequestId);
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.EnsureAllowanceAsync(request, new FixedCostEstimator(1m), 10, [10, 10], "planning", TestContext.Current.CancellationToken));
+        Assert.Equal("estimated_cost_usd", failure.Details!["limit_kind"]!.ToString()); Assert.Equal(0, scope.Snapshot.Calls);
+    }
+
+    [Fact]
+    public async Task AdvisoryCompletionWarningsAreIncludedInTheExistingDurableUsageWrite()
+    {
+        var sink = new CancellationCheckingSink();
+        var scope = new LLMUsageBudgetScope(true, new() { MaxCalls = 1, MaxTotalTokens = 1 }, sink: sink);
+        var request = Request(); request.ClientRequestId = "runtime-request";
+        await scope.CallAsync(new StubClient(Usage(2, 3)), null, request, "neutral.stage", TestContext.Current.CancellationToken);
+        var warning = Assert.Single(sink.Last!.Warnings!);
+        Assert.Equal(new PlanningThresholdWarning("total_tokens", 5, 1, "host_budget_measurement", "neutral.stage")
+            { RequestId = "runtime-request" }, warning);
+        Assert.Equal(5, sink.Last.TotalTokens);
+        Assert.Equal(1, sink.Last.Calls);
+    }
+
     [Fact]
     public async Task CompletedUsageIsDurableWhenCancellationArrivesWithTheResponse()
     {
@@ -354,7 +525,7 @@ public sealed class LLMUsageBudgetTests
     }
 
     [Fact]
-    public async Task ProviderFailure_ConsumesCallAndReleasesMonetaryGate()
+    public async Task ProviderFailureRetainsUnverifiedSpendAndReleasesMonetaryGate()
     {
         var client = new FailOnceClient();
         var scope = Scope(maxCalls: 3, maxCost: 100m);
@@ -362,16 +533,14 @@ public sealed class LLMUsageBudgetTests
 
         await Assert.ThrowsAsync<LLMClientException>(() =>
             scope.CallAsync(client, estimator, Request(), "neutral.stage", TestContext.Current.CancellationToken));
-        var response = await scope.CallAsync(
-            client,
-            estimator,
-            Request(),
-            "neutral.stage",
-            TestContext.Current.CancellationToken);
-
-        Assert.Equal("ok", response.Text);
-        Assert.Equal(2, scope.Snapshot.Calls);
-        Assert.Equal(2, client.CallCount);
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
+        deadline.CancelAfter(TimeSpan.FromSeconds(5));
+        var error = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.CallAsync(client, estimator, Request(), "neutral.stage", deadline.Token));
+        Assert.Equal("LLM_BUDGET_UNVERIFIABLE", error.Code);
+        Assert.Equal(1, scope.Snapshot.Calls);
+        Assert.Equal(1, scope.Snapshot.UncertainCalls);
+        Assert.Equal(1, client.CallCount);
     }
 
     [Fact]

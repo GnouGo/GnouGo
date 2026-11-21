@@ -42,53 +42,7 @@ public sealed class PhysicalProjectionCompilationTests(Xunit.ITestOutputHelper o
         return new JsonObject { ["steps"] = new JsonObject { [Id("decision")] = branch } };
     }
 
-    [Fact]
-    public async Task NativeProfileUsesReadableCheckedPropertyAccessAndHistoricalV6IsExact()
-    {
-        var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
-        graph.Workflows[0].Steps[1].Input = Select(Ref("decision"), ["inside", "left", "flag"]);
-        var historical = Compile(graph, catalog, true);
-        var request = new PlanningRequest { Options = new() { ["compilation_profile"] = "compact-bindings-v6" } };
-        Assert.False(TaskPlanCompiler.UsesNativeMappings(request));
-        Assert.Equal(historical, compiler.Compile(graph, catalog, "projection", true, true, true,
-            TaskPlanCompiler.UsesDirectProjections(request), TaskPlanCompiler.UsesNativeMappings(request)));
-        var current = compiler.Compile(graph, catalog, "projection", true, true, true, true, true);
-        Assert.Contains("input: |", current);
-        var expression = Selection(current);
-        Assert.Contains("`\n", expression); Assert.DoesNotContain("m.select", expression);
-        var evaluator = new ExpressionEvaluator();
-        foreach (var value in new[] { "true", "null", "\"invalid\"" })
-        {
-            var context = Context(JsonNode.Parse(value), true, null, 150000);
-            Assert.Equal(evaluator.Evaluate(Selection(historical), context)!.ToJsonString(), evaluator.Evaluate(expression, context)!.ToJsonString());
-        }
-        Assert.Throws<WorkflowRuntimeException>(() => evaluator.Evaluate(expression, Context(null, false, null)));
-        graph.Workflows[0].Steps[1].Input = Select(Ref("decision"), ["inside", "left", "flag"], ["right", "flag"]);
-        var alternatives = compiler.Compile(graph, catalog, "projection", true, true, true, true, true);
-        Assert.Contains("m.select", Selection(alternatives));
-        Assert.Null(evaluator.Evaluate(Selection(alternatives), Context(null, true, JsonValue.Create(true)))!["value"]);
-        output.WriteLine($"v6_yaml_bytes={Encoding.UTF8.GetByteCount(historical)}; v7_yaml_bytes={Encoding.UTF8.GetByteCount(current)}; selection_helpers=1→0");
-    }
 
-    [Theory]
-    [InlineData(null, false, false, false)]
-    [InlineData("compact-bindings-v1", false, false, false)]
-    [InlineData("compact-bindings-v2", true, false, false)]
-    [InlineData("compact-bindings-v3", true, false, false)]
-    [InlineData("compact-bindings-v4", true, true, false)]
-    [InlineData("compact-bindings-v5", true, true, true)]
-    public async Task HistoricalOptionsRetainPreviousLowering(string? profile, bool descriptions, bool fusion, bool consumers)
-    {
-        var request = new PlanningRequest();
-        if (profile is not null) request.Options["compilation_profile"] = profile;
-        var graph = Graph(); var catalog = await Catalog(); var compiler = new PlanningGraphCompiler();
-        var previous = compiler.Compile(graph, catalog, "projection", descriptions, fusion, consumers);
-        var selected = compiler.Compile(graph, catalog, "projection", TaskPlanCompiler.UsesNormalExports(request),
-            TaskPlanCompiler.UsesFusedBindings(request), TaskPlanCompiler.UsesConsumerBindings(request), TaskPlanCompiler.UsesDirectProjections(request));
-        Assert.Equal(previous, selected);
-        Assert.Contains("Object.fromEntries", selected);
-        Assert.False(TaskPlanCompiler.UsesDirectProjections(request));
-    }
 
     [Fact]
     public async Task LeanScalarSelectionKeepsFirstPresentSemanticsWithoutImportingSnapshots()

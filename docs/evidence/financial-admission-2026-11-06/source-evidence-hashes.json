@@ -1,0 +1,93 @@
+{
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "readOnlyAuditProgramSha256": "c7a259946c0a5dfc6079827991b0e883f112859375a872d669ecd0b5167cbd43",
+  "liveLogSha256": "7c93748b17b33e1482d280985a9120794908ed51412bef058129018d4170b90e",
+  "auditSha256": "8aa5a93fa43fcadd3e58944a249d44dada1891f9b7ed413188b51825190362aa",
+  "attemptAuditSha256": "8f5c07647b8437e8f03b5bf91f571fc1b6f02a7356430ac943169599627663ac",
+  "userStagedSolutionSha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+  "userStagedVscodeBlob": "294c8f1a75f16691069489373875a942a32c9737",
+  "userStagedSolutionBlob": "5e02e6b6445d4cfcfab61c11178e43c46b00af37",
+  "retainedAttemptQuerySha256": "0ff5bd61c249e7be9650e0f8ef31dab027a9f64f58575d7c8c293c727a0d1504",
+  "finalReadOnlyAuditProgramSha256": "cc157d7494fb7f185c151f7dc94bfa3598b966be9f395aacf57c7f0bcea548ce",
+  "fullSolutionTestBinaries": [
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "sha256": "1fb620f7a04da011ac6c16e6b956f3cc1622452add1de1f580bf6faf27bf46cb",
+      "modifiedAtUtc": "2026-11-06T22:54:02.687972+00:00",
+      "embeddedInformationalVersion": [
+        ".1.0.0+9faa818cebc43154c6a6a4f7198687216491cf7b"
+      ]
+    },
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "sha256": "16c5bf76469b37a7eb3bf2b4f1c0c05776272f13988c24d62188b01ab9689fad",
+      "modifiedAtUtc": "2026-11-06T22:53:55.932516+00:00",
+      "embeddedInformationalVersion": [
+        "20.0.0-dev+9faa818cebc43154c6a6a4f7198687216491cf7b"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "sha256": "877674a81d6ab060efe8ee34002cec40837768c2d7e4a10f2b92bd0473599937",
+      "modifiedAtUtc": "2026-11-06T22:53:34.929171+00:00",
+      "embeddedInformationalVersion": [
+        ".1.0.0+9faa818cebc43154c6a6a4f7198687216491cf7b"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "sha256": "05f5cc59624d58f977667f83a1c3ba97b44877ac33c2835d92394571f0526174",
+      "modifiedAtUtc": "2026-11-06T22:53:49.101204+00:00",
+      "embeddedInformationalVersion": [
+        ".1.0.0+9faa818cebc43154c6a6a4f7198687216491cf7b"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Integrations.dll",
+      "sha256": "e68228cfc13eb7230c516acacfb58888d645cd1262cca36c8d2eea12d8486ae5",
+      "modifiedAtUtc": "2026-11-06T22:53:49.363651+00:00",
+      "embeddedInformationalVersion": [
+        ".1.0.0+9faa818cebc43154c6a6a4f7198687216491cf7b"
+      ]
+    }
+  ],
+  "financialFieldQuerySha256": "8a51bce2d1d109a90bfdfd605d29eba15966122488a631c9ceb4863e9ff41096",
+  "finalImplementationRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "finalSolutionTestBinaries": [
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "sha256": "8c4c59d2c56528ca7e250e48e0d499f7ac572516ef8f97f4703b63a2f8a4e74f",
+      "embeddedInformationalVersion": [
+        ".1.0.0+77dfe36774f54ed09eb03b3bb16a1c3adc854b85"
+      ]
+    },
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "sha256": "9e00808d72e4da75e1c9c1a188fb2ac69d7db1a8dc738710a3bd6846e675dc6e",
+      "embeddedInformationalVersion": [
+        "20.0.0-dev+77dfe36774f54ed09eb03b3bb16a1c3adc854b85"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "sha256": "9b6ae97c45f230c8e83caae034fdb87ce7817a151dfb84c8d744044a3bac83e4",
+      "embeddedInformationalVersion": [
+        ".1.0.0+77dfe36774f54ed09eb03b3bb16a1c3adc854b85"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "sha256": "02f21d949235ec1680361560d2e4971bbdcc52e020dff9f6e54443da7ce885c0",
+      "embeddedInformationalVersion": [
+        ".1.0.0+77dfe36774f54ed09eb03b3bb16a1c3adc854b85"
+      ]
+    },
+    {
+      "name": "GnOuGo.Flow.Integrations.dll",
+      "sha256": "408ac1a2e8ee7885b43e76e2845d47e2f2d39a0f05e8ddf73b346ea7ecc8b9af",
+      "embeddedInformationalVersion": [
+        ".1.0.0+77dfe36774f54ed09eb03b3bb16a1c3adc854b85"
+      ]
+    }
+  ]
+}

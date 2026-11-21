@@ -1,0 +1,45 @@
+{
+  "cause": "Explicit search requests expired observed advertising-entry authority, but a product GET whose actual redirect chain entered another search retained earlier authority.",
+  "controlled_red": {
+    "failed": 4,
+    "passed": 0,
+    "same_both_observed_policies": true,
+    "ends_at_search_and_returns_to_product_cases": true,
+    "failure": "Expected permission denial did not occur."
+  },
+  "correction": "Expire earlier source links when an explicit non-search navigation actually enters any allowed search route, whether the final document is a search or a product. Cursor-only reads introduce no new navigation.",
+  "scope_expansion": false,
+  "existing_v4_v5_verdicts_unchanged": true,
+  "new_host_live_authorization_still_pending": true,
+  "affected_tests": {
+    "passed": 190,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true
+  },
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0,
+    "serial_build": true,
+    "build_servers_disabled": true,
+    "earlier_local_interruption_and_cache_contention_not_counted_as_pass": true
+  },
+  "private_log_sha256": {
+    "amazon-source-expiry-red.log": "547f107437569264da93479faff0b39a561a44bcc6aa24f63d75f193364dfb0f",
+    "amazon-source-expiry-green.log": "b867f78c3cc0cf630ea4658a62a504cb72c9ba138cf06371926bbbeea1efc42f",
+    "amazon-source-expiry-release-build.log": "659b4dce7ad148ce166896c6f882ad6bf1b0c9904564fa82fbce7d2a74d439f8",
+    "amazon-source-expiry-release-build-interrupted.log": "060245c6d00ae15e7fc2e7d93b413427d6a512ea3e65dd90fa56df14952df2f9",
+    "amazon-source-expiry-release-build-cache-contention.log": "3b75c6bfecdc07c22e9176a206e112c81b90be95b20ff9d2ab94dd065b18afa9"
+  },
+  "superseded_full_run": {
+    "source": "7d874e67b19a26a5148e96c89b30e5a9be258838",
+    "status": "stopped_incomplete",
+    "partial_results_are_not_final_validation": true
+  },
+  "limitations": [
+    "Controlled permission tests only; no outbound navigation to the new host.",
+    "Full final-source validation must be restarted after the correction.",
+    "The new sponsored-host scope and Code provider amendment still require the pending external authorization/input."
+  ]
+}

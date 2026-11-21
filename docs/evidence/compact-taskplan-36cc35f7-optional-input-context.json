@@ -1,0 +1,78 @@
+{
+  "production_source": "36cc35f76ff8a10d375671e86f5b3b8d62042bd9",
+  "control_production_source": "11eac1ad2cd3fa14605b553a9db53887d38d2c0d",
+  "demonstrated_context_failure": {
+    "run": "compactm11eac1adamz11a-amazon-1",
+    "requests": [
+      37,
+      38
+    ],
+    "contract_id": "cap_490d9e16075cbdca5954ec27",
+    "contract_version": "488b645a02d1be76897665e0d6adbff90939b989ecd519ad81fce24430f3f835",
+    "original_optional_input_exists": true,
+    "known_earlier_task_uses_same_original_input": true,
+    "short_id_rows_lacked_original_field_paths": true,
+    "reading_a_different_branch_removed_remaining_rows": true,
+    "model_response_concluded_url_input_unavailable": true,
+    "complete_request_bytes": [
+      31098,
+      44368
+    ],
+    "estimated_input_tokens": [
+      10622,
+      15046
+    ],
+    "request_sha256": {
+      "37": "85a3c95677813ab84e24aa3846c323cd7f501170e746ad032f09ef3212ac2268",
+      "38": "db5e2ce88e35b3aa53507f84d08d1ce4a21e680d356e1c29c2d8376c18b02daa"
+    }
+  },
+  "correction": {
+    "description": "Reuse bounded optional-input navigation with original pointer and retrieval ID rows, retain it after other evidence, and map those rows through existing request-bound evidence handling.",
+    "optional_inputs_remain_omitted_from_editable_grammar_until_exact_schema_retrieval": true,
+    "original_contracts_changed": false,
+    "permissions_changed": false,
+    "new_persisted_state": false,
+    "new_protocol_or_recovery_subsystem": false,
+    "removed_symbols": [
+      "PlanningCompactConstruction.SuppliedContractEvidence"
+    ],
+    "commit_line_counts": {
+      "added": 62,
+      "deleted": 14,
+      "production_csharp_added": 6,
+      "production_csharp_deleted": 11
+    },
+    "diff_from_2d09aaee": {
+      "all_added": 1187,
+      "all_deleted": 2339,
+      "production_csharp_added": 198,
+      "production_csharp_deleted": 482
+    }
+  },
+  "validation": {
+    "reproduced_before_fix": true,
+    "focused_tests_passed": 114,
+    "full_planning_suite_passed": 2284,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "counts_overlap_and_are_not_added": true,
+    "fixture_checks": [
+      "Readable optional field after another original branch was inspected",
+      "Raw short ID response obeys the ordinary issued schema",
+      "Exact optional schema retrieval precedes new binding authority",
+      "Remaining optional branches stay retrievable",
+      "Original contract unchanged",
+      "Zero corrections for evidence-only navigation",
+      "Technical checkpoint acceptance with exact typed arguments"
+    ],
+    "full_planning_log_sha256": "55dc9a3dbf0bb479f7c44597eacbfb37830809b9cf3e028f61b3391f7974c78b"
+  },
+  "live_effect": "Unproven; a separately frozen unchanged-profile diagnostic has started. No eliminated-call or runtime-success claim.",
+  "remaining_demonstrated_limits": [
+    "A local Judge approved an extraction using the wrong semantic output port in the control.",
+    "Selection repeated navigation after accepting a producer.",
+    "No final artifact or runtime acceptance in the control."
+  ],
+  "qualification": "incomplete"
+}

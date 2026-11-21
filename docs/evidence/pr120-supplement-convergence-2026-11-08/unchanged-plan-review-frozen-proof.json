@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "source": "72f17ca7fb7b81664e778e4fb6ae791e25ffdbc7",
+  "run": "boundary-qualification-20261109-03",
+  "session_id": "f5f4ea31056746649b2090450b767562",
+  "scenario": "review-boundary",
+  "boundary": {
+    "version": "unchanged-business-review-boundary-v1",
+    "observed": true,
+    "block_id": "block_1",
+    "contribution_checkpoints": [
+      1
+    ],
+    "review_checkpoint": 2,
+    "accepted_plan_hash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+    "reviewed_plan_hash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+    "added_task_count": 0,
+    "closed_scope_count": 0,
+    "closed_original_requirement_count": 0,
+    "root_open_during_review": true,
+    "selection_request_id": "f5f4ea31056746649b2090450b767562:6:42ffca2a77c5d3e203cc3624b6e519b4234633c548fc68ac1b9c48dc51be84f9:ad345cae0dd01d51c4c39d3e925777bc3ddbff5871ddeb0078e37dcaaedd9600",
+    "first_review_call": 7,
+    "drafting_echo_between_selection_and_review": false,
+    "review_request_id": "f5f4ea31056746649b2090450b767562:7:8e55a9a3b37eda2b93853439467cf246600d7f881f2d10de62c5443648372d69:db9bf82e39e24e770d81adcfb9a2447991fd782d83a8aa4b591ed84438653729",
+    "review_verdict": "ok"
+  },
+  "build_source_verified": true,
+  "scope": "Targeted protocol-prefix proof; no complete workflow, global approval or execution qualification.",
+  "accepted_contribution": {
+    "sequence": 1,
+    "baseHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "planHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+    "taskIds": [
+      "line_pricing"
+    ],
+    "closedRequirementIds": [],
+    "closedScopes": []
+  },
+  "review_claim": {
+    "sequence": 2,
+    "baseHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+    "planHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+    "taskIds": [],
+    "closedRequirementIds": [],
+    "closedScopes": [],
+    "step": {
+      "discoveryProtocol": 2,
+      "blockId": "block_1",
+      "id": "step_2",
+      "baseHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+      "scope": "/root",
+      "kind": "close",
+      "objective": "Establish the line price for two units from the required runtime unitPrice input, providing a useful line-pricing contribution without claiming business completion or closing either original requirement.",
+      "requirementIds": [
+        "req_0",
+        "req_1"
+      ],
+      "inputTaskIds": [],
+      "inputs": [],
+      "dependencyTaskIds": [],
+      "expectedOutputs": [
+        "Numeric lineTotal equal to unitPrice multiplied by 2, available for subsequent invoice handling and as one of the two required final public outputs.",
+        "An unchanged line-pricing contribution eligible for business review in the following planning decision; acceptance alone does not establish review success or observed execution."
+      ],
+      "operationIds": [],
+      "schemaPointers": [],
+      "closeRequirementIds": [],
+      "closeScopes": [],
+      "outputNames": [],
+      "discoveryComplete": true
+    },
+    "fragment": {
+      "scope": "/root",
+      "tasks": [],
+      "outputs": [],
+      "businessReviewPending": false,
+      "complete": false,
+      "completeBlock": true,
+      "acceptedConsumers": [],
+      "acceptedClaimsHash": "bb7409a2a4ee2d99d41166b4dd8def2b00008a03db7b88d26075c377ab5ba58d"
+    }
+  },
+  "local_review": [
+    {
+      "purpose": "construction_local_judge",
+      "outcome": "ok",
+      "requestId": "f5f4ea31056746649b2090450b767562:7:8e55a9a3b37eda2b93853439467cf246600d7f881f2d10de62c5443648372d69:db9bf82e39e24e770d81adcfb9a2447991fd782d83a8aa4b591ed84438653729",
+      "baselineHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+      "candidateHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+      "reviewedTaskIds": [
+        "line_pricing"
+      ],
+      "openScopes": [
+        "/root"
+      ],
+      "claims": {
+        "scope": "/root",
+        "requirements": [
+          "req_0",
+          "req_1"
+        ],
+        "closedRequirements": [],
+        "closedScopes": [],
+        "complete": false,
+        "step": {
+          "discoveryProtocol": 2,
+          "blockId": "block_1",
+          "id": "step_2",
+          "baseHash": "e8b9fba7bb06608af5a2f209ca96dbb13b55e61f114114950a06e8fc81433ffb",
+          "scope": "/root",
+          "kind": "close",
+          "objective": "Establish the line price for two units from the required runtime unitPrice input, providing a useful line-pricing contribution without claiming business completion or closing either original requirement.",
+          "requirementIds": [
+            "req_0",
+            "req_1"
+          ],
+          "inputTaskIds": [],
+          "inputs": [],
+          "dependencyTaskIds": [],
+          "expectedOutputs": [
+            "Numeric lineTotal equal to unitPrice multiplied by 2, available for subsequent invoice handling and as one of the two required final public outputs.",
+            "An unchanged line-pricing contribution eligible for business review in the following planning decision; acceptance alone does not establish review success or observed execution."
+          ],
+          "operationIds": [],
+          "schemaPointers": [],
+          "closeRequirementIds": [],
+          "closeScopes": [],
+          "outputNames": [],
+          "discoveryComplete": true
+        },
+        "continuationBinding": null,
+        "boundaryTransitions": null,
+        "completeBlock": true,
+        "businessBlock": {
+          "objective": "Establish the line price for two units from the required runtime unitPrice input, providing a useful line-pricing contribution without claiming business completion or closing either original requirement.",
+          "requirementIds": [
+            "req_0",
+            "req_1"
+          ],
+          "informationNeeds": [
+            "One required numeric public input, unitPrice, bound at runtime with no default."
+          ],
+          "expectedResults": [
+            "Numeric lineTotal equal to unitPrice multiplied by 2, available for subsequent invoice handling and as one of the two required final public outputs.",
+            "An unchanged line-pricing contribution eligible for business review in the following planning decision; acceptance alone does not establish review success or observed execution."
+          ],
+          "dependencies": [],
+          "successCriteria": [
+            "Line pricing uses native arithmetic, with no external effects or runtime inference.",
+            "No default substitutes for the required runtime unitPrice.",
+            "The contribution specifies lineTotal = 2 \u00d7 unitPrice and leaves invoice handling outstanding.",
+            "After acceptance, the next planning decision requests business review of this unchanged contribution without adding executable work or closing a scope or original requirement.",
+            "Invoice handling proceeds only after that review succeeds; final delivery remains exactly the numeric public outputs lineTotal and invoiceTotal, followed by ordinary global review."
+          ]
+        }
+      }
+    }
+  ],
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_qualified": false,
+  "stopped_after_prefix_achieved": true,
+  "private_evidence_sha256": {
+    "boundary03-final.json": "4675ac31866c231367422f7a964b6ed8160acc30cc9690d793bc5e3b95942bbc",
+    "boundary03-final-receipts.json": "ee7775221007297a9f157c7e4da6a5edd1329830418352dfd22f04c5a0971116",
+    "boundary03-protected-stop.log": "a442b11e6d730ac00f47bdd72b389a8a07fa2b1a7b514ed680dfc080aed8f436",
+    "final72-release-build.log": "cfe941ab35500c4db860d5ec82070be986beeaeb285303034ab3301fe9739883",
+    "boundary03-before-campaign-retention-applied.json": "7160e0c3cab83819ef717fd01c9ef027a4c217bfa46702f58b65112c0e1540cc",
+    "boundary03-retained-final-audit.json": "f3323817bbb8b3cc0da63ba7a838b3a67355362435f7b213f4db67182c125c93"
+  },
+  "retention": {
+    "kind": "cancelled-before-campaign-envelope",
+    "evidence_hash": "b8be2d66f34ce0bc3a00d0af72a7cc3635aefa27a553822e28c2b00e652b44c4",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "dispatch_certainty": "unknown",
+    "campaign_envelope_absent": true,
+    "server_application_reservation_eur": "6.147756381549485"
+  }
+}

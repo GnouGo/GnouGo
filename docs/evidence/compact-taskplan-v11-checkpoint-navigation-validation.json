@@ -1,0 +1,36 @@
+{
+  "base": "6c1b5ed91e3663704d06a5c681bf765abb670d63",
+  "owning_tests": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 147
+    },
+    "elapsed_seconds": 25.91056433302583,
+    "source_unchanged": true,
+    "log_sha256": "12a3426f25523a46feec09aa63736dfee257e54e7ca691f3123a69e88160f45b"
+  },
+  "source_manifest_sha256": "6b78b52a95ef8b3535fb4fe172762d044ae681634c2a62c12237c973aeb11246",
+  "reconstruction": {
+    "classification": "Frozen context reconstruction; equality is checked against retained rejection measurements",
+    "baseline_bytes": 24084,
+    "baseline_tokens": 8284,
+    "baseline_request_hash": "998cbd9e1075cd5102e40b42f9b70285267eb5c6d57cc9cc8821cb660f80d932",
+    "baseline_schema_hash": "00e174af3405baa235ecbf852c03a6e73e3498136247bacd573bac5ec01dee53",
+    "expected_request_hash": "998cbd9e1075cd5102e40b42f9b70285267eb5c6d57cc9cc8821cb660f80d932",
+    "expected_schema_hash": "00e174af3405baa235ecbf852c03a6e73e3498136247bacd573bac5ec01dee53",
+    "exact_match": true,
+    "candidate_bytes": 23132,
+    "candidate_tokens": 7967,
+    "candidate_request_hash": "c4a41780f22b21910139dca0efe62eb0deefa958e73bf689c59ae717de4062f6",
+    "candidate_schema_hash": "00e174af3405baa235ecbf852c03a6e73e3498136247bacd573bac5ec01dee53",
+    "model_calls": 0,
+    "ledger_mutations": 0
+  },
+  "reconstruction_program_sha256": "d4a2333bb9ec631b2b386ae207ebb8462d0f09b053f95b7b1e3f6b40f2457eec",
+  "reconstruction_project_sha256": "f5e5fb48d8c5b300cd74e595e3d461d0c55a64c8064dae78f2b13af25a7e3a16",
+  "production_postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidence.cs": "341cb462e1c496f8a5ca364b8b5c4b86734b2059d7efb5dbad15769d9389b04b"
+  },
+  "coverage": "Checkpoint-navigation compaction only; exact originals, consumed interfaces, controls, contracts, coverage and requested evidence remain intact. Idempotent and no review authority.",
+  "business_outcome": "Fresh live qualification still required."
+}

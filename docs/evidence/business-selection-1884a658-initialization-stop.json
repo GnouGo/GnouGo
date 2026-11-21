@@ -1,0 +1,46 @@
+{
+  "observed_at_utc": "2026-10-30T16:23:44Z",
+  "source": "1884a65866d1143cd982f24c05eb87b3a7d029c7",
+  "run": "biz1884a658amz01-amazon-1",
+  "run_phase": "final",
+  "planner_status": "created",
+  "classification": "pre_dispatch_construction_selection_contract_mismatch",
+  "failure_type": "GnOuGo.Flow.Core.Planning.PlanningConflictException",
+  "failure_message": "This retained session has a different construction selection contract. Preserve its issued work and use its captured source; do not relabel technical steps as business blocks.",
+  "model_calls": 0,
+  "physical_attempts": 0,
+  "repairs": 0,
+  "discovery_reads": 0,
+  "known_input_tokens": 0,
+  "known_output_tokens": 0,
+  "known_cost_eur": "0",
+  "unknown_attempts": 0,
+  "reserved_cost_eur": "0",
+  "productive_business_blocks": 0,
+  "issued_requests": 0,
+  "diagnostics": [],
+  "artifact_hash": null,
+  "execution_status": "not_started",
+  "snapshot_sha256": "e93fb67b1b0c6dd4b2a097aa0ec90257026175e892586f6437c00e3fdbb892b9",
+  "source_diagnosis": {
+    "status": "source inspection supporting failure, no rerun performed",
+    "boundary": "FreshPlanningRequest installs construction_limits, CaptureConstructionSettings initializes Compact without block metadata; AdvanceAsync validates the business contract before fresh PlanningSessionCreation.Capture can install it.",
+    "guard": "HybridWorkflowPlanner.cs:21",
+    "fresh_capture": "HybridWorkflowPlanner.cs:40",
+    "fresh_benchmark": "LiveWorkflowEvaluation.cs:211",
+    "historical_contract_must_remain_rejected": true
+  },
+  "limitations": [
+    "No business selection, generated fragment, business review or artifact was reached.",
+    "No convergence or model behavior conclusion is supported.",
+    "Read-only observation only; root owns financial reconciliation and any future action."
+  ],
+  "financial_reconciliation": {
+    "campaign_transport_accounting_unchanged": true,
+    "known_cost_eur": "392.51927168833111143330692377",
+    "reserved_cost_eur": "125.68706630952572698966405760",
+    "available_eur": "221.82376583484946611947396593",
+    "unknown_reservations_released": false,
+    "run_replayed": false
+  }
+}

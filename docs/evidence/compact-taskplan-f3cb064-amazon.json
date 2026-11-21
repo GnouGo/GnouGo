@@ -1,0 +1,295 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-23T17:31:03.036908+00:00",
+  "cohort": "compactaf3cb064f8amz",
+  "scenario": "amazon",
+  "run_key": "run:compactaf3cb064f8amz-amazon-1",
+  "run_hash": "3727b25d9f922a0497c5a1635701555c97d45e53b1104389177e5d350e7ef11a",
+  "source": "f3cb064f826343ae31fede4b2d2a7687fd59fc9e",
+  "production_validation_source": "f3cb064f826343ae31fede4b2d2a7687fd59fc9e",
+  "frozen_identity": {
+    "freeze_sha256": "5a29adb16764b0efb723fc15f9ffaf995b9eb47cca5c16de39c2243ad73dd6aa",
+    "benchmark_binary_sha256": "9d42201687e4703f979e5ebf9300f8abef0b61c47493fc61b58c02bbf32f6bec",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "verified_mcp_file_count": 568,
+    "oracle_version": "amazon-business-v4",
+    "oracle_and_input_file_hashes": {
+      "tests/Shared/PlanningBenchmarkCases.cs": "a25de6fc75d94a06c5dc8fce96d04eb09ba4132caec76f35e7f644912433f998",
+      "tests/Shared/PlanningCorpus.cs": "28cabb7aa715a0008dd896e8e26b29d34c1ff6ac8b05b0519b48d52d1cf7404d",
+      "tests/Shared/PlanningBenchmarkMeasurements.cs": "c0169a9f07542d647e22176d58f023bba5eee935b68f0dab8784058ccbeb0ab7",
+      "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "2af0ea7cec05bca7d78b751a03094d96b94b49c05a24f79f13470a25f561ea1d",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LocalExecutionCases.cs": "c82c840daa0d24a07fff5e3d321d9fa98217afe42e65e27ba06c10ea07c9fd20",
+      "tests/GnOuGo.Agent.Planning.Benchmark/SyntheticArtifactOracle.cs": "0d121463cd5e659af725d4029671af441fe2605dc4a393fcc1c16394c103140d",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.cs": "0d8051d1a9d21b0697e55e25c347b17997eda636180a6cdb5c0652a344a9858c",
+      "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "0de12b163f5e3f0fc216a8950606a7e28c15a05a51dc47ea86d942bcd57867e5",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "7d669040d0c3e85ca3df1f8a18fa8aecd689b11de628c260e65a90e66ad157ca",
+      "tests/GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs": "378e3ef422bb04ca48926e76ee0c4f803dd5a6629d33bc0318e68c188d20d5c3"
+    },
+    "validation_files_at_freeze": {
+      "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/judge-evidence-admission/source-validation/validation-combined-safe.json": "d653188dabfccd5d104f509bb4707712473463563b0154236573dea1e60fb76c"
+    }
+  },
+  "configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "medium-navigation-output32768",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "low_profile_tested": false
+  },
+  "outcome": {
+    "status": "incomplete",
+    "session_status": "stopped",
+    "session_phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "calls": 2,
+    "corrections": 0,
+    "checkpoints": 0,
+    "judge_calls": 0,
+    "construction_complete": false,
+    "artifact_created": false,
+    "execution_started": false,
+    "business_oracle_passed": null,
+    "useful_obligations": [
+      "search",
+      "observed_product_order",
+      "exact_product_fields",
+      "workbook",
+      "cleanup",
+      "truthful_result"
+    ],
+    "obligation_authority_sha256": "2118919ab93d66e45627d03c30b1d770a287489d33c9865112b224cbb9610e50",
+    "independently_satisfied_obligations": 0,
+    "calls_per_satisfied_obligation": null,
+    "ratio_status": "undefined: no accepted artifact or independently verified execution"
+  },
+  "failure_findings": [
+    {
+      "calls": [
+        2
+      ],
+      "finding": "Interface extraction returned a fully receipted output_limit completion: all 32,768 output tokens were reported as reasoning, with no visible output or response text. Construction stopped before any draft, Judge, checkpoint or execution.",
+      "status": "known output-exhaustion failure, not uncertain transport",
+      "causality": "The receipt does not establish why reasoning exhausted the allowance. No default-feedback, author-progress or Judge-evidence correction efficacy was measured."
+    }
+  ],
+  "measurements": {
+    "scope": "Both constructed requests were admitted, dispatched once and fully receipted. There are no prepared-only or rejected-before-dispatch requests in this run.",
+    "totals": {
+      "request_identities": 2,
+      "http_attempts": 2,
+      "receipts": 2,
+      "unknown_attempts": 0,
+      "empty_completed_responses": 1,
+      "known_input_tokens": 2303,
+      "known_output_tokens": 34444,
+      "known_reasoning_tokens": 34155,
+      "reasoning_measured_calls": 2,
+      "known_cost_eur": "0.9324721106648817492190986167",
+      "unknown_usage_reservation_eur": "0",
+      "cost_upper_bound_eur": "0.9324721106648817492190986167"
+    },
+    "phases": {
+      "construction_intent": {
+        "constructed_requests": 2,
+        "admitted_requests": 2,
+        "rejected_before_dispatch": 0,
+        "complete_request_bytes": {
+          "count": 2,
+          "p50": 6106,
+          "p95": 9233,
+          "maximum": 9233,
+          "total": 12212
+        },
+        "estimated_input_tokens": {
+          "count": 2,
+          "p50": "2291.5",
+          "p95": 3334,
+          "maximum": 3334,
+          "total": 4583
+        },
+        "component_sizes": {
+          "diagnostics": {
+            "serialized_bytes": 52,
+            "estimated_tokens": 18
+          },
+          "envelope": {
+            "serialized_bytes": 798,
+            "estimated_tokens": 779
+          },
+          "instructions": {
+            "serialized_bytes": 2355,
+            "estimated_tokens": 785
+          },
+          "intent": {
+            "serialized_bytes": 3109,
+            "estimated_tokens": 1037
+          },
+          "response_schema": {
+            "serialized_bytes": 5816,
+            "estimated_tokens": 1939
+          },
+          "evidence": {
+            "serialized_bytes": 23,
+            "estimated_tokens": 8
+          },
+          "interfaces": {
+            "serialized_bytes": 59,
+            "estimated_tokens": 20
+          }
+        },
+        "components_reconcile": true,
+        "within_input_limits": true,
+        "provider_usage": {
+          "dispatched_calls": 2,
+          "receipts": 2,
+          "provider_input_tokens": 2303,
+          "provider_output_tokens": 34444,
+          "provider_reasoning_tokens": 34155,
+          "visible_output_tokens_derived": 289,
+          "known_cost_eur": "0.9324721106648817492190986167",
+          "completed_call_latency_ms": "278951.7879"
+        }
+      }
+    },
+    "planning_ms": 283619,
+    "completed_call_latency_ms": "278951.7879",
+    "runtime_ms": null,
+    "component_estimates_are_billed_usage": false,
+    "reasoning_tokens_included_in_output_tokens": true,
+    "response_format": {
+      "completed_responses": 2,
+      "original_response_text_bytes": 1151,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run_bytes": 0,
+      "empty_response_texts": 1,
+      "interpretation": "The first receipt has 1,151 original-text bytes and no outside-string formatting whitespace; the second is a known empty output-limit receipt. Format observations do not establish a cause."
+    }
+  },
+  "decisive_evidence": [
+    {
+      "call": 2,
+      "phase": "construction_intent",
+      "request_id": "compactaf3cb064f8amz-amazon-1:2:0cc93323dbbe413302849929ff4bcd368b292c376d6878a70616af982a7dba5f",
+      "request_hash": "8768cb7b6df8ab8ee4e5371bf93799f451076e1276d2adc7c579dec9e6acbc30",
+      "schema_hash": "3ce96e3a4f7aeb54ca97d6897a30cfe43ff78e806735184908a3251210c554c6",
+      "receipt_hash": "db4cbfd4436171930a618c01ce1c467097526c86d87d94bdab46c5eb577e6ab9",
+      "http_attempt_hash": "2917d3d5c8305905de1b1e3956743f5de91613a2691a9411564cc1863a08592c",
+      "response_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "original_response_text_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "http_status": 200,
+      "completion_status": "output_limit",
+      "complete_request_bytes": 9233,
+      "estimated_input_tokens": 3334,
+      "input_ceiling": 12000,
+      "provider_input_tokens": 1786,
+      "provider_output_tokens": 32768,
+      "provider_reasoning_tokens": 32768,
+      "visible_output_tokens_derived": 0,
+      "elapsed_ms": "255490.0251",
+      "known_cost_eur": "0.8852922802320392681838464971"
+    }
+  ],
+  "campaign_snapshot": {
+    "scope": "Read-only post-Amazon audit; not a later current balance while Review PR runs.",
+    "campaign": "schema-portability-20261019-incremental",
+    "audit_file_sha256": "86cc04ba91cba2eb649016b8dd1cf9e8445cb449b25ef21be7a75f66fd2f84f9",
+    "audit_evidence_hash": "30a5c6c3925599b8b2ac8631909f93557e26031360af659f37303e0d358ef9a5",
+    "reserved_requests": 1762,
+    "completed_receipts": 1741,
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "transport_accounting": {
+      "calls": 1762,
+      "session_calls": 0,
+      "known_input_tokens": 3995636,
+      "known_output_tokens": 1703373,
+      "known_cost_eur": "63.269077035652310358171927614",
+      "reserved_input_tokens": 217657,
+      "reserved_output_tokens": 335872,
+      "reserved_cost_eur": "9.942081545174150198352579727",
+      "cost_upper_bound_eur": "73.211158580826460556524507341",
+      "unknown_attempts": 20
+    },
+    "available_eur": "166.818945251879843985920439959",
+    "uncertain_request_identities": 21,
+    "permanently_retained_request_identities": 21,
+    "unclosed_uncertain_request_identities": 0,
+    "transport_unknown_attempts": 20,
+    "count_interpretation": "21 permanently retained receiptless identities and 20 transport unknown-attempt records are different metrics. All original reservations remain retained; this Amazon run adds no uncertainty.",
+    "balance_cross_check": {
+      "before_dispatch_available_eur": "167.751417362544725735139538575",
+      "before_minus_run_eur": "166.8189452518798439859204399583",
+      "post_audit_minus_before_minus_run_eur": "7E-28",
+      "interpretation": "The audit ceiling minus its recorded upper bound agrees exactly. The sub-1e-27 EUR difference from subtracting the run cost is retained as recorded decimal evidence without adjustment."
+    }
+  },
+  "comparison": {
+    "paired_comparison_started": false,
+    "frozen_profile_change": {
+      "from_cohort": "compacta2d6cbceamz",
+      "settings_unchanged": true,
+      "source_changed": "Freshv4 exact default diagnostics, author progress guidance and bounded Judge evidence batch admission. Original contracts, schemas outside narrowed follow-up, validation, execution and ceilings unchanged.",
+      "setting_change": null,
+      "comparison_limit": "Fresh source diagnostic; fixed model/reasoning/phase settings, MCPbinaries, scenario/oracles. No causal claim before independent results."
+    },
+    "baseline_comparability": "No complete baseline/candidate pair or successful business workflow is established. No architecture-only, reasoning, formatting, cost-causality or avoided-correction claim.",
+    "validation_scope": "Exact-source deterministic/publication validation is reported separately from this live diagnostic; validation listed at freeze does not establish business acceptance."
+  },
+  "source_evidence_index": [
+    {
+      "name": "freeze.json",
+      "sha256": "5a29adb16764b0efb723fc15f9ffaf995b9eb47cca5c16de39c2243ad73dd6aa",
+      "bytes": 5433
+    },
+    {
+      "name": "amazon-safe-metrics.json",
+      "sha256": "e8676069e3efaf8bfaa71c7bbcdedf91d931fe2fe5f7d68176b87469f0b11638",
+      "bytes": 10092
+    },
+    {
+      "name": "amazon-response-format-metrics.json",
+      "sha256": "183127f304b0e37ede12790e7cd27e16ec3ee60ee039130d44860e7a5c3a5f04",
+      "bytes": 840
+    },
+    {
+      "name": "campaign-post-amazon-audit.json",
+      "sha256": "86cc04ba91cba2eb649016b8dd1cf9e8445cb449b25ef21be7a75f66fd2f84f9",
+      "bytes": 5631
+    }
+  ],
+  "scope": "Safe metadata only from the four authorized files; no raw prompts, receipts, credentials, artifacts or store reads. Monetary values are exact decimal strings; prior archives remain immutable."
+}

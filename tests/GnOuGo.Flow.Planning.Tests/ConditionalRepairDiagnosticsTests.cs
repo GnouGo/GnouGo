@@ -44,7 +44,7 @@ public sealed class ConditionalRepairDiagnosticsTests
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/use/inputs/parameters");
         Assert.Contains(state.Diagnostics, d => d.Code == "TASK_TRANSFORM_CONSTRAINT" && d.Location == domain);
         Assert.Equal(new[] { domain, "/tasks/use/inputs/parameters" }, state.RevisionScope);
-        var request = new PlanningPrompt(state).Request();
+        var request = RepairPatchTests.Request(state);
         var slot = Assert.Single(RepairPatchTests.Slots(state), s => s.Location == domain);
         var repaired = PlanningRepairPatch.Apply(state, new() { Edits = [new() { Slot = slot.Id, Action = "replace", Value = new JsonArray("item/a", "item/b") }] }, request);
         Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);

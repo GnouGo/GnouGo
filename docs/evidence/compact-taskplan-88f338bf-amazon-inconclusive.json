@@ -1,0 +1,110 @@
+{
+  "source": "88f338bf3b93f96d67b7ce7385c2b6f446a91865",
+  "cohort": "compactr88f338bf3amz22j20v8p8a",
+  "comparison_role": "fresh88 candidate against exact retained60 Amazon control; profiles and oracles frozen unchanged",
+  "freeze_sha256": "c0521c819c651b75d250ee2f4fd640dea42a6890e82bd280211eb1ea829dd3c3",
+  "status": "stopped",
+  "logical_requests": 2,
+  "physical_attempts": 2,
+  "receipts": 1,
+  "corrections": 0,
+  "planning_ms": 381384,
+  "accepted_checkpoints": 0,
+  "artifact_available": false,
+  "execution_started": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "diagnostic_codes": [
+    "MODEL_DISPATCH_UNVERIFIABLE"
+  ],
+  "failure_classification": "Receiptless transport failure with no HTTP response/body, not a received empty or exhausted model response.",
+  "unknown_request_id": "compactr88f338bf3amz22j20v8p8a-amazon-1:2:5c54dbd7610ede8d775d43a88d5cc34a4a4612c441991dd9d98ec0ff5cb88f3e",
+  "unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+  "known_cost_eur": "0.1033511825078090138331102187",
+  "known_input_tokens": 535,
+  "known_output_tokens": 3771,
+  "known_reasoning_tokens": 3459,
+  "empty_received_responses": 0,
+  "request_metrics": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_requests": 2,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 6312,
+        "p95": 9533,
+        "maximum": 9533,
+        "total": 12624
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2360.5",
+        "p95": 3434,
+        "maximum": 3434,
+        "total": 4721
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 866,
+          "estimated_tokens": 801
+        },
+        "instructions": {
+          "serialized_bytes": 2367,
+          "estimated_tokens": 789
+        },
+        "intent": {
+          "serialized_bytes": 3441,
+          "estimated_tokens": 1147
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    }
+  },
+  "retention_inspection": {
+    "evidence_hash": "c1c67c237693355f3a36e6142ff533d41bc5ac0fd07039f73dfbc5c650c9f6dc",
+    "mode": "exhausted-planning-retries",
+    "authorized": false,
+    "applied": false,
+    "reservation_retained_on_apply": true,
+    "replay_and_continuation_forbidden_on_apply": true
+  },
+  "campaign_accounting": {
+    "known_cost_eur": "215.87692621012799085794881293",
+    "reserved_cost_eur": "65.122509925361566530347224969",
+    "cost_upper_bound_eur": "280.99943613548955738829603790"
+  },
+  "available_eur": "159.03066769721674715414890940",
+  "available_basis": "High-precision subtraction of exact authorized ceiling minus inspected campaign upper bound; uncertainty still blocks dispatch.",
+  "limitations": [
+    "No business, convergence, Judge-efficiency or comparative-efficacy result. Both issued requests were intent phase; no proposed artifact or scoped Judge reached.",
+    "Missing response usage remains unknown. No unchanged retry, replay, run continuation or reservation release.",
+    "Prepared request estimates are not provider-billed tokens."
+  ],
+  "evidence_sha256": {
+    "freeze.json": "c0521c819c651b75d250ee2f4fd640dea42a6890e82bd280211eb1ea829dd3c3",
+    "amazon-planning.jsonl": "52b99d58e31753b07919df7cbf0addd8f22f831dccc0e2c44792de0d6d3172bd",
+    "metrics-private.json": "b1596967f8ccd131628d20a6c1b6f85b638c22166cbf3e2d0006c77ecbebe137",
+    "state-private.json": "00971398b8af66de5985a596b31818efca3944643ca3f936d6a18c045bd761af",
+    "uncertain-request-private.json": "76bd4833314fc27b6b9d81daab685f350f96decd0742c2003250aaab8e0bafd7",
+    "retention-inspection.json": "4984eeab12de0148fa920d39d99539cc5b7f8fdf6419cdb86056efe81588e507",
+    "retention-command-safe.json": "dd33578b01742fc22979b7bf048cde78349ddd48b3ef139cdfd470eef22001e2"
+  }
+}

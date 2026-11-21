@@ -1,0 +1,111 @@
+{
+  "source": "a955474faf5af3c51e45f39400053fc35592828e",
+  "run": "code-qualification-20261108-09",
+  "session_id": "c411a77e764642b18c418b1e59349d40",
+  "status": "cancelled",
+  "logical_calls": 31,
+  "corrections": 3,
+  "accepted_checkpoints": 0,
+  "resolved_contracts": 2,
+  "http_attempts": 31,
+  "unresolved_http_attempts": 1,
+  "measured_usage_tariff_estimate_eur": "7.5606448723690103000447828031",
+  "unresolved_http_reservation_eur": "1.9479444693237796686072548141",
+  "stop": "Protected operator stop; exact final pending request permanently retained. Never resume this cancelled run.",
+  "stop_limitations": "The initial exact-pending guard raced and a private helper invocation used the wrong DLL name. Both were corrected before the successful protected stop at call 31.",
+  "cause": "The run selected Git clone and CodeAgent together at call 19, then abandoned drafting at call 20 because cleanup and other lifecycle dependency contracts were missing. Further description/source reads acquired no additional exact contracts. Runtime-prerequisite guidance prevented the earlier metadata-echo task but did not establish useful business progress.",
+  "controlled_probes": [
+    {
+      "run": "code09-bundle-20261108-01",
+      "control_exact_http_body": true,
+      "original_context_and_every_original_prompt_byte_preserved": true,
+      "same_response_schema_and_other_http_fields": true,
+      "inserted_utf8_bytes": 0,
+      "prompt_sha256": "da238bf14e1dd948c0d466d471c979013ee6dc08a3839b5709f8b8a497185154",
+      "request_body_sha256": "08adb0965a7b57a8e3cc95e604a26738ad4e2cd432b13ff10fdc079575cb1a76",
+      "response": {
+        "discoveryRequests": null,
+        "evidenceRequests": {
+          "batch": [
+            "eef2cc14f_16"
+          ]
+        },
+        "reselectStep": null,
+        "clarifications": null,
+        "binding": null
+      },
+      "cost_eur": "0.2942767577250335871025526198",
+      "contract_acquisition_or_binding": false,
+      "business_contribution": false,
+      "http_status": 200,
+      "finish_reason": "stop",
+      "completed_response_with_known_usage": true
+    },
+    {
+      "run": "code09-bundle-20261108-02",
+      "control_exact_http_body": false,
+      "original_context_and_every_original_prompt_byte_preserved": true,
+      "same_response_schema_and_other_http_fields": true,
+      "inserted_utf8_bytes": 558,
+      "prompt_sha256": "b354ad99118dc300ed111c5fca16ce7b5e6640c571349d3b5d172a20075c0332",
+      "request_body_sha256": "5a853bc0504fba6f24dcf946fe3feb9c03577dab0a715ae4f70fe76e03f71858",
+      "response": {
+        "discoveryRequests": [
+          {
+            "sourceId": "source_d15a1ef6ddddd137066d25b7",
+            "cursor": null,
+            "query": null,
+            "operationIds": null,
+            "focusId": "focus_2413f2d88d22c970d5c84a25",
+            "justification": "La description annonce GitHub Copilot et des opérations sûres sur les fichiers, adaptées à la qualification et à ses dépendances connectées de conservation locale des preuves et de nettoyage. Explorer cette page disponible pour compléter les descriptions déjà fournies, notamment les capacités de lecture, de matérialisation et de suppression nécessaires avant de sélectionner ensemble leurs contrats exacts. La précédente exploration ne démontre aucune absence de capacité."
+          }
+        ],
+        "evidenceRequests": null,
+        "reselectStep": null,
+        "clarifications": null,
+        "binding": null
+      },
+      "cost_eur": "0.3102910882221227048813255710",
+      "contract_acquisition_or_binding": false,
+      "business_contribution": false,
+      "http_status": 200,
+      "finish_reason": "stop",
+      "completed_response_with_known_usage": true
+    },
+    {
+      "run": "code09-identities-20261108-01",
+      "control_exact_http_body": false,
+      "original_context_and_every_original_prompt_byte_preserved": true,
+      "same_response_schema_and_other_http_fields": true,
+      "inserted_utf8_bytes": 1219,
+      "prompt_sha256": "d35a2b859d34077c088c9247cb212865877621676eb07479e0518d19a42b7ebe",
+      "request_body_sha256": "50d2e67db60f2564af8758cace81d348c2016d782d3979e908deebc78d9b1c06",
+      "response": {
+        "discoveryRequests": null,
+        "evidenceRequests": {
+          "batch": [
+            "eef2cc14f_16",
+            "eef2cc14f_2",
+            "eef2cc14f_8"
+          ]
+        },
+        "reselectStep": null,
+        "clarifications": null,
+        "binding": null
+      },
+      "cost_eur": "0.3024451410658307210031347962",
+      "contract_acquisition_or_binding": false,
+      "business_contribution": false,
+      "http_status": 200,
+      "finish_reason": "stop",
+      "completed_response_with_known_usage": true
+    }
+  ],
+  "production_decision": "Keep both prompt-only variants diagnostic. Add metadata-only exact contract inspection through the existing discovery continuation.",
+  "limitations": [
+    "No accepted contribution or scenario qualification.",
+    "Probes apply no candidate or business effect.",
+    "All historical charges and uncertain holds remain retained.",
+    "Exact accepted-block unchanged-plan review boundary remains unproved."
+  ]
+}

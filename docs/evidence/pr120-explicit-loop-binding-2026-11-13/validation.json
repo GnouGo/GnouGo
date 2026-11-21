@@ -1,0 +1,33 @@
+{
+  "base_source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "implementation_commit": "cd45592e",
+  "isolation": "Separate detached worktree; actual Server remained on frozen base during checks.",
+  "configuration": "Release",
+  "warnaserror": true,
+  "final_regression_red": {
+    "passed": 7,
+    "failed": 1,
+    "skipped": 0,
+    "failure": "ArgumentException rejecting /tasks/iterate/items before dispatch/checkpoint"
+  },
+  "final_regression_green": {
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "affected_planning": {
+    "passed": 2989,
+    "failed": 0,
+    "skipped": 0
+  },
+  "regression_source_sha256": "2fa702a67da865674f95af1d92b8a23eca611b2425874dd456af7a28c32191c6",
+  "private_logs_sha256": {
+    "loop-items-final-red.log": "8bb92f9914f98172bfe0c5ff8ceab5ed287166b4ea6425c4b901e5505d80a2f6",
+    "loop-items-final-green.log": "4ef69e28f1abd6f415bb681afbb0fdd3bc85f100536a32501ec3d006dc113a68",
+    "loop-items-affected-planning.log": "144c638103cc1f164ed962ef637505570852146eea0827b789496dea78708527"
+  },
+  "production_main_changed_during_live": false,
+  "model_calls_for_correction_tests": 0,
+  "full_workflow_qualified": false,
+  "shared_solution_validation": "pending"
+}

@@ -1,0 +1,51 @@
+{
+  "source": "745a12fc11ae0c1c4254d2f6d49d298164b00bdc",
+  "identity": "empty-export-navigation-20261112-01",
+  "request_id": "empty-export-navigation-20261112-01:probe:17a4fe97b1574edf8c713c8adc29c0e7:4028d5b385b6823c4cfb29961c5993099c00f3171f9f3634c17a9654e06eee13",
+  "changed_context_bytes": 26,
+  "original_response_schema_retained": true,
+  "reasoning": "low",
+  "output_allocation": 4096,
+  "attempt": {
+    "StartedAtUtc": "2026-11-11T23:13:58.549981+00:00",
+    "CompletedAtUtc": "2026-11-11T23:14:42.956446+00:00",
+    "FirstByteAtUtc": "2026-11-11T23:14:41.725711+00:00",
+    "FirstOutputAtUtc": "2026-11-11T23:14:42.829463+00:00",
+    "LastByteAtUtc": "2026-11-11T23:14:42.954199+00:00",
+    "ProtocolComplete": true,
+    "UsageKnown": true,
+    "TerminationStatus": "stop",
+    "ProviderResponseId": "chatcmpl-EjBoR5gA9xbNkLT3QR1dTvAu0pDhA",
+    "Failure": null
+  },
+  "usage": {
+    "input_tokens": 28307,
+    "output_tokens": 176,
+    "total_tokens": 28483,
+    "benchmark_cost_eur": "0.7889744738020600089565606807",
+    "reasoning_tokens": 65,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "controlled_validation": {
+    "fresh_followup_omits_empty_export_address": true,
+    "exact_issued_map_valid": true,
+    "unchanged_response_schema_valid": true,
+    "requested_evidence_count": 5,
+    "all_requested_evidence_readable": true,
+    "complete_followup_admitted": true,
+    "source_session_modified": false,
+    "plan_modified": false,
+    "accounting_modified": false,
+    "accepted_plan": false,
+    "execution": false,
+    "independent_oracle": false
+  },
+  "accepted_plan": false,
+  "execution": false,
+  "independent_oracle": false
+}

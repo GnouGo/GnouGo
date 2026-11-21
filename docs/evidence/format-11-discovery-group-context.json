@@ -1,0 +1,89 @@
+{
+  "evidence_version": 1,
+  "baseline_revision": "34a891391fdf5151fcd545564b3134075fb3f87f",
+  "classification": "focused_working_tree_context_only_validation_not_runtime_acceptance",
+  "change": "DiscoveryContext reuses the existing owning GroupInterface for direct and nested group scopes, matching drafting.",
+  "source_files": {
+    ".agents/skills/gnougo-planning/SKILL.md": "a8b878c191bf0d1c24af3afe618483105ccdec797b139990e1846328afa0f88a",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "aad372b81c0803d8c77c6e78f92e0ecb5b9f25adea3c90f1e598a0b07f06bdc1",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactDiscoveryStepPresentationTests.cs": "55ed898d1f4b284c7eaec41d73521b317abea245116841273435a38936eee84d"
+  },
+  "owning_focused_tests": {
+    "unique_passed": 132,
+    "failed": 0,
+    "skipped": 0,
+    "scope": [
+      "CompactDiscoveryStepPresentationTests",
+      "CompactAcceptedTaskNavigationTests",
+      "CompactScopeInterfaceTests"
+    ],
+    "zero_build_warnings": true,
+    "targeted_overlap_not_added_to_full_suite": true,
+    "trx_sha256": "c487ee41c61cd0c1460530a79f52e287d2bd1d7cd358fcdefa245976d8339508",
+    "test_log_sha256": "42fe54039276bf42753c7c90924a10babe28cc9bace4758cd653c73459fa28d4",
+    "build_log_sha256": "623f39dffeaa566bcd9ca64c3aa89b46413e20be7c3703cc2745bf6835d861fa"
+  },
+  "exact_retained_request": {
+    "public_source": "34a891391fdf5151fcd545564b3134075fb3f87f",
+    "request_identity": "compactf34a89139amz11a-amazon-1:11:1645d33ae1829c467b59f3503d923e5df59c2cb308c73a6689b8101e42225911",
+    "raw_snapshot_sha256": "00f451bbe05bc1f6ff4c4b682eb143f4c8be2c2dc7df3f0b904e5f79bfa5fa94",
+    "original_reconstruction_byte_exact": true,
+    "instructions_unchanged": true,
+    "schema_unchanged": true,
+    "only_added_context_field": "scopeGroup",
+    "baseline": {
+      "requestHash": "2d6d3d01ebf427c99ec7dc5540781820ec7a8d1f7d07ebdd35886f93cc6ce316",
+      "schemaHash": "83fdcc29e5e4607ab9b6d0f2bac50e036a216195001835786916fc43bf21e680",
+      "completeRequestBytes": 24988,
+      "estimatedInputTokens": 8586,
+      "inputLimit": 12000
+    },
+    "candidate": {
+      "requestHash": "ca3db02815c43535a0ed49fd0c746d66bbcda064048f9dd5adeadbc355ce2911",
+      "schemaHash": "83fdcc29e5e4607ab9b6d0f2bac50e036a216195001835786916fc43bf21e680",
+      "completeRequestBytes": 26353,
+      "estimatedInputTokens": 9041,
+      "inputLimit": 12000
+    },
+    "delta_bytes": 1365,
+    "delta_estimated_tokens": 455,
+    "component_bytes_reconcile": true
+  },
+  "private_summary_sha256": "910cce0d9f138e44e898cfe6a69ed33ee80110c4c655dfc29ab735f670f0dea7",
+  "paid_calls": 0,
+  "uncertain_replays": 0,
+  "limitations": [
+    "Context-only change; live effect unverified.",
+    "Current frozen34a paid run was neither changed nor continued under modified source.",
+    "No automatic binding, continuation, business completion or review authority added.",
+    "Initial sandbox test runner was blocked before test dispatch; initial two new fixture failures and package-metadata probe failures remain in private logs."
+  ],
+  "complete_planning_suite": {
+    "classification": "complete_Planning_suite_working_tree_validation_not_runtime_business_acceptance",
+    "baseline_head": "34a891391fdf5151fcd545564b3134075fb3f87f",
+    "head_after": "34a891391fdf5151fcd545564b3134075fb3f87f",
+    "captured_src_test_file_count": 1907,
+    "complete_manifest_sha256": "1576881c9332d0ab1d1f361630422273360c572ac17a6b5b5b55728448c3e50e",
+    "non_markdown_input_count": 1850,
+    "non_markdown_input_manifest_sha256": "97d3745d2d633e646d1775d986fe69f373bf4383e5758224850fd7f2e050f065",
+    "changed_non_markdown_inputs": [],
+    "parallel_documentation_changes": [
+      "src/GnOuGo.Flow.Planning/README.md"
+    ],
+    "passed": 2243,
+    "failed": 0,
+    "skipped": 0,
+    "compiler_warnings": 0,
+    "compiler_errors": 0,
+    "targeted_overlap_not_added_to_total": true,
+    "production_file_sha256": "aad372b81c0803d8c77c6e78f92e0ecb5b9f25adea3c90f1e598a0b07f06bdc1",
+    "test_file_sha256": "55ed898d1f4b284c7eaec41d73521b317abea245116841273435a38936eee84d",
+    "test_log_sha256": "505fe547c5dbb9821eb6062b9d46152d0b988dd82dd5161d81e75d4ae19684a0",
+    "trx_sha256": "359c4addb1888780c4f64ed0ca0e57edf4ba35a789bec74bd3c2fa4f9e67901f",
+    "source_manifest_file_sha256": "417c4b848a7c000f000f74e3fda7cd988c80557da6ab7329fcce34955842af74",
+    "paid_calls": 0,
+    "uncertain_replays": 0,
+    "remaining": "Current frozen live run unchanged; context-only business benefit and final-source full solution/CI remain independently required.",
+    "private_summary_sha256": "9b5195d37c468994fbfd6b0d13750d0f77aef2a235754f518ffee2a982eb91a7"
+  }
+}

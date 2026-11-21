@@ -38,6 +38,7 @@ public sealed class ProxyModelOptions
     public LLMModelMetadata Metadata { get; set; } = new();
     public List<ProxyPricingTier> PricingTiers { get; set; } = [];
     public string? DefaultReasoningEffort { get; set; }
+    public string? ToolTransport { get; set; }
 }
 
 public sealed class ProxyPricingTier
@@ -50,7 +51,8 @@ public sealed record ModelRoute(string Id, string Provider, ProxyProviderOptions
 {
     public string Type => Options.Connection.ResolvedType;
     public string UpstreamUrl => UpstreamUrlTemplate.Resolve(Options.Connection.Url, Model.UpstreamId);
-    public bool SupportsTools => Model.Metadata.Capabilities.SupportsTools == true;
+    public bool UsesStructuredTools => Model.ToolTransport == StructuredToolSelection.TransportName;
+    public bool SupportsTools => UsesStructuredTools || Model.Metadata.Capabilities.SupportsTools == true;
 }
 
 public interface IModelRegistry
@@ -130,6 +132,10 @@ public sealed class ModelRegistry : IModelRegistry
                 Require(model is not null && !string.IsNullOrWhiteSpace(model.UpstreamId) && model.Metadata?.Capabilities is not null, "model ID/metadata");
                 Require(UpstreamUrlTemplate.AcceptsModel(connection.Url, model!.UpstreamId), "model ID for URL template");
                 var metadata = model!.Metadata;
+                Require(model.ToolTransport is null or "native" || (model.ToolTransport == StructuredToolSelection.TransportName
+                    && connection.Type == "openai" && metadata.Capabilities.SupportsStructuredOutput == true
+                    && metadata.Capabilities.UnsupportedRequestParameters?.Contains("response_format", StringComparer.Ordinal) != true),
+                    "tool transport requires an OpenAI Chat Completions model with structured output");
                 Require(metadata.MaxInputTokens > 0 && metadata.MaxOutputTokens > 0, "model input/output limits");
                 Require(metadata.ContextWindowTokens is null or > 0, "context window");
                 // Input and output are independent ceilings, not simultaneous defaults.

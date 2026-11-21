@@ -65,14 +65,14 @@ public sealed class CatalogOwnedBindingTests
         var (plan, catalog, cap) = await Fixture(false);
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements();
         var before = JsonSerializer.Serialize(catalog, PlanningJsonContext.Default.PlanningCatalog);
-        var prompt = HybridWorkflowPlanner.BuildPrompt(state, []);
+        var prompt = JsonSerializer.Serialize(PlanningCapabilityArguments.Editable(cap), PlanningJsonContext.Default.PlanningOperation);
         Assert.DoesNotContain("\"name\":\"selector\"", prompt);
-        var schema = PlanningSchemas.Proposal(state);
+        var schema = PlanningSchemas.TaskPlanGrammar(state);
         JsonObject Response()
         {
             var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
             foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
-            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+            return PlanningCorpus.Transport(wire, schema, schema)!.AsObject();
         }
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         Assert.Empty(PlanningContractValidation.ValidateInstance(Response(), schema));
@@ -84,7 +84,7 @@ public sealed class CatalogOwnedBindingTests
         state.Discovery.Sources = [new("source", "Retained metadata")];
         state.Discovery.Pages = [new("source", null, [new(cap.Id, "source", "operation", "description", cap.StepType, cap.EffectKind, cap.Version, Operation: TaskOperations.Describe(cap))], null)];
         var receipt = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-        Assert.DoesNotContain("\"selector\"", HybridWorkflowPlanner.BuildPrompt(state, []));
+        Assert.DoesNotContain(PlanningCapabilityArguments.Editable(cap).Inputs, port => port.Name == "selector");
         Assert.Equal(receipt, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
     }
 
@@ -227,13 +227,13 @@ public sealed class CatalogOwnedBindingTests
         var other = JsonSerializer.SerializeToNode(cap, PlanningJsonContext.Default.PlanningCapability)!.Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
         other.Id = "other"; other.FixedInput.Clear(); catalog.Capabilities.Add(other);
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements();
-        var schema = PlanningSchemas.Proposal(state);
+        var schema = PlanningSchemas.TaskPlanGrammar(state);
         plan.Root.Tasks[0].Inputs.Add(new("selector", Text("host")));
         JsonObject Response()
         {
             var wire = PlanningJsonTransport.TaskPlanPrompt(plan)!;
             foreach (var task in wire["root"]!["tasks"]!.AsArray()) task!["requires"] = null;
-            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["plan"] = wire };
+            return PlanningCorpus.Transport(wire, schema, schema)!.AsObject();
         }
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(Response(), schema));
         plan.Root.Tasks[0].Operation = "other";
@@ -327,15 +327,15 @@ public sealed class CatalogOwnedBindingTests
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements(); state.Plan = plan;
         state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
-        var schema = PlanningSchemas.Proposal(state);
+        var schema = PlanningSchemas.RepairSchema(state);
         Assert.DoesNotContain("unrelated", schema.ToJsonString());
-        var corrected = Clone(plan); corrected.Root.Tasks[0].Inputs.RemoveAll(i => i.Name == "selector");
-        var request = new LLMRequest { StructuredOutputSchema = schema };
-        var response = TestRuntime.PatchResponse(request, state, corrected);
+        var edit = RepairPatchTests.Edit(state, "/tasks/consume/inputs/selector", "remove");
+        var response = new JsonObject { ["discoveryRequests"] = null, ["clarifications"] = null,
+            ["patch"] = new JsonObject { ["edits"] = new JsonArray(edit) } };
         Assert.Empty(PlanningContractValidation.ValidateInstance(response, schema));
         Assert.Equal("remove", response["patch"]!["edits"]![0]!["action"]!.ToString());
-        corrected.Root.Tasks[0].Operation = other.Id;
-        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(TestRuntime.PatchResponse(request, state, corrected), schema));
+        edit["slot"] = "/tasks/consume/operation";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(response, schema));
     }
 
     [Theory]
@@ -345,30 +345,23 @@ public sealed class CatalogOwnedBindingTests
     {
         var (plan, catalog, cap) = await Fixture(false); plan.Root.Tasks[0].Inputs.Add(new("selector", Text("other")));
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Requirements = PlannerFixture.Requirements(); state.Plan = plan; state.ModelCalls = 6;
-        state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList();
-        state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
+        state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList(); state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
         state.Discovery.Resolved.Add(cap);
         var baseline = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
         var receipts = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-        var revised = Clone(plan); revised.Root.Tasks[0].Inputs.RemoveAll(i => i.Name == "selector");
-        if (changeObjective) revised.Root.Tasks[0].Objective = "Unrelated intent";
-        var runtime = new TestRuntime { Proposal = new() { Plan = revised } };
-        var result = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(7, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts); Assert.Single(runtime.Calls);
-        Assert.Equal(receipts, JsonSerializer.Serialize(result.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
-        Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        var restored = PlannerFixture.Clone(state); var request = RepairPatchTests.Request(state);
+        Assert.True(PlanningRepairPatch.Verify(restored, request));
+        var repaired = RepairPatchTests.Apply(restored, RepairPatchTests.Edit(restored, "/tasks/consume/inputs/selector", "remove"));
         if (changeObjective)
         {
-            Assert.Contains(result.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
-            Assert.Equal(baseline, JsonSerializer.Serialize(result.Plan, PlanningJsonContext.Default.TaskPlan));
-            Assert.Null(result.Graph); Assert.Null(result.Yaml);
+            var changed = Clone(repaired); changed.Root.Tasks[0].Objective = "Unrelated intent";
+            Assert.Contains(TaskPlanRevisions.Validate(plan, changed, state.RevisionScope, catalog), diagnostic => diagnostic.Code == "REVISION_SCOPE_CHANGED");
         }
-        else
-        {
-            Assert.Equal(PlanningStatus.FinalReview, result.Status); Assert.Empty(result.Diagnostics);
-            Assert.DoesNotContain(result.Plan!.Root.Tasks[0].Inputs, i => i.Name == "selector");
-            PlanningArtifactApproval.Verify(result);
-        }
+        Assert.Empty(new TaskPlanCompiler().Compile(repaired, catalog).Diagnostics);
+        Assert.DoesNotContain(repaired.Root.Tasks[0].Inputs, input => input.Name == "selector");
+        Assert.Equal(6, restored.ModelCalls);
+        Assert.Equal(baseline, JsonSerializer.Serialize(restored.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(receipts, JsonSerializer.Serialize(restored.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
     }
 
     private sealed class MetadataRunner : IAgentTaskRunner

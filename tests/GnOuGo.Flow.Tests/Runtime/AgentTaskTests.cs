@@ -3,6 +3,7 @@ using System.Text.Json;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -10,6 +11,38 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class AgentTaskTests
 {
+    [Theory]
+    [InlineData(1, 1001, true)]
+    [InlineData(9, 50, false)]
+    public async Task TrustedTokenWarningDoesNotWaiveAgentCallLimitOrVerification(int calls, int tokens, bool success)
+    {
+        var runner = new Runner { Result = Result() with { Usage = new(calls, tokens, 1) } };
+        var result = await Execute(runner, advisoryTokens: true);
+        Assert.Equal(success, result.Success);
+        Assert.Equal(1, runner.Dispatches);
+        if (!success) Assert.Equal("AGENT_BUDGET_EXCEEDED", result.Error!.Code);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AggregateAgentWarningsStayInTheExistingRunJournalWhenVerificationSucceedsOrFails(bool invalidEvidence)
+    {
+        var store = new InMemoryWorkflowRunStore();
+        var observed = Result() with { Usage = new(1, 1001, 1) };
+        if (invalidEvidence) observed = observed with { Evidence = [] };
+        var result = await Execute(new Runner { Result = observed }, store, advisoryTokens: true);
+        Assert.Equal(!invalidEvidence, result.Success);
+        if (invalidEvidence) Assert.Equal("AGENT_VERIFICATION_FAILED", result.Error!.Code);
+        var run = (await store.ReadAsync("tenant", "run", TestContext.Current.CancellationToken))!;
+        var saved = JsonSerializer.Serialize(run.ModelUsage!, PlanningJsonContext.Default.LLMUsageBudgetSnapshot);
+        var restored = JsonSerializer.Deserialize(saved, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)!;
+        var warning = Assert.Single(restored.Warnings!);
+        Assert.Equal("agent.run", warning.Stage); Assert.Equal("total_tokens", warning.Kind);
+        Assert.Equal(1001, warning.Current); Assert.Equal(1000, warning.Threshold); Assert.Null(warning.RequestId);
+        Assert.Equal(0, restored.Calls);
+    }
+
     [Theory]
     [InlineData("failed", true, "AGENT_ISOLATION_REQUIRED")]
     [InlineData("failed", false, "AGENT_TASK_FAILED")]
@@ -138,9 +171,10 @@ public sealed class AgentTaskTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task RecoveryVerifiesAdapterEvidenceBeforeReleasingDownstreamWork(bool fabricated)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    public async Task RecoveryVerifiesAdapterEvidenceBeforeReleasingDownstreamWork(bool fabricated, bool advisoryTokens)
     {
         var ct = TestContext.Current.CancellationToken;
         var store = new InMemoryWorkflowRunStore();
@@ -148,10 +182,14 @@ public sealed class AgentTaskTests
         await Execute(initial, store);
         var saved = (await store.ReadAsync("tenant", "run", ct))!;
         Assert.Equal(WorkflowRunStatus.NeedsReconciliation, saved.Status);
-        var runner = new Runner { Result = fabricated ? Result() with { Evidence = [] } : Result() };
+        var runner = new Runner { Result = fabricated ? Result() with { Evidence = [] } :
+            advisoryTokens ? Result() with { Usage = new(1, 1001, 1) } : Result() };
         var recovered = new WorkflowEngine { RunStore = store }; recovered.AgentTaskRunners["fixture"] = runner;
+        if (advisoryTokens) recovered.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 8 });
         var invocation = Assert.Single(saved.Invocations.Values, i => i.StepType == "agent.run");
         var reconciled = await recovered.ReconcileAsync("tenant", "run", saved.Revision, invocation.Id, null, ct);
+        if (advisoryTokens)
+            Assert.Equal("agent.run", Assert.Single(reconciled.ModelUsage!.Warnings!).Stage);
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(saved.WorkflowYaml));
         var result = await recovered.ResumeAsync("tenant", "run", reconciled.Revision, document.Workflows["main"], ct);
         Assert.Equal(!fabricated, result.Success);
@@ -159,9 +197,10 @@ public sealed class AgentTaskTests
         if (fabricated) Assert.DoesNotContain(result.StepResults, s => s.StepId == "consume");
         else Assert.True(result.Outputs!["done"]!.GetValue<bool>());
     }
-    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null, bool authoredWorkspaceReference = false)
+    private static Task<RunResult> Execute(Runner runner, IWorkflowRunStore? store = null, bool authoredWorkspaceReference = false, bool advisoryTokens = false)
     {
         var engine = new WorkflowEngine { RunStore = store, Limits = new() { TenantId = "tenant", RunId = "run" } };
+        if (advisoryTokens) engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 8 });
         engine.AgentTaskRunners["fixture"] = runner;
         var document = new WorkflowCompiler().Compile(WorkflowParser.Parse("""
             version: 1

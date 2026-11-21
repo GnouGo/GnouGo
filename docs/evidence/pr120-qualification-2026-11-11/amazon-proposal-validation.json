@@ -1,0 +1,52 @@
+{
+  "affected_amazon_tests": {
+    "total": "161",
+    "executed": "161",
+    "passed": "161",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "new_proposal_tests": 26,
+  "validation_kind": "Controlled fixtures plus read-only actual retained source; no navigation or model calls",
+  "active_policy": "amazon-observed-product-context-v3",
+  "active_oracle": "amazon-business-v7",
+  "proposal_registered_for_dispatch": false,
+  "source_prerequisite_qualified": false,
+  "hashes": {
+    "tests/amazon-proposal.trx": "418daae1e4bab073e84c470c6768ff5cd42928e3af276eb3b1566e6f19ed3fec",
+    "retained-source-verification.json": "4a61a7920d2c263f3334f48e1fef12a95fd336e9d93354b53845cecd0fb2aac2",
+    "analyze_source.py": "d37d009a8dcc4643d2af2a83954893f5b937c63c9818e24456bdd558d761da8b",
+    "tests/amazon-final.trx": "8772886f39dfd9178bc6aa2bfa6caf7488a3a13161f5eef0590fe57ba2f9c237",
+    "tests/amazon-discovery-fixed.trx": "24a23f79a45b6d98595a342805e0931d82030405138d8590d8dd624744817ee8",
+    "server-inventory-fixed.log": "87a19ab7ac54c2e69f238d79582a44896b783dd9c0001c185c025406ec4ffbc8"
+  },
+  "setup_incidents": [
+    {
+      "run": "code-qualification-20261111-22",
+      "stage": "MCP build provenance before planning session creation",
+      "cause": "Evidence-only commits advanced HEAD after Release build; exact binary/source guard rejected.",
+      "correction": "Rebuild frozen Release harness and all MCP dependencies; use fresh Code23 identity.",
+      "paid_calls": 0
+    }
+  ],
+  "final_route_guard": "Proposed store URLs also reject raw whitespace/control characters; active policies unchanged.",
+  "inventory_cases": 2100,
+  "inventory_unique": true,
+  "fixture_correction": {
+    "cause": "xUnit truncated long URL theory arguments to duplicate displayed names; exact-coverage inventory correctly refused.",
+    "change": "Distinct short variant labels; identical URL values and assertions.",
+    "previous_partition_run": "run-c97efa72ae1d4b1886b778d5fd20f7f4",
+    "failed_attempt_is_not_a_pass": true
+  }
+}

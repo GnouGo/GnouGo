@@ -1,0 +1,96 @@
+{
+  "source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "harness_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "cohort": "compactr09ac9ff5code20nhv11a",
+  "case": "code",
+  "freeze_sha256": "8aba8bee6211eff906807ba31ff76871d5ad8333ab4cec638e1b3b69281e7f1b",
+  "status": "stopped",
+  "planning_ms": 1063527,
+  "accounting": {
+    "logical_calls": 4,
+    "physical_attempts": 6,
+    "known_input_tokens": 1554,
+    "known_output_tokens": 2807,
+    "known_cost_eur": "0.0820883534136546184738955824",
+    "unknown_attempts": 3,
+    "reserved_input_tokens": 54000,
+    "reserved_output_tokens": 98304,
+    "reserved_cost_eur": "2.8729317269076305220883534137"
+  },
+  "corrections": 0,
+  "artifact": false,
+  "runtime_status": "not_started",
+  "runtime_success": false,
+  "oracle_success": false,
+  "reasoning_tokens": 2048,
+  "request_counts": {
+    "admitted": 4
+  },
+  "phase_rows": [
+    {
+      "phase": "construction_intent",
+      "constructed_identities": 4,
+      "admitted_logical": 4,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 6,
+      "receipts": 3,
+      "known_provider_input_tokens": 1554,
+      "known_provider_output_tokens": 2807,
+      "known_provider_reasoning_tokens": 2048,
+      "known_cost_eur": "0.0820883534136546184738955824",
+      "unknown_reserved_cost_eur": "2.8729317269076305220883534137",
+      "usage_complete": false,
+      "recorded_call_stage_ms": "1035221.5732999999",
+      "admitted_complete_request_bytes": {
+        "count": 4,
+        "total": 20371,
+        "p50": "3156.5",
+        "p95": "11428",
+        "max": 11428
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 4,
+        "total": 7816,
+        "p50": "1308.5",
+        "p95": "4066",
+        "max": 4066
+      },
+      "constructed_complete_request_bytes": {
+        "count": 4,
+        "total": 20371,
+        "p50": "3156.5",
+        "p95": "11428",
+        "max": 11428
+      },
+      "admitted_component_utf8_bytes": {
+        "diagnostics": 104,
+        "envelope": 1712,
+        "evidence": 23,
+        "instructions": 4131,
+        "intent": 6580,
+        "interfaces": 59,
+        "response_schema": 7762
+      }
+    }
+  ],
+  "inspection_stdout_sha256": "e325379f931814898a4b31011e63570b39204c616b8586732aede044502e7775",
+  "measurement_components_reconcile": true,
+  "provider_component_usage_claimed": false,
+  "raw_payload_persisted": false,
+  "provider_calls": 0,
+  "inspected_at": "2026-10-28T01:07:14.366339+00:00",
+  "accepted_checkpoints": 0,
+  "independently_fulfilled_business_obligations": 0,
+  "calls_per_success": null,
+  "provider_failure": "Request 4 received three HTTP 500 responses without a completion receipt.",
+  "retention": {
+    "evidence_hash": "57b5cff519ab8a664fe295444e930c9cb2144593a5d4ec2fe9355ef0def89e21",
+    "closure_file_sha256": "91062de1c4f10d453e208e8b951dd9798690013a9294a0078bd014e6bfb4a64e",
+    "fresh_process_guard_sha256": "16ced1b29c2ba502db1e1db752f85e1f2b01a4cfc2222c798cd55845dc7c4b02",
+    "full_reservation_retained": true,
+    "run_and_request_rejected": true,
+    "originals_and_accounting_unchanged": true
+  },
+  "reasoning_exhaustion_demonstrated": false
+}

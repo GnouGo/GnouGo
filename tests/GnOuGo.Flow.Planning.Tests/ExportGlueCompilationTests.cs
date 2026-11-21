@@ -13,20 +13,21 @@ public sealed class ExportGlueCompilationTests(Xunit.ITestOutputHelper output)
     [Fact]
     public async Task FreshProfileAndDescriptionsRemainBoundToApprovalAndExplicitRevision()
     {
-        var runtime = new TestRuntime(); var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
+        var runtime = new TestRuntime();
+        var state = await CurrentPlanningFixture.LiteralAsync("tenant", "current-export-approval", null, PlannerFixture.Ct);
+        Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
         Assert.Contains("description:", state.Yaml);
         var hash = state.ComputeArtifactHash(); var stored = PlannerFixture.Clone(state);
         var planner = new HybridWorkflowPlanner();
         state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision,
-            ArtifactHash = hash, ReviewedRequirementIds = ["message"] }, runtime, PlannerFixture.Ct);
+            ArtifactHash = hash, ReviewedRequirementIds = state.Requirements!.Outcomes.Select(requirement => requirement.Id).ToList() }, runtime, PlannerFixture.Ct);
         PlanningArtifactApproval.Verify(PlannerFixture.Clone(state));
         var altered = PlannerFixture.Clone(state); altered.Yaml = altered.Yaml!.Replace("description:", "description: Changed ", StringComparison.Ordinal);
         Assert.NotEqual(hash, altered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(altered));
         var approvedYaml = state.Yaml;
-        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, Text = "Use a warmer greeting." }, runtime, PlannerFixture.Ct);
-        Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml); Assert.Single(runtime.Calls);
+        state = await planner.AdvanceAsync(state, new() { Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = hash, PreserveRequirements = true, EditablePaths = ["/tasks/result/outputs/value"], Text = "Return 43 instead of 42." }, runtime, PlannerFixture.Ct);
+        Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml); Assert.Empty(runtime.Calls);
         Assert.Equal(approvedYaml, stored.Yaml); Assert.Equal(hash, stored.ComputeArtifactHash());
     }
 

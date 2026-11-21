@@ -113,23 +113,20 @@ public sealed class LiveWorkflowJudgeMeasurementTests
         Assert.Equal(correct, run["first_proposal"]!["business_correct"]!.GetValue<bool>());
     }
 
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public void LegacyArtifactFallbackCannotRelabelAnIdentifiedDifferentCandidate(bool legacy)
+    [Fact]
+    public void ArtifactIdentityCannotRelabelAnIdentifiedDifferentCandidate()
     {
         var state = new PlanningSession { Yaml = "version: 1", Plan = PlanningCorpus.LiteralResult(), Requirements = PlanningCorpus.Requirements("local") };
         var first = new JsonObject { ["artifact_hash"] = state.ComputeArtifactHash(), ["business_correct"] = null };
-        if (!legacy) first["candidate_hash"] = PlanningBenchmarkMeasurements.CandidateHash(state);
+        first["candidate_hash"] = PlanningBenchmarkMeasurements.CandidateHash(state);
         state.Request.Prompt = "A different retained business request.";
         Assert.Equal(first["artifact_hash"]!.ToString(), state.ComputeArtifactHash());
-        if (!legacy) Assert.NotEqual(first["candidate_hash"]!.ToString(), PlanningBenchmarkMeasurements.CandidateHash(state));
+        Assert.NotEqual(first["candidate_hash"]!.ToString(), PlanningBenchmarkMeasurements.CandidateHash(state));
         var run = new JsonObject { ["first_proposal"] = first };
 
         LiveWorkflowEvaluation.RecordExecutionOracle(run, state, new JsonObject { ["passed"] = true });
 
-        if (legacy) Assert.True(first["business_correct"]!.GetValue<bool>());
-        else Assert.Null(first["business_correct"]);
+        Assert.Null(first["business_correct"]);
     }
 
     [Fact]

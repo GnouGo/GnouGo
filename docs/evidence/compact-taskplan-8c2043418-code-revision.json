@@ -1,0 +1,230 @@
+{
+  "source": "8c2043418ace12a283b66ffad69c1063021c389a",
+  "benchmark_binary_sha256": "b2f3b2564af133abf31947325d15f9938d98270c7b41c990b32ddff807e095f9",
+  "cohort": "compactr8c2043418code20v6nv18",
+  "freeze_sha256": "9697d55e540e6e8bc70cd06b0aec4580f825120000f3aaa198ec8c8da7f68a0c",
+  "attribution": "Control and explicit revision of the same retained run; revision totals include the control. This is not a second fresh run.",
+  "control": {
+    "logical_calls": 38,
+    "physical_attempts": 38,
+    "receipts": 38,
+    "corrections": 2,
+    "checkpoints": 2,
+    "known_input_tokens": 296804,
+    "known_output_tokens": 50829,
+    "known_reasoning_tokens": 31897,
+    "known_cost_eur": "2.6853101294065149486836233824",
+    "unknown_usage_reservation_eur": 0,
+    "cost_upper_bound_eur": "2.6853101294065149486836233824",
+    "unknown_usage_attempts": 0,
+    "planning_ms": 1307070,
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_INPUT_LIMIT"
+    ],
+    "artifact_present": false,
+    "execution_started": false,
+    "business_obligation_denominator": null,
+    "fulfilled_obligation_ratio": null
+  },
+  "revision_increment": {
+    "http_attempts": 4,
+    "receipts": 3,
+    "unknown_attempts": 1,
+    "known_input_tokens": 14988,
+    "known_output_tokens": 14362,
+    "known_reasoning_tokens": 13037,
+    "known_cost_eur": "0.4514056224899598393574297189",
+    "unknown_usage_reservation_eur": "0.9576439089692101740294511379",
+    "cost_upper_bound_eur": "1.4090495314591700133868808568",
+    "logical_calls": 3,
+    "corrections_added": 0,
+    "checkpoints_added": 0,
+    "planning_ms_delta": 548537,
+    "completed_call_stage_latency_ms_delta": "540879.2414"
+  },
+  "after_revision_cumulative": {
+    "logical_calls": 41,
+    "physical_attempts": 42,
+    "receipts": 41,
+    "corrections": 2,
+    "checkpoints": 2,
+    "known_input_tokens": 311792,
+    "known_output_tokens": 65191,
+    "known_reasoning_tokens": 44934,
+    "known_cost_eur": "3.1367157518964747880410531013",
+    "unknown_usage_reservation_eur": "0.9576439089692101740294511379",
+    "cost_upper_bound_eur": "4.0943596608656849620705042392",
+    "unknown_usage_attempts": 1,
+    "planning_ms": 1855607,
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "artifact_present": false,
+    "execution_started": false,
+    "business_obligation_denominator": null,
+    "fulfilled_obligation_ratio": null
+  },
+  "revision_receipts": [
+    {
+      "sequence": 39,
+      "phase": "construction_intent",
+      "http_attempts": 1,
+      "http_statuses": [
+        200
+      ],
+      "input_tokens": 587,
+      "output_tokens": 1209,
+      "reasoning_tokens": 884,
+      "visible_output_tokens_derived": 325,
+      "response_content_bytes": 1432,
+      "completion_status": null,
+      "known_cost_eur": "0.0349888442659526996876394467",
+      "unknown_usage_reservation_eur": 0,
+      "receipt_record_sha256": "6aca8864dbd9d80f82aae1c4108be11fd34aea36444d6179563445d291c07c3f"
+    },
+    {
+      "sequence": 40,
+      "phase": "construction_intent",
+      "http_attempts": 2,
+      "http_statuses": [
+        500,
+        200
+      ],
+      "input_tokens": 3146,
+      "output_tokens": 4961,
+      "reasoning_tokens": 3961,
+      "visible_output_tokens_derived": 1000,
+      "response_content_bytes": 2657,
+      "completion_status": null,
+      "known_cost_eur": "0.1468630075858991521642124052",
+      "unknown_usage_reservation_eur": "0.9576439089692101740294511379",
+      "receipt_record_sha256": "9bc99d31dd5e73cca47824e57af8b0860a92e3be2218a9afb7ffb01cb47efb37"
+    },
+    {
+      "sequence": 41,
+      "phase": "construction_local_judge",
+      "http_attempts": 1,
+      "http_statuses": [
+        200
+      ],
+      "input_tokens": 11255,
+      "output_tokens": 8192,
+      "reasoning_tokens": 8192,
+      "visible_output_tokens_derived": 0,
+      "response_content_bytes": 0,
+      "completion_status": "output_limit",
+      "known_cost_eur": "0.2695537706381079875055778670",
+      "unknown_usage_reservation_eur": 0,
+      "receipt_record_sha256": "8f9f18011ae6abf9a9d4925b92ea73af8ab0222c5bc4b492a8b37c49657d8f47"
+    }
+  ],
+  "revision_judge_request": {
+    "requestHash": "011027984e48a2aa180836af69cfcc8f8efe159b4e4731a53a77adfb66b9db3d",
+    "schemaHash": "21fedc075cac06b329814fd9778af1272610cd9a03872d5cf2a4f9a9f0108bae",
+    "completeRequestBytes": 45533,
+    "estimatedInputTokens": 15434,
+    "inputLimit": 16000,
+    "admission": "admitted"
+  },
+  "findings": [
+    "Control stopped before Judge39 dispatch at 17,416 estimated input tokens versus 16,000; the accepted clone had the independently established PR-page-as-Git-remote defect.",
+    "The revision produced two intent receipts and one Judge receipt, with no correction call or correction-count increase; the requested candidate argument remained unchanged. Coordinator source diagnosis is separate from unexecuted fix qualification.",
+    "Judge41 fit its captured input limit but received output_limit with 8,192 output tokens, all reasoning, and zero response text. No semantic verdict or successful repair was received.",
+    "The received HTTP500 on intent40 was retried to HTTP200; its unknown-usage reserve remains. It is not an unresolved logical request."
+  ],
+  "dated_campaign_readiness": {
+    "source_sha256": "5e1ab89c56c265c9c379f9f90faf56fcd683ea6aa04da6abed549a1250db865f",
+    "cost_ceiling_eur": "440.0301038327063045424449473",
+    "known_cost_eur": "190.34384722753093597173730017",
+    "unknown_usage_reservation_eur": "57.266110996312035071177211581",
+    "cost_upper_bound_eur": "247.60995822384297104291451175",
+    "available_eur_derived_from_reported_upper": "192.42014560886333349953043555",
+    "physical_attempts": 4136,
+    "unknown_usage_attempts": 72,
+    "uncertain_requests": 30,
+    "permanently_closed_uncertain_requests": 30,
+    "unresolved_logical_requests": 0,
+    "qualification": "Saved post-revision snapshot, not a fresh readiness call. Reported campaign decimals retain their original precision; the stored upper bound is not relabeled as an unlimited-precision recomputation."
+  },
+  "evidence": {
+    "control_metrics": {
+      "file": "code-terminal-exact-metrics.json",
+      "sha256": "742bcf531c94cfb498216abb88ad4836801e7758ea53b079d1ffbfcbf8e98d56"
+    },
+    "revision_metrics": {
+      "file": "code-revision1-terminal-exact-metrics.json",
+      "sha256": "22557820b6947d5ce24e325c8092bee5b4409efe1aa7b2b4d21ed31a93604a9c"
+    },
+    "revision_state": {
+      "file": "code-revision1-state-safe.json",
+      "sha256": "3b2d2833ad4bb1487ef6c8f74ade8add9c63fb37d7bc0e08962baf9a4199bb1e"
+    },
+    "revision_decisions": {
+      "file": "code-revision1-receipt-decisions-safe.json",
+      "sha256": "16a8602629980acd6c1dceaeaa861056a737311ae63b669a9c86ba226148d944"
+    },
+    "readiness": {
+      "file": "readiness.jsonl",
+      "sha256": "5e1ab89c56c265c9c379f9f90faf56fcd683ea6aa04da6abed549a1250db865f"
+    },
+    "control_semantic": {
+      "file": "assessment-safe.json",
+      "sha256": "95dcef5574a6dabb14db7a606339d440ba7467a1f24a78ad45df9af7bda89b29"
+    },
+    "control_numeric_peer": {
+      "file": "code-independent-numeric-format-review-safe.json",
+      "sha256": "9b3f873b92f555e8bf95e27304f52deb6983ca8728eeccd373c918d90eb82c10"
+    },
+    "control_whitespace": {
+      "file": "code-whitespace-outlier-safe.json",
+      "sha256": "84273a0d6e73b4c721672968b9cfac6043b57718556075d13e9d1c948ad87ce2"
+    }
+  },
+  "verification": {
+    "decimal_precision": 80,
+    "three_new_request_identities": true,
+    "row_cost_and_token_sums_equal_saved_totals": true,
+    "reasoning_included_in_output": true,
+    "unknown_measurements_not_zero_filled": true,
+    "no_raw_prompt_or_provider_body_in_projection": true,
+    "no_store_or_provider_access": true,
+    "limitations": [
+      "Original text formatting is covered by the separate control numeric/format peer; no new raw-text rescan was performed.",
+      "One exploratory sum initially attempted to convert an unissued null cost; corrected by summing only measured non-null values, preserving unknown/absent semantics. No evidence was changed."
+    ],
+    "all_42_prior_call_rows_equal": true
+  },
+  "control_interface_formatting": {
+    "phase": "construction_intent",
+    "original_formatting": {
+      "request_id": "compactr8c2043418code20v6nv18-code-1:4:5dde860b76ff81dcdfda3a7b8193195582e9cbfd3ac3a5e16c55eded1a786368",
+      "phase": "construction_intent",
+      "receipt_record_sha256": "cfb83205e969d90bd34cb6d02140797b7cd1bcd8fed2ed8f6ca305060931d623",
+      "original_text_sha256": "854813b4660ce7a984a79ed7751047eb850b210a7c13be068f12f968f09b9232",
+      "original_utf8_bytes": 395782,
+      "empty_original_text": false,
+      "valid_json": true,
+      "original_json_equals_saved_json": true,
+      "outside_string_whitespace_bytes": 393221,
+      "maximum_outside_string_whitespace_run_bytes": 325946,
+      "ordinary_completion_status": null,
+      "witness_completion_status": null
+    },
+    "provider_usage": {
+      "input_tokens": 2640,
+      "output_tokens": 13348,
+      "reasoning_tokens": 1785,
+      "visible_output_tokens_derived": 11563,
+      "known_cost_eur": "0.3691566265060240963855421687",
+      "unknown_usage_reservation_eur": 0,
+      "response_content_bytes": 2652,
+      "elapsed_ms": "210760.8931",
+      "completion_status": null
+    },
+    "captured_output_tokens": 32768,
+    "remaining_output_ceiling_tokens": 19420,
+    "qualification": "Valid received JSON, retained parsed equality true. Ordinary and witness completion statuses are null, so no finish reason is inferred. Provider output13348 includes1785reasoning and is below32768 ceiling; this is formatting excess, not evidence of output-limit exhaustion or the later accepted-clone semantic miss. No raw text read, retry or store/provider invocation."
+  }
+}

@@ -200,7 +200,8 @@ builder.Services.AddSingleton<IRerankerRouter>(sp =>
             model: "gpt-4o-mini",
             apiKeyProvider: apiKeyProvider,
             http: httpClient,
-            telemetry: telemetryForRerankers);
+            telemetry: telemetryForRerankers,
+            providerOptions: openAiSettings.GenerationTransport);
         rerankers.Add(new CrossEncoderReranker(scorer, maxConcurrency: 5));
     }
 
@@ -213,7 +214,8 @@ builder.Services.AddSingleton<IRerankerRouter>(sp =>
             baseUrl: ollama.BaseUrl,
             model: ollama.ChatModel,
             http: httpClient,
-            telemetry: telemetryForRerankers);
+            telemetry: telemetryForRerankers,
+            providerOptions: ollama.GenerationTransport);
         rerankers.Add(new CrossEncoderReranker(scorer, maxConcurrency: 3));
     }
 
@@ -235,7 +237,8 @@ builder.Services.AddSingleton<IOcrEngine>(sp =>
             baseUrl: ollama.BaseUrl,
             model: ollama.VisionModel,
             http: httpClient,
-            telemetry: telemetryForOcr);
+            telemetry: telemetryForOcr,
+            providerOptions: ollama.GenerationTransport);
     }
     else
     {
@@ -252,7 +255,8 @@ builder.Services.AddSingleton<IOcrEngine>(sp =>
             model: "gpt-4o-mini",
             apiKeyProvider: apiKeyProvider,
             http: httpClient,
-            telemetry: telemetryForOcr);
+            telemetry: telemetryForOcr,
+            providerOptions: openAi.GenerationTransport);
     }
 });
 

@@ -25,8 +25,8 @@ public sealed class DynamicMappingCompilationTests
         Assert.DoesNotContain("adaptive_each", new PlanningGraphCompiler().Compile(historical.Graph!, catalog));
         Assert.DoesNotContain("adaptive_each", JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
         var session = new PlanningSession { Plan = plan, Graph = current.Graph, Request = request, Catalog = catalog };
-        Assert.DoesNotContain("two-attempt allowance", PlanningSchemas.FullProposal(session, compact: false).ToJsonString());
-        Assert.Contains("two-attempt allowance", PlanningSchemas.FullProposal(new() { Catalog = catalog }, compact: false).ToJsonString());
+        Assert.DoesNotContain("two-attempt allowance", PlanningSchemas.TaskPlanGrammar(session).ToJsonString());
+        Assert.Contains("two-attempt allowance", PlanningSchemas.TaskPlanGrammar(new() { Catalog = catalog }).ToJsonString());
         Assert.Contains(PlanningReviewFormatter.Operations(session), v => v.Description.Contains("per-item inference", StringComparison.Ordinal));
     }
 
@@ -36,7 +36,7 @@ public sealed class DynamicMappingCompilationTests
     [InlineData("nullable_array")]
     public void IndependentGenerationSchemaRejectsInvalidResultShapes(string variant)
     {
-        var root = PlanningSchemas.FullProposal(new() { Catalog = new() }, compact: false);
+        var root = PlanningSchemas.TaskPlanGrammar(new() { Catalog = new() });
         var schema = PlanningSchemas.Ref("task"); schema["$defs"] = root["$defs"]!.DeepClone();
         var task = JsonNode.Parse("""
             {"id":"extract","kind":"transform","objective":"Extract one value per observation","dependsOn":[],"requires":null,
@@ -116,6 +116,31 @@ public sealed class DynamicMappingCompilationTests
         Assert.DoesNotContain("\"each\"", JsonSerializer.Serialize(baseline, PlanningJsonContext.Default.TaskPlan));
     }
 
+    [Fact]
+    public async Task OneIndependentMappingCanBindRelatedFieldsInOrderUsingOneScript()
+    {
+        var plan = EachPlan();
+        plan.Inputs[0].Type.Items = ProductTransformationPlan.Obj(("title", new()), ("code", new()));
+        var extract = plan.Root.Tasks[0];
+        extract.Objective = "Keep the observed title and code together for each record.";
+        extract.ResultType = ProductTransformationPlan.Obj(("rows", new() { Kind = "array",
+            Items = ProductTransformationPlan.Obj(("label", new()), ("key", new())) }));
+        var model = new EachModel("({label:source.observations.title,key:source.observations.code})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var request = new PlanningRequest { Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["mapping_profile"] = TaskPlanCompiler.ExplicitExtractionProfile } };
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var input = JsonNode.Parse("""{"records":[{"title":"Second","code":"b"},{"title":"First","code":"a"},{"title":"Second","code":"b"}]}""")!;
+        var result = await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog), input.AsObject(), engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(1, model.Calls);
+        Assert.True(JsonNode.DeepEquals(JsonNode.Parse("""[{"label":"Second","key":"b"},{"label":"First","key":"a"},{"label":"Second","key":"b"}]"""), result.Outputs!["rows"]));
+        Assert.Contains("Group related fields from the same item", PlanningSchemas.TaskPlanGrammar(new() { Request = request, Catalog = catalog }).ToJsonString(), StringComparison.Ordinal);
+    }
+
     private static TaskPlan EachPlan() => new()
     {
         Inputs = [new() { Name = "records", Type = new() { Kind = "array", Items = ProductTransformationPlan.Obj(("label", new() { Kind = "string" })) } }],
@@ -125,11 +150,114 @@ public sealed class DynamicMappingCompilationTests
             Outputs = [new("rows", new() { Kind = "output", Source = "extract", Port = "rows" })] }
     };
 
-    private sealed class EachModel : ILLMClient, ILLMCapabilityResolver
+    [Fact]
+    public async Task FreshExtractionPreservesWholePageCardinalityWhenAnArraySuppliesSelectionCriteria()
+    {
+        var model = new EachModel("({positions: m.indexed(source.page.records).filter(r => m.test(r.value,'^(match|other-rule)$')).map(r => r.index)})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 4 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var state = PlannerFixture.Capture(new() { Request = new() { TenantId = "whole-page",
+            Prompt = "Return the positions of all records matching the selection rules.", Policy = new() { RequireExternalConfirmation = false } } });
+        var catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var recordsType = new TaskType { Kind = "array", Items = new() { Kind = "string" } };
+        var task = new PlanTask { Id = "select_positions", Kind = "transform", Mode = "extract", Objective = state.Request.Prompt,
+            Inputs = [new("page", new() { Kind = "input", Source = "page" }),
+                new("rules", new() { Kind = "array", Items = [new() { Kind = "string", Text = "match" }, new() { Kind = "string", Text = "other-rule" }] })],
+            ResultType = ProductTransformationPlan.Obj(("positions", new() { Kind = "array", Items = new() { Kind = "integer" } })) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "page", Type = ProductTransformationPlan.Obj(("records", recordsType)) }],
+            Root = new() { Tasks = [task], Outputs = [new("positions", new() { Kind = "output", Source = task.Id, Port = "positions" })] } };
+        var legacy = new PlanningRequest { Options = state.Request.Options.DeepClone().AsObject() };
+        legacy.Options["mapping_profile"] = "adaptive-each-v1";
+        PlanningNode Mapping(PlanningRequest policy)
+        {
+            var compilation = new TaskPlanCompiler().Compile(plan, catalog, policy);
+            Assert.Empty(compilation.Diagnostics);
+            return Assert.Single(compilation.Graph!.Workflows[0].Steps, node => node.Input.Kind == "dynamic_mapping");
+        }
+        Assert.NotNull(PlanningGraphValidation.Member(Mapping(legacy).Input, "each"));
+        var fresh = Mapping(state.Request);
+        Assert.Null(PlanningGraphValidation.Member(fresh.Input, "each"));
+        Assert.Null(PlanningGraphValidation.Member(fresh.Input, "infer_each"));
+        var graph = new TaskPlanCompiler().Compile(plan, catalog, state.Request).Graph!;
+        var workflow = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(graph, catalog))).Workflows["main"];
+        foreach (var (records, expected) in new[] { (new JsonArray("none"), new JsonArray()),
+            (new JsonArray("match", "none", "other-rule", "match"), new JsonArray(0, 2, 3)) })
+        {
+            var result = await engine.ExecuteAsync(workflow, new JsonObject { ["page"] = new JsonObject { ["records"] = records } }, PlannerFixture.Ct);
+            Assert.True(result.Success, result.Error?.Message);
+            Assert.True(JsonNode.DeepEquals(expected, result.Outputs!["positions"]));
+        }
+        task.Each = new("rules", "positions");
+        Assert.NotNull(PlanningGraphValidation.Member(Mapping(state.Request).Input, "each"));
+    }
+
+    [Fact]
+    public async Task RequiredTextCapturesValidateTheInputWithoutAnExtractedValidityFlag()
+    {
+        var state = PlannerFixture.Capture(new() { Request = new() { Prompt = "Read an entry from its supplied locator.",
+            Policy = new() { RequireExternalConfirmation = false } } });
+        var grammar = PlanningSchemas.TaskPlanGrammar(state).ToJsonString();
+        Assert.Contains("missing required capture fails", grammar, StringComparison.Ordinal);
+        var task = new PlanTask { Id = "parse", Kind = "transform", Mode = "extract", Objective = "Extract the required collection and positive entry number.",
+            Inputs = [new("locator", new() { Kind = "input", Source = "locator" })],
+            ResultType = ProductTransformationPlan.Obj(("collection", new() { Kind = "string" }), ("entry", new() { Kind = "integer" })) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "locator", Type = new() { Kind = "string" } }],
+            Root = new() { Tasks = [task], Outputs = [new("entry", ProductTransformationPlan.Ref("parse", "entry"))] } };
+        const string captures = "collection:m.text(source.locator,'^/([a-z]+)/[1-9][0-9]*$'),entry:m.number(m.text(source.locator,'^/[a-z]+/([1-9][0-9]*)$'))";
+        async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(string locator, string script)
+        {
+            var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = new EachModel(script),
+                LlmDefaults = new() { Model = "fixture" } };
+            var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+            var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+            Assert.Empty(compiled.Diagnostics);
+            Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+            return await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog),
+                new JsonObject { ["locator"] = locator }, engine);
+        }
+        var valid = await Execute("/entries/718", "({" + captures + "})");
+        Assert.True(valid.Success, valid.Error?.Message);
+        Assert.Equal(718, valid.Outputs!["entry"]!.GetValue<int>());
+        Assert.False((await Execute("/entries/invalid", "({" + captures + "})")).Success);
+        task.ResultType.Fields.Add(new() { Name = "valid", Type = new() { Kind = "boolean" } });
+        var invented = await Execute("/entries/718", "({" + captures + ",valid:m.test(source.locator,'^/entries/')})");
+        Assert.False(invented.Success);
+        Assert.Equal("$/valid", invented.Error!.Details!["mapping_result_path"]!.ToString());
+    }
+
+    [Fact]
+    public async Task DerivedReferencesAreComposedAtTheConsumerFromObservedNames()
+    {
+        var state = PlannerFixture.Capture(new() { Request = new() { Prompt = "Use the observed name to address its archive.",
+            Policy = new() { RequireExternalConfirmation = false } } });
+        var extract = new PlanTask { Id = "observe", Kind = "transform", Mode = "extract", Objective = "Extract the supplied name.",
+            Inputs = [new("record", new() { Kind = "input", Source = "record" })],
+            ResultType = ProductTransformationPlan.Obj(("name", new() { Kind = "string" })) };
+        var address = new TaskValue { Kind = "string_operation", Text = "concat", Items =
+            [new() { Kind = "string", Text = "/archive/" }, ProductTransformationPlan.Ref("observe", "name"), new() { Kind = "string", Text = ".zip" }] };
+        var plan = new TaskPlan { Inputs = [new() { Name = "record", Type = ProductTransformationPlan.Obj(("name", new() { Kind = "string" })) }],
+            Root = new() { Tasks = [extract], Outputs = [new("address", address)] } };
+        var model = new EachModel("({name:source.record.name})");
+        var engine = new WorkflowEngine { LLMUsageBudget = new(new() { MaxCalls = 2 }), LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var catalog = await new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask).DiscoverAsync(state.Request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, state.Request);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var input = new JsonObject { ["record"] = new JsonObject { ["name"] = "box" } };
+        var run = await LookupCompilationTests.Execute(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog), input, engine);
+        Assert.True(run.Success, run.Error?.Message);
+        Assert.Equal("/archive/box.zip", run.Outputs!["address"]!.GetValue<string>());
+        var invalid = Assert.Throws<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            new GnOuGo.Flow.Core.Scripting.JintSandbox().ExecuteMapping("({name:'/archive/box.zip'})", input, PlannerFixture.Ct));
+        Assert.Equal("ungrounded_scalar", invalid.Details!["mapping_failure_reason"]!.ToString());
+        Assert.Contains("compose derived strings", PlanningSchemas.TaskPlanGrammar(state).ToJsonString(), StringComparison.Ordinal);
+    }
+
+    private sealed class EachModel(string script = "source.observations.label") : ILLMClient, ILLMCapabilityResolver
     {
         public int Calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        { Calls++; return Task.FromResult(new LLMResponse { Json = JsonNode.Parse("{\"script\":\"source.observations.label\"}") }); }
+        { Calls++; return Task.FromResult(new LLMResponse { Json = new JsonObject { ["script"] = script } }); }
         public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(12000);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>([]);

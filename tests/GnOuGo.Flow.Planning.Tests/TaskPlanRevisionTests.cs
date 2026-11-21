@@ -27,18 +27,22 @@ public sealed class TaskPlanRevisionTests
     [Fact]
     public async Task RejectedScopeExpansionCannotReplaceTheRepairBaselineOrDiscovery()
     {
-        var runtime = new TestRuntime();
-        runtime.Proposal.Plan!.Root.Tasks.Add(new() { Id = "bad", Kind = "value", Objective = "Return an unavailable value", Outputs = [new("value", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port"))] });
-        var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
+        var state = PlannerFixture.Session(); state.Plan = PlanningCorpus.Greeting();
+        state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct);
+        state.Plan.Root.Tasks.Add(new() { Id = "bad", Kind = "value", Objective = "Return an unavailable value", Outputs = [new("value", PlanningCorpus.Business("output", state.Plan.Root.Tasks[0].Id, "missing_port"))] });
+        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
+        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
         Assert.Equal(new[] { "/tasks/bad/outputs/value" }, state.RevisionScope);
         var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
-        runtime.Proposal.Plan.Root.Tasks[0].Outputs[0].Value.Text = "Unapproved change";
-        state = await planner.AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
-        Assert.Contains(state.Diagnostics, d => d.Code != "REVISION_SCOPE_CHANGED");
+        var discovery = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
+        var request = RepairPatchTests.Request(state);
+        var rejected = JsonSerializer.Deserialize(original, PlanningJsonContext.Default.TaskPlan)!;
+        rejected.Root.Tasks[0].Outputs[0].Value.Text = "Unapproved change";
+        Assert.Contains(TaskPlanRevisions.Validate(state.Plan, rejected, state.RevisionScope), d => d.Code == "REVISION_SCOPE_CHANGED");
+        PlanningRepairPatch.Verify(state, request);
         Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Null(state.Yaml); Assert.Equal(1, runtime.Discoveries); Assert.Equal(2, state.ModelCalls);
+        Assert.Equal(discovery, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
+        Assert.Null(state.Yaml); Assert.Equal(0, state.ModelCalls); Assert.Null(state.PendingCall);
     }
     [Fact]
     public void InvalidatingAContainerPreservesItsUnaffectedNestedTasks()

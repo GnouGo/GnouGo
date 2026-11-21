@@ -1,0 +1,78 @@
+{
+  "source": "402ca81c48c2c2b0877f4684623ff2360b51d82c",
+  "run": "code-qualification-20261109-18",
+  "session": "fc5adb98d5fd4ea0b08da8cbcd725c73",
+  "original_requirements_unchanged": true,
+  "planning": {
+    "logical_calls": 53,
+    "physical_attempts": 54,
+    "first_accepted_contribution_call": 24,
+    "first_local_review_ok_call": 27,
+    "global_review_ok_call": 53,
+    "global_review_receipt_sha256": "a3fe03e271fe20f6b4ba2064d16b17b25a147b8563dbcd25cde1d16b3c40454d",
+    "first_contribution_measured_usage_tariff_eur": "8.1354679802955665024630541872",
+    "planning_measured_usage_tariff_eur": "22.987872816838334079713390073",
+    "unknown_physical_attempts": 1,
+    "retained_uncertain_physical_hold_eur": "9.739292431706224809673085535",
+    "array_repair": "One-item maxima rejected; generated repair changed maxima to1000000, not unspecified. Local/global Judges accepted; delegated notes record the finite bound."
+  },
+  "approval": {
+    "origin": "delegated_test_reviewed",
+    "reviewed_revision": 162,
+    "artifact_hash": "170025977e4b4fd71daf7da1df36513fd3d3326040d4835d4b47ed2743d558ab",
+    "plan_edited_by_operator": false
+  },
+  "execution": {
+    "started": "2026-11-09T09:38:36.25875+00:00",
+    "success": false,
+    "pinned_head_verified": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+    "pinned_base_verified": "8f1779dc25c1843e9ce4d4ec76d02e066ae892c4",
+    "clone_count": 1,
+    "copilot_tool_calls": 1,
+    "copilot_terminal_commands_observed": 0,
+    "copilot_error": "COPILOT_TURN_FAILED",
+    "provider_http_status": 400,
+    "provider_error_type": "invalid_request_error",
+    "provider_error_parameter": "reasoning_effort",
+    "provider_error": "Chat Completions function tools with medium reasoning rejected; response recommends Responses or reasoning_effort none.",
+    "sdk_proxy_attempts": 1,
+    "sdk_proxy_received_response": true,
+    "sdk_proxy_usage": null,
+    "sdk_proxy_full_hold_eur": "3.9001880877742946708463949842",
+    "sdk_proxy_no_replay": true,
+    "cleanup_exit_code": 0,
+    "clone_directory_absent": true,
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "local_review_missing",
+        "no_independent_command_completion_evidence",
+        "repository_required_checks_not_independently_verified"
+      ]
+    }
+  },
+  "financial_audit": {
+    "campaign": "pr120-live-20261107-400",
+    "ceiling_eur": "1200",
+    "known_usage_tariff_eur": "630.36214957456336766681594859",
+    "unresolved_campaign_holds_eur": "344.48173757277205553067622045",
+    "retained_external_application_holds_eur": "44.588114643976712942230183612",
+    "available_after_code18_eur": "180.567998208687863860277647288",
+    "unknown_attempts": 38,
+    "provider_invoices": null
+  },
+  "limitations": [
+    "No complete autonomous Code qualification.",
+    "No proven time/cost improvement: first-contribution cost exceeds Code16 and Code15.",
+    "Actual provider HTTP400 and unknown usage remain distinct; no reservation released.",
+    "No execution replay or new funds."
+  ],
+  "private_evidence_sha256": {
+    "code18-runtime-run.json": "0a3a5ae5b7284034b940c3fbd97ffbfad2b980c77a61252668bb68ab52dfc6df",
+    "code18-copilot-http-attempts.json": "6197a9129143d58afaef820a5f0862a11eafe0ffeca48992309cc7ae8c395b9b",
+    "code18-copilot-receipts.json": "923c44885c8cf7743298013ec59099e600b43b5906cb50d2ec47039cc5078b8d",
+    "code18-closed-audit.json": "85a712f8f788d0a1b2d15277d1c38c6a4147fce691e63721c838773c33e23bc6",
+    "code18-review-notes.json": "bd9c0e660f68fcd8c527cdca48cf763b57aea50508791bbaa265123b55eb001d"
+  }
+}

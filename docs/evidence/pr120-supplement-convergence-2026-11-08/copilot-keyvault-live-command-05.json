@@ -1,0 +1,77 @@
+{
+  "source": "bcfde126cca7a47b9df0a130a597d0a570b28845",
+  "campaign": "pr120-live-20261107-400",
+  "run": "resume300b-sdk-keyvault-20261110-05",
+  "kind": "Actual SDK command with persisted KeyVault mode; not full Code qualification",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "configuration": "5341dae8fc9343a598475ca873ea5abdd917d6412118f91d028256436766d3c3",
+  "transport": "gnougo-structured-tools-v1",
+  "cli_sdk_overrides": false,
+  "passed": true,
+  "command": {
+    "command": "python3 probe.py",
+    "exit_code": 0,
+    "output": "observed-resume300b-sdk-keyvault-20261110-05\n",
+    "tool_call_id": "6c18a418-e20d-4610-89a4-7fa21b209273:call_3ec87026b81e46b5e650709e"
+  },
+  "command_count": 1,
+  "report": {
+    "observed": "observed-resume300b-sdk-keyvault-20261110-05",
+    "exit_code": 0
+  },
+  "durable_task_receipt_reloaded": true,
+  "completion_verified": true,
+  "transport_receipts_verified": true,
+  "cleanup": true,
+  "model_http_attempts": 3,
+  "model_completion_receipts": 3,
+  "permission_answers": [
+    "Allow once",
+    "Allow once"
+  ],
+  "actual_wire": {
+    "response_format": "json_schema",
+    "native_tools": 0,
+    "reasoning_effort": "high",
+    "stream": false,
+    "endpoint_changed": false,
+    "provider_changed": false,
+    "permissions_changed": false
+  },
+  "financial": {
+    "ceiling_eur": "1700",
+    "probe_measured_usage_tariff_estimate_eur": "0.9012897447380206000895656069",
+    "campaign_measured_usage_tariff_estimate_eur": "777.4010837438423645320197124",
+    "campaign_unresolved_http_reservations_eur": "399.73042543663233318405732216",
+    "campaign_cost_upper_bound_eur": "1177.1315091804746977160770346",
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "remaining_after_retained_liabilities_eur": "463.312512332074989770532235018",
+    "unknown_http_attempts": 47,
+    "authorization_history_entries": 6,
+    "authorization_history_unchanged": true,
+    "provider_invoice": false,
+    "globally_available_funding": null
+  },
+  "eof_regression": {
+    "label": "resume300b-sdk-no-input-20261110-04",
+    "admission_denied_before_probe_record": true,
+    "no_inference": true,
+    "accounting_identical": true,
+    "old_cancelled_probe_replayed": false
+  },
+  "qualification_limits": [
+    "Full Code remains at 0/2 consecutive complete successes; incomplete native planning streams remain an external delivery blocker.",
+    "Amazon remains unqualified under its unchanged route and product-context prerequisites."
+  ],
+  "private_evidence_sha256": {
+    "resume300b-sdk-keyvault05-terminal.json": "62bdc7b2c36754bbb92a0c9aa24fe3e9127a7f995fb98aa974588e0afa059348",
+    "resume300b-sdk-keyvault05-command.json": "d519758cdb3140863b0560312a6fca768b6c9190cdc50e4bce6c40d8cbe78f23",
+    "resume300b-sdk-keyvault05-receipts.json": "1ebc31e139c7246be9e9876eca9bf09c3062791073d65c544f864a2079879848",
+    "resume300b-sdk-keyvault05-http.json": "962bcc29aa0c8f14a56b817212a043e4b4895dc531cc0491b2528787c35924a3",
+    "resume300b-sdk-keyvault05-closed-audit.json": "f8456adae1c3abf2f74f22d76430004739527bcfbc83e3eb48f108abb609d4d5",
+    "resume300b-sdk-no-input04-audit.json": "098b971b35d5f93261acbe8187fb1627f045fe5c5410f52ff859aa9108298cd5",
+    "resume300b-sdk-no-input04-records.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "resume300b-sdk-no-input04.log": "d783de3562f9d821bc409b89832de958891ba015280d54adc38181289a714504"
+  }
+}

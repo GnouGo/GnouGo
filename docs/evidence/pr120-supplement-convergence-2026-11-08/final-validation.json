@@ -1,0 +1,54 @@
+{
+  "functional_source": "f2e3134054453e94474ab351f66190587e809b92",
+  "full_solution": {
+    "exit_code": 0,
+    "test_assemblies": 33,
+    "passed": 8481,
+    "skipped": 12,
+    "failed": 0,
+    "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror -p:SkipClientBuild=true --blame-hang-timeout 10m --blame-hang-dump-type none --logger console;verbosity=normal",
+    "staged_playwright_module_override": true,
+    "frontend_built_before_browser_tests": true
+  },
+  "complete_planning_suite": {
+    "exit_code": 0,
+    "passed": 2890,
+    "failed": 0
+  },
+  "production_frontend_build": {
+    "exit_code": 0
+  },
+  "release_benchmark_and_staged_tools_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "independent_packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_validation_log_sha256": {
+    "scope-final-full-solution.log": "31d1c26b9c85d04211da7c813f8b61a8239349cf0c41fc4fca711ff5a9d27734",
+    "scope-final-planning-all.log": "1780fc7cc48d747f919ba41fbeb137898e967cc2b426f0360f3f885eb868175e",
+    "scope-final-frontend-build.log": "d7e489d88ac81058b857fc59d3226d4d5a80b6b08a06487b499d75ab4cddde42",
+    "scope-final-release-build.log": "90c7a01f022a1e50aa54365876609be73999177f51cff68926a09e5f8612f6f3",
+    "scope-final-aot-publish.log": "e80530efa56db8cdba6c6b5ae46368d04b3166bae228058c2e218be22f2afb39",
+    "scope-final-aot-run.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971",
+    "scope-final-core-pack.log": "451b16678d5408ecbfd32fcac361ae9d76520f63f779168a6f5622cdd6e5cfd7",
+    "scope-final-planning-pack.log": "93a0a744db61555008a04eeb5fcc85576b7a214c42e6288d368e470c34f318da"
+  },
+  "limitations": [
+    "Twelve existing skipped tests remain visible.",
+    "Final source has no qualified Code/Amazon success or exact unchanged-plan accepted-block boundary proof.",
+    "Earlier successful Native/Collections cohorts are retained under their own frozen source.",
+    "Superseded interrupted full-solution runs are not passes."
+  ],
+  "remote_ci_snapshot": "ci-final-functional-source.json",
+  "remote_ci_all_passed": false
+}

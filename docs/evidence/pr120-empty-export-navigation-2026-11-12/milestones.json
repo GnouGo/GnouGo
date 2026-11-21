@@ -1,0 +1,114 @@
+{
+  "run": "amazon-v13-qualification-20261111-01",
+  "session": "435c641ba1d9426da659673cf29333d4",
+  "source": "8f2d02f4ada37ad407382cf6c9ddc8aad5366440",
+  "milestones": [
+    {
+      "checkpoint": 1,
+      "task_ids": [
+        "amazon_search",
+        "close_browser",
+        "verify_browser_closed"
+      ],
+      "accepted_utc": "2026-11-11T22:33:16.681193+00:00",
+      "seconds_from_run_start": 508.030057,
+      "seconds_from_first_http": 475.82018,
+      "issued_calls": 10,
+      "complete_physical_attempts": 10,
+      "known_cost_eur": "2.9567935512763098969995521718",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    },
+    {
+      "checkpoint": 2,
+      "task_ids": [
+        "audit_search_acquisition",
+        "require_usable_search_acquisition"
+      ],
+      "accepted_utc": "2026-11-11T22:35:01.137328+00:00",
+      "seconds_from_run_start": 612.486192,
+      "seconds_from_first_http": 580.276315,
+      "issued_calls": 12,
+      "complete_physical_attempts": 12,
+      "known_cost_eur": "4.0751903269144648454993282578",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    },
+    {
+      "checkpoint": 3,
+      "task_ids": [
+        "inventory_original_sources",
+        "require_usable_source_inventory"
+      ],
+      "accepted_utc": "2026-11-11T22:37:31.892044+00:00",
+      "seconds_from_run_start": 763.240908,
+      "seconds_from_first_http": 731.031031,
+      "issued_calls": 14,
+      "complete_physical_attempts": 14,
+      "known_cost_eur": "5.3597760859829825347066726375",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    },
+    {
+      "checkpoint": 4,
+      "task_ids": [
+        "audit_source_receipt",
+        "ordered_source_reads",
+        "read_source_occurrence",
+        "require_source_receipt",
+        "resolve_source_reads"
+      ],
+      "accepted_utc": "2026-11-11T22:39:13.675019+00:00",
+      "seconds_from_run_start": 865.023883,
+      "seconds_from_first_http": 832.814006,
+      "issued_calls": 16,
+      "complete_physical_attempts": 16,
+      "known_cost_eur": "6.6030631437527989252127183159",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    },
+    {
+      "checkpoint": 5,
+      "task_ids": [
+        "classify_complete_source_coverage",
+        "require_complete_source_coverage",
+        "select_first_three_products"
+      ],
+      "accepted_utc": "2026-11-11T22:44:19.11151+00:00",
+      "seconds_from_run_start": 1170.460374,
+      "seconds_from_first_http": 1138.250497,
+      "issued_calls": 22,
+      "complete_physical_attempts": 22,
+      "known_cost_eur": "10.7685624720107478728168383338",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    },
+    {
+      "checkpoint": 6,
+      "task_ids": [
+        "assemble_exact_workbook_rows",
+        "extract_actual_product_fields",
+        "ordered_business_visits",
+        "require_actual_workbook_save",
+        "require_verified_product_visit",
+        "save_products_workbook",
+        "visit_products_and_save_excel",
+        "visit_selected_product"
+      ],
+      "accepted_utc": "2026-11-11T22:54:20.278971+00:00",
+      "seconds_from_run_start": 1771.627835,
+      "seconds_from_first_http": 1739.417958,
+      "issued_calls": 34,
+      "complete_physical_attempts": 34,
+      "known_cost_eur": "15.7400179131213613972234661886",
+      "accepted_workflow": false,
+      "execution": false,
+      "independent_oracle": false
+    }
+  ]
+}

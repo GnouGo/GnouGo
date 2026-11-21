@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "source": "2b0d378c8c0efb9803214742817d7d223007e3a5",
+  "cohort": "compactr2b0d378c8colhighv6",
+  "business_acceptance": "incomplete; no artifact or runtime execution",
+  "evidence": [
+    {
+      "path": "/private/tmp/gnougo-2b0d-terminal-reducers-xi4tx5dn/collections-terminal-numeric-safe.json",
+      "sha256": "cdd331cea3ca8d71aa82197ec6210f06cfd03a857c969efc82c738a72a6d59c6"
+    },
+    {
+      "path": "/private/tmp/gnougo-2b0d-terminal-reducers-xi4tx5dn/collections-original-formatting-safe.json",
+      "sha256": "cf1920fdf13f6c8236da3c87b2f17413dca4c6bfa37ef56bf67a516bfd8f1b5c"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr2b0d378c8colhighv6/collections-root-closure-witness-safe.json",
+      "sha256": "f53f07327634770c3583f7d109400704cab984aef5f8e388a5063d305ed759f2"
+    }
+  ],
+  "observed_failure": {
+    "remaining_open_scopes": [
+      "/root"
+    ],
+    "accepted_checkpoints": 7,
+    "request_28": "Correct public result binding, but complete:true without explicitly closing /root; deterministic rejection is valid.",
+    "request_29": "Suspends the consumer, citing objectiveComplete:false and assuming unfinished foreach work; the flag actually measures truncated objective text.",
+    "requests_30_to_32": "An internal binding from the root is rejected, followed by an already-closed child target and an empty extension; stops REPLAN_NO_PROGRESS.",
+    "limitation": "The recorded explanation supports a presentation ambiguity; it does not prove the planned wording change will cause convergence or quantify avoided corrections."
+  },
+  "formatting": {
+    "receipt_count": 32,
+    "nonempty_valid_json_texts": 32,
+    "empty_original_texts": 0,
+    "original_utf8_bytes": 154684,
+    "outside_string_whitespace_bytes_in_valid_json": 135316,
+    "maximum_outside_string_whitespace_run_bytes_in_valid_json": 119418
+  },
+  "formatting_classification": "Request 2 interface extraction accounts for 135,301 outside-string whitespace bytes. Its original JSON equals the saved parsed response. No output-exhaustion cause or instruction/profile benefit is inferred.",
+  "planned_correction": "Presentation-6 text-coverage naming and exact remaining-boundary diagnostics; no model, allowance, grammar, execution or approval change.",
+  "latency_limitations": [
+    "A read-only process sample and independent full-solution validation overlapped this diagnostic. This is not a paired latency experiment."
+  ],
+  "comparison": "No baseline comparison or independently verified fulfilled-obligation ratio.",
+  "independent_review": {
+    "path": "/private/tmp/gnougo-2b-root-closure-assessment-137jeex_/independent-assessment-safe.json",
+    "sha256": "9fc135e7664144a0929bb6fc2ffa0bb404405e74580f1da73b35c8fffd6b62eb",
+    "scope": "Exact witness/request joins and source correction; no live efficacy claim."
+  }
+}

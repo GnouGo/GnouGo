@@ -1,0 +1,12 @@
+{
+  "source": "5b86d91720e4848f2321922bd9ed94a7711a58ea",
+  "status": "cancelled_by_operator_after_live_discovered_accounting_defect",
+  "complete": false,
+  "reason": "Superseded by 40d386d7; restart qualification with the financial arithmetic fix. These partial results are not a complete passing solution run.",
+  "completed_trx_counts": {
+    "passed": 2421,
+    "failed": 0,
+    "skipped": 7,
+    "assemblies": 10
+  }
+}

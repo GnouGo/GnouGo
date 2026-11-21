@@ -49,6 +49,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
             state["tenant"] = original.Context.TenantId; state["objective"] = objective;
             state["workspace"] = original.Configuration.WorkingDirectory; state["deadline"] = deadline;
             state["agentId"] = original.Context.AgentId;
+            if (original.Configuration.InferenceTransport is { } transport) state["inferenceTransport"] = transport;
             state["phase"] = "admitted"; state["sessions"] = 0;
             state["inferenceAttempts"] = 0; state["reservedTokens"] = 0;
             state["denials"] = new JsonArray(); state["evidence"] = new JsonArray();
@@ -59,8 +60,10 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
         using var stopAdmissions = lifetime.Token.Register(budget.CloseAdmissions);
         var permissions = new CopilotLogicalPermissions((key, token) => store.UpdateOwnedOperationAsync(original.Context.TenantId, id,
             state => state["denials"]!.AsArray().Add((JsonNode?)JsonValue.Create(key)), token));
+        var scope = FormattableString.Invariant($"This operation allows at most {limits.Interactions} interactions, {limits.InferenceAttempts} inference requests and {limits.ReservedTokens} reservable tokens across its sessions. Use established project commands and supplied observations first. Read only necessary ranges. Keep room to return verified command outcomes and explain blocked or unfinished work in a complete final response.");
         var request = original with { SessionKind = CopilotSessionKind.Managed, PermissionMode = CopilotPermissionMode.Interactive,
-            Configuration = original.Configuration with { LogicalInferenceBudget = budget, LogicalPermissions = permissions } };
+            Configuration = original.Configuration with { LogicalInferenceBudget = budget, LogicalPermissions = permissions,
+                SystemMessage = string.IsNullOrWhiteSpace(original.Configuration.SystemMessage) ? scope : original.Configuration.SystemMessage + "\n" + scope } };
         var monitor = MonitorCancellationAsync(id, lifetime, monitoring.Token);
         CopilotSendResult? final = null;
         CopilotSessionDescriptor? finalSession = null;

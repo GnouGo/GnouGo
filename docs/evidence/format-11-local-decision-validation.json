@@ -1,0 +1,72 @@
+{
+  "schema": "compact_local_decisions_focused_validation_v1",
+  "production_revision": null,
+  "source_attribution": {
+    "working_tree_base": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+    "tested_source": "prospective working-tree implementation captured before and after successful warnings-as-errors build20; not the unmodified base commit",
+    "core_planning_source_files": 216,
+    "source_manifest_sha256": "5e59b549bf13d6042211e9c053226d648c01d6b6d59184bf5270034e2e1ac464",
+    "source_and_library_attribution_sha256": "7f1e10803f0f74a1401bea548c746a7704435d1a6aa26938a4c410162526229b",
+    "planning_assembly_sha256": "9b36baf637581d9bd983f1467577187abd3de062b5cf21f99385bfb1a58601b0",
+    "source_unchanged_during_build": true,
+    "manifest_files_including_global_json": 217
+  },
+  "full_planning_suite": {
+    "passed": 2293,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "errors": 0,
+    "elapsed_seconds": 172.61,
+    "log_sha256": "ca92b9d51b0aa629137b77ef5e4c741a9ed23999c2ab1d636e97c62fe0338e78",
+    "trx_sha256": "c8880b26db04da2077c49350121fbb20b64aaf49556c7203821002444dd1c6b9"
+  },
+  "affected_host_suite": {
+    "passed": 161,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "errors": 0,
+    "elapsed_seconds": 22.42832833295688,
+    "log_sha256": "e078333ab65e29cb23a4162a1d563bb2dfc392aa3ca5d94451edec567cd98228",
+    "trx_sha256": "6dbc8d1475114fdac26cb1e2377e9f2d82dca79d5ebd237eeb9b4464db3858dc",
+    "operational_workspace_access_denied": true
+  },
+  "retained_reproductions": {
+    "initial_full_planning_suite": {
+      "passed": 2231,
+      "failed": 61,
+      "skipped": 0,
+      "log_sha256": "20dac9e3b9cb6e3a46e692b1a933c2b0f74d2831f4e4a7bb65d8c9982cd8ce1a",
+      "inventory_sha256": "42a3315611fb6cf7641e49db27000dcb7a3dce02e84fa265efd423db6099afa3"
+    },
+    "host_shared_fingerprint_failure": {
+      "passed": 159,
+      "failed": 2,
+      "log_sha256": "42ca6e9cc76949c3ac918c86bb9418569549bcd176eb95d6ddd1c1d0a29d6fbb",
+      "notes": "One new fixture lacked its mandatory task objective; the ordinary encrypted host pipeline exposed a genuine request-ID mismatch with the unchanged production journal guard."
+    },
+    "scope_reachability_failure": {
+      "passed": 178,
+      "failed": 4,
+      "log_sha256": "824c890f79ce9b9bb4ce3851df66102b0117dd0210beac38da18bd093fd89e81",
+      "notes": "After acceptance cleared evidence but retained a tail ScopeCursor, earlier waiting-consumer scopes had no legal offered continuation. Resetting only that cursor at acceptance restores the ordinary trace."
+    }
+  },
+  "technical_checks": [
+    "Local requirements remain bounded with 500 unrelated obligations; complete linked/interface/global/repair originals remain reachable.",
+    "Selection/discovery/draft compaction uses captured targets and never weakens the hard ceiling. Evidence and fallback admission stay atomic.",
+    "Raw short-ID schemas validate before exact-map canonicalization; stale/missing/tampered maps and invalid clean-review provenance fail closed.",
+    "The physical HTTP journal retains its exact fingerprint suffix; normal encrypted host recovery completes without duplicate dispatch or effects.",
+    "Existing consumer resumption, scoped repair, nullable schemas, permissions and v15 compiler/runtime regressions remain covered.",
+    "Explicit existing interpretation can feed the original Browser URL contract while policy still denies unavailable inference; encoded addresses remain confined to exact authorized HTTPS targets. This is eligibility, not runtime business acceptance."
+  ],
+  "focused_totals_overlap_full_suite": true,
+  "provider_calls": 0,
+  "paid_calls": 0,
+  "business_qualification_successes": 0,
+  "remaining": [
+    "Exact committed-source full solution, independent packages, Native AOT, published encrypted storage and final-revision CI.",
+    "Fresh Collections, Amazon and Review PR execution with independent oracles; six-run qualification remains unmet."
+  ]
+}

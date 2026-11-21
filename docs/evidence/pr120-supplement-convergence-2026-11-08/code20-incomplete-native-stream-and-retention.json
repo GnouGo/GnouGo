@@ -1,0 +1,63 @@
+{
+  "source": "a84b2d891e4ad68a27db7a601b3ba13d6f3d7d4a",
+  "campaign": "pr120-live-20261107-400",
+  "run": "code-qualification-20261110-20",
+  "session": "6d78185cd10d452eaf41f81794738648",
+  "kind": "external incomplete native stream; unexecuted full Code run remains unqualified",
+  "status": "stopped",
+  "planning_calls": 27,
+  "accepted_checkpoint_count": 1,
+  "accepted_task_ids": [
+    "clone",
+    "deleteClone",
+    "qualificationCopilot",
+    "verifyCleanup"
+  ],
+  "closed_requirements": [],
+  "execution_started": false,
+  "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+  "actual_transport": {
+    "protocol": "ChatCompletions",
+    "stream": true,
+    "reasoning_effort": "low",
+    "max_completion_tokens": 32768,
+    "observed_http_status": 200,
+    "body_complete": false,
+    "partial_bytes": 1086,
+    "received_semantic_content": "{\"",
+    "provider_response_id_sha256": "f155ccb6a5c57ddb1c17dd3d39049931b554f530c4e193979fad02035d3db02d",
+    "elapsed_ms": 331367,
+    "ms_since_last_recorded_chunk": 301162,
+    "retry_decision": "blocked; incomplete native stream; exact receipt recovery required",
+    "usage_known": false
+  },
+  "first_cause_limit": "The retained evidence establishes an interrupted stream, not the gateway or network component responsible for the interruption. It ended before the captured attempt deadline.",
+  "existing_reconciliation": {
+    "kind": "exhausted-planning-retries",
+    "authorization": "pr120-code20-native-stream-retention-20261110-01",
+    "evidence_hash": "9a46dbc4d1273d1e4d811430b18e33bed79a5f805ebea14e2c2f9b0f446a7e79",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "original_records_rewritten": false,
+    "new_reconciliation_code": false
+  },
+  "financial": {
+    "ceiling_eur": "1700",
+    "cost_upper_bound_eur": "1142.1683564711150918047469848",
+    "retained_application_reservations_eur": "59.555978487450312513390730382",
+    "unknown_http_attempts": 46,
+    "remaining_after_retained_liabilities_eur": "498.275665041434595681862284818",
+    "provider_invoice": false
+  },
+  "provider_or_endpoint_changed": false,
+  "permissions_changed": false,
+  "oracle_changed": false,
+  "private_evidence_sha256": {
+    "resume300b-code20-current.json": "31ed3e9585ca7b69d9fb91dad0c4f99ef94987657cef358e7ad21e9116542363",
+    "resume300b-code20-http27.json": "2d8ffdbe5dc2293eee65f3ddfbb4070c16ac40ec8000ef09544a9abe7a1e9a11",
+    "resume300b-code20-failure27.json": "0d1effdace6e539cfeba1c126a9b454abf654544e92564b59e543da5fc7edb2b",
+    "resume300b-code20-retention-applied.json": "995015d58642fc2586173582214656f3ad3444c07dfd084717880a66a8bc8263",
+    "resume300b-code20-retained-audit.json": "01efbe28063bb85835f8c8eb74b51504559b64782c57ee51258f1bb37a056c8d"
+  }
+}

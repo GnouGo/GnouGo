@@ -1,0 +1,109 @@
+{
+  "source_commit": "1a81a769c34e5a9a67c04ac10811ff53f4b4423e",
+  "assemblies": 33,
+  "outcomes": {
+    "Passed": 7787,
+    "NotExecuted": 12,
+    "Failed": 1
+  },
+  "failures": [
+    {
+      "test": "GnOuGo.Agent.Server.Tests.BundledBrowserMcpPublishTests.DevelopmentBuild_StagesAllBundledMcpAppHostsAndAvoidsDotnetRunConfiguration",
+      "message": "The staged MCP apphost was not found at '/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Agent.Server/bin/GnOuGo.Agent.Server.Tests/net10.0/tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp'.",
+      "trx": "unlimited-final_net10.0_20261105231727.trx"
+    }
+  ],
+  "trx_sha256": {
+    "unlimited-final_net10.0_20261105221447.trx": "2ba0d947c82894cf41803f6f09cf432763075f29b646ca7b50509804d3a85d82",
+    "unlimited-final_net10.0_20261105221450.trx": "78f52635d0cc179c8e21b96223a031d07947ba6f06b0665ef52b9825acf482cf",
+    "unlimited-final_net10.0_20261105221452.trx": "e4added0a9796cc9f9d14cae8833086285a24ec77e67dd8d6ced9aa04295d1cd",
+    "unlimited-final_net10.0_20261105221455.trx": "fd5eed1fab22637a33cc642ba3218542f20156e4ebcdbd2b0eefdc8d33fc985a",
+    "unlimited-final_net10.0_20261105221457.trx": "78cfb1aab68cb09c0813cc2267c1e064725392d224657282d7b23709fdc6b8fc",
+    "unlimited-final_net10.0_20261105221500.trx": "8c0652ed7ac27370b986dc03e084376c49f2f9d6170698718a1f04ed6f47e30d",
+    "unlimited-final_net10.0_20261105221501.trx": "b2ddd2d173cb6fcf89c16b613168a52d15925dd68f06fc09854d0253cb62a7de",
+    "unlimited-final_net10.0_20261105221505.trx": "4f1e663ce9ce484940d031bfb32d0a791d81fb5e16b4ebaeaaa9dbd88d979a77",
+    "unlimited-final_net10.0_20261105221523.trx": "1cd6263877d4687f939957d274c5466c6a69bd5c1eaec1cc6b4d3058d8e67d5c",
+    "unlimited-final_net10.0_20261105221546.trx": "6ca738685b3abad1e202ce3430fa27ee743deac60978b692fca1f8356580759f",
+    "unlimited-final_net10.0_20261105231727.trx": "05ca60da421e00c2dbc75cc6c0c8e5c8bb6a6c9967939ae6008d0cd6fcad75fc",
+    "unlimited-final_net10.0_20261105231735.trx": "b1dbe09549dcf8f032eccb1017d2c83f505be09ce0ffbd53ad435c668c15feb1",
+    "unlimited-final_net10.0_20261105231737.trx": "60facc2fb7093d77d8ef6968dfd3adb5ed5df6896049619f88a6b8d3aaaee7ad",
+    "unlimited-final_net10.0_20261105231739.trx": "71283b69fc2f38c833c2e862da93fc15077a78fbeec60ba41737c1dca4cd877b",
+    "unlimited-final_net10.0_20261105231741.trx": "0041ef993fd8ce3aab2137b78f70326a49503529a3ef19ce0ad4c8bc8c88b950",
+    "unlimited-final_net10.0_20261105231742.trx": "13ecd71567b4e5f725d923526b61f55877daa35a1d3570e348a0396b1b6cb61e",
+    "unlimited-final_net10.0_20261105231828.trx": "478d7ae33549f81c06e85372829b12e62089103c4e54d31e0bc3ff3f6985ba99",
+    "unlimited-final_net10.0_20261105231829.trx": "7068fc0d9dedd5bac543e2df90c21261a7c3dda319b89f2e1f0e928045418ad5",
+    "unlimited-final_net10.0_20261105231830.trx": "0f623b230257a4ebe61f7c5a135e5e379b376f498b2946ccbe13c9139aa56b04",
+    "unlimited-final_net10.0_20261105231831.trx": "d9bd8c430d203c59974dcdebb7d2983ab816cad9d1181363bd67ff3f6a3c9eeb",
+    "unlimited-final_net10.0_20261105231838.trx": "451cd30a0815a884f9f210de8f2dab2fd2e3b87f13f2d2525d04ab3861b0b8a5",
+    "unlimited-final_net10.0_20261105231840.trx": "bf249c20f9239873c6a65829dd4f483be5c27f23b3247824c78f05b1c310486d",
+    "unlimited-final_net10.0_20261105231841.trx": "2041934f97f3cc463e3a6a3af23e6978eadb03cb42415aca7a9efbdd38f02e81",
+    "unlimited-final_net10.0_20261105231842.trx": "8a395c7d52204cdf612720d014ff6cb30e90555b100be9113ddf18d7ccdd21ee",
+    "unlimited-final_net10.0_20261105231852.trx": "ce78883d46881d7507f006d7aa493a474d972b15b350aeb00d92565a9fdceb6b",
+    "unlimited-final_net10.0_20261105231853.trx": "aa06bb44b226414513878f64c3d4e508d284a8edbe55bdbb3830690bd40ceada",
+    "unlimited-final_net10.0_20261105231859.trx": "d30e64d0ad8443e4074e07af5dd76b1f5c24814b0fb4f4b290f04885e015b3bf",
+    "unlimited-final_net10.0_20261105231900.trx": "d83cd7eb785469501dbc91352a96fe560ebdb4d13beadeb66c5e80ccc1f27794",
+    "unlimited-final_net10.0_20261105232123.trx": "a681f10da2e206feceee19073d03d377821fecef97da733745b904f971f76dee",
+    "unlimited-final_net10.0_20261105232133.trx": "4143f0c8ac4d1fe3a09fbdf0f8ec466752bbb5771fe1d4077594c27c6cddda96",
+    "unlimited-final_net10.0_20261105232134.trx": "e02c8396202854022f648fe33e5c77ed495bad1655cca3084796327647a627ec",
+    "unlimited-final_net10.0_20261105232142.trx": "609a6eb7c9d3badebd6ae051656941582152049eaec70962e77002fad98d8f8b",
+    "unlimited-final_net10.0_20261105232143.trx": "0a6485da5bb7c6db548c37b271f4e05cba87a35b85a908354611d4c9e64db423"
+  },
+  "commands": [
+    {
+      "name": "final-solution-build",
+      "command": [
+        "dotnet",
+        "build",
+        "GnOuGo.Agent.sln",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "--artifacts-path",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/unlimited-latest",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "1a81a769c34e5a9a67c04ac10811ff53f4b4423e",
+      "started_utc": "2026-11-05T21:14:11.208023+00:00",
+      "log": "logs/final-solution-build.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-05T21:14:42.025035+00:00"
+    },
+    {
+      "name": "final-solution-tests",
+      "command": [
+        "dotnet",
+        "test",
+        "GnOuGo.Agent.sln",
+        "--no-build",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipModelMetadataGeneration=true",
+        "-p:SkipClientBuild=true",
+        "--artifacts-path",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/unlimited-latest",
+        "--logger",
+        "console;verbosity=normal",
+        "--logger",
+        "trx;LogFilePrefix=unlimited-final",
+        "--results-directory",
+        "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/unlimited-budget/solution-final-tests",
+        "--verbosity",
+        "quiet"
+      ],
+      "source_commit": "1a81a769c34e5a9a67c04ac10811ff53f4b4423e",
+      "started_utc": "2026-11-05T21:14:42.029042+00:00",
+      "log": "logs/final-solution-tests.log",
+      "exit_code": 1,
+      "finished_utc": "2026-11-05T22:21:43.451068+00:00"
+    }
+  ],
+  "note": "Original complete run; the isolated-artifacts fixture failure is not reclassified as a pass. Focused reruns are separate."
+}

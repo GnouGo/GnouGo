@@ -1,0 +1,14 @@
+{
+  "production_base": "8590c8714d2602958eb5fa68541870471ff1f78a",
+  "prototype_active": false,
+  "configuration": "Release",
+  "warnaserror": true,
+  "source_and_prototype_tests": 36,
+  "affected_amazon_and_review_tests": 520,
+  "skips": 0,
+  "counts_overlap": true,
+  "controlled_tests_model_calls": 0,
+  "controlled_tests_navigation_calls": 0,
+  "prototype_log_sha256": "11b7523685d5edb08b6fee25109ed35e34a8711c3dc2fdd2018637a2d115496d",
+  "affected_log_sha256": "5d5c725b517cf734d0125aa203a4bda487b9330f531062c085fa23f5d9ac35a7"
+}

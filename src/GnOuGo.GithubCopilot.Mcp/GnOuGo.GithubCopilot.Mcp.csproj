@@ -14,7 +14,7 @@
     <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL3050;IL3055</WarningsAsErrors>
     <NoWarn>$(NoWarn);GHCP001</NoWarn>
     <!-- Pin the GA CLI runtime explicitly so Native AOT publication is deterministic. -->
-    <CopilotCliVersion>1.0.88</CopilotCliVersion>
+    <CopilotCliVersion>1.0.107</CopilotCliVersion>
   </PropertyGroup>
 
   <!-- This Native AOT tool intentionally consumes the EF Core-backed KeyVault
@@ -29,9 +29,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
-    <PackageReference Include="ModelContextProtocol" Version="2.2.0" />
-    <PackageReference Include="ModelContextProtocol.Extensions.Tasks" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.14" />
+    <PackageReference Include="ModelContextProtocol" Version="2.4.0" />
+    <PackageReference Include="ModelContextProtocol.Extensions.Tasks" Version="2.4.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -39,6 +39,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.AI.Core/GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />

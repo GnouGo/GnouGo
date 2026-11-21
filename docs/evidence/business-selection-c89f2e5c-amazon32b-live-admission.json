@@ -1,0 +1,20 @@
+{
+  "observed_at_utc": "2026-11-04T16:02:30.723944+00:00",
+  "source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "run": "bizc89f2e5camz32b-amazon-1",
+  "cohort": "bizc89f2e5camz32b",
+  "known_cost_eur": "406.14722279510429719554299205",
+  "reserved_cost_eur": "134.45524297604318406581318418",
+  "available_eur": "199.42763806155882328108877107",
+  "unresolved_requests": 0,
+  "retained_closures": 63,
+  "evidence_hash": "4ba95cd560a57bebffbfaf87fcb5e6bc1c0cc686dbf7b533ad334d6967c8a77c",
+  "profile_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "four_phase_headroom_eur": "20.983630020574291081492083370",
+  "provider_requests": 0,
+  "financial_records_written": 0,
+  "ready_for_fresh_dispatch_recheck": true,
+  "kind": "source_bound_live_admission",
+  "hypothesis": "Fresh normal generation on unchanged source/profile after the prior complete artifact failed only at invocation stdin. Preserve failed outcome; use interactive terminal for the next artifact-bound invocation confirmation. No old work is replayed."
+}

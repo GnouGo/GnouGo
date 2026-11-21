@@ -1,0 +1,96 @@
+{
+  "amazon-v14-source-20261112-04": {
+    "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+    "records": 1472,
+    "source_qualified": true,
+    "own_resolutions": 20,
+    "product_proofs": 3,
+    "store_proofs": 17,
+    "alias_count": 23,
+    "aax_original_record_count": 0,
+    "own_aax_reads": 0,
+    "own_aax_captures_unique": true,
+    "aax_status_chains": [],
+    "aax_contexts": [],
+    "cold_equal": true,
+    "cleanup": {
+      "closed": true,
+      "close_error": false,
+      "probe_error": true
+    },
+    "business_visits": 0,
+    "model_calls": 0,
+    "full_oracle_passed": false,
+    "raw_evidence_sha256": "7cf3ef7bd603d4cc32db490d03359455c3fca29821257ffe3d56620cf36d97bc"
+  },
+  "amazon-v14-source-20261112-05": {
+    "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+    "records": 1439,
+    "source_qualified": true,
+    "own_resolutions": 13,
+    "product_proofs": 3,
+    "store_proofs": 10,
+    "alias_count": 21,
+    "aax_original_record_count": 4,
+    "own_aax_reads": 3,
+    "own_aax_captures_unique": true,
+    "aax_status_chains": [
+      [
+        302,
+        200
+      ],
+      [
+        302,
+        200
+      ],
+      [
+        302,
+        200
+      ]
+    ],
+    "aax_contexts": [
+      {
+        "original_context": {
+          "heading_record": "0e8fd634d2684b8595d35072bffccb03:record:332",
+          "source_records": [
+            "0e8fd634d2684b8595d35072bffccb03:record:330",
+            "0e8fd634d2684b8595d35072bffccb03:record:332",
+            "0e8fd634d2684b8595d35072bffccb03:record:335",
+            "0e8fd634d2684b8595d35072bffccb03:record:337"
+          ],
+          "asin_context": {
+            "value": "",
+            "tag": "div",
+            "role": null,
+            "index": 19
+          },
+          "occurrence": null,
+          "classification": "unverified",
+          "product_identity": null,
+          "navigation_authorized": false
+        },
+        "original_member_count": 4,
+        "own_product_reads": 3,
+        "candidate_identity": "B0DTP99LGG",
+        "exact_review_aliases": [
+          {
+            "original_reference": "0e8fd634d2684b8595d35072bffccb03:record:335",
+            "proved_twin_reference": "0e8fd634d2684b8595d35072bffccb03:record:332",
+            "http_receipt_claimed": false
+          }
+        ],
+        "relationship_supported": true
+      }
+    ],
+    "cold_equal": true,
+    "cleanup": {
+      "closed": true,
+      "close_error": false,
+      "probe_error": true
+    },
+    "business_visits": 0,
+    "model_calls": 0,
+    "full_oracle_passed": false,
+    "raw_evidence_sha256": "d0cbc2837df2004fc7510fd3c77d7c6785028e96d32db9431d0d2521740e09a3"
+  }
+}

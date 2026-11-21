@@ -1,0 +1,61 @@
+{
+  "kind": "CI diagnostics; unresolved Server test duration, not a demonstrated production fix",
+  "superseded_run": {
+    "source": "a84b2d891e4ad68a27db7a601b3ba13d6f3d7d4a",
+    "run_id": 42724626773,
+    "job_id": 129526972982,
+    "operator_cancelled": true,
+    "reason": "Retrieve the unavailable active log from this superseded HEAD while current HEAD CI continues.",
+    "server_tests_started_utc": "2026-11-10T00:10:12.0920315Z",
+    "operator_cancelled_utc": "2026-11-10T01:52:53.5113543Z",
+    "preceding_projects_passed": {
+      "GnOuGo.Mcp.Core.Tests": 49,
+      "GnOuGo.Browser.Mcp.Tests": 180,
+      "GnOuGo.Document.Mcp.Tests": 73,
+      "GnOuGo.Git.Mcp.Tests": 84,
+      "GnOuGo.Flow.Planning.Tests": 2952,
+      "GnOuGo.Flow.Integrations.Tests": 121,
+      "GnOuGo.Flow.Copilot.Tests": 5,
+      "GnOuGo.Flow.Persistence.Tests": 26,
+      "GnOuGo.GithubCopilot.Core.Tests": 177,
+      "GnOuGo.GithubCopilot.Mcp.Tests": 259,
+      "GnOuGo.Flow.Tests": 1535
+    },
+    "server_test_summary_available": false,
+    "active_server_test_identified": false,
+    "ci_pass_claimed": false
+  },
+  "earlier_complete_primary_ci": {
+    "source": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+    "run_id": 42717063933,
+    "conclusion": "success",
+    "started_utc": "2026-11-09T23:02:12Z",
+    "completed_utc": "2026-11-10T00:23:19Z",
+    "server_tests_passed": 2060,
+    "existing_server_skip": 1
+  },
+  "diagnostic_change": {
+    "unfiltered_server_assembly": true,
+    "per_test_console_progress": true,
+    "trx": true,
+    "per_test_hang_timeout": "5m",
+    "memory_dumps": "none",
+    "retained_artifacts": [
+      "Server TRX",
+      "blame test sequence XML"
+    ],
+    "tests_removed_or_filtered": false,
+    "live_timeout_or_retry_policy_changed": false
+  },
+  "local_cli_option_smoke": {
+    "existing_tests_passed": 2,
+    "failed": 0,
+    "warnings": 0,
+    "full_suite_rerun_claimed": false
+  },
+  "scope": "Workflow logging and hang diagnostics only; runtime, source-bound live records, permissions and money unchanged.",
+  "private_evidence_sha256": {
+    "resume300b-ci-a84-cancelled.log": "15fd12059e26c1eeadc2e6bd85a8e8161dd5baebd55454d10eb659a85aa6b751",
+    "resume300b-ci-diagnostic-options.log": "422dd94f092126a9d8a6a3e75466a076fb67897304ef8005478b2edb582a9556"
+  }
+}

@@ -10,7 +10,7 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class AgentUserConfigHydrationTests
 {
     [Fact]
-    public async Task Build_LoadsPersistedDefaultLlmFromMountedAgentMcp_AfterStartup()
+    public async Task Build_ResolvesPersistedDefaultsInProcessBeforeStartupAndMcpPublication()
     {
         var dbPath = Path.Combine(Path.GetTempPath(), $"gnougo-agent-config-{Guid.NewGuid():N}.db");
 
@@ -21,7 +21,7 @@ public sealed class AgentUserConfigHydrationTests
             }), TestContext.Current.CancellationToken);
 
         var contentRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "GnOuGo.Agent.Server"));
-        var app = GnOuGoAgentWebHost.Build(
+        var app = TelemetryTestHostArgs.Build(
             TelemetryTestHostArgs.Create(
                 $"--Agent:DatabasePath={dbPath}",
                 "--LLM:DefaultProvider=OpenAi",
@@ -36,9 +36,11 @@ public sealed class AgentUserConfigHydrationTests
 
         try
         {
+            var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
+            Assert.Equal("ollama", store.Current.DefaultProvider, ignoreCase: true);
+            Assert.Equal("llama3:8b", store.Current.DefaultModel);
             await app.StartAsync(TestContext.Current.CancellationToken);
 
-            var store = app.Services.GetRequiredService<LLMRuntimeOptionsStore>();
             await TestPolling.WaitUntilAsync(
                 () => string.Equals(store.Current.DefaultProvider, "Ollama", StringComparison.OrdinalIgnoreCase)
                     && string.Equals(store.Current.DefaultModel, "llama3:8b", StringComparison.Ordinal),

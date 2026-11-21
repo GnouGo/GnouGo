@@ -1,0 +1,141 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-30T11:18:35.205164+00:00",
+  "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+  "parent_source": "afe43f4a1803bd68cd78077306fb8eb801a0658e",
+  "source_tree": "807b3d287fe23fd972f7ad0c89eb29ef9e40dc15",
+  "purpose": "Offline reproduction of the retained populated-fragment scope failure, without changing or continuing the historical live run.",
+  "retained_run": "bizafe43f4aamz01-amazon-1",
+  "retained_request_sequence": 7,
+  "same_state_and_received_response": true,
+  "state_snapshot_sha256": "30a9ff05a0bb642648324201604efe4ac27a4c221b4302c929fec1f33df0ee7b",
+  "received_response_snapshot_sha256": "1aaa516d09513636ee98426dfeab456b52a710757eb4d74018320f78b479e1c1",
+  "received_extension_unchanged_in_both_evaluations": true,
+  "recursive_task_count": 8,
+  "before": {
+    "source": "afe43f4a1803bd68cd78077306fb8eb801a0658e",
+    "open_scopes": [
+      "/tasks/visit_each_product/body",
+      "/groups/grp_amazon_fr_products_xlsx/body",
+      "/root"
+    ],
+    "closed_scopes": [],
+    "diagnostics": [
+      {
+        "Code": "TASK_SCOPE_OPEN",
+        "Location": "/tasks/build_xlsx_rows/dependsOn",
+        "Message": "Dependencies cannot observe unfinished construction scopes: visit_each_product.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      },
+      {
+        "Code": "TASK_SCOPE_OPEN",
+        "Location": "/tasks/build_xlsx_rows/inputs/productRows",
+        "Message": "Task 'visit_each_product' has unfinished scopes. Close its construction boundary before consuming its outputs or completion.",
+        "Required": true,
+        "ValidationStage": null,
+        "Rule": null
+      }
+    ],
+    "result_sha256": "d181088d7577cfdd237c00a776c6065a2a00e9c9e877f381d148bff605391861"
+  },
+  "after": {
+    "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+    "open_scopes": [
+      "/root"
+    ],
+    "closed_scopes": [
+      "/tasks/visit_each_product/body",
+      "/groups/grp_amazon_fr_products_xlsx/body"
+    ],
+    "diagnostics": [],
+    "result_sha256": "aab1b77f87333e0795c391b4813f26b5f18e9fa7d5d73330d2837df0f9f59b31"
+  },
+  "method": {
+    "steps": [
+      "Deserialize the same retained pre-draft format-11 session and received construction extension through the existing source-generated contracts.",
+      "Apply the candidate, run compact extension validation, and admit only the exact uniquely matching cached operation contracts used by the candidate.",
+      "Run ordinary construction validation against candidate open scopes, keeping raw extension unchanged."
+    ],
+    "helper_source_sha256": "c83b05ebbd44abf87fca4dca34ef37dd180f746d7ae7699389c2c6c4d94e5b7b",
+    "helper_project_sha256": "e39dd5f9cb31f3529fc964aba42c71b71e59b453b48a2bd8291260b1f0a22c06",
+    "provider_calls": 0,
+    "encrypted_record_writes": 0,
+    "historical_run_continued": false
+  },
+  "correction": "Mechanically close newly supplied complete scopes after populated-fragment validation; preserve the open root, existing ancestor scopes and explicit continuing or prerequisite boundaries. No business closure or approval is inferred.",
+  "validation": {
+    "focused": {
+      "source_equivalent_to": "6f063c515eb3356020fc80bb5018abc56263677e",
+      "source_binding": "Final source was built and tested immediately before commit; no source edits occurred between this build/test and commit. HEAD was not yet 6f at test start.",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--filter",
+        "FullyQualifiedName~CoherentBusinessFragmentTests|FullyQualifiedName~PopulatedScopeClosureTests|FullyQualifiedName~CompactConstructionClosureTests|FullyQualifiedName~CompactSelectionPresentationTests|FullyQualifiedName~CompactScopeInterfaceTests|FullyQualifiedName~CompactLoopCapacityPresentationTests|FullyQualifiedName~CompactReviewedTransitionTests|FullyQualifiedName~CompactConstructionTests"
+      ],
+      "passed": 141,
+      "failed": 0,
+      "skipped": 0,
+      "compiler_warnings": 0,
+      "compiler_errors": 0,
+      "log_sha256": "289299b963c6bcca82221d2f6c50c2fc0493c9ca40b7eccfa69b057fbbeaa8af"
+    },
+    "full_planning": {
+      "checked_out_source": "6f063c515eb3356020fc80bb5018abc56263677e",
+      "source_binding": "Executed with --no-build at clean HEAD 6f using the same final-source binaries from the 141-case warning-free build; clean source was checked after completion.",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--no-build"
+      ],
+      "passed": 2396,
+      "failed": 0,
+      "skipped": 0,
+      "compiler_warnings": 0,
+      "compiler_errors": 0,
+      "log_sha256": "34490defaaf20a63096a0af9b6de4a17c0da57e13736671ae7fa9cb979bc6d20",
+      "build_performed": false
+    },
+    "historical_pre_fixture_adjustment_run": {
+      "passed": 2376,
+      "failed": 20,
+      "skipped": 0,
+      "total": 2396,
+      "log_sha256": "51c34d85d91fac19a9417a6fc4069bc98489c31ac89f31e9dd782dec90d12551",
+      "interpretation": "Initial full suite exposed old fixtures expecting populated scopes to remain open. Its failure is retained separately; final fixture adjustments preserve explicit open-boundary tests and production validation."
+    },
+    "counts_overlap": true,
+    "full_solution": {
+      "parent_source": "afe43f4a1803bd68cd78077306fb8eb801a0658e",
+      "parent_status": "pending",
+      "current_source": "6f063c515eb3356020fc80bb5018abc56263677e",
+      "current_status": "pending"
+    },
+    "publication_evidence": "business-block-6f063c51-publication-validation.json"
+  },
+  "business_qualification": {
+    "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+    "qualified_executions": 0,
+    "required": 6,
+    "complete": false,
+    "live_scope_correction_verdict": "Not exercised by the first 6f Amazon run: its transport failure occurred during selection before a draft.",
+    "next_control": "A fresh independent Amazon session is a separately registered transport control on the same frozen source/profile; no result is claimed here."
+  },
+  "limits": [
+    "This is technical candidate validation, not successful business review, a complete artifact, runtime execution or live convergence.",
+    "The original failed afe run and its raw received response remain unchanged; the candidate evaluation neither replays inference nor repairs that historical run.",
+    "A shorter failed run is not an efficiency improvement; provider usage and request component estimates remain separate."
+  ]
+}

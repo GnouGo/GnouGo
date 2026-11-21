@@ -36,11 +36,9 @@ public sealed class CopilotAttachmentPlanningTests
     {
         var snapshot = Capture(renamed);
         var factory = new RealProductContracts.Factory(snapshot);
-        var model = new Proposal();
-        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory, LLMClient = model }, (_, _) => Task.CompletedTask);
+        var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var state = new PlanningSession
         {
-            IntentVersion = 2,
             Request = new() { TenantId = "fixture", Mode = PlanningMode.Auto, Prompt = "Summarize the supplied review context without executing commands.", Generation = new() { MaxInputTokensPerRequest = 24000, MaxOutputTokens = 32768 } },
             Requirements = new() { Summary = "Summarize supplied review context", Outcomes = [new("report", "Return the summary")] },
             Phase = PlanningPhase.Tasks,
@@ -75,21 +73,18 @@ public sealed class CopilotAttachmentPlanningTests
         var legacy = new TaskPlanCompiler().Compile(plan, state.Catalog);
         Assert.Null(legacy.Graph); Assert.Contains(legacy.Diagnostics, d => d.Location == "/tasks/inspect/inputs/attachmentsJson");
 
-        // Explicitly synthetic corrected intent, not an edited historical recording.
-        model.Plan = SyntheticCorrectedProposal(clone.Id, send.Id);
-        state.Requirements!.Inputs = model.Plan.Inputs;
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
-        Assert.Equal(1, model.Calls); Assert.Equal(0, state.ReplanAttempts); Assert.Equal(0, factory.InvocationAttempts);
-        state = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(state);
-        var originalHash = state.ComputeArtifactHash();
-        var reviewed = state.Catalog!.Capabilities.Single(c => c.Id == send.Id);
-        reviewed.InputSchema["properties"]!["attachments"]!["description"] = "Changed producer contract";
-        Assert.NotEqual(originalHash, state.ComputeArtifactHash());
-        await Assert.ThrowsAsync<PlanningConflictException>(() => new HybridWorkflowPlanner().AdvanceAsync(state,
-            new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = originalHash }, runtime, Ct));
-        reviewed.InputSchema = send.InputSchema.DeepClone().AsObject(); PlanningArtifactApproval.Verify(state);
+        // Compile this explicit synthetic fixture directly. Current planner
+        // review/approval is covered separately, without an old proposal envelope.
+        state.Plan = SyntheticCorrectedProposal(clone.Id, send.Id);
+        state.Requirements!.Inputs = state.Plan.Inputs;
+        var compilation = new TaskPlanCompiler().Compile(state.Plan, state.Catalog, state.Request);
+        Assert.Empty(compilation.Diagnostics); Assert.NotNull(compilation.Graph);
+        typeof(HybridWorkflowPlanner).Assembly.GetType("GnOuGo.Flow.Planning.PlanningConfirmationGuards")!
+            .GetMethod("Apply", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [compilation.Graph, state.Catalog]);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, state.Catalog, "attachments-fixture");
+        Assert.Empty(await runtime.ValidateAsync(new(yaml, state.Request, state.Catalog, PlanningGraphCompiler.CapabilityBindings(compilation.Graph)), Ct));
+        Assert.Equal(0, factory.InvocationAttempts);
+        var contractBytes = JsonSerializer.Serialize(send, PlanningJsonContext.Default.PlanningCapability);
 
         var calls = new List<string>();
         factory.Handler = (_, method, args, _) =>
@@ -105,10 +100,11 @@ public sealed class CopilotAttachmentPlanningTests
             return Task.FromResult(new McpCallResult { Content = JsonSerializer.SerializeToNode(new CopilotSendResult("fixture", "mock-session", "fixture summary", "mock", []), RealProductContracts.Json) });
         };
         var engine = new WorkflowEngine { McpClientFactory = factory, HumanInputProvider = new PlanningCorpus.Human(true) };
-        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         var run = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["pullRequestUrl"] = "https://example.test/repo/pull/23", ["reviewInstructions"] = "Explain the supplied context" }, Ct);
         Assert.True(run.Success, run.Error?.Message); Assert.Equal("fixture summary", run.Outputs!["summary"]!.ToString());
-        Assert.Equal(new[] { clone.Method, send.Method }, calls); Assert.Equal(1, model.Calls);
+        Assert.Equal(new[] { clone.Method, send.Method }, calls);
+        Assert.Equal(contractBytes, JsonSerializer.Serialize(send, PlanningJsonContext.Default.PlanningCapability));
     }
 
     private static Type Revisions => typeof(HybridWorkflowPlanner).Assembly.GetType("GnOuGo.Flow.Planning.TaskPlanRevisions")!;
@@ -160,17 +156,4 @@ public sealed class CopilotAttachmentPlanningTests
         }
     }
 
-    private sealed class Proposal : ILLMClient, ILLMCapabilityResolver
-    {
-        internal TaskPlan Plan = null!; internal int Calls;
-        public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct) => Task.FromResult<int?>(128000);
-        public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<bool?>(true);
-        public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(["medium"]);
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        {
-            Calls++;
-            var proposal = JsonSerializer.SerializeToNode(new PlanningProposal { Plan = Plan }, PlanningJsonContext.Default.PlanningProposal);
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(proposal, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-        }
-    }
 }

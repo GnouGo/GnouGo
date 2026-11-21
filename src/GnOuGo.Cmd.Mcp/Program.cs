@@ -27,6 +27,17 @@ try
     }
 
     builder.Services.AddSingleton<IConfigureOptions<CmdServerSettings>, CmdServerSettingsOptionsConfigurator>();
+    if (Environment.GetEnvironmentVariable("GNOUGO_CMD_ONLY_COMMAND") is { } onlyCommand)
+    {
+        builder.Services.PostConfigure<CmdServerSettings>(settings =>
+        {
+            if (!settings.AllowedCommands.ContainsKey(onlyCommand))
+                throw new InvalidOperationException("The required command alias is absent from the configured allowlist.");
+            settings.AllowedCommands = settings.AllowedCommands
+                .Where(pair => string.Equals(pair.Key, onlyCommand, StringComparison.OrdinalIgnoreCase))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
+        });
+    }
     builder.Services.AddSingleton<CommandPolicy>();
     builder.Services.AddSingleton<CommandExecutionHost>();
     builder.Services.AddTransient<CmdTools>();

@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "source": "d5a4cac23ebe7fa8525ecb8f0299c65b6613d870",
+  "cohort": "compactrd5a4cac23colhighv8p9a",
+  "case": "collections",
+  "presentation_version": 8,
+  "freeze_sha256": "7a065833d13e174a00b2a70e7446a15b72ead2cf68c2d431e4e4025f7090094f",
+  "metrics_captured_utc": "2026-10-27T06:43:16.8966760+00:00",
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "classification": "received_http500_then_response_less_transport_uncertainty",
+    "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+    "logical_requests": 2,
+    "physical_attempts": 3,
+    "completion_receipts": 1,
+    "corrections": 0,
+    "accepted_checkpoints": 0,
+    "artifact_present": false,
+    "runtime_started": false,
+    "runtime_oracle": "not evaluated",
+    "fulfilled_business_obligations": 0,
+    "calls_per_fulfilled_obligation": null,
+    "planning_ms": 656702,
+    "known_input_tokens": 377,
+    "known_output_tokens": 624,
+    "reasoning_tokens_included_in_output": 512,
+    "known_cost_eur": "0.0183891120035698348951361000",
+    "unknown_usage_reservation_eur": "1.8617402945113788487282463186",
+    "cost_upper_bound_eur": "1.8801294065149486836233824186",
+    "unknown_usage_attempts": 2
+  },
+  "uncertain_request": {
+    "id": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3:2:d3ed365e9a5c98a7df5646eaf00996ff3b87c2df59baf0c3b18bd09465954b90",
+    "request_hash": "267b45aca2e1e69a6808a95236ecae8e7cedb711606bbab3d3a9d39b69bf041e",
+    "schema_hash": "c77e5c66cb39f2e26bc3505dbaca3d5762db576e46d3c2f8e028fe5fc85cc15d",
+    "http_statuses": [
+      500,
+      null
+    ],
+    "response_body_bytes": [
+      130,
+      null
+    ],
+    "receipt_present": false,
+    "verified_usage_present": false,
+    "failure_kind": "Transport",
+    "retry_exhausted": false,
+    "retention_inspection_kind": "exhausted-planning-retries",
+    "retention_kind_qualifier": "Exact inspection category; it does not mean three HTTP retries were exhausted.",
+    "retention_evidence_hash": "5a568b8462e4e93d36aa8cb32bb500d8b104b6b56076f17e4f90d48ac79d215b",
+    "authorization_status_at_capture": "pending exact user authorization",
+    "closure_applied": false,
+    "reservation_retained": true,
+    "replay_forbidden": true,
+    "continuation_forbidden": true
+  },
+  "campaign_at_inspection": {
+    "campaign": "schema-portability-20261019-incremental",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "known_cost_eur": "232.18581956131049866696264599",
+    "reserved_cost_eur": "72.782679492519085495095105380",
+    "upper_eur": "304.96849905382958416205775137",
+    "available_eur_derived": "135.06160477887672038038719593",
+    "derivation": "Exact ceiling minus saved inspection upper bound; Decimal precision60.",
+    "earlier_permanently_closed_receiptless_identities": 34,
+    "prior_closure_capture_sha256": "959a3514efcb2b3b9478dc586d8df2d5678d8050d939145c03915136d8dc14aa",
+    "new_unresolved_identity": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3:2:d3ed365e9a5c98a7df5646eaf00996ff3b87c2df59baf0c3b18bd09465954b90",
+    "current_complete_receiptless_inventory_recounted": false,
+    "scope": "Dated saved inspection only, not a subsequent live balance or full ledger recount."
+  },
+  "candidate_collections": "Not frozen or dispatched at the operator capture; comparison pending.",
+  "evidence": {
+    "safe_metrics_sha256": "7cdcee4a0f0dd74fdd654b98c721821540806a951fb547cdd07e99f825b93f46",
+    "canonical_state_sha256": "9640acc17c497ac8ff82c840180bc98cbfba2ebfb6e3302aa11462ef1dd7535e",
+    "request2_export_sha256": "e249e2b9c9ec0b3aadabf90ba7ed8997d67c35b227c216565192cb121de47d64",
+    "retention_inspection_sha256": "825f29ed9a838f7039ed7e33d6a843668a11abf6e7ec5f478a701049bf55acea",
+    "arithmetic_review_sha256": "b0f4a437ba5a80107f255389343151c0f72b83e1beea629219719ba7d9a19ea4"
+  },
+  "limits": [
+    "No receipt means model output and usage remain unknown; this is not an empty completed response or output-token exhaustion.",
+    "The exact new abandonment remains pending; no closure or reservation release was performed by this offline review.",
+    "No artifact/runtime success or efficiency conclusion is established. Paid diagnostics are blocked pending the exact authorization at this capture."
+  ]
+}

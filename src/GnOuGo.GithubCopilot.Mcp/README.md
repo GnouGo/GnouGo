@@ -1,6 +1,6 @@
 # GnOuGo.GithubCopilot.Mcp
 
-Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. MCP SDK 2.2.0 has a separate ten-round input-required limit; sufficiently long interactive calls can still stop at that limit. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
+Interactive permission and business-question callbacks are serialized within each MCP invocation, including captured asynchronous callbacks. Each question still requires its own answer and retains cancellation, tenant context and permission checks. Earlier qualification with MCP SDK 2.2.0 encountered a separate ten-round input-required limit on long interactive calls. See the [live validation evidence](../../docs/planning-schema-portability-2026-10-02.md).
 
 MCP stdio server for safe code operations on a local project.
 
@@ -98,7 +98,7 @@ Relevant Copilot settings:
 - `Code:Copilot:EnableSandboxBypassGrants`: independent host gate for explicitly remembered sandbox-bypass approvals, default `false`.
 - `Code:Copilot:WorkflowGrantTtlSeconds`: inactivity expiry for in-memory workflow-run grants, default `86400`.
 
-MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; the session-create tool advertises that handle as a materialized `session.handle` artifact and lifecycle consumers declare the matching required artifact. One-shot calls create, execute, disconnect, and permanently delete one SDK session, and advertise a complete-operation composition encapsulating those lower-level session phases so a provider-neutral planner can avoid redundant wrapper-plus-phase execution. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
+MCP transport sessions are never used as Copilot session identity. Managed calls use a `cps_*` opaque handle bound to `TenantId`; the session-create tool advertises that handle as a materialized `session.handle` artifact and lifecycle consumers declare the matching required artifact. One-shot calls create, execute, disconnect, and permanently delete one SDK session, and advertise a complete-operation composition encapsulating those lower-level session phases so a provider-neutral planner can avoid redundant wrapper-plus-phase execution. The `code_suggest_change` and `code_agent_edit` compatibility tools run the same one-shot lifecycle and publish the same composition and required workspace-directory input. Request `_meta.gnougo` propagates tenant, correlation, stable execution and agent identity, run, step, repository, PR number, and head SHA. The host owns the execution and agent fields; workflow inputs cannot override them.
 
 Interactive permission, user-input, and nested MCP elicitation callbacks are bridged through stable MCP form elicitation. `copilot_session_create` publishes the managed-session permission enum and defaults to `interactive`. `copilot_one_shot` is deliberately non-interactive, publishes only `auto_approve_allowlist`, `deny`, and `approve_all`, and defaults to `deny`; its native `permissionAllowlist` array supplies the explicit allowlist when that mode is selected. Use `copilot_interactive_one_shot` for dependency installation, tests, linting, edits, or other one-turn work that may execute tools: it runs one logical MCP task, retaining the managed SDK session through human interactions. Verified completion permits session deletion; unknown completion retains its identity and partial evidence for reconciliation. `deny` is appropriate for pure review inference. `auto_approve_allowlist` permits only explicitly named read-only paths/tools. `approve_all` is rejected unless the host gate is enabled and must not be generated without explicit unattended intent and established host availability.
 Interactive permission prompts show the exact operation, warnings, sandbox-bypass status, and remembered scope. They offer **Allow once**, **Refuse**, and **Allow similar operations for this task** only when the SDK marks a matching scope as safe. When `EnableApproveAll` is enabled, the same interactive callback may also offer **Allow all for this Copilot task**, **Allow all for this workflow run**, and **Allow all future runs for this agent** when the required stable identities are available. Ordinary broad grants never include sandbox bypass. When `EnableSandboxBypassGrants` is also enabled, a bypass request offers explicit task, workflow, and future-agent choices that include ordinary and bypass operations. Future-agent approval requires a second confirmation and is stored by tenant plus stable agent ID, so it follows renames and survives restarts. Workflow grants are tenant/run scoped and expire after inactivity.
@@ -123,6 +123,8 @@ The review session has no tools, no configuration discovery, no write permission
 
 Review analysis does not publish or authorize a GitHub mutation. Workflows use the configured official GitHub MCP for those operations, with normal workflow approval, generic runtime confirmation and MCP elicitation. No host-managed draft, publication gate, fresh-head check or publication replay guarantee is supplied. See [MCP workflow execution and removed publication APIs](../../docs/github-mcp-workflow-execution.md).
 
+Managed interactive operations tell the SDK their shared interaction and inference limits. After an admitted inference request, the first tool completion or failure gives the model the remaining call and token allowance. This evidence helps it finish with the observed command outcomes and identify unfinished work. The host continues to enforce its original reservations and validates the terminal receipt.
+
 `code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
 When provided, the MCP reads the matching provider from its typed `CodeCopilotSettings.Providers` dictionary and passes it as a custom Copilot SDK provider for that call. At process startup, the MCP uses the storage-agnostic `IKeyVaultSecretCatalogReader` contract to map shared provider secrets and MCP-specific leaf overrides into the `Code:Copilot` configuration namespace before typed settings are created. Database resolution, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core`.
 Supported provider section names are:
@@ -132,6 +134,8 @@ Supported provider section names are:
 - legacy fallback: `Code:Copilot:Providers:gnougo_llm_<provider>`
 
 The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in KeyVault, environment variables, or another secure configuration provider; do not commit real tokens to `appsettings.json`.
+
+For a versioned URL containing `/deployments/<deployment>`, Chat Completions uses the SDK Azure base route and deployment identity. An explicit `wireApi: responses` retains the configured deployment URL because the SDK appends `/responses` directly. Authentication, model identity and API version remain unchanged. Gateway support for that configured endpoint must be verified separately; the resolver never falls back to a sibling route.
 
 For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Provider identity is case-insensitive. One canonical key wins over one legacy key; multiple same-priority canonical or legacy variants are ambiguous and fail startup without exposing their values. Agent configuration saves reuse the existing canonical key and retire equivalent aliases so the ambiguity cannot be recreated by a case-only edit. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
 
@@ -149,6 +153,11 @@ Policy, input, provider, cancellation, and unexpected tool failures are returned
 `code_agent_edit` is a compatibility wrapper over the same bounded logical operation
 and durable MCP Tasks receipt as `copilot_interactive_one_shot`. Its existing
 `CodeAgentEditResult` contract is preserved, including truthful `toolExecutions`.
+Its metadata and session prompt describe the existing bounded coding task: inspection,
+review, checks or edits as requested. Available SDK tools and the current host
+permission/sandbox policy determine actual execution. Session completion alone does
+not establish that commands ran or checks succeeded; preserve unavailable, denied,
+failed and incomplete observations. Read-only tasks do not require file changes.
 `code_suggest_change` also uses Core, with tool execution disabled. MCP never
 creates SDK clients or sessions. The shared configuration builder preserves provider,
 telemetry, trace, and timeout settings for both legacy and managed tools.
@@ -165,7 +174,11 @@ does not contain shell commands.
 
 Tenant-scoped calls require transport metadata `_meta.gnougo.tenantId`. Business tools no longer accept `tenantId`; there is no environment, activity or default-tenant fallback for ownership. Bounded task envelopes must match the transport tenant. Standalone callers must send metadata; Agent.Server supplies the execution owner. Refresh discovery and revise/regenerate workflows using the removed argument; do not turn tenant identity into a workflow input. Agentic execution defaults to interactive permission requests and fails
 closed when human input is unavailable. Broad approval is disabled in shipped defaults.
-`code_agent_edit` additionally exposes Core's `toolExecutions` observations.
+`code_agent_edit` exposes the Copilot text in `summary`, the SDK observations
+in `toolExecutions` and completion in `success` and `error_code`. Consumers
+can bind those fields directly. The whole response also includes the original
+input task and the progress stream. An interrupted response is identified as
+incomplete in the rendered `output`.
 This lets Copilot edit files directly through the MCP process while still enforcing the same project policy as manual file writes:
 
 - `Code:AllowWrites` must be `true`.
@@ -330,7 +343,7 @@ Agent budget stops retain safe admission diagnostics and execution observations.
 ## Long interactive operations
 
 `copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned
-with `ModelContextProtocol.Extensions.Tasks` 2.2.0 (protocol 2026-07-28 or later).
+with `ModelContextProtocol.Extensions.Tasks` 2.4.0 (protocol 2026-07-28 or later).
 The generic Flow MCP client polls task status, presents each new human-input request
 once, resends retained answers on repeated pending IDs, and returns one final tool
 result. Older clients must add Tasks support for these operations. Other tools retain
@@ -378,3 +391,30 @@ conflicting events and unverified cancellation remain reconciliation cases; thei
 SDK identities and evidence are retained. Host ceilings and permission rules are unchanged.
 
 See [deterministic browsing/review and receipt regressions](../../docs/browsing-review-and-copilot-receipts.md).
+
+
+## Structured OpenAi tool transport
+
+For a configured Chat Completions deployment that supports strict JSON schema but
+rejects native function tools, explicitly select
+`Code:Copilot:InferenceTransport=gnougo-structured-tools-v1`. The default is `native`.
+Host MCP environment settings use `Code__Copilot__InferenceTransport`; an explicit
+`Code__Copilot__Provider=OpenAi` continues to resolve the shared KeyVault provider.
+
+This adapter reuses `GnOuGo.AI.Core.ChatRequestBuilder`. It preserves the exact SDK
+endpoint, authentication headers, model, reasoning and conversation. Full original
+tool declarations remain in the model context. A strict JSON decision selects an
+exact declared function and its JSON arguments, or a final assistant message. The
+SDK receives the selected native tool call and retains execution, input validation,
+permissions, sandboxing and task receipts. No business result or tool response is
+supplied by the adapter. Forced/required/disabled tool choice and disabled parallel
+calls remain binding. Unsupported protocols and conflicting output schemas fail
+explicitly.
+
+Upstream inference is one bounded JSON response. A complete decision is validated
+before tool calls are exposed; SDK streaming is restored as ordinary SSE chunks
+with the actual provider usage. Error responses pass through. The existing policy
+proxy retains the original provider response, while logical budgets charge the
+expanded request before sending. Selecting this transport does not authorize any
+new endpoint or tool effect. Capture changed settings in a new immutable campaign
+amendment before a fresh live run; stopped native sessions remain stopped.

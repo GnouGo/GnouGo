@@ -72,7 +72,7 @@ public sealed partial class CompactObservationTests
         {
             Calls++; Assert.Equal(1, Calls);
             Estimate = PlanningJsonTransport.EstimateInputTokens(request.Prompt, request.StructuredOutputSchema!.AsObject());
-            Assert.InRange(Estimate, 1, 96000);
+            PlannerFixture.ObserveInputBudget(Estimate, 96000);
             Assert.DoesNotContain("original/", request.Prompt); Assert.DoesNotContain(new string('x', 100), request.Prompt);
             var facts = Business(request)["facts"]!.AsArray(); Assert.Equal(1581, facts.Count);
             Assert.Null(facts[0]!["group"]);

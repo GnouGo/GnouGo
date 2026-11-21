@@ -3,6 +3,6 @@
        Import the pinned backend props explicitly so package consumers receive the
        same RID-specific native llama.cpp assets as repository project references. -->
   <Import
-    Project="$(NuGetPackageRoot)llamasharp.backend.cpu/0.27.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props"
-    Condition="Exists('$(NuGetPackageRoot)llamasharp.backend.cpu/0.27.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props')" />
+    Project="$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props"
+    Condition="Exists('$(NuGetPackageRoot)llamasharp.backend.cpu/0.30.0/build/netstandard2.0/LLamaSharp.Backend.Cpu.props')" />
 </Project>

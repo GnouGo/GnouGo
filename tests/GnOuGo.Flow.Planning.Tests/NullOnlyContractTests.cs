@@ -156,6 +156,109 @@ public sealed class NullOnlyContractTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task IterationConsumesAnOptionalCollectionAfterItsOwnNonNullGuard(bool guardCollection)
+    {
+        var engine = new WorkflowEngine();
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        var collection = new TaskType { Kind = "array", Nullable = true, Items = new() { Kind = "string" } };
+        var loop = new PlanTask { Id = "visit", Kind = "foreach", Objective = "Visit every observed reference in order.",
+            Items = Input("references"), MaxItems = 4, Requires = new() { Kind = "predicate", Predicate = "not_equal",
+                Items = [Input(guardCollection ? "references" : "other"), new()] },
+            Body = Export(new() { Kind = "item" }) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "references", Type = collection }, new() { Name = "other", Type = collection }],
+            Root = new() { Tasks = [loop], Outputs = [new("visited", Output("visit"))] } };
+        var state = PlannerFixture.Session();
+        state.Requirements = PlannerFixture.Requirements();
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), grammar, grammar)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, grammar));
+        var parsed = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        var checkedPlan = TaskPlanCompiler.ValidateConstruction(parsed, catalog, state.Request, new HashSet<string>(StringComparer.Ordinal));
+        var compilation = new TaskPlanCompiler().Compile(parsed, catalog);
+        if (!guardCollection)
+        {
+            Assert.Contains(checkedPlan.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID");
+            Assert.Contains(compilation.Diagnostics, d => d.Code == "TASK_ITEMS_INVALID");
+            return;
+        }
+        Assert.Empty(checkedPlan.Diagnostics);
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        foreach (var references in new JsonArray?[] { null, [], ["a"], ["b", "a", "b"] })
+        {
+            var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
+                new JsonObject { ["references"] = references?.DeepClone(), ["other"] = new JsonArray() }, PlannerFixture.Ct);
+            Assert.Equal(references is not null, result.Success);
+            if (references is not null) Assert.True(JsonNode.DeepEquals(references, result.Outputs!["visited"]));
+        }
+    }
+
+    [Theory]
+    [InlineData("and", true)]
+    [InlineData("or", true)]
+    [InlineData("unsafe_or", false)]
+    [InlineData("unrelated", false)]
+    [InlineData("mixed", false)]
+    [InlineData("unknown_field", false)]
+    public async Task GuardedFieldOfAnOptionalControlResultUsesOnlyReachableAlternatives(string shape, bool valid)
+    {
+        var engine = new WorkflowEngine();
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await runtime.DiscoverAsync(new(), PlannerFixture.Ct);
+        TaskValue Page() => Output("capture");
+        TaskValue Field(string name) => new() { Kind = "field", Port = name, Items = [Page()] };
+        TaskValue Test(string op, params TaskValue[] items) => new() { Kind = "predicate", Predicate = op, Items = [.. items] };
+        var record = new TaskValue { Kind = "object", Members = [new("more", Input("more")), new("cursor", new() { Kind = "string", Text = "next" })] };
+        var choose = new PlanTask { Id = "choose", Kind = "conditional", Objective = "Return the observed record when selected.",
+            Condition = Input("selected"), Body = Export(record), Otherwise = Export(shape == "mixed" ? new() { Kind = "number", Number = 1 } : new()) };
+        var capture = new PlanTask { Id = "capture", Kind = "sequence", Objective = "Capture the optional record.",
+            Body = new() { Tasks = [choose], Outputs = [new("cursor", Output("choose"))] } };
+        var present = Test("not_equal", Page(), new());
+        var more = Field(shape == "unknown_field" ? "absent" : "more");
+        var condition = shape switch
+        {
+            "or" => Test("or", Test("equal", Page(), new()), Test("not", more)),
+            "unsafe_or" => Test("or", present, more),
+            "unrelated" => Test("and", Input("selected"), more),
+            _ => Test("and", present, more)
+        };
+        var read = new TaskScope { Tasks = [new() { Id = "read", Kind = "value", Objective = "Read the observed cursor.",
+            Requires = Test("and", present, Test("not_equal", Field("cursor"), new())), Outputs = [new("cursor", Field("cursor"))] }],
+            Outputs = [new("cursor", Output("read"))] };
+        var route = new PlanTask { Id = "route", Kind = "conditional", Objective = "Use the cursor only when another page exists.", Condition = condition,
+            Body = shape == "or" ? Export(new()) : read, Otherwise = shape == "or" ? read : Export(new()) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "selected", Type = new() { Kind = "boolean" } }, new() { Name = "more", Type = new() { Kind = "boolean" } }],
+            Root = new() { Tasks = [capture, route], Outputs = [new("cursor", Output("route"))] } };
+        var state = PlannerFixture.Session();
+        state.Requirements = PlannerFixture.Requirements();
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), grammar, grammar)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, grammar));
+        var compilation = new TaskPlanCompiler().Compile(wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!, catalog);
+        if (!valid)
+        {
+            Assert.Contains(compilation.Diagnostics, d => d.Code == (shape == "unknown_field" ? "TASK_FIELD_UNKNOWN" : "TASK_FIELD_TYPE"));
+            return;
+        }
+        Assert.Empty(compilation.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compilation.Graph!, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
+        foreach (var selected in new[] { false, true })
+            foreach (var hasMore in new[] { false, true })
+            {
+                var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!],
+                    new JsonObject { ["selected"] = selected, ["more"] = hasMore }, PlannerFixture.Ct);
+                Assert.True(result.Success, result.Error?.Message);
+                Assert.Equal(selected && hasMore ? "next" : null, result.Outputs!["cursor"]?.GetValue<string>());
+            }
+    }
+
+    [Theory]
     [InlineData("direct", true)]
     [InlineData("and", true)]
     [InlineData("not_or", true)]

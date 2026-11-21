@@ -14,9 +14,17 @@ namespace GnOuGo.Flow.Core.Scripting;
 
 public sealed partial class JintSandbox
 {
-    public const int MappingProfileVersion = 6;
+    public const int MappingProfileVersion = 8;
     public const string MappingFunction = "checkedMapping";
-    private static readonly HashSet<string> MappingHelpers = ["select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
+    internal static uint CheckedPosition(JsonNode? index, long count)
+    {
+        if (!JsonSchemaInstanceValidator.TryReadNumber(index, out var number) || number < 0 || number >= count ||
+            !JsonSchemaInstanceValidator.IsMultiple(index!, JsonValue.Create(1)!))
+            throw Unsatisfied("Positional selection requires a zero-based integer index within the observed array.");
+        return (uint)number;
+    }
+
+    private static readonly HashSet<string> MappingHelpers = ["indexed", "isNull", "select", "optional", "parse", "text", "texts", "trim", "decode", "percentDecode", "resolveUri", "number", "has", "test", "scalar"];
 
     /// <summary>Only source-backed scalar identities may leave this sandbox. JS never holds their numeric approximations.</summary>
     public JsonNode? ExecuteMapping(string expression, JsonNode? source, CancellationToken ct = default, JsonObject? target = null)
@@ -119,6 +127,14 @@ public sealed partial class JintSandbox
         }
         // Compiler-owned reconnection only. Learned expressions cannot call this
         // helper, and returned values retain their original observation tokens.
+        helpers.Set("atIndex", new ClrFunction(engine, "atIndex", (_, args) =>
+        {
+            ct.ThrowIfCancellationRequested();
+            if (args.Length != 2 || !args[0].IsArray()) throw Unsatisfied("Positional selection requires an observed array and an integer index.");
+            var array = args[0].AsArray();
+            var position = args[1].IsNumber() ? JsonValue.Create(args[1].AsNumber()) : Observed(args[1]);
+            return array[CheckedPosition(position, array.Length)];
+        }));
         MappingAllowance? lookupAllowance = null;
         helpers.Set("lookup", new ClrFunction(engine, "lookup", (_, args) =>
         {
@@ -391,6 +407,18 @@ public sealed partial class JintSandbox
             if (args.Length == 0) throw Unsatisfied("Mapping helper arguments are missing.");
             switch (name)
             {
+                case "indexed":
+                    if (args.Length != 1 || !args[0].IsArray() || !containers.Contains(args[0].AsObject()))
+                        throw Unsatisfied("indexed requires the original observed array before filtering or reordering.");
+                    return Array(args[0].AsArray().Select((item, position) =>
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        allowance?.Check();
+                        var entry = new JsObject(engine);
+                        entry.CreateDataProperty("index", Import(JsonValue.Create(position)));
+                        entry.CreateDataProperty("value", item);
+                        return (JsValue)entry;
+                    }));
                 case "optional":
                     if (args.Length != 2) throw Unsatisfied("optional requires an observed container and literal path.");
                     if (!args[0].IsObject() || !containers.Contains(args[0].AsObject()))
@@ -435,6 +463,9 @@ public sealed partial class JintSandbox
                     if (number?.GetValueKind() != System.Text.Json.JsonValueKind.Number)
                         throw Unsatisfied("The observed text is not a JSON number.");
                     return Import(number);
+                case "isNull":
+                    if (args[0].IsObject() && containers.Contains(args[0].AsObject())) return JsBoolean.False;
+                    return Observed(args[0]) is null ? JsBoolean.True : JsBoolean.False;
                 case "scalar": return args[0].IsObject() && origins.ContainsKey(args[0].AsObject()) ? JsBoolean.True : JsBoolean.False;
                 case "has":
                     if (args.Length != 2 || !args[1].IsString()) throw Unsatisfied("has requires an object and literal property name.");
@@ -527,7 +558,7 @@ public sealed partial class JintSandbox
         catch (WorkflowRuntimeException ex) when (!IsInvalidProgram(ex)) { throw InvalidProgram(ex.Message, ex); }
         static bool Control(Node node, int depth = 0) => depth < 64 && (node is UnaryExpression { Operator: Acornima.Operator.LogicalNot } negate && Control(negate.Argument, depth + 1) ||
             node is Literal or UnaryExpression { Operator: Acornima.Operator.TypeOf } or BinaryExpression ||
-            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" } } } ||
+            node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "m" }, Property: Identifier { Name: "has" or "test" or "scalar" or "isNull" } } } ||
             node is CallExpression { Callee: MemberExpression { Object: Identifier { Name: "Array" }, Property: Identifier { Name: "isArray" } } });
 
         void Check(Node node, HashSet<string> bound, int depth)
@@ -564,7 +595,7 @@ public sealed partial class JintSandbox
                         else throw Unsatisfied("Mapping callbacks require plain local parameters.");
                     Check(arrow.Body, scope, depth + 1); return;
                 case CallExpression { Callee: MemberExpression { Computed: false, Property: Identifier method } call } invocation:
-                    var permitted = call.Object is Identifier { Name: "m" } ? MappingHelpers.Contains(method.Name) || !learned && method.Name == "lookup" :
+                    var permitted = call.Object is Identifier { Name: "m" } ? MappingHelpers.Contains(method.Name) || !learned && method.Name is "lookup" or "atIndex" :
                         call.Object is Identifier { Name: "Object" } ? method.Name is "entries" or "fromEntries" :
                         call.Object is Identifier { Name: "Array" } ? method.Name == "isArray" : method.Name is "map" or "filter" or "slice" or "flatMap";
                     if (!permitted)
@@ -613,7 +644,7 @@ public sealed partial class JintSandbox
             var validCount = name switch
             {
                 "select" or "lookup" => args.Count == 3,
-                "optional" or "resolveUri" or "has" or "test" => args.Count == 2,
+                "optional" or "resolveUri" or "has" or "test" or "atIndex" => args.Count == 2,
                 "text" or "texts" => args.Count is 2 or 3,
                 _ => args.Count == 1
             };

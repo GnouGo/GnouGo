@@ -13,6 +13,11 @@ produce a substitute output. The compiler checks the condition's type, dependenc
 and availability, then emits an existing checked `set` before inputs, runtime
 inference or effects. Predicates remain structured until final YAML lowering.
 Selected-field checks on the right of `and`/`or` retain short-circuit behavior.
+When a conditional exports a record on one branch and null on the other,
+`and(not_equal(record, null), record.more)` can read the declared Boolean
+field. The right operand and the selected branch inherit the non-null check.
+An alternative that can still contain a scalar, or an object missing the
+requested field, fails validation.
 
 For example, a publication sequence may require observed completeness and return
 its actual written path. Ordinary `conditional` tasks still need matching explicit

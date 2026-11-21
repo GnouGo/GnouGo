@@ -254,10 +254,10 @@ def cs_bool(value):
         return "null"
     return "true" if bool(value) else "false"
 def cs_string_list(value):
-    if not value:
+    if value is None:
         return "null"
     items = [cs_string(item) for item in value if str(item).strip()]
-    return "[" + ", ".join(items) + "]" if items else "null"
+    return "[" + ", ".join(items) + "]"
 def split_provider_qualified_key(key):
     if not key or "/" not in key:
         return None
@@ -299,6 +299,8 @@ for name, model in models.items():
     lines.append(f"            DisplayName = {cs_string(display_name)},")
     append_if_not_null(lines, "ProviderType", cs_string(provider_type))
     append_if_not_null(lines, "OwnedBy", cs_string(model.get("ownedBy")))
+    append_if_not_null(lines, "VerifiedAt", cs_string(model.get("verifiedAt")))
+    append_if_not_null(lines, "SourceUrls", cs_string_list(model.get("sourceUrls")))
     append_if_not_null(lines, "ContextWindowTokens", cs_int(model.get("contextWindowTokens")))
     append_if_not_null(lines, "MaxInputTokens", cs_int(model.get("maxInputTokens")))
     append_if_not_null(lines, "MaxOutputTokens", cs_int(model.get("maxOutputTokens")))
@@ -310,6 +312,15 @@ for name, model in models.items():
         append_if_not_null(lines, "OutputPer1MTokens", cs_decimal(pricing.get("outputPer1MTokens")))
         append_if_not_null(lines, "CachedInputPer1MTokens", cs_decimal(pricing.get("cachedInputPer1MTokens")))
         append_if_not_null(lines, "ReasoningOutputPer1MTokens", cs_decimal(pricing.get("reasoningOutputPer1MTokens")))
+        append_if_not_null(lines, "CacheWriteInputPer1MTokens", cs_decimal(pricing.get("cacheWriteInputPer1MTokens")))
+        append_if_not_null(lines, "CacheWrite12hInputPer1MTokens", cs_decimal(pricing.get("cacheWrite12hInputPer1MTokens")))
+        append_if_not_null(lines, "LongContextThresholdTokens", cs_int(pricing.get("longContextThresholdTokens")))
+        append_if_not_null(lines, "LongContextInputMultiplier", cs_decimal(pricing.get("longContextInputMultiplier")))
+        append_if_not_null(lines, "LongContextOutputMultiplier", cs_decimal(pricing.get("longContextOutputMultiplier")))
+        append_if_not_null(lines, "FastMultiplier", cs_decimal(pricing.get("fastMultiplier")))
+        append_if_not_null(lines, "FlexBatchMultiplier", cs_decimal(pricing.get("flexBatchMultiplier")))
+        append_if_not_null(lines, "UltrafastMultiplier", cs_decimal(pricing.get("ultrafastMultiplier")))
+        append_if_not_null(lines, "RegionalMultiplier", cs_decimal(pricing.get("regionalMultiplier")))
         lines.append("            },")
     if cap:
         lines.append("            Capabilities = new ModelCapabilityMetadata")
@@ -322,6 +333,11 @@ for name, model in models.items():
         append_if_not_null(lines, "SupportsVision", cs_bool(cap.get("supportsVision")))
         append_if_not_null(lines, "SupportsAudio", cs_bool(cap.get("supportsAudio")))
         append_if_not_null(lines, "SupportsEmbeddings", cs_bool(cap.get("supportsEmbeddings")))
+        append_if_not_null(lines, "TemperatureReasoningEfforts", cs_string_list(cap.get("temperatureReasoningEfforts")))
+        append_if_not_null(lines, "SupportsResponses", cs_bool(cap.get("supportsResponses")))
+        append_if_not_null(lines, "SupportsChatCompletions", cs_bool(cap.get("supportsChatCompletions")))
+        append_if_not_null(lines, "SupportsStreaming", cs_bool(cap.get("supportsStreaming")))
+        append_if_not_null(lines, "ChatToolsReasoningEfforts", cs_string_list(cap.get("chatToolsReasoningEfforts")))
         append_if_not_null(lines, "SupportedReasoningEfforts", cs_string_list(cap.get("supportedReasoningEfforts")))
         append_if_not_null(lines, "UnsupportedRequestParameters", cs_string_list(cap.get("unsupportedRequestParameters")))
         lines.append("            },")

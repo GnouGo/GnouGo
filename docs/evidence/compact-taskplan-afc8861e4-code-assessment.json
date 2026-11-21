@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "created_utc": "2026-10-24T22:20:36.382721+00:00",
+  "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+  "scope": "Read-only independent assessment of root bounded original projections and exact committed source; no store/provider/runtime/build calls.",
+  "safe_refs": {
+    "code-terminal-state-witness-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-terminal-state-witness-safe.json",
+      "sha256": "f109df0814f9f85e94518f51e22de1097d193ed744000883d206ffcf3ee710a0",
+      "bytes": 88644
+    },
+    "code-correction-request-witness-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-correction-request-witness-safe.json",
+      "sha256": "55cabcdae4133ab96ac3f2404643e685275cfda2f5547e25c80cee07ce23a042",
+      "bytes": 192306
+    },
+    "code-initial-rejection-witness-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-initial-rejection-witness-safe.json",
+      "sha256": "0c5095525f79369c9197b00a1ef8a570b2cdfa2bf819820f985cfdcefab76309",
+      "bytes": 52299
+    },
+    "code-command.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-command.json",
+      "sha256": "641d85f32a9995a2974f322506ec2e847ec8fe47f67b8c0cd46c8abd71793930",
+      "bytes": 1016
+    },
+    "code-terminal-safe-metrics.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-terminal-safe-metrics.json",
+      "sha256": "12939ef94c8a73e1718dd98878a90229d28a962acfe1cdf8a6437db8d68fbb90",
+      "bytes": 199097
+    },
+    "code-correction-allowance-witness-safe.json": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4code20v5/code-correction-allowance-witness-safe.json",
+      "sha256": "011316c98d445fa4cb7c4917bb13371226a9699dea11ce73a1308626bb43e123",
+      "bytes": 895
+    }
+  },
+  "source_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "f3ed4324f74673409a2718e4b3bf9e94b6c2060798508183742ac81f722d3a6e",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs": "1d0eec0ce75727547683aa6951b50d3e44f20a97290566197f4dfbc5a28702df",
+    "src/GnOuGo.Flow.Planning/PlanningCommitments.cs": "059b9d56db3f4138ec7df6f173f48ede06014fd871180463c0fd49a639e72e18",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "c13db244ed80a6e2a7e62da75bd02b25a439ff3641b9e57aa6373a243b7dff86",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactConstruction.cs": "cd9100fcee925a5cc2aaea6e7519ff296f1172a6e62f7b73a73b714a3d6a27d6",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs": "5a4efc926fc805487220dbb98fbf0271efaa49d2f73e6e543ca2b99a393fa4d8",
+    "src/GnOuGo.Flow.Planning/PlanningModelCalls.cs": "9c202200b9758d22817b86d77ea908ab01184ae55b448d72e4ca9a2c92053258",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.TechnicalFeedback.cs": "ee77c2d303a1f608f251713f4b784ab82d40860038dd300ce6ff49870e6a7f90",
+    "src/GnOuGo.Flow.Core/Planning/PlanningConstruction.cs": "153531d0fef1e8de5b38034a28bef2bb9cb04d4f74f5192d8217d141093a9585",
+    "src/GnOuGo.Flow.Planning/PlanningSchemas.cs": "3fe2de0ddf285d7e3aab1c92e39c5786fc8675bd02677c2eb695ad3cef2599f9",
+    "src/GnOuGo.GithubCopilot.Mcp/CodeTools.cs": "593fad1f12c6d0c4e6574ee595e478eb70146c82cd6d412d8a7b1547ce81b344",
+    "src/GnOuGo.GithubCopilot.Mcp/CopilotCodeService.cs": "9e7f27fc511d3e010831af429dc8c8acf590598937cf706a8c7257a8de7a2d4e",
+    "src/GnOuGo.GithubCopilot.Mcp/CodeModels.cs": "331cb46a8680854b6654eb5049efe7f37934a53dd4cc2d8f2cc2d8bb8467e70e",
+    "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs": "ca4ba29f9d18413fbf513eaf0fa63bff1a1c2aeda048f8b3bfaf38f03bc67659"
+  },
+  "request_identity_pins": [
+    {
+      "number": 25,
+      "request_id": "compactrafc8861e4code20v5-code-1:25:c8ffb6749ba04d45b5045eaaedd95762e55c18681a6b589d67d5e1c5181e9ac6",
+      "request_text_sha256": "ab649de317d14b65e7da8b85b6c53f6b9bed7b3dd23d24ff1e10d767c5336059",
+      "response_text_sha256": "1ba5ac02a0da4076f5118e3b0200fe149cbd52cdd1771802d800ee2e12a095c9"
+    },
+    {
+      "number": 26,
+      "request_id": "compactrafc8861e4code20v5-code-1:26:01fd2d8228a93089c9e1aba4cf454a87d96765d0216970e6b32818f1652929dd",
+      "request_text_sha256": "e6882d95d427a5d8671d6a8eb489b776a20a72cfc6f3108f9ef5f09770603635",
+      "response_text_sha256": "d9fdc72728aead4be9e0939b5d9dfa2f07ab7b0c35d95a7ce2146084ebeb2c48"
+    },
+    {
+      "number": 36,
+      "request_id": "compactrafc8861e4code20v5-code-1:36:d936fb4ec4b44b943facc21eb6315ee81bbd5b2f428015116995c95b1e57fd74",
+      "request_text_sha256": "f3b7515e72bb1fe92722446c5610465e162f863a963df67f14a8d92aa48ca1db",
+      "response_text_sha256": "38e1fbfdd2c27592a7c0d6fbc33236e34c92371ad4f50d149dcfeda346f459a0"
+    },
+    {
+      "number": 37,
+      "request_id": "compactrafc8861e4code20v5-code-1:37:ad7da37afc0bf13547b18f3e60854cd9cb2e1add9e6d38f2e6b922fa3df8353c",
+      "request_text_sha256": "4d345071368fd4c0f311538b3c2188816e687adb52cb73ab85df9acd3f0352d4",
+      "response_text_sha256": "647783345681ff0df483200ab9cf1191fb2cacff8e5a8dc3cc40e6866630cf48"
+    },
+    {
+      "number": 38,
+      "request_id": "compactrafc8861e4code20v5-code-1:38:a3d23c951e93bbad3f1750ec1c9bbafa166ed92dff3e4e9ead712ba03874af5f",
+      "request_text_sha256": "36fcf0e84f7214b93bba610e94370c0ad2c0c2a23adb6f57d93e18ec478557ad",
+      "response_text_sha256": "78ca6870b93a09936e97f030e411018cb93bb261c3d45c35b93d351968995445"
+    },
+    {
+      "number": 39,
+      "request_id": "compactrafc8861e4code20v5-code-1:39:2a6178516372cbbdb0646d3ac43f2bfb982fa78b891e6f9d456b4b22ee91800f",
+      "request_text_sha256": "b94de0e9ece9269988a63d378a93f61a7b8e8af9d89fe98d22fe9e917023c2ea",
+      "response_text_sha256": "203a5f248370fe90ec1772299096dbc8170889083064dba87be6700013bd9d12"
+    },
+    {
+      "number": 47,
+      "request_id": "compactrafc8861e4code20v5-code-1:47:a31426c354fa61c37fb6d4c9b243f0c124822326a5939166d55ce2338a1c9464",
+      "request_text_sha256": "780449ccb6c1753679c97e656be07c8d186da55aa04bb84c3f9cbec298b4eb17",
+      "response_text_sha256": "4b991eb428281243ff37da49c9e34a708d577134976d7370df87aea19912f75d"
+    }
+  ],
+  "confirmed": [
+    {
+      "finding": "Terminal commitment rejection is valid",
+      "basis": "Response47 maps four tentative operation commitments and the new export to feedback, a public output name absent from the exact selected operation result ports. StageCommitments rejects atomically before assigning a candidate.",
+      "source_locations": [
+        "PlanningCompactConstruction.Validation.cs:36-53",
+        "PlanningCommitments.cs:37-69",
+        "HybridWorkflowPlanner.Construction.cs:274-290"
+      ]
+    },
+    {
+      "finding": "Fresh commitment grammar admits an avoidable undeclared port",
+      "basis": "DraftSchema fixes selected operation IDs and public output names but gives result.port an arbitrary string despite complete exact selected contracts. Existing general proposal grammar already has an operation/result-port paired closed-domain pattern.",
+      "source_locations": [
+        "PlanningCompactConstruction.Schemas.cs:80-87",
+        "PlanningSchemas.cs:76-94"
+      ]
+    },
+    {
+      "finding": "No missing candidate-free correction route is demonstrated",
+      "basis": "PlanningResponseException leaves Generating; next compact advance uses required diagnostics as repair=true. Exact retained scalars are maxCorrectionsPerDraft=3, draftCorrections=3, maxReplanAttempts=4 and replanAttempts=3. Reselections retain the same chain counter and only acceptance resets it. Exact26abandon,36repair,39abandon consumed that chain allowance. The fourth global correction is unavailable to this already exhausted chain; there is no demonstrated missing correction route.",
+      "source_locations": [
+        "HybridWorkflowPlanner.cs:176-186",
+        "HybridWorkflowPlanner.CompactConstruction.cs:84-89",
+        "PlanningCompactConstruction.Validation.cs:29-31",
+        "HybridWorkflowPlanner.Construction.cs:496",
+        "PlanningModelCalls.cs:220-233",
+        "Core/Planning/PlanningConstruction.cs:15"
+      ]
+    },
+    {
+      "finding": "Prior deterministic feedback survives the same chain",
+      "basis": "Exact historical presence-scope diagnostic and rejected value are shown in36/38/39 with same baseline/source/target. The valid Judge37 omits historical technical failures. After reselection47 retains the same observation as target_unverified, not a current failure. Repair36 removes the illegal presence predicate; no avoided-correction or convergence benefit inferred."
+    },
+    {
+      "finding": "Permission-expansion violation is not established by Judge25/37",
+      "basis": "The original contract requires existing AllowWrites=true; source checks and rejects disabled writes without changing the setting. A prerequisite is not evidence of expansion. Both reports explicitly acknowledge that an already-authorized baseline would not establish the claimed conflict. The issued context contains no effective AllowWrites fact, so operational availability remains unknown, not proven permitted or forbidden.",
+      "source_locations": [
+        "GithubCopilot.Mcp/CodeTools.cs:73-88",
+        "GithubCopilot.Mcp/CopilotCodeService.cs:38-40"
+      ]
+    },
+    {
+      "finding": "No existing planning evidence address establishes effective host permission",
+      "basis": "code_get_policy is an executable readonly MCP tool, not contract-discovery evidence; its source exposes write mode but the existing delegated Code allowlist excludes it. No call or allowlist change is proposed. Original contract retrieval cannot manufacture the active configuration fact.",
+      "source_locations": [
+        "GithubCopilot.Mcp/CodeTools.cs:32-33",
+        "Benchmark/DelegatedTestReview.cs:120-130"
+      ]
+    },
+    {
+      "finding": "Final task argument also loses explicit caller dataflow",
+      "basis": "Request36 task argument structurally consumes both caller inputs. Rejected response47 task argument is a literal and consumes neither caller input; pullRequestUrl appears only in the separate requires predicate. Mentioning reviewText in prose is not a binding. No candidate preflight or business Judge assessed response47 after commitment staging failed."
+    }
+  ],
+  "minimal_options_for_parent_review": [
+    "If changing fresh v5 commitment grammar, pair each exact selected operation with its own declared result-port enum, preserving null result, chosen public-output enum, complete contract domains and normal schema admission. Never take a union that allows another operation\u2019s port or truncate a domain. Preserve v2-v4 and issued request bytes.",
+    "Do not widen accepted requirements or correction allowances. Existing atomic staging and candidate-free repair should remain authoritative. Add an actual coordinator regression distinguishing repair below per-chain limit from stop at that limit, with original state unchanged on invalid staging.",
+    "Treat unavailable host-permission evidence as uncertainty; no automatic approval or rejection of operation permission from its prerequisite wording. No runtime state or permission authority has been observed."
+  ],
+  "focused_regressions_if_authorized": [
+    "Fresh selected-operation port/public-output correlation, unknown port rejection, result:null and zero-output contracts.",
+    "Two operations with different ports cannot cross-bind; ambiguous/stale contracts remain rejected; historical/pending schemas remain exact.",
+    "Invalid tentative commitment below existing chain allowance reaches ordinary repair, while exhausted chain retains diagnosis and dispatches no further call."
+  ],
+  "limitations": [
+    "No edits, tests, store reads, provider calls or runtime execution.",
+    "The emitted source schema was inspected at exact afc; the safe witness supplies only a labeled schema hash, not full issued schema bytes.",
+    "No false-positive count, avoided correction, full business acceptance or causal efficacy claim."
+  ],
+  "prior_assessment": {
+    "path": "/private/tmp/gnougo-afc-code-source-assessment-w9ctrmwu/source-assessment-safe.json",
+    "sha256": "5fd55dc02855b9771dbb7b5a3eb0a7602f05142b3df1d3a9d4428acb78eba0d4"
+  },
+  "limits_confirmed_by_root_projection": {
+    "maxCorrectionsPerDraft": 3,
+    "draftCorrections": 3,
+    "maxReplanAttempts": 4,
+    "replanAttempts": 3
+  }
+}

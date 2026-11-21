@@ -7,9 +7,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class GraphContractTests
 {
     [Fact]
+    public async Task ScopeAvailabilityIndexesTheProducerOnceWhileValidationChecksTheSelectedField()
+    {
+        var graph = PlannerFixture.Greeting();
+        var workflow = graph.Workflows.Single();
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        workflow.Steps.Add(new() { Key = "consumer", Type = "set", Input = PlanningCorpus.Obj(("observed", PlanningCorpus.Ref("output", "greet", "message"))) });
+        var resolve = PlanningGraphValidation.ValueContractResolver(graph, workflow, catalog);
+        var bindings = PlanningDataflow.Index(workflow, catalog, resolve, "consumer").Values
+            .Where(binding => binding.Value is { Kind: "output", Source: "greet" }).ToArray();
+        var root = Assert.Single(bindings);
+        Assert.Empty(root.Value.Path);
+        Assert.NotNull(root.Schema["properties"]?["message"]);
+        Assert.DoesNotContain(PlanningGraphValidation.Validate(graph, catalog), d => d.Code == "OUTPUT_REFERENCE_INVALID");
+        workflow.Steps.Last().Input.Members[0].Value.Path[0] = "missing";
+        Assert.Contains(PlanningGraphValidation.Validate(graph, catalog), d => d.Code == "OUTPUT_REFERENCE_INVALID");
+    }
+
+    [Fact]
     public void ModelContractExcludesExecutorPlumbingAndArbitraryExpressions()
     {
-        var root = PlanningSchemas.FullProposal(new() { Catalog = new() }, compact: false);
+        var root = PlanningSchemas.TaskPlanGrammar(new() { Catalog = new() });
         var contract = root.ToJsonString();
         foreach (var forbidden in new[] { "schemaPointer", "capabilityId", "structuredOutput", "workflow.call", "mcp.call", "expression", "projection", "graph" })
             Assert.DoesNotContain("\"" + forbidden + "\"", contract);

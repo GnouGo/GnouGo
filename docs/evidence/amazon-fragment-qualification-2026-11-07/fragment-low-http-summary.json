@@ -1,0 +1,13 @@
+{
+  "requestId": "fragment-generation-low-20261107-01:probe:f081593a2e1e4420aeceb6f96d7bf04b:a43ee138d333ef29041b7e327b23d194e873136cd9f4caf96a42841943c22e4b",
+  "physicalAttemptId": "fragment-generation-low-20261107-01:probe:f081593a2e1e4420aeceb6f96d7bf04b:a43ee138d333ef29041b7e327b23d194e873136cd9f4caf96a42841943c22e4b:f5fad502bbe1464c9817145adf7ad414",
+  "startedUtc": "2026-11-07T09:58:09.834059+00:00",
+  "completedUtc": "2026-11-07T09:58:28.261874+00:00",
+  "durationSeconds": 18.427815,
+  "httpStatus": 200,
+  "responseBodyComplete": true,
+  "maxAttempts": 1,
+  "attemptTimeoutMs": 600000,
+  "actualWireBodyChangesOnlyReasoningEffort": true,
+  "actualEndpointUnchanged": true
+}

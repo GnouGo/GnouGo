@@ -1,0 +1,68 @@
+{
+  "source": "12f622aa630d6c838111bf274caba440d79eff0c",
+  "run": "startup-qualified-probe-12f6-20261106-2143",
+  "campaign": "schema-portability-20261019-incremental",
+  "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "host": "GnOuGo.Agent.Server",
+  "budget_mode": "limited",
+  "retained_external_reservations_eur": "733.8902769679137437881016912",
+  "started_utc": "2026-11-06T21:42:49.961118+00:00",
+  "phase": "provider_probe",
+  "working_directory": "<source-root>/artifacts/continuity-live-e673a51e",
+  "launch_arguments": [
+    "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+    "--schema-portability",
+    "server-live-probe",
+    "--run",
+    "startup-qualified-probe-12f6-20261106-2143",
+    "--model",
+    "gpt-6.1-sol-2026-09-29",
+    "--campaign-configuration",
+    "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "--workspace",
+    "<application-workspace>",
+    "--campaign",
+    "schema-portability-20261019-incremental",
+    "--retained-external-reservations-eur",
+    "733.8902769679137437881016912"
+  ],
+  "loaded_assemblies": {
+    "entry": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "5c3d02d0cb26708233b23f226d60e42026c7bf526ad169242b891052c3b51bcd"
+    },
+    "server": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "ac8d6403857090692842beeb5aad0e9558b292283c65a214a2ef000a7bc28a3f"
+    }
+  },
+  "configuration_sources": {
+    "provider": "campaign_provider_pin",
+    "model": "keyvault_provider_configuration",
+    "endpoint": "keyvault_provider_configuration",
+    "metadata": "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+    "environment": "not applied by the campaign loader; Server configuration providers are reported separately",
+    "historical_host_options": "unavailable",
+    "request_policy.BillingServiceTier": "code_default",
+    "request_policy.BillingRegionalProcessing": "code_default",
+    "request_policy.BillingCacheRetention": "code_default",
+    "request_policy.BackgroundProtocol": "keyvault_provider_configuration",
+    "request_policy.UnspecifiedOutputTokens": "code_default",
+    "request_policy.DefaultMaxOutputTokens": "code_default",
+    "request_policy.MaxOutputTokensCap": "code_default"
+  },
+  "server_model_source": "keyvault_provider_configuration",
+  "frontend_ready": true,
+  "request_id": "startup-qualified-probe-12f6-20261106-2143:probe:9d141746c9b86adfbcd4160c3e061e87c7b99cbceeb7908dca3ec8f3be16e4d7",
+  "requested_output_tokens": 1024,
+  "passed": false,
+  "exception_type": "System.InvalidOperationException",
+  "exception_stack": "   at BenchmarkCampaign.CallAsync(LLMRequest request, Func`2 preflight, Func`2 dispatch, CancellationToken ct, Boolean allowHttpRecovery) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs:line 481\n   at KeyVaultBenchmarkModel.DispatchAsync(LLMRequest request, CancellationToken ct, Boolean execution) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 541\n   at KeyVaultBenchmarkModel.CallBoundedAsync(LLMRequest request, Boolean execution, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 421\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 71\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 115\n   at ServerLiveDiagnostics.<>c__DisplayClass0_1.<<RunAsync>b__5>d.MoveNext() in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs:line 128",
+  "campaign_stop_reason": "uncertain_dispatch",
+  "physical_http_attempts": null,
+  "durable_receipt": false,
+  "finished_utc": "2026-11-06T21:42:58.310544+00:00",
+  "trace_id": "cd9a29ce2a60b27fe5fae5cdc0a94d3a"
+}

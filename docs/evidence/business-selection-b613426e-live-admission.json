@@ -1,0 +1,18 @@
+{
+  "observed_at_utc": "2026-11-04T11:34:35.591825+00:00",
+  "source": "b613426e2586fec447089532251ab8773df16b08",
+  "run": "bizb613426eamz01-amazon-1",
+  "cohort": "bizb613426eamz01",
+  "known_cost_eur": "399.39138148550594313882951145",
+  "reserved_cost_eur": "128.00399062789039759117323427",
+  "available_eur": "212.63473171930996381244220158",
+  "unresolved_requests": 0,
+  "retained_closures": 62,
+  "evidence_hash": "98c05fad4ff488363b733ae98748d2025e80424c458b937e9c746ce562304b76",
+  "profile_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "captured_profile_hash": "5452b870c2561bcde1b6aa483b7b44edb2ea230851221e8fa8eb096f897113a6",
+  "four_phase_headroom_eur": "20.617228732444762501118167993",
+  "provider_requests": 0,
+  "financial_records_written": 0,
+  "ready_for_fresh_dispatch_recheck": true
+}

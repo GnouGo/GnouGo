@@ -1,0 +1,21 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "finite_ceiling_eur": "1200",
+  "supplement_300_reference": "pr120-supplement-20261109-300-01",
+  "supplement_applied_once": true,
+  "authorization_proof": "supplement-300-once.json",
+  "closed_after": "collections-qualification-20261109-04",
+  "campaign_cost_upper_bound_eur": "1076.4986923421406180026869754",
+  "retained_external_application_holds_eur": "44.588114643976712942230183612",
+  "campaign_available_after_all_holds_eur": "78.913193013882669055082840988",
+  "historical_unknown_attempts_retained": 44,
+  "new_four_run_uncertain_attempts": 0,
+  "inspection_model_dispatches": 0,
+  "historical_changes": false,
+  "provider_invoiced_cost": null,
+  "globally_available_funding": null,
+  "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection.",
+  "raw_audit_sha256": "9a6f613dcd0a1dc97df9218e55a19f2d9733b8fa6184dde5bd45763eadbd9462",
+  "observed_at_utc": "2026-11-09T16:50:06.820359+00:00",
+  "inspection_source": "e34f237357d4e65c0c3e9b68465c160b4023531e"
+}

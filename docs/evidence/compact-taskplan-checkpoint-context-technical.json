@@ -1,0 +1,73 @@
+{
+  "change": "Fresh v8 author requests share byte-identical accepted checkpoint rows through references to their first full occurrence.",
+  "scope": {
+    "original_requirement_fallback_unchanged": true,
+    "evidence_grammar_built_before_display": true,
+    "actual_utf8_prompt_renderer": true,
+    "schemas_settings_and_instructions_unchanged": true,
+    "historical_presentations_2_through_7_unchanged": true,
+    "judge_unchanged": true,
+    "saved_version8_requests_recovered_unchanged": true
+  },
+  "source": {
+    "baseline_commit": "cb1d9899bf30d48b679dcbe3a04fe64fe2ba61bf",
+    "production_sha256": "45adfb99d760ae85ace7daf15daa198b027006e3e3072d42861d35f8a00cef14",
+    "test_sha256": "12f911e83905600af3947aed63fbf33a46ed06dc1e360e8c13ef3d2ac646b7df",
+    "attribution": "Uncommitted exact private source overlay; successor source binding is separate."
+  },
+  "validation": {
+    "owning_passed": 3449,
+    "failed": 0,
+    "skipped": 0,
+    "compiler_warnings": 0,
+    "compiler_errors": 0,
+    "focused_passed": 164,
+    "focused_overlaps_owning": true,
+    "final_qualification_sha256": "5def69ae1bfaf23e8844b6b6f200864cf97d955e018c5b606a6a59d2e42153f7",
+    "development_iterations_preserved_not_summed": true,
+    "independent_review_sha256": "386519326cebbfe7e8487eacabd50562982f93f7591696909784b9e989309c8c"
+  },
+  "prospective_admission": [
+    {
+      "triggering_received_response": 37,
+      "requested_address_count": 2,
+      "hypothetical_next_issued_ordinal": 38,
+      "original_bytes": 53998,
+      "prospective_bytes": 48012,
+      "original_estimated_tokens": 18256,
+      "prospective_estimated_tokens": 16260,
+      "captured_input_ceiling": 18000,
+      "estimated_headroom": 1740,
+      "existing_admission_accepted": true,
+      "exact_original_request_inverse": true,
+      "original_request_hash": "1cc990797a0290a6b0004a520797bb5032f8646835d17458b19b9d387aaad249",
+      "prospective_request_hash": "4e404a91a6c7fc5df8711aef41edc58de95085bf690b1428a240f92308bd5c11",
+      "unchanged_schema_hash": "7f5fb2b5235f3e9bc2ed695a6f05da9e37ab5b6136e6e65fac69a4838b4d7301",
+      "navigation_addresses_preserved": 10,
+      "omitted_original_count_unchanged": 8
+    },
+    {
+      "triggering_received_response": 38,
+      "requested_address_count": 1,
+      "hypothetical_next_issued_ordinal": 39,
+      "original_bytes": 53279,
+      "prospective_bytes": 47293,
+      "original_estimated_tokens": 18016,
+      "prospective_estimated_tokens": 16021,
+      "captured_input_ceiling": 18000,
+      "estimated_headroom": 1979,
+      "existing_admission_accepted": true,
+      "exact_original_request_inverse": true,
+      "original_request_hash": "d6b1da19b5385a6260fe5b04d1e12e50b57f668755bb88af9c13bd57401a67b6",
+      "prospective_request_hash": "e991ff93fe7de448e67c4fcd118f8654ea6debf927a0f2d04abfdc01ce063e5d",
+      "unchanged_schema_hash": "c931d301e7a7c72e961d034c784a7b7f4a3e4d42b1dd5003ecdf8ab1a23d61c1",
+      "navigation_addresses_preserved": 10,
+      "omitted_original_count_unchanged": 8
+    }
+  ],
+  "limits": [
+    "Offline compiled evidence-admission probes; no paid calls or business outcome inferred.",
+    "Response39 repeated response38's singleton and stopped before loading; it is not another measured admission."
+  ],
+  "source_projection_sha256": "fca498570648e7af36c9564dc36cfcd32fb139af93c05cadcd83bcd51a97759c"
+}

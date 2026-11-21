@@ -1,0 +1,43 @@
+{
+  "source": "95aca2349c3de1a7b6f6102ccff9b5e869a7eebf",
+  "run": "local-schema-visible-20261108-01",
+  "original_request": "e8b51f8c739a46938fd4e607f1bdd131:1:7c029432fb3b3bfe5f5201bd9882260fcb1c32c5bfae69b85937743f8872f584",
+  "factor": "full response schema also visible before original prompt context",
+  "wire_equal_except_prompt": true,
+  "original_http_bytes": 6142,
+  "changed_http_bytes": 13871,
+  "original_prompt_bytes": 1744,
+  "changed_prompt_bytes": 5849,
+  "strict_provider_schema_unchanged": true,
+  "original_context_preserved": true,
+  "model": "gpt-6.1-sol-2026-09-29",
+  "passed": true,
+  "schema_valid": true,
+  "physical_attempts": 1,
+  "known_usage_tariff_estimate_eur": "0.0782445141065830721003134796",
+  "elapsed_report_seconds": 8.579676,
+  "generated_result": {
+    "clauses": [
+      {
+        "text": "Return a numeric output named result equal to 6 times 7. No inputs or external calls.",
+        "kind": "requirement",
+        "inputs": [],
+        "outputs": [
+          {
+            "name": "result",
+            "type": {
+              "kind": "number",
+              "nullable": false
+            },
+            "required": true
+          }
+        ]
+      }
+    ],
+    "evidenceRequests": null,
+    "clarifications": null
+  },
+  "candidate_applied": false,
+  "approval_or_execution": false,
+  "limitation": "One independent changed-factor sample supports schema-visibility investigation; it does not establish causality, savings over unknown old usage, or workflow convergence."
+}

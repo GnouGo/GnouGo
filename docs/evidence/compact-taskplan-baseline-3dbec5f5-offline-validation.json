@@ -1,0 +1,20 @@
+{
+  "baseline": "56942f5bdfad69ee6f05ccd793b712eaf9f33ca5",
+  "committed_harness_source": "3dbec5f5833f2da5b0f46598994cd696509b1a7f",
+  "unchanged_production_blobs": 1128,
+  "committed_source_files": 4340,
+  "harness_overlay_files": 23,
+  "original_overlay_sha256": "f602c57e52941cd88483eb2fd7e10affd6049c9c77c0271c710639e7323f00b5",
+  "source_inventory_sha256": "092080c29eed0afef03a50f00c612ea1304b719fd0197ebd8594a368a14a2686",
+  "validation_sha256": "ddc0f5c0179e701ec2cb85d61613f85325ae958cfa192ec55ee5fbfae1439ac2",
+  "focused_passed": 280,
+  "warnings_as_errors": true,
+  "benchmark_build_passed": true,
+  "model_calls": 0,
+  "qualification": "Offline only. No live freeze, actual operator CLI qualification or execution authority.",
+  "remaining": [
+    "Complete final frozen-baseline proof and actual operator CLI checks before paid use",
+    "Verify runtime input parity and apply identical current oracles in compared arms",
+    "Candidate six-run gate remains unmet"
+  ]
+}

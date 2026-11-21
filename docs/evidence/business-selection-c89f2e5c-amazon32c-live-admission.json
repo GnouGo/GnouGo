@@ -1,0 +1,20 @@
+{
+  "observed_at_utc": "2026-11-04T16:24:51.505703+00:00",
+  "source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "run": "bizc89f2e5camz32c-amazon-1",
+  "cohort": "bizc89f2e5camz32c",
+  "known_cost_eur": "407.15560458238401810081179963",
+  "reserved_cost_eur": "135.58746410494559036333532391",
+  "available_eur": "197.28703514537669607829782376",
+  "unresolved_requests": 0,
+  "retained_closures": 63,
+  "evidence_hash": "3877f9c3931ccf1ce6631983b051717acab536d096ede4d348d6b5d245552b02",
+  "profile_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "four_phase_headroom_eur": "20.983630020574291081492083370",
+  "provider_requests": 0,
+  "financial_records_written": 0,
+  "ready_for_fresh_dispatch_recheck": true,
+  "kind": "source_bound_live_admission",
+  "hypothesis": "Fresh normal generation on the same source/profile after model chose premature completion and repeated empty selections despite current-plan coverage findings and action diagnostics. No new omitted host context is demonstrated. Preserve all outcomes; no replay or manual plan revision."
+}

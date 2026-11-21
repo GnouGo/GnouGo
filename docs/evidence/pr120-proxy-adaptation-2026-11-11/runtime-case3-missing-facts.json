@@ -1,0 +1,28 @@
+{
+  "run": "amazon-proxy-consumer-case3-20261111-01",
+  "request_id": "amazon-proxy-consumer-case3-20261111-01:probe:8d7c011c50a44959b5b13093f65f5501:04b3ce6a003241cada285c776cc52047f1556ffc55790142344e3909f07bfc29",
+  "provider_response_id": "chatcmpl-Ej4P7tkpsx94RBrNPqMkeylBmNoqc",
+  "first_output_seconds": 41.469771,
+  "complete_seconds": 46.478762,
+  "protocol_complete": true,
+  "usage_known": true,
+  "durable_receipt_cold_reloaded": true,
+  "input_tokens": 2428,
+  "output_tokens": 524,
+  "known_cost_eur": "0.1497178683385579937304075235",
+  "reasoning": "low",
+  "output_allocation": 32768,
+  "accepted_complete_plan": false,
+  "business_workflow_executed": false,
+  "independent_business_oracle": false,
+  "controlled_source": true,
+  "queue_count": 3,
+  "duplicate_href_preserved": true,
+  "source_order_correct": true,
+  "ready": false,
+  "anomalies": [
+    "La politique de permissions et ses preuves ne sont pas fournies : les permissions int\u00e9grales sur les destinations HTTP observ\u00e9es et la validit\u00e9 des preuves ne peuvent pas \u00eatre v\u00e9rifi\u00e9es. Le classement navigable ne constitue pas une autorisation de GET initial."
+  ],
+  "qualified": false,
+  "cause": "The compiled runtime prompt does not inherit the original global policy. This task refers to a policy identifier without binding its rule facts."
+}

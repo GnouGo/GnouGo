@@ -1,0 +1,22 @@
+{
+  "run": "amazon-proxy-consumer-repair-20261111-01",
+  "request_id": "amazon-proxy-consumer-repair-20261111-01:probe:ae27b71a6078412cab6ad68ae82344a7:eb6b32c1e424228c5a776742762ac3d43097f4f147211d2bed0fa18b535b04b4",
+  "provider_response_id": "chatcmpl-Ej4DErJEwsIGtnOCmxqzHnnnGVFXi",
+  "first_output_seconds": 35.37945,
+  "complete_seconds": 56.548701,
+  "protocol_complete": true,
+  "usage_known": true,
+  "durable_receipt_cold_reloaded": true,
+  "input_tokens": 22593,
+  "output_tokens": 1012,
+  "known_cost_eur": "0.7702194357366771159874608150",
+  "reasoning": "low",
+  "output_allocation": 32768,
+  "accepted_complete_plan": false,
+  "business_workflow_executed": false,
+  "independent_business_oracle": false,
+  "continuation_and_compiler_valid": true,
+  "snapshot_input_added": true,
+  "selection_instruction_correct": true,
+  "runtime_rule_facts_bound": false
+}

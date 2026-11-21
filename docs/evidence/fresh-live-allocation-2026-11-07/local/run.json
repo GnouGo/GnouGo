@@ -1,0 +1,101 @@
+{
+  "source": "202048374d4d070f7f2f4c623eceac35a66b9997",
+  "run": "fresh400-local-20261107-01",
+  "session_id": "01b2af8bf8164c6f8ead9447d1df1d98",
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "9ac37743a2b60c1b666d140cc45e95cfdbfb7a0f72c897a668ed5e9a2f01d34b",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "budget_mode": "limited",
+  "financial_forecast_mode": "experimental_warning",
+  "funding_scope": {
+    "kind": "independent_new_spend",
+    "campaign": "pr120-live-20261107-400",
+    "allowance_eur": 400,
+    "authorization_reference": "gnougo-pr120-user-20261107-fresh-400-v1",
+    "configuration_id": "9ac37743a2b60c1b666d140cc45e95cfdbfb7a0f72c897a668ed5e9a2f01d34b",
+    "previous_campaign": "schema-portability-20261019-incremental",
+    "previous_ceiling_eur": "740.0301038327063045424449473",
+    "historical_liabilities_unreconciled": true,
+    "initial_new_consumption_eur": 0,
+    "globally_available_funding": null
+  },
+  "frontend_ready": true,
+  "started_utc": "2026-11-07T02:53:36.371167+00:00",
+  "finished_utc": "2026-11-07T02:55:41.566299+00:00",
+  "result": {
+    "status": "final_review",
+    "calls": 5,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": true,
+  "browser_observation_exit_code": 0,
+  "loaded_assemblies": {
+    "entry": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "3ff71c6da0c396381102da3bf198bb04d88be06aaf1cbf1a2a14f8f82d1d1b01"
+    },
+    "server": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "7f8f3a9f2721d5f1c9694beaf6f74df9bf5beaabb4cfe5d1417abab2d52b0291"
+    }
+  },
+  "status": "final_review",
+  "phase": "review",
+  "revision": 12,
+  "diagnostics": [],
+  "budget": null,
+  "generation": {
+    "reasoning": "medium",
+    "maxInputTokensPerRequest": 32000,
+    "maxOutputTokens": 8192
+  },
+  "threshold_policy": null,
+  "financial": {
+    "currency": "EUR",
+    "forecastMode": "experimental_warning",
+    "trackedExposure": "0.338289296909986565158978952",
+    "measuredUsageTariffEstimate": "0.338289296909986565158978952",
+    "uncertainReservations": 0,
+    "unpricedCompletedNominalReservations": 0,
+    "unattributedHistoricalExposure": "0.000000000000000000000000000",
+    "providerReportedCost": null,
+    "providerCostBasis": "Unavailable in budget snapshots; inspect exact provider receipts. Tariff estimates are not invoices.",
+    "historyComplete": true,
+    "pricingEvidenceComplete": true,
+    "unavailableReason": null,
+    "availableForAdmission": null,
+    "allowance": 400,
+    "allowanceCurrency": "EUR",
+    "settledAttempts": 5,
+    "unpricedCompletedAttempts": 0,
+    "unresolvedAttempts": 0,
+    "indexedAttempts": 5,
+    "calls": 5,
+    "measuredInputTokens": 8744,
+    "measuredOutputTokensIncludingReasoning": 641,
+    "forecastWarnings": [],
+    "basis": "Existing durable usage journal; unresolved reservations are retained. Empty or missing transport evidence alone does not release money."
+  },
+  "capturedApplicationPolicy": {
+    "version": 1,
+    "mode": "limited",
+    "origin": "operator_preference",
+    "currency": "EUR",
+    "financialForecastMode": "experimental_warning",
+    "applicationOwnsLimits": true,
+    "planningLimits": {
+      "max_calls": 64,
+      "max_total_tokens": 15000000,
+      "max_elapsed_ms": 18000000,
+      "max_estimated_cost": {
+        "amount": 400,
+        "currency": "EUR"
+      }
+    }
+  },
+  "recordHash": "ce18a4b3f8dcfc5a3d7efd5fed8ef786ce314ef3b3249d6a4bac0921038f2fe8",
+  "inspectionInferenceCalls": 0
+}

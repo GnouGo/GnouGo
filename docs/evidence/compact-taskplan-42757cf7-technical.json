@@ -1,0 +1,73 @@
+{
+  "source": "42757cf7661f48a6b7e8acc3f07ab6c15e523b38",
+  "ci": {
+    "run": "https://github.com/GnouGo/GnouGo/actions/runs/40304408787",
+    "passed": 7470,
+    "failed": 0,
+    "skipped": 1,
+    "projects": 12,
+    "full_solution": false,
+    "evidence": {
+      "name": "ci-terminal-safe.json",
+      "sha256": "37073a61a41347697c627e666a43ce58d52d0bdc59ecd51128fb8cc2cbc9b4f9"
+    }
+  },
+  "private_final_projects": {
+    "passed": 3500,
+    "failed": 0,
+    "skipped": 0,
+    "projects": 5,
+    "packages": 6,
+    "planning_native_aot": "passed",
+    "full_solution": false,
+    "evidence": {
+      "name": "append-final-validation-safe.json",
+      "sha256": "4644bb07e7399b1817f41203f395b685fec7bb517c215f30d3aa332b656c13c2"
+    }
+  },
+  "existing_configuration_stdio_rerun": {
+    "source_unchanged": true,
+    "passed": 5,
+    "failed": 0,
+    "skipped": 0,
+    "previously_failed": 4,
+    "previously_passed": 1,
+    "evidence": {
+      "name": "qualification-safe.json",
+      "sha256": "ba02fee975864f3c53ee8e7e14ac3ce22ae0121134ff6bebb1540611e7d87ff4"
+    },
+    "runtime_pin_scope": "195 selected runtime files were pinned before/after; three dotted apphosts have post-execution supplemental hashes only."
+  },
+  "private_test_fixture_patch": {
+    "base_source": "42757cf7661f48a6b7e8acc3f07ab6c15e523b38",
+    "patch_sha256": "9e6bd6d97cdbe81d209f7597ccc853b574072086e51b0c9ecd2328ad356eb4f4",
+    "passed": 36,
+    "failed": 0,
+    "skipped": 0,
+    "production_changed": false,
+    "assertions_retained": true,
+    "main427_ci_includes_patch": false,
+    "evidence": {
+      "name": "qualification-safe.json",
+      "sha256": "ef37d61e9aff3c8193819f1f818de4fa3c2fcb668566aff138e0b828e679c925"
+    }
+  },
+  "retained_original_partial_full_solution": {
+    "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+    "passed": 4983,
+    "failed": 49,
+    "skipped": 13,
+    "unfinished_projects": 5,
+    "strict_default_confinement_limitations_remaining": 9,
+    "archive_unchanged": true,
+    "evidence": {
+      "name": "append-validation-report-v2-safe.json",
+      "sha256": "d704a4787bb75d83ad6d838ed24f356c991530a83c4dd88b8c896a2cdb579f77"
+    }
+  },
+  "limitations": [
+    "Counts overlap and are not additive. No exact427 local full-solution pass is claimed.",
+    "CI covers its configured projects, not the full solution or published Server encrypted-storage checks.",
+    "Original failed attempts and thirteen historical skips remain preserved. No live business acceptance follows from technical passes."
+  ]
+}

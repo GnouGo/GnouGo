@@ -1,0 +1,69 @@
+{
+  "recorded_utc": "2026-10-30T12:19:59.660218+00:00",
+  "kind": "business-block-partial-prefix-presentation-validation",
+  "source": {
+    "base_commit": "96e39e7e9e35fd7fe5617a28e7e812d6b93fc38d",
+    "base_production_commit": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+    "candidate_commit": "56fd623c89f455be58e697b5c3321ba153c61ebb",
+    "status": "tested final files match committed source exactly; tests ran immediately before commit",
+    "files_sha256": {
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "5b96a52dac7836e2cc3103c35102cffde6fe48879fb88a93ddae2a341e9bc270",
+      "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockPrefixPresentationTests.cs": "d5bb2e37f535849589aa75440ca88820f1a672638ca1ebf0f1f75889af01d4aa",
+      "docs/incremental-taskplan-construction.md": "cc27bdf600c54065b428bf6a3815b8e290943d1983d96ab48dac75f67a5714ac"
+    }
+  },
+  "validation": [
+    {
+      "phase": "pre-fix regression",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~BusinessBlockPrefixPresentationTests",
+      "exit_code": 1,
+      "passed": 0,
+      "failed": 3,
+      "skipped": 0,
+      "surfaced_warnings": 0,
+      "log_name": "pr120-block-prefix-red.log",
+      "log_sha256": "fdbfe9e38450f9c4e0a8e702995950d4e934f3088319c1a029b4305a4d99ed2d"
+    },
+    {
+      "phase": "final focused validation",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~BusinessBlockPrefixPresentationTests|FullyQualifiedName~CoherentBusinessFragmentTests|FullyQualifiedName~RecursiveTaskBudgetPresentationTests|FullyQualifiedName~ExactResultCommitmentsRemainTentativeAndVisibleToTheJudge|FullyQualifiedName~BusinessProjectionDeclarationsTests|FullyQualifiedName~CompactConstructionRepairTests|FullyQualifiedName~CompactTypedRepairTests'",
+      "exit_code": 0,
+      "passed": 41,
+      "failed": 0,
+      "skipped": 0,
+      "surfaced_warnings": 0,
+      "log_name": "pr120-block-prefix-focused.log",
+      "log_sha256": "edee54a1c66cd34f23f79fe3057b475e834d8166237dfbb739fc19587c54f6b3"
+    },
+    {
+      "phase": "final full Planning validation",
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true",
+      "exit_code": 0,
+      "passed": 2405,
+      "failed": 0,
+      "skipped": 0,
+      "surfaced_warnings": 0,
+      "log_name": "pr120-block-prefix-full-planning.log",
+      "log_sha256": "27d45acf078a7e478c57cee62a7e410b7dda0b15e602d39f5a8093beac47c58e"
+    }
+  ],
+  "behavior_verified": [
+    "Initial authoring omits synthesized all-selected-operations-per-requirement commitments; explicit result bindings and actual candidate commitments remain visible.",
+    "One actual selection of two exact operation contracts produces ten operation calls in two fragments of eight and two, with serialization/restart between fragments and one completed-block business review.",
+    "First fragment omits the second selected operation without closing the original obligation; a premature completed block that omits it is still rejected.",
+    "Selected step is retained except its refreshed baseline hash; original obligation descriptions, selected contracts and numeric draft bound remain unchanged.",
+    "Rendered ordinary and replacement authoring preserves the presentation through target-driven compaction and serialization/restart; minimal business review gains no budget or pending-commitment bookkeeping."
+  ],
+  "review": {
+    "independent_read_only_review": "no material finding",
+    "git_diff_check": "passed"
+  },
+  "limits": [
+    "Focused 41 tests overlap the full 2405 and must not be added to its count; the 3 new cases are included in both.",
+    "The red build used unchanged production from the base and failed only the intended synthesized-commitment assertions. Two additional invariance assertions were added before the final green build.",
+    "The focused filter also included two unmatched legacy class names; only the reported 41 executed tests count. The complete Planning suite covers current repair tests.",
+    "Final file hashes were verified against commit 56fd623c89f455be58e697b5c3321ba153c61ebb after commit; the tests ran on those same source files immediately before commit.",
+    "All responses are deterministic fixtures. No paid dispatch, operational storage mutation or live convergence result is established; output-exhaustion causality remains unproven.",
+    "Full-solution and publication validation for the forthcoming candidate were not part of this isolated run."
+  ]
+}

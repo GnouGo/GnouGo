@@ -65,6 +65,8 @@ public sealed record CopilotRuntimeConfiguration(
     [JsonIgnore] public CopilotLogicalPermissions? LogicalPermissions { get; init; }
     public string? LogLevel { get; init; }
     public CopilotTelemetryConfiguration? Telemetry { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InferenceTransport { get; init; }
 }
 
 public sealed record CopilotTelemetryConfiguration(string ExporterType, string? OtlpEndpoint, string? FilePath, string SourceName, bool CaptureContent);

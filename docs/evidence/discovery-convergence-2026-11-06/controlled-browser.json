@@ -1,0 +1,34 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "evidence": "Controlled HTTP provider and seeded retained history; no paid inference",
+  "shared_inspector": {
+    "provider": "controlled HTTP fixture; no paid inference",
+    "ordinarySessionId": "a9c77dd008324749a839f50820d555c6",
+    "sessionId": "52d33dc8e709486a83d478a5b86e9408",
+    "strictSessionId": "ffd69c37b3304bafb6bc056abc12d83f",
+    "correctedSessionId": "9833c9c1dca34f38820aec890bd575c1",
+    "emptySessionId": "060ad44a57fd4be4adf52a74320e6269",
+    "partialSessionId": "e30b0f7daf6f47a8ac2aa51a533f22d0",
+    "cancelledSessionId": "9f46d23c87094c34b6b079dffca3a4d3",
+    "browserErrors": []
+  },
+  "discovery_recovery": {
+    "evidence": "controlled-provider",
+    "session": "30f4c3db51684f6dac564ecb2299a694",
+    "protectedRecovery": true,
+    "crossSessionRejected": true,
+    "metadataWarning": true,
+    "reload": true,
+    "sharedInspector": true,
+    "requiredContractRecovery": true,
+    "cancellation": true,
+    "modelCallsDuringRecovery": 0,
+    "finiteAdmissionPreserved": true,
+    "errors": []
+  },
+  "seeded_recovery_history": {
+    "completed_calls": 70,
+    "accepted_checkpoints": 2,
+    "origin": "Fixture records; not newly generated paid work"
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "source": "4d48ee0b",
+  "sessionId": "cad118678de14d3ab6f9800cd6694e60",
+  "status": "cancelled",
+  "revision": 51,
+  "planningModelCalls": 21,
+  "pendingRequest": null,
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_STEP_INVALID",
+      "location": "/step/prerequisites",
+      "message": "Link each prerequisite to a retained original clause or exact contract evidence; citations do not expand requirement coverage or authorize future task references.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "currentStepPrerequisites": [
+    {
+      "need": "Découvrir les interfaces autorisées pour produire et sauvegarder réellement un classeur Excel à workflows/pr120-live-20261107-400/fragmentfix-amazon-20261107-09/products.xlsx, et obtenir les preuves de matérialisation ou les erreurs. Construire le consommateur runtime de selection et searchEvidence : consulter uniquement les fiches Amazon.fr aux liens disponibles de la sélection, au maximum trois et dans leur ordre ; acquérir chaque fiche avant d’en extraire nom, description et prix. Préserver une ligne et des constats explicites pour les liens indisponibles, consultations échouées et champs absents, sans ajouter de produits ni inventer de données. Traiter explicitement une recherche vide, échouée ou incomplète. Prévoir un contrôle séquentiel avec fermeture du navigateur en nettoyage inconditionnel et conservation du résultat de fermeture, y compris après échec. Exporter les données et preuves nécessaires au bilan final, distinguant extraction, sauvegarde effective et échecs. Inspecter les contrats des capacités de fichier avant de sélectionner leur mécanisme ; ne pas substituer une génération de texte à la création d’un fichier Excel.",
+      "evidenceAddresses": [
+        "requirement:req_0",
+        "source:request:0:clause:0",
+        "source:request:0:clause:1",
+        "source:request:0:clause:2",
+        "description:cap_490d9e16075cbdca5954ec27@json-v1%3A5cf7d03ca98bee8b1c5a96204375217a638cd2d77abb208f8092f2a856f3dfe0:0",
+        "description:cap_490d9e16075cbdca5954ec27@json-v1%3A5cf7d03ca98bee8b1c5a96204375217a638cd2d77abb208f8092f2a856f3dfe0:2048"
+      ]
+    }
+  ],
+  "currentCachedEvidence": null,
+  "newUncertainGeneration": false,
+  "modelReceiptsRetained": 21,
+  "executionStarted": false,
+  "generationRetentionUsed": false,
+  "cause": "Candidate application cleared prerequisite contract evidence before validation of the continued cursor; the next validation could not verify its retained citations.",
+  "fixSource": "927c4669",
+  "fix": "Preserve only exact prerequisite contract evidence across candidate validation, scoped correction and checkpoint acceptance. Clear other candidate-specific evidence.",
+  "nextTrial": "Independent trial 10; same profile/campaign/model/endpoint/oracle, changed contract-evidence lifetime."
+}

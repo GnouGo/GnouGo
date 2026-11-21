@@ -1,0 +1,271 @@
+{
+  "version": 1,
+  "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+  "cohort": "compactrafc8861e4colv5",
+  "case": "collections",
+  "recorded_at_utc": "2026-10-24T20:24:37.523291+00:00",
+  "scope": "Pending-authorization snapshot. One receiptless request remains unresolved here; no permanent closure was applied by the inspection or this preparation.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/freeze.json",
+      "sha256": "a8957f744747882f8563045de96b686f47e50c3d02f7ecf5379c80818c2d9094",
+      "bytes": 13677
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/collections-terminal-safe-metrics.json",
+      "sha256": "3fa5f4fa3ea270a6a6f907741fb14c606c12e427cf1fe0738ac54afecac554b7",
+      "bytes": 10720
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/collections-planning.jsonl",
+      "sha256": "67fff4e22dd63ddc5708f93466bfa7db2b224db1ab22def3d4cd5396fbbdfabd",
+      "bytes": 9261
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/collections-exit.json",
+      "sha256": "ec7b6aeba121fb2a71880f0eeb764716e16060fd2688fb6f2dd9398e8126aab2",
+      "bytes": 67
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/collections-retention-inspection.json",
+      "sha256": "ac4f36c5ef26487661455abae079ecc79d15072397e3d8bdbec855e042f78d34",
+      "bytes": 1937
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/collections-retention-inspection-command-safe.json",
+      "sha256": "af7f99d89d4a9035310d8ffddce1e2370c57e66e5c40484f74915755c8902606",
+      "bytes": 849
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/post-run-ledger-safe.json",
+      "sha256": "c4362c423f572f6ff798e6ee31955c462b1a49ffb5b8d30f5361b0a9e9aaa6ba",
+      "bytes": 686
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4colv5/post-run-readiness.jsonl",
+      "sha256": "fca877ffbcb0d769efd6f139681f60b4ca908f685452dddfd4ebdee58dfc3976",
+      "bytes": 8189
+    }
+  ],
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "presentation_version": 5,
+    "benchmark_binary_sha256": "3a121573bf78a0ebcd9d6cf161e37e259f6b261db977305bbf08f8a17d47f08e",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 32768
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 18000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "high",
+        "outputTokens": 8192
+      }
+    },
+    "max_physical_attempts": 64,
+    "max_corrections": 4,
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    },
+    "mcp_files_verified_at_freeze": 568,
+    "profile_scope": "Existing case-specific Collections profile unchanged; no pooled common-profile or mid-run limit change."
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "termination_reason": "uncertain_dispatch",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "logical_calls": 2,
+    "physical_attempts": 4,
+    "receipts": 1,
+    "corrections": 0,
+    "checkpoints": 0,
+    "constructed_requests": 2,
+    "prepared_only_requests": 0,
+    "rejected_before_dispatch": 0,
+    "receiptless_requests": 1,
+    "unknown_usage_attempts": 3,
+    "artifact_present": false,
+    "approval_present": false,
+    "execution_started": false,
+    "runtime_result": null,
+    "terminal_at_utc": "2026-10-24T20:16:34.818580+00:00",
+    "exit_code": 1
+  },
+  "pending_exact_retention": {
+    "authorization_status": "Not received as of the 2026-10-24T20:20:04.030773+00:00 audit and parent confirmation during this offline preparation.",
+    "applied": false,
+    "inspection_evidence_hash": "a6136b94122a1117895695de3cebe23538b463b1b7d7a30b66602410ef4d25f9",
+    "run_collection": "planning-evaluation-runs",
+    "run_key": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac:fixture:cohort:compactrafc8861e4colv5:collections:1",
+    "session_id": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3",
+    "revision": 2,
+    "request_id": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3:2:6542379cbdf1b225411aedd80ea53fb73bd54c5c37fe2f5c190f030fcaef9754",
+    "request_sha256": "e67e7b6f6bf4d6667726733a829121c5bf423dbc0d893d73202aee66b2594ecb",
+    "journal_sha256": "c4200c613dd0488de31bc36ed3452dfa00776597632bd366a8a999e2e308f9b2",
+    "failure_sha256": "8c8c2befdabe4ac0c56689d7464619554ce9c00b7a746ad128bb27251b665352",
+    "effective_transport_policy_sha256": "52613cf8738768f87db2238519e87640aad0e22b5ec0cb4ac7ed8381631a70be",
+    "inspection_kind": "exhausted-planning-retries",
+    "physical_attempts": 3,
+    "http_statuses": [
+      500,
+      500,
+      null
+    ],
+    "final_failure_kind": "Transport",
+    "receipt_present": false,
+    "retained_reservation_eur": "2.7926104417670682730923694779",
+    "reservation_per_attempt_eur": "0.9308701472556894243641231593",
+    "logical_call_interval_ms": "924539.2839",
+    "meaning": "Two confirmed HTTP500 attempts precede a response-less Transport failure. All three retain unknown usage and full reservations. Inspection preview describes the exact explicit retention action; its replay/continuation-forbidden flags do not prove authorization or application. No timeout, empty output, exhaustion, interface result or model behavior is inferred from a missing receipt."
+  },
+  "usage_and_finance": {
+    "known_input_tokens": 377,
+    "known_output_tokens": 547,
+    "known_reasoning_tokens": 446,
+    "known_visible_output_tokens_derived": 101,
+    "known_cost_eur": "0.0163275323516287371709058456",
+    "retained_reservations_eur": "2.7926104417670682730923694779",
+    "accounted_cost_upper_bound_eur": "2.8089379741186970102632753235",
+    "reserved_input_tokens": 36000,
+    "reserved_output_tokens": 98304,
+    "usage_complete_reported": false,
+    "usage_bounded_reported": false,
+    "precision": "Exact public terminal JSONL and safe metrics parsed with Decimal precision80, source bytes unchanged. Known provider tokens cover only the first receipt; reasoning is part of output. Reserved token bounds are neither measured unknown usage nor request admission estimates."
+  },
+  "phase_measurements": {
+    "construction_intent": {
+      "constructed": 2,
+      "admitted": 2,
+      "physical_attempts": 4,
+      "receipts": 1,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": 5367,
+        "p95": 8296,
+        "maximum": 8296,
+        "total": 10734
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2045.5",
+        "p95": 3022,
+        "maximum": 3022,
+        "total": 4091
+      },
+      "components": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 876,
+          "estimated_tokens": 805
+        },
+        "instructions": {
+          "serialized_bytes": 2098,
+          "estimated_tokens": 700
+        },
+        "intent": {
+          "serialized_bytes": 1810,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "all_requests_within_captured_limits": true,
+      "component_estimate_rounding_difference": 3,
+      "logical_call_elapsed_ms": {
+        "count": 2,
+        "p50": "470999.1916",
+        "p95": "924539.2839",
+        "maximum": "924539.2839",
+        "total": "941998.3832"
+      },
+      "received_logical_call_elapsed_ms": {
+        "count": 1,
+        "p50": "17459.0993",
+        "p95": "17459.0993",
+        "maximum": "17459.0993",
+        "total": "17459.0993"
+      },
+      "known_input_tokens": 377,
+      "known_output_tokens": 547,
+      "known_reasoning_tokens": 446,
+      "known_cost_eur": "0.0163275323516287371709058456",
+      "retained_reservations_eur": "2.7926104417670682730923694779"
+    }
+  },
+  "timing": {
+    "planning_ms": 947714,
+    "completed_call_interval_ms": "17459.0993",
+    "all_logical_call_intervals_ms": "941998.3832",
+    "qualification": "Logical intervals include local/journal/retry work and are not provider-only or physical-attempt timing. Concurrent validation prevents causal latency comparison."
+  },
+  "responses": {
+    "received_nonempty_normalized_responses": 1,
+    "known_normalized_response_bytes": 427,
+    "receiptless_response_content": null,
+    "receiptless_completion_status": null,
+    "receiptless_usage": null
+  },
+  "formatting": {
+    "original_text_measured": false,
+    "outside_string_whitespace_bytes": null,
+    "qualification": "Normalized response bytes are not original text formatting; a missing receipt is not an empty response."
+  },
+  "post_run_audit_snapshot": {
+    "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+    "campaign": "schema-portability-20261019-incremental",
+    "at_utc": "2026-10-24T20:20:04.030773+00:00",
+    "audit_sha256": "fca877ffbcb0d769efd6f139681f60b4ca908f685452dddfd4ebdee58dfc3976",
+    "calls": 2857,
+    "known_cost_eur": "119.70808640646891009043431045",
+    "reserved_cost_eur": "29.805236386762726726688144204",
+    "cost_upper_bound_eur": "149.51332279323163681712245465",
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "90.51678103947466772532249265",
+    "unknown_attempts": 42,
+    "receiptless_requests": 28,
+    "permanently_closed_requests": 27,
+    "unresolved_requests": 1,
+    "model_calls": 0,
+    "recorded_upper_minus_decimal80_known_and_reserved_eur": "-4E-27",
+    "precision_qualification": "The recorded campaign aggregate is retained exactly. Its upper bound differs from a Decimal80 sum of its component values by -4E-27; availability uses the recorded aggregate. This is not a refund or ledger mutation.",
+    "scope_qualification": "Timestamped post-run public audit. Twenty-eight receiptless request identities include twenty-seven permanent closures and this one unresolved identity. Forty-two unknown physical attempts are usage reservations, not a count of unresolved requests."
+  },
+  "limitations": [
+    "Pending uncertainty is not replayed or automatically closed. Any later exact authorization/application needs a separate immutable supplement.",
+    "No artifact, business acceptance, execution, avoided correction, inference-quality, transport-cause or instruction-experiment benefit is established.",
+    "No model/provider/store/reader/approval/retention call was made by this offline preparation.",
+    "Published afc technical checks and historical full suites are separate evidence; they do not establish this diagnostic succeeded."
+  ]
+}

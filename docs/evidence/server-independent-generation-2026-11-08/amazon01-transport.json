@@ -1,0 +1,118 @@
+{
+  "run": "convergence-amazon-20261108-01",
+  "source": "79ea6ff0f19c17fe3d719d1e80de03f568b09b0d",
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+  "host": "GnOuGo.Agent.Server",
+  "session_id": "c4a6a8fa028b41c9b800f7bf6d6d1ba8",
+  "first_failure_boundary": "provider_transport",
+  "phase": "construction_intent",
+  "status": "stopped",
+  "logical_calls": 1,
+  "physical_attempts": 1,
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "wire": {
+    "model": "gpt-6.1-sol-2026-09-29",
+    "reasoning_effort": "medium",
+    "max_completion_tokens": 32768,
+    "stream": true,
+    "stream_options": {
+      "include_usage": true
+    }
+  },
+  "wire_bytes": 6925,
+  "wire_sha256": "70a194a2ecdc3c6a3a68892265ea429dd098167a79a424fcef25032279356875",
+  "endpoint_sha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+  "tool_count": 0,
+  "attempt": {
+    "Id": "c4a6a8fa028b41c9b800f7bf6d6d1ba8:1:545d77679f49aa8b6490a6bff47edef82bb334787ba09f277ec589d1e1e20a53:cb0ff4e938114192a44050d75137e005",
+    "StartedAtUtc": "2026-11-08T07:07:20.439355+00:00",
+    "CompletedAtUtc": "2026-11-08T07:12:26.697842+00:00",
+    "DeadlineAtUtc": "2026-11-08T07:17:20.439355+00:00",
+    "FirstByteAtUtc": "2026-11-08T07:07:27.13407+00:00",
+    "LastByteAtUtc": "2026-11-08T07:07:27.13407+00:00",
+    "ProviderResponseId": "chatcmpl-EhrHlsopCqvtvFvgmNnIqXJQA6SgK",
+    "ObservedStatus": 200,
+    "Status": null,
+    "Failure": "transport",
+    "ProtocolComplete": null,
+    "UsageKnown": null,
+    "RetryDecision": "blocked; incomplete native stream; exact receipt recovery required"
+  },
+  "native_partial_bytes": 745,
+  "native_partial_sha256": "a0b7e54c4d4ba690fc409123968b1a6e2e0c50398254f18064e976abaf6682d4",
+  "request_measurements": [
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "c4a6a8fa028b41c9b800f7bf6d6d1ba8:1:545d77679f49aa8b6490a6bff47edef82bb334787ba09f277ec589d1e1e20a53",
+      "requestHash": "ae15b0626378c56a53c8a792fcc2f2886588321da048349cd14a6b06859f97d6",
+      "schemaHash": "04cb005881892ac82060b45796f495e603ce3e96a80d22813d7e189a526ef68b",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "transitions": [
+        {
+          "revision": 2,
+          "kind": "administrative",
+          "newEvidence": 0,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 1
+        }
+      ],
+      "result": "no_retained_completion",
+      "durationMilliseconds": 306993.861,
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 32768,
+      "completeRequestBytes": 7066,
+      "estimatedInputTokens": 2612,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 29,
+          "estimatedTokens": 10
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 435,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1404,
+          "estimatedTokens": 468
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1177,
+          "estimatedTokens": 393
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3936,
+          "estimatedTokens": 1312
+        }
+      ]
+    }
+  ],
+  "accepted_contribution": false,
+  "global_review": false,
+  "approval": false,
+  "execution": false,
+  "oracle": false,
+  "limitation": "A small tool-free intent call lost its native stream after about 300 seconds idle, before the captured 600-second attempt deadline. The responsible upstream hop is unknown."
+}

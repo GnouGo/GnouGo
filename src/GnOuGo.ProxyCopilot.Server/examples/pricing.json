@@ -5,7 +5,13 @@
         "Authentication": "ApiKey",
         "Connection": {
           "Type": "openai",
-          "Url": "https://llm.example.com/v1"
+          "Url": "https://llm.example.com/v1",
+          "RetryPolicy": {
+            "MaxAttempts": 10,
+            "MaxUncertainRetries": 0,
+            "AttemptTimeoutMilliseconds": 600000,
+            "MaxTotalDelayMilliseconds": 1800000
+          }
         },
         "Models": {
           "code": {

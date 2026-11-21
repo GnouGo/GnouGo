@@ -1,0 +1,44 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 199
+  },
+  "elapsed_seconds": 29.67944974999409,
+  "source_unchanged": true,
+  "log_sha256": "eccf2754d0cbac25396fd2c8d97ef0e88a81e188cf461602672dc224421173f8",
+  "base": "c3eaf97ee62bcd9918a80a6fbb1adcf118527040",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs": "129b74b24d5cfe34060077d71d62b666a0ed1d286307e1031840833a75674fa4",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs": "e568d4c1ffb29a4202c8d95e5b46eed1780b7ff93186514b4fc4967befc88c07"
+  },
+  "source_manifest_sha256": "ed63467dcc1d1a2d13c132f41b264fd288554b61ec0d2a1ec097146e9abf1f52",
+  "classification": "Deterministic owning tests and exact retained-request reconstruction; no live acceptance",
+  "historical_request": {
+    "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+    "bytes": 70797,
+    "estimated_tokens": 23855,
+    "request_hash": "45e0f4c37360e87c68d9e58f528d08e17cf55cf1f8be4a3f123c7582dadff507",
+    "schema_hash": "ba248c51837449ad91f277c49d788cffae01f65b882bce3caf3de5b157aed109",
+    "exact_request_and_schema_match": true
+  },
+  "fresh_projection": {
+    "bytes": 64971,
+    "estimated_tokens": 21913,
+    "schema_unchanged": true,
+    "exact_metadata_reconstruction": true,
+    "field_scope": [
+      "description",
+      "outputs",
+      "artifacts"
+    ],
+    "retained_core_exceeds_historical_20000_limit": true
+  },
+  "reconstruction_observation_sha256": "4dedf0db024660b12afb98a084d2fc77d44f4e803b8953b7689bae3b2ceaf72d",
+  "provider_calls": 0,
+  "ledger_mutations": 0,
+  "limitations": [
+    "No live call or business success is established.",
+    "The remaining mandatory request still needs a separately frozen configuration experiment.",
+    "Initial 197-pass/2-failure fixture lacked the ordinary set binding probe and remains retained; corrected fixture passes 199."
+  ]
+}

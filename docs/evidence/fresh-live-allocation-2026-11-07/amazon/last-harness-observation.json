@@ -1,0 +1,1040 @@
+{
+  "source": "202048374d4d070f7f2f4c623eceac35a66b9997",
+  "run": "fresh400-amazon-20261107-01",
+  "session_id": "d5f12d9d59f54bda9fefe441d19c0834",
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "9ac37743a2b60c1b666d140cc45e95cfdbfb7a0f72c897a668ed5e9a2f01d34b",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "budget_mode": "limited",
+  "financial_forecast_mode": "experimental_warning",
+  "funding_scope": {
+    "kind": "independent_new_spend",
+    "campaign": "pr120-live-20261107-400",
+    "allowance_eur": 400,
+    "authorization_reference": "gnougo-pr120-user-20261107-fresh-400-v1",
+    "configuration_id": "9ac37743a2b60c1b666d140cc45e95cfdbfb7a0f72c897a668ed5e9a2f01d34b",
+    "previous_campaign": "schema-portability-20261019-incremental",
+    "previous_ceiling_eur": "740.0301038327063045424449473",
+    "historical_liabilities_unreconciled": true,
+    "initial_new_consumption_eur": 0,
+    "globally_available_funding": null
+  },
+  "frontend_ready": true,
+  "started_utc": "2026-11-07T02:56:10.285012+00:00",
+  "result": {
+    "status": "generating",
+    "calls": 8,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "loaded_assemblies": {
+    "entry": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "3ff71c6da0c396381102da3bf198bb04d88be06aaf1cbf1a2a14f8f82d1d1b01"
+    },
+    "server": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "7f8f3a9f2721d5f1c9694beaf6f74df9bf5beaabb4cfe5d1417abab2d52b0291"
+    }
+  },
+  "status": "generating",
+  "phase": "construction_discovery",
+  "revision": 20,
+  "diagnostics": [],
+  "budget": null,
+  "generation": {
+    "reasoning": "medium",
+    "maxInputTokensPerRequest": 32000,
+    "maxOutputTokens": 8192
+  },
+  "threshold_policy": null,
+  "financial": {
+    "currency": "EUR",
+    "forecastMode": "experimental_warning",
+    "trackedExposure": "3.5009583519928347514554411105",
+    "measuredUsageTariffEstimate": "1.07938199731303179579041648",
+    "uncertainReservations": "2.4215763546798029556650246305",
+    "unpricedCompletedNominalReservations": 0,
+    "unattributedHistoricalExposure": "0.0000000000000000000000000000",
+    "providerReportedCost": null,
+    "providerCostBasis": "Unavailable in budget snapshots; inspect exact provider receipts. Tariff estimates are not invoices.",
+    "historyComplete": false,
+    "pricingEvidenceComplete": true,
+    "unavailableReason": "unresolved_physical_attempts",
+    "availableForAdmission": null,
+    "allowance": 400,
+    "allowanceCurrency": "EUR",
+    "settledAttempts": 8,
+    "unpricedCompletedAttempts": 0,
+    "unresolvedAttempts": 1,
+    "indexedAttempts": 9,
+    "calls": 9,
+    "measuredInputTokens": 25693,
+    "measuredOutputTokensIncludingReasoning": 2413,
+    "forecastWarnings": [],
+    "basis": "Existing durable usage journal; unresolved reservations are retained. Empty or missing transport evidence alone does not release money."
+  },
+  "capturedApplicationPolicy": {
+    "version": 1,
+    "mode": "limited",
+    "origin": "operator_preference",
+    "currency": "EUR",
+    "financialForecastMode": "experimental_warning",
+    "applicationOwnsLimits": true,
+    "planningLimits": {
+      "max_calls": 64,
+      "max_total_tokens": 15000000,
+      "max_elapsed_ms": 18000000,
+      "max_estimated_cost": {
+        "amount": 400,
+        "currency": "EUR"
+      }
+    }
+  },
+  "requestMeasurements": [
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:1:aa8bb762cce7b6e015f0b9be16364cb929e04ea6939acae6a88fc7cf17c368e8",
+      "requestHash": "4856cd47665c466279aee00d8d6a101b112e4e6dd9ad4d625fc066b10725f147",
+      "schemaHash": "e0ceb1a93b9a4e3b8748734e082c4e28dfadeed57fedeb28750530396f7c01d2",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "transitions": [
+        {
+          "revision": 2,
+          "kind": "new_evidence",
+          "newEvidence": 1,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 0
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 1205,
+      "outputTokens": 424,
+      "reasoningTokens": 151,
+      "cumulativeInputTokens": 1205,
+      "cumulativeOutputTokens": 424,
+      "durationMilliseconds": "35949.5478",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 7062,
+      "estimatedInputTokens": 2610,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 29,
+          "estimatedTokens": 10
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 434,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1404,
+          "estimatedTokens": 468
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1174,
+          "estimatedTokens": 392
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3936,
+          "estimatedTokens": 1312
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:2:f922c0535172197c0de7830c27704938daa61ae7627f4cfa7fbb8cadadf43d3b:4c687fb87edb22b64120ee82e723220ce26bbeca245cc8fc47ed286e3aa32894",
+      "requestHash": "dc1ff00fd68731818fa0f38cfbb7a4cf2d95a0c0f79db72c6b311fdb3091cdb2",
+      "schemaHash": "9c64a1b1a7865cad832ff2e7ca372cd6c43f438c68d9c8914b2adf6cd8c0520c",
+      "contracts": [],
+      "phase": "construction_select",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "transitions": [
+        {
+          "revision": 4,
+          "kind": "administrative",
+          "newEvidence": 0,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 1
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 1057,
+      "outputTokens": 560,
+      "reasoningTokens": 219,
+      "cumulativeInputTokens": 2262,
+      "cumulativeOutputTokens": 984,
+      "durationMilliseconds": "31152.8983",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 6620,
+      "estimatedInputTokens": 2463,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 925,
+          "estimatedTokens": 309
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 499,
+          "estimatedTokens": 423
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 23,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2152,
+          "estimatedTokens": 718
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1068,
+          "estimatedTokens": 356
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 1953,
+          "estimatedTokens": 651
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:3:d5c444b46506871a71b8854026fc0f15bebf9f9c0b1dd83e1f558a1130da616b:469b063d949fed45b2d2c1717b27a8eeb348e9be6b1673879f86ecb122697730",
+      "requestHash": "8f609bbad13a5bd096e2fd0cda734d6c47b3baae2e7188461472f79c399ba61c",
+      "schemaHash": "4689417249d27974479d2cf26fae41527ef2a213b218c082c7e1fd09df436e1d",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [],
+      "phase": "construction_implementation",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_implementation request is 12066 bytes and 4278 estimated input tokens: target 3000, maximum 6000. Remaining request components: response_schema=3548 bytes, construction_context=3525 bytes, instructions=2658 bytes, requirements=1537 bytes, envelope=504 bytes, interfaces=294 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 4278,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_implementation"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 6,
+          "kind": "administrative",
+          "newEvidence": 0,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 2
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 2260,
+      "outputTokens": 389,
+      "reasoningTokens": 309,
+      "cumulativeInputTokens": 4522,
+      "cumulativeOutputTokens": 1373,
+      "durationMilliseconds": "29743.3915",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 12066,
+      "estimatedInputTokens": 4278,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3525,
+          "estimatedTokens": 1175
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 504,
+          "estimatedTokens": 424
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2658,
+          "estimatedTokens": 886
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 294,
+          "estimatedTokens": 98
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1537,
+          "estimatedTokens": 513
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3548,
+          "estimatedTokens": 1183
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:4:16c55dd1c897b6a86639b0c497faa7c1b890514fc94b6d4ca0b47c395b37857f:f5fc6cdc5346a93dfdd962f4963775022c14df346e290fe64d8e0e58ebce81cd",
+      "requestHash": "dec80c9e83c03936691a4b848f815df95f93c63474015b62355199abaeb13962",
+      "schemaHash": "8ebb445ef0c29197ce86f3dbf9784763f3f7dda6bed222b7960320c6fe4a66c7",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [],
+      "phase": "construction_implementation",
+      "stepId": "step_1",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_implementation request is 12721 bytes and 4497 estimated input tokens: target 3000, maximum 6000. Remaining request components: construction_context=3525 bytes, response_schema=3520 bytes, instructions=2658 bytes, requirements=1537 bytes, evidence=682 bytes, envelope=505 bytes, interfaces=294 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 4497,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_implementation"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 8,
+          "kind": "administrative",
+          "newEvidence": 0,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 3
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 2375,
+      "outputTokens": 266,
+      "reasoningTokens": 148,
+      "cumulativeInputTokens": 6897,
+      "cumulativeOutputTokens": 1639,
+      "durationMilliseconds": "25974.7607",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 12721,
+      "estimatedInputTokens": 4497,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3525,
+          "estimatedTokens": 1175
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 505,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 682,
+          "estimatedTokens": 228
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2658,
+          "estimatedTokens": 886
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 294,
+          "estimatedTokens": 98
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1537,
+          "estimatedTokens": 513
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3520,
+          "estimatedTokens": 1174
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:5:7aefd8c0d4cbd5562bac844e92802035cbc63a8575c327b193517c9527a65153:14086960bebcd8812f02cdc722896fa1ac28dba34eaaae18816407cc8edfe08c",
+      "requestHash": "f970021cff4cd4a617bab2ee766087c2ed29a1a50b976f60956e4c4a55dfd85a",
+      "schemaHash": "4158464f502691a1ca7faf0fc8c1c3accee0de5579adc7308405acc217682b4a",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_1",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_discovery request is 16386 bytes and 5718 estimated input tokens: target 3000, maximum 6000. Remaining request components: response_schema=3882 bytes, mcp_descriptors=3823 bytes, construction_context=3369 bytes, instructions=3027 bytes, requirements=1539 bytes, envelope=500 bytes, objective=246 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 5718,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 14,
+          "kind": "administrative",
+          "newEvidence": 0,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 4
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 3240,
+      "outputTokens": 136,
+      "reasoningTokens": 0,
+      "cumulativeInputTokens": 10137,
+      "cumulativeOutputTokens": 1775,
+      "durationMilliseconds": "22799.1331",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 16386,
+      "estimatedInputTokens": 5718,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3369,
+          "estimatedTokens": 1123
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 500,
+          "estimatedTokens": 423
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3027,
+          "estimatedTokens": 1009
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 3823,
+          "estimatedTokens": 1275
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1539,
+          "estimatedTokens": 513
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3882,
+          "estimatedTokens": 1294
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:6:014255ba061b408e15631b73aad2ade88e1759a84f2471f4029c8a3e84a35511:98dfadaf0d5cbf379999796a69373ed35125f336286ae7ebbd158e60c784f60e",
+      "requestHash": "6be3755cfb02dfbcb60412348713dc0fbb8979f0f50beba195d7d1b5c1d6f0e2",
+      "schemaHash": "9d4457739722610e1c4b39d972d45a871e21a3ed7f7620a6dba7f07f8a1ab202",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_1",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_discovery request is 21223 bytes and 7331 estimated input tokens: target 3000, maximum 6000. Remaining request components: response_schema=7382 bytes, mcp_descriptors=5140 bytes, construction_context=3388 bytes, instructions=3027 bytes, requirements=1539 bytes, envelope=501 bytes, objective=246 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 7331,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "input_maximum",
+          "current": 7331,
+          "threshold": 6000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 7331,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 7331,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "planning"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 16,
+          "kind": "new_evidence",
+          "newEvidence": 5,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 0
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 4034,
+      "outputTokens": 145,
+      "reasoningTokens": 71,
+      "cumulativeInputTokens": 14171,
+      "cumulativeOutputTokens": 1920,
+      "durationMilliseconds": "24030.4299",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 21223,
+      "estimatedInputTokens": 7331,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3388,
+          "estimatedTokens": 1130
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 501,
+          "estimatedTokens": 423
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3027,
+          "estimatedTokens": 1009
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 5140,
+          "estimatedTokens": 1714
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1539,
+          "estimatedTokens": 513
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 7382,
+          "estimatedTokens": 2461
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:7:4ca8b5f682450dcdd7cdcfa7eef3540b43264dfbddbc0196080ee14e4531780b:428f1d1a10695f6d44b13ff4351cedeab431b02158984e2085ba09f90591d052",
+      "requestHash": "af8dbea28862a4540daaa5573e38e7d15a1ca7495c1455c93b5d9ba648775055",
+      "schemaHash": "c85cd0daf3efefb8f5715a40cbf7971cc8d11db2a7f53dba5b1925af3fa05e8d",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_1",
+      "admission": "prepared",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_discovery request is 27105 bytes and 9291 estimated input tokens: target 3000, maximum 6000. Remaining request components: response_schema=7413 bytes, evidence=5602 bytes, mcp_descriptors=5383 bytes, construction_context=3391 bytes, instructions=3027 bytes, requirements=1540 bytes, envelope=503 bytes, objective=246 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 9291,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "input_maximum",
+          "current": 9291,
+          "threshold": 6000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        }
+      ],
+      "completeRequestBytes": 27105,
+      "estimatedInputTokens": 9291,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3391,
+          "estimatedTokens": 1131
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 503,
+          "estimatedTokens": 424
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 5602,
+          "estimatedTokens": 1868
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3027,
+          "estimatedTokens": 1009
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 5383,
+          "estimatedTokens": 1795
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1540,
+          "estimatedTokens": 514
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 7413,
+          "estimatedTokens": 2471
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:7:6cfc9d540c9a71326f3a1eaa86c7c99d24da5ed42683e23a12d97d8492e0409d:08ac9ec0b04dba202b22ef014cecd4411aea718221945c9b22590ec9b6bf076c",
+      "requestHash": "c904bb46cf3e72fdca1a2ab819e23a66ef4ba5d5e4856cf3612f6338760d4c30",
+      "schemaHash": "8d1d6093e8cd563a2086a09b807488383e6a7c5fd6fd97eb3d6713fd4eab596d",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_1",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_discovery request is 28876 bytes and 9882 estimated input tokens: target 3000, maximum 6000. Remaining request components: response_schema=7413 bytes, evidence=7373 bytes, mcp_descriptors=5383 bytes, construction_context=3391 bytes, instructions=3027 bytes, requirements=1540 bytes, envelope=503 bytes, objective=246 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 9882,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "input_maximum",
+          "current": 9882,
+          "threshold": 6000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 9882,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 9882,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "planning"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 18,
+          "kind": "new_evidence",
+          "newEvidence": 1,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 0
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 5730,
+      "outputTokens": 191,
+      "reasoningTokens": 143,
+      "cumulativeInputTokens": 19901,
+      "cumulativeOutputTokens": 2111,
+      "durationMilliseconds": "25442.8625",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 28876,
+      "estimatedInputTokens": 9882,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3391,
+          "estimatedTokens": 1131
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 503,
+          "estimatedTokens": 424
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 7373,
+          "estimatedTokens": 2458
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3027,
+          "estimatedTokens": 1009
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 5383,
+          "estimatedTokens": 1795
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1540,
+          "estimatedTokens": 514
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 7413,
+          "estimatedTokens": 2471
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:8:51693c7f83158b52a2963769c02fb72faf20175a0dfd8aa6968cdec4c2a55e80:8ac3155ce3366df3f751826ccec269bdf011f10ca7f02cf7e04608fd7f42a2f8",
+      "requestHash": "4a0f8fabf676697f17d301d58956b6005af4492d6c35385270cb679f2a1e4613",
+      "schemaHash": "57f5752c2d35f6fb1dcbf2633e93d48ecc433d2520853b81b4616422f6433167",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_1",
+      "blockId": "block_1",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "inputTarget": 3000,
+      "targetWarning": "The complete construction_discovery request is 29353 bytes and 10041 estimated input tokens: target 3000, maximum 6000. Remaining request components: evidence=7708 bytes, response_schema=7413 bytes, mcp_descriptors=5525 bytes, construction_context=3391 bytes, instructions=3027 bytes, requirements=1540 bytes, envelope=503 bytes, objective=246 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 10041,
+          "threshold": 3000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "input_maximum",
+          "current": 10041,
+          "threshold": 6000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 10041,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "construction_discovery"
+        },
+        {
+          "kind": "estimated_input_tokens",
+          "current": 10041,
+          "threshold": 6000,
+          "basis": "host_budget_measurement",
+          "stage": "planning"
+        }
+      ],
+      "transitions": [
+        {
+          "revision": 20,
+          "kind": "new_evidence",
+          "newEvidence": 2,
+          "productiveChanges": 0,
+          "completedRequirements": 0,
+          "nonProductiveModelCalls": 0
+        }
+      ],
+      "result": "complete",
+      "inputTokens": 5792,
+      "outputTokens": 302,
+      "reasoningTokens": 215,
+      "cumulativeInputTokens": 25693,
+      "cumulativeOutputTokens": 2413,
+      "durationMilliseconds": "28158.0897",
+      "durationBasis": "host_invocation_including_receipt_recovery",
+      "issuedOutputTokens": 8192,
+      "completeRequestBytes": 29353,
+      "estimatedInputTokens": 10041,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3391,
+          "estimatedTokens": 1131
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 503,
+          "estimatedTokens": 424
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 7708,
+          "estimatedTokens": 2570
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3027,
+          "estimatedTokens": 1009
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 5525,
+          "estimatedTokens": 1842
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1540,
+          "estimatedTokens": 514
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 7413,
+          "estimatedTokens": 2471
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:9:728f790d2755e66170fa53af8cc5175525ad46b1fa6b4f82afde866e4fca1800:7378e173dff6b9295256a5707aab22d18708384a33ca731b67bf28fe41d703f9",
+      "requestHash": "10fb4e43995278200d8438b839d6e1d83e101335c344eb3d1e6c0898132fbf67",
+      "schemaHash": "e049f34bbf29b81073c644b32323ca1f7e399ee44b8532f8316eb633da3353aa",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [
+        {
+          "id": "cap_490d9e16075cbdca5954ec27",
+          "version": "json-v1:5cf7d03ca98bee8b1c5a96204375217a638cd2d77abb208f8092f2a856f3dfe0",
+          "hash": "635359e4662ef76d5e5d925e0ed0859dee66327d0844c1a8abd0bbabed009c74"
+        },
+        {
+          "id": "cap_bdb7ba9ab04b18783883fa86",
+          "version": "json-v1:2c64ea1ca30beebc18299dcb2a2e8a45d6908e33bedd3cb20d6991142928b469",
+          "hash": "9f4980a2e1da69af21c19965d9a231ac6280f8fbb73a60de92fec775434823f6"
+        }
+      ],
+      "phase": "construction_draft",
+      "stepId": "step_1",
+      "admission": "prepared",
+      "inputLimit": 16000,
+      "inputTarget": 8000,
+      "targetWarning": "The complete construction_draft request is 40971 bytes and 13913 estimated input tokens: target 8000, maximum 16000. Remaining request components: response_schema=19426 bytes, mcp_contracts=11008 bytes, construction_context=4676 bytes, instructions=3157 bytes, requirements=1539 bytes, envelope=507 bytes, interfaces=339 bytes, objective=246 bytes, diagnostics=26 bytes, evidence=25 bytes, fragment=22 bytes. Campaign token thresholds are advisory; non-token admission remains enforced.",
+      "warnings": [
+        {
+          "kind": "input_target",
+          "current": 13913,
+          "threshold": 8000,
+          "basis": "conservative_request_estimate",
+          "stage": "construction_draft"
+        }
+      ],
+      "completeRequestBytes": 40971,
+      "estimatedInputTokens": 13913,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 4676,
+          "estimatedTokens": 1559
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 507,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3157,
+          "estimatedTokens": 1053
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 339,
+          "estimatedTokens": 113
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 11008,
+          "estimatedTokens": 3670
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 246,
+          "estimatedTokens": 82
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1539,
+          "estimatedTokens": 513
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 19426,
+          "estimatedTokens": 6476
+        }
+      ]
+    }
+  ],
+  "thresholdWarnings": [
+    {
+      "kind": "estimated_input_tokens",
+      "current": 7331,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_discovery",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 7331,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:6:014255ba061b408e15631b73aad2ade88e1759a84f2471f4029c8a3e84a35511:98dfadaf0d5cbf379999796a69373ed35125f336286ae7ebbd158e60c784f60e",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 9882,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_discovery",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 9882,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:7:6cfc9d540c9a71326f3a1eaa86c7c99d24da5ed42683e23a12d97d8492e0409d:08ac9ec0b04dba202b22ef014cecd4411aea718221945c9b22590ec9b6bf076c",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 10041,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_discovery",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 10041,
+      "threshold": 6000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "d5f12d9d59f54bda9fefe441d19c0834:8:51693c7f83158b52a2963769c02fb72faf20175a0dfd8aa6968cdec4c2a55e80:8ac3155ce3366df3f751826ccec269bdf011f10ca7f02cf7e04608fd7f42a2f8",
+      "sessionId": "d5f12d9d59f54bda9fefe441d19c0834",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    }
+  ],
+  "acceptedCheckpoints": 0,
+  "draftCorrections": 0,
+  "activeMilliseconds": "224759.187",
+  "artifactHash": null,
+  "recordHash": "20959018e871e718a566265e8af8aa354fb6ac548165e3a9ad08ad80bde6f842",
+  "inspectionInferenceCalls": 0
+}

@@ -1,0 +1,53 @@
+{
+  "host_preflight_only": true,
+  "sdk_execution": false,
+  "model_calls": 0,
+  "commands": [
+    {
+      "command": "node --version",
+      "available": true,
+      "exit_code": 0,
+      "output": "v22.20.0"
+    },
+    {
+      "command": "pnpm --version",
+      "available": true,
+      "exit_code": 0,
+      "output": "10.14.0"
+    },
+    {
+      "command": "python --version",
+      "available": false
+    },
+    {
+      "command": "python3 --version",
+      "available": true,
+      "exit_code": 0,
+      "output": "Python 3.14.4"
+    },
+    {
+      "command": "uv --version",
+      "available": true,
+      "exit_code": 0,
+      "output": "uv 0.9.0 (Homebrew 2025-10-07)"
+    },
+    {
+      "command": "mise --version",
+      "available": false
+    },
+    {
+      "command": "fnm --version",
+      "available": false
+    }
+  ],
+  "required_versions": {
+    "node": "24.20.0",
+    "pnpm": "10.34.5",
+    "python": "3.11.13"
+  },
+  "uv_managed_python_installations": [
+    "cpython-3.10.18-macos-aarch64-none",
+    "cpython-3.11.14-macos-aarch64-none",
+    "cpython-3.12.11-macos-aarch64-none"
+  ]
+}

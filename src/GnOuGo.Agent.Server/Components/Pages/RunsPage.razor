@@ -7,7 +7,7 @@
 
 <PageTitle>Workflow executions</PageTitle>
 <main class="container py-4" style="max-width:1200px;margin:auto;padding:1.5rem">
-    <nav><a href="/">Chat</a> · <a href="/planning">Workflow designer</a> · <a href="/runs">Executions</a></nav>
+    <nav><a href="/">Chat</a> · <a href="/planning">Workflow designer</a> · <a href="/runs">Executions</a> · <a href="/settings/llm-budget">Application LLM budget</a></nav>
     <h1>Workflow executions</h1>
     <p>Tenant <code>@Runs.TenantId</code> <button type="button" @onclick="LoadAsync">Refresh</button></p>
     @if (_error is not null) { <p role="alert">@_error</p> }
@@ -17,7 +17,9 @@
         <p><code>@run.RunId</code> · <strong>@run.Status</strong> · Revision @run.Revision</p>
         <p>@run.StepsStarted / @run.Limits.MaxTotalStepsExecuted steps · @run.FinalizationStepsStarted / @run.Limits.MaxFinalizationSteps cleanup steps</p>
         <p>Cleanup: @(run.FinalizationCompleted ? "completed" : run.FinalizationStarted ? "in progress" : "pending") · Cancellation: @(run.CancelRequested ? "requested" : "not requested")</p>
-        @if (run.ModelUsage is { } usage) { <p>Model usage: @usage.Calls calls · @usage.InputTokens input tokens · @usage.OutputTokens output tokens</p> }
+        <p>@(run.ApplicationLlmBudgetMode == "unlimited" ? "Unlimited — usage and costs tracked" : run.ModelBudget is not null ? "Limited — captured application ceilings" : "Historical application budget policy unavailable")</p>
+        @if (run.ModelBudget is { } finite) { <pre>@System.Text.Json.JsonSerializer.Serialize(finite, GnOuGo.Flow.Core.Runtime.WorkflowRunJsonContext.Default.LLMUsageBudgetLimits)</pre> }
+        @if (run.ModelUsage is { } usage) { <p>Model usage: @usage.Calls calls · @usage.InputTokens input tokens · @usage.OutputTokens output tokens · @usage.UncertainCalls uncertain calls · Estimated cost: @(usage.CostEstimateAvailable ? $"{usage.EstimatedCost} {usage.EstimatedCostCurrency}" : $"unavailable ({usage.CostUnavailableReason})")</p> }
         <button type="button" disabled="@(_busy || run.Status == WorkflowRunStatus.NeedsReconciliation)" @onclick='() => CommandAsync("resume")'>Resume this revision</button>
         <button type="button" disabled="@run.CancelRequested" @onclick='() => CommandAsync("cancel")'>Cancel this revision</button>
         @if (_busy) { <p role="status">Execution command is running. Refresh to inspect its journal or pending human input.</p> }

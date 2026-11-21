@@ -91,11 +91,15 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
             NullIfWhiteSpace(config.Type) ?? NullIfWhiteSpace(config.Provider),
             url);
         var apiVersion = NullIfWhiteSpace(config.ApiVersion);
+        var wireApi = NullIfWhiteSpace(config.WireApi);
         var deploymentRoute = TryNormalizeVersionedDeploymentRoute(url, apiVersion);
         if (deploymentRoute is not null)
         {
             providerType = "azure";
-            url = deploymentRoute.BaseUrl;
+            // Chat reconstructs the deployment route from WireModel. Responses
+            // appends its route directly, so retain the configured deployment.
+            if (!string.Equals(wireApi, "responses", StringComparison.OrdinalIgnoreCase))
+                url = deploymentRoute.BaseUrl;
         }
 
         var wireModel = NullIfWhiteSpace(config.WireModel)
@@ -111,7 +115,7 @@ internal sealed class ConfigurationCopilotProviderConfigResolver : ICopilotProvi
             apiKey,
             fallbackBearerToken,
             ct);
-        var wireApi = NullIfWhiteSpace(config.WireApi) ?? GetDefaultWireApi(providerType);
+        wireApi ??= GetDefaultWireApi(providerType);
 
         var provider = new ProviderConfig
         {

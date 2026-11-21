@@ -1,0 +1,14 @@
+[
+  {
+    "session": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+    "budget_hash_before": "63fff77cb94c90af57d816181455cedef00b0b7bce954f17ab1bb46008bdd76e",
+    "budget_hash_after": "63fff77cb94c90af57d816181455cedef00b0b7bce954f17ab1bb46008bdd76e",
+    "unchanged": true
+  },
+  {
+    "session": "1a54de6fa5934c7aa9ddc3cd31da99cb",
+    "budget_hash_before": "cbcc552bbe9d5d7254f21cb6985d2d7c088cda1c3a49157b4de06da14ca2a27b",
+    "budget_hash_after": "cbcc552bbe9d5d7254f21cb6985d2d7c088cda1c3a49157b4de06da14ca2a27b",
+    "unchanged": true
+  }
+]

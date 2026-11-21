@@ -1,0 +1,187 @@
+{
+  "source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "presentation_version": 9,
+  "cohort": "compactr93d3e1c27colhighv9p9a",
+  "case": "collections",
+  "freeze_sha256": "d2fa875f6c852c7d310b62857daa9bd304fc02e0380f10ffc89465471fff143d",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "high",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "high",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "high",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 8000,
+      "outputTokens": 8192
+    }
+  },
+  "status": "stopped_uncertain_dispatch",
+  "diagnostic_codes": [
+    "MODEL_DISPATCH_UNVERIFIABLE"
+  ],
+  "logical_requests": 18,
+  "physical_attempts": 19,
+  "receipts": 17,
+  "constructed_request_identities": 18,
+  "prepared_only_request_identities": 0,
+  "rejected_before_dispatch": 0,
+  "corrections": 1,
+  "accepted_checkpoints": 4,
+  "provider_usage": {
+    "known_input_tokens": 49242,
+    "known_output_tokens": 26812,
+    "known_reasoning_tokens": 22750,
+    "reasoning_measured_calls": 17
+  },
+  "costs": {
+    "known_cost_eur": "0.9375903614457831325301204820",
+    "unknown_usage_reservation_eur": "1.2442124051762605979473449353",
+    "cost_upper_bound_eur": "2.1818027666220437304774654173",
+    "unknown_attempts": 2
+  },
+  "latency": {
+    "planning_ms": 1566293,
+    "elapsed_ms": 1566293,
+    "completed_receipt_call_elapsed_sum_ms": "899362.0558"
+  },
+  "terminal_request": {
+    "ordinal": 18,
+    "request_id": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da:18:6f1d8c620e38ea974a2168a34e26134ab766f87ac116718451e72855535e9673",
+    "phase": "construction_local_judge",
+    "request_hash": "984febadc4baa32238ca465179add4b6ff73553bfff4c9c0beb84da27caa1e7c",
+    "failure_kind": "Timeout",
+    "physical_attempts": 1,
+    "http_statuses": [
+      null
+    ],
+    "receipt_present": false,
+    "provider_usage_known": false,
+    "complete_request_bytes": 21046,
+    "estimated_input_tokens": 7272,
+    "captured_input_ceiling": 8000,
+    "retained_reservation_eur": "0.3133422579205711735832217760",
+    "classification": "No response or receipt; not a received empty report, output exhaustion, or input rejection."
+  },
+  "earlier_retained_retry": {
+    "ordinal": 2,
+    "http_statuses": [
+      500,
+      200
+    ],
+    "receipt_present": true,
+    "retained_unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+    "meaning": "The received-success logical request remains resolved; its earlier failed-attempt usage reservation remains retained."
+  },
+  "correction": {
+    "request_ordinal": 17,
+    "diagnostic": "CONSTRUCTION_INCOMPLETE",
+    "before": "Request 16 claimed complete:true with closeScopes:[], leaving /root open.",
+    "after": "Request 17 changes only closeScopes to [\"/root\"].",
+    "assessment": "Effective technical correction under the existing guard; it does not establish business completion."
+  },
+  "accepted_state": {
+    "executable_tasks": 2,
+    "checkpoints": 4,
+    "closed_original_requirement_ids": [
+      "req_0"
+    ],
+    "open_original_requirement_ids": [
+      "req_1"
+    ],
+    "accepted_public_root_output": false,
+    "shape": "Parallel foreach over values with direct multiply(item,2) inside its closed body; no separately declared group or call.",
+    "pending_candidate": "Adds the public ordered array binding and root closure, still unreviewed and unaccepted.",
+    "business_limit": "The requested reusable-subworkflow/per-item-call requirement remains unestablished; no accepted whole-plan semantic failure or generic guard defect is demonstrated."
+  },
+  "review_observation": {
+    "retained_manifests": 5,
+    "received_clean_scoped_reports": 4,
+    "received_request_proposition_occurrences": 18,
+    "by_kind": {
+      "local_behavior": 8,
+      "interaction": 4,
+      "global": 4,
+      "completion": 2,
+      "transition": 0,
+      "other": 0
+    },
+    "broad_acknowledgments": 18,
+    "subject_acknowledgments": 0,
+    "recorded_reuse_events": 0,
+    "transition_journal_rows": 0,
+    "final_root_review_received": false,
+    "scope": "Saved-journal observations; no inferred saved calls or independent applicability revalidation."
+  },
+  "business_acceptance": {
+    "artifact_available": false,
+    "runtime_executed": false,
+    "oracle_evaluated": false,
+    "independent_obligation_id": "collections_complete_ordered_doubling_v1",
+    "fulfilled_complete_obligations": 0,
+    "calls_per_fulfilled_obligation": null,
+    "final_six_run_gate_qualifying_runs": 0,
+    "final_six_run_gate_required": 6,
+    "note": "Closed requirements and four checkpoints do not increase independently fulfilled obligations. Both runtime variants remain unexecuted."
+  },
+  "pending_retention": {
+    "status": "Exact authorization requested; no application in these captured records.",
+    "request_id": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da:18:6f1d8c620e38ea974a2168a34e26134ab766f87ac116718451e72855535e9673",
+    "evidence_hash": "aad26c5992b69a47594508f8dd61e7f64db022271727038a3f1f19078c47bea8",
+    "inspection_sha256": "3e8dc606e0905764c453ddc4d858f52982d0542d3187b70db6746a2ac17e8a09",
+    "full_request_reservation_eur": "0.3133422579205711735832217760",
+    "reservation_release_authorized": false,
+    "replay_or_continuation_authorized": false,
+    "prior_applied_control_closure_separate": true
+  },
+  "campaign_at_saved_inspection": {
+    "date_utc": "2026-10-27",
+    "campaign": "schema-portability-20261019-incremental",
+    "inspection_sha256": "3e8dc606e0905764c453ddc4d858f52982d0542d3187b70db6746a2ac17e8a09",
+    "known_cost_eur": "233.12340992275628179949276645",
+    "retained_reservation_eur": "74.026891897695346093042450314",
+    "captured_cost_upper_bound_eur": "307.15030182045162789253521676",
+    "ceiling_eur": "440.0301038327063045424449473",
+    "available_eur": "132.87980201225467664990973054",
+    "available_basis": "Exact ceiling minus captured ledger upper bound; captured System.Decimal upper is authoritative and is not replaced by an arbitrary-precision sum.",
+    "unknown_usage_attempts": 91,
+    "previous_closed_identities": 35,
+    "new_unresolved_identity_count": 1,
+    "identity_count_basis": "Previously verified closed count plus this new unresolved identity; not a fresh full recount.",
+    "balance_scope": "Dated inspected balance, not guaranteed future funds."
+  },
+  "technical_ci": {
+    "revision": "2038c252c539da90f5b46eec0c668f99d5a1ef65",
+    "workflows": 3,
+    "jobs": 8,
+    "all_success": true,
+    "pr_draft": true,
+    "observation": "Initial GitHub read failure; identical observer resumed serially. No CI failure or workflow rerun.",
+    "summary_sha256": "8835b16c5f5949c5096da7102d8457e3bf0966bcc4d81aa574028f13fb4553c7",
+    "scope": "2038 only; does not qualify a later documentation revision or business execution."
+  },
+  "evidence": {
+    "safe_metrics_sha256": "859d0c1e3bbb987fb95750e62df168f13cdd87639672f05d04d71d9c7a10d0c4",
+    "canonical_state_sha256": "b72a9135a678fe81a2ab27ffec0d2e8a7ac555874e5fe96f53451958643e189d",
+    "saved_journal_reducer_sha256": "e8a180a05e054d3487760284bc7d439857eab0016f6e78d318e09cce8269aa2a",
+    "saved_journal_reduction_sha256": "f916391275762b22cf7c873727cbf009553ad00b32284a416293f3c37dc910d2",
+    "semantic_assessment_sha256": "54ff0eed681a4cce1a85c6d4eeb36f1ba82638a7b918f162261c34e921a4e812",
+    "phase_measurements_file": "compact-taskplan-93d3-collections-phase-measurements.json",
+    "phase_measurements_sha256": "1133f6c46405adbabdcefab789b87754c6cf645a30954680270c2143b29b84cc"
+  },
+  "limitations": [
+    "No control/candidate savings claim: both matching Collections diagnostics stopped with uncertainty and no complete business outcome.",
+    "No output-exhaustion or prompt-causality conclusion follows from a missing final receipt.",
+    "No provider, store, retention application, replay, revision, approval, execution or source changes were performed by this offline reduction."
+  ]
+}

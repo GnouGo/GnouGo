@@ -43,22 +43,49 @@ public sealed class RepairPatchRuntimeTests
     }
 
     [Fact]
-    public async Task ANewPatchRequestCanBeRecoveredWithoutRedispatchOrCounterChanges()
+    public async Task IssuedPatchRecoversExactRequestBeforeRenewedBusinessReview()
     {
-        var state = RepairPatchTests.State(); var runtime = new TestRuntime();
-        state.Catalog = await runtime.DiscoverAsync(state.Request, PlannerFixture.Ct);
-        state.Plan = PlanningCorpus.Greeting(); state.Plan.Root.Outputs.Add(new("broken", new() { Kind = "output", Source = state.Plan.Root.Tasks[0].Id, Port = "missing_port" }));
-        state.Diagnostics = new TaskPlanCompiler().Compile(state.Plan, state.Catalog).Diagnostics.ToList();
-        state.RevisionScope = TaskPlanRevisions.Scope(state.Plan, state.Diagnostics).ToList();
-        var request = new LLMRequest { Prompt = HybridWorkflowPlanner.Prompt(state), StructuredOutputSchema = PlanningSchemas.Proposal(state), ClientRequestId = "retained-patch" };
-        state.PendingCall = new() { Id = request.ClientRequestId, Purpose = "replan", Request = request }; state.ModelCalls = 7; state.ReplanAttempts = 1;
-        var payload = new JsonObject { ["clarifications"] = null, ["discoveryRequests"] = null, ["patch"] = new JsonObject { ["edits"] = new JsonArray((JsonNode)RepairPatchTests.Edit(state, "/root/outputs/broken", "replace", JsonSerializer.SerializeToNode(state.Plan.Root.Outputs[0].Value, PlanningJsonContext.Default.TaskValue))) } };
-        runtime.Respond = (issued, _) => { Assert.Equal(request.Prompt, issued.Prompt); Assert.True(JsonNode.DeepEquals(request.StructuredOutputSchema, issued.StructuredOutputSchema)); return new() { Json = PlanningCorpus.Transport(payload, issued.StructuredOutputSchema!.AsObject(), issued.StructuredOutputSchema.AsObject()) }; };
-        var restored = PlannerFixture.Clone(state);
-        var result = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.FinalReview, result.Status); Assert.Equal(7, result.ModelCalls); Assert.Equal(1, result.ReplanAttempts);
-        Assert.Equal("retained-patch", Assert.Single(runtime.Calls).ClientRequestId); Assert.Null(result.PendingCall);
-        PlanningArtifactApproval.Verify(result);
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        state = await new HybridWorkflowPlanner().AdvanceAsync(BusinessReviewProtocolTests.Clone(state), new()
+        {
+            Kind = "revise", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
+            PreserveRequirements = true, EditablePaths = ["/tasks/compute/outputs/result"],
+            Text = "Revise only the arithmetic operand to three."
+        }, runtime, PlannerFixture.Ct);
+        var beforeIssueCalls = runtime.Calls.Count;
+        runtime.Checkpointed = checkpoint =>
+        {
+            if (checkpoint.PendingCall?.Purpose != "replan") return;
+            runtime.Checkpointed = null;
+            throw new OperationCanceledException(); // Persisted before model dispatch, so no uncertain call exists.
+        };
+        _ = await BusinessReviewProtocolTests.Advance(state, runtime);
+        var saved = BusinessReviewProtocolTests.Clone(runtime.Checkpoints.Last(checkpoint => checkpoint.PendingCall?.Purpose == "replan" && checkpoint.Status == PlanningStatus.Generating));
+        Assert.Equal(beforeIssueCalls, runtime.Calls.Count);
+        var issued = saved.PendingCall!.Request;
+        var exact = JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest);
+        var calls = saved.ModelCalls; var corrections = saved.ReplanAttempts;
+        var replacement = JsonSerializer.SerializeToNode(saved.Construction!.Candidate!.Plan.Root.Tasks[0].Outputs[0].Value, PlanningJsonContext.Default.TaskValue)!;
+        replacement["items"]![1]!["number"] = 3;
+        var slot = PlanningRepairPatch.RequestContext(issued)["repair"]!["slots"]![0]!["id"]!.DeepClone();
+        var response = new JsonObject { ["patch"] = new JsonObject { ["edits"] = new JsonArray(new JsonObject
+        { ["slot"] = slot, ["action"] = "replace", ["value"] = replacement }) } };
+        var recovery = new TestRuntime { Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            Assert.Equal(exact, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+            return new() { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+        } };
+        var repaired = await BusinessReviewProtocolTests.Advance(saved, recovery);
+        Assert.Single(recovery.Calls); Assert.Null(repaired.PendingCall);
+        Assert.Equal(calls, repaired.ModelCalls); Assert.Equal(corrections + 1, repaired.ReplanAttempts);
+        Assert.Equal(accepted, PlanningConstruction.Hash(repaired.Plan));
+        Assert.NotEqual(accepted, repaired.Construction!.Candidate!.Hash);
+        Assert.False(repaired.Construction.Candidate.BusinessReviewed);
+        Assert.Null(repaired.ApprovedHash);
     }
 
     private sealed class Model(string? value) : ILLMClient

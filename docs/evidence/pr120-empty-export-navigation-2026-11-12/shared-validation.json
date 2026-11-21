@@ -1,0 +1,19 @@
+{
+  "source": "745a12fc11ae0c1c4254d2f6d49d298164b00bdc",
+  "server_partition_exact_coverage": true,
+  "server_tests_passed": 2389,
+  "server_existing_skips": 1,
+  "server_binaries_unchanged": true,
+  "non_server": {
+    "source": "745a12fc11ae0c1c4254d2f6d49d298164b00bdc",
+    "configuration": "Release",
+    "exit_code": 0,
+    "warnaserror": true,
+    "tests_failed": 0,
+    "tests_passed": 6721,
+    "tests_skipped": 12,
+    "test_projects": 32
+  },
+  "aggregate_passes": 9110,
+  "aggregate_existing_skips": 13
+}

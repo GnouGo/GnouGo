@@ -1,0 +1,20 @@
+{
+  "before_diagnostics": [
+    {
+      "Code": "TASK_COMPILER_VALIDATION",
+      "Location": "/tasks/product_consultation/body/outputs/observations",
+      "Message": "OUTPUT_TYPE_MISMATCH: The boundary type is not established by its producer contract.",
+      "Required": true,
+      "ValidationStage": null,
+      "Rule": null
+    }
+  ],
+  "after_diagnostics": [],
+  "same_compiled_graph_bytes": true,
+  "compiled_graph_sha256": "412e831ad141a4a4742235d70ff6ae830b3581c65315f064485fa2c098a47ade",
+  "paid_calls": 0,
+  "accepted_plan_changed": false,
+  "saved_session_changed": false,
+  "review_or_execution_authority_created": false,
+  "comparison_factor": "workflow.call declared export object closure in graph validation"
+}

@@ -2,7 +2,19 @@ export interface Summary {
   id: string; tenantId: string; provider: string; model: string; protocol: string; startedAt: string
   status: string; statusCode: number | null; durationMs: number; firstTokenMs: number | null
   usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number } | null
-  error: string | null; truncated: boolean; cost: CostEstimate
+  error: string | null; truncated: boolean; cost: CostEstimate; retry?: RetryInfo
+}
+export interface RetryInfo { attempt: number; maxAttempts: number; lastStatusCode: number | null; nextAttemptAt: string | null; waitedMs: number }
+
+export function retryLabel(call: Pick<Summary, 'status' | 'retry'>, now = Date.now()): string | null {
+  const retry = call.retry
+  if (!retry || retry.attempt < 1 || retry.attempt === 1 && retry.lastStatusCode === null) return null
+  const last = retry.lastStatusCode === null ? '' : ` · Last rejection: HTTP ${retry.lastStatusCode}`
+  if (call.status === 'running' && retry.nextAttemptAt) {
+    const seconds = Math.max(0, Math.ceil((Date.parse(retry.nextAttemptAt) - now) / 1000))
+    return `Waiting to retry · Attempt ${retry.attempt + 1}/${retry.maxAttempts} in ${Math.floor(seconds / 60)}m ${seconds % 60}s${last}`
+  }
+  return `Attempt ${retry.attempt}/${retry.maxAttempts}${last} · Waited ${duration(retry.waitedMs)}`
 }
 export interface CostEstimate {
   status: 'unknown' | 'partial' | 'estimated'; currency: string | null; amount: number | null; inputTokensAbove: number | null

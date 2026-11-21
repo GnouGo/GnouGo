@@ -9,41 +9,24 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class RetainedOutputRevisionTests
 {
     [Fact]
-    public void CompactGenerationReceivesProjectionGuidanceAndUnchangedAcceptedContracts()
+    public void TypedRepairContextRetainsExactNullableDeclarationsWithoutReplacingThePlan()
     {
-        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
-            "Fixtures", "TargetedRevisions", "nullable-records.json")))!;
-        var state = PlannerFixture.Session();
-        state.Catalog = new();
+        var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "TargetedRevisions", "nullable-records.json")))!;
+        var state = PlannerFixture.Session(); state.Catalog = new();
         state.Requirements = fixture["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements);
-        state.Request.Baseline = fixture["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan);
-        state.Request.Baseline!.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable = false;
-        var baseline = Plan(state.Request.Baseline);
-        var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        var request = new PlanningPrompt(state).Request();
-        var instructions = request.Prompt[..request.Prompt.IndexOf("\n{", StringComparison.Ordinal)];
-        Assert.Contains("Bind typed copies/projections/assembly", instructions);
-        Assert.Contains("each.input: bound input", request.StructuredOutputSchema!.ToJsonString());
-        Assert.Contains("interpret: decisions/synthesis", request.StructuredOutputSchema.ToJsonString());
-        Assert.DoesNotContain("Lookup offered IDs before originals", instructions);
-        Assert.Contains("Keep original IDs/exact values", instructions);
-        Assert.Contains("Return the smallest sufficient executable business plan", instructions);
-        Assert.Contains("No extra effects/artifacts/filtering/deduplication", instructions);
-        Assert.DoesNotContain("YAML", instructions, StringComparison.OrdinalIgnoreCase);
-        var hints = PlanningSchemaReferences.Walk(request.StructuredOutputSchema!.AsObject(), "", 0)
-            .Select(e => e.Schema["description"]?.ToString()).OfType<string>().ToArray();
-        var hint = Assert.Single(hints, h => h.Contains("requires: false fails", StringComparison.Ordinal));
-        Assert.Contains(hints, h => h.Contains("bounded examples", StringComparison.Ordinal));
-        Assert.Contains("requires: false fails", hint);
-        Assert.Contains("each.input: bound input", hint);
-        var context = JsonNode.Parse(request.Prompt[(request.Prompt.IndexOf("\n{", StringComparison.Ordinal) + 1)..])!;
-        var transmitted = context["taskPlan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        Assert.False(transmitted.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable);
-        Assert.True(transmitted.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Fields[1].Type.Nullable);
-        Assert.Equal(baseline, Plan(transmitted));
-        Assert.Equal(requirements, JsonSerializer.Serialize(context["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements), PlanningJsonContext.Default.PlanningRequirements));
-        Assert.Equal(baseline, Plan(state.Request.Baseline));
-        // Once issued, a restart reuses its original prompt/schema rather than rebuilding guidance.
+        state.Plan = fixture["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        state.EditablePaths = ["/tasks/normalize/resultType"]; state.RevisionScope = state.EditablePaths.ToList();
+        var baseline = Plan(state.Plan); var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
+        var request = RepairPatchTests.Request(state);
+        Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
+        Assert.Null(request.StructuredOutputSchema["properties"]?["plan"]);
+        var context = PlanningRepairPatch.RequestContext(request);
+        var producer = Assert.Single(context["repair"]!["tasks"]!.AsArray())!;
+        var transmitted = producer["resultType"]!.Deserialize(PlanningJsonContext.Default.TaskType)!;
+        Assert.True(transmitted.Fields[0].Type.Items!.Nullable);
+        Assert.True(transmitted.Fields[0].Type.Items!.Fields[1].Type.Nullable);
+        Assert.Equal(baseline, Plan(state.Plan));
+        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
         var stored = JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest);
         Assert.Equal(stored, JsonSerializer.Serialize(JsonSerializer.Deserialize(stored, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest));
     }
@@ -89,13 +72,13 @@ public sealed class RetainedOutputRevisionTests
     [Theory]
     [InlineData("normalize", "rows", "store", "release")]
     [InlineData("assemble", "résultats", "persist", "dispose")]
-    public async Task TargetedContractCorrectionThenExplicitDeterministicRevisionPreserveBusinessWork(
+    public async Task TypedContractRepairAndSeparateDeterministicFixturePreserveBusinessWork(
         string producer, string port, string writer, string cleanup)
     {
         var fixture = JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory,
             "Fixtures", "TargetedRevisions", "nullable-records.json")))!.AsObject();
         Rename(fixture);
-        var proposal = new PlanningProposal
+        var proposal = new TaskPlanFixture
         {
             Plan = fixture["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan),
             Requirements = fixture["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)
@@ -117,63 +100,46 @@ public sealed class RetainedOutputRevisionTests
             }
         });
         var engine = new WorkflowEngine { McpClientFactory = factory };
-        var runtime = new TestRuntime(engine) { Proposal = proposal };
-        var catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); catalog.Policy.RequireExternalConfirmation = false;
+        var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
+        var catalog = await TaskPlanCompilerTests.Catalog(runtime); catalog.Policy.RequireExternalConfirmation = false;
         string Operation(string name) => TaskOperations.Describe(catalog.Capabilities.Single(c => c.Method == name)).Id;
         proposal.Plan!.Root.Tasks.Add(new() { Id = writer, Kind = "operation", Objective = "Persist actual records",
             Operation = Operation(writer), Inputs = [new("records", new() { Kind = "output", Source = producer, Port = port })] });
         proposal.Plan.Root.Always.Add(new() { Id = cleanup, Kind = "operation", Objective = "Release after processing", Operation = Operation(cleanup) });
         var state = PlannerFixture.Session(); state.Catalog = catalog; state.Request.Policy.RequireExternalConfirmation = false;
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Contains(state.Diagnostics, d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/outputs/" + port);
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(events);
+        state.Plan = Copy(proposal.Plan); state.Requirements = proposal.Requirements;
+        state.Diagnostics = OutputBindingRoutingTests.Findings(state);
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && diagnostic.Location == "/outputs/" + port);
+        Assert.Empty(events);
         var requirements = JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements);
-        var baseline = Copy(state.Plan!); var planner = new HybridWorkflowPlanner();
-        state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = true,
-            ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),
-            EditablePaths = ["/tasks/" + producer + "/resultType"],
-            Text = "Only make the output array's record objects non-null. Preserve nullable fields, bounds and all business work." }, runtime, PlannerFixture.Ct);
-        Assert.Equal(Plan(baseline), Plan(state.Plan!)); Assert.Equal(1, state.ModelCalls);
-        var corrected = Copy(baseline);
-        corrected.Root.Tasks[0].ResultType!.Fields[0].Type.Items!.Nullable = false;
-        runtime.Proposal.Plan = corrected;
-        state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(Plan(corrected), Plan(state.Plan!)); Assert.Equal(2, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        var baseline = Copy(state.Plan); var path = "/tasks/" + producer + "/resultType";
+        TaskPlanRevisions.ValidateEditablePaths(state, [path]); state.EditablePaths = [path]; state.RevisionScope = [path];
+        var resultType = JsonSerializer.SerializeToNode(state.Plan.Root.Tasks[0].ResultType, PlanningJsonContext.Default.TaskType)!;
+        resultType["fields"]![0]!["type"]!["items"]!["nullable"] = false;
+        var corrected = OutputBindingRoutingTests.Apply(state, RepairPatchTests.Edit(state, path, "replace", resultType));
+        var fixedState = PlannerFixture.Clone(state); fixedState.Plan = corrected;
+        Assert.Empty(OutputBindingRoutingTests.Findings(fixedState));
+        Assert.Equal(Plan(baseline), Plan(state.Plan));
         Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
-        Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
-
-        var hash = state.ComputeArtifactHash();
+        Assert.Null(state.ApprovedHash);
         var deterministic = Copy(corrected);
         deterministic.Root.Tasks[0] = fixture["correctedNormalization"]!.Deserialize(PlanningJsonContext.Default.PlanTask)!;
-        Assert.Contains(TaskPlanRevisions.Validate(corrected, deterministic, ["/tasks/" + producer + "/resultType"], catalog,
-            ["/tasks/" + producer + "/resultType"]), d => d.Code == "REVISION_SCOPE_CHANGED");
-        // Structural edits use the existing explicit revision, never wider patch authority.
-        state = await planner.AdvanceAsync(state, new() { Kind = "revise", PreserveRequirements = true,
-            ExpectedRevision = state.Revision, ArtifactHash = hash,
-            Text = "Replace only normalization with direct typed data bindings. Preserve accepted requirements, persistence and cleanup." }, runtime, PlannerFixture.Ct);
-        Assert.Equal(Plan(corrected), Plan(state.Request.Baseline!)); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        runtime.Proposal.Plan = deterministic;
-        state = await PlannerFixture.RunAsync(runtime, PlannerFixture.Clone(state));
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(3, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Equal(requirements, JsonSerializer.Serialize(state.Requirements, PlanningJsonContext.Default.PlanningRequirements));
+        Assert.Contains(TaskPlanRevisions.Validate(corrected, deterministic, [path], catalog, [path]), diagnostic => diagnostic.Code == "REVISION_SCOPE_CHANGED");
+        // The new structural fixture is separate from the narrowly authorized type patch.
         Assert.Equal(Plan(new() { Root = new() { Tasks = corrected.Root.Tasks.Skip(1).ToList(), Always = corrected.Root.Always } }),
-            Plan(new() { Root = new() { Tasks = state.Plan!.Root.Tasks.Skip(1).ToList(), Always = state.Plan.Root.Always } }));
-        Assert.NotEqual(hash, state.ComputeArtifactHash());
-        Assert.DoesNotContain("llm.call", state.Yaml); Assert.DoesNotContain("mapping.dynamic", state.Yaml);
-        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision,
-            ArtifactHash = state.ComputeArtifactHash(), ReviewedRequirementIds = ["records", "persist", "release"] }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Approved, state.Status);
+            Plan(new() { Root = new() { Tasks = deterministic.Root.Tasks.Skip(1).ToList(), Always = deterministic.Root.Always } }));
+        var compilation = new TaskPlanCompiler().Compile(deterministic, catalog, state.Request);
+        Assert.Empty(compilation.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph!, catalog);
+        Assert.DoesNotContain("llm.call", yaml); Assert.DoesNotContain("mapping.dynamic", yaml);
         var records = JsonNode.Parse("""[{"identity":4,"label":null,"detail":"observed"},{"identity":1,"label":"duplicate","detail":null},{"identity":1,"label":"duplicate","detail":null}]""");
-        var result = await LookupCompilationTests.Execute(state.Yaml!, new() { ["observed"] = records!.DeepClone() }, engine);
+        var result = await LookupCompilationTests.Execute(yaml, new() { ["observed"] = records!.DeepClone() }, engine);
         Assert.True(result.Success, result.Error?.Message);
         Assert.True(JsonNode.DeepEquals(records, result.Outputs![port])); Assert.True(JsonNode.DeepEquals(records, written));
         Assert.Equal(new[] { writer, cleanup }, events);
         events.Clear(); written = null;
         var invalid = await Assert.ThrowsAsync<WorkflowRuntimeException>(() => LookupCompilationTests.Execute(
-            state.Yaml!, new() { ["observed"] = new JsonArray((JsonNode?)null) }, engine));
+            yaml, new() { ["observed"] = new JsonArray((JsonNode?)null) }, engine));
         Assert.Contains("expected object", invalid.Message); Assert.Empty(events); Assert.Null(written);
 
         void Rename(JsonNode? node)

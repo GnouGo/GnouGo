@@ -1,0 +1,36 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "f5789246ff4325e128bae14e985e08572c5bd9f1",
+  "observed_at_utc": "2026-11-04T11:06:21.385637+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -warnaserror",
+  "trx_sha256": "12bdd51f86853a184103451f22671c9987fa8ed1bd24fb006a9d911052a139ac",
+  "counts": {
+    "total": "2651",
+    "executed": "2651",
+    "passed": "2651",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "focused_cases_passed": 6,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 4,
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs": "fd2262ed34b8d0483963de7b3b4d86d77ad099003d4ce8edc545f57aed1b1f58",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConstructionContractsTests.cs": "3091d66cb743c2971fdbba4a726c894cc4e4132b9bf33e22f7bce6a8f6d36162",
+    ".agents/skills/gnougo-planning/SKILL.md": "87fa641831783f1d11c78977046e93f2152ad984f0286ba22af7d07f3a3f9bbf",
+    "docs/incremental-taskplan-construction.md": "3774e9ed42a3a93486ed59b29e3b53f56efbd71e9d0d4ba581974147797ce72b"
+  },
+  "limit": "The owning suite ran before commit creation. Documentation and code comments were finalized during that validation; the implementation and regressions passed. Committed postimages are recorded; exact-commit solution/publication validation runs separately."
+}

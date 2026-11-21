@@ -1,0 +1,52 @@
+{
+  "source": "3e47029da0b0f44d54dda5bfae076d476311d522",
+  "configuration": "Debug",
+  "warnaserror": true,
+  "full_run_success": false,
+  "full_run_exact_inventory_coverage": true,
+  "full_run_passed": 2399,
+  "existing_skips": 1,
+  "full_run_failed_cases": [
+    [
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")",
+      "Failed"
+    ],
+    [
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13ResourceComparisonPreservesCompleteLocalOutcome(profile: \"compact-bindings-v12\")",
+      "Failed"
+    ],
+    [
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.FactsExtractionAndDeterministicStatusPreserveWorkbookAndRecovery(variant: \"complete\")",
+      "Failed"
+    ],
+    [
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"complete\")",
+      "Failed"
+    ],
+    [
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")",
+      "Failed"
+    ]
+  ],
+  "binaries_unchanged": true,
+  "coverage_manifest_sha256": "186d35f03b3e352af6249db75496e85a16728e5bbd5cf6b29513e5a705ee5fc4",
+  "isolation_rerun": {
+    "binary_source": "3e47029da0b0f44d54dda5bfae076d476311d522",
+    "exit_code": 0,
+    "same_frozen_build": true,
+    "isolation": "one process; no concurrent agent-owned build, test or live workload",
+    "result": {
+      "exact_coverage": true,
+      "missing": {},
+      "extra": {},
+      "invalid_outcomes": [],
+      "passed": 5,
+      "skipped": []
+    },
+    "original_full_run_success": false
+  },
+  "full_run_log_sha256": "68cd420e1d026ba25c89478ecbea99316250b29750109e9b8054ce221344a7d4",
+  "isolation_log_sha256": "b1456b5cfb85a492517d8b2dc3a2c0ec5a10bff0b7fd264b75e080ea2429930f",
+  "interpretation": "Five elapsed-limit failures during an overlapping Release build all pass isolated on the same frozen binaries. Load sensitivity is observed; this does not make the original full run green or establish the build as the sole cause. No limit or clock changed for the rerun.",
+  "provider_calls": 0
+}

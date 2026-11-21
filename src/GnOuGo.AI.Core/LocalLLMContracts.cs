@@ -8,6 +8,12 @@ public interface ILocalLLMRuntime
     Task<LLMClientResponse> CallAsync(LLMClientRequest request, CancellationToken ct = default);
 }
 
+/// <summary>Optional declaration by runtimes that consume native incremental generation.</summary>
+public interface ILocalLLMStreamingRuntime
+{
+    bool SupportsNativeStreaming { get; }
+}
+
 /// <summary>Manages host-scoped model assets used by an embedded local runtime.</summary>
 public interface ILocalModelManager
 {
@@ -60,14 +66,18 @@ public sealed class LocalLLMException : Exception
         LocalLLMFailureKind kind,
         string message,
         Exception? innerException = null,
-        IReadOnlyList<string>? validationErrors = null)
+        IReadOnlyList<string>? validationErrors = null,
+        bool generationStarted = false)
         : base(message, innerException)
     {
         Kind = kind;
+        GenerationStarted = generationStarted;
         ValidationErrors = validationErrors ?? [];
     }
 
     public LocalLLMFailureKind Kind { get; }
+
+    public bool GenerationStarted { get; }
 
     public IReadOnlyList<string> ValidationErrors { get; }
 }
@@ -92,6 +102,14 @@ public sealed class LocalLLMProvider : ILLMProvider
         ArgumentNullException.ThrowIfNull(provider);
         ArgumentNullException.ThrowIfNull(request);
 
+        request = CloneRequest(request);
+        request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
+        if (request.ResolvedTransport.IsStreaming && _runtime is not ILocalLLMStreamingRuntime { SupportsNativeStreaming: true })
+        {
+            if (request.ResolvedTransport.RequestedMode == LLMStreamingMode.Streaming)
+                throw new InvalidOperationException("The configured local runtime does not declare native streaming support.");
+            request.ResolvedTransport = request.ResolvedTransport with { EffectiveMode = LLMStreamingMode.NonStreaming, CapabilitySource = "local runtime has no native streaming declaration" };
+        }
         var localRequest = CloneRequest(request);
         localRequest.Provider = Type;
         localRequest.Model = model;
@@ -120,6 +138,10 @@ public sealed class LocalLLMProvider : ILLMProvider
     internal static LLMClientRequest CloneRequest(LLMClientRequest request)
         => new()
         {
+            ResolvedTransport = request.ResolvedTransport,
+            DeclaredTransportCapabilities = request.DeclaredTransportCapabilities,
+            RequireOutputTokenLimit = request.RequireOutputTokenLimit,
+            DisableTransportRetries = request.DisableTransportRetries,
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,

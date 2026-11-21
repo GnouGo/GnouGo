@@ -249,7 +249,8 @@ public static class ChatRequestBuilder
         double? temperature = null,
         IReadOnlyList<LLMToolDef>? tools = null,
         bool jsonMode = false,
-        string? reasoning = null)
+        string? reasoning = null,
+        int? maxOutputTokens = null)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -257,6 +258,13 @@ public static class ChatRequestBuilder
             w.WriteStartObject();
             w.WriteString("model", model);
             w.WriteBoolean("stream", false);
+
+            if (maxOutputTokens is > 0)
+            {
+                w.WriteStartObject("options");
+                w.WriteNumber("num_predict", maxOutputTokens.Value);
+                w.WriteEndObject();
+            }
 
             if (temperature.HasValue)
                 w.WriteNumber("temperature", temperature.Value);
@@ -307,7 +315,7 @@ public static class ChatRequestBuilder
 
     /// <summary>
     /// Normalizes a generic reasoning level to the OpenAI <c>reasoning_effort</c> enum
-    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh"). Returns <c>null</c> when the field
+    /// ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max"). Returns <c>null</c> when the field
     /// must be omitted (auto / unknown / null).
     /// </summary>
     internal static string? NormalizeOpenAiReasoning(string? value)
@@ -320,7 +328,8 @@ public static class ChatRequestBuilder
             "minimal" or "min" => "minimal",
             "low" => "low",
             "medium" or "med" => "medium",
-            "high" or "max" or "maximum" => "high",
+            "high" => "high",
+            "max" or "maximum" => "max",
             "xhigh" => "xhigh",
             _ => null
         };

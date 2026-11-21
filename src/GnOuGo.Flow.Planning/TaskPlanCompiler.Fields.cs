@@ -5,12 +5,42 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TaskPlanCompiler
 {
+    private static bool DeclaresObject(JsonObject contract)
+    {
+        var type = contract["type"];
+        return !PlanningContractShapes.IsOpaque(contract) && (type?.ToString() == "object" || type is JsonArray types &&
+            types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null"));
+    }
+
+    internal static bool HasFieldInterface(JsonObject contract)
+    {
+        if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
+            return alternatives.Count > 0 && alternatives.All(a => a is JsonObject branch && HasFieldInterface(branch));
+        return DeclaresObject(contract) && contract["properties"] is JsonObject { Count: > 0 };
+    }
+
     private Bound SelectField(TaskValue value, Scope scope, bool consume)
     {
         if (value.Items.Count != 1 || string.IsNullOrWhiteSpace(value.Port) || value.Source is not null ||
             value.Text is not null || value.Number is not null || value.Boolean is not null || value.Predicate is not null || value.Members.Count != 0)
             Fail("TASK_FIELD_INVALID", "Field selection requires one business object and a nonblank literal field name.");
-        var source = Value(value.Items[0], scope, consume: false);
+        var source = Value(value.Items[0], scope, consume: false, requireNonNull: true);
+        if (source.WholeMcpResult && (source.Schema["oneOf"] ?? source.Schema["anyOf"]) is JsonArray variants &&
+            variants.All(variant => variant is JsonObject branch && DeclaresOrExcludes(branch, value.Port!)))
+        {
+            var matching = variants.OfType<JsonObject>().Where(branch => DeclaresObject(branch) && branch["properties"]?[value.Port!] is JsonObject).ToArray();
+            if (matching.Length > 0 && matching.Length < variants.Count)
+            {
+                // Validate the actual union value before looking up a property. An array
+                // can have a numeric index with the same name as a declared object property.
+                var contract = source.Schema.DeepClone().AsObject();
+                contract[source.Schema.ContainsKey("oneOf") ? "oneOf" : "anyOf"] =
+                    new JsonArray(matching.Select(branch => branch.DeepClone()).ToArray());
+                // A reused field may itself be a projection within a larger record.
+                if (source.SelectionSource is not null) source = Value(value.Items[0], scope);
+                source = Consume(source with { Schema = contract, SelectionSource = source, SelectionPath = [] }, scope);
+            }
+        }
         var schema = FieldContract(source.Schema, 0);
         // Only an unambiguous semantic location can grant producer-type repairs.
         var location = source.TypeLocation is { } declared && !value.Port!.Contains('/')
@@ -18,7 +48,8 @@ public sealed partial class TaskPlanCompiler
         // Compose explicit nested selections against the authoritative container.
         // Emit one check at consumption, including inside branches and finalizers.
         var selected = new Bound(new() { Kind = "output" }, schema,
-            SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location);
+            SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location)
+            .Retaining(source.RetainedMembers?.GetValueOrDefault(value.Port!));
         return consume ? Consume(selected, scope) : selected;
 
         JsonObject FieldContract(JsonObject contract, int depth)
@@ -27,17 +58,16 @@ public sealed partial class TaskPlanCompiler
             if ((contract["anyOf"] ?? contract["oneOf"]) is JsonArray alternatives)
             {
                 if (alternatives.Count == 0 || alternatives.Any(a => a is not JsonObject)) Fail("TASK_FIELD_TYPE", "Field selection requires declared object alternatives.");
+                if (alternatives.Count == 1) return FieldContract(alternatives[0]!.AsObject(), depth + 1);
                 return new() { ["anyOf"] = new JsonArray(alternatives.Select(a => (JsonNode)FieldContract(a!.AsObject(), depth + 1).DeepClone()).ToArray()) };
             }
             // A nullable object still declares its fields. The checked projection fails
             // on a null container; it never supplies a default or establishes success.
             var type = contract["type"];
-            var isObject = type?.ToString() == "object" || type is JsonArray types &&
-                types.Any(t => t?.ToString() == "object") && types.All(t => t?.ToString() is "object" or "null");
-            if (!isObject || PlanningContractShapes.IsOpaque(contract))
+            if (!DeclaresObject(contract))
                 Fail("TASK_FIELD_TYPE", "Field '" + value.Port + "' requires a declared object; received " +
                     (type?.ToJsonString() ?? "opaque") + " from " + Origin() +
-                    ". Arrays have no field/index/length ports; use typed iteration, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");
+                    ". Arrays have no field/index/length ports; use array_length for a count, typed iteration, at_index, flatten or lookup, or declare a scalar result. Opaque values cannot supply fields.");
             if (contract["properties"] is not JsonObject fields || fields[value.Port!] is not JsonObject)
                 Fail("TASK_FIELD_UNKNOWN", Origin() + " does not declare field '" + value.Port + "'. Available fields: " +
                     string.Join(", ", (contract["properties"] as JsonObject ?? []).Select(p => p.Key)) + ". Field names are literal, not paths.");
@@ -47,4 +77,12 @@ public sealed partial class TaskPlanCompiler
         string Origin() => string.Join(", ", Values(value.Items[0]).Where(v => v.Kind is "output" or "input" or "item")
             .Select(v => v.Kind + ":" + v.Source + (v.Port is null ? "" : "." + v.Port)).DefaultIfEmpty("the explicit binding"));
     }
+
+    private static bool DeclaresOrExcludes(JsonObject schema, string field) => schema["type"]?.ToString() switch
+    {
+        "object" => schema["properties"]?[field] is JsonObject || schema["additionalProperties"] is JsonValue additional &&
+            additional.TryGetValue<bool>(out var open) && !open && !schema.ContainsKey("patternProperties"),
+        "array" or "string" or "integer" or "number" or "boolean" or "null" => true,
+        _ => false
+    };
 }

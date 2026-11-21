@@ -1,5 +1,5 @@
 using System.Net;
-using System.Net.Sockets;
+using Microsoft.AspNetCore.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -16,32 +16,21 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
     public async Task PageInitiatedNavigationInvalidatesUnconsumedSnapshot(string format)
     {
         var ct = TestContext.Current.CancellationToken;
-        var portProbe = new TcpListener(IPAddress.Loopback, 0); portProbe.Start();
-        var port = ((IPEndPoint)portProbe.LocalEndpoint).Port; portProbe.Stop();
-        using var site = new HttpListener(); site.Prefixes.Add($"http://127.0.0.1:{port}/"); site.Start();
-        var origin = $"http://127.0.0.1:{port}";
         var navigate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var arrived = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var serve = Task.Run(async () =>
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
         {
-            try
-            {
-                while (site.IsListening)
-                {
-                    var context = await site.GetContextAsync();
-                    var path = context.Request.Url!.AbsolutePath;
+                    var path = context.Request.Path.Value;
                     if (path == "/advance") await navigate.Task.WaitAsync(ct);
                     var html = path == "/settled" ? "<html><body><main id='settled'>Fresh observation</main></body></html>"
                         : path == "/advance" ? ""
                         : "<html><body><main><p>First observation</p><p>Second observation</p></main><script>fetch('/advance').then(() => location.replace('/settled'));</script></body></html>";
                     context.Response.ContentType = "text/html; charset=utf-8";
-                    await context.Response.OutputStream.WriteAsync(Encoding.UTF8.GetBytes(html), ct);
-                    context.Response.Close();
+                    await context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(html), ct);
+
                     if (path == "/settled") arrived.TrySetResult();
-                }
-            }
-            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or OperationCanceledException) { }
         }, ct);
+        var origin = site.Origin;
         try
         {
             await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"] }), NullLogger<PlaywrightBrowserHost>.Instance);
@@ -61,34 +50,23 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.Equal("Fresh observation", Assert.Single(fresh.Observation!.Records).Text);
             await host.CloseAsync(ct);
         }
-        finally { navigate.TrySetResult(); site.Close(); await serve; }
+        finally { navigate.TrySetResult(); }
     }
 
     [Fact]
     public async Task CompactSnapshotPreservesObservedGroupsAndLinksWithBoundedContinuation()
     {
         var ct = TestContext.Current.CancellationToken;
-        var portProbe = new TcpListener(IPAddress.Loopback, 0); portProbe.Start();
-        var port = ((IPEndPoint)portProbe.LocalEndpoint).Port; portProbe.Stop();
-        using var site = new HttpListener(); site.Prefixes.Add($"http://127.0.0.1:{port}/"); site.Start();
-        var origin = $"http://127.0.0.1:{port}";
         var html = "<html><head><title>Observed catalogue</title><style>p { color: black }</style></head><body><main>" +
             string.Concat(Enumerable.Range(0, 24).Select(i => $"<article id='entry-{i}' data-noise='{new string('x', 4000)}'><h2>Observed {i}</h2><a href='/item/{i}'>Visit {i}</a><p>Description {i}</p></article>")) +
             "<p hidden>HIDDEN</p><script>const secret='SCRIPT';</script><input type='password' value='PASSWORD'><button id='change'>Continue</button><dialog open id='dialog'><section><span role='button' id='allow'>Accept cookies</span></section></dialog></main></body></html>";
-        var serve = Task.Run(async () =>
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
         {
-            try
-            {
-                while (site.IsListening)
-                {
-                    var context = await site.GetContextAsync();
-                    var served = context.Request.Url!.AbsolutePath == "/capture" ? "<html><body><p>" + new string('x', 2_000_100) + "</p><main id='complete'><a href='/item'>Observed item</a></main><section id='empty'></section></body></html>" : html;
+                    var served = context.Request.Path.Value == "/capture" ? "<html><body><p>" + new string('x', 2_000_100) + "</p><main id='complete'><a href='/item'>Observed item</a></main><section id='empty'></section></body></html>" : html;
                     var bytes = Encoding.UTF8.GetBytes(served);
-                    context.Response.ContentType = "text/html; charset=utf-8"; await context.Response.OutputStream.WriteAsync(bytes, ct); context.Response.Close();
-                }
-            }
-            catch (Exception ex) when (ex is HttpListenerException or ObjectDisposedException or OperationCanceledException) { }
+                    context.Response.ContentType = "text/html; charset=utf-8"; await context.Response.Body.WriteAsync(bytes, ct);
         }, ct);
+        var origin = site.Origin;
         try
         {
             await using var host = new PlaywrightBrowserHost(Options.Create(new BrowserServerSettings { AllowedHosts = ["127.0.0.1"], MaxObservationRecords = 12 }), NullLogger<PlaywrightBrowserHost>.Instance);
@@ -208,6 +186,6 @@ public sealed class BrowserObservationTests(ITestOutputHelper output)
             Assert.True(last.Truncated); Assert.Null(last.Observation!.NextCursor);
             await host.CloseAsync(ct);
         }
-        finally { site.Close(); await serve; }
+        finally { await site.DisposeAsync(); }
     }
 }

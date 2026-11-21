@@ -1,0 +1,42 @@
+{
+  "configuration-current.json": {
+    "original_log_sha256": "beef84d4fb3e5995c028bb204b1ab760d12ef7a4dae985d1d5e1838f4df03415",
+    "public_sha256": "0251b5e699c6f70fa5c420f594562b53efced327f465a69daf2542cf96ee5690"
+  },
+  "configuration-old-current-comparison.json": {
+    "original_log_sha256": "96e77aa7f1692c9530fd7a326addf9495c89c7d31a23cdf7eb9029dc5f451aaa",
+    "public_sha256": "4720dca1bdf7a7ddd304aedd659b2258c463a3d5de70587b89130b7c08faadaf"
+  },
+  "probe-initial.json": {
+    "original_log_sha256": "4d02aebc54bd01213d67be63fa0e4b6e8978f76722753f98121376b124aa91d3",
+    "public_sha256": "427ee2d57a589a3247e215185f15251891dae9485f685f52f3d3c47a06bd679e"
+  },
+  "probe-replay-barrier.json": {
+    "original_log_sha256": "24ed71f22ed490a44a1fc2611ae5f149bbafbbc0cc43249034efee7bf3ca94f4",
+    "public_sha256": "a07a51b5fbd12e31a38fbeb4def9f2fd1d19d6f7b7e44837623b7f547cbc0d48"
+  },
+  "probe-funding-refusal.json": {
+    "original_log_sha256": "e3204f666fb7779926ef0c5d1226fc40c032b8e5c50ff91492993d8b3104ee20",
+    "public_sha256": "63a841192b8b5c82c9328944239875679b2e00b7b4d555d227f9a123ce4c4b53"
+  },
+  "zero-attempt-audit.json": {
+    "original_log_sha256": "7b3bf187c6645f30d6b439670cbae5ef94be29bb9b45b219d9a47a80792b879a",
+    "public_sha256": "efea2a1cfd7947311a251d60835f26eee963aa4aee282e6bbd5b625fc293a128"
+  },
+  "retention-preview.json": {
+    "original_log_sha256": "04794a1db7318295e71666dbb185b75c4587d5b4f3eca4c6e658889d568e31c1",
+    "public_sha256": "d6ed37f614b4b78ded6eaafed6a6a47bb57d3072c5d171fe74d03d714d939fee"
+  },
+  "retention-applied.json": {
+    "original_log_sha256": "1076c7fc99ca54263870b5c1a1855ed082b995b970d95e89ee47840516506c49",
+    "public_sha256": "69610c068e45febf5c5b572cd53b26b60d94b76e147da8c1f9486a49d02f138d"
+  },
+  "external-session-9fce.json": {
+    "original_log_sha256": "814a9ed46bae3ac2a6c66e69b1dc97fad8061db173c4816695dde0fa457aea57",
+    "public_sha256": "026d2f8f31dd89de439df1045382d44be42645dc60d910d7714620e48254e556"
+  },
+  "external-session-1a54.json": {
+    "original_log_sha256": "eec236741b738fb57b7c302bf6826cfc1422da2a37748a26dddc0cacc61ab31e",
+    "public_sha256": "138dded9deb83f65631495ce5f4db06b307c629ca0a7fb4046c3037249225c93"
+  }
+}

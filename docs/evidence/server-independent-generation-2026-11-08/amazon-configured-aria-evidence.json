@@ -1,0 +1,61 @@
+{
+  "html_is_bounded_and_may_be_truncated": true,
+  "complete_snapshot": {
+    "id": "5f31e0cb4fd44d2192e245edab3889dd",
+    "recordCount": 1585,
+    "captureTruncated": false,
+    "manifestTruncated": false
+  },
+  "llm_calls": 0,
+  "business_qualification": false,
+  "observed_aria_listitem_count_in_bounded_html": 236,
+  "first_observed_items": [
+    {
+      "tag": "div",
+      "id": "ff82b1e3-3537-4ead-90d0-a0175a844649",
+      "role": "listitem",
+      "list_parent_tag": null,
+      "list_parent_role": null,
+      "list_parent_id": null
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "role": "listitem",
+      "list_parent_tag": "div",
+      "list_parent_role": "list",
+      "list_parent_id": null
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "role": "listitem",
+      "list_parent_tag": "div",
+      "list_parent_role": "list",
+      "list_parent_id": null
+    },
+    {
+      "tag": "div",
+      "id": "15a918e2-63c4-4d2c-9b74-646fe075a2aa",
+      "role": "listitem",
+      "list_parent_tag": null,
+      "list_parent_role": null,
+      "list_parent_id": null
+    },
+    {
+      "tag": "div",
+      "id": null,
+      "role": "listitem",
+      "list_parent_tag": "div",
+      "list_parent_role": "list",
+      "list_parent_id": null
+    }
+  ],
+  "source": "95aca2349c3de1a7b6f6102ccff9b5e869a7eebf",
+  "configuration": "Public KeyVault effective MCP options; same Release Browser transport composition and explicit close; no model inference.",
+  "raw_sha256": {
+    "amazon-configured-source.html": "83598e48c1f013a64ce861714b82b94cbe866252479a34e18601a4f0053125a3",
+    "amazon-configured-source.observation.json": "610f53b63473ba83a5eb6dc442d6ca6ae83f320a01e88aabc3cfa32ff224afbe"
+  },
+  "interpretation": "Configured MCP returned a complete snapshot. Current generic record grouping omits ARIA item ancestors and falls back to body for main product links. HTML is bounded and may be truncated; no complete occurrence set, redirect identity or business qualification is inferred. Guard and oracle unchanged."
+}

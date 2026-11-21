@@ -1,0 +1,384 @@
+{
+  "record_version": 1,
+  "captured_utc": "2026-10-27T12:50:32.641889+00:00",
+  "status": "scripted_mechanisms_verified_live_convergence_unverified",
+  "source": {
+    "base_commit": "2753b7e3e6738f73d52669a617eeda1b4d753992",
+    "execution": "Isolated working-tree snapshot over this base; the hashes identify the executed implementation, not a later commit.",
+    "owned_files_sha256": {
+      "src/GnOuGo.Flow.Planning/PlanningConstructionDependencies.cs": "0c5bd71583ac854f95bfbf31556ba0f728ad7466e22ecaf448f080551b022cbf",
+      "src/GnOuGo.Flow.Planning/PlanningConstructionReviewCoverage.Incremental.cs": "a2ff91d454da8ef1959d7161e038490a494019922cf2379d570499d5c63d97de",
+      "tests/GnOuGo.Flow.Planning.Tests/IncrementalReviewTests.cs": "62c5473fca0af65dea22b5fbd00ddc980d03a25d64ecdaba6b65e43a41e2d655",
+      "tests/GnOuGo.Flow.Planning.Tests/PlanningConstructionDependenciesTests.cs": "10ad0aa4cd20acb552e726a83fc7895e5f885dfcd5daf52dab72795924904cfc"
+    },
+    "complete_snapshot_manifest_sha256": "06d48b459d0aa2ab619c73b38402e6239c19aeee666cfd986d7d25f522521b93",
+    "complete_snapshot_file_count": 4693,
+    "owned_files_match_current_at_capture": true
+  },
+  "settings": {
+    "control_presentation": 9,
+    "candidate_presentation": 10,
+    "fresh_candidate_created_normally": true,
+    "same_originals_and_limits_per_pair": true,
+    "max_model_calls": 64,
+    "phase_input_token_ceilings": {
+      "navigation": 12000,
+      "draft": 18000,
+      "review": 10000
+    },
+    "automatic_correction": true,
+    "model": "deterministic scripted planning responses; no provider invocation",
+    "all_initial_proof_and_retrieval_calls_included": true,
+    "no_mid_session_limit_change": true
+  },
+  "comparisons": [
+    {
+      "class": "unique_new_task_contribution",
+      "clauses_per_local_behavior": 3,
+      "consumers": 2,
+      "arms": {
+        "v9": {
+          "total_calls": 55,
+          "phase_counts": {
+            "construction_judges": 29,
+            "other_planning_phases_combined": 26
+          }
+        },
+        "v10": {
+          "total_calls": 51,
+          "phase_counts": {
+            "construction_judges": 25,
+            "other_planning_phases_combined": 26
+          }
+        }
+      },
+      "total_calls_saved": 4,
+      "judge_calls_saved": 4,
+      "control_windows_per_checkpoint": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3,
+        3,
+        3,
+        3,
+        3
+      ],
+      "candidate_windows_per_checkpoint": [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3
+      ],
+      "candidate_reused_propositions_per_checkpoint": [
+        0,
+        3,
+        4,
+        7,
+        7,
+        7,
+        7,
+        7,
+        8,
+        7,
+        7,
+        0
+      ],
+      "equal_complete_plan_sha256": "9528b9304878fcdb2dd2032cdd71f9da73a351230c1bc071c5cb3d2c3dcd3e91",
+      "artifact_verification_passed_both": true,
+      "runtime_outputs_equal_both": true,
+      "runtime_inference_stub_calls_per_execution": 0
+    },
+    {
+      "class": "exact_sequential_opaque_prefix_and_parameterized_group",
+      "clauses_per_local_behavior": 3,
+      "consumers": 2,
+      "arms": {
+        "v9": {
+          "total_calls": 42,
+          "phase_counts": {
+            "construction_judges": 18,
+            "other_planning_phases_combined": 24
+          }
+        },
+        "v10": {
+          "total_calls": 37,
+          "phase_counts": {
+            "construction_judges": 13,
+            "other_planning_phases_combined": 24
+          }
+        }
+      },
+      "total_calls_saved": 5,
+      "judge_calls_saved": 5,
+      "control_windows_per_checkpoint": [
+        1,
+        1,
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "candidate_windows_per_checkpoint": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        2
+      ],
+      "candidate_reused_propositions_per_checkpoint": [
+        0,
+        0,
+        0,
+        6,
+        6,
+        7,
+        7,
+        7,
+        6,
+        6,
+        0
+      ],
+      "equal_complete_plan_sha256": "5e0488063f47c08c626628b1b9776d6a39f4bd9ed21f6101b2edd5cdff36842a",
+      "artifact_verification_passed_both": true,
+      "runtime_outputs_equal_both": true,
+      "runtime_inference_stub_calls_per_execution": 1
+    },
+    {
+      "class": "exact_sequential_opaque_prefix_and_parameterized_group",
+      "clauses_per_local_behavior": 3,
+      "consumers": 3,
+      "arms": {
+        "v9": {
+          "total_calls": 54,
+          "phase_counts": {
+            "construction_judges": 25,
+            "other_planning_phases_combined": 29
+          }
+        },
+        "v10": {
+          "total_calls": 45,
+          "phase_counts": {
+            "construction_judges": 16,
+            "other_planning_phases_combined": 29
+          }
+        }
+      },
+      "total_calls_saved": 9,
+      "judge_calls_saved": 9,
+      "control_windows_per_checkpoint": [
+        1,
+        1,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+        3
+      ],
+      "candidate_windows_per_checkpoint": [
+        1,
+        1,
+        2,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        1,
+        3
+      ],
+      "candidate_reused_propositions_per_checkpoint": [
+        0,
+        0,
+        0,
+        6,
+        6,
+        7,
+        7,
+        8,
+        8,
+        8,
+        7,
+        7,
+        0
+      ],
+      "equal_complete_plan_sha256": "ea5cc101d2ebb5af975a89249783cccdd5e3787bdc334bbe4fe4cdfcb1448f2c",
+      "artifact_verification_passed_both": true,
+      "runtime_outputs_equal_both": true,
+      "runtime_inference_stub_calls_per_execution": 1
+    }
+  ],
+  "phase_count_scope": "The retained test output records total and combined local/intermediate Judge calls. Other planning phases are reconciled as total minus Judge; a finer phase split was not retained and is not inferred.",
+  "runtime": {
+    "implementation": "Existing WorkflowParser, WorkflowCompiler and WorkflowEngine execute both approved synthetic artifacts.",
+    "input_variants": [
+      {
+        "primary": 3,
+        "other": 7,
+        "third_when_present": 11
+      },
+      {
+        "primary": -2,
+        "other": 7,
+        "third_when_present": 11
+      }
+    ],
+    "expected_numeric_outputs": [
+      {
+        "left": 7,
+        "right": 15,
+        "third_when_present": 23
+      },
+      {
+        "left": -3,
+        "right": 15,
+        "third_when_present": 23
+      }
+    ],
+    "task_contribution_inference": "Forbidden; zero calls.",
+    "mixed_prefix_inference": "Exactly one local deterministic client call returning numeric seven per execution; model fixture and max_calls=1. Later computations do not consume this opaque result.",
+    "external_provider_calls": 0,
+    "external_effects": 0
+  },
+  "cap_boundary": {
+    "test": "LargerTaskLocalControlRetainsTheCapturedCallCapWithoutAnEfficiencyClaim",
+    "control_presentation": 9,
+    "class": "unique_new_task_contribution",
+    "clauses_per_local_behavior": 2,
+    "consumers": 3,
+    "total_calls": 64,
+    "diagnostic": "CONSTRUCTION_REVIEW_ALLOWANCE",
+    "status": "stopped",
+    "construction_complete": false,
+    "final_artifact": false,
+    "approval_rejected": true,
+    "completed_comparison": false,
+    "comparable_savings": null,
+    "interpretation": "Unchanged inputs and captured limits; the incomplete control is not an efficiency result. Original failed comparison remains retained."
+  },
+  "validation": {
+    "passed": 96,
+    "failed": 0,
+    "exit_code": 0,
+    "warnings_as_errors": true,
+    "compiler_diagnostics": 0,
+    "source_unchanged": true,
+    "elapsed_seconds": 104.64617525000358,
+    "qualification_sha256": "c6e19dea59600813298aab3e17dc71b4d3433342bca4341ade5d6719982b5605",
+    "command_sha256": "ae20a25d27ccd3dfd7dd2ee7de41bd001661f599091366c6bd331779ff8810ed",
+    "confinement_profile_sha256": "1e08225407f8b331294598052846da51f9b92b155db8b52ec35f65776f5c1c35",
+    "result_sha256": "02cee1e99661d252ee407fffd54b1763ccd6f07d0768aa3ff7c80aa2d3f0e0ac",
+    "trx_sha256": "ff883f45b72bb01005b69ea5937c76b3654b951732fb21c9c1e9858f80c396e0",
+    "log_sha256": "eb8f3c89ce4e6163361f8f7f294525b8c6924e02d78c412e09e87d4cb39f5c6b",
+    "owned_patch_sha256": "b8a0b418a7293a855ac2c360b8b2ee8af1a705c0edd635b4babc76083cb0f2f6",
+    "full_suite_publication_live": "Reported separately; not established by this focused result."
+  },
+  "safety_coverage": [
+    "Historical2\u20139 paths and exact pending receipt recovery",
+    "Current prefix operation/transform preservation and invalidation counterexamples",
+    "Whole-original subject acknowledgment and fresh global/interaction/completion coverage",
+    "Prior same-plan checkpoint valid after later reviewed root closure",
+    "Changed opaque objective, dependency invalidation and missing closure receipt block approval",
+    "Per-source eligibility/disposition metadata separate from proposition identity and reuse authority"
+  ],
+  "prior_executions_nonadditive": [
+    {
+      "classification": "Initial mixed approval failure; pre-peer source and initial task wording.",
+      "exit_code": 1,
+      "test_counts": {
+        "Passed": 88,
+        "Failed": 1
+      },
+      "result_sha256": "bf2d5fa871f37d9e209781dadafc03f43eb9ae7cc2e49ff4d569a49edd9e4755",
+      "trx_sha256": "c86061c2abb2e0316d3a348c99e6349c3b9b971e9b5e7a9e05b04cf1c623f7ca",
+      "log_sha256": "eb1940c9f00254cec196a3261dc09c5812bcead82f02d4282d684c3a50d28925",
+      "source_manifest_sha256": "e8ee4cc5c3cea7a520d092e39743ea9a2a0426922b6cd206165ddd48a0f2a811"
+    },
+    {
+      "classification": "Peer-corrected production, same mixed historical-scope approval failure.",
+      "exit_code": 1,
+      "test_counts": {
+        "Passed": 66,
+        "Failed": 1
+      },
+      "result_sha256": "69047708e69e154bf4f4f476b8a498f8afd11ba788c30a432ecc3b090d8ebf06",
+      "trx_sha256": "fcbe5a467fa92a5239db5b8d6acfc087cb380ec17e7ecb4e71b5c2038d812b44",
+      "log_sha256": "9ba8b8162991099a409fd77c3e5147d60741f493e95390a95c9bcbfb0065b9fc",
+      "source_manifest_sha256": "0443a5d8a289d1649e710f59cd9b4afec77000193683a442bc240204afc4df53"
+    },
+    {
+      "classification": "Historical-scope repair passed approval; runtime fixture lacked model configuration; separate in-progress C nullable compiler error.",
+      "exit_code": 1,
+      "test_counts": {
+        "Passed": 89,
+        "Failed": 1
+      },
+      "result_sha256": "e7f350e16d744ce8eec45d61000cd7b84f2bb792ca2efa5453938c89ac525ee5",
+      "trx_sha256": "bf5708ee42336f324fb90b125ce2cd7d7c704bf872914ecb2a8f1c6c1c835873",
+      "log_sha256": "0e0f5a24f031f7cbcbb7be7539ae796ec18dba4142d49c0b02b06181c435b271",
+      "source_manifest_sha256": "059099e2880ac8a7bc14dc1144c147ab9c32f5a2248034e42ac944283f215d63"
+    },
+    {
+      "classification": "94 passed WAE; two completed comparisons before final disposition metadata and parameterization.",
+      "exit_code": 0,
+      "test_counts": {
+        "Passed": 94
+      },
+      "result_sha256": "0b4b42c538e2c0aac31bfae113d992b0a8b5edbe24360b61df0b1887d0322926",
+      "trx_sha256": "43cf45430555247e052b6c2f811fdc261fc6adda38f479cf7d8531b915f383f7",
+      "log_sha256": "656dc57c8a616e69e9bc00a45e72b97075c0d2fbf87eb2ead9f268ef72013e62",
+      "source_manifest_sha256": "fffddb56d4bef53b1758aa4142418f9b473827989c931a368de0a285e0f969f3"
+    },
+    {
+      "classification": "95 passed, one newly parameterized v9 control exhausted its fixed64 allowance; no comparable final artifact.",
+      "exit_code": 1,
+      "test_counts": {
+        "Passed": 95,
+        "Failed": 1
+      },
+      "result_sha256": "fe486b9135bda6679605500151c051f9f2a833d41afac247a73c89b43c106a96",
+      "trx_sha256": "a33daf6b652012dd41dbfbb477df1d45dfb4977be5ba4e3f77986c4106197b92",
+      "log_sha256": "cc602b0382fefe0ea540bfd8d367ac63014cca17a0d690f74bd2b5da94ed1c0e",
+      "source_manifest_sha256": "b97770ee19adb1edcec94705eb49f4e9d3c2e8df14caa5462ed052c8669b0abb"
+    }
+  ],
+  "limitations": [
+    "Scripted normal-session responses establish mechanisms, not live-model locality acquisition, convergence, provider cost or universal savings.",
+    "The exact opaque-prefix class rejects conditional, nested or concurrent opaque execution, opaque output/presence/guard dependencies and unknown interactions; it does not establish effect independence or external success.",
+    "New interactions, global constraints and completion claims remain reviewed; a conserved deterministic value does not prove whole-workflow success.",
+    "Prior executions overlap and are not added to the 96 distinct focused cases; the 64-call boundary has no comparable final result.",
+    "The paired artifacts and runtime are synthetic. Live business-success and later baseline-comparison gates remain separate."
+  ]
+}

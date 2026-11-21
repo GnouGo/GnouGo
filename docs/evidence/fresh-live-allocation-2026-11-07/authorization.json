@@ -1,0 +1,12 @@
+{
+  "kind": "independent_new_spend",
+  "campaign": "pr120-live-20261107-400",
+  "allowance_eur": 400,
+  "authorization_reference": "gnougo-pr120-user-20261107-fresh-400-v1",
+  "configuration_id": "9ac37743a2b60c1b666d140cc45e95cfdbfb7a0f72c897a668ed5e9a2f01d34b",
+  "previous_campaign": "schema-portability-20261019-incremental",
+  "previous_ceiling_eur": "740.0301038327063045424449473",
+  "historical_liabilities_unreconciled": true,
+  "initial_new_consumption_eur": 0,
+  "globally_available_funding": null
+}

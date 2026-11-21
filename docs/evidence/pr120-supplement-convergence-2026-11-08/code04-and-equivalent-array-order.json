@@ -1,0 +1,83 @@
+{
+  "failed_workflow": {
+    "source_revision": "57d00c1519d6a2b78e17b35ac6ffe175c138df16",
+    "run": "code-qualification-20261108-04",
+    "session_id": "2b4c8017014041419290a8968f59f297",
+    "logical_calls": 10,
+    "physical_attempts": 10,
+    "accepted_checkpoints": 0,
+    "diagnostic": "MODEL_OUTPUT_LIMIT",
+    "last_response": {
+      "complete_transport_and_usage_receipt": true,
+      "provider_termination": "length",
+      "output_allocation": 4096,
+      "reported_output_tokens": 4096,
+      "reasoning_tokens": 64,
+      "actual_content_characters": 59886,
+      "non_whitespace_characters": 59,
+      "complete_json": false
+    },
+    "new_uncertain_reservations": 0,
+    "known_usage_tariff_estimate_eur": "2.8962024182713837886251679355",
+    "qualification_passed": false,
+    "request_replayed": false
+  },
+  "equivalent_order_probes": {
+    "source_revision": "6b7c3c6a2f94cf071d2a4e0171842e8896754a47",
+    "changed_wire_paths": [
+      "response_format.json_schema.schema.properties.evidenceRequests.anyOf (permutation only)"
+    ],
+    "prompt_context_reasoning_output_allocation_and_other_wire_fields_identical": true,
+    "original_order": [
+      "unbounded array of ordinary evidence choices",
+      "one-element array of whole-view evidence choices",
+      "null"
+    ],
+    "probe_order": [
+      "one-element array of whole-view evidence choices",
+      "unbounded array of ordinary evidence choices",
+      "null"
+    ],
+    "constraints_removed_or_changed": false,
+    "probe_results": [
+      {
+        "probe_run": "code-array-order-20261108-01",
+        "schema_valid": true,
+        "physical_attempts": 1,
+        "input_tokens": 9079,
+        "output_tokens": 94,
+        "captured_usage_tariff_estimate_eur": "0.2591043439319301388266905508",
+        "candidate_applied": false,
+        "business_effects": false
+      },
+      {
+        "probe_run": "code-array-order-20261108-02",
+        "schema_valid": true,
+        "physical_attempts": 1,
+        "input_tokens": 9079,
+        "output_tokens": 86,
+        "captured_usage_tariff_estimate_eur": "0.2578145991939095387371249440",
+        "candidate_applied": false,
+        "business_effects": false
+      }
+    ],
+    "limitation": "Two independent exact-request samples support another workflow trial; they do not establish a provider root cause, causality or full convergence."
+  },
+  "production_change": {
+    "fresh_discovery_only": true,
+    "old_issued_bytes_unchanged": true,
+    "alias_assignment_precedes_ordering": true,
+    "final_request_hash_and_measurement_follow_ordering": true,
+    "planning_tests_passed": 2823,
+    "literal_enum_default_examples_and_extension_data_untouched": true
+  },
+  "accounting_before_next_trial": {
+    "physical_attempts": 708,
+    "known_cost_eur": "291.6698880429914912673533388",
+    "reserved_cost_eur": "181.88353784146887595163457237",
+    "unknown_attempts": 27,
+    "separate_external_hold_eur": "2.4215763546798029556650246305",
+    "available_eur": "324.0249977608598298253470641995",
+    "supplement_applied_once": true
+  }
+}

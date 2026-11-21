@@ -1,0 +1,237 @@
+{
+  "kind": "source_bound_nullable_loop_item_guard_correction_stop",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T15:20:53.578092+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "1bb59305de63d69cff1a22b14d37fc0d4dffffc4",
+  "harness_source": "1bb59305de63d69cff1a22b14d37fc0d4dffffc4",
+  "cohort": "biz1bb59305amz32a",
+  "run": "biz1bb59305amz32a-amazon-1",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "status": "stopped",
+  "revision": 10,
+  "planning_ms": 1088220,
+  "logical_calls": 9,
+  "physical_attempts": 10,
+  "verified_provider_completions": 9,
+  "unknown_physical_attempts": 1,
+  "pending_request_id": null,
+  "correction_attempt_counter": 1,
+  "operator_plan_revisions": 0,
+  "accepted_checkpoints": 0,
+  "business_judge_calls": 0,
+  "known_input_tokens": 42064,
+  "known_output_tokens": 28793,
+  "reasoning_tokens_included_in_output": 22528,
+  "known_cost_eur": "0.9608283388496287682261382950",
+  "retained_reservations_eur": "1.1341041238035602468914929779",
+  "phases": {
+    "construction_intent": {
+      "input_tokens": 1216,
+      "output_tokens": 1351,
+      "known_input_tokens": 1216,
+      "known_output_tokens": 1351,
+      "estimated_cost_eur": "0.0416942481438411306914750872",
+      "known_cost_eur": "0.0416942481438411306914750872",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "44699.2677",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 876,
+      "output_tokens": 946,
+      "known_input_tokens": 876,
+      "known_output_tokens": 946,
+      "estimated_cost_eur": "0.0293049467752035065748278021",
+      "known_cost_eur": "0.0293049467752035065748278021",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "44722.5194",
+      "physical_attempts": 1
+    },
+    "construction_implementation": {
+      "input_tokens": 2457,
+      "output_tokens": 4927,
+      "known_input_tokens": 2457,
+      "known_output_tokens": 4927,
+      "estimated_cost_eur": "0.1432104839431076124877001521",
+      "known_cost_eur": "0.1432104839431076124877001521",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "107592.2792",
+      "physical_attempts": 1
+    },
+    "construction_discovery": {
+      "input_tokens": 14643,
+      "output_tokens": 10157,
+      "known_input_tokens": 14643,
+      "known_output_tokens": 10157,
+      "estimated_cost_eur": "0.3380669111727345916450487521",
+      "known_cost_eur": "0.3380669111727345916450487521",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 4,
+      "elapsed_ms": "226113.9948",
+      "physical_attempts": 4
+    },
+    "construction_draft": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 11344,
+      "known_output_tokens": 6012,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "0.2120762143304410054566598086",
+      "usage_complete": false,
+      "usage_bounded": true,
+      "reserved_input_tokens": 56955,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "1.1341041238035602468914929779",
+      "logical_calls": 1,
+      "elapsed_ms": "452341.6822",
+      "physical_attempts": 2
+    },
+    "replan": {
+      "input_tokens": 11528,
+      "output_tokens": 5400,
+      "known_input_tokens": 11528,
+      "known_output_tokens": 5400,
+      "estimated_cost_eur": "0.1964755344843009213704266929",
+      "known_cost_eur": "0.1964755344843009213704266929",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "126080.3962",
+      "physical_attempts": 1
+    }
+  },
+  "threshold_warnings": [
+    {
+      "kind": "recursive_tasks",
+      "current": 10,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "biz1bb59305amz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "biz1bb59305amz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    }
+  ],
+  "terminal_diagnostics": [
+    {
+      "code": "AUTOMATIC_GUARD_CORRECTION_UNSAFE",
+      "location": "/tasks/read_product_page/requires",
+      "message": "The diagnosed assertion cannot be preserved by a known nullable reference != null and declared nonnullable Boolean fields from the same producer. Keep valid operands and their order; review this guard explicitly. No structural regeneration was dispatched for this unsupported change.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "received_trace": {
+    "draft8": "Received coherent reusable-group response claims complete:true but closeScopes:[] leaves root open. Deterministic validation rejects premature finalization before any checkpoint or business review.",
+    "transport8": "Confirmed HTTP 500 ESG120 Routing failed then captured HTTP 200 completion. Unknown-usage reservation is retained; no uncertain logical request remains.",
+    "correction9": "Received replacement closes root but requires the current item.url nullable string directly as a Boolean assertion on the product-read operation. Compiler identifies the condition type error.",
+    "guard_correction": "The existing automatic assertion correction recognizes output/field-of-output origins only. It excludes the compiler-typed loop-item field and stops before dispatching another repair with AUTOMATIC_GUARD_CORRECTION_UNSAFE."
+  },
+  "exact_guard": {
+    "task": "read_product_page",
+    "location": "/tasks/read_product_page/requires",
+    "value": {
+      "kind": "field",
+      "items": [
+        {
+          "kind": "item"
+        }
+      ],
+      "port": "url"
+    },
+    "declared_item_field_type": {
+      "kind": "string",
+      "nullable": true
+    },
+    "literal_assertion_substitution": false,
+    "manual_guard_revision": false
+  },
+  "first_demonstrated_host_cause": "Known nullable loop-item reference is absent from automatic guard-origin recognition, despite the compiler knowing its lexical item type. The prospective correction reuses the existing presence-check preservation rules with a distinct typed item origin; it does not infer conditions for nonnullable/unknown values or permit assertion removal/other producers.",
+  "draft_output_usage": {
+    "issued_output_tokens": 32768,
+    "received_output_tokens": 6012,
+    "received_reasoning_tokens_included": 3586,
+    "allocation_benefit": "Draft completed below the former 16384-token allocation; causal benefit of the larger allocation remains unproven."
+  },
+  "coverage_projection_exercised_in_live_reselection": false,
+  "global_review_repair_correction_exercised": false,
+  "final_artifact": false,
+  "artifact_bound_approval": false,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 6957,
+    "session_calls": 0,
+    "known_input_tokens": 26556422,
+    "known_output_tokens": 10684614,
+    "known_cost_eur": "404.98736055340110370775338655",
+    "reserved_input_tokens": 2911080,
+    "reserved_output_tokens": 4489216,
+    "reserved_cost_eur": "133.32732008490801991875172967",
+    "cost_upper_bound_eur": "538.31468063830912362650511622",
+    "unknown_attempts": 155,
+    "available_eur": "201.71542319439718091593983108",
+    "permanent_closures": 63,
+    "unresolved_requests": [],
+    "evidence_hash": "9197e6c96770773486cb7eb1c83fabd8c4b8b945f7a6f1ee2bbfd6884c762796"
+  },
+  "captures": {
+    "snapshot-20261104T150802313592Z.private.json": "0b59c702609ce9dd4f0d22aabcec0363a8974a8e802871a8f6ab26efc0d933c3",
+    "final-ledger.private.json": "168f885ce569c4d8f582ed915ddda9d37fce50418519d4b6cbb6da10ee5c2e7d",
+    "planning.private.log": "e77f93771961c3a0115479a7a8221825a323fadf8c164335cd21094e5493920c",
+    "request8.private.json": "746d975dcefc023becaa419cb6e62a60583faec965a46d4a57d6c32de20d0942",
+    "receipt8.private.json": "37e024072ae9e58ba87b5921cfab279140402f2ba5d5606278d5ad48435b6228",
+    "journal8.private.json": "ed146c27be8a088481bdad03aaf16d2f061670d85af12a933cb149e01a46aa70",
+    "request9.private.json": "ba37421e27fdf99740382f4fefcc9adbd747e8d7992e9005cbd48202abd2a2d1",
+    "receipt9.private.json": "442e2c50cbe16ed5c8ff07b82b515ac07a6a6532f38da37c51fb1d644d643386"
+  },
+  "limitations": [
+    "No accepted generation, business review, artifact, approval, execution or independent oracle success.",
+    "No unknown logical request closure is required; failed HTTP usage remains reserved.",
+    "All reasoning tokens are already counted in output.",
+    "Stopped run is preserved unchanged; prospective production correction requires a fresh source/harness and identity.",
+    "Runtime guard regressions use simulation; they do not establish live scenario success."
+  ]
+}

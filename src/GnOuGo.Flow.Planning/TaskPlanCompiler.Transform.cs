@@ -5,23 +5,35 @@ namespace GnOuGo.Flow.Planning;
 
 public sealed partial class TaskPlanCompiler
 {
-    private static bool ValidEnum(TaskType type) => type.Enum is null || type.Kind == "string" &&
-        type.Enum.Count is >= 1 and <= 256 && type.Enum.All(v => v is not null) && type.Enum.Distinct(StringComparer.Ordinal).Count() == type.Enum.Count;
+    private static bool ValidEnum(TaskType type, bool advisoryOptimization)
+    {
+        if (type.Enum is null) return true;
+        if (type.Kind != "string" || type.Enum.Count < 1 || type.Enum.Any(value => value is null) ||
+            type.Enum.Distinct(StringComparer.Ordinal).Count() != type.Enum.Count) return false;
+        if (type.Enum.Count <= 256) return true;
+        if (!advisoryOptimization) return false;
+        PlanningTokenThresholds.Warn("type_validation", "enum_values", type.Enum.Count, 256);
+        return true;
+    }
 
-    private static IEnumerable<PlanningDiagnostic> TransformTypeFindings(TaskType? type, string path, bool root = true)
+    private static string EnumDeclarationError(bool advisoryOptimization) => advisoryOptimization
+        ? "A string enum requires distinct non-null strings and at least one value; declare nullability separately."
+        : "A string enum requires 1–256 distinct non-null strings; declare nullability separately.";
+
+    private static IEnumerable<PlanningDiagnostic> TransformTypeFindings(TaskType? type, string path, bool advisoryOptimization, bool root = true)
     {
         if (type is null)
         { yield return new("TASK_TRANSFORM_TYPE", path, "Declare the transform's closed object result type."); yield break; }
         if (root && type.Kind != "object") yield return new("TASK_TRANSFORM_TYPE", path + "/kind", "A transform returns an object of named business fields.");
         if (root && type.Nullable) yield return new("TASK_TRANSFORM_TYPE", path + "/nullable", "The transform's root result cannot be null.");
         if (root && type.Fields.Count == 0) yield return new("TASK_TRANSFORM_TYPE", path + "/fields", "Declare at least one named business field.");
-        if (!ValidEnum(type)) yield return new("TASK_TRANSFORM_TYPE", path + "/enum", "A string enum requires 1–256 distinct non-null strings; declare nullability separately.");
+        if (!ValidEnum(type, advisoryOptimization)) yield return new("TASK_TRANSFORM_TYPE", path + "/enum", EnumDeclarationError(advisoryOptimization));
         if (type.Kind is not ("string" or "number" or "integer" or "boolean" or "array" or "object"))
             yield return new("TASK_TRANSFORM_TYPE", path + "/kind", "Transform results require fully specified types; opaque results are not supported.");
         if (type.Kind == "array")
         {
             if (type.Items is null) yield return new("TASK_TRANSFORM_TYPE", path + "/items", "Declare the array item type.");
-            else foreach (var finding in TransformTypeFindings(type.Items, path + "/items", false)) yield return finding;
+            else foreach (var finding in TransformTypeFindings(type.Items, path + "/items", advisoryOptimization, false)) yield return finding;
         }
         else if (type.Items is not null) yield return new("TASK_TRANSFORM_TYPE", path + "/items", "Only arrays declare item types.");
         if (type.Kind != "object" && type.Fields.Count > 0)
@@ -34,7 +46,7 @@ public sealed partial class TaskPlanCompiler
                 yield return new("TASK_TRANSFORM_TYPE", path + "/fields", "Business field names must be nonblank, distinct and outside the reserved '__' namespace.");
             if (!field.Required) yield return new("TASK_TRANSFORM_TYPE", location + "/required", "Every transform field is required; declare a nullable type for missing values.");
             if (field.Default is not null) yield return new("TASK_TRANSFORM_TYPE", location + "/default", "Transform results cannot declare defaults.");
-            foreach (var finding in TransformTypeFindings(field.Type, location + "/type", false)) yield return finding;
+            foreach (var finding in TransformTypeFindings(field.Type, location + "/type", advisoryOptimization, false)) yield return finding;
         }
     }
 
@@ -43,6 +55,7 @@ public sealed partial class TaskPlanCompiler
         var schema = Schema(task.ResultType!);
         if (task.Mode == "extract")
         {
+            var inferEach = _mappingProfile != ExplicitExtractionProfile;
             var bindings = task.Inputs.Select(i => (i.Name, Bound: Value(i.Value, scope))).ToArray();
             var observed = Object(bindings.Select(i => new PlanningMember(i.Name, i.Bound.Value)));
             var inputShape = ObjectSchema(bindings.Select(i => (i.Name, i.Bound.Schema)));
@@ -50,9 +63,9 @@ public sealed partial class TaskPlanCompiler
                 ? new PlanningNode { Key = key, Type = "set", Purpose = task.Objective,
                     Input = Projection([new("value", observed), new("paths", Array([Strings([])]))]),
                     OutputSchema = Contract(ObjectSchema([("value", schema)])) }
-                : Mapping(key, observed, schema, task.Objective);
+                : Mapping(key, observed, schema, task.Objective, inferEach);
             var independent = task.Each;
-            if (_compactBindings && independent is null && schema["properties"] is JsonObject { Count: 1 } fields &&
+            if (_compactBindings && inferEach && independent is null && schema["properties"] is JsonObject { Count: 1 } fields &&
                 fields.First().Value is JsonObject { } array && array["type"]?.ToString() == "array")
             {
                 var collections = bindings.Where(b => PlanningContractShapes.IterationItems(b.Bound.Schema) is not null).ToArray();
@@ -112,7 +125,7 @@ public sealed partial class TaskPlanCompiler
         return StructuredResult(key, schema);
     }
 
-    private static bool ContainsConsumerBinding(TaskValue value) => value.Kind is "flatten" or "lookup" ||
+    private static bool ContainsConsumerBinding(TaskValue value) => value.Kind is "flatten" or "lookup" or "at_index" ||
         value.Items.Any(ContainsConsumerBinding) || value.Members.Any(m => ContainsConsumerBinding(m.Value));
 
     private static PlanningValue Text(string text) => new() { Kind = "string", Text = text };

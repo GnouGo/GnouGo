@@ -1,0 +1,9 @@
+{
+  "calls": true,
+  "known_input_tokens": true,
+  "known_output_tokens": true,
+  "known_cost_eur": true,
+  "reserved_cost_eur": true,
+  "cost_upper_bound_eur": true,
+  "ceilingUnchanged": true
+}

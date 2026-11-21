@@ -1,0 +1,34 @@
+{
+  "identity": "amazon-v10-source-20261111-01",
+  "dispatch_head": "7c58f120a67c8a548923b521374d8913699160df",
+  "policy": "amazon-observed-review-proof-context-v6",
+  "grant": "user-amazon-workflow-review-proof-20261111",
+  "source_snapshot": "14c1aa43a7664dadbcfec83868abfc7f",
+  "record_count": 1529,
+  "complete_source": true,
+  "source_prerequisite_qualified": true,
+  "source_store_reads": 17,
+  "source_product_reads": 0,
+  "source_proof_aliases": [],
+  "alias_target_present": false,
+  "cold_reload_identical": true,
+  "browser_cleanup_verified": true,
+  "accepted_plan": false,
+  "business_product_visits": 0,
+  "workflow_executed": false,
+  "independent_business_oracle_passed": false,
+  "remaining_findings": [
+    "first_product_visits_incomplete"
+  ],
+  "model_calls": 0,
+  "budget_added_eur": 0,
+  "private_artifact_sha256": {
+    "admission": "affa9a53645eca927b31510272954f261b79c25ae9d71024a413ccb898c298cf",
+    "profile": "5d8387adb3cca31c7b1ee59b35f8609f8e608313dff8a14af9b792529f892c8a",
+    "events": "2cc07d04175f25454491ff8f34887ae85581a9817fa35266fbeb5d183b347718",
+    "issued": "8fb102873a0a26ce2f098aaee15c4edf8f243f3c9688ad7d9b958c3f5032f79d",
+    "resolution": "111a0148a56024d02422a5b08308194100b9b79f6d9baa6d9ea3da50b2170ce9",
+    "cold-resolution": "111a0148a56024d02422a5b08308194100b9b79f6d9baa6d9ea3da50b2170ce9",
+    "close": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f"
+  }
+}

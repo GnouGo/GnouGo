@@ -1,0 +1,46 @@
+{
+  "evidence_version": 1,
+  "source_revision": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+  "scope": "Terminal full-solution evidence; separate later fixture corrections do not alter this failed run.",
+  "source_manifest_sha256": "7e6b9927e22c5ac19f075551db51d298a3030c9671bff02372b97c91b9e1d8a7",
+  "tracked_source_files": 4739,
+  "source_unchanged": true,
+  "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+  "test_assemblies": 33,
+  "exit_code": 1,
+  "elapsed_seconds": 4816.863,
+  "passed": 7082,
+  "failed": 27,
+  "declared_skips": 12,
+  "compiler_build_diagnostics": 0,
+  "failure_classes": {
+    "CompactRequirementPageTests": 1,
+    "GenericProofBenchmarkTests": 3,
+    "LiveProducerEffectTests": 4,
+    "LiveWorkflowReviewTests": 1,
+    "PlanningOwnershipTests": 2,
+    "RecordedProductPlanningTests": 16
+  },
+  "skip_categories": {
+    "native_Windows_PowerShell_required": 7,
+    "opt_in_live_Copilot_edit": 4,
+    "opt_in_live_PR_review": 1
+  },
+  "log_sha256": "537144082265394da28bbd118731ed3ed24a615796ceae22070bdd6e2af38963",
+  "summary_sha256": "725c8d54deeb19c228c4ed3eef24b1317103863164955910e904b58713dbfb13",
+  "failure_inventory_sha256": "7f16c1f93209d65cc5b1f825d936db20770348ae84c16f7abd6bbd2707f76a87",
+  "retained_trx_files": 33,
+  "later_corrections": {
+    "host_fixtures": "format-11-current-host-fixtures.json",
+    "requirement_page_fixture": "format-11-requirement-page-fixture.json",
+    "targeted_counts_not_added_to_full_solution": true
+  },
+  "publication": "compact-taskplan-2a301e2d-technical-validation.json",
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "limitations": [
+    "Failed full run remains failed. No final-source whole-solution pass is claimed.",
+    "All27 failures map to the separately retained five host fixture classes and one requirement-page fixture.",
+    "Earlier publication passes do not establish live business acceptance."
+  ]
+}

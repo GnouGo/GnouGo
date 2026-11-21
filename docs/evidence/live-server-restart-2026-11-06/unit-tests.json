@@ -1,0 +1,153 @@
+[
+  {
+    "name": "AI.Core suite",
+    "source": "8a2b5bc63e8703bcbdb49b2d67c70b2a74fffb0b",
+    "counters": {
+      "total": "283",
+      "executed": "283",
+      "passed": "283",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T03:52:17.7955540+01:00",
+      "queuing": "2026-11-06T03:52:17.7955540+01:00",
+      "start": "2026-11-06T03:52:16.9089150+01:00",
+      "finish": "2026-11-06T03:52:19.2838100+01:00"
+    },
+    "trx_sha256": "a56b71f3192d1edf08c9a68b7d00d1d14643ac78b0360b5741ffc6f29d1d489a",
+    "reproduction_command": "dotnet test tests/GnOuGo.AI.Core.Tests -c Release -warnaserror"
+  },
+  {
+    "name": "Flow suite",
+    "source": "40d386d7aa03dc5a34cb676d8ad93736fd787167",
+    "counters": {
+      "total": "1521",
+      "executed": "1521",
+      "passed": "1521",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T05:29:50.4374040+01:00",
+      "queuing": "2026-11-06T05:29:50.4374040+01:00",
+      "start": "2026-11-06T05:29:49.4656500+01:00",
+      "finish": "2026-11-06T05:29:52.0803100+01:00"
+    },
+    "trx_sha256": "5a3784ad88f853895bc529335f77845644e899615f018938f921e0468ca21338",
+    "reproduction_command": "dotnet test tests/GnOuGo.Flow.Tests -c Release -warnaserror",
+    "source_binding": "Tested working content committed unchanged as the recorded source immediately after the run."
+  },
+  {
+    "name": "Planning suite",
+    "source": "a3021a7a3490efa84396b4793105c37749744440",
+    "counters": {
+      "total": "2711",
+      "executed": "2711",
+      "passed": "2711",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T06:23:41.1157960+01:00",
+      "queuing": "2026-11-06T06:23:41.1157960+01:00",
+      "start": "2026-11-06T06:23:36.8781650+01:00",
+      "finish": "2026-11-06T06:26:03.9944560+01:00"
+    },
+    "trx_sha256": "832220c9d638ed75111582eeff8422eccd73b6ce75b07f10d30955073cc49778",
+    "reproduction_command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -c Release -warnaserror"
+  },
+  {
+    "name": "Affected Server tests",
+    "source": "19f670e6d846872e3d9ec98e0ad7e5ddd8cc9dfa",
+    "counters": {
+      "total": "311",
+      "executed": "311",
+      "passed": "311",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T08:09:04.3476910+01:00",
+      "queuing": "2026-11-06T08:09:04.3476910+01:00",
+      "start": "2026-11-06T08:09:02.8694780+01:00",
+      "finish": "2026-11-06T08:09:15.0925210+01:00"
+    },
+    "trx_sha256": "0f527a1059063696cba6bd358f9c460be51a7fa2a0a5f3b29fdb631189eca103",
+    "reproduction_command": "dotnet test tests/GnOuGo.Agent.Server.Tests -c Release --no-build --no-restore -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~BenchmarkCampaignTests|FullyQualifiedName~BenchmarkPermanentRetentionTests|FullyQualifiedName~DiagnosticPlanningTests'"
+  },
+  {
+    "name": "Actual Server browser tests, controlled HTTP provider",
+    "source": "e01f173087a4d746c6c6c11d807fd3d17ea00932",
+    "counters": {
+      "total": "2",
+      "executed": "2",
+      "passed": "2",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "times": {
+      "creation": "2026-11-06T06:47:55.4659160+01:00",
+      "queuing": "2026-11-06T06:47:55.4659160+01:00",
+      "start": "2026-11-06T06:47:09.6856240+01:00",
+      "finish": "2026-11-06T06:48:07.7216780+01:00"
+    },
+    "trx_sha256": "9aff0219e55984b275f5d32bc28619c39c61b9aa378a07eea3f54b1a7bb6d6b4",
+    "reproduction_command": "See exact command in qualification results"
+  }
+]

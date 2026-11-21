@@ -9,6 +9,31 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed class WorkflowSchemaContractTests
 {
+    [Theory]
+    [InlineData("{}", true)]
+    [InlineData("{\"message\":\"observed\"}", false)]
+    [InlineData("[]", true)]
+    public void UntypedUnionChecksObjectCountOnObjectInstances(string instance, bool valid)
+    {
+        var contract = JsonNode.Parse("""{"oneOf":[{"type":"object"},{"type":"array"}],"maxProperties":0}""")!.AsObject();
+        var findings = JsonSchemaInstanceValidator.ValidateInstanceFindings(JsonNode.Parse(instance), contract);
+        if (valid) Assert.Empty(findings);
+        else Assert.Equal("maxProperties", Assert.Single(findings).Rule);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void PlanningContractDoesNotExposeAnOptionalBusinessReviewSwitch(bool enabled)
+    {
+        var schema = new WorkflowEngine().Registry.GetContracts()["workflow.plan"].InputSchema;
+        Assert.Null(schema["properties"]!["business_judge"]);
+        var input = new JsonObject { ["raw_prompt"] = "Return the requested value", ["generator"] = new JsonObject { ["model"] = "fixture" } };
+        Assert.Empty(JsonSchemaInstanceValidator.ValidateInstance(input, schema));
+        input["business_judge"] = enabled;
+        Assert.NotEmpty(JsonSchemaInstanceValidator.ValidateInstance(input, schema));
+    }
+
     [Fact]
     public async Task SuccessfulFinalizationExposesOnlyProvablyAvailableResults()
     {

@@ -1,0 +1,42 @@
+{
+  "identity": "amazon-deals-combined-source-20261113-02",
+  "approval": "user-amazon-deals-source-only-20261113",
+  "diagnosticComplete": true,
+  "sourceRecords": 1580,
+  "combinedOccurrences": 57,
+  "exactDealsOccurrences": 38,
+  "ownReads": 57,
+  "coldReloadIdentical": true,
+  "modelCalls": 0,
+  "workflowVerifierActivated": false,
+  "businessExecution": false,
+  "earlyProductDestinationReads": [
+    {
+      "sourceReference": "c34415fddfda4249aa843ca9db12f7a4:record:398",
+      "identityFromDestinationRoute": "B0DTP99LGG",
+      "businessVisit": false
+    },
+    {
+      "sourceReference": "c34415fddfda4249aa843ca9db12f7a4:record:400",
+      "identityFromDestinationRoute": "B0DTP99LGG",
+      "businessVisit": false
+    },
+    {
+      "sourceReference": "c34415fddfda4249aa843ca9db12f7a4:record:406",
+      "identityFromDestinationRoute": "B0DTP99LGG",
+      "businessVisit": false
+    }
+  ],
+  "source": "9cf6ecc3b4c0bcd728adb799c348ca4d304ad27c",
+  "new_navigation_scope": "exact observed https://www.amazon.fr/deals only; user-approved source-only scope",
+  "all_deals_final_urls_exact": true,
+  "all_deals_single_get_200": true,
+  "distinct_own_capture_ids": 57,
+  "cleanup": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "raw_events_sha256": "1574479a136786d36c341c920a8cad9afdca602392e0e8262dff0833ca82358a",
+  "full_amazon_qualified": false
+}

@@ -17,9 +17,9 @@ public sealed class RecordedNullOnlyPlanningTests
         Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
         Assert.Null(state.ApprovedHash); Assert.Equal(0, runtime.Calls); Assert.Empty(runtime.RequestIds);
         Assert.True(JsonNode.DeepEquals(runtime.Recording["plan"], JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)));
-        PlanningArtifactApproval.Verify(state);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
         var restored = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(restored);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(restored));
         restored.Plan!.Root.Tasks[0].Objective += " changed";
         Assert.NotEqual(state.ComputeArtifactHash(), restored.ComputeArtifactHash());
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(restored));

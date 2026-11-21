@@ -1,0 +1,17 @@
+{
+  "controlled_checks": 36,
+  "passed": true,
+  "inactive": true,
+  "source_prerequisite_qualified": false,
+  "model_calls": 0,
+  "build_warning_count": 0,
+  "build_error_count": 0,
+  "cold_report_identical": true,
+  "active_policy_unchanged": true,
+  "source_only_model_calls": 0,
+  "full_workflow_qualification": false,
+  "code_sha256": {
+    "proposed-relations/ReviewCardFacts.cs": "5a3af70dbc7598346e112f0c14700428ccfbe69246a3fcc425e15d0860db43da",
+    "proposed-relations/Program.cs": "148f160e8ef8ac7ae62778b55a1d926df977bbad2ec622fbcca45fe066a1e040"
+  }
+}

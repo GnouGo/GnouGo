@@ -1,0 +1,98 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "run": "amazon-first-ten-20261121-22",
+  "source_revision": "5d49e53b53bc37f6c78c26bd7d7dcc6a0559bfc7",
+  "planning_session_id": "5b20855cb70245d39d8df20c75ed13b9",
+  "workflow_run_id": "97aea35a754d763c292efee741e84e1c",
+  "artifact_hash": "217a984c38fca2c73b25489396710a0ecb6523c0eb3e45b991a09ce6c1ef96e5",
+  "saved_chat_agent_id": "4ab86c0d-f9ba-48d0-8113-ab6003745b7d",
+  "runtime_search": {
+    "query": "chaussure geox homme 45"
+  },
+  "ordered_products_requested": 10,
+  "active_grant": "user-amazon-aax-workflow-20261112",
+  "navigation_policy": "amazon-observed-aax-product-context-v10",
+  "search": {
+    "http_status": 200,
+    "snapshot_id": "dc77d73566af4d5782967d4e9b7ba588",
+    "records": 1585,
+    "pages": 77,
+    "capture_truncated": false,
+    "manifest_truncated": false,
+    "unclassified_card": {
+      "heading_record": "dc77d73566af4d5782967d4e9b7ba588:record:494",
+      "asin": "",
+      "link_record": "dc77d73566af4d5782967d4e9b7ba588:record:498",
+      "href": "https://www.amazon.fr/deals",
+      "classification": "unverified",
+      "navigation_authorized": false
+    }
+  },
+  "rejected_get": {
+    "origin": "delegated_permission_guard",
+    "error_code": "DELEGATED_PERMISSION_DENIED",
+    "dispatched": false
+  },
+  "workflow_close_acknowledged": true,
+  "closure_oracle_message": "InvalidOperationException: No active page. Call browser_get_content with url first.",
+  "finalization_completed": true,
+  "verified_product_visits": 0,
+  "workbook_verified": false,
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "accounting": {
+    "planning": {
+      "physical_requests": 34,
+      "measured_tariff_eur": "16.413427947598253275109170315",
+      "unresolved_reservation_eur": "0"
+    },
+    "execution": {
+      "physical_requests": 2,
+      "measured_tariff_eur": "1.2909115720524017467248908297",
+      "unresolved_reservation_eur": "0"
+    }
+  },
+  "independent_source_diagnostic": {
+    "run": "amazon-ten-source-20261121-23",
+    "source_only": true,
+    "model_calls": 0,
+    "search": {
+      "http_status": 200,
+      "snapshot_id": "6ff480489e1045a7b8d647b5843cea15",
+      "records": 1605,
+      "pages": 78,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "unclassified_card": {
+        "heading_record": "6ff480489e1045a7b8d647b5843cea15:record:495",
+        "asin": "",
+        "link_record": "6ff480489e1045a7b8d647b5843cea15:record:499",
+        "href": "https://www.amazon.fr/deals",
+        "classification": "unverified",
+        "navigation_authorized": false
+      }
+    },
+    "new_followup_reads_offered": 0,
+    "findings": [
+      "search_heading_context_unaccounted",
+      "source_resolutions_incomplete",
+      "first_product_visits_incomplete"
+    ],
+    "close": {
+      "closed": true,
+      "close_error": false,
+      "probe_error": true
+    }
+  },
+  "receipt_sha256": {
+    "server_campaign_run_export": "cb1f404452301ae88002e8897027fcfd0a52cf80ad1bdfae1e6442a434c6949f",
+    "settled_campaign_audit": "fab43d638c090a2a7fa505eaba3136f89fabf30fc87cd530e6cc01e90e38adbb",
+    "independent_capture_events": "67aa1197c0a8e8d651015cead2de77c48d3682aa45ed5c4c46759ea80946321e",
+    "independent_cold_verification": "0087d2bb202ab86189f00b6b484df3111833a7ada57ad812ea2a8ca3ce9c81f1"
+  }
+}

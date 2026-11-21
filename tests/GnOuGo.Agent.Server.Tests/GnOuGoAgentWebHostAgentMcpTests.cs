@@ -25,7 +25,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
     public async Task Build_StartsMountedAgentMcpEndpoint_AndPublishesStableRuntimeUrl()
     {
         var contentRoot = GetServerContentRoot();
-        var app = GnOuGoAgentWebHost.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
+        var app = TelemetryTestHostArgs.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
 
         try
         {
@@ -50,7 +50,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
     public async Task Build_StartsMountedAgentMcpEndpoint_AgentUserConfigClientCanReadSnapshot()
     {
         var contentRoot = GetServerContentRoot();
-        var app = GnOuGoAgentWebHost.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
+        var app = TelemetryTestHostArgs.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
 
         try
         {
@@ -76,7 +76,7 @@ public sealed class GnOuGoAgentWebHostAgentMcpTests
             return;
 
         var contentRoot = GetServerContentRoot();
-        var app = GnOuGoAgentWebHost.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
+        var app = TelemetryTestHostArgs.Build(TelemetryTestHostArgs.Create(), urls: "http://127.0.0.1:0", contentRoot: contentRoot, enableHttpsRedirection: false);
 
         try
         {

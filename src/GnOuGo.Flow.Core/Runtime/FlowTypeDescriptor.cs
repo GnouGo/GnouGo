@@ -95,7 +95,7 @@ internal sealed record FlowTypeDescriptor
 
         var unique = flattened
             .Where(static variant => variant.Kind != FlowTypeKind.Union || variant.Variants.Count > 0)
-            .Distinct(FlowTypeDescriptorStructuralComparer.Instance)
+            .Distinct(new FlowTypeDescriptorStructuralComparer())
             .ToArray();
 
         return unique.Length switch
@@ -342,38 +342,62 @@ internal sealed record FlowTypeDescriptor
 
     private sealed class FlowTypeDescriptorStructuralComparer : IEqualityComparer<FlowTypeDescriptor>
     {
-        public static readonly FlowTypeDescriptorStructuralComparer Instance = new();
+        // Snapshot types share their predecessors. Expanding each shared subtree into
+        // a string makes shallow sibling scopes consume exponential memory. Keep this
+        // cache local to one Union call, since descriptors can wrap mutable collections.
+        private readonly Dictionary<FlowTypeDescriptor, int> _hashes = new(ReferenceEqualityComparer.Instance);
+        private readonly HashSet<FlowTypeDescriptor> _visiting = new(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<FlowTypeDescriptor, HashSet<FlowTypeDescriptor>> _equal = new(ReferenceEqualityComparer.Instance);
 
-        public bool Equals(FlowTypeDescriptor? x, FlowTypeDescriptor? y) =>
-            x != null
-            && y != null
-            && StructuralKey(x) == StructuralKey(y);
-
-        public int GetHashCode(FlowTypeDescriptor obj) =>
-            StructuralKey(obj).GetHashCode(StringComparison.Ordinal);
-
-        private static string StructuralKey(FlowTypeDescriptor descriptor)
+        public bool Equals(FlowTypeDescriptor? x, FlowTypeDescriptor? y)
         {
-            var parts = new List<string> { descriptor.Kind.ToString() };
-            if (descriptor.Items != null)
-                parts.Add("items:" + StructuralKey(descriptor.Items));
-            if (descriptor.AdditionalProperties != null)
-                parts.Add("additional:" + StructuralKey(descriptor.AdditionalProperties));
-            parts.Add("allowsAdditional:" + descriptor.AllowsAdditionalProperties);
-            if (descriptor.EnumValues.Count > 0)
-                parts.Add("enum:" + string.Join("|", descriptor.EnumValues));
-            if (descriptor.Variants.Count > 0)
-                parts.Add("variants:" + string.Join(",", descriptor.Variants.Select(StructuralKey).OrderBy(static value => value, StringComparer.Ordinal)));
-            if (descriptor.Properties.Count > 0)
+            if (x is null || y is null || GetHashCode(x) != GetHashCode(y)) return false;
+            if (ReferenceEquals(x, y) || _equal.TryGetValue(x, out var matches) && matches.Contains(y)) return true;
+            if (x.Kind != y.Kind || x.AllowsAdditionalProperties != y.AllowsAdditionalProperties ||
+                !OptionalEquals(x.Items, y.Items) || !OptionalEquals(x.AdditionalProperties, y.AdditionalProperties) ||
+                !x.EnumValues.SequenceEqual(y.EnumValues, StringComparer.Ordinal) ||
+                x.Properties.Count != y.Properties.Count || x.Variants.Count != y.Variants.Count) return false;
+            var otherProperties = y.Properties.OrderBy(static pair => pair.Key, StringComparer.Ordinal).ToArray();
+            var propertyIndex = 0;
+            foreach (var (name, property) in x.Properties.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
             {
-                parts.Add("properties:" + string.Join(
-                    ",",
-                    descriptor.Properties
-                        .OrderBy(static pair => pair.Key, StringComparer.Ordinal)
-                        .Select(static pair => $"{pair.Key}:{pair.Value.Required}:{StructuralKey(pair.Value.Type)}")));
+                var other = otherProperties[propertyIndex++];
+                if (!string.Equals(name, other.Key, StringComparison.Ordinal) || property.Required != other.Value.Required || !Equals(property.Type, other.Value.Type)) return false;
             }
+            var matchedVariants = new bool[y.Variants.Count];
+            foreach (var variant in x.Variants)
+            {
+                var match = -1;
+                for (var i = 0; i < y.Variants.Count; i++)
+                    if (!matchedVariants[i] && Equals(variant, y.Variants[i])) { match = i; break; }
+                if (match < 0) return false;
+                matchedVariants[match] = true;
+            }
+            if (!_equal.TryGetValue(x, out var equivalent)) _equal[x] = equivalent = new(ReferenceEqualityComparer.Instance);
+            equivalent.Add(y);
+            return true;
+        }
 
-            return string.Join(";", parts);
+        private bool OptionalEquals(FlowTypeDescriptor? x, FlowTypeDescriptor? y) =>
+            x is null ? y is null : y is not null && Equals(x, y);
+
+        public int GetHashCode(FlowTypeDescriptor descriptor)
+        {
+            if (_hashes.TryGetValue(descriptor, out var cached)) return cached;
+            if (!_visiting.Add(descriptor)) throw new InvalidOperationException("Cyclic flow type descriptors are not supported.");
+            try
+            {
+                var hash = new HashCode();
+                hash.Add(descriptor.Kind); hash.Add(descriptor.AllowsAdditionalProperties);
+                hash.Add(descriptor.Items is null ? (int?)null : GetHashCode(descriptor.Items));
+                hash.Add(descriptor.AdditionalProperties is null ? (int?)null : GetHashCode(descriptor.AdditionalProperties));
+                foreach (var value in descriptor.EnumValues) hash.Add(value, StringComparer.Ordinal);
+                foreach (var variantHash in descriptor.Variants.Select(GetHashCode).Order()) hash.Add(variantHash);
+                foreach (var (name, property) in descriptor.Properties.OrderBy(static pair => pair.Key, StringComparer.Ordinal))
+                { hash.Add(name, StringComparer.Ordinal); hash.Add(property.Required); hash.Add(GetHashCode(property.Type)); }
+                return _hashes[descriptor] = hash.ToHashCode();
+            }
+            finally { _visiting.Remove(descriptor); }
         }
     }
 }

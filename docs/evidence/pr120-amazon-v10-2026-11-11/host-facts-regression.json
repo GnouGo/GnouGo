@@ -1,0 +1,17 @@
+{
+  "base": "bbeafc22f12ec6f0e6a5066dcc009637d1a6cef3",
+  "red_failure": "Captured v6 prompt lacked existing host-guarantee boundary.",
+  "passed": 432,
+  "failed": 0,
+  "skipped": 0,
+  "warnaserror": true,
+  "log_sha256": {
+    "v10-host-facts-red.log": "b0a58ebe6d7743e9bced11a25f98a8fad6f814f5a38e3e3b8dcf9611ba8fc6ff",
+    "v10-host-facts-green.log": "7f84afcf952abb1cc386ad62d2d2b19263517672e56ef74f100d8bb9c00f9bb5"
+  },
+  "permissions_changed": false,
+  "verifier_changed": false,
+  "engine_changed": false,
+  "stopped_session_changed": false,
+  "live_hypothesis_validated": false
+}

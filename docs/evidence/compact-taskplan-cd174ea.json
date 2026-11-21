@@ -1,0 +1,195 @@
+{
+  "kind": "safe_frozen_diagnostic_transport_stop",
+  "version": 1,
+  "captured_at_utc": "2026-10-20T18:44:31.029155+00:00",
+  "source": "cd174ea660c28e104a98b340fdf8c7f926c6dcaa",
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compactdcd174ea",
+  "frozen_manifest_sha256": "2e9f4a72519aebe08b4d70efca92f52b74b74c9162a0cd37911ca0dfad17e0ee",
+  "phase_policy_hash": "068f29186333165c72ab5d81ed9873535d86e9d292460ea03c5848fb920cde89",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "amazon": {
+    "run": "compactdcd174ea-amazon-1",
+    "request_id": "compactdcd174ea-amazon-1:1:4b58d3ef50db3a34c427119e77b2053774baac836b8324d22ee2f7abfb032489",
+    "status": "stopped",
+    "phase": "construction_intent",
+    "calls": 1,
+    "known_receipts": 0,
+    "corrections": 0,
+    "checkpoints": 0,
+    "planning_ms": 125840,
+    "request_elapsed_ms": "123196.2825",
+    "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+    "usage_complete": false,
+    "input_tokens": null,
+    "output_tokens": null,
+    "reasoning_tokens": null,
+    "known_input_tokens": 0,
+    "known_output_tokens": 0,
+    "known_reasoning_tokens": 0,
+    "known_cost_eur": "0",
+    "reserved_cost_eur": "0.4634497467342042122100773127",
+    "known_empty_receipts": 0,
+    "unknown_completion_count": 1,
+    "execution_started": false,
+    "business_success": null,
+    "request_measurement": {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactdcd174ea-amazon-1:1:4b58d3ef50db3a34c427119e77b2053774baac836b8324d22ee2f7abfb032489",
+      "requestHash": "35c8ca23a8b07b6d6bf220c2645270fd1ae0b15fe34c3be904927ad1a26f3698",
+      "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 6000,
+      "completeRequestBytes": 2969,
+      "estimatedInputTokens": 1246,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 392,
+          "estimatedTokens": 387
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1057,
+          "estimatedTokens": 353
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 612,
+          "estimatedTokens": 204
+        }
+      ]
+    },
+    "request_statistics": {
+      "count": 1,
+      "complete_bytes_p50_p95_max": 2969,
+      "estimated_input_p50_p95_max": 1246,
+      "component_bytes_reconcile": true,
+      "rejected_requests": 0
+    },
+    "http": {
+      "status": 504,
+      "failure_kind": "Timeout",
+      "attempt_count": 1,
+      "receipt_present": false,
+      "usage_present": false,
+      "closure_present": false,
+      "body_utf8_bytes": 175,
+      "body_sha256": "aacd3fba3d7a59225cf55c1a77599fe2e74ac76e37cad497f76056f9ed95aa24",
+      "body_shape": {
+        "root": "single error object",
+        "fields": [
+          {
+            "key": "message",
+            "kind": "String"
+          },
+          {
+            "key": "type",
+            "kind": "String"
+          },
+          {
+            "key": "param",
+            "kind": "Null"
+          },
+          {
+            "key": "code",
+            "kind": "Null"
+          }
+        ],
+        "message_nonempty": true,
+        "response_id_present": false,
+        "usage_field_present": false
+      },
+      "effective_policy": {
+        "version": 1,
+        "disable_transport_retries": true,
+        "allow_http_recovery": false
+      },
+      "effective_retry_policy": {
+        "MaxAttempts": 1,
+        "MaxUncertainRetries": 1,
+        "AttemptTimeoutMilliseconds": 600000
+      },
+      "effective_transport_policy_hash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1",
+      "reservation": {
+        "input_ceiling": 6000,
+        "output_ceiling": 16384,
+        "cost_ceiling_eur": "0.4634497467342042122100773127",
+        "session_attempt_limit": 64
+      },
+      "admitted_financial_identity_hash": "9ee21c31638e9f003488a7138f7ba1607468f0eac06f124b5f143bb098b368b7",
+      "record_hashes": {
+        "run_record": "f968eeb9a529a0538fb71642c36997bb81569431a1567f176999cdab6ecd7e04",
+        "request_record": "35c8ca23a8b07b6d6bf220c2645270fd1ae0b15fe34c3be904927ad1a26f3698",
+        "journal_record": "65ac1649b07d33a4f5d87e9c1b8d0e6f2a810c8751748e1d55432cdb6854c4dc",
+        "failure_record": "5cd0715cadf993f069664461789778e07e674726b990d0148d99a2aa30f2c1a1",
+        "session_policy_record": "f7c14c1a7d1dfd0c53115ea3734c0835e6e37a9bc4709f307f034015737cd162",
+        "campaign_policy_record": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b"
+      },
+      "safe_audit_sha256": "817ce19122d251764af798c6d2b0214e5810dcf734699875a50c285cf94cdfb0"
+    }
+  },
+  "other_scenarios": [
+    {
+      "case": "collections",
+      "run": "cd174ea660c28e104a98b340fdf8c7f926c6dcaa:fixture:cohort:compactdcd174ea:collections:1",
+      "status": "not_started",
+      "exact_record_absence_verified": true,
+      "calls": 0,
+      "business_success": null
+    },
+    {
+      "case": "code",
+      "run": "compactdcd174ea-code-1",
+      "status": "not_started",
+      "exact_record_absence_verified": true,
+      "calls": 0,
+      "business_success": null
+    }
+  ],
+  "campaign_balance": {
+    "requests": 704,
+    "receipts": 699,
+    "known_cost_eur": "19.293699457922331822625077758",
+    "reserved_cost_eur": "1.4222207411356971474273527059",
+    "cost_upper_bound_eur": "20.715920199058028970052430464",
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "remaining_eur": "219.314183633648275572392516836",
+    "unknown_attempts": 4,
+    "retained_inconclusive_requests": 4,
+    "unclosed_uncertain_requests": 1,
+    "evidence_hash": "c32cad9d8b78c56a6290250f0c688038a45812dba6ce1b4a6a64255cb53f26c0",
+    "safe_inspection_sha256": "545f2361bd624756fd72b80cdaf3ff9023b3fbec606149ee74074afc80db1179"
+  },
+  "previous_http500_retention": {
+    "status": "separately_authorized_and_applied",
+    "evidence_hash": "00cb00966451f0d60a0a47d29c7be16bbd518f151d4dcb636fb9084d9f8ea9f0",
+    "closure_hash": "573112a54941f592bf4c3525b812e396fb4592aafd5770bfd0565448527b99c8",
+    "authorization_hash": "19dcc53c2d1a00a2e574f9e467bf709ada7055853dd4251c4d1118411adab7fa",
+    "safe_inspection_sha256": "38a196617f494f74fa68544d7a9794260b30d58e614340813af6b6c1c58a4e3e",
+    "full_reservation_eur": "0.4634497467342042122100773127",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "does_not_authorize_http504": true
+  },
+  "limitations": [
+    "No raw prompts, response bodies, headers, plans, requirements or artifacts are included.",
+    "There is no known provider token usage for this HTTP504. Reservation ceilings are not billed usage; unknown completion is not an empty response.",
+    "Collections and Review PR were not started, not failed. No business execution or 18-run paired comparison occurred.",
+    "HTTP504 remains unresolved; no retention, replay, recovery, paid call or ledger mutation was performed by this audit."
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "source": "2e6102429d7cbf6420dd9eae89363bb850080c12",
+  "run": "code-qualification-20261109-17",
+  "session_id": "c1e2121149a54d378459c8e48fd7252c",
+  "known_receipts": 30,
+  "stopped_pending_call": 31,
+  "status": "cancelled_and_permanently_retained",
+  "accepted_checkpoints": 0,
+  "reselection_calls": [
+    12,
+    26
+  ],
+  "cause": "Repeated selection of an editing-described SDK wrapper followed by rejection because contract discovery did not guarantee runtime command/tool availability. No contribution was accepted.",
+  "correction": "Align the existing bounded coding-task metadata and opening prompt with inspection, review, checks or requested edits. Actual SDK tools and host permission/sandbox remain conditional; completion does not prove command success. No permitted tool or scope added.",
+  "measured_planning_tariff_estimate_eur": "14.2283027317510076130765785937",
+  "uncertain_application_hold_eur": "2.3012807881773399014778325123",
+  "retention_evidence_hash": "e62a975f5fa9f4645c3779f16dfc4f6db438be7b901c42a6a37f58c5a3cbbf4e",
+  "all_reservations_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "execution_qualified": false,
+  "no_convergence_improvement_claimed": true,
+  "available_after_retention_eur": "217.195351545006717420510518188",
+  "retained_external_reservations_eur": "44.588114643976712942230183612",
+  "focused_mcp_passed": 70,
+  "all_mcp_passed": 245,
+  "new_mcp_regression_cases": 2,
+  "private_evidence_sha256": {
+    "code17-final.json": "69cd42af53c494fddae956dfd98eb4c33526e20add022580d32c8171a6d465d2",
+    "code17-final-receipts.json": "dd91f55d15a86f508378ca555b0c5337b5a8cd4ba3724248a871d06ea34f0938",
+    "code17-protected-stop.log": "1d36f45c3bdf5c58872f52d731f32228abd6a1a2f48b4bc4ea9a9db556ef0abb",
+    "code17-retention-preview.json": "1e4e5236603d7e35ad5e4479f2cfccffd8dc747f56631b430622c363408c82b4",
+    "code17-retention-applied.json": "0fba09f60d9d635e5221749ef49c615407930e6f8e800748c3cca53753a8167e",
+    "code17-retained-final-audit.json": "c09fab3d6aaae6f2dfa41fb5f2df4f1df14b66c661f71a4374a5c86d3cf5a99c",
+    "code17-coding-task-red.log": "e140158726ff249458306af66417a6a0fe72deba5f0a1ebdc3eda4bc8d021b70",
+    "code17-coding-task-green.log": "c316f9029a7aa899197f14164d4216a0ffa1d39931d2ce7aeadf26568b77704b",
+    "code17-coding-task-mcp-all.log": "ac92e2a2b2ca7fd24200ef2e7ea3acfdd092a5ac1b05e4b2f1c3edb1b4924586"
+  }
+}

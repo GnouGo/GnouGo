@@ -1,0 +1,329 @@
+{
+  "archive_version": 1,
+  "source": "1a236234af1bb114dbf5fd0426e2f018275a8e90",
+  "production_source": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+  "cohort": "compacta1a236234",
+  "campaign": "schema-portability-20261019-incremental",
+  "metrics_snapshot_at": "2026-10-23T10:44:05.6745080+00:00",
+  "status": "terminal_inconclusive_closed_no_business_execution",
+  "scope": "Historical completed compacta1a236234 diagnostic only. No outcomes or spending from a later independently frozen cohort are included.",
+  "run": {
+    "run_key": "run:compacta1a236234-code-1",
+    "run_hash": "2f075615443d7f8718cef3efab1a56855993a03093b504012b20e786e0f6fd96",
+    "session_status": "stopped",
+    "session_phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "calls": 3,
+    "corrections": 0,
+    "checkpoints": 0,
+    "planning_ms": 346701,
+    "planning_latency_from_completed_call_stages_ms": "35340.2771",
+    "artifact_hash": null,
+    "construction_complete": false,
+    "execution_started": false,
+    "execution_status": "not_started",
+    "runtime_ms": null,
+    "oracle_version": "code-business-v2",
+    "scenario": "review_pr",
+    "receipts": 2,
+    "judge_reviews": 0,
+    "business_acceptance": "not_executed",
+    "useful_obligations_satisfied": 0,
+    "calls_per_useful_obligation": null
+  },
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "lossless-discovery-medium",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "benchmark_binary_sha256": "89fcbef36f63c5541535aa3cedfc5021d6b882b9337068062cdc9da06c0c4280",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "mcp_files_verified": 568,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "low_profile_tested": false
+  },
+  "profile_change": {
+    "from_cohort": "compacta9d23d5b0",
+    "settings_unchanged": true,
+    "production_unchanged_from": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+    "source_change": "Documentation-only final revision; fresh independent Review PR after exact authorized permanent abandonment of Collections. No replay or continuation.",
+    "comparison_limit": "Discovery projection unchanged from147-test validated candidate; this is its first fresh Review PR diagnostic. No retry of unchanged Amazon extraction."
+  },
+  "phase_aggregates": {
+    "construction_intent": {
+      "constructed_requests": 3,
+      "admitted_requests": 3,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 3,
+        "p50": 3129,
+        "p95": 10600,
+        "maximum": 10600,
+        "total": 16742
+      },
+      "estimated_input_tokens": {
+        "count": 3,
+        "p50": 1299,
+        "p95": 3790,
+        "maximum": 3790,
+        "total": 6350
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 78,
+          "estimated_tokens": 27
+        },
+        "envelope": {
+          "serialized_bytes": 1177,
+          "estimated_tokens": 1162
+        },
+        "instructions": {
+          "serialized_bytes": 3237,
+          "estimated_tokens": 1079
+        },
+        "intent": {
+          "serialized_bytes": 5275,
+          "estimated_tokens": 1759
+        },
+        "response_schema": {
+          "serialized_bytes": 6893,
+          "estimated_tokens": 2298
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    }
+  },
+  "provider_usage": {
+    "request_identities": 3,
+    "http_attempts": 3,
+    "receipts": 2,
+    "unknown_attempts": 1,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 1087,
+    "known_output_tokens": 2645,
+    "known_reasoning_tokens": 1994,
+    "reasoning_measured_calls": 2,
+    "known_cost_eur": "0.0756671128960285586791610888",
+    "unknown_usage_reservation_eur": "0.4922088353413654618473895582",
+    "cost_upper_bound_eur": "0.5678759482373940205265506470"
+  },
+  "measurement_conventions": [
+    "Component estimates cover complete serialized requests and reconcile with their UTF-8 bytes; they are not billed usage.",
+    "Reasoning tokens are included in output tokens. Only two completed calls have measured provider usage.",
+    "Original text and parsed/normalized response content can have different byte counts and hashes; response-format measurements refer to unchanged original receipt.text.",
+    "Financial values preserve exact decimal strings; ledger aggregates retain their recorded precision."
+  ],
+  "request_evidence": [
+    {
+      "requestId": "compacta1a236234-code-1:1:424356055e9829be6e099bbd7cb2195830e0a0d04ea87d8b6b3417e0c4b3b5e5",
+      "requestHash": "30b870fa09918b9bcac0243afbe0b29be0b163c1105b3d3c469e174c00109a17",
+      "schemaHash": "6acb3cdcddc4e731db76d485e30647a99fdbb7594bb79743140cad56d1dfc568",
+      "completeRequestBytes": 3129,
+      "estimatedInputTokens": 1299,
+      "inputLimit": 12000,
+      "admission": "admitted",
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    },
+    {
+      "requestId": "compacta1a236234-code-1:2:0e73073be2811476ddd2fe39c4b4fddfcf8840815ab8bbee1be3095d231eafad",
+      "requestHash": "bf753be0b570f2c63ab01586a542f5dd138dbff74f71158738aced7df31d4c20",
+      "schemaHash": "347951a77ba3394e7c764a96990438c3e91a1c04c5c57b954c6a1f1f15047364",
+      "completeRequestBytes": 3013,
+      "estimatedInputTokens": 1261,
+      "inputLimit": 12000,
+      "admission": "admitted",
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    },
+    {
+      "requestId": "compacta1a236234-code-1:3:ff6f9f374f06923c8032b3ff7631f18a7d000c8d3dffa0683f4935872453850b",
+      "requestHash": "4bbf190f55a3a110cbf88da94e0d0f0c0a9a57076a7579bc4fd22c9eda403c00",
+      "schemaHash": "57aaad65a087f20f9d1db7db50ccc157f50a3ef83c6b95441b3bdc202a7ab99b",
+      "completeRequestBytes": 10600,
+      "estimatedInputTokens": 3790,
+      "inputLimit": 12000,
+      "admission": "admitted",
+      "components_reconcile": true,
+      "within_input_limit": true,
+      "stored_request_matches_measurement": true
+    }
+  ],
+  "uncertain_call": {
+    "request_id": "compacta1a236234-code-1:3:ff6f9f374f06923c8032b3ff7631f18a7d000c8d3dffa0683f4935872453850b",
+    "http_status": 500,
+    "http_attempts": 1,
+    "receipt_present": false,
+    "failure": {
+      "stage": "dispatch",
+      "exception_type": "LLMClientException",
+      "kind": "ServiceUnavailable",
+      "safe_provider_code": null,
+      "reason": null,
+      "dispatch_status": null,
+      "status_code": 500,
+      "attempt_count": 1,
+      "retry_after_ms": null
+    },
+    "elapsed_ms": "306014.1645",
+    "record_hashes": {
+      "requests": "4bbf190f55a3a110cbf88da94e0d0f0c0a9a57076a7579bc4fd22c9eda403c00",
+      "http-attempts": "815e0af7eed0e607cea31d740b0e41452083b07792ede1ecd97f85a7047624df",
+      "receipts": null,
+      "failures": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+      "closures": "b1398e755eb80949a3b26ebea0590b479fd77c208c995d3e7a6efa6832713aed"
+    },
+    "provider_usage": null,
+    "response_content": null,
+    "empty_response": null,
+    "formatting_whitespace": null,
+    "unknown_usage_reservation_eur": "0.4922088353413654618473895582",
+    "permanent_closure_applied": true,
+    "interpretation": "Permanent abandonment retains unknown usage and all original evidence; it does not establish provider termination, manufacture a receipt or permit replay."
+  },
+  "response_format": {
+    "measured_receipts": 2,
+    "original_text_bytes": 2539,
+    "formatting_whitespace_outside_strings": 0,
+    "whitespace_characters_in_original_text": 197,
+    "maximum_whitespace_run": 1,
+    "empty_completed_responses": 0,
+    "unreceipted_request_content_unknown": true,
+    "safe_file_sha256": "628f1b3105bb4b6e4962418d96b3b6a04bae887e87d20334eb3e9bf3a27eec19"
+  },
+  "permanent_closure": {
+    "request_id": "compacta1a236234-code-1:3:ff6f9f374f06923c8032b3ff7631f18a7d000c8d3dffa0683f4935872453850b",
+    "run_key": "run:compacta1a236234-code-1",
+    "run_hash": "2f075615443d7f8718cef3efab1a56855993a03093b504012b20e786e0f6fd96",
+    "request_hash": "4bbf190f55a3a110cbf88da94e0d0f0c0a9a57076a7579bc4fd22c9eda403c00",
+    "http_journal_hash": "815e0af7eed0e607cea31d740b0e41452083b07792ede1ecd97f85a7047624df",
+    "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+    "evidence_hash": "81333dd9b5f3df57882815870802e166445a894babb10019b4f112b2e2aed795",
+    "authorization_hash": "48c5b602e98bbf15c1f72a3759f321b979ba25fb97bcb804656506fd27afaf80",
+    "retained_at": "2026-10-23T10:43:54.3766970+00:00",
+    "outcome": "inconclusive",
+    "applied": true,
+    "reservation_retained_eur": "0.4922088353413654618473895582",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "apply_file_sha256": "87cc15225a6d2491f13956575130d33e888cf7845ee6bd4347a1a82553853741"
+  },
+  "earlier_collections_closure_followup": {
+    "request_id": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+    "run_key": "9d23d5b031d5dec9c412d50f1850afd7965efe9e:fixture:cohort:compacta9d23d5b0:collections:1",
+    "run_hash": "ffacbeaf574663a4547048b27fbdf2af031d6d4a26b8d2c4cbacebb8074619bc",
+    "request_hash": "bff7d934b94c1810359d547cafe255eec4d481498c6bf7049ae46d2da53f1c3d",
+    "http_journal_hash": "19d9c7fa1bacbdef542167e2a2187bdda918d711ebb7cee222a172b662599ce2",
+    "failure_hash": "1baaa57ea5534d0dfdfc1721efddcfde2aa3b4db0297dc609ab36410ff48ce8a",
+    "evidence_hash": "807b51ed55345d4289744c44d63782e54a78599c8014898a31332ef7e39601fe",
+    "authorization_hash": "14ccd293eb2adffe86b8814bc77462f55de63d2e860419b13a8d8c48ebc6e08f",
+    "retained_at": "2026-10-23T10:30:32.4262130+00:00",
+    "outcome": "inconclusive",
+    "applied": true,
+    "reservation_retained_eur": "0.4922088353413654618473895582",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "apply_file_sha256": "c82351ff1fd396075088bcd7ec88dcda5a8555c51dab47e3a82b5b3daa4788f0",
+    "prior_archive": "compact-taskplan-9d23d5b.json",
+    "prior_archive_sha256": "892b8855045b3cb8ed0af423790ebe25c4eeb6a2dd0776c52ffea99aa1a8231b",
+    "prior_pending_snapshot_unchanged": true
+  },
+  "campaign_before_current_closure": {
+    "audit_file": "campaign-post-code-audit.json",
+    "receiptless_identities": 18,
+    "permanently_closed_identities": 17,
+    "pending_uncertain_identities": 1,
+    "evidence_hash": "cc43de2dde2055cb5e64d2ef7950df5dee349dc30e4cc5c3a657b32f6a805e39",
+    "safe_file_sha256": "099bb5627eeb0457c37eba406e7be9d606ca59b8ab0982174f26271c40bfc468",
+    "interpretation": "Despite its filename, this retained audit preceded the applied Review PR closure."
+  },
+  "campaign_after_current_closure": {
+    "reserved_requests": 1490,
+    "completed_receipts": 1472,
+    "receiptless_identities": 18,
+    "permanently_closed_identities": 18,
+    "pending_uncertain_identities": 0,
+    "unknown_transport_attempts": 17,
+    "recorded_failures": 16,
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "49.185083282863376846346849522",
+    "unknown_usage_reservation_eur": "7.5324251417828070479732847674",
+    "cost_upper_bound_eur": "56.717508424646183894320134289",
+    "available_allowance_eur": "183.312595408060120648124813011",
+    "prior_lost_historical_exposure_eur": "159.96989616729369545755505266",
+    "original_authorized_ceiling_eur": "400",
+    "cumulative_upper_bound_including_lost_history_eur": "216.687404591939879351875186949",
+    "evidence_hash": "bb82f08c22ee1a40fd176cbc4cc62a6d7a45704cb3b71a0cf5dc3597d080a70f",
+    "safe_file": "compactb1a236234/provider-readiness-verified.jsonl",
+    "json_line_1_based": 2,
+    "line_sha256_without_newline": "5b380c3ac79b13b80a138b85ff328b69dffb84a4cf2411e2b3ca916e018d6789",
+    "accounting_unchanged_by_closure": true,
+    "interpretation": "Verified historical postclosure balance before the next diagnostic; not a current live-ledger assertion. Eighteen receiptless identities and seventeen unknown transport attempts are distinct counts."
+  },
+  "validation_attribution": {
+    "production_source": "9d23d5b031d5dec9c412d50f1850afd7965efe9e",
+    "focused_discovery_passed": 147,
+    "focused_manifest_sha256": "0df4fdda262ab2dad185527aab92eec647d44df3af557db97a253ba660cce44e",
+    "publication_stages_passed": 11,
+    "publication_manifest_sha256": "7389f2d89ad4f9622095b0d1dfc15c8bef7623fc3c562f7af1029187628d655d",
+    "warnings_as_errors": true,
+    "boundary": "These earlier technical checks apply to identical production source. No new full-suite, CI or live-business result is inferred by this archive."
+  },
+  "comparison_limits": [
+    "The stop occurred during intent extraction, before discovery or Judge review; it cannot assess the metadata-factoring change.",
+    "No Collections or Amazon run belongs to this cohort. Unchanged failed Amazon extraction was not repeated.",
+    "No completed artifact, execution, matched reliability comparison or avoided-correction estimate."
+  ],
+  "safe_evidence_index": {
+    "freeze.json": "12226cbb7f9952c28fe0dbb8a0cc34f118e0d2bd52c4cb8213ff607efce6ff07",
+    "code-safe-metrics.json": "cbebe66b388f5c56eb559c84016aaa52211437d2ba16470440d95a802cbc23de",
+    "code-retention-apply.json": "87cc15225a6d2491f13956575130d33e888cf7845ee6bd4347a1a82553853741",
+    "campaign-post-code-audit.json": "099bb5627eeb0457c37eba406e7be9d606ca59b8ab0982174f26271c40bfc468",
+    "code-response-format-metrics.json": "628f1b3105bb4b6e4962418d96b3b6a04bae887e87d20334eb3e9bf3a27eec19"
+  }
+}

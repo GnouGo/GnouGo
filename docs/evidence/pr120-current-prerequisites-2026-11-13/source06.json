@@ -1,0 +1,132 @@
+{
+  "identity": "amazon-v14-source-20261113-06",
+  "source": "9992a7a359ee3588dbdc067c67e8ee4feaa7dad3",
+  "policy": "amazon-observed-aax-product-context-v10",
+  "verifier": "amazon-business-v14",
+  "raw_records": 1531,
+  "pages": 72,
+  "own_source_reads": 19,
+  "early_product_reads": 3,
+  "store_reads": 16,
+  "source_qualified": false,
+  "findings": [
+    "source_product_resolution_context_unverified",
+    "search_product_context_unverified",
+    "source_resolutions_incomplete",
+    "first_product_visits_incomplete"
+  ],
+  "exact_retained_card": [
+    {
+      "source_index": 391,
+      "tag": "a",
+      "role": null,
+      "heading_present": false,
+      "context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 23
+      },
+      "semantic_occurrence": null,
+      "href_host": "sponsored-ads.amazon.fr",
+      "href_path": "/clk",
+      "href_has_query": true,
+      "href_fragment": "",
+      "href_sha256": "2ee1069d2ab5039b376c5ded2ade67fe31e582a492a098135b7ba6470c999c56",
+      "own_product_proof": "B0DTP99LGG",
+      "approved_exact_review_alias": false
+    },
+    {
+      "source_index": 393,
+      "tag": "a",
+      "role": null,
+      "heading_present": true,
+      "context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 23
+      },
+      "semantic_occurrence": null,
+      "href_host": "sponsored-ads.amazon.fr",
+      "href_path": "/clk",
+      "href_has_query": true,
+      "href_fragment": "",
+      "href_sha256": "d5ecb1029ca7b42045a5520c869f983d7e85ecd0ebf56c4c92dc99d29707a173",
+      "own_product_proof": "B0DTP99LGG",
+      "approved_exact_review_alias": false
+    },
+    {
+      "source_index": 396,
+      "tag": "a",
+      "role": null,
+      "heading_present": false,
+      "context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 23
+      },
+      "semantic_occurrence": null,
+      "href_host": "sponsored-ads.amazon.fr",
+      "href_path": "/clk",
+      "href_has_query": true,
+      "href_fragment": "customerReviews",
+      "href_sha256": "eb3336c8e845769c57dcc3c0caea6f0dbbd3d389cb909f9c68985215eca3df15",
+      "own_product_proof": null,
+      "approved_exact_review_alias": true
+    },
+    {
+      "source_index": 397,
+      "tag": "a",
+      "role": null,
+      "heading_present": false,
+      "context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 23
+      },
+      "semantic_occurrence": null,
+      "href_host": "www.amazon.fr",
+      "href_path": "/deals",
+      "href_has_query": false,
+      "href_fragment": "",
+      "href_sha256": "e29ff3c06bcdb426d5b5c4dff21df70494df813abe24e5241cd8ef0e9f6a5631",
+      "own_product_proof": null,
+      "approved_exact_review_alias": false
+    },
+    {
+      "source_index": 399,
+      "tag": "a",
+      "role": null,
+      "heading_present": false,
+      "context": {
+        "value": "",
+        "tag": "div",
+        "role": null,
+        "index": 23
+      },
+      "semantic_occurrence": null,
+      "href_host": "sponsored-ads.amazon.fr",
+      "href_path": "/clk",
+      "href_has_query": true,
+      "href_fragment": "",
+      "href_sha256": "d5ecb1029ca7b42045a5520c869f983d7e85ecd0ebf56c4c92dc99d29707a173",
+      "own_product_proof": "B0DTP99LGG",
+      "approved_exact_review_alias": false
+    }
+  ],
+  "omitted_original_records": 0,
+  "model_calls": 0,
+  "business_execution": false,
+  "cold_verification_identical": true,
+  "cleanup": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "new_route_contacted": false,
+  "observation_loss_demonstrated": false,
+  "raw_events_sha256": "e5321ff5f1091ff7f6fb3cb4b3d0bd41530ac477eb70f9f5f7531f10df2a3774"
+}

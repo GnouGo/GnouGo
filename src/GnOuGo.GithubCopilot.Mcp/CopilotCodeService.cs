@@ -62,7 +62,7 @@ internal sealed class CopilotCodeService(
             var error = value.Completed ? null : value.Content.StartsWith("COPILOT_LIMIT_REACHED:", StringComparison.Ordinal)
                 ? "COPILOT_LIMIT_REACHED" : value.Content.StartsWith("COPILOT_SESSION_LIMIT:", StringComparison.Ordinal) ? "COPILOT_SESSION_LIMIT" : "COPILOT_TURN_FAILED";
             return receipt = new(task, contextFiles.Select(f => f.Path).ToArray(), value.ModifiedFiles, value.Content, value.Model,
-                Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value.Content, value.ModifiedFiles, value.Model, context, events, value.Usage),
+                Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value, context, events),
                 context?.TraceId, context?.CorrelationId, context?.TraceParent, Success: value.Completed, ErrorCode: error,
                 ErrorMessage: value.Completed ? null : value.Content) { ToolExecutions = value.ToolExecutions };
         }
@@ -114,10 +114,11 @@ internal sealed class CopilotCodeService(
     {
         var sb = new StringBuilder();
         sb.AppendLine("You are a coding agent operating on a local project through a controlled session filesystem.");
-        sb.AppendLine("Implement the requested change by editing files directly when necessary.");
+        sb.AppendLine("Carry out the requested coding task. Inspect, review, run checks or edit only as requested and permitted by available tools and policy.");
+        sb.AppendLine("Do not assume a tool or command is available. Report missing, denied, failed or incomplete observations explicitly; do not invent command results or exit codes.");
         sb.AppendLine("Only create, update, rename, or delete files required by the task.");
         sb.AppendLine("Respect the project structure and avoid unrelated formatting changes.");
-        sb.AppendLine("When finished, return a concise summary and list the files changed.");
+        sb.AppendLine("When finished, summarize what was actually performed, any unverified work and the files changed.");
         sb.AppendLine();
         sb.AppendLine("[PROJECT ROOT]");
         sb.AppendLine(projectRoot);
@@ -128,7 +129,7 @@ internal sealed class CopilotCodeService(
         sb.AppendLine("[INITIAL CONTEXT FILES]");
         if (contextFiles.Count == 0)
         {
-            sb.AppendLine("No file context was provided. Inspect the project as needed before editing.");
+            sb.AppendLine("No file context was provided. Inspect the project as needed for the requested task.");
         }
         else
         {
@@ -144,37 +145,35 @@ internal sealed class CopilotCodeService(
     }
 
     private static string BuildAgentEditOutput(
-        string summary,
-        IReadOnlyList<string> modifiedFiles,
-        string? model,
+        CopilotSendResult result,
         CodeMcpTraceContext? traceContext,
-        IReadOnlyList<CodeProgressEvent> progressEvents,
-        CopilotUsage? data)
+        IReadOnlyList<CodeProgressEvent> progressEvents)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("Copilot agent completed.");
+        sb.AppendLine(result.Completed ? "Copilot agent completed." : "Copilot response incomplete.");
         sb.AppendLine();
 
-        if (!string.IsNullOrWhiteSpace(summary))
+        if (!string.IsNullOrWhiteSpace(result.Content))
         {
             sb.AppendLine("Summary:");
-            sb.AppendLine(summary.Trim());
+            sb.AppendLine(result.Content.Trim());
             sb.AppendLine();
         }
 
-        if (!string.IsNullOrWhiteSpace(model))
-            sb.AppendLine($"Model: {model}");
+        if (!string.IsNullOrWhiteSpace(result.Model))
+            sb.AppendLine($"Model: {result.Model}");
 
         if (!string.IsNullOrWhiteSpace(traceContext?.TraceId))
             sb.AppendLine($"OpenTelemetry trace_id: {traceContext.TraceId}");
         if (!string.IsNullOrWhiteSpace(traceContext?.CorrelationId))
             sb.AppendLine($"Correlation ID: {traceContext.CorrelationId}");
-        if (!string.IsNullOrWhiteSpace(data?.RequestId))
-            sb.AppendLine($"Copilot request_id: {data.RequestId}");
-        if (!string.IsNullOrWhiteSpace(data?.InteractionId))
-            sb.AppendLine($"Copilot interaction_id: {data.InteractionId}");
+        if (!string.IsNullOrWhiteSpace(result.Usage?.RequestId))
+            sb.AppendLine($"Copilot request_id: {result.Usage.RequestId}");
+        if (!string.IsNullOrWhiteSpace(result.Usage?.InteractionId))
+            sb.AppendLine($"Copilot interaction_id: {result.Usage.InteractionId}");
 
         sb.AppendLine();
+        var modifiedFiles = result.ModifiedFiles;
         sb.AppendLine(modifiedFiles.Count == 0
             ? "Modified files: none reported."
             : $"Modified files ({modifiedFiles.Count}):");

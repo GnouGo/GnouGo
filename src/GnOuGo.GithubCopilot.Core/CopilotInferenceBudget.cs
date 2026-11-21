@@ -10,6 +10,8 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
 {
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile bool _stopped;
+    private string? _toolBudgetUpdate;
+    internal string? TakeToolBudgetUpdate() => Interlocked.Exchange(ref _toolBudgetUpdate, null);
     public DateTimeOffset Deadline { get; } = deadline;
     public int ModelCalls { get; private set; } = initialCalls;
     public long ChargedTokens { get; private set; } = initialTokens;
@@ -55,6 +57,14 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
                 throw new InvalidOperationException("Bounded inference permits one completion per request.");
             ModelCalls++; ChargedTokens = checked(ChargedTokens + inputCeiling + outputCeiling);
             await persistReservation(ModelCalls, ChargedTokens, ct);
+            // One model-context update per admitted request, even when its tools finish concurrently.
+            var available = maxTotalTokens - ChargedTokens;
+            var recent = inputCeiling + outputCeiling;
+            var advice = available < 2 * recent || maxModelCalls - ModelCalls <= 2
+                ? "Prioritize a complete final response with observed results, failures and unfinished work."
+                : "Reserve room for a complete final response.";
+            Volatile.Write(ref _toolBudgetUpdate, FormattableString.Invariant(
+                $"Operation allowance remaining: {maxModelCalls - ModelCalls} inference requests, {available} reservable tokens. Last request reserved {recent}. {advice}"));
             var original = request.Content;
             request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
             original.Dispose();
@@ -81,20 +91,11 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     }
 }
 
-internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler
+internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy,
+    CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
-    private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-    {
-        await budget.ReserveAsync(request, context.CancellationToken);
-        try
-        {
-            return proxy is null
-                ? await Direct.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(request, context);
-        }
-        catch { budget.RecordTransportFailure(); throw; }
-    }
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, budget.ReserveAsync, budget.RecordTransportFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded logical operations."));
 }

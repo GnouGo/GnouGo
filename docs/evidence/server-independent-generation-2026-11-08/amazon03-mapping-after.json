@@ -1,0 +1,1 @@
+{"error":null,"counters":{"statements":145533,"statement_limit":1000000,"elapsed_ms":84.104,"time_limit_ms":15000,"allocated_bytes":39133360,"materialized_bytes":37421560,"output_bytes":2543204,"memory_limit_bytes":1000000000,"nesting_depth":10,"nesting_limit":64},"input_bytes":5088001,"output_bytes":2543204}

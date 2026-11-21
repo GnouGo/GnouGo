@@ -1,0 +1,346 @@
+{
+  "evidence_schema_version": 1,
+  "kind": "sanitized_live_terminal_evidence",
+  "source_commit": "3b8d087c8ecfdcb5ff6c91905ae3285ca72179fe",
+  "source_worktree_clean_verified_before_run": true,
+  "campaign": "schema-portability-20261019-incremental",
+  "run": "biz3b8d087camz01-amazon-1",
+  "terminal_observed_at_utc": "2026-10-30T11:59:55Z",
+  "status": "stopped",
+  "planning_milliseconds": 582944,
+  "logical_calls": 6,
+  "physical_attempts": 6,
+  "complete_outputs": 5,
+  "output_limited_outputs": 1,
+  "repair_attempts": 0,
+  "accepted_checkpoints": 0,
+  "accepted_productive_blocks": 0,
+  "business_reviews": 0,
+  "execution_status": "not_started",
+  "diagnostic_codes": [
+    "MODEL_OUTPUT_LIMIT"
+  ],
+  "draft_count_observable": false,
+  "draft_continuation_observable": false,
+  "diagnostic_scope": "The first draft returned no content. No TaskPlan fragment, recursive count, continuation choice or scope completion was observable.",
+  "numeric_budget_presentation": {
+    "captured_global_limit": 8,
+    "exact_issued_context_maxTasksPerDraft": 8,
+    "one_total_guidance_present": true,
+    "nested_control_branch_group_cleanup_counting_guidance_present": true,
+    "bounded_partial_continuation_guidance_present": true,
+    "request_hash_matches_saved_measurement": true,
+    "conclusion": "The presentation change was present in the actual dispatched request. No response was available to test whether the model would obey it."
+  },
+  "exact_draft6_evidence": {
+    "request_sha256": "00049d20d32f0c79f34b83a64b3836f3bcd263a4ed77451a8826be779ff0081c",
+    "request_hash_basis": "UTF-8 bytes of retained serialized dispatched LLMRequest, excluding the export newline; independently verified against the measurement.",
+    "serialized_request_bytes": 42786,
+    "schema_sha256": "c6f25a37edef93546c870e49a70c14abca900e46c34460df5d0260d90fd30dfe",
+    "schema_hash_basis": "Exact UTF-8 serialized structuredOutputSchema substring from the dispatched request; independently verified against the measurement.",
+    "serialized_schema_bytes": 22792,
+    "received_response_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "received_response_hash_basis": "UTF-8 bytes of exact retained provider assistant message content, equal to receipt.text; content is empty.",
+    "received_response_content_bytes": 0,
+    "exported_request_record_file_sha256": "3ec17f6a5e2f82210012eadea6c6a1ffbbbdaa68beef2b39e0a299cf012574ad",
+    "exported_receipt_file_sha256": "6f57ba80fe69504e95082cd96a3d2f2b28b01b1e6bed58d3ae0316a9f2907d54"
+  },
+  "final_call": {
+    "ordinal": 6,
+    "phase": "construction_draft",
+    "completion_status": "output_limit",
+    "provider_finish_reason": "length",
+    "issued_output_token_allocation": 16384,
+    "provider_input_tokens": 8697,
+    "provider_output_tokens_including_reasoning": 16384,
+    "provider_reasoning_tokens_subset": 16384,
+    "received_content_bytes": 0,
+    "json_present": false,
+    "physical_attempts": 1,
+    "uncertain_attempts": 0,
+    "known_cost_eur": "0.4805578011317704122877930477",
+    "host_invocation_milliseconds": "301679.5008",
+    "duration_interpretation": "Host elapsed time does not establish a timeout; the recorded provider completion is output_limit.",
+    "replay_or_allocation_escalation_authorized": false
+  },
+  "usage_and_cost": {
+    "provider_input_tokens": 22105,
+    "provider_output_tokens_including_reasoning": 25586,
+    "provider_reasoning_tokens_subset": 24572,
+    "known_cost_eur": "0.7887406808587083445612144076",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": "0",
+    "accounting_rule": "Reasoning is a subset of reported output tokens and is not added again. Prepared-only measurements and request-byte estimates are not billed usage."
+  },
+  "warning_inventory": {
+    "token_threshold_mode": "advisory",
+    "prepared_measurements_total": 8,
+    "dispatched_requests": 6,
+    "prepared_only_measurements": 2,
+    "warnings_all_prepared": 7,
+    "warnings_dispatched": 5,
+    "warnings_prepared_only": 2,
+    "warning_kinds": {
+      "input_target": 7
+    },
+    "output_limit_classification": "Terminal provider completion diagnostic, separately recorded from advisory input-target warnings.",
+    "entries": [
+      {
+        "call_ordinal": 2,
+        "phase": "construction_select",
+        "admission": "admitted",
+        "kind": "input_target",
+        "current": 4102,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      },
+      {
+        "call_ordinal": 3,
+        "phase": "construction_discovery",
+        "admission": "admitted",
+        "kind": "input_target",
+        "current": 4053,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      {
+        "call_ordinal": 4,
+        "phase": "construction_discovery",
+        "admission": "admitted",
+        "kind": "input_target",
+        "current": 5507,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      {
+        "call_ordinal": 5,
+        "phase": "construction_discovery",
+        "admission": "prepared",
+        "kind": "input_target",
+        "current": 7309,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      {
+        "call_ordinal": 5,
+        "phase": "construction_discovery",
+        "admission": "admitted",
+        "kind": "input_target",
+        "current": 7899,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      {
+        "call_ordinal": 6,
+        "phase": "construction_draft",
+        "admission": "prepared",
+        "kind": "input_target",
+        "current": 14375,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      {
+        "call_ordinal": 6,
+        "phase": "construction_draft",
+        "admission": "admitted",
+        "kind": "input_target",
+        "current": 14518,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      }
+    ]
+  },
+  "phases": {
+    "construction_intent": {
+      "prepared_measurements": 1,
+      "dispatched_calls": 1,
+      "prepared_only_measurements": 0,
+      "dispatched_serialized_request_bytes": [
+        7283
+      ],
+      "prepared_only_serialized_request_bytes": [],
+      "dispatched_serialized_request_bytes_sum": 7283,
+      "peak_dispatched_request_bytes": 7283,
+      "dispatched_estimated_input_tokens": [
+        2684
+      ],
+      "provider_input_tokens": 1204,
+      "provider_output_tokens_including_reasoning": 1863,
+      "provider_reasoning_tokens_subset": 1536,
+      "known_cost_eur": "0.0556094493847121171292553669",
+      "unknown_attempts": 0,
+      "input_target_warning_count_dispatched": 0,
+      "input_target_warning_count_prepared_only": 0,
+      "component_serialized_byte_totals_all_prepared": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 422,
+        "instructions": 1404,
+        "intent": 1188,
+        "interfaces": 59,
+        "response_schema": 4155
+      }
+    },
+    "construction_select": {
+      "prepared_measurements": 1,
+      "dispatched_calls": 1,
+      "prepared_only_measurements": 0,
+      "dispatched_serialized_request_bytes": [
+        11536
+      ],
+      "prepared_only_serialized_request_bytes": [],
+      "dispatched_serialized_request_bytes_sum": 11536,
+      "peak_dispatched_request_bytes": 11536,
+      "dispatched_estimated_input_tokens": [
+        4102
+      ],
+      "provider_input_tokens": 2357,
+      "provider_output_tokens_including_reasoning": 4480,
+      "provider_reasoning_tokens_subset": 4088,
+      "known_cost_eur": "0.1313078235875325608551154226",
+      "unknown_attempts": 0,
+      "input_target_warning_count_dispatched": 1,
+      "input_target_warning_count_prepared_only": 0,
+      "component_serialized_byte_totals_all_prepared": {
+        "construction_context": 911,
+        "envelope": 489,
+        "instructions": 3036,
+        "interfaces": 294,
+        "requirements": 2389,
+        "response_schema": 4417
+      }
+    },
+    "construction_discovery": {
+      "prepared_measurements": 4,
+      "dispatched_calls": 3,
+      "prepared_only_measurements": 1,
+      "dispatched_serialized_request_bytes": [
+        11390,
+        15753,
+        22929
+      ],
+      "prepared_only_serialized_request_bytes": [
+        21158
+      ],
+      "dispatched_serialized_request_bytes_sum": 50072,
+      "peak_dispatched_request_bytes": 22929,
+      "dispatched_estimated_input_tokens": [
+        4053,
+        5507,
+        7899
+      ],
+      "provider_input_tokens": 9847,
+      "provider_output_tokens_including_reasoning": 2859,
+      "provider_reasoning_tokens_subset": 2564,
+      "known_cost_eur": "0.1212656067546932542890505704",
+      "unknown_attempts": 0,
+      "input_target_warning_count_dispatched": 3,
+      "input_target_warning_count_prepared_only": 1,
+      "component_serialized_byte_totals_all_prepared": {
+        "construction_context": 4329,
+        "envelope": 1947,
+        "instructions": 8676,
+        "mcp_descriptors": 7832,
+        "objective": 2376,
+        "requirements": 9565,
+        "response_schema": 25006,
+        "evidence": 11499
+      }
+    },
+    "construction_draft": {
+      "prepared_measurements": 2,
+      "dispatched_calls": 1,
+      "prepared_only_measurements": 1,
+      "dispatched_serialized_request_bytes": [
+        42786
+      ],
+      "prepared_only_serialized_request_bytes": [
+        42357
+      ],
+      "dispatched_serialized_request_bytes_sum": 42786,
+      "peak_dispatched_request_bytes": 42786,
+      "dispatched_estimated_input_tokens": [
+        14518
+      ],
+      "provider_input_tokens": 8697,
+      "provider_output_tokens_including_reasoning": 16384,
+      "provider_reasoning_tokens_subset": 16384,
+      "known_cost_eur": "0.4805578011317704122877930477",
+      "unknown_attempts": 0,
+      "input_target_warning_count_dispatched": 1,
+      "input_target_warning_count_prepared_only": 1,
+      "component_serialized_byte_totals_all_prepared": {
+        "construction_context": 3999,
+        "diagnostics": 52,
+        "envelope": 992,
+        "evidence": 50,
+        "fragment": 44,
+        "instructions": 3240,
+        "interfaces": 678,
+        "mcp_contracts": 24532,
+        "objective": 1188,
+        "requirements": 4784,
+        "response_schema": 45584
+      }
+    }
+  },
+  "campaign_at_terminal_inspection": {
+    "evidence_hash": "7efddcca2e0cca77e455f0561504b21248b136d405d0337c25504738fdfddc12",
+    "retained_inconclusive_closures": 57,
+    "unresolved_requests": 0,
+    "cost_ceiling_eur": "640.0301038327063045424449473",
+    "known_cost_eur": "389.87804290902634182942656807",
+    "reserved_cost_eur": "125.68706630952572698966405760",
+    "cost_upper_bound_eur": "515.56510921855206881909062567",
+    "available_ceiling_eur": "124.46499461415423572335432163",
+    "unknown_physical_attempts_in_historical_ledger": 147,
+    "interpretation": "Historical uncertain attempts remain conservatively accounted for; all unresolved request identities are covered by retained closures. This run introduced no uncertain attempt."
+  },
+  "static_partial_fragment_audit": {
+    "basis": "Read-only inspection of the exact issued draft grammar/context and the pinned implementation; no generated fragment exists to validate.",
+    "selected_kind": "sequence",
+    "selected_scope": "/root",
+    "selected_operations": 3,
+    "selected_close_requirement_ids": [],
+    "selected_public_output_names": [],
+    "continueInScope_schema": "Nullable string, maximum length 192; the issued schema does not exclude /root or newly supplied owned body paths.",
+    "continuation_host_authority": "The original scope or an exact open control/group body owned by this block; no workflow completion, deferred-consumer discharge or boundary transition may accompany a partial continuation.",
+    "commitment_schema": "Nullable array with minimum zero; no obligation to echo all displayed selected operations.",
+    "commitment_host_behavior": "StageCommitments replaces tentative pending operations with operations actually present in the candidate fragment. Full selected-operation coverage is checked only when continueInScope is null, using current and earlier same-block tasks.",
+    "same_block_preservation": "Accepted partial fragments retain the CurrentStep identity and revalidate its new scope; requirements remain in progress and the next fragment need not repeat the anchor.",
+    "deterministic_whole_workflow_in_one_fragment_requirement_found": false,
+    "presentation_observation": "The authoring context displays the selected whole-block operation commitments. The nullable response grammar and host staging allow a subset in each partial fragment. The empty output does not show how the model interpreted this context.",
+    "source_references": [
+      "PlanningCompactConstruction.Schemas.cs:101",
+      "PlanningCompactConstruction.Schemas.cs:150",
+      "PlanningCompactConstruction.Validation.cs:38",
+      "PlanningCompactConstruction.Validation.cs:182",
+      "PlanningCompactConstruction.Validation.cs:212",
+      "PlanningCompactConstruction.BusinessBlocks.cs:70",
+      "PlanningCompactConstruction.BusinessBlocks.cs:104",
+      "HybridWorkflowPlanner.Construction.cs:230"
+    ]
+  },
+  "hypothesis_results": {
+    "numeric_recursive_budget_presentation": "verified in the exact issued request; response compliance remains untested because the first draft returned no content.",
+    "populated_scope_mechanical_closure_live_path": "unexercised; no fragment reached validation.",
+    "fresh_session_transport": "selection and discovery completed; draft also has a complete usage receipt with output_limit, not an uncertain transport outcome.",
+    "semantic_cause_of_empty_draft": "not established by the retained evidence.",
+    "scenario_qualification": "not qualified; no accepted workflow, business review, execution, or oracle success."
+  },
+  "sanitization": {
+    "raw_prompts_included": false,
+    "raw_responses_included": false,
+    "private_filesystem_paths_included": false,
+    "hashes_retain_exact_private_evidence_identity": true
+  }
+}

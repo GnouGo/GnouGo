@@ -5,56 +5,255 @@ description: Develop or review GnOuGo workflow planning, TaskPlan compilation, s
 
 # Planning
 
-Generate the smallest sufficient executable business TaskPlan for the user's request. Preserve necessary validation, shared computation, cleanup and recovery boundaries; task count alone is not a measure of simplicity.
+Build one incremental semantic TaskPlan through the existing coordinator, compiler and execution engine. Keep production behavior generic; business scenario expectations belong in independent benchmark oracles.
 
-Never introduce use-case-specific instructions, examples, heuristics, capability names, business entities or expected workflows into this skill, shared planning prompts or production planner logic. Scenario context comes from the user's request, discovered capabilities, authoritative contracts and retained session context. Keep scenario-specific examples and independent expected outcomes in tests and evidence. Do not filter legitimate domain text from dynamic context.
+## Authority and progression
 
-## Responsibilities
+Original requests, answers and unchanged MCP contracts establish authority. Retain them encrypted with tenant ownership. Derive immediate work from actual scope ownership, accepted producers, exact bindings, suspended consumers and remaining obligations. An original clause states the complete obligation; an immediate substep can contribute one producer or prerequisite without claiming that obligation complete. Reuse suitable results; repair demonstrated accepted defects through explicit scoped revision. Compatible types and operation names alone do not establish business suitability.
 
-Prioritize deterministic validation, precise diagnosis and bounded correction over perfecting the initial prompt. Use the existing planning loop: requirements and material clarification, capability discovery and exact-contract inspection, then a structured semantic TaskPlan. Clear requests with available contracts can complete in one model call when optional evaluation is disabled. Add no IR, executor or mandatory model phase.
+Keep public returns distinct from local exports, files and effects. A group declares reusable inputs and a body; a call invokes it. An inline control body is not a reusable group. Open containers expose no consumable completion. Preserve captures, guards, ordering, iteration bounds, permissions, provenance and failure cleanup.
 
-- The LLM selects business operations, arguments, decisions, conditions, dependencies and requested results. It identifies semantic sources and fields using existing TaskPlan bindings. It does not author executor envelopes, wire paths, scripts or technical proof mappings.
-- The deterministic compiler resolves declared bindings, performs typed copying, field projection and object/row assembly, derives technical dependencies, validates contracts and lowers through PlanningGraph to YAML. YAML is never the model's target representation.
-- Compilation must not invent business decisions, defaults, missing values or external effects. Compatible shapes and similar names do not establish meaning, identity or producer ownership.
-- MCP producers own operation contracts, effects, permissions and provenance. Discover unavailable contracts; do not simulate external work with transforms or replace execution with an unrequested document.
+After an owned business block has accepted contributions, expose its completion claim independently of workflow-scope or original-requirement closure. A selected unchanged-plan claim may skip another drafting echo; ordinary validation and business review still examine the accepted behavior. Do not require invented tasks to request that review or infer global completion from it.
 
-## Composition and contracts
+Recover issued work before selecting another action. Automate exact contract retrieval, pagination, reference resolution and authorized mechanical transitions. Offer plain resumption bindings that fit the retained prerequisite type; preserve field navigation and the final exact validation. Offered accepted-scope evidence must be retrievable before selecting that scope; reading its declarations grants no binding visibility. An explicit consumer binding may use technically accepted work whose business review is pending; validate and review its composition normally. Automatic resumption requires an exact reviewed association or an explicit, technically accepted association in the same active business block. Same-block acceptance binds the original claims and complete consumer snapshots to their checkpoint; technical resumption does not complete the business responsibility. Cross-block resumption retains reviewed authority. Evidence-linked prerequisite notes remain available to review; they do not by themselves require a model call to echo an already selected unchanged-plan closure. For the first such claim, use ordinary candidate application to initialize the declared interface; no accepted executable work is created or inferred. Preparing that claim does not resolve its business meaning or waive review. Validate on clones and journal each accepted transition once. Do not introduce another plan, scheduler or execution engine.
 
-Prefer direct consumer bindings and scope exports for deterministic values. Keep an explicit task only when it performs business work or preserves a necessary computation, validation or durability boundary. Do not replace interpretation with copying merely because their types match.
+Present only transitions compatible with the selected action. A boundary that this draft must close cannot also receive a deferred boundary claim. Diagnose that exact conflict; preserve legal ancestor actions and their ordinary validation and review.
 
-- `requires` is a mandatory Boolean assertion: false fails before work. `conditional` routes alternative execution paths. Preserve short-circuit order and nullable access checks.
-- `extract` returns observed facts from supplied evidence; `interpret` performs genuine decisions or requested synthesis. Neither performs tool calls. Historical omitted transform mode retains its meaning.
-- `value` is deterministic typed assembly. `field` selects one literal declared object property. `lookup` reconnects records by identity; it does not merge objects. `flatten` concatenates one explicit collection level. `foreach` expresses repeated work, including a necessary typed collection projection.
-- Preserve exact requested content, opaque identities, order, repetitions and explicit nulls. Missing differs from null; defaults require authoritative declarations. Never fabricate data to satisfy a result contract.
-- Preserve complete required observations and producer provenance. Narrow decision inputs through explicit declared fields; do not silently sample, truncate, filter or deduplicate. Bounds do not increase host limits or prove completeness.
-- Validate types, constraints, nullability, scope, availability and provenance before lowering. Keep opaque contracts opaque. Preserve complete schema alternatives and runtime validation; compiler defects are not model repair requests.
-- Data references imply dependencies. Ancestor captures and explicit scope exports preserve availability; conditional branches expose matching interfaces. Keep normal results in the normal path and genuine preservation/cleanup in finalizers.
+## Context and contracts
 
-## Intent, correction and approval
+Use compact discovery field guides derived from the authoritative response schema,
+including required nested action fields. Do not copy the entire recursive grammar
+or issued-value directories into the prompt by default. Preserve the complete
+strict schema and original context; measure and hash fresh guidance before dispatch.
+Recover historical issued requests exactly without adding new presentation.
 
-Compare accepted requirements and actual work with the original request and retained answers. Commitments are non-executable obligations grounded in inspected operations and declared producer/public-output ports. Never derive missing obligations from the plan being assessed.
+Business and implementation selection share `overallProgress`, a transient index of
+original expected results, global constraints, accepted contributions, contractual
+result connections and missing public bindings. Reuse existing coverage, reachability
+and completion assessment once per prepared request. Keep original text and result
+descriptions in their existing presentation and link them with request-bound evidence;
+do not create a second plan, persistent status cache or a model call to summarize it.
+An accepted declaration, structurally reachable contribution, current business review
+and observed execution remain different facts. Missing public bindings concern only
+required public outputs; files and effects retain their original obligations. A
+missing or ambiguous boundary can leave lineage unverified while final validation
+establishes a technical obstacle. This view grants no repair or invocation authority.
+Offer the progress index's original/page links through the existing evidence schema
+at both stages. Present requested original declarations and page continuations without
+turning implementation scopes into business context or duplicating original clauses.
 
-Keep verified clauses, violations and unverified aspects distinct. Operation presence, structured output and compilation do not prove arguments, prose completeness, per-item execution or successful effects. Human acknowledgment does not upgrade uncertainty into verification.
+Compare functional decomposition across equivalent capability packaging and technical
+fragment sizes by original obligations, preserved criteria and observable outcomes,
+not identical labels or a universal block count. A cursor or helper does not replace
+the active responsibility; preserve its objective and criteria until reviewed completion.
 
-Clarify only material missing business decisions or facts through the existing interaction loop. Preserve recommended alternatives, custom answers and Auto/Human behavior; recommendations are not authorization. Answers preserve accepted intent, correction authority and cumulative accounting. Requirement/interface changes require explicit revision.
+Understand short requests in one pass: retain the complete original and extract exact acceptance clauses and typed caller/public interfaces together. Measure the complete request before deciding whether source pagination is necessary; crossing a target alone must not cause another call. Paginate genuinely large sources at natural boundaries, retaining exact continuations. Validate coverage and declarations atomically. Additional intent calls resolve concrete missing evidence or business facts. A clause is an acceptance criterion, not a required task, container or closure call. Do not invent missing types or defaults. An array type's null maximum is unspecified; zero permits no elements. Keep these type constraints distinct from finite control/runtime capacities.
 
-Use the smallest diagnostic-derived correction scope under captured policy. Apply edits atomically and revalidate the complete plan before bounded structural regeneration. Preserve unrelated work, effects, arguments, ordered assertions, cleanup, accepted interfaces and host-owned bindings. Read-only context grants no edit authority. Stop repeated failures, exhausted allowances and changes whose preservation cannot be established. Explicitly authorized defaults apply only to new sessions; never automatically increase budgets, retries or timeouts to compensate for poor generation.
+Implementation decisions include the actual owning control or reusable group, its isolated interface and open intent; a scope path or label does not supply that context. Generation addresses the immediate business action with exact consumed bindings, original producer arguments and necessary schema closures. Reflect contract-declared artifact consumption in binding choices: matching literals or computed text do not establish producer provenance. References still require compiler checks and business-meaning review. Preserve nullable values, required siblings, alternatives, references and normative constraints. Page optional navigation and retrieve exact originals rather than silently truncating mandatory evidence. Keep cached operation identities, original descriptions and exact retrieval links visible across accepted steps. Cached metadata does not make a new provider query complete or grant contract or execution authority. Task completion (`present`) differs from input or field nullability.
 
-An optional business judge independently compares the retained request, accepted answers, requirements, discovered contracts and TaskPlan after deterministic validation. Its structured observations are advisory, never deterministic proof or correction authority. Use the existing scoped correction and clarification paths; do not infer permissions from judge-proposed edits. Keep evaluation disabled by default until independent oracles establish useful benefit. Judge calls share the session's existing model-call, token, financial and time allowances, journals and recovery; no parallel allocation or hidden retries.
+Present short original requests once and in full through selection, discovery, drafting and relevant business review; avoid duplicating the same clause text in surrounding directories. For large originals, derive local evidence from selected obligations, actual consumed producers, enclosing controls, completion claims and retained repairs. Preserve linked clauses, indexed global constraints and exact retrieval links. Operation metadata establishes contracts, not executed results. Keep MCP eligibility independent of intent presentation. Once actual consumed interfaces are present, keep checkpoint navigation to exact retrieval links. Share only byte-identical contract presentation under the same exact contract identity. The final global review examines every obligation.
 
-Before model dispatch, establish compatibility with declared provider/model capabilities and admit the complete serialized request against its effective allowance. Keep input estimates, byte bounds, output reservations and cumulative budgets distinct. Unknown runtime input size is unverified, not proof that a consumer fits. Never truncate indispensable evidence or silently change model settings to obtain admission.
+Measure the complete serialized request, including instructions, response schema and envelope. Compact optional navigation toward the captured input target, preserving actual bindings, controls and explicitly retrieved evidence. A trusted benchmark campaign may capture advisory project token thresholds: crossings then produce host warnings throughout preparation, evidence admission, dispatch and cumulative accounting, never repair diagnostics or rejection. Ordinary hosts and model-authored inputs reject reserved authority. Agent.Server captures it only for a new session after server enablement and protected loopback operator authentication; verify the encrypted tenant/session capture on restart and pass host authority outside model inputs. Preserve strict financial, permission, physical-provider and replay controls.
+Normal local Agent.Server startup opens its protected operator window, and new authenticated operator plans default to diagnostic warnings. Keep Strict explicitly selectable; unauthenticated ordinary hosts remain strict. Resolve omitted request policies from authorized host defaults, never model-authored options. Operator authentication protects diagnostic activation and detailed LLM inspection; it must not gate ordinary strict planning pages or commands. Explain normal local startup when inspection is unavailable; the Diagnostic profile remains an alias. Show full redacted input/output through encrypted OTel content references, not exported business-content span attributes. Resolve the provider's configured KeyVault model ahead of stale user model defaults, before workers start; preserve existing captured sessions.
+Warning authority is independent of output allocation. New diagnostic sessions use
+configured phase allocations and overrides by default; verified model maximum is
+an explicit host opt-in. Preserve historical captures. Planning exposes engine
+progress and links to the shared OTel/journal inspector, never a second call list.
+Exact journal receipts/reservations remain authoritative; telemetry grants no
+acceptance, replay or planning authority.
+The captured fresh diagnostic optimization policy also makes planning call, correction,
+checkpoint, graph-size, session-time and nonproductive-count targets advisory. Historical
+token-only captures retain their original scope. Explicit execution resource budgets and
+per-request timeouts/retries remain hard. Warnings never enter candidate diagnostics. Conservative estimates are not physical model limits; keep API output allocations captured and reject incomplete responses. Admit evidence batches atomically with their complete prospective follow-up. Repeated evidence without relevant progress is not progress. Never escalate settings within a session.
 
-Approval requires explicit requirement acknowledgments, current revision and artifact hash. Recompute contractual coverage; confirmed violations block approval. Do not preselect or manufacture acknowledgments. Preserve tenant isolation, encryption, confinement, permissions and cross-process leases. Unknown completion blocks replay and dependent cleanup. Post-execution correction creates a separate unapproved draft.
+Use request-bound short evidence IDs only for navigation. Keep original field paths visible beside optional-schema retrieval IDs, including after other branches have been inspected; a short ID alone does not describe the available input. Persist the exact canonical mapping with the issued request before dispatch, bind it to that request, and preserve raw receipts. Resolve IDs before canonical repeat/progress checks; never rebuild a map from newer context or change TaskPlan reference semantics. Keep host-fixed values and unavailable actions out of the response grammar rather than asking the model to echo them.
 
-## Compatibility and validation
+For an operation task cited by a retained business defect, expose its original editable input schemas during correction, including absent optional arguments. Do not require another discovery call to make the diagnosed repair representable. Distinguish offered inputs from actual bindings; unrelated operations keep ordinary compaction. Derive bound arguments from the current candidate across root, control and reusable-group bodies, including repaired values. Schema visibility grants no additional edit, contract or execution authority.
 
-Preserve historical TaskPlans, issued schemas, correction authority, receipts, approvals, compiler profiles and YAML. Capture new behavior only for fresh sessions or explicitly authorized revisions; do not reinterpret pending requests or silently migrate historical artifacts.
+## Validation and business review
 
-Reproduce failures with focused regressions and independent business oracles. Check actual emitted requests, exact outputs, effects, cleanup and recovery. Distinguish deterministic fixtures and replay from live-model and execution results. Preserve failed evidence. Paid or externally effectful live evaluations require separate authorization, frozen cohorts and cumulative accounting.
+Code establishes technical facts: original contracts, types, concrete references, scopes, dependencies, permissions and provenance. Business Judges assess actual behavior and original obligations. Independent runtime oracles establish execution success. None grants another's authority.
 
-Read the relevant maintained reference when changing its subsystem:
+Generation and judgment have different granularity. Several fragments may form one coherent business block. Technically validated checkpoints retain completion claims while business review is pending; those claims must not hide unfinished original obligations from selection. Offer closure choices from the existing eligibility checks, excluding a claim already retained on the unchanged plan. Only an applicable successful business review establishes business closure. Empty openings, unused group declarations and exact mechanical exports or closures do not independently require Judge calls. Review completed business work when continuing beyond it. Prefer finalization over a pending local review: a small workflow can receive one global review and no local reviews. Preparing that review from retained claims does not approve them.
 
-- [Architecture and migration](../../../docs/workflow-planning-v9.md): package boundaries, interaction, approvals and historical compatibility.
-- [Compiler and correction contracts](../../../src/GnOuGo.Flow.Planning/README.md): schemas, validation and versioned repair authority.
-- [Compact compilation](../../../docs/compact-workflow-bindings.md): lowering, ordered checks and compiler v15 compatibility.
-- [Runtime mappings](../../../docs/runtime-mappings.md): extraction, sandbox limits, provenance, caching and recovery.
+Select immutable business responsibilities without kinds, scopes, MCP identifiers,
+bindings or fragment budgets. Preserve objectives, original obligations, information needs,
+expected results, existing-result dependencies and success criteria. Link the technical
+CurrentStep through BlockId; Step.Id owns technical anchors while BlockId owns business
+contributions and review. Required completeBlock requests business review; null technical
+continueInScope alone never completes the block. Use selection-contract marker 2 with one required discriminated `action` object;
+offer only available nonnullable action branches. Preserve raw invalid-response
+evidence, canonical evidence IDs and repeat guards. Reject incompatible old
+continuations unchanged without inventing blocks.
+
+Use the existing multi-task fragment for a coherent business block: its selected anchor, related value/transform helpers, exact selected operations, available dependencies, legal exports and cleanup. Populate necessary control/group bodies; the recursive task bound is a warning target under the fresh diagnostic policy, with complete contributions validated intact. Close newly supplied complete bodies mechanically, including empty optional branches; retain explicit continuation boundaries, evidenced empty prerequisite openings and their ancestors. Existing boundaries and root keep explicit closure authority. An empty-only opening requires a current evidence-linked unresolved prerequisite for the same responsibility. A partial fragment may retain the same step through an exact original or block-owned open scope, without closing requirements or discharging consumers. Reuse accepted results and exact contracts before asking another semantic question. Preserve genuine control boundaries and anchor-specific authority; do not add scenario rules or widen repair authority to avoid a planning call.
+
+Every completed workflow requires global business review before approval. Review actual arguments, consumed data meaning, controls, composition, outputs, effects and failure cleanup against all original obligations. Show the actual enclosing scope states and their existing cleanup when reviewing a child boundary. Closing that child does not close its open ancestors or complete a global cleanup obligation. Future work in open fragments is not an omission. Finite iteration capacity is not an unstated required cardinality.
+
+Build a minimal transient business projection directly from validated TaskPlan behavior. Include only decision-relevant originals, actions, expressions, meaningful producer provenance and original MCP semantics. A consumed closed control retains its actual child actions, calls, exports and cleanup; a filtered action list must not manufacture missing behavior. Transform interpretation instructions remain executable behavior. Detailed schemas remain validated by code and available through targeted retrieval. Receipts, hashes, version checks and authority bookkeeping stay in host journals, never a Judge manifest.
+
+Use one short verdict: ok, needs_change or needs_context. Findings identify an original obligation and concrete implementation. Missing context does not establish a defect. Incomplete review cannot approve work. Grounding does not prove a natural-language conclusion true; never adjudicate semantics by keywords or confidence thresholds.
+
+Context retrieval does not consume the separate single opportunity to correct a supported misinterpretation on unchanged evidence and plan. Reuse the existing evidence and correction flow; add no contestation protocol. Preserve reports and charge every call. Only actual repairs consume corrections. Repeated strategies without relevant progress stop unless a fresh authenticated host captured `diagnostic_progress_policy: advisory-v1`. In that case completed side-effect-free repeated generation warns and continues normal validation; preserve every rejected finding, receipt and repeat identity. Never accept an invalid result or redispatch an uncertain request. Historical policies keep their old repeat behavior.
+
+Retain exact defects, affected values, permitted edits and failed attempts through repair. A grounded defect in an earlier technically accepted checkpoint awaiting business review permits bounded typed repair through existing revision authority; a null-patch reconsideration must not be its only route. Establish exact ownership and edit paths, invalidate affected dependencies and approval, preserve independent checkpoints, and require renewed review. A partial repair contributes to its requirement without claiming that requirement complete; retain only established completion claims. Reuse the shared typed binding grammar for diagnosed values. Do not offer a fixed wrapper around an invalid expression as a repair, or force unchanged multiline instructions into response-schema constants. A changed hash proves novelty, not resolution. Cosmetic edits do not repair an unchanged binding. A consumer can remain unchanged while a corrected upstream argument changes its result's meaning: check the retained implementation and dependency evidence before declaring non-progress, then require renewed business review. Technical revalidation cannot discharge an unchanged explicit repair obligation.
+
+A successfully reviewed replacement may abandon earlier unimplemented navigation
+cursors in that same business block. Retain their identities, typed needs and exact
+source/contract evidence as abandoned history; do not mark prerequisites fulfilled or
+resume those cursors. Preserve chains containing accepted consumer fragments,
+explicit associations, resumption, or links to another responsibility. Partial block
+acceptance grants no retirement authority. Original requirement closure, mandatory
+global review and artifact/execution approval remain separate.
+
+Carry a suspended consumer's exact bounded rejection reason through implementation discovery as well as selection. Its typed prerequisite alone need not explain why the preceding strategy failed. Keep that model-authored explanation beside its existing evidence link; it creates no original obligation, permission or repair authority.
+
+Automatic assertion correction may preserve an exact compiler-resolved nullable output or loop-item reference as `reference != null`, optionally combined with declared nonnullable Boolean fields from the same origin. Resolve item types in the assertion's lexical scope and distinguish item origins from output producers. Preserve valid operands/order, unrelated tasks, assertion failure and cleanup. Unknown or nonnullable values gain no inferred condition; replacing the original assertion with a literal or another producer remains forbidden.
+
+When suspension returns to business selection, retain the unmet need against its remaining original obligations as a model-authored note. Keep technical cursors, bindings, types and rejection details in implementation context. A rejected business action must carry its required action diagnostic into the next selection request. Completed or unrelated needs create no new responsibility; context presentation never resets repeat guards or correction accounting.
+
+Business selection also receives current deterministic contractual coverage gaps against remaining originals. Reuse the existing coverage assessment to identify unreachable declared behavior or disconnected public results, including after a completion is abandoned without a suspended prerequisite. Present only the original requirement and business-facing finding; keep operation identities, scopes and technical witnesses in implementation. Recompute from the current plan so restored reachability/lineage removes the finding. A proved contractual gap keeps its original obligation selectable even when a retained local review closed it; derive that remaining need without rewriting checkpoint or review history. When exact accepted contribution evidence establishes prepared reusable behavior, explain its missing use in the main workflow, leaving caller bindings to implementation. Conditional or otherwise unverified behavior is not a proved gap, and reviewed reusable behavior does not establish a reachable invocation or runtime success. These facts grant no new edit, completion or execution authority.
+
+A business finding that cites a newly contributed group/control scope may repair its existing export bindings through the shared typed slots. Establish new ownership against the accepted baseline; accepted scopes, absent exports, interfaces and structural changes gain no authority. A changed export to or from an unchanged producer cited by the same retained finding permits renewed review of that composition. Require the exact prior context and binding relationship; unrelated exports, stale context and repeated unchanged bindings remain non-progress. This never resolves a finding mechanically.
+
+A current global finding may also repair concrete accepted tasks with a still-valid local review. Match the candidate, claims, originals, contracts and original task snapshot; retain explicit caller edit limits. Offer only existing functional bindings and, for transforms, their executable instruction as a typed string. Other task objectives remain labels. Preserve unrelated accepted work, invalidate affected consumers/reviews and require renewed global review before approval. Local review never makes a demonstrated global defect uncorrectable.
+
+## Recovery, accounting and execution
+
+Desktop and Agent.Server default new work to an explicit tracking-only Unlimited
+application LLM budget, independent of environment. Only a protected local operator
+can persist Limited/Unlimited; HTTP edits require antiforgery. Capture the policy
+before the first session/run checkpoint and verify it on restart. Existing captures,
+tariffs, charges and uncertain reservations never inherit new defaults. Limited
+retains configured financial ceilings; Unlimited removes application monetary,
+cumulative call/token and total LLM-time ceilings without huge numeric substitutes
+or weakening finite contract validation. Explicit workflow limits, physical provider
+limits, per-request timeouts/retries, cancellation, semantic validation, approvals
+and execution resources remain mandatory. Track unavailable price/FX data explicitly;
+it does not mean free usage or block Unlimited. Diagnostic nonprogress warnings
+retain their original side-effect-free/completed-only authority and replay barriers.
+Offer a new plan under current settings only after lease/journal/ledger checks prove
+the original budget-stopped session has no dispatch or reservation; preserve its identity.
+
+Maintain one active internal planning format. Reject retired sessions without upgrading or changing their records. Preserve archives and financial journals as historical data, without old planning readers or execution paths. Current issued requests and receipts recover exactly; never rebuild a pending request from newer context.
+
+Journal each physical attempt before dispatch, accounting for captured calls, time, tokens and required reviews. Apply monetary admission wherever the captured Limited/workflow/campaign policy requires it; new application Unlimited captures track consumption without a ceiling. Enforce ordinary targets unless the exact trusted captured policy makes those targets advisory. Price complete requests and future mandatory reviews conservatively without treating advisory thresholds as exposure bounds. Retry only captured, journaled confirmed transient HTTP failures. Missing outcomes, invalid responses, output exhaustion and uncertain effects do not authorize replay. Preserve all unknown-usage reservations. Exact authorized abandonment forbids replay and continuation and releases no funds. Register supplements once under the campaign lease with stable authorization and fixed old/new ceilings. Separate pre-generation failures from reserved generation attempts.
+
+Execution requires artifact-bound approval, exact invocation confirmations, tenant isolation and workspace confinement. Benchmark delegation records delegated_test_reviewed, never human review or expanded effect authority. Compilation and favorable Judges do not authorize execution.
+
+Freeze source, harness, settings, contracts, inputs and oracles. Separate admission, output exhaustion, formatting and transport incidents. Compare completed outcomes; interrupted runs are not savings. Report actual provider usage separately from component estimates. Simulated responses and technical passes do not establish live convergence.
+
+Evidence choices issued during implementation selection must satisfy the same
+producer/scope/version preconditions as the evidence reader. Keep discovery of
+unselected operation contracts in the selected implementation's discovery phase;
+preserve accessible accepted-producer evidence before selection. Contract metadata
+is planning evidence; typed suspension prerequisites describe executable work that
+produces required runtime data. Reject invalid results without converting repeated
+completed diagnostic strategies into mandatory nonprogress stops.
+
+Explicit operator authorization may register current deployment settings through a
+new immutable campaign amendment; never rewrite an old pin or infer permission to
+increase funding. Use the same five immutable configuration-selection predicates in read-only diagnosis and dispatch selection. Report safe field origins and exact failed predicates, without changing the hash recipe or inferring missing historical defaults. Distinguish an explicit request-bound financial refusal before dispatch from uncertain transport; keep reservations and replay barriers unchanged. Compare safe setting values and fingerprints, retaining unavailable
+historical details explicitly. Use fresh session/request identities and the actual
+Agent.Server protected operator path for live probes. Keep the existing campaign's
+global financial ceiling, all old charges and uncertain reservations; application
+Unlimited defaults never authorize an Unlimited live campaign. Recover exact receipts
+when available, otherwise use the existing evidence-bound retention mechanism only
+after verifying tool-free, unexecuted generation. Retention forbids old replay and
+continuation without releasing money, allowing independent fresh work to be admitted.
+For an explicitly cancelled Server generation with missing outcome, the same
+evidence-bound retention mechanism must bind its cancelled state, session, frozen
+configuration, tool-free request, exact transport and cancellation failure. Preserve
+the complete uncertain reservation; never treat cancellation as a receipt or permit
+old continuation. Any execution marker, received body/usage or ownership mismatch
+requires its existing reconciliation path instead.
+Copy captured authority fields exactly in new adapters. A retained redundant token
+flag may be recognized only under the identical captured broader diagnostic grant;
+it cannot upgrade Strict/token-only authority or rewrite either capture. Validate
+Server elapsed policy against its captured session budget and recorded origin.
+For a confirmed transient generation failure followed by an unfunded retry, retain
+the exact attempt and its complete reservation through the existing terminal
+retention flow. Bind current funding evidence separately from unavailable historical
+exception details. Financial refusal metadata distinguishes an unsent next attempt
+from the logical call's prior dispatch; preserve both facts in the existing budget
+DTO and journals without manufacturing an HTTP attempt or completion.
+
+Discovery selects an issued immediate focus (objective or retained prerequisite) and
+records each source justification; prose establishes no mandatory dependency or
+execution authority. Paginate deliberately selected sources automatically from an
+immutable source snapshot. Existing encrypted planning journals own snapshot payloads;
+checkpoints carry exact tenant/session/action/source/configuration references. Reuse
+metadata within the transition, validating versions; never reinterpret a cursor against
+a refreshed catalog. Exploratory source failures warn and permit alternatives; unresolved
+selected contracts, invalid ownership, corrupt snapshots and cycles remain hard failures.
+Keep failed sources unavailable for that focus until explicit operator refresh.
+Preserve old discovery wire contracts and issued requests. Protected recovery checks
+the lease, cancellation, existing owner retention guards and complete owned model
+request/receipt journals. Metadata recovery dispatches no inference and waits in
+`discovery_recovery`; explicit resume uses original captured admission. Never reset
+accepted work, policies, charges or reservations. Ordinary runtimes gain no recovery
+authority by default. Detailed failure context remains protected/redacted; OTel events
+carry identities and outcomes, not business justifications or request content.
+Persist a recovery selection on its existing metadata continuation before reads.
+After interruption, explicitly finish that exact action/snapshot; keep the original
+failure available until completion and require separate inference resumption.
+The same protected path may refresh an idle discovery warning; it cannot interrupt
+an issued call, pending clarification, ordinary metadata action or selected contract.
+Use one source/cursor/focus projection for directories and inspected descriptions.
+New capability comparison versions canonicalize JSON object ordering and whitespace,
+not arrays, values or contract meaning. Keep exact encrypted payload hashes and legacy
+version verification separate. Explicit source refresh selects its new action for
+decision directories while retaining old pages and exact versioned evidence. Never
+merge old and refreshed versions to infer capability absence or authorize a binding.
+Persist selected-contract resolution failures as required, categorized blockages after
+receipt retention; protected metadata recovery cannot waive the contract or replay the
+model. A refreshed exact version of the actually selected operation distinguishes its
+binding strategy; action IDs, repeated reads and unrelated catalog changes do not.
+After a selected-contract transport/access failure, protected refresh may resolve
+that exact unchanged identity/version mechanically. Retain it as metadata, never an
+accepted binding or effect. Its first verified restoration distinguishes a new
+binding decision; unchanged repetitions retain their original guards.
+Keep tentative reselection findings and their retrievable evidence visible through
+implementation, discovery and drafting only for the same block, scope, obligations
+and unchanged accepted baseline. A stale finding remains historical evidence, not
+current authority. Diagnostic repetition remains advisory; invalid plans remain invalid.
+Validate the next schema after description reads and legacy recovery; never turn an
+absent historical focus into a null member of an issued string enum or rewrite a
+previously rejected request to apply a schema fix.
+
+Experimental financial forecasts are a separate captured application policy, never
+model-authored input. In Limited mode, only unissued future-call/review forecasts
+may warn. Reserve the current physical request under the unchanged monetary limit;
+actual usage, uncertain liabilities, explicit workflow limits, missing pricing/FX
+and replay barriers remain hard. Missing historical fields mean strict forecasting.
+Persist protected operator preferences for new sessions only. Keep per-session
+financial projections read-only and separate measured tokens, captured-tariff
+estimates, unpriced completed consumption, unresolved holds and provider invoices.
+Do not call a provisional hold an invoice, infer available funds from missing
+history, release an unverified reservation or sum parent/child scopes as distinct calls.
+
+Explicit operator authorization of an independent new-spending allocation may use
+the existing fresh-allocation campaign operation. Preserve the predecessor's ledger
+and unresolved liabilities, identify them as unreconciled, and report global funding
+as unavailable. Start a new empty namespace with zero new consumption and a finite
+positive authorized allowance; never erase history or reuse the grant for another
+campaign. Verify its pending/active publication and exact configuration binding at
+new request/attempt admission. Reauthorization of the same grant cannot reset usage.
+Existing receipt recovery remains available. This exception requires explicit new
+funding authority; it is never an automatic response to a refusal.
+
+## Maintained references
+
+- [Incremental construction](../../../docs/incremental-taskplan-construction.md)
+- [Architecture](../../../docs/workflow-planning-v9.md)
+- [Compiler and repair](../../../src/GnOuGo.Flow.Planning/README.md)
+- [Compact compilation](../../../docs/compact-workflow-bindings.md)
+- [Runtime mappings](../../../docs/runtime-mappings.md)
+- [Benchmark operation](../../../tests/GnOuGo.Agent.Planning.Benchmark/README.md)
+
+A financially refused first attempt with a complete empty HTTP journal may use the
+existing unstarted-planning permanent-retention path. Bind the retained typed
+refusal to its exact request, unchanged ceiling, review/external reserves and
+captured transport; no missing receipt alone proves non-dispatch. Retain every
+reservation and forbid the old run's replay/continuation. This metadata action
+only isolates the incident; independent work still requires full admission.

@@ -1,0 +1,108 @@
+{
+  "identity": "code-offline-dependencies-20261112-03",
+  "production_source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "input_harness_committed_before_dispatch": false,
+  "exact_input_harness_retained_before_dispatch": true,
+  "evidence_sha256": "a3a9250c5aee7c74f00c4a1e30a84e14880995561c5635628eaf34354da47e55",
+  "passed": false,
+  "execution_success": true,
+  "completion_verified": true,
+  "receipt_reloaded": true,
+  "cleanup": true,
+  "pinned_toolchains_verified": true,
+  "terminal_report_verified": true,
+  "probe_script_unchanged": true,
+  "command_count": 1,
+  "transport_verified": true,
+  "dependency_installs_verified": false,
+  "full_code_prerequisite_qualified": false,
+  "execution_ms": 443735,
+  "error": null,
+  "failure_type": null,
+  "failure": null,
+  "report": {
+    "observed": "observed-code-offline-dependencies-20261112-03",
+    "exit_code": 0,
+    "toolchains": [
+      {
+        "name": "node",
+        "exit_code": 0,
+        "stdout": "v24.20.0\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "pnpm",
+        "exit_code": 0,
+        "stdout": "10.34.5\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "python",
+        "exit_code": 0,
+        "stdout": "Python 3.11.13\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "python3",
+        "exit_code": 0,
+        "stdout": "Python 3.11.13\n",
+        "timed_out": false,
+        "stderr": ""
+      }
+    ],
+    "pinned_head_verified": true,
+    "requirements_unchanged": true,
+    "commands": [
+      {
+        "command": "uv sync --group tests",
+        "exit_code": 1,
+        "timed_out": false,
+        "started_utc": "2026-11-12T22:32:39.708974+00:00",
+        "finished_utc": "2026-11-12T22:32:41.142667+00:00",
+        "stdout_file": "uv.stdout.log",
+        "stderr_file": "uv.stderr.log",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "c1540ae6ef42253717131a7b2d78e7562c74d54a394968d3d78743e52c5f0166",
+        "failure_tail": [
+          "      cache.",
+          "",
+          "      hint: While the active Python version is 3.11, the resolution failed for",
+          "      other Python versions supported by your project. Consider limiting your",
+          "      project's supported Python versions using `requires-python`."
+        ]
+      },
+      {
+        "command": "pnpm install --frozen-lockfile",
+        "exit_code": 0,
+        "timed_out": false,
+        "started_utc": "2026-11-12T22:32:41.142962+00:00",
+        "finished_utc": "2026-11-12T22:33:05.330122+00:00",
+        "stdout_file": "pnpm.stdout.log",
+        "stderr_file": "pnpm.stderr.log",
+        "stdout_sha256": "41dd5329d0535406de423f09461d965a91977aafc8835eaeb8a31adfdc9c2e92",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "failure_tail": []
+      }
+    ],
+    "dependency_installs_verified": false,
+    "network_requested": false,
+    "sandbox_bypass_requested": false,
+    "full_workflow_qualified": false
+  },
+  "sdk_outbound_network": false,
+  "sdk_local_network": false,
+  "sandbox_bypass": false,
+  "full_workflow_qualified": false,
+  "first_cause": "Unchanged uv sync requires registry metadata across supported Python/platform splits; frozen wheel prefill did not populate axa-fr-oidc index metadata.",
+  "cache_correction": "Host uv lock --check --no-build populated metadata and then stopped at source-only html2text. Offline no-build recheck repeats that later boundary without network.",
+  "receipt_status": [
+    {
+      "status": "completed",
+      "completion_verified": true,
+      "inference_transport": "gnougo-structured-tools-v1"
+    }
+  ]
+}

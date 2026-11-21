@@ -1,0 +1,39 @@
+{
+  "source": "bfd58e324c14ae82a4840bfb0e6fc2fcf60d9886",
+  "run": "code-qualification-20261108-11",
+  "session_id": "f3b3931d958c4e86aa8f3d51be007e25",
+  "logical_calls": 21,
+  "known_physical_http_attempts": 21,
+  "uncertain_http_attempts": 1,
+  "corrections": 1,
+  "accepted_checkpoints": 0,
+  "first_accepted_contribution_call": null,
+  "cost_to_first_accepted_contribution_eur": null,
+  "time_to_first_accepted_contribution_ms": null,
+  "business_qualified": false,
+  "measured_usage_tariff_estimate_eur": "9.738190774742498880429914914",
+  "unresolved_http_reservation_eur": "4.9661621137483206448723690102",
+  "resolved_contracts": [
+    "git_clone",
+    "git_compare_refs",
+    "code_agent_edit",
+    "code_read_file",
+    "code_project_summary",
+    "code_search_text",
+    "cmd_run",
+    "document_write"
+  ],
+  "progress": "Seven exact contracts acquired in the call-6 metadata batch; a composed group binding was selected at call 8. This is metadata progress, not an accepted business contribution.",
+  "first_draft_defect": "Call 10 abandoned the draft because the chosen writer required base64 without a selected native encoding path, and the group would clean up the clone before its later review use.",
+  "later_detour": "After document_write was resolved, call 17 searched for an external runtime JSON serializer; calls 18-20 read further metadata. The native value json_encode expression already supplies JSON text. Discovery compaction had removed its explicit cue.",
+  "correction": "Restore a compact native json_encode explanation in fresh discovery guidance. The complete grammar, original context, physical limits, permissions and business oracles remain unchanged. A focused request-visibility regression and original Strict-size tests pass. A fresh session is required; this stopped session cannot use the new guidance.",
+  "causal_limit": "No copied-request single-factor live probe was performed for this cue. The source omission and actual serializer search are recorded; later fresh results must not be attributed solely to this factor.",
+  "retention_evidence_hash": "d329200db67d244f964c854f4541a195628565a978d6d46e8fe4a29c2bcd6c7b",
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "all_reservations_retained": true,
+  "limitations": [
+    "No approved artifact, actual execution or successful business oracle.",
+    "The exact unchanged-plan accepted-block review boundary remains unproved."
+  ]
+}

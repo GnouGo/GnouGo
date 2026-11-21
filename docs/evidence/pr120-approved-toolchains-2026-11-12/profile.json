@@ -1,0 +1,41 @@
+{
+  "user_authorized_downloads": true,
+  "root": "/Users/a115vc/Desktop/GnOuGo/workflows/pr120-toolchains-20261112",
+  "node": {
+    "source": "https://nodejs.org/download/release/v24.20.0/node-v24.20.0-darwin-arm64.tar.gz",
+    "sha256": "40e5607e5ecb3db9192723776da2d75d966260fc74a7a9e731c1bd67dda96bc8"
+  },
+  "pnpm": {
+    "source": "https://registry.npmjs.org/pnpm/-/pnpm-10.34.5.tgz",
+    "integrity": "sha512-pO4F8vc2WCVb1qiYWcBlpFwopX2u+uLIk6Fo7itzFow3uR6D5X6mdlStA/AwMXRkMOi84442LgQmBfuKvIAZLg==",
+    "sha256": "ccb5c479cab1b00621325bfe7d4c9a8a8031e7a525d7249e275ecbec81b08db2"
+  },
+  "python": {
+    "existing_real_binary": "/opt/homebrew/opt/python@3.11/bin/python3.11",
+    "version": "Python 3.11.13"
+  },
+  "versions": {
+    "node": {
+      "code": 0,
+      "version": "v24.20.0"
+    },
+    "pnpm": {
+      "code": 0,
+      "version": "10.34.5"
+    },
+    "python": {
+      "code": 0,
+      "version": "Python 3.11.13"
+    },
+    "python3": {
+      "code": 0,
+      "version": "Python 3.11.13"
+    }
+  },
+  "sdk_network_permissions_changed": false,
+  "global_installation": false,
+  "provider_calls": 0,
+  "path": "/Users/a115vc/Desktop/GnOuGo/workflows/pr120-toolchains-20261112/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+  "experiment_identity": "code-toolchain-provisioned-20261112-02",
+  "purpose": "Verify requested real executable versions inside the unchanged SDK sandbox; no installation or dependency qualification claim."
+}

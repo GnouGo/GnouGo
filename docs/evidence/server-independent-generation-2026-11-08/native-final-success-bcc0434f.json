@@ -1,0 +1,59 @@
+{
+  "source": "bcc0434f494590a97771a35a735aa28fcd216e86",
+  "run": "convergence-native-final-20261108-01",
+  "session_id": "f43a712457894f45807c41da7ac5898b",
+  "phase_policy_sha256": "407421b552d2a68a37efe63f54fa9ecf8993d646233d92d82160344e4eb84458",
+  "profile": "tests/GnOuGo.Agent.Planning.Benchmark/Profiles/server-small-native.json",
+  "different_profile_from_prior_32k_trials": true,
+  "model": "gpt-6.1-sol-2026-09-29",
+  "protocol": "native_sse",
+  "logical_calls": 7,
+  "physical_attempts": 7,
+  "known_usage_tariff_estimate_eur": "0.4410120913569189431258396775",
+  "milestones": [
+    {
+      "milestone": "local_business_review",
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "seconds_from_first_dispatch": 59.231004,
+      "known_usage_tariff_estimate_eur": "0.3696999552171965965069413345"
+    },
+    {
+      "milestone": "global_business_review",
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "seconds_from_first_dispatch": 79.422556,
+      "known_usage_tariff_estimate_eur": "0.4410120913569189431258396775"
+    }
+  ],
+  "artifact_hash": "1040e56ad337de508fffafa26a22a55bce0c66933d93a8427e4c1f00e2d27d56",
+  "review_origin": "delegated_test_reviewed",
+  "execution": {
+    "success": true,
+    "variants": [
+      {
+        "variant": "nominal",
+        "success": true,
+        "outputs": {
+          "result": 42
+        },
+        "oracle_passed": true
+      }
+    ]
+  },
+  "oracle": {
+    "version": "native-result42-v1",
+    "independent": true,
+    "passed": true
+  },
+  "seconds_through_saved_passing_oracle_including_review_wait": 239.853267,
+  "oracle_timestamp_basis": "Final owned run record publication, an upper bound including authorized artifact review wait; report.finished_utc is planning completion only.",
+  "plan_behavior": "Single deterministic value task multiplies literal numbers 6 and 7; the required nonnullable public result directly binds its result port. No caller inputs, external calls, resources or cleanup.",
+  "no_manual_plan_or_model_response_changes": true,
+  "does_not_qualify_amazon_or_code": true,
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+  "owned_run_export_sha256": "08031bc533c92a7e0b07f6756f934ff593504e9fcb56c5cf428eb8ea52998d2f",
+  "owned_http_export_sha256": "0ef47470a5cbc77fb06071b12e5d1e2c55fe62fafb3875a0b7800f174f288258",
+  "owned_receipts_export_sha256": "9479d91b569a44aa77d457737c8ce4fa7350de47f9d1f9a039549755836c6dd8"
+}

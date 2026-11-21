@@ -1,0 +1,48 @@
+[
+  {
+    "name": "server-focused-final",
+    "source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Agent.Server.Tests",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-warnaserror",
+      "--filter",
+      "FullyQualifiedName~LlmInspectorDocumentsTests|FullyQualifiedName~LlmCallProjectionTests|FullyQualifiedName~ActualServerShowsActivePhasesAttemptsWarningsCancellationAndReload|FullyQualifiedName~PlanningTraceUiTests|FullyQualifiedName~LlmTraceCaptureTests|FullyQualifiedName~ApplicationLlmBudgetTests|FullyQualifiedName~DiagnosticPlanningTests|FullyQualifiedName~TraceDebugServiceTests|FullyQualifiedName~BundledBrowserMcpPublishTests",
+      "--logger",
+      "trx;LogFileName=final-focused.trx",
+      "--results-directory",
+      "/Users/a115vc/.codex/worktrees/pr120-one-inspector-20261105/artifacts/inspector-followup/tests"
+    ],
+    "started_utc": "2026-11-05T23:35:38.200898+00:00",
+    "log": "logs/server-focused-final.log",
+    "exit_code": 0,
+    "finished_utc": "2026-11-05T23:36:47.498781+00:00"
+  },
+  {
+    "name": "browser-final",
+    "source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Browser.Mcp.Tests",
+      "-c",
+      "Release",
+      "--no-build",
+      "--no-restore",
+      "-warnaserror",
+      "--logger",
+      "trx;LogFileName=final-browser.trx",
+      "--results-directory",
+      "/Users/a115vc/.codex/worktrees/pr120-one-inspector-20261105/artifacts/inspector-followup/tests"
+    ],
+    "started_utc": "2026-11-05T23:36:47.499304+00:00",
+    "log": "logs/browser-final.log",
+    "exit_code": 0,
+    "finished_utc": "2026-11-05T23:37:05.613457+00:00"
+  }
+]

@@ -20,26 +20,29 @@ internal sealed class DynamicRoutingLLMClientAdapter : ILLMClient
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILocalLLMRuntime? _localRuntime;
     private readonly LlmTraceCapture? _capture;
+    private readonly LlmDefaultsResolver? _defaults;
 
     public DynamicRoutingLLMClientAdapter(
         HttpClient http,
         LLMRuntimeOptionsStore store,
         ILoggerFactory loggerFactory,
         ILocalLLMRuntime? localRuntime = null,
-        LlmTraceCapture? capture = null)
+        LlmTraceCapture? capture = null,
+        LlmDefaultsResolver? defaults = null)
     {
         _http = http;
         _store = store;
         _loggerFactory = loggerFactory;
         _localRuntime = localRuntime;
         _capture = capture;
+        _defaults = defaults;
     }
 
-    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+    public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
     {
-        var options = _store.Current;
-        return _capture is null ? DispatchAsync(request, options, ct)
-            : _capture.CallAsync(request, options, (value, token) => DispatchAsync(value, options, token), ct);
+        var options = _defaults is null ? _store.Current : await _defaults.ResolveAsync(ct);
+        return await (_capture is null ? DispatchAsync(request, options, ct)
+            : _capture.CallAsync(request, options, (value, token) => DispatchAsync(value, options, token), ct));
     }
 
     private async Task<LLMResponse> DispatchAsync(LLMRequest request, LLMOptions options, CancellationToken ct)

@@ -30,6 +30,8 @@ Missing paths try the next candidate. Explicit null is present, and an invalid p
 
 For foreach, the compiler first checks the original item contract and `maxItems` using whole-value projection, then collects the loop's declared outputs with per-item projection. Runtime bounds, missing-field errors, cleanup guards and sequential/parallel ordering remain enforced.
 
+In a compact planning response, the generator supplies a loop's total iteration limit as `itemLimit`. After validating the issued response grammar, the planner restores that integer to the TaskPlan's `maxItems` field. This applies to nested loops as well. JSON Schema arrays retain their usual `maxItems` constraint.
+
 Opaque producers gain typed access only after explicit whole-value checking. A schema establishes a runtime shape, never artifact ownership or provenance. The provenance validator follows actual identity-preserving inputs; every reachable selection alternative must retain the required origin. Optional selectors, unchecked array indexing and unsafe continuations remain insufficient evidence.
 
 ## Migration examples

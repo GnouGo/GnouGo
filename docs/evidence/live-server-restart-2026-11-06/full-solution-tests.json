@@ -1,0 +1,20 @@
+{
+  "counts": {
+    "passed": 7823,
+    "failed": 2,
+    "skipped": 13,
+    "assemblies": 33
+  },
+  "failures": [
+    {
+      "test": "GnOuGo.Agent.Server.Tests.DiagnosticPlanningBrowserTests.ActualServerShowsActivePhasesAttemptsWarningsCancellationAndReload",
+      "message": "Build the bundled browser MCP tool to make Playwright available.",
+      "stack": "   at GnOuGo.Agent.Server.Tests.DiagnosticPlanningBrowserTests.ActualServerShowsActivePhasesAttemptsWarningsCancellationAndReload() in <workspace>/tests/GnOuGo.Agent.Server.Tests/DiagnosticPlanningBrowserTests.cs:line 33\n--- End of stack trace from previous location ---"
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.DiagnosticPlanningBrowserTests.ActualHostDefaultsUnlimitedAndOffersVerifiedFreshStartAfterLimitedAdmission",
+      "message": "Assert.True() Failure\nExpected: True\nActual:   False",
+      "stack": "   at GnOuGo.Agent.Server.Tests.DiagnosticPlanningBrowserTests.ActualHostDefaultsUnlimitedAndOffersVerifiedFreshStartAfterLimitedAdmission() in <workspace>/tests/GnOuGo.Agent.Server.Tests/UnlimitedBudgetBrowserTests.cs:line 28\n--- End of stack trace from previous location ---"
+    }
+  ]
+}

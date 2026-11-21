@@ -1,0 +1,106 @@
+{
+  "tested_source": "df2886b855cef633f6cc2a3b6da63c1cc7ccddf5",
+  "full_solution": {
+    "exit_code": 1,
+    "elapsed_seconds": 4363.322,
+    "assemblies": 33,
+    "passed": 7130,
+    "failed": 18,
+    "retained_skips": 12,
+    "compiler_diagnostics": 0,
+    "source_unchanged": true,
+    "operational_workspaces_accessed": false,
+    "paid_calls": 0,
+    "log_sha256": "53f3dd06e520ed29144f75d4d4ba648cbdcd754aecf20ab2fc6dc703b3de86e2",
+    "failed_cases": [
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \"custom\")",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.RestartRecoversDecisionAndCancellationWithoutReplayingWorkflow(answer: True)",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalBindsExactAcknowledgmentsAndDoubleClickCannotSaveTwice(stale: True)",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.LiveClarificationAnswerIsAcknowledgedBeforeContinuationDispatch",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(accept: False)",
+      "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \"recommendation\")",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalExplainsMissingAcknowledgmentsAndPreservesSameArtifactPolling",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.EarlyClarificationSurvivesEncryptedRestartAndHttpAnswer(action: \"cancel\")",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalBindsExactAcknowledgmentsAndDoubleClickCannotSaveTwice(stale: False)",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalAcknowledgmentsClearWhenDisplayedAuthorityChanges(change: \"session\")",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ReviewShowsOriginalRequestAndAssertionsWithoutAcknowledgingOrExecutingContent",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalAcknowledgmentsClearWhenDisplayedAuthorityChanges(change: \"revision\")",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.RestartRecoversDecisionAndCancellationWithoutReplayingWorkflow(answer: False)",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.DesignerDecisionAndAnswerRoundTripThroughEncryptedEfIndex",
+      "GnOuGo.Agent.Server.Tests.PlanningTraceUiTests.ApprovalAcknowledgmentsClearWhenDisplayedAuthorityChanges(change: \"artifact\")",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.LiveAnswerIsAcknowledgedOnlyAfterOwnerCheckpointAndCannotCrossConversations",
+      "GnOuGo.Agent.Server.Tests.ChatPlanningChoiceTests.ScopedBusinessClarificationRecoversInOriginatingChat(accept: True)"
+    ]
+  },
+  "publication": {
+    "stage_results": [
+      [
+        "core-pack",
+        0
+      ],
+      [
+        "planning-pack",
+        0
+      ],
+      [
+        "integrations-pack",
+        0
+      ],
+      [
+        "copilot-pack",
+        0
+      ],
+      [
+        "persistence-pack",
+        0
+      ],
+      [
+        "native-publish",
+        0
+      ],
+      [
+        "native-run",
+        0
+      ],
+      [
+        "server-restore",
+        0
+      ],
+      [
+        "server-publish",
+        0
+      ],
+      [
+        "server-storage-run",
+        0
+      ]
+    ],
+    "all_ten_passed": true
+  },
+  "fixture_correction": {
+    "source": "7af268ab3dfbd29256d069bfbbe064b7ce650330",
+    "production_changes": false,
+    "causes": [
+      "Chat and browser physical-call assertions retained the removed extra extraction call.",
+      "Approval fixture emitted retired interface-classification flags instead of typed declarations in the combined intent response."
+    ],
+    "validation": {
+      "unique_focused_cases_passed": 47,
+      "failed": 0,
+      "skipped": 0,
+      "real_browser_smoke_executed": true,
+      "warnings_as_errors": true,
+      "log_sha256": "cb20d8825eb20971188d8b165571bfe0785c8eb0d20d835eac62b65ba5fa65ba"
+    },
+    "guards_preserved": [
+      "No unauthorized approval or execution",
+      "Exact acknowledgment and artifact binding",
+      "Cross-conversation rejection",
+      "Encrypted restart and receipt recovery",
+      "Once-only answer and save"
+    ],
+    "full_solution_after_correction": "A new source-bound full run is active; focused cases do not establish final full-solution success."
+  },
+  "business_acceptance_established": false
+}

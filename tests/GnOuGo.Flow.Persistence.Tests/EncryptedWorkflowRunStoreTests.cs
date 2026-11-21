@@ -15,6 +15,36 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
     private EncryptedWorkflowRunStore Store() => new(new KeyVaultRecordStore(Path.Combine(_root, "vault.db")),
         Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"));
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task SplitHeaderRetainsCapturedBudgetPolicyAndUncertainAccountingAcrossEncryptedRestart(bool unlimited)
+    {
+        var run = NewRun("private budget input");
+        var scope = unlimited ? LLMUsageBudgetScope.CreateTrackingOnly()
+            : new LLMUsageBudgetScope(new() { MaxCalls = 2, MaxTotalTokens = 200000 });
+        await scope.ReserveJournaledAttemptAsync("private-request", new() { Model = "deployment" }, null, 16000, 128000, [], "execution", Ct);
+        run.ApplicationLlmBudgetMode = unlimited ? "unlimited" : "limited"; run.ApplicationLlmBudgetVersion = 1;
+        run.ApplicationLlmBudgetOrigin = "operator_preference"; run.ModelUsage = scope.Snapshot;
+        run.ModelBudget = unlimited ? null : scope.Limits;
+        await Store().CreateAsync(run, Ct);
+        var reopened = Store();
+        await using (var lease = await reopened.AcquireAsync("tenant", "run", 0, Ct))
+        {
+            Assert.Equal(run.ApplicationLlmBudgetMode, lease.Run.ApplicationLlmBudgetMode);
+            Assert.Equal(1, lease.Run.ApplicationLlmBudgetVersion); Assert.Equal("operator_preference", lease.Run.ApplicationLlmBudgetOrigin);
+            Assert.Equal(run.ModelBudget, lease.Run.ModelBudget);
+            Assert.Equal(1, lease.Run.ModelUsage!.UncertainCalls); Assert.False(lease.Run.ModelUsage.CostEstimateAvailable);
+            Assert.Null(lease.Run.ModelUsage.JournaledAttempts!["private-request"].VerifiedUsage);
+            await lease.SaveAsync(Ct);
+        }
+        var restored = (await Store().ReadAsync("tenant", "run", Ct))!;
+        Assert.Equal(run.ApplicationLlmBudgetMode, restored.ApplicationLlmBudgetMode);
+        Assert.Equal(1, restored.ModelUsage!.Calls); Assert.Equal(144000, restored.ModelUsage.TotalTokens);
+        Assert.Equal("pricing_unavailable", restored.ModelUsage.CostUnavailableReason);
+        Assert.Null(await Store().ReadAsync("other", "run", Ct));
+    }
+
     [Fact]
     public async Task MappingArtifactsAreEncryptedTenantScopedAndSurviveRestart()
     {

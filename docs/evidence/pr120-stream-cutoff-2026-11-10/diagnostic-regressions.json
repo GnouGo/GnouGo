@@ -1,0 +1,41 @@
+{
+  "base_head": "0719c65a8e8b7053faf3b00131d9019f7960f415",
+  "kind": "local controls; no inference or route-owner test",
+  "results": {
+    "before_diagnostics": {
+      "total": 5,
+      "passed": 0,
+      "failed": 5,
+      "trx_sha256": "c708d3a8efd37eff8457c4d87707a55e1e21e9b36fc38271f59b60d0577f8f8c",
+      "log_sha256": "148047f704caf71cf7b9fd41cb3f1bd3230d4f86dab0f78219a98177afc88fa0"
+    },
+    "core_after_diagnostics": {
+      "total": 388,
+      "passed": 388,
+      "failed": 0,
+      "trx_sha256": "a5db94e74c71880ed4067936c9e75b1f70a275d68799100a050c391f8b9af931",
+      "log_sha256": "67f09a92616b656f26819bf696e34642e32493fdcb8c39d43a3114400ed6e297"
+    },
+    "existing_inspector_focused": {
+      "log_sha256": "b0dcbaeebfdc95ae3d84da8a84e12e14d2cde148889cd6b96007bbd2665528f9",
+      "exit_code": 0,
+      "passed": 13,
+      "failed": 0
+    },
+    "frontend_production_build": {
+      "log_sha256": "2ba0a31305ad466b80f1bb246a2ccbb81c1064110106a4bbbf4d7611a68014a0",
+      "exit_code": 0
+    }
+  },
+  "legacy_exact_serialized_bytes_preserved": true,
+  "cold_incomplete_replay_rejected": true,
+  "new_paid_model_calls": 0,
+  "long_310_second_control_reexecuted": false,
+  "sdk05_reexecuted": false,
+  "historical_code20_code21_cause_backfilled": false,
+  "limits": [
+    "Full solution and published Native AOT verification are recorded separately after source freeze.",
+    "Client read observation does not identify the remote closing hop.",
+    "No representative remote response delivered in this stage."
+  ]
+}

@@ -202,6 +202,7 @@ internal static class PlanningCapabilityArguments
             current["properties"]![path[^1]] = schema.DeepClone();
             if (!current["required"]!.AsArray().Any(n => n?.ToString() == path[^1])) current["required"]!.AsArray().Add((JsonNode)JsonValue.Create(path[^1])!);
         }
+        static JsonObject Object() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false };
         static void Expand(JsonObject current)
         {
             if (current["const"] is not JsonObject literal) return;
@@ -211,6 +212,5 @@ internal static class PlanningCapabilityArguments
             foreach (var field in fields)
             { current["properties"]![field.Key] = new JsonObject { ["const"] = field.Value }; current["required"]!.AsArray().Add((JsonNode)JsonValue.Create(field.Key)!); }
         }
-        static JsonObject Object() => new() { ["type"] = "object", ["properties"] = new JsonObject(), ["required"] = new JsonArray(), ["additionalProperties"] = false };
     }
 }

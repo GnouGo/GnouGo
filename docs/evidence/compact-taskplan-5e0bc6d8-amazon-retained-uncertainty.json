@@ -1,0 +1,80 @@
+{
+  "production_and_harness_source": "5e0bc6d8f8d4374a1837aa22d48518ba0a2347d6",
+  "run": "compactm5e0bc6d8amz11a-amazon-1",
+  "status": "stopped",
+  "logical_requests": 14,
+  "physical_attempts": 14,
+  "received_completions": 13,
+  "judge_calls": 0,
+  "correction_charges": 0,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "reason_preservation_fix_exercised": false,
+  "fix_business_benefit": "unproven; transport stop precedes any suspended consumer",
+  "accepted_work": "Two open control boundaries; no executable business producer.",
+  "outcome": "Request14 has transport failure without HTTP response or completion receipt. No inference about model output, exhaustion or provider termination.",
+  "known_cost_eur": "0.79130512889607473277643044",
+  "retained_unknown_reservation_eur": "0.98745621126381029372136891",
+  "provider_input_tokens_known": 41246,
+  "provider_output_tokens_known": 22491,
+  "provider_reasoning_tokens_included_in_output": 20114,
+  "received_empty_model_responses": 0,
+  "received_output_exhaustion": 0,
+  "unknown_response_classification": "not received; output and usage unknown",
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 7295,
+      "p95_bytes": 7295,
+      "maximum_bytes": 7295
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "p50_bytes": 13515,
+      "p95_bytes": 14173,
+      "maximum_bytes": 14173
+    },
+    "construction_discovery": {
+      "logical_calls": 8,
+      "p50_bytes": 15150,
+      "p95_bytes": 23705,
+      "maximum_bytes": 23705
+    },
+    "construction_draft": {
+      "logical_calls": 2,
+      "p50_bytes": 17663,
+      "p95_bytes": 21954,
+      "maximum_bytes": 21954
+    }
+  },
+  "percentile_method": "nearest_rank",
+  "all_issued_request_components_reconcile": true,
+  "retention": {
+    "request_id": "compactm5e0bc6d8amz11a-amazon-1:14:0a38735258115ce6f381876b92f189ffcc1391c900fc55d0baa4253acdf7b8c1:8716ded82c3fab592a173142985cfea8d7b0ac26d433a183f51c13fb3f1bf1cc",
+    "evidence_hash": "d9d108f830c934d0a7debd6ba390c03214ba2c02fbb72c2f241e4a05c86cd537",
+    "authorization_hash": "b437a2ff76fecb7e1de0b4ed29002c19f345430c77a79ac03f5901775e01a6b0",
+    "authorization": "Existing delegated exact administrative retention after evidence verification.",
+    "original_six_records_and_timestamps_unchanged": true,
+    "idempotent_second_apply": true,
+    "read_only_restart_verification": {
+      "original_records_unchanged": true,
+      "run_rejected_after_restart": true,
+      "exact_issued_request_rejected_after_restart": true,
+      "preflight_calls": 0,
+      "provider_calls": 0,
+      "record_mutations": 0
+    },
+    "reservation_released": false,
+    "receipt_manufactured": false,
+    "provider_termination_claimed": false
+  },
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "model": "gpt-5.5-2026-04-24",
+  "settings_changed": false,
+  "source_comparison_incomplete": true,
+  "qualifying_runtime_success": false,
+  "historical_evidence_modified": false
+}

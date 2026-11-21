@@ -22,7 +22,7 @@ public sealed class ArrayCardinalityTests
         for (var count = 0; count < 4; count++)
             Assert.Equal((min is null || count >= min) && (max is null || count <= max),
                 PlanningContractValidation.ValidateInstance(new JsonArray(Enumerable.Range(0, count).Select(i => (JsonNode?)JsonValue.Create("id" + i)).ToArray()), schema).Count == 0);
-        var definitions = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false)["$defs"]!.AsObject();
+        var definitions = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session())["$defs"]!.AsObject();
         var result = PlanningSchemas.Object(("result", PlanningSchemas.Ref("resultType"))); result["$defs"] = definitions.DeepClone();
         Assert.Empty(PlanningContractValidation.ValidateSchema(result, strict: true));
         var wire = PlanningJsonTransport.TaskPlanPart(json)!; wire["minItems"] = min; wire["maxItems"] = max;

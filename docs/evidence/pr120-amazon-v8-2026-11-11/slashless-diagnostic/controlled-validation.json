@@ -1,0 +1,13 @@
+{
+  "controlled_checks_passed": 34,
+  "model_calls": 0,
+  "network_calls": 0,
+  "workflow_qualification": false,
+  "approval": "user-amazon-source-only-slashless-20261111",
+  "authorization": "Explicit user reply: Authorize this source-only /clk diagnostic",
+  "source_only": true,
+  "workflow_policy_modified": false,
+  "build_warnings": 0,
+  "build_errors": 0,
+  "checks_sha256": "47372ec24b524b3ead51880517f72748977cd7b13e7b5a7c9798108b7691fe5c"
+}

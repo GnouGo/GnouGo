@@ -1,0 +1,89 @@
+{
+  "frozen_source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+  "profile": "server-navigation4096-draft32k.json",
+  "transport_profile": "server-independent-generation.json",
+  "two_consecutive_qualified_native_successes": true,
+  "runs": [
+    {
+      "run": "native-qualification-20261108-01",
+      "session_id": "7b2cfc853bb14bb89de531f9b3233320",
+      "source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+      "phase_policy_sha256": "1d21c96b0222808ca16792a66cd27c114290d3c37ed771661fe7442cca73d344",
+      "planning_calls": 5,
+      "physical_attempts": 5,
+      "accepted_checkpoints": 1,
+      "first_contribution": {
+        "call": 4,
+        "captured_invocation_time_ms_through_acceptance": "65722.7687",
+        "time_basis": "Sum of admitted host invocation durations through the accepted drafting call; not whole startup/review/execution wall time.",
+        "captured_usage_tariff_estimate_eur": "0.3388535602328705776981639050"
+      },
+      "total_planning_cost_eur": "0.3841827138378862516793551276",
+      "generation_validation_and_global_review_passed": true,
+      "artifact_bound_delegated_approval": "delegated_test_reviewed",
+      "execution": {
+        "success": true,
+        "variants": [
+          {
+            "variant": "nominal",
+            "success": true,
+            "outputs": {
+              "result": 42
+            },
+            "oracle_passed": true
+          }
+        ]
+      },
+      "oracle": {
+        "version": "native-result42-v1",
+        "independent": true,
+        "passed": true
+      },
+      "all_requirements_unchanged": true,
+      "new_uncertain_holds": 0
+    },
+    {
+      "run": "native-qualification-20261108-02",
+      "session_id": "1646b1eba55e4bb392f479a0ad755a07",
+      "source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+      "phase_policy_sha256": "1d21c96b0222808ca16792a66cd27c114290d3c37ed771661fe7442cca73d344",
+      "planning_calls": 5,
+      "physical_attempts": 5,
+      "accepted_checkpoints": 1,
+      "first_contribution": {
+        "call": 4,
+        "captured_invocation_time_ms_through_acceptance": "64994.0381",
+        "time_basis": "Sum of admitted host invocation durations through the accepted drafting call; not whole startup/review/execution wall time.",
+        "captured_usage_tariff_estimate_eur": "0.3363009404388714733542319748"
+      },
+      "total_planning_cost_eur": "0.3799641737572772055530676219",
+      "generation_validation_and_global_review_passed": true,
+      "artifact_bound_delegated_approval": "delegated_test_reviewed",
+      "execution": {
+        "success": true,
+        "variants": [
+          {
+            "variant": "nominal",
+            "success": true,
+            "outputs": {
+              "result": 42
+            },
+            "oracle_passed": true
+          }
+        ]
+      },
+      "oracle": {
+        "version": "native-result42-v1",
+        "independent": true,
+        "passed": true
+      },
+      "all_requirements_unchanged": true,
+      "new_uncertain_holds": 0
+    }
+  ],
+  "limitations": [
+    "Native arithmetic qualification does not prove the accepted-block unchanged-plan review boundary.",
+    "These frozen-source results precede the separately tested compact-JSON presentation change.",
+    "Captured tariff estimates are not provider invoices."
+  ]
+}

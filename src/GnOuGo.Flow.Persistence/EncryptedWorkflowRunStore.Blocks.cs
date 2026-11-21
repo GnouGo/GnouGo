@@ -169,6 +169,8 @@ public sealed partial class EncryptedWorkflowRunStore
                 SchemaVersion = run.SchemaVersion, TenantId = run.TenantId, RunId = run.RunId, Revision = run.Revision,
                 WorkflowName = run.WorkflowName, WorkflowYaml = run.WorkflowYaml, DefinitionHash = run.DefinitionHash,
                 Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
+                ApplicationLlmBudgetMode = run.ApplicationLlmBudgetMode, ApplicationLlmBudgetOrigin = run.ApplicationLlmBudgetOrigin,
+                ApplicationLlmBudgetVersion = run.ApplicationLlmBudgetVersion,
                 StepsStarted = run.StepsStarted, FinalizationStepsStarted = run.FinalizationStepsStarted,
                 Status = run.Status, CancelRequested = run.CancelRequested, FinalizationStarted = run.FinalizationStarted,
                 FinalizationCompleted = run.FinalizationCompleted, Result = null, CreatedAt = run.CreatedAt, UpdatedAt = run.UpdatedAt

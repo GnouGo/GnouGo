@@ -1,0 +1,276 @@
+{
+  "production_source": "bb24cbe552b50a73c17156fc9c861443b4252cf8",
+  "execution_and_harness_source": "367dd18d7cc063c846735aa77ddd4059e576bdb6",
+  "run": "compactmbb24cbe5code11a-code-1",
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "model": "gpt-5.5-2026-04-24",
+  "settings_changed_mid_session": false,
+  "status": "stopped",
+  "artifact_created": false,
+  "execution_started": false,
+  "business_oracle_passed": false,
+  "independently_satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "logical_calls": 53,
+  "physical_attempts": 53,
+  "correction_charges": 4,
+  "judge_calls": 1,
+  "known_input_tokens": 465460,
+  "known_output_tokens": 151881,
+  "reasoning_tokens_included_in_output": 136465,
+  "known_cost_eur": "6.1831761429982933620767088836",
+  "retained_unknown_reservation_eur": "0",
+  "transport_uncertainty": false,
+  "retention_required": false,
+  "planning_ms": 3298174,
+  "phase_calls": {
+    "construction_intent": 1,
+    "construction_select": 12,
+    "construction_discovery": 23,
+    "construction_draft": 14,
+    "replan": 2,
+    "construction_local_judge": 1
+  },
+  "measured_progress": {
+    "intent_calls": 1,
+    "first_static_correct_clone_request": 13,
+    "first_clone_arguments_match_frozen_oracle": true,
+    "actual_clone_provenance_unverified": true,
+    "observed_versions_or_checks_unverified": true,
+    "caller_review_text_consumed_in_later_code_agent_task_json": true,
+    "both_public_inputs_reach_that_task": true,
+    "automatic_continuation": {
+      "association_request": 40,
+      "mandatory_review_request": 41,
+      "resumed_without_selection_after_review": true,
+      "consumer_implementation_kind_request": 43,
+      "consumer_value_request": 44,
+      "second_probe_operation_generated": false,
+      "complete_trace_savings_established": false
+    }
+  },
+  "stop": {
+    "code": "CONSTRUCTION_TRANSITION_INVALID",
+    "requests": [
+      52,
+      53
+    ],
+    "same_received_extension_repeated": true,
+    "selected_scope": "/groups/cleanup_guarded_review_scope/body",
+    "cause": "The selected closure must close its own boundary, but the emitted response grammar also offers a deferred transition on that boundary. Validation rejects the resulting already-closed target.",
+    "fix_scope": "Narrow fresh choices using the captured selected closure; keep valid ancestors, original validation and mandatory business review. Name the exact conflict in the existing diagnostic.",
+    "no_generic_duplicate_ban": true
+  },
+  "components_reconcile": true,
+  "received_requests_above_project_maximum": [
+    {
+      "ordinal": 28,
+      "phase": "construction_discovery",
+      "bytes": 54366,
+      "estimated_input_tokens": 18378,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 29,
+      "phase": "construction_discovery",
+      "bytes": 55313,
+      "estimated_input_tokens": 18694,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 30,
+      "phase": "construction_discovery",
+      "bytes": 55969,
+      "estimated_input_tokens": 18913,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 31,
+      "phase": "construction_discovery",
+      "bytes": 56327,
+      "estimated_input_tokens": 19032,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 32,
+      "phase": "construction_discovery",
+      "bytes": 57272,
+      "estimated_input_tokens": 19347,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 33,
+      "phase": "construction_discovery",
+      "bytes": 58177,
+      "estimated_input_tokens": 19649,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 36,
+      "phase": "construction_draft",
+      "bytes": 66524,
+      "estimated_input_tokens": 22431,
+      "captured_project_maximum": 20000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 37,
+      "phase": "replan",
+      "bytes": 69392,
+      "estimated_input_tokens": 23387,
+      "captured_project_maximum": 20000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 42,
+      "phase": "construction_discovery",
+      "bytes": 57448,
+      "estimated_input_tokens": 19406,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 43,
+      "phase": "construction_discovery",
+      "bytes": 63597,
+      "estimated_input_tokens": 21455,
+      "captured_project_maximum": 18000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 50,
+      "phase": "construction_draft",
+      "bytes": 63283,
+      "estimated_input_tokens": 21351,
+      "captured_project_maximum": 20000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 52,
+      "phase": "construction_draft",
+      "bytes": 63712,
+      "estimated_input_tokens": 21494,
+      "captured_project_maximum": 20000,
+      "warning_recorded": true
+    },
+    {
+      "ordinal": 53,
+      "phase": "replan",
+      "bytes": 63787,
+      "estimated_input_tokens": 21519,
+      "captured_project_maximum": 20000,
+      "warning_recorded": true
+    }
+  ],
+  "advisory_scope": "Project input thresholds only; deployment capacity, financial reservations, output allocations, physical calls, corrections, time, permissions and uncertain replay remain enforced.",
+  "phase_request_sizes": {
+    "construction_intent": {
+      "peak_complete_request_bytes": 8488,
+      "peak_estimated_input_tokens": 3086,
+      "p50_complete_request_bytes": 8488,
+      "p95_complete_request_bytes": 8488
+    },
+    "construction_select": {
+      "peak_complete_request_bytes": 43147,
+      "peak_estimated_input_tokens": 14639,
+      "p50_complete_request_bytes": "37049.5",
+      "p95_complete_request_bytes": 43147
+    },
+    "construction_discovery": {
+      "peak_complete_request_bytes": 63597,
+      "peak_estimated_input_tokens": 21455,
+      "p50_complete_request_bytes": 49707,
+      "p95_complete_request_bytes": 62229
+    },
+    "construction_draft": {
+      "peak_complete_request_bytes": 66524,
+      "peak_estimated_input_tokens": 22431,
+      "p50_complete_request_bytes": "49706.5",
+      "p95_complete_request_bytes": 65059
+    },
+    "replan": {
+      "peak_complete_request_bytes": 69392,
+      "peak_estimated_input_tokens": 23387,
+      "p50_complete_request_bytes": "66589.5",
+      "p95_complete_request_bytes": 69392
+    },
+    "construction_local_judge": {
+      "peak_complete_request_bytes": 28920,
+      "peak_estimated_input_tokens": 9896,
+      "p50_complete_request_bytes": 28920,
+      "p95_complete_request_bytes": 28920
+    }
+  },
+  "received_empty_responses": 0,
+  "output_exhaustion": 0,
+  "formatting_failure": false,
+  "campaign_snapshot_at_terminal": {
+    "ceiling_eur": "640.0301038327063045424449473",
+    "accounting_upper_bound_eur": "465.94496190875237421745584609",
+    "known_cost_eur": "351.36588086824667776762831055",
+    "retained_unknown_reservations_eur": "114.57908104050569644982753554",
+    "available_eur": "174.08514192395393032498910121",
+    "not_a_future_balance_assumption": true
+  },
+  "raw_terminal_sha256": "db0698383cf17fd36dff3287b2f524ef151c4cb9d017dcdabd6c52dc2127dd9a",
+  "qualification": "Incomplete. No artifact or execution. The successful Collections run remains attributed to bb24cbe5; new production corrections require fresh qualifying cohorts.",
+  "initial_preparation": {
+    "logical_calls": 1,
+    "physical_attempts": 1,
+    "elapsed_ms": "82334.8402",
+    "known_input_tokens": 1504,
+    "known_output_tokens": 6237,
+    "known_cost_eur": "0.1748225994790263181532381209"
+  },
+  "first_static_correct_clone_timing": {
+    "ordinal": 13,
+    "sum_logical_dispatch_elapsed_ms": "736631.6495",
+    "host_overhead_excluded": true,
+    "actual_runtime_provenance_unverified": true
+  },
+  "estimate_calibration": {
+    "construction_intent": {
+      "matched_complete_receipts": 1,
+      "provider_input_divided_by_estimate_p50": "0.4873622812702527543745949449",
+      "provider_input_divided_by_estimate_min": "0.4873622812702527543745949449",
+      "provider_input_divided_by_estimate_max": "0.4873622812702527543745949449"
+    },
+    "construction_select": {
+      "matched_complete_receipts": 12,
+      "provider_input_divided_by_estimate_p50": "0.638848485037272049616186384",
+      "provider_input_divided_by_estimate_min": "0.5994655348581309439597579187",
+      "provider_input_divided_by_estimate_max": "0.6668641682713672048585394756"
+    },
+    "construction_discovery": {
+      "matched_complete_receipts": 23,
+      "provider_input_divided_by_estimate_p50": "0.5998216939078751857355126300",
+      "provider_input_divided_by_estimate_min": "0.5730598927988813796317874621",
+      "provider_input_divided_by_estimate_max": "0.6453496266123557365919891378"
+    },
+    "construction_draft": {
+      "matched_complete_receipts": 14,
+      "provider_input_divided_by_estimate_p50": "0.593845481547414721881004809",
+      "provider_input_divided_by_estimate_min": "0.5413603796408299990695077696",
+      "provider_input_divided_by_estimate_max": "0.6266602436170944876470993049"
+    },
+    "replan": {
+      "matched_complete_receipts": 2,
+      "provider_input_divided_by_estimate_p50": "0.569929191935841384894009278",
+      "provider_input_divided_by_estimate_min": "0.5545332032157628142571680840",
+      "provider_input_divided_by_estimate_max": "0.5853251806559199555308504725"
+    },
+    "construction_local_judge": {
+      "matched_complete_receipts": 1,
+      "provider_input_divided_by_estimate_p50": "0.5142481810832659660468876314",
+      "provider_input_divided_by_estimate_min": "0.5142481810832659660468876314",
+      "provider_input_divided_by_estimate_max": "0.5142481810832659660468876314"
+    }
+  },
+  "estimate_calibration_limit": "Whole provider input is compared to the versioned conservative complete-request estimate. No component estimate is billed usage; no admission or reservation formula is changed."
+}

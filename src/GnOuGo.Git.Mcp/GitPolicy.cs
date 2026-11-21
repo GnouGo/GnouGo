@@ -10,6 +10,7 @@ public sealed class GitPolicy
     private readonly string? _workspaceRootPath;
     private readonly string? _desktopDirectoryPath;
     private readonly string _defaultWorkingDirectory;
+    private readonly string _physicalWorkingDirectory;
 
     public GitPolicy(IOptions<GitServerSettings> settings)
         : this(settings.Value, AppContext.BaseDirectory)
@@ -28,6 +29,7 @@ public sealed class GitPolicy
         _workspaceRootPath = GnOuGoWorkspace.DiscoverWorkspaceRoot(_contentRootPath);
         _desktopDirectoryPath = string.IsNullOrWhiteSpace(desktopDirectoryPath) ? null : Path.GetFullPath(desktopDirectoryPath);
         _defaultWorkingDirectory = ResolveDefaultWorkingDirectory();
+        _physicalWorkingDirectory = ResolveDirectoryAliases(new DirectoryInfo(_defaultWorkingDirectory));
     }
 
     public string DefaultWorkingDirectory => _defaultWorkingDirectory;
@@ -125,8 +127,26 @@ public sealed class GitPolicy
         if (!_settings.ReviewReadOnly)
             return;
         var workflowRoot = GnOuGoWorkspace.ResolveWorkflowWorkspacesDirectory(_defaultWorkingDirectory);
-        if (!GnOuGoWorkspace.IsWorkflowWorkspacePath(path, _defaultWorkingDirectory))
+        if (!GnOuGoWorkspace.IsWorkflowWorkspacePath(WorkspaceSpelling(path), _defaultWorkingDirectory))
             throw new InvalidOperationException($"review_read_only permits clone/fetch only under the workflow workspace '{workflowRoot}'.");
+    }
+
+    // libgit2 returns physical repository paths, including when an ancestor of
+    // the configured workspace is a system directory alias such as macOS /var.
+    internal string WorkspaceSpelling(string path)
+    {
+        if (_physicalWorkingDirectory == _defaultWorkingDirectory) return path;
+        var relative = Path.GetRelativePath(_physicalWorkingDirectory, path);
+        if (Path.IsPathRooted(relative) || relative == ".." || relative.StartsWith(".." + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            return path;
+        return Path.GetFullPath(relative, _defaultWorkingDirectory);
+    }
+
+    private static string ResolveDirectoryAliases(DirectoryInfo directory)
+    {
+        if (directory.Parent is not { } parent) return directory.FullName;
+        var child = new DirectoryInfo(Path.Combine(ResolveDirectoryAliases(parent), directory.Name));
+        return child.ResolveLinkTarget(returnFinalTarget: true)?.FullName ?? child.FullName;
     }
 
     public void EnsureGitNetworkAllowed(string operation)

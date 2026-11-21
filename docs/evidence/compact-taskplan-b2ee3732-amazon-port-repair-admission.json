@@ -1,0 +1,169 @@
+{
+  "production_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "harness_source": "b2ee37324194c67516959898b4eaeaa2fdc5a15e",
+  "cohort": "compactrb2ee37324amz22j20v11a",
+  "profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "logical_requests": 28,
+  "physical_attempts": 29,
+  "corrections": 1,
+  "checkpoints": 4,
+  "planning_ms": 1731101,
+  "accounting": {
+    "logical_calls": 28,
+    "physical_attempts": 29,
+    "known_input_tokens": 164585,
+    "known_output_tokens": 51648,
+    "known_cost_eur": "2.1172378402498884426595269966",
+    "unknown_attempts": 1,
+    "reserved_input_tokens": 12000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": "0.9308701472556894243641231593"
+  },
+  "provider_reasoning_tokens": 43100,
+  "artifact": false,
+  "runtime": false,
+  "independent_business_success": false,
+  "calls_per_complete_business_outcome": null,
+  "measurements": {
+    "construction_discovery": {
+      "constructed": 11,
+      "admitted": 9,
+      "rejected_before_dispatch": 0,
+      "complete_bytes": {
+        "p50": 22423.0,
+        "p95": 26441,
+        "maximum": 26441
+      },
+      "estimated_input_tokens": {
+        "p50": 7731.0,
+        "p95": 9070,
+        "maximum": 9070
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_draft": {
+      "constructed": 10,
+      "admitted": 7,
+      "rejected_before_dispatch": 0,
+      "complete_bytes": {
+        "p50": 36431.0,
+        "p95": 64685,
+        "maximum": 64685
+      },
+      "estimated_input_tokens": {
+        "p50": 12400.0,
+        "p95": 21818,
+        "maximum": 21818
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_intent": {
+      "constructed": 2,
+      "admitted": 2,
+      "rejected_before_dispatch": 0,
+      "complete_bytes": {
+        "p50": 6343.0,
+        "p95": 9510,
+        "maximum": 9510
+      },
+      "estimated_input_tokens": {
+        "p50": 2370.5,
+        "p95": 3426,
+        "maximum": 3426
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_local_judge": {
+      "constructed": 5,
+      "admitted": 5,
+      "rejected_before_dispatch": 0,
+      "complete_bytes": {
+        "p50": 29667.0,
+        "p95": 58097,
+        "maximum": 58097
+      },
+      "estimated_input_tokens": {
+        "p50": 10145.0,
+        "p95": 19622,
+        "maximum": 19622
+      },
+      "component_bytes_reconcile": true
+    },
+    "construction_select": {
+      "constructed": 5,
+      "admitted": 5,
+      "rejected_before_dispatch": 0,
+      "complete_bytes": {
+        "p50": 18059.0,
+        "p95": 31047,
+        "maximum": 31047
+      },
+      "estimated_input_tokens": {
+        "p50": 6276.0,
+        "p95": 10605,
+        "maximum": 10605
+      },
+      "component_bytes_reconcile": true
+    },
+    "replan": {
+      "constructed": 1,
+      "admitted": 0,
+      "rejected_before_dispatch": 1,
+      "complete_bytes": {
+        "p50": 67207.0,
+        "p95": 67207,
+        "maximum": 67207
+      },
+      "estimated_input_tokens": {
+        "p50": 22659.0,
+        "p95": 22659,
+        "maximum": 22659
+      },
+      "component_bytes_reconcile": true
+    }
+  },
+  "retained_run_sha256": "896fdf39910d33b63e9e579256e94d79eda285c22cae28afc4172571a7eb671f",
+  "uncertain_logical_request": false,
+  "request_replayed": false,
+  "reservation_released": false,
+  "failure": "Genuine semantic port mismatch, then replacement request rejected locally at22659estimated tokens against22000. No paid repair call or additional correction charge.",
+  "independent_finding": {
+    "producer": "step_5",
+    "producer_format": "observation_complete",
+    "consumer": "step_6",
+    "wrong_port": "content",
+    "evidence": "Original contract places complete typed records in observationSnapshot.pages; pinned Browser implementation constructs complete mode from paged capture, whose flat content is empty.",
+    "finding_grounded": true,
+    "premature_future_work_finding": false,
+    "automatic_port_substitution": false
+  },
+  "repair_request": {
+    "bytes": 67207,
+    "tokens": 22659,
+    "limit": 22000,
+    "request_hash": "e6b2b9bd2ea1a65d89b3cc4c028c6b171b0d99610258d7d9ad6fad6e96dbd148",
+    "schema_hash": "095284a5ddb1dd5e2b5c3e17acff09722ae36a231879248571c5469a648b3ceb"
+  },
+  "progress": "Reviewed URL-producing prerequisite resumes browser consumer directly; one accepted Browser operation, then unaccepted extraction. No duplicated producer.",
+  "new_source_fix": "6469a1a3 pages only unused producer names; exact-hash reconstruction before, complete new request21731tokens afterward. Live repair remains unverified."
+}

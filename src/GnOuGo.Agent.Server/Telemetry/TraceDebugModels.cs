@@ -10,7 +10,8 @@ public sealed record TraceDebugSnapshot(
     List<TraceLogDto> Logs,
     bool Pending,
     string Message,
-    IReadOnlyList<TraceSummaryDto>? AvailableTraces = null);
+    IReadOnlyList<TraceSummaryDto>? AvailableTraces = null,
+    IReadOnlyList<TraceGroupDto>? OwnedTraces = null);
 
 public sealed record TraceLogDto(
     DateTimeOffset ReceivedUtc,

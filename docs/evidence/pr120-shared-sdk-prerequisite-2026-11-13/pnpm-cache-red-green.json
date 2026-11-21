@@ -1,0 +1,62 @@
+{
+  "identity": "pnpm-cache-qualification-20261113-02",
+  "model_calls": 0,
+  "source_head": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+  "sdk_permissions_changed": false,
+  "repository_scripts_enabled": false,
+  "input_hashes": {
+    "pnpm-lock.yaml": "3d7c158e8b65ff0b1c544c28325c3d65c96060be20f1f87fbc467a5b8390a219",
+    "pnpm-workspace.yaml": "49429f96181fee18f943ddffbcb29dc2fd189742909a025cbc3a0f0f7666b5f8",
+    "package.json": "e51a4cbe7afe0ff2a409dffa2836782c3de24ec9147dad1dfb7b489040dcdcbe",
+    "production/webapp/package.json": "44270453f18791b62e3e3c996a9a3508babd4154b702596390404a2dfbb1711d",
+    "packages/axa-fr-smartguide-smi/package.json": "87e564a16687b45f4810aa521a2c6aeaa62ca16a69f141ff643e7e5a5d1a4d97"
+  },
+  "previous_attempt": "pnpm-cache-qualification-20261113-01",
+  "hypothesis": "An ordinary retry of the unchanged registry fetch recovers the observed ECONNRESET while retaining verified cached packages; no alternate route or TLS change.",
+  "minimum_free_bytes": 12884901888,
+  "results": [
+    {
+      "stage": "offline-red",
+      "arguments": [
+        "fetch",
+        "--offline",
+        "--ignore-scripts",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 1,
+      "timed_out": false,
+      "elapsed_seconds": 7.686,
+      "log_sha256": "f5242b26b8e89e53881f8ac47f5ca6e08fd9d77d618dd850256cd3c29eecc37d"
+    },
+    {
+      "stage": "host-cache-provisioning",
+      "arguments": [
+        "fetch",
+        "--ignore-scripts",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 253.886,
+      "log_sha256": "a62df36a732f013775c2a01f36ef19c2d0f46ada635e994b9172ad1e9b943d54"
+    },
+    {
+      "stage": "offline-green",
+      "arguments": [
+        "install",
+        "--offline",
+        "--ignore-scripts",
+        "--frozen-lockfile"
+      ],
+      "exit_code": 0,
+      "timed_out": false,
+      "elapsed_seconds": 1.449,
+      "log_sha256": "2a071f540ad1f21244cb7d0510d5bd2fda7915e40e364e3571bd0937b2ddae48"
+    }
+  ],
+  "qualified": true,
+  "inputs_unchanged": true,
+  "host_install_scope": "Manifest-only staging, all repository lifecycle scripts disabled; local repository source was not built or tested.",
+  "sdk_install_still_required": true,
+  "prior_network_incident": "First ordinary registry fetch stopped on ECONNRESET after partial verified cache population; one unchanged-route retry completed. TLS validation, route, provider and SDK permissions unchanged."
+}

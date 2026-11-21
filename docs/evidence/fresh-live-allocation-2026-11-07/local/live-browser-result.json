@@ -1,0 +1,16 @@
+{
+  "evidence": "live-provider",
+  "session": "01b2af8bf8164c6f8ead9447d1df1d98",
+  "status": "final_review",
+  "activePhaseObserved": true,
+  "sharedInspectorOpened": true,
+  "logicalRequestIds": [
+    "01b2af8bf8164c6f8ead9447d1df1d98:1:b625cb7b6689a3d44ccd0e5186278aa55ff1ac92ef21925784be7ce9142cb7b7",
+    "01b2af8bf8164c6f8ead9447d1df1d98:2:c1c739abcdbf8a246c8afc10c771e81fefe3397605ecb3c0d014bded3f0db377:e05bdebe4e14d1e58b4c2a5375ac13c6776799007b0d224d4798f25c4f8a1704",
+    "01b2af8bf8164c6f8ead9447d1df1d98:3:fc350d0c9abe71684f828fa3ea1a4b629ff6f9143be81588ac72286046742bbc:7ebce04bdfa7f5f9be581dbc87fbc2f585b9dafe28002bf7d3da186c2ec41448",
+    "01b2af8bf8164c6f8ead9447d1df1d98:4:7b817ca2f63e54f1dc08900231e829b027a5a3fa649a38a09cef9899376b4a19:b2087de0bc9960dfb5089692b8a6fd7cec471079546d6451053fc9ecb6ac6d64",
+    "01b2af8bf8164c6f8ead9447d1df1d98:5:a427f963810ec73e8d8f50815b97452e5f6adef1b8747befe1853a7c3f05be96:7ec2f2f9f37c32b6538e410d9539653602e5450fc8039b8976dabe0f2de0b1ee"
+  ],
+  "duplicateCalls": false,
+  "errors": []
+}

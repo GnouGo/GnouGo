@@ -1,0 +1,69 @@
+{
+  "source": "a84b2d891e4ad68a27db7a601b3ba13d6f3d7d4a",
+  "campaign": "pr120-live-20261107-400",
+  "configuration": "5341dae8fc9343a598475ca873ea5abdd917d6412118f91d028256436766d3c3",
+  "run": "resume300b-native-control-probe-20261110-01",
+  "kind": "fresh independent tool-free presentation probe; no workflow qualification",
+  "source_request": "328d805fb8ad43ac8b0c091a2688d120:49:d0b9c0b61bf15ff5744fbb278844c8992fd9f35249aa7c5616f056adefce1f3a:21b19a312c0ae1f1d665890971efb5f3826e8f565e64300c69f248d87c28229a",
+  "retained_source_response": {
+    "discoveryRequests": null,
+    "evidenceRequests": [
+      "e16eeae8b_15",
+      "e16eeae8b_19",
+      "e16eeae8b_17",
+      "e16eeae8b_24"
+    ],
+    "reselectStep": null,
+    "clarifications": null,
+    "binding": null
+  },
+  "fresh_response": {
+    "discoveryRequests": null,
+    "evidenceRequests": null,
+    "reselectStep": null,
+    "clarifications": null,
+    "binding": {
+      "kind": "sequence",
+      "operationIds": [
+        "cap_fa8aa0024ff2ec0a4f9e61ad",
+        "cap_e87238bc6035a17954299a78",
+        "cap_37c513d225bb1b870053c5d3",
+        "cap_5c01f9aa688163d23a30ff8b"
+      ],
+      "groupId": null,
+      "closeScopes": null
+    }
+  },
+  "selected_methods": [
+    "git_clone",
+    "code_agent_edit",
+    "document_write",
+    "cmd_run"
+  ],
+  "all_selected_contracts_already_loaded": true,
+  "original_context_unchanged": true,
+  "response_schema_unchanged": true,
+  "added_utf8_bytes": 647,
+  "response_schema_valid": true,
+  "durable_receipt": true,
+  "physical_attempts": 1,
+  "model": "gpt-6.1-sol-2026-09-29",
+  "reasoning": "medium",
+  "cost_estimate_eur": "0.6530676220331392745185848634",
+  "retained_external_reservations_eur": "59.555978487450312513390730382",
+  "applies_candidate": false,
+  "executes_business_tools": false,
+  "source_session_resumed": false,
+  "qualification_limits": [
+    "One observed counterfactual response selected the coherent local control and four loaded original contracts; this does not establish a controlled convergence-speed claim.",
+    "Full Code execution and its independent business oracle remain required.",
+    "Amazon route and product-context refusals remain unchanged."
+  ],
+  "private_evidence_sha256": {
+    "resume300b-native-control-exact-schema-preflight.json": "0c90739e2ad5ea9665f5f52a53100d3ada8e26464919716ca65bd015e01f437d",
+    "resume300b-code19-request49.json": "6e25a16ed5e18b2d288bb26d094c5fa664afde4c9be84b05963e1917a1236657",
+    "resume300b-code19-receipt49.json": "4d88f9d39b42ddd952eac4d2abad04240cf6f5c8c81202c42d489072d3777679",
+    "resume300b-native-control-probe01-record.json": "e3b09413a87ed2f085651e17bfa7dac9cadc2035a0baeefff6ea28177b721802",
+    "resume300b-native-control-probe01-receipt.json": "ccc40f2f848c466a8a9830f186053adb201922d9eb0b080a0f5fd8e92ec5f8f9"
+  }
+}

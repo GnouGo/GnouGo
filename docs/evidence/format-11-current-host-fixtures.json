@@ -1,0 +1,59 @@
+{
+  "source_capture": "workingtreebefore/after4739trackedfilemanifest;notnewpinnedcommit",
+  "head": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+  "passed": 82,
+  "failed": 0,
+  "skipped": 0,
+  "warnings": 0,
+  "compiler_errors": 0,
+  "source_changed_during_run": [],
+  "source_manifest_sha256": "7edd7c32a3e5edd233adea0a8d69f8bb12e22a17642e2258a9750c9fa49025ce",
+  "log_sha256": "153513a565525586c22030bc1983590bd1458ec21c92e46f51604ce5e481c16e",
+  "trx_sha256": "05762a150871193270864139255c7cd9f805e077d5fb5f14da3e3e6f9497a2ab",
+  "classes": {
+    "GnOuGo.Agent.Server.Tests.LiveWorkflowReviewTests": 22,
+    "GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests": 34,
+    "GnOuGo.Agent.Server.Tests.RecordedProductPlanningTests": 18,
+    "GnOuGo.Agent.Server.Tests.LiveProducerEffectTests": 5,
+    "GnOuGo.Agent.Server.Tests.PlanningOwnershipTests": 3
+  },
+  "paid_calls": 0,
+  "test_totals": "82unique cases; targeted/private overlaps are not added to fullsuite totals",
+  "business_qualification_claimed": false,
+  "kind": "format11_current_host_fixture_corrections",
+  "candidate_file_hashes": {
+    "tests/GnOuGo.Agent.Server.Tests/PlanningOwnershipTests.cs": "37da6845c155800844c22aeeb2278ce2660ddfc1397fc39ecbdb6be72ba1cd4a",
+    "tests/GnOuGo.Agent.Server.Tests/LiveWorkflowReviewTests.cs": "37eddf6b999482b765d2a1937db7c484787f13ded3caf9fff71b9240f5b25eb3",
+    "tests/GnOuGo.Agent.Server.Tests/RecordedProductPlanningTests.cs": "645c9eef763328ba8a2641378a4ca4917b13fb639ffd5b296d3e3c50be6c7e4c",
+    "tests/GnOuGo.Agent.Server.Tests/LiveProducerEffectTests.cs": "4ce51619860fe79ab2fadb79a2b6e7a911df8815594d88ab275dc599dd93fc83",
+    "tests/GnOuGo.Agent.Server.Tests/GenericProofBenchmarkTests.cs": "565e3326aea75bf052eee0c65afd0de0a8c0defc4aa5bff22d6aa8ab468f7442"
+  },
+  "production_overlay_during_validation": {
+    "file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+    "sha256": "b899542255a65e7c7523f4e42e1279c359fa5b91ec035dfc2e240b9f64b0d367",
+    "evidence": "format-11-shared-directory-admission.json"
+  },
+  "preserved_failures": {
+    "exact2a3_full_solution_cases": 26,
+    "status": "Original immutable full solution is still running; failed records remain failures.",
+    "inventory_sha256": "24bb30568ec7bdecb4e10e0dbedb22cb890c572571e6082e4100bf6e45d63f88",
+    "classes": {
+      "PlanningOwnershipTests": 2,
+      "LiveWorkflowReviewTests": 1,
+      "RecordedProductPlanningTests": 16,
+      "LiveProducerEffectTests": 4,
+      "GenericProofBenchmarkTests": 3
+    }
+  },
+  "corrections": [
+    "Capture current phase/transport policy, recognized issued phase and review headroom in the custom ownership fixture; preserve single dispatch, cancellation, late receipt and accounting assertions.",
+    "Obtain global review through ordinary current planning before positive artifact approval; no fabricated clean flags or receipts.",
+    "Keep original recordings byte-identical. Label the in-memory current-runtime adaptation as synthetic and use explicit named foreach exports; preserve all16 runtime/workbook variants.",
+    "Confine metadata-discovery child workspaces and KeyVault paths through public settings; no operational data access or sandbox relaxation.",
+    "For the authored-baseline unit fixture only, capture12k navigation before creation; complete context exceeds default6k. Production defaults and live profiles remain unchanged."
+  ],
+  "development_attempts_retained": [
+    "First root ownership/approval overlay retained a nullable compiler diagnostic and missing transport capture; its failed log remains private. Corrected combined run is separate.",
+    "Default6k authored-baseline attempts were rejected before selection; their measurements remain private and are not successes."
+  ]
+}

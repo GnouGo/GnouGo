@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "source": "4857d5558a153f14a26adde9a203ef303609743c",
+  "cohort": "compactr4857d5558codev5",
+  "base_archive_sha256": "c6f4bfea839576f839df739f0ac026703bbd7d3d8d148d71b4d275b2c86382fc",
+  "base_archive_unchanged": true,
+  "scope": "Append-only original-response formatting measurement. It supplements the earlier unmeasured field without changing the immutable terminal archive.",
+  "totals": {
+    "receipts": 36,
+    "original_utf8_bytes": 24347,
+    "outside_string_whitespace_bytes": 1,
+    "maximum_whitespace_run": 1,
+    "empty_texts": 0,
+    "all_texts_parse_as_json": true
+  },
+  "phases": {
+    "construction_intent": {
+      "receipts": 4,
+      "original_utf8_bytes": 5750,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run": 0,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    },
+    "construction_select": {
+      "receipts": 7,
+      "original_utf8_bytes": 5575,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run": 0,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    },
+    "construction_draft": {
+      "receipts": 6,
+      "original_utf8_bytes": 5641,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run": 0,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    },
+    "construction_local_judge": {
+      "receipts": 5,
+      "original_utf8_bytes": 2332,
+      "outside_string_whitespace_bytes": 1,
+      "maximum_whitespace_run": 1,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    },
+    "construction_discovery": {
+      "receipts": 12,
+      "original_utf8_bytes": 3090,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run": 0,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    },
+    "replan": {
+      "receipts": 2,
+      "original_utf8_bytes": 1959,
+      "outside_string_whitespace_bytes": 0,
+      "maximum_whitespace_run": 0,
+      "empty_texts": 0,
+      "all_texts_parse_as_json": true
+    }
+  },
+  "normalized_response_content_bytes": 25124,
+  "receipt_identity_joins": 36,
+  "interpretation": "Original UTF8 text and normalized parsed content are different measurements. Outside-string JSON whitespace was1byte across36 nonempty parseable receipts. This run does not establish a general model or causal performance claim. No provider-only latency inference.",
+  "references": [
+    {
+      "path": "/private/tmp/gnougo-485-code-terminal-final-safe/compact-taskplan-4857d5558-code.json",
+      "sha256": "c6f4bfea839576f839df739f0ac026703bbd7d3d8d148d71b4d275b2c86382fc",
+      "bytes": 29442
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr4857d5558codev5/code-response-formatting-safe.json",
+      "sha256": "3802f45907cc3f0b8e9bb150c4a98846db80e8001652b26047b4dbc20cada05a",
+      "bytes": 19367
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr4857d5558codev5/code-terminal-safe-metrics.json",
+      "sha256": "8650b7db5d94a5371fabaaab498635eeca7adf1a2dc283e5dc810ff8ef29bc86",
+      "bytes": 160576
+    }
+  ],
+  "raw_request_or_receipt_text_saved": false,
+  "no_store_access": true
+}

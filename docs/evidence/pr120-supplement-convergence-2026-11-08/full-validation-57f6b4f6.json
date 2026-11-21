@@ -1,0 +1,96 @@
+{
+  "functional_source": "57f6b4f637379651c4dbf90f340e7253056a29cc",
+  "full_solution": {
+    "exit_code": 0,
+    "test_assemblies": 33,
+    "passed": 8523,
+    "skipped": 12,
+    "failed": 0,
+    "complete_disjoint_partition": true,
+    "invocations": 5,
+    "solution_remainder_assemblies": 33,
+    "fixture_case_count": 216,
+    "fixture_method_count": 47,
+    "fixture_shards": [
+      {
+        "index": 1,
+        "passed": 67,
+        "failed": 0,
+        "exit_code": 0
+      },
+      {
+        "index": 2,
+        "passed": 54,
+        "failed": 0,
+        "exit_code": 0
+      },
+      {
+        "index": 3,
+        "passed": 52,
+        "failed": 0,
+        "exit_code": 0
+      },
+      {
+        "index": 4,
+        "passed": 43,
+        "failed": 0,
+        "exit_code": 0
+      }
+    ],
+    "inventory_and_actual_case_counts_equal": true,
+    "frozen_fixture_binaries_unchanged": true,
+    "frontend_built_before_browser_tests": true,
+    "staged_playwright_module_override": true,
+    "remainder_command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror -p:SkipClientBuild=true --blame-hang-timeout 10m --blame-hang-dump-type none --logger console;verbosity=normal --filter FullyQualifiedName!~GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests",
+    "fixture_commands": "Four --no-build --no-restore Agent.Server.Tests invocations, exact method filters from the complete inventory; every case included once."
+  },
+  "planning_tests": 2906,
+  "new_failure_guidance_tests": 9,
+  "production_frontend_build": {
+    "exit_code": 0
+  },
+  "release_benchmark_and_staged_tools_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "independent_packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_validation_log_sha256": {
+    "final57-full-remainder.log": "06def8615ebffedd47d0fe90e1b08cfed248f92110cbbdc44b1a63abc80bbdd4",
+    "final57-server-fixture-shard1.log": "2dab6287284f637eb1f61f5559a32640df7e7a856da42236106e56a48824a931",
+    "final57-server-fixture-shard2.log": "1417f12eab77d4c14a2513c44ef73e10bf30191d63b86ae98f819ff083f0512d",
+    "final57-server-fixture-shard3.log": "86df33fd13b69a280800564e3f5f1aa6cef92a2858065c505fcae8a8b6b40b8c",
+    "final57-server-fixture-shard4.log": "81669d5ebe0dbe10227f46737293c8810d8cbf6d4157dcc50d4045311fb35731",
+    "final57-frontend-build.log": "b1ad27b0a240a538a26f9f986ebf5452483c2fceb38cacd814e154a206d95469",
+    "final57-release-build.log": "2f7f55f4477021627375afce0997a67aa7ffb95c7092a730804ce79685fe660a",
+    "final57-aot-publish.log": "0bece0e675069aa4d1ed0d389eb430e7ac438434eaffb072910d572f77dd2c78",
+    "final57-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971",
+    "final57-core-pack.log": "a3503df28bbcaaa2fb60fa33b9df48e6114a1297463f95fd5a11c193f51aecbb",
+    "final57-planning-pack.log": "657a0846c00efefd8583736124dad351556ae582f584afbfe013a9b639aa422a",
+    "failure-obligation-final-planning-all.log": "937182f0a3f3f9b522e5c689fa9e01c33975d0c7373116126c75daf1c44f3fdd",
+    "final57-main-frontend-build.log": "ae6635a46c639f912794578d68f86b8bc3d8f47079d878b6ade1049e35eff035",
+    "final57-main-release-build.log": "588d1b1f205fd4b6b9209f911d517ae3036ce86e5f9f723aa403daa4011d7f9c",
+    "final57-server-test-inventory.log": "19fe729735a5ec678839008d1288cdfd630ce093cd3e625fde807d1542d79a63",
+    "final57-test-partitions.json": "6ebbafe5f48909345e2a9020047187ee4c3a8712b5b695f781975bddd35cb088"
+  },
+  "limitations": [
+    "Twelve existing skips remain: seven Windows command cases on macOS and five opt-in live Copilot/GitHub cases.",
+    "The complete solution is covered by disjoint test invocations, not one unfiltered final-source invocation.",
+    "The superseded partial final57 invocation and other superseded runs are not counted.",
+    "The exact unchanged-plan boundary is a protocol-prefix proof on source 72f17ca7, not an executed workflow.",
+    "Code and Amazon remain unqualified end to end; the new failure guidance has no fresh live qualification.",
+    "Older qualified Native/Collections pairs retain their own source abe71c6d."
+  ],
+  "remote_ci_snapshot": "ci-functional-source-57f6b4f6.json",
+  "remote_ci_all_passed": false,
+  "test_partition_evidence": "test-partitions-57f6b4f6.json"
+}

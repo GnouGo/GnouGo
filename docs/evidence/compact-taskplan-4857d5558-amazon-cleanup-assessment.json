@@ -1,0 +1,106 @@
+{
+  "kind": "safe_independent_source_assessment_supplement",
+  "source": "4857d5558a153f14a26adde9a203ef303609743c",
+  "cohort": "compactr4857d5558amzv5",
+  "measurement_archive": {
+    "path": "/private/tmp/gnougo-485-amazon-terminal-safe-liws5zum/compact-taskplan-4857d5558-amazon-v2.json",
+    "sha256": "e89cd7d9e883d377f549695d91af25ae1b8f567fbe7e3fa154d4dba5dec9672e",
+    "bytes": 28510
+  },
+  "root_original_evidence_witness": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr4857d5558amzv5/amazon-cleanup-analysis-safe.json",
+    "sha256": "75fbcb51292544ba596a47b8a7159ebc451f71d138fddeedf474b192ea4cab23",
+    "bytes": 14720,
+    "preserved_copy_relative_path": "root-cleanup-analysis-safe.json"
+  },
+  "verification": {
+    "exact_metric_record_joins": 16,
+    "source_file_hashes_verified": 5,
+    "original_context_read_by": "root only; this reviewer used the safe witness and source",
+    "no_store_or_runtime_access": true
+  },
+  "independent_assessment": {
+    "unsupported_handle_necessity_findings": 2,
+    "basis": [
+      "BrowserTools.CloseAsync exposes no business argument; its only parameter is CancellationToken.",
+      "PlaywrightBrowserHost retains page/context fields and closes those fields; it does not consume a generated handle or BrowserContentResult output.",
+      "BrowserContentResult does not declare the promised browser/page/session close-handle outputs. This does not validate the selected promise to produce them.",
+      "The benchmark constructs the isolated browser configuration once, disables KeepBrowserOpen for its spawned server, and retains the same observed MCP manager across workflow execution. Closing that owned context is possible without a generated handle, subject to existing execution authority."
+    ],
+    "conclusion": "The two cited cleanup findings do not establish that a produced handle is necessary for later cleanup. Their separate selected-output mismatch remains a valid question; this assessment does not declare the drafts complete or approve execution.",
+    "presentation_gap_from_root_inspection": "The complete companion close description had been retrieved during discovery but was absent from both adverse Judge contexts. Judge41 had only the first2048 of3473 characters of the get-content description and did not retrieve its continuation.",
+    "actual_progress_from_root_inspection": "Two accepted checkpoints covered public input and an empty boundary; no business operation was accepted.",
+    "limitations": [
+      "No generated artifact, executed cleanup or runtime/business success.",
+      "No blanket classification of all other findings.",
+      "The root witness establishes original context contents; static source review independently checks the narrow cleanup-handle premise.",
+      "No measured avoided correction, counterfactual success or model-causality claim."
+    ],
+    "avoided_corrections": null
+  },
+  "source_locations": [
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "lines": [
+        209,
+        210,
+        211,
+        215
+      ],
+      "fact": "Close contract takes no business arguments."
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.cs",
+      "lines": [
+        17,
+        18,
+        553,
+        567,
+        857,
+        861,
+        867,
+        974
+      ],
+      "fact": "Retained page/context closure and content result definition."
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/Program.cs",
+      "lines": [
+        29
+      ],
+      "fact": "Browser host is singleton within its spawned process."
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "lines": [
+        317,
+        330,
+        332
+      ],
+      "fact": "Disposable benchmark browser disables keep-open debug behavior."
+    }
+  ],
+  "source_evidence": [
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "sha256": "8cdf2ea36ab048a929d8cb83bf234d3b6d7b4562226842fe2ae3de035574994d"
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/PlaywrightBrowserHost.cs",
+      "sha256": "63a6573c25152a628aa432a1e78d2c906b04c94482d288424d4249695ccdc72b"
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/Program.cs",
+      "sha256": "0da196821ab94de1d50a0e402ad430ee0c2b7beaf8ac1b406d7d1a25d8a47993"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.ConstructionReview.cs",
+      "sha256": "a1fd1e38eefe305ba8d9de3d0f0399edb223982af2b64f887fa08595674581a4"
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "188b167f7ce77e6cf3d34389cc84a18419e761e6c6efffd72811f70951ba2495"
+    }
+  ],
+  "privacy": "No original request/receipt text, raw plan or authentication data copied."
+}

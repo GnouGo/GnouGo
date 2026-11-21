@@ -22,6 +22,7 @@ public sealed class CodeCopilotSettings
 {
     public CopilotLogicalLimits LogicalLimits { get; set; } = new();
     public string? InferenceProxyEndpoint { get; set; }
+    public string InferenceTransport { get; set; } = "native";
     public string Provider { get; set; } = "Copilot";
     public string Model { get; set; } = "gpt-5.4";
     public string Mode { get; set; } = "ask";

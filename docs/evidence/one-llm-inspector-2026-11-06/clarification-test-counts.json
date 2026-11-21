@@ -1,0 +1,9 @@
+{
+  "source_commit": "62e3e6de5f3227434aa66305dfa24f0bfbc5dc70",
+  "binary_source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+  "script_loaded_at_runtime": true,
+  "sha256": "89752d70f38df8cde374989625640657d51116248424e81ddd4466439b9830e5",
+  "outcomes": {
+    "Passed": 1
+  }
+}

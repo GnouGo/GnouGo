@@ -158,6 +158,86 @@ public sealed class OperationResultContractTests
         Assert.True(JsonNode.DeepEquals(boundary == "foreach" ? new JsonArray(expected!.DeepClone(), expected.DeepClone()) : expected, result.Outputs!["result"]));
     }
 
+    [Theory]
+    [InlineData("matching")]
+    [InlineData("empty")]
+    [InlineData("other_object")]
+    [InlineData("array")]
+    [InlineData("array_index")]
+    [InlineData("root_constraint")]
+    [InlineData("opaque_contract")]
+    [InlineData("open_contract")]
+    [InlineData("undeclared_field")]
+    [InlineData("matching", true)]
+    [InlineData("empty", true)]
+    [InlineData("other_object", true)]
+    [InlineData("array_index", true)]
+    [InlineData("root_constraint", true)]
+    [InlineData("opaque_contract", true)]
+    [InlineData("open_contract", true)]
+    [InlineData("undeclared_field", true)]
+    public async Task RequiredFieldOfAClosedMcpResultVariantChecksBeforeDispatch(string variant, bool retainInObject = false)
+    {
+        var resultSchema = Schema("""{"oneOf":[{"type":"null"},{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false},{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false},{"type":"array","items":{"type":"string"}}]}""");
+        if (variant == "opaque_contract") resultSchema["oneOf"]!.AsArray().Add(new JsonObject());
+        if (variant == "open_contract") resultSchema["oneOf"]![1]!["additionalProperties"] = true;
+        if (variant == "root_constraint") resultSchema["maxProperties"] = 0;
+        var selectedField = variant == "array_index" ? "0" : "message";
+        if (variant == "array_index")
+            resultSchema["oneOf"]![2] = Schema("""{"type":"object","properties":{"0":{"type":"string"}},"required":["0"],"additionalProperties":false}""");
+        var source = variant switch
+        {
+            "array" or "array_index" => (JsonNode)new JsonArray("another"),
+            "other_object" => new JsonObject { ["label"] = "different" },
+            _ => new JsonObject { ["message"] = variant == "empty" ? "" : "observed" }
+        };
+        var empty = Schema("""{"type":"object","properties":{},"additionalProperties":false}""");
+        var message = Schema("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false}""");
+        var received = new List<string>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("service", new()
+        {
+            Tools = [new() { Name = "read", InputSchema = empty, OutputSchema = resultSchema, EffectKind = "read" },
+                new() { Name = "deliver", InputSchema = message, OutputSchema = empty, EffectKind = "write" }],
+            ToolHandlers = new() { ["read"] = _ => new() { Content = source.DeepClone() },
+                ["deliver"] = args => { received.Add(args!["message"]!.GetValue<string>()); return new() { Content = new JsonObject() }; } }
+        });
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var catalog = await Catalog(engine);
+        string Operation(string method) => TaskOperations.Describe(catalog.Capabilities.Single(c => c.Server == "service" && c.Method == method)).Id;
+        TaskValue Whole() => retainInObject
+            ? TaskFieldBindingTests.Field(Reference("retain", "bundle"), "observation")
+            : Reference("obtain", null);
+        TaskValue Field() => TaskFieldBindingTests.Field(Whole(), variant == "undeclared_field" ? "missing" : selectedField);
+        TaskValue Compare(string op, params TaskValue[] operands) => new() { Kind = "predicate", Predicate = op, Items = [.. operands] };
+        var plan = new TaskPlan { Root = new() { Tasks = [
+            new() { Id = "obtain", Kind = "operation", Objective = "Read the current result.", Operation = Operation("read") },
+            new() { Id = "deliver", Kind = "operation", Objective = "Deliver the observed message.", Operation = Operation("deliver"),
+                Requires = Compare("and", Compare("not_equal", Whole(), new()), Compare("not_equal", Field(), Text(""))),
+                Inputs = [new("message", Field())] }] } };
+        if (retainInObject)
+            plan.Root.Tasks.Insert(1, new() { Id = "retain", Kind = "value", Objective = "Retain the complete source observation.",
+                Outputs = [new("bundle", new() { Kind = "object", Members = [new("observation", Reference("obtain"))] })] });
+        var state = PlannerFixture.Session();
+        state.Requirements = PlannerFixture.Requirements(); state.Catalog = catalog;
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var wire = PlanningCorpus.Transport(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan), grammar, grammar)!;
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, grammar));
+        var parsed = wire.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
+        if (variant is "opaque_contract" or "open_contract" or "undeclared_field")
+        {
+            Assert.Contains(new TaskPlanCompiler().Compile(parsed, catalog).Diagnostics, d => d.Code is "TASK_FIELD_TYPE" or "TASK_FIELD_UNKNOWN");
+            return;
+        }
+        foreach (var compact in new[] { false, true })
+        {
+            received.Clear();
+            var run = await Execute(parsed, catalog, engine, compact);
+            Assert.Equal(variant == "matching", run.Success);
+            Assert.Equal(variant == "matching" ? new[] { "observed" } : [], received);
+        }
+    }
+
     [Fact]
     public void ImportPreservesConstraintsAndDoesNotInterpretInstanceDataAsSchemas()
     {
@@ -205,13 +285,19 @@ public sealed class OperationResultContractTests
         Assert.Contains("Producer: /tasks/produce", located.Message);
     }
 
-    private static async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(TaskPlan plan, PlanningCatalog catalog, WorkflowEngine engine)
+    private static async Task<GnOuGo.Flow.Core.Models.RunResult> Execute(TaskPlan plan, PlanningCatalog catalog, WorkflowEngine engine, bool compact = false)
     {
-        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        var request = new PlanningRequest();
+        if (compact) request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.Empty(compiled.Diagnostics); Assert.NotNull(compiled.Graph);
-        Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph, catalog));
+        Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph, catalog, compact));
         Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph, catalog));
-        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph, catalog)));
+        var yaml = compact ? new PlanningGraphCompiler().Compile(compiled.Graph, catalog, "variants", descriptions: true,
+            fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true, readableMappings: true,
+            leanMappings: true, compactProjections: true, inlineConsumers: true, directValues: true, checkedControls: true,
+            readableBranches: true, simplifiedLocals: true) : new PlanningGraphCompiler().Compile(compiled.Graph, catalog);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         return await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject(), PlannerFixture.Ct);
     }
 

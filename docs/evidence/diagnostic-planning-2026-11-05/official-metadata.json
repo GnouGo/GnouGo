@@ -1,0 +1,286 @@
+{
+  "verified_date": "2026-11-05",
+  "primary_sources_only": true,
+  "third_party_download_used": false,
+  "models": {
+    "openai/gpt-6-astra": {
+      "id": "gpt-6-astra",
+      "displayName": "gpt-6-astra",
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "verifiedAt": "2026-11-05",
+      "sourceUrls": [
+        "https://developers.openai.com/api/docs/models/gpt-6-astra",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/api/docs/pricing",
+        "https://developers.openai.com/api/docs/deprecations"
+      ],
+      "contextWindowTokens": 1050000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 10,
+        "outputPer1MTokens": 50,
+        "cachedInputPer1MTokens": 1,
+        "cacheWriteInputPer1MTokens": 12.5,
+        "cacheWrite12hInputPer1MTokens": 25.0,
+        "longContextThresholdTokens": 272000,
+        "longContextInputMultiplier": 2,
+        "longContextOutputMultiplier": 1.5,
+        "fastMultiplier": 2,
+        "flexBatchMultiplier": 0.5,
+        "regionalMultiplier": 1.1,
+        "ultrafastMultiplier": 6
+      },
+      "capabilities": {
+        "supportsReasoningEffort": true,
+        "supportedReasoningEfforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "supportsTemperature": false,
+        "temperatureReasoningEfforts": [
+          "none"
+        ],
+        "supportsStructuredOutput": true,
+        "supportsJsonMode": true,
+        "supportsTools": true,
+        "supportsVision": true,
+        "supportsAudio": false,
+        "supportsEmbeddings": false,
+        "supportsResponses": true,
+        "supportsChatCompletions": true,
+        "supportsStreaming": true,
+        "chatToolsReasoningEfforts": []
+      }
+    },
+    "openai/gpt-6.1-sol": {
+      "id": "gpt-6.1-sol",
+      "displayName": "gpt-6.1-sol",
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "verifiedAt": "2026-11-05",
+      "sourceUrls": [
+        "https://developers.openai.com/api/docs/models/gpt-6.1-sol",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/api/docs/pricing",
+        "https://developers.openai.com/api/docs/deprecations"
+      ],
+      "contextWindowTokens": 1050000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2,
+        "outputPer1MTokens": 10,
+        "cachedInputPer1MTokens": 0.1,
+        "cacheWriteInputPer1MTokens": 2.5,
+        "cacheWrite12hInputPer1MTokens": 5.0,
+        "longContextThresholdTokens": 272000,
+        "longContextInputMultiplier": 2,
+        "longContextOutputMultiplier": 1.5,
+        "fastMultiplier": 2,
+        "flexBatchMultiplier": 0.5,
+        "regionalMultiplier": 1.1,
+        "ultrafastMultiplier": 6
+      },
+      "capabilities": {
+        "supportsReasoningEffort": true,
+        "supportedReasoningEfforts": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "supportsTemperature": false,
+        "temperatureReasoningEfforts": [
+          "none"
+        ],
+        "supportsStructuredOutput": true,
+        "supportsJsonMode": true,
+        "supportsTools": true,
+        "supportsVision": true,
+        "supportsAudio": false,
+        "supportsEmbeddings": false,
+        "supportsResponses": true,
+        "supportsChatCompletions": true,
+        "supportsStreaming": true,
+        "chatToolsReasoningEfforts": []
+      }
+    },
+    "openai/gpt-6.1-terra": {
+      "id": "gpt-6.1-terra",
+      "displayName": "gpt-6.1-terra",
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "verifiedAt": "2026-11-05",
+      "sourceUrls": [
+        "https://developers.openai.com/api/docs/models/gpt-6.1-terra",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/api/docs/pricing",
+        "https://developers.openai.com/api/docs/deprecations"
+      ],
+      "contextWindowTokens": 1050000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 1,
+        "outputPer1MTokens": 5,
+        "cachedInputPer1MTokens": 0.05,
+        "cacheWriteInputPer1MTokens": 1.25,
+        "cacheWrite12hInputPer1MTokens": 2.5,
+        "longContextThresholdTokens": 272000,
+        "longContextInputMultiplier": 2,
+        "longContextOutputMultiplier": 1.5,
+        "fastMultiplier": 2,
+        "flexBatchMultiplier": 0.5,
+        "regionalMultiplier": 1.1
+      },
+      "capabilities": {
+        "supportsReasoningEffort": true,
+        "supportedReasoningEfforts": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "supportsTemperature": true,
+        "temperatureReasoningEfforts": [
+          "none"
+        ],
+        "supportsStructuredOutput": true,
+        "supportsJsonMode": true,
+        "supportsTools": true,
+        "supportsVision": true,
+        "supportsAudio": false,
+        "supportsEmbeddings": false,
+        "supportsResponses": true,
+        "supportsChatCompletions": true,
+        "supportsStreaming": true,
+        "chatToolsReasoningEfforts": []
+      }
+    },
+    "openai/gpt-6-luna": {
+      "id": "gpt-6-luna",
+      "displayName": "gpt-6-luna",
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "verifiedAt": "2026-11-05",
+      "sourceUrls": [
+        "https://developers.openai.com/api/docs/models/gpt-6-luna",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/api/docs/pricing",
+        "https://developers.openai.com/api/docs/deprecations"
+      ],
+      "contextWindowTokens": 1050000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 0.1,
+        "outputPer1MTokens": 0.5,
+        "cachedInputPer1MTokens": 0.01,
+        "cacheWriteInputPer1MTokens": 0.125,
+        "cacheWrite12hInputPer1MTokens": 0.25,
+        "longContextThresholdTokens": 272000,
+        "longContextInputMultiplier": 2,
+        "longContextOutputMultiplier": 1.5,
+        "fastMultiplier": 2,
+        "flexBatchMultiplier": 0.5,
+        "regionalMultiplier": 1.1
+      },
+      "capabilities": {
+        "supportsReasoningEffort": true,
+        "supportedReasoningEfforts": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "supportsTemperature": true,
+        "temperatureReasoningEfforts": [
+          "none"
+        ],
+        "supportsStructuredOutput": true,
+        "supportsJsonMode": true,
+        "supportsTools": true,
+        "supportsVision": true,
+        "supportsAudio": false,
+        "supportsEmbeddings": false,
+        "supportsResponses": true,
+        "supportsChatCompletions": true,
+        "supportsStreaming": true,
+        "chatToolsReasoningEfforts": [
+          "none"
+        ]
+      }
+    },
+    "openai/gpt-6-sol": {
+      "id": "gpt-6-sol",
+      "displayName": "gpt-6-sol",
+      "providerType": "openai",
+      "ownedBy": "openai",
+      "verifiedAt": "2026-11-05",
+      "sourceUrls": [
+        "https://developers.openai.com/api/docs/models/gpt-6-sol",
+        "https://developers.openai.com/api/docs/guides/latest-model",
+        "https://developers.openai.com/api/docs/pricing",
+        "https://developers.openai.com/api/docs/deprecations"
+      ],
+      "contextWindowTokens": 1050000,
+      "maxInputTokens": 1050000,
+      "maxOutputTokens": 128000,
+      "pricing": {
+        "currency": "USD",
+        "inputPer1MTokens": 2,
+        "outputPer1MTokens": 10,
+        "cachedInputPer1MTokens": 0.2,
+        "cacheWriteInputPer1MTokens": 2.5,
+        "cacheWrite12hInputPer1MTokens": 5,
+        "longContextThresholdTokens": 272000,
+        "longContextInputMultiplier": 2,
+        "longContextOutputMultiplier": 1.5,
+        "fastMultiplier": 2,
+        "flexBatchMultiplier": 0.5,
+        "regionalMultiplier": 1.1
+      },
+      "capabilities": {
+        "supportsReasoningEffort": true,
+        "supportedReasoningEfforts": [
+          "none",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ],
+        "supportsTemperature": true,
+        "temperatureReasoningEfforts": [
+          "none"
+        ],
+        "supportsStructuredOutput": true,
+        "supportsJsonMode": true,
+        "supportsTools": true,
+        "supportsVision": true,
+        "supportsAudio": false,
+        "supportsEmbeddings": false,
+        "supportsResponses": true,
+        "supportsChatCompletions": true,
+        "supportsStreaming": true,
+        "chatToolsReasoningEfforts": [
+          "none"
+        ]
+      }
+    }
+  }
+}

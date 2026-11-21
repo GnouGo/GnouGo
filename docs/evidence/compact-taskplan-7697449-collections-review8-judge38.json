@@ -1,0 +1,58 @@
+{
+  "version": 1,
+  "source": "7697449ce24fb54804cb31afc33a217c9105c65f",
+  "cohort": "compactr7697449cecolreview8",
+  "safe_witness": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7697449cecolreview8/collections-terminal-witness-safe-v2.json",
+    "sha256": "120b6707dea02934b4d184bc9224b00d59a42c37106d8686340504835d93989b",
+    "bytes": 53961
+  },
+  "ordinal": 38,
+  "classification": "Independently assessed false positive for unnecessary new output work; distinct selected-objective/requirement mismatch exists.",
+  "receipt_identity": {
+    "request_id": "150196ac6ad39cfa7f785ea8383215de72a0d06847e394c8875e90399b8471d3:38:6a61141ad94793876057df248358bbb8b7483b1272922b014c6e0cdc1fd19e06",
+    "record_hashes": {
+      "requests": "46728909b137d9b1165fb41355857a1182a17fc5148cb3ea9dcda660ac0ed89e",
+      "http-attempts": "73dec8bd045ade2cd7305da31603fb35df77e8cab49002047f02d0619706d7c0",
+      "receipts": "5126672c0e12b38bd7dbc9fd2698392499d04e244b3236602a7fd1426714cfda",
+      "failures": null,
+      "closures": null
+    },
+    "response_text_sha256": "e69a2918a023f1f665c718076b7e20ddaac1082619a9004e9ec215ce53ddbd1e"
+  },
+  "facts": {
+    "candidate_tasks": 0,
+    "candidate_output_additions": 0,
+    "candidate_closes": [
+      "/root"
+    ],
+    "candidate_complete": true,
+    "selected_kind": "value",
+    "selected_requirement_ids": [
+      "req_0"
+    ],
+    "selected_requirement_original_meaning": "Caller numeric-array declaration",
+    "selected_objective_meaning": "Publish collected loop output",
+    "accepted_prior_root_result_binding": {
+      "source": "step_4",
+      "port": "result"
+    },
+    "accepted_output_requirement": "req_1",
+    "accepted_output_requirement_already_closed": true,
+    "finding_location": "/requirements/0",
+    "finding_evidence": [
+      "/requirements/0",
+      "/step",
+      "/scopeInterface"
+    ],
+    "scope_interface_basis": "tentative_candidate",
+    "scope_interface_contains_combined_accepted_result": true
+  },
+  "assessment": "The finding attributes output-binding work to an empty root-closure candidate. The result binding already belonged to accepted work under req_1. The selected objective remained mismatched to req_0, but that does not make the absent candidate operation unnecessary. Location/evidence eligibility cannot establish the truth of this prose claim.",
+  "limits": [
+    "Only req_0 is in the immediate requirement array. This safe witness does not establish that req_1 original text/closed status was directly displayed in Judge38; that fact is established by accepted state/checkpoint7.",
+    "The broad absence premise was repeated by reselection39. No automated correction avoidance, whole-plan validity or runtime result is inferred.",
+    "Terminal47 is separately grounded: it adds an actual redundant value task after the accepted public result.",
+    "No new source/prompt rule is proposed solely from this model error."
+  ]
+}

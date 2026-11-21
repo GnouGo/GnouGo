@@ -59,7 +59,9 @@ builder.Services.AddSingleton<ICopilotSdkClientFactory>(sp =>
 {
     var endpoint = sp.GetRequiredService<IOptions<CodeServerSettings>>().Value.Copilot.InferenceProxyEndpoint;
     return new GitHubCopilotSdkClientFactory(sp.GetRequiredService<ILoggerFactory>(), endpoint is null ? null :
-        new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute)));
+        new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute)),
+        configuration => CopilotStructuredToolAdapter.NormalizeTransport(configuration.InferenceTransport) is null
+            ? null : new CopilotStructuredToolAdapter());
 });
 builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
 builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());

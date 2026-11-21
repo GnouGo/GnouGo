@@ -1,0 +1,299 @@
+{
+  "version": 1,
+  "recorded_at_utc": "2026-11-04T18:51:31.044316+00:00",
+  "source": "1f801c40c485b2ad2699559452082d089d9d8270",
+  "harness_source": "1f801c40c485b2ad2699559452082d089d9d8270",
+  "source_tree": "fb52878e44b6e4210c20338fc99a1fe327265aff",
+  "source_unchanged": true,
+  "postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "38806f2e34b5e1a2164db1d2dbc124d15e4c7f56f51279d5992d2b2a05b0c740",
+    "docs/incremental-taskplan-construction.md": "237dacca21fb595bebdb54ca048593505e91eadec11177ebc43991a821da5b5d",
+    "src/GnOuGo.Flow.Core/Planning/PlanningTokenThresholds.cs": "a031139995cc90f63e335bf6deeedd98458f6b30d60236e11f652cb718d309ad",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.BusinessSelection.cs": "6667e313605f7cc1f20973e6004b2a578c42a1813bded82fef068278a7bf7b17",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.Construction.cs": "23af90c5972d6f121c3104762c6ea83066528b98689c407920e54540f7d0936a",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs": "c6331314d6cc842153df921e086779306910620559ed142066a88b785e91a4ca",
+    "src/GnOuGo.Flow.Planning/PlanningCommitments.Bindings.cs": "076dca8cf195db661ec3659fc93f8756a261ed21c35b70b0e7417bbb01b32de2",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessSelection.cs": "f82c2f64d7fa213a6c49be0f764cce85f3848456aecdb7014e5c373615994fbe",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "c2d5098d23cc39de494e0f92c041cc617a2ebae80cf275f2e61cc4966fb01c59",
+    "src/GnOuGo.Flow.Planning/PlanningCompletionValidation.cs": "9eea198593d75e167965f56d7a31830305bb8e9b506d25c1089713f030827263",
+    "src/GnOuGo.Flow.Planning/PlanningModelCalls.Evidence.cs": "576478231375376cfadfe593a638670cf78808df8817a52c095bfdeb5562e046",
+    "src/GnOuGo.Flow.Planning/PlanningProgress.cs": "6e2b14572a765216aa0f1ba9e7e98ddf28283112bd31da5eea23fe171fc2b5a4",
+    "src/GnOuGo.Flow.Planning/PlanningSessionCreation.cs": "ecaab2ba7c76477e5aa418df279d550490335c865b08d9a160dcd38962a12462",
+    "src/GnOuGo.Flow.Planning/README.md": "d38f5a9b4aab73ccc3f88bfb15030a4345d77fc86f1f62dd5637cab2d50bc6cb",
+    "tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs": "971bce5e22a468531d7e6864d88eddff2b3ca3216c5e10d62cb90bc72625e158",
+    "tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs": "139d1a597ff46757e2c9a4aeaf391c7072d9129e82e3004a3d8ece0e5cb70453",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveCampaignEvidence.cs": "c8808df24199d64c02bc83029d3eab5fbb91317fdab8a8bbdaece40861641e7d",
+    "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs": "759c1130a92a64fc5c03e9780a08b3f447184ed1076416a4b3e34782866ceefa",
+    "tests/GnOuGo.Agent.Planning.Benchmark/Program.cs": "c1ab1ac35f662672fa6fdcbfecd074a250d64c1e914e0ddf961d886fc1e83a19",
+    "tests/GnOuGo.Agent.Planning.Benchmark/README.md": "6d7b9cc7d9c65d3f512d79773a358c9be86ae0d1eda7eb10aedd02b6d28cf229",
+    "tests/GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs": "67c15c458d2cb8a176a3ad7257bbb1f6707698388c822190df77eab460a9bd3c",
+    "tests/GnOuGo.Agent.Planning.Benchmark/StabilizationBenchmark.cs": "62cb5136b464fea54651e2d5b18e3a1e77ab49ebc48b2b079c9a90839f4afa5f",
+    "tests/GnOuGo.Agent.Server.Tests/BenchmarkCampaignTests.cs": "89fe8f6124ac7e854f458b522b8b7f645839057c63a233e336a4fef9f294e1ca",
+    "tests/GnOuGo.Agent.Server.Tests/ChatPlanningChoiceTests.cs": "e209b5408ab42db997ef626963e20dc36fdb2812bd09067cf8e9d9b506f43960",
+    "tests/GnOuGo.Agent.Server.Tests/DelegatedTestReviewTests.cs": "8615c54bd1afd7a5d5cde0c2db3724c995b77a39f1c573b631329147fe516800",
+    "tests/GnOuGo.Agent.Server.Tests/FreshBenchmarkConstructionTests.cs": "5f6c1fefb213536a5fe71e6b45cc299386c5b2c8f61e8a970a95c58fa9965365",
+    "tests/GnOuGo.Agent.Server.Tests/GenericProofBenchmarkTests.cs": "31c4f68856827ddb3cebbb6448bc63f612c8fc5ac892ddbabcd4bcea8bdbe7fb",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockGranularityTests.cs": "7f2e94c99a87610eed1ce13055fba30353b2ae833e52de2c699fe897e94212ad",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockNavigationRetirementTests.cs": "418af139da9a4eebca1d6da881f9b7ac726d2e5078ef7abd4a7fea0f13a310bf",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessBlockPrefixPresentationTests.cs": "d76011028a5c5170680c4230c01221766a1fc1b222af2e45a0da9e7bc41515c5",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessIntentRevisionTests.cs": "740d5594923ed45424146137aaab268a3337f9d7c2cff827d7d2e734310dd484",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessProgressTests.cs": "c81ee6abb94dfadc60b4b8dcac7d08c3453e6ab47502b976556b93f743ec9033",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionArchitectureTests.cs": "1b5251911e0e188bc713709d6557691dd762c2c1ea605fa1011ca3e83389b8b2",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionCoverageContextTests.cs": "21d80d35d6a96df3775f766006c75c11a2b69badf3a0ac75435dad8ff8c40212",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionFeasibilityTests.cs": "e170594466c0d25fbebc22ae561563fbcd13de3f7a1ccf37cedd274699ce1c66",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionRecoveryContextTests.cs": "d3f8fffcab0b656431dcb66d642d0c3f18a2dc974259501c5e8a9c3a9f729907",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactConstructionTests.cs": "c8fb6f14d8d217f2a8565c90bd5986c44220e4d36ccbbbe70e0928df88a48dc5",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactRequirementPageTests.cs": "a38d52eed96392c2a48fe3066887d1d2e10603690c3ecb9e5b7c3e3b3a0bef62",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactReviewedTransitionTests.cs": "70c3aa72d38df3012337969e9eec89eb16ecacd83aaff94bf6b648be422360e3",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactScopeInterfaceTests.cs": "2e3b68999ac46efb576d18c40895ced84b019fe856899c721b4ac18fc5125f02",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionActionTests.cs": "c32cbf37e7a562daa9e33c516b52c4b548f90c94941ec104585c5ed9146d8065",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionPresentationTests.cs": "8e560b35255cd38accf305df2040368608cd4db0b38d085c2c5cf75f0e573155",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionSchemaTests.cs": "5ac3011a58235db55d4ef3f37f73bc93679bfd21ba9035c460eed7142586dd72",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSelectionScopeTests.cs": "8e178ba71ce81b39a1a0887c05ceb36fb7df8cd3037d1e38a5dd52f5760d757f",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs": "11109ed8088664fa7b9aa713183280a54404c06078cea23c8cba08faac35f2b3",
+    "tests/GnOuGo.Flow.Planning.Tests/CompletionEligibilityTests.cs": "80c219b8c41c9c5bf3691cf60962c38f7d599d1928303c8da669ed1ca8d50eec",
+    "tests/GnOuGo.Flow.Planning.Tests/DiagnosticClarificationTargetsTests.cs": "15e1f9b9f1e0c66ce04310fd8c164be06ab532f1a1e774306e11900f24bd8715",
+    "tests/GnOuGo.Flow.Planning.Tests/DiagnosticEnumTargetTests.cs": "cae5c3530018ffab02a7227b979c1169d95f276af0cc87aff407d8b43b7b928a",
+    "tests/GnOuGo.Flow.Planning.Tests/SelectionActionContractTests.cs": "b49ef863e4b95c165591effeaacc7b2c2652b82f355245b1cdac61f9e9530b51",
+    "tests/Shared/CurrentPlanningFixture.cs": "f89815d72aceec65f80a1a1dc94fc580d37b02e258c8746a99285518446aa06d"
+  },
+  "planning_format": 11,
+  "selection_contract": 2,
+  "compilation": "JavaScript -> YAML v15",
+  "owning_validation": {
+    "command": [
+      "dotnet",
+      "test",
+      "tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true"
+    ],
+    "counts": {
+      "total": "2689",
+      "executed": "2689",
+      "passed": "2689",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "compiler_diagnostics": [],
+    "trx_sha256": "b6b601e9f3b6244800aed21392b39026f6f9bc766469f0e9349fc70ffae6b9d4",
+    "log_sha256": "28ac08fdc06d7a86b1e1a94ae0e8427f563bce1cdd501ef4ff38c48dde1f2281"
+  },
+  "publication_validation": {
+    "all_stages_passed": true,
+    "source_unchanged": true,
+    "stages": [
+      {
+        "stage": "dotnet-info",
+        "exit_code": 0,
+        "elapsed_seconds": 0.196,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "fb0de6732edd07934666e22a2b13b64d659f6bd88e2af7193418fa7d0aa9b37c"
+      },
+      {
+        "stage": "core-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 4.06,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "179089d1091f47bd1b2755bc977341d98b2e375c914aeb7e949dd76f28eb9207"
+      },
+      {
+        "stage": "planning-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 6.75,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "d8ccf2b9ba6acff89375b16ae2e5f25c2d4c939ec2f610e3d58c5a53a8df0e46"
+      },
+      {
+        "stage": "integrations-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 2.613,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "3da6bd185a09682c46340e1eaf37b76d0c7620b29efc85be448a872a8ff7f7e3"
+      },
+      {
+        "stage": "copilot-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 1.226,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "ae04e4e15abdfee2f4a915febb6d82dbdcd67255fb1e97d0654b555d754a1d1b"
+      },
+      {
+        "stage": "persistence-pack",
+        "exit_code": 0,
+        "elapsed_seconds": 1.843,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "f34cfcf9364fdad1a89a38b4da3854d05a10b0027dff185f073067364d26e1ac"
+      },
+      {
+        "stage": "planning-native-publish",
+        "exit_code": 0,
+        "elapsed_seconds": 54.362,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "a46efdb29519b1591e12eecb29aa904bcd262cd07fa5fd947929d8e72792ee5f"
+      },
+      {
+        "stage": "planning-native-run",
+        "exit_code": 0,
+        "elapsed_seconds": 6.184,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "07de0402837bc030ba754cdfc923dedb26a5307ba7f0194c5c40a731536c9463"
+      },
+      {
+        "stage": "server-restore",
+        "exit_code": 0,
+        "elapsed_seconds": 2.013,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "14d90584631dcd225a77814ab3d8d898fc26ce8fb902e92e832f3d584f16b556"
+      },
+      {
+        "stage": "server-trimmed-publish",
+        "exit_code": 0,
+        "elapsed_seconds": 90.916,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "fb78470e6aef83e99b645fa89c1429ca33c4d9da653442d45ba634c08515c5d6"
+      },
+      {
+        "stage": "server-encrypted-storage-smoke",
+        "exit_code": 0,
+        "elapsed_seconds": 2.376,
+        "warnings": 0,
+        "errors": 0,
+        "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+      }
+    ],
+    "private_manifest_sha256": "b41b9f9e290dfd2a64269b90c80c09fe366b0374aece7c47dd44a49e036a2efa",
+    "limits": [
+      "Technical packaging/native/persistence checks only; no live business convergence claim.",
+      "Agent.Server publication skips frontend compilation and bundled-tool publication/staging.",
+      "The current existing smoke-project Jint publish-local IL2026/IL2104/IL3053 exceptions remain; no new suppression is added.",
+      "Agent.Server retains its documented existing partial-trim framework boundaries; no claim of full application Native AOT.",
+      "No remote release, package upload, CI completion or deployment is performed."
+    ]
+  },
+  "artifact_review_helper": {
+    "typed_rejection_checks": 14,
+    "cli_checks": 10,
+    "provider_calls": 0,
+    "encrypted_record_writes": 0,
+    "actual_artifact_approval_submitted": false,
+    "validation_sha256": "07402f42876b5b96886b2ed6181784c1a6680c8fcdc218eb5728e0055c98429e"
+  },
+  "campaign_configuration": {
+    "configuration_id": "9bcafa16e4cfa77599bd5757901d11c41a9578f9efc36600b90589a81c50d9dd",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "original_pin_unchanged": true,
+    "financial_accounting_unchanged": true,
+    "calls": 7010,
+    "known_cost_eur": "409.34032146224804887279498235",
+    "reserved_cost_eur": "135.58746410494559036333532391",
+    "available_eur": "195.10231826551266530631464104",
+    "unknown_attempts": 157,
+    "unresolved_requests": [],
+    "ceiling_eur": "740.0301038327063045424449473",
+    "model_requests_during_registration": 0
+  },
+  "financial_preflight_profiles": {
+    "amazon": {
+      "phase_policy_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+      "exact_admission_with_two_reviews_passed": true,
+      "conservative_headroom_eur": "125.90178012344574648895250022",
+      "financial_records_written": 0,
+      "provider_generation_requests": 0,
+      "evidence_sha256": "49aa214cafb0b08fd5293c40822106a5d54a1a26d9b31d3596bf429bf5e2d09a"
+    },
+    "code": {
+      "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+      "exact_admission_with_two_reviews_passed": true,
+      "conservative_headroom_eur": "121.50496466589140352446551570",
+      "financial_records_written": 0,
+      "provider_generation_requests": 0,
+      "evidence_sha256": "abd67cb6048dfdd98294ab4f0118acd9abb6f415e39be34dca12915153d6faf4"
+    },
+    "collections": {
+      "phase_policy_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+      "exact_admission_with_two_reviews_passed": true,
+      "conservative_headroom_eur": "121.50496466589140352446551570",
+      "financial_records_written": 0,
+      "provider_generation_requests": 0,
+      "evidence_sha256": "f0fc08310e8ad16c4960fd3036da71283be2d82f413fda7f5718ba5e01df22e5"
+    }
+  },
+  "interaction_eof_preflight": {
+    "source": "1f801c40c485b2ad2699559452082d089d9d8270",
+    "expected_eof_detected": true,
+    "exit_code": -6,
+    "generation_started": false,
+    "execution_started": false,
+    "run_or_cohort_created": false,
+    "ledger_unchanged": true,
+    "generation_requests": 0,
+    "stderr_sha256": "f5d2c2d9091732d2ccec2558d0f4cd37430e473537bf7d23fd1be888d298c9ff"
+  },
+  "non_generative_readiness": {
+    "amazon": {
+      "exit_code": 0,
+      "log_sha256": "83ea01f7166b6cfa4a974561e865c8b9fa0d22b40615e9078d7e0cbad6a4e1d8",
+      "interactive_channel_verified": true,
+      "model_calls": 0,
+      "business_qualification": false
+    },
+    "code": {
+      "exit_code": 0,
+      "log_sha256": "3164bce737b36f3471a17ef5789df8c019bdba19d3cf6315db04f4f480cbea7c",
+      "interactive_channel_verified": true,
+      "model_calls": 0,
+      "business_qualification": false
+    }
+  },
+  "full_solution": {
+    "status": "running",
+    "capture": "1f801c40c485-20261104T181747Z",
+    "expected_assemblies": 33,
+    "final_pass_not_claimed": true
+  },
+  "live_qualification": {
+    "qualified": 0,
+    "required": 6,
+    "paid_generations_started": 0,
+    "generation_successes": 0,
+    "workflow_execution_successes": 0,
+    "independent_business_oracle_successes": 0
+  },
+  "preserved_validation_failures": [
+    "Three pre-fix completion cases offered technically invalid finalization; three preservation cases passed.",
+    "A closed locally reviewed contribution hid a current coverage gap before targeted recovery.",
+    "Advisory eligibility probe emitted two ambient callbacks before observer isolation; now emits none while ordinary final validation still publishes warnings.",
+    "Concurrent root checkout builds produced shared-output copy/cache failures; retained logs remain separate from serial frozen validation.",
+    "A clean serial benchmark build exposed CS8602 before the final source fixed the nullable precondition.",
+    "Historical b50de043 full-solution result remains incomplete and cannot be substituted for current-source validation."
+  ],
+  "limitations": [
+    "Technical tests and non-generative readiness establish no live business convergence.",
+    "GPT-6.1 uses a new immutable model/deployment configuration on the existing financial ledger; old GPT-5.5 measurements do not isolate code effects.",
+    "The original campaign pin, financial ceiling, historical unknown reservations and closures remain unchanged.",
+    "The unrelated unstaged solution-file change in the shared checkout is preserved and excluded from the frozen source."
+  ]
+}

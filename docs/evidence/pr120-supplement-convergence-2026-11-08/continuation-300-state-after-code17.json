@@ -1,0 +1,18 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "1200",
+  "supplement_reference": "pr120-supplement-20261109-300-01",
+  "applied_once": true,
+  "available_after_code17_retention_eur": "217.195351545006717420510518188",
+  "retained_application_reservations_eur": "44.588114643976712942230183612",
+  "global_available_funding": null,
+  "provider_invoices": null,
+  "no_old_retained_run_resumed": true,
+  "latest_complete_passing_local_source": "d52e07a0bcccac2a44feb4b7d34b5051b1c02909",
+  "latest_complete_passing_local_tests": 8548,
+  "source_2e610242_full_failed": 3,
+  "corrected_planning_passed": 2931,
+  "corrected_mcp_passed": 245,
+  "new_full_solution_pending": true,
+  "code_and_amazon_end_to_end_qualified": false
+}

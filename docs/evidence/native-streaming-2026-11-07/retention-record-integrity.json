@@ -1,0 +1,44 @@
+[
+  {
+    "incident": "nonstream-fragment",
+    "original_values_captured_before_retention": [
+      {
+        "collection": "planning-evaluation-runs",
+        "before_sha256": "bc636c83999a9a45d4be60b303e4574118344a1b2d03786023f67c96036b1a00",
+        "after_sha256": "bc636c83999a9a45d4be60b303e4574118344a1b2d03786023f67c96036b1a00",
+        "unchanged": true
+      },
+      {
+        "collection": "planning-evaluation-requests",
+        "before_sha256": "341db6676511ad735c09ec1d31e22521825c7e7c9d3298e07cb5cd7438359807",
+        "after_sha256": "341db6676511ad735c09ec1d31e22521825c7e7c9d3298e07cb5cd7438359807",
+        "unchanged": true
+      },
+      {
+        "collection": "planning-evaluation-http-attempts",
+        "before_sha256": "3cd12903268eb0cd4722dda8b9974a5767f87e040a12ca5f505b71db443514aa",
+        "after_sha256": "3cd12903268eb0cd4722dda8b9974a5767f87e040a12ca5f505b71db443514aa",
+        "unchanged": true
+      },
+      {
+        "collection": "planning-evaluation-failures",
+        "before_sha256": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+        "after_sha256": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+        "unchanged": true
+      }
+    ],
+    "all_four_original_values_unchanged": true
+  },
+  {
+    "incident": "stream-availability",
+    "all_original_public_record_values_unchanged": true,
+    "before_sha256": "2d05923d671a791edc0d16390e1ce32e76ca1819cefde3c0753008a82632237d",
+    "after_sha256": "2d05923d671a791edc0d16390e1ce32e76ca1819cefde3c0753008a82632237d"
+  },
+  {
+    "incident": "stream-fragment",
+    "all_original_public_record_values_unchanged": true,
+    "before_sha256": "c27668ed136f7f99d89c055a3a858c4f6dafccf28234ea236bbb01b0d2b60fca",
+    "after_sha256": "c27668ed136f7f99d89c055a3a858c4f6dafccf28234ea236bbb01b0d2b60fca"
+  }
+]

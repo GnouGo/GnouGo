@@ -1,0 +1,60 @@
+{
+  "source": "6c0fdf07c7518bd04a0ebee63eab6285bc443483",
+  "run": "code-qualification-20261109-15",
+  "first_accepted_call": 15,
+  "accepted_task_ids": [
+    "cleanup_clone",
+    "clone",
+    "qualification"
+  ],
+  "plan_hash": "92366532e7cd01ddfd7ed4e6ea0d8495da600e4d3e8fc4150181c4ab6f144609",
+  "root_open": true,
+  "known_receipts_through_first_acceptance": 15,
+  "measured_planning_tariff_estimate_eur": "9.1176354679802955665024630542",
+  "seconds_from_launch_to_receipt": 619.291362,
+  "execution_qualified": false,
+  "private_evidence_sha256": {
+    "code15-first-contribution-receipts.json": "c680a39262524f1cd0808d92319ac8d5eaf5473117b485e7e4c39c58e90ca7d8",
+    "code15-first-contribution-state.json": "ef1e2721d98eb161543d16058a03e6d15c577c6ff046b29feaaeb1331c1a11cc",
+    "code15-call04-request.json": "d495908e7bc068c46c7e10c935314348744fae224da12ba8bb13f0cf6980d6e5",
+    "code15-final.json": "36847c9e7dc68e541b60935a74324ab18bca6b0f3f3ede5da09ad8de6be30716",
+    "code15-final-receipts.json": "6fe034de3d30aebf0cbab570b0f3ead2c31934ff74bc51796c0287509745b903",
+    "code15-call22-request.json": "100a997efb7c62a00692828865cadc42fb4c704a8fe2319cf699c5c2e8492aef",
+    "code15-http22.json": "34e2fff2b90ea0f9f2ae9e785deaf81734e8f2a3d6eb019ac2be03d51e236102",
+    "code15-final-audit.json": "6b41d428664574bbaeed956dbb9cd2450d654aca749b32b3ec384642e36c909f",
+    "code15-implementation-syntax-red.log": "1ac0d0ba44bbcca38f37e0bc8bfd6a7ad784efa81cd599f59c282b13a939f7c0",
+    "code15-implementation-syntax-green.log": "6ba30c5b7c29fac2d932b56b9762346f55a453a13726db2a592c56ce83ab0fcb"
+  },
+  "local_review_call": 18,
+  "local_review_verdict": "ok",
+  "local_review_preserves_open_root_and_later_review_report": true,
+  "business_responsibility_fields_unchanged": true,
+  "lifecycle_guidance_present_in_actual_issued_request": true,
+  "first_block_semantics_sha256": "5a7150f9cbd07c2fdfbe20fe834a69304bbafa90e4836b7271cb6c9495fa83c8",
+  "status": "stopped_known_output_limit",
+  "stopped_call": 22,
+  "known_receipts": 22,
+  "all_transport_outcomes_known": true,
+  "all_charges_settled": true,
+  "uncertain_reservation_eur": "0",
+  "output_limit": {
+    "allocation": 4096,
+    "reported_output_tokens": 4096,
+    "reasoning_tokens": 258,
+    "provider_content_characters": 16658,
+    "content_characters_without_trailing_whitespace": 555,
+    "trailing_whitespace_characters": 16103,
+    "fragment_accepted": false,
+    "syntax_guidance_absent": true
+  },
+  "fix": "Apply the existing compact JSON presentation to fresh implementation selection; preserve captured allocations, grammar, original obligations and historical issued requests.",
+  "regression": {
+    "before_failed": 2,
+    "before_passed": 5,
+    "focused_after_passed": 66
+  },
+  "old_run_will_not_be_resumed": true,
+  "global_review_passed": false,
+  "available_after_run_eur": "259.341683833407971339005816276",
+  "first_accepted_tariff_estimate_eur": "5.4813882669055082848186296462"
+}

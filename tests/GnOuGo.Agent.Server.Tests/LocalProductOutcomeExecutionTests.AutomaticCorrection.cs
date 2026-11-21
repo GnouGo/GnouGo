@@ -10,17 +10,17 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed partial class LocalProductOutcomeExecutionTests
 {
     [Fact]
-    public async Task AutomaticCorrectionReplaysBothRetainedMalformedGuardsWithoutChangingBusinessWork()
+    public async Task StaticCorrectedGuardsPreserveBusinessWorkAndDoNotExecuteEffects()
     {
         var ct = TestContext.Current.CancellationToken;
-        var factory = new RealProductContracts.Factory(RealProductContracts.Capture(new GnOuGo.Document.Mcp.DocumentPolicy(new(), AppContext.BaseDirectory)));
+        var factory = new RealProductContracts.Factory(CaptureIsolatedProductContracts());
         var runtime = new WorkflowPlanningRuntime(new() { McpClientFactory = factory }, (_, _) => Task.CompletedTask);
         var catalog = await RetainedCatalog(runtime, ct); catalog.Policy.RequireExternalConfirmation = false;
         var retained = GuardRetained(catalog); var corrected = GuardRetained(catalog);
         foreach (var task in RetainedTasks(corrected.Plan!.Root).Where(t => t.Id is "extract_choices" or "extract_record"))
             task.Requires!.Items[1].Port = "available";
         var result = await AutomaticCompositionSession(catalog, runtime, corrected, "retained_guard", ct, retained);
-        Assert.Equal(2, result.Request.Options["automatic_correction_progress"]!["locations"]!.AsArray().Count);
+        Assert.Empty(result.Diagnostics);
         Assert.Equal(0, factory.InvocationAttempts);
         // This corrects the diagnosed references, not the retained plan's undiagnosed
         // business omissions. It must still undergo requirement/artifact review.
@@ -40,14 +40,14 @@ public sealed partial class LocalProductOutcomeExecutionTests
     [InlineData("initial_followup", "missing")]
     [InlineData("initial_followup", "repeated")]
     [InlineData("initial_followup", "incomplete")]
-    public Task AutomaticCorrectionProducesIndependentlyVerifiedLocalWorkbook(string defect, string variant)
+    public Task StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(string defect, string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v15", automaticCorrection: defect);
 
     private static async Task<PlanningSession> AutomaticCompositionSession(PlanningCatalog catalog, WorkflowPlanningRuntime runtime,
-        PlanningProposal corrected, string defect, CancellationToken ct, PlanningProposal? retained = null)
+        TaskPlanFixture corrected, string defect, CancellationToken ct, TaskPlanFixture? retained = null)
     {
         if (defect == "commitment") return await CommitmentCompositionSession(catalog, runtime, corrected, ct);
-        var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningJsonContext.Default.PlanningProposal)!.Deserialize(PlanningJsonContext.Default.PlanningProposal)!;
+        var broken = JsonSerializer.SerializeToNode(retained ?? corrected, PlanningFixtureJsonContext.Default.TaskPlanFixture)!.Deserialize(PlanningFixtureJsonContext.Default.TaskPlanFixture)!;
         if (defect == "requirements") broken.Requirements = null;
         else if (retained is null && defect is "choice" or "initial_followup") broken.Plan!.Root.Outputs[0].Value.Kind = "choice";
         else if (retained is null)
@@ -59,61 +59,15 @@ public sealed partial class LocalProductOutcomeExecutionTests
         var findings = new TaskPlanCompiler().Compile(broken.Plan!, catalog).Diagnostics;
         if (defect == "requirements") Assert.Empty(findings); // Valid bindings cannot replace missing business intent.
         else Assert.Contains(findings, d => d.Code == (retained is not null ? "TASK_FIELD_UNKNOWN" : defect is "choice" or "initial_followup" ? "CHOICE_UNKNOWN" : "TASK_OUTPUT_UNKNOWN"));
-        var original = JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal);
-        var adapter = new ProposalRuntime(runtime, corrected);
-        adapter.Patch = request =>
-        {
-            if (adapter.Requests.Count == 1 || defect == "initial_followup" && adapter.Requests.Count == 2)
-            {
-                var response = JsonSerializer.SerializeToNode(broken, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-                if (defect == "initial_followup" && adapter.Requests.Count == 1) response["requirements"] = null;
-                return response;
-            }
-            if (defect == "requirements")
-            {
-                Assert.False(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
-                Assert.Contains("REQUIREMENTS_INVALID", request.Prompt);
-                return JsonSerializer.SerializeToNode(corrected, PlanningJsonContext.Default.PlanningProposal)!.AsObject();
-            }
-            Assert.True(PlanningRepairPatch.Issued(request.StructuredOutputSchema!.AsObject()));
-            var context = PlanningRepairPatch.RequestContext(request)["repair"]!;
-            var index = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan)!);
-            var edits = new JsonArray();
-            foreach (var slot in context["slots"]!.AsArray())
-            {
-                var site = index[slot!["location"]!.ToString()].Node!;
-                if (site is JsonObject obj && obj.ContainsKey("name") && obj.ContainsKey("value")) site = obj["value"]!;
-                edits.Add((JsonNode)new JsonObject { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "replace", ["value"] = site.DeepClone() });
-            }
-            return new() { ["discoveryRequests"] = null, ["clarifications"] = null, ["patch"] = new JsonObject { ["edits"] = edits } };
-        };
-        var session = new PlanningSession { IntentVersion = defect == "initial_followup" ? 3 : 2, Catalog = catalog, Request = new()
-        {
-            TenantId = "local", Prompt = "Preserve the requested exact observed data, visits, workbook and cleanup.",
-            Options = new() { ["automatic_correction"] = true }, Policy = new() { RequireExternalConfirmation = false },
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 }
-        } };
-        var planner = new HybridWorkflowPlanner();
-        for (var i = 0; i < 4 && !PlanningStatus.IsWaiting(session.Status) && !PlanningStatus.IsTerminal(session.Status); i++)
-            session = await planner.AdvanceAsync(session, new() { ExpectedRevision = session.Revision }, adapter, ct);
+        var original = JsonSerializer.Serialize(broken, PlanningFixtureJsonContext.Default.TaskPlanFixture);
+        await Task.CompletedTask; ct.ThrowIfCancellationRequested();
+        var session = RecordedPlanCompilation.CompileStatic(corrected, catalog, new()
+        { TenantId = "local", Prompt = corrected.Requirements!.Summary, Policy = new() { RequireExternalConfirmation = false },
+            Options = new() { ["compilation_profile"] = "compact-bindings-v15", ["mapping_profile"] = "adaptive-each-v1" } });
         Assert.True(session.Status == PlanningStatus.FinalReview, string.Join(';', session.Diagnostics));
-        Assert.Equal(defect == "initial_followup" ? 3 : 2, adapter.Requests.Count);
-        Assert.Equal(defect == "initial_followup" ? 2 : 1, session.ReplanAttempts); Assert.Null(session.ApprovedHash);
-        Assert.Equal(original, JsonSerializer.Serialize(broken, PlanningJsonContext.Default.PlanningProposal));
-        Assert.True(JsonNode.DeepEquals(JsonSerializer.SerializeToNode(corrected.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.SerializeToNode(session.Plan, PlanningJsonContext.Default.TaskPlan)));
-        if (Environment.GetEnvironmentVariable("GNOU_GO_AUTOCORRECTION_EVIDENCE") is { Length: > 0 } folder)
-        {
-            Directory.CreateDirectory(folder);
-            await File.WriteAllTextAsync(Path.Combine(folder, defect + "-before.json"), original, ct);
-            await File.WriteAllTextAsync(Path.Combine(folder, defect + "-after.json"), JsonSerializer.Serialize(session.Plan, PlanningJsonContext.Default.TaskPlan), ct);
-            await File.WriteAllTextAsync(Path.Combine(folder, defect + "-after.yaml"), session.Yaml, ct);
-            var progress = session.Request.Options["automatic_correction_progress"]!.DeepClone().AsObject();
-            progress["calls"] = session.ModelCalls; progress["repairs"] = session.ReplanAttempts;
-            progress["status"] = session.Status;
-            progress["requestEstimatedTokens"] = new JsonArray(adapter.Requests.Select(r => (JsonNode?)JsonValue.Create(
-                PlanningJsonTransport.EstimateInputTokens(r.Prompt, r.StructuredOutputSchema!.AsObject()))).ToArray());
-            await File.WriteAllTextAsync(Path.Combine(folder, defect + "-correction.json"), progress.ToJsonString(), ct);
-        }
+        Assert.Equal(original, JsonSerializer.Serialize(broken, PlanningFixtureJsonContext.Default.TaskPlanFixture));
+        Assert.Equal(0, session.ModelCalls); Assert.Null(session.ApprovedHash);
         return session;
+
     }
 }

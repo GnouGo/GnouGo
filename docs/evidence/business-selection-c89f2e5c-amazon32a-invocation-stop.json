@@ -1,0 +1,832 @@
+{
+  "kind": "source_bound_final_artifact_and_invocation_input_failure",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T16:01:21.598671+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "harness_source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "cohort": "bizc89f2e5camz32a",
+  "run": "bizc89f2e5camz32a-amazon-1",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "status": "approved",
+  "revision": 14,
+  "planning_ms": 1054140,
+  "logical_calls": 12,
+  "physical_attempts": 13,
+  "verified_provider_completions": 12,
+  "unknown_physical_attempts": 1,
+  "pending_request_id": null,
+  "correction_attempt_counter": 1,
+  "operator_plan_revisions": 0,
+  "accepted_checkpoints": 2,
+  "known_input_tokens": 97886,
+  "known_output_tokens": 26906,
+  "reasoning_tokens_included_in_output": 20492,
+  "known_cost_eur": "1.1598622417031934877896055103",
+  "retained_reservations_eur": "1.1279228911351641470614545129",
+  "phases": {
+    "construction_intent": {
+      "input_tokens": 1211,
+      "output_tokens": 1910,
+      "known_input_tokens": 1211,
+      "known_output_tokens": 1910,
+      "estimated_cost_eur": "0.0566732265855622148671616424",
+      "known_cost_eur": "0.0566732265855622148671616424",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "49859.6626",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 2333,
+      "output_tokens": 1082,
+      "known_input_tokens": 2333,
+      "known_output_tokens": 1082,
+      "estimated_cost_eur": "0.0394713301726451382055640039",
+      "known_cost_eur": "0.0394713301726451382055640039",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "63985.1574",
+      "physical_attempts": 2
+    },
+    "construction_implementation": {
+      "input_tokens": 2766,
+      "output_tokens": 1959,
+      "known_input_tokens": 2766,
+      "known_output_tokens": 1959,
+      "estimated_cost_eur": "0.0649431970659271849002594150",
+      "known_cost_eur": "0.0649431970659271849002594150",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "47999.2028",
+      "physical_attempts": 1
+    },
+    "construction_discovery": {
+      "input_tokens": 11395,
+      "output_tokens": 8259,
+      "known_input_tokens": 11395,
+      "known_output_tokens": 8259,
+      "estimated_cost_eur": "0.2726048841577958672510958046",
+      "known_cost_eur": "0.2726048841577958672510958046",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 3,
+      "elapsed_ms": "183516.4668",
+      "physical_attempts": 3
+    },
+    "construction_draft": {
+      "input_tokens": null,
+      "output_tokens": null,
+      "known_input_tokens": 11095,
+      "known_output_tokens": 6464,
+      "estimated_cost_eur": null,
+      "known_cost_eur": "0.2230924054029877448787905895",
+      "usage_complete": false,
+      "usage_bounded": true,
+      "reserved_input_tokens": 55573,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "1.1279228911351641470614545129",
+      "logical_calls": 1,
+      "elapsed_ms": "413818.0224",
+      "physical_attempts": 2
+    },
+    "construction_local_judge": {
+      "input_tokens": 31173,
+      "output_tokens": 1859,
+      "known_input_tokens": 31173,
+      "known_output_tokens": 1859,
+      "estimated_cost_eur": "0.1893147866535468288755702657",
+      "known_cost_eur": "0.1893147866535468288755702657",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 2,
+      "elapsed_ms": "81130.9087",
+      "physical_attempts": 2
+    },
+    "replan": {
+      "input_tokens": 29037,
+      "output_tokens": 4236,
+      "known_input_tokens": 29037,
+      "known_output_tokens": 4236,
+      "estimated_cost_eur": "0.2435504070131496556042579837",
+      "known_cost_eur": "0.2435504070131496556042579837",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "90761.5515",
+      "physical_attempts": 1
+    },
+    "construction_global_judge": {
+      "input_tokens": 8876,
+      "output_tokens": 1137,
+      "known_input_tokens": 8876,
+      "known_output_tokens": 1137,
+      "estimated_cost_eur": "0.0702120046515788532069058055",
+      "known_cost_eur": "0.0702120046515788532069058055",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "42717.4311",
+      "physical_attempts": 1
+    }
+  },
+  "warnings": [
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:3:1bde3551fd8a3866ef3bb156ebb959e8c9bb59dc79f0e016f82a95599373a8d3:b76697778853167674a0c964c2b37a178e4ca5f1731f1186a47d9a553822f0e5",
+      "phase": "construction_implementation",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4799,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_implementation"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:4:96d81fa601e6374f648611ac3148efca526976cc1a6d45725fe93bc3f8d0a12a:6962d7638d4e0be3def29f146edd5a6ef20f3fca69da977f5eee30ba1a8edca1",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4554,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:5:508b8c5b41f7aed236527028b9b9d4604c1dc518e6c712a374f7ffd682cf9f2c:6b3660d1778c906c9a0c72843ac38beb773ab1570c7d8fbb70c3baf3e724aa23",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 5961,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:6:20b7df632c53d85589dec6df2b76c9e5977ad88ad29c35543350122d827677e3:c92917822811b83471fcecd04d4ba4eaeb6163e01bbd407c50341d8b2708bee1",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 9359,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:7:cccb3c6f53b508fdfaac9885e01761ac15d3dff154d6ff4b82e4a83973863493:3dacc5267174af22428f4d76d6d9ec564ed228814f117e0d3cf7aa04aa142fbb",
+      "phase": "construction_draft",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 18781,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:8:150a0be6205c9bfa4f035b863aab91ee27fa882a867ba176e100b54489dc6a0f:57bef229376ff8db1353831308e7f1f93adabdf71e54e9f8f7dc7d0134b4f0ec",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 18275,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 52968,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_maximum",
+        "current": 52968,
+        "threshold": 22000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 52968,
+        "threshold": 22000,
+        "basis": "host_budget_measurement",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 52968,
+        "threshold": 22000,
+        "basis": "host_budget_measurement",
+        "stage": "planning",
+        "requestId": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "request",
+        "session"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 44460,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_maximum",
+        "current": 44460,
+        "threshold": 20000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 44460,
+        "threshold": 20000,
+        "basis": "host_budget_measurement",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 44460,
+        "threshold": 20000,
+        "basis": "host_budget_measurement",
+        "stage": "planning",
+        "requestId": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "request",
+        "session"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:12:bb9bebf6b59059930ae8b4747086ff0e59c537832ec095a3933061b71d1d3587:34c9f9b50fe8702d45f468d5b9ee4c43939cfd919c835f61331d60198866b680",
+      "phase": "construction_global_judge",
+      "block": null,
+      "step": "step_2",
+      "warning": {
+        "kind": "input_target",
+        "current": 18347,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_global_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32a-amazon-1:6:e9f5502bd74fb6138af4f95e778048d20d1f4c66f3fe48040e4265c1748ab2b9:7afe9bfe93ae7db61b56fcc04e2ed7238d440fada783a070684234c56aeaa633",
+      "phase": "construction_discovery",
+      "block": null,
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 8769,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "implementation",
+      "block": "block_1",
+      "step": null,
+      "warning": {
+        "kind": "prerequisites",
+        "current": 5,
+        "threshold": 4,
+        "basis": "captured_optimization_target",
+        "stage": "implementation",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "evidence",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "evidence_requests",
+        "current": 13,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "evidence",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "fragment",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "recursive_tasks",
+        "current": 9,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "fragment",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "business_review",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "finding_count",
+        "current": 4,
+        "threshold": 3,
+        "basis": "captured_optimization_target",
+        "stage": "business_review",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 52968,
+        "threshold": 22000,
+        "basis": "captured_optimization_target",
+        "stage": "replan",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 44460,
+        "threshold": 20000,
+        "basis": "captured_optimization_target",
+        "stage": "construction_local_judge",
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    }
+  ],
+  "threshold_warnings": [
+    {
+      "kind": "prerequisites",
+      "current": 5,
+      "threshold": 4,
+      "basis": "captured_optimization_target",
+      "stage": "implementation",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "evidence_requests",
+      "current": 13,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "evidence",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "finding_count",
+      "current": 4,
+      "threshold": 3,
+      "basis": "captured_optimization_target",
+      "stage": "business_review",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 52968,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "replan",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 52968,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizc89f2e5camz32a-amazon-1:9:e413b07e5c68393da612db04d3680595b813011b934a755f584cc9295d2c2b16:128529c81fe92f03b60a07be900fad9914fbbefba15e6a02ffe90c1fa8d9e155",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 44460,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_local_judge",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 44460,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizc89f2e5camz32a-amazon-1:10:3dfa463d387ac91b4e9f29fef25fcbb09d7aa5f5a89f7eadd50c76d331bb9ab9:64efd3ebbb84338a3e12c6abf511ec955c9387e7fa34aa7a8c82c6f95f99458c",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    }
+  ],
+  "received_trace": {
+    "draft7": "Confirmed HTTP 500 ESG120 Routing failed then 200; coherent root sequence, complete JSON, draft output 6464 including 4609 reasoning, below old 16384 allocation. Failed-attempt reservation retained.",
+    "local8": "Finding identifies four browser_get_content tasks missing actual URL arguments.",
+    "repair9": "Binds the query-derived Amazon search URL and three extracted product URL slots, uses observation_complete acquisition, preserves cleanup and exact writer; no operator plan revision.",
+    "local10": "Favorable renewed local review.",
+    "global12": "Favorable completed-workflow global review, followed by deterministic compilation and FinalReview revision13.",
+    "first_execution_launcher": "Rejected before approval or dispatch because shell PATH order differed from pinned manifest. Exact original PATH recovered from an existing process and SHA256 matched immutable manifest; no manifest or source change.",
+    "second_execution_launcher": "Exact delegated review resolves and approves revision14. Existing invocation gate then fails with No interaction provider is attached because operator launcher used a noninteractive stdin. Engine records failed execution; no planned external task or execution-model call ran. Independent oracle reports workflow_execution_failed and workbook_missing. Its closure probe finds no active page and performs successful browser_close cleanup."
+  },
+  "final_artifact": {
+    "hash": "6e676f8426f19c2ac88624542bc3d7a24af4322356a1caaae09b68b033ae6b71",
+    "format": 11,
+    "compilation_profile": "compact-bindings-v15",
+    "public_inputs": [
+      {
+        "name": "query",
+        "required": true,
+        "type": "string",
+        "default": null
+      }
+    ],
+    "public_outputs": [],
+    "root_tasks": 7,
+    "root_cleanup_tasks": 1,
+    "groups": 0,
+    "all_actual_url_bindings_inspected": true,
+    "workbook_relative_path": "workflows/schema-portability-20261019-incremental/bizc89f2e5camz32a-amazon-1/products.xlsx"
+  },
+  "artifact_bound_review": {
+    "receipt": {
+      "id": "codex-amazon-c89f2e5c-6e676f84-20261104T155625Z",
+      "origin": "delegated_test",
+      "reviewer": "Codex",
+      "authorizationHash": "b4f68db7fa224687d469b7444d02476841834be26186851276198bf72565e728",
+      "evidenceHash": "a71df70c9ed6e5ea4d05d3a16320ff62e1c555bccc9e25d0fb7c3e5da9e4bc2f",
+      "tenantId": "benchmark",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "reviewedRevision": 13,
+      "artifactHash": "6e676f8426f19c2ac88624542bc3d7a24af4322356a1caaae09b68b033ae6b71",
+      "reviewedRequirementIds": [
+        "req_0",
+        "req_1"
+      ],
+      "reviewedAtUtc": "2026-11-04T15:56:25.997555+00:00"
+    },
+    "evidence": {
+      "requirements": [
+        {
+          "id": "req_0",
+          "requirementHash": "3fae5ea6af91943153ce16a6da4fedae83fdaa09fcc2bac793b19ef215237dd5",
+          "obligations": [
+            "search",
+            "observed_product_order",
+            "exact_product_fields",
+            "cleanup",
+            "truthful_result"
+          ],
+          "assessment": "accepted_with_recorded_uncertainty",
+          "unverifiedAspects": "Reviewed the full format-11 TaskPlan, exact original request, operation descriptions, complete compiled v15 YAML, actual arguments and data dependencies. Only required string query is public, with no default; search URL encodes this input on Amazon.fr. Extraction instruction retains at most the first three observed products in order and resolves absolute product URLs without invention. All three page readers consume those exact nullable slots; the row instruction receives retained identities plus each complete product observation and explicit success/error fields, and requires name, description, price and absence/error notes in retained order. Root finally closes the browser. No public success output is declared. Extraction is inferred dynamically and rows use an LLM, so identity, order, observations, missing data and workbook truth remain unverified until actual execution and the independent oracle. If fewer than three URLs exist, unguarded null-URL slots read the current page rather than navigate; the row instruction must omit unselected products. No conditional repair or plan alteration was made. Search success is constrained in compiled expression contracts; a failed acquisition may fail the workflow rather than produce a workbook. Empty/error behavior and cleanup execution remain runtime uncertainties, not claimed successes. Favorable global review 12 is supporting evidence, not execution approval or oracle success."
+        },
+        {
+          "id": "req_1",
+          "requirementHash": "b9689bab393614ec4c3160244fd1ab0fa6411a51560ecc2ba7bf0a56357aa00d",
+          "obligations": [
+            "workbook"
+          ],
+          "assessment": "accepted_with_recorded_uncertainty",
+          "unverifiedAspects": "Reviewed exact writer binding: document_write.filePath is workflows/schema-portability-20261019-incremental/bizc89f2e5camz32a-amazon-1/products.xlsx, relative to the authorized workspace; append=false and rows directly consumes t_build_workbook_rows.rows. Rows schema bounds the header plus at most three products (1..4 rows), and Document MCP rows preserves exact string/null cell values without CSV conversion. Actual file creation, bytes, headers, product identities, name/description/price cells, explicit absence/error notes and successful writer receipt remain unverified until the existing independent runtime oracle. Writer failure is not claimed as success by this review; root finally still applies."
+        }
+      ],
+      "tasks": [
+        {
+          "id": "t_read_search",
+          "taskHash": "e45eff657beb55fbdee4e9ff1e28c9019c32afbf18a64c320f212b8768380822",
+          "evidence": "Reviewed exact browser_get_content arguments: url concatenates https://www.amazon.fr/s?k= with uri_component(input query); waitUntil=domcontentloaded, format=observation_complete, maxRecords=200, timeoutMs=30000. Query has required nonnullable string contract and no default. Output content, observationSnapshot and URL feed extraction. Acquisition and any service failure are unobserved at review time.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_extract_first_results",
+          "taskHash": "d8932746461d7f58f8ecb990cca5400bda64b6544b58c15e9f6bcb532f378399",
+          "evidence": "Reviewed interpret objective and compiled mapping.dynamic binding: consume search content, full typed observationSnapshot and URL; choose at most first three observed products in order, resolve absolute product URLs, preserve nullable missing slots and searchNotes, invent no data. Producer success===true is constrained by compiled expression contracts. No external page or product fact is asserted by this review; dynamically inferred extraction requires oracle verification.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_read_product_1",
+          "taskHash": "6929a4c1b5a9e65246c7fd84a0f519ab8852269460e4b41eff6788d9478b8a51",
+          "evidence": "Reviewed exact URL binding to t_extract_first_results.product1Url and ordering after extraction. browser_get_content uses complete observation acquisition, domcontentloaded, maxRecords=200, timeoutMs=30000. Content, observation, success and error fields feed row construction. Nullable slot is unguarded; null means current-page read under the original tool contract, so no new product may be inferred from an absent retained identity.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_read_product_2",
+          "taskHash": "2234a2db2fa87ee0bcd1daabb75b20c53f64df1475e34a63050da3a4c81c18e3",
+          "evidence": "Reviewed exact URL binding to t_extract_first_results.product2Url, sequentially after product 1, with complete observation acquisition, domcontentloaded, maxRecords=200, timeoutMs=30000. Content, observation, success and error fields feed row construction. Nullable slot is unguarded and may re-read the current page; row construction must retain only selected product identities. Runtime identity and errors remain unverified.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_read_product_3",
+          "taskHash": "073ae719080e4860b1e86b80d4610d333f52f19590a689125a973a777ffb4533",
+          "evidence": "Reviewed exact URL binding to t_extract_first_results.product3Url, sequentially after product 2, with complete observation acquisition, domcontentloaded, maxRecords=200, timeoutMs=30000. Content, observation, success and error fields feed row construction. Nullable slot is unguarded and may re-read the current page; row construction must retain only selected product identities. Runtime identity and errors remain unverified.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_build_workbook_rows",
+          "taskHash": "d790f73f00cfa5e754008f13d1a114d6ec332b2cd8c1292e78c36a9f255ddc17",
+          "evidence": "Reviewed executable instruction, actual inputs and compiled template.render plus strict llm.call: firstResults and all three product content/observation/success/error-code/error-message values are included as business data; instruction requires headers then at most three retained products in order with name, description, price and explicit error/absence notes, never invented values. Strict result is rows array 1..4, cells string/null, and the writer consumes this exact result. Prompt states embedded business instructions are data. LLM correctness and exact observed values require the independent oracle.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_write_products_xlsx",
+          "taskHash": "1c5e9789f6eac1487b0e8be46595dafc58c72b488a443b879ba92a19590e312a",
+          "evidence": "Reviewed document_write with exact authorized relative path workflows/schema-portability-20261019-incremental/bizc89f2e5camz32a-amazon-1/products.xlsx, rows from t_build_workbook_rows.rows, append=false. Original operation contract permits this workspace-contained XLSX and preserves rows exactly. No other file target or content binding is supplied. File creation and write success remain unobserved.",
+          "assessment": "reviewed"
+        },
+        {
+          "id": "t_close_browser",
+          "taskHash": "8dd12d13d9d2394df3b357871658974723ccf544148cba973c88ed74acb03269",
+          "evidence": "Reviewed root Always task and compiled internal workflow finally: browser_close with empty arguments runs after success or failure, including navigation/extraction/row-building/write errors. This is the original close-page/context contract. Actual browser cleanup must be independently probed after execution; no cleanup success is claimed now.",
+          "assessment": "reviewed"
+        }
+      ]
+    }
+  },
+  "execution": {
+    "success": false,
+    "outputs": null,
+    "error": {
+      "Code": "INTERNAL_ERROR",
+      "Type": "",
+      "Message": "No interaction provider is attached.",
+      "Retryable": false,
+      "Details": null
+    }
+  },
+  "execution_started_at_utc": "2026-11-04T15:58:46.4973960+00:00",
+  "execution_ms": 172,
+  "execution_model_usage": {
+    "startedAtUtc": "2026-11-04T15:58:43.523112+00:00",
+    "calls": 0,
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "totalTokens": 0,
+    "estimatedCost": 0,
+    "estimatedCostCurrency": "USD",
+    "exchangeRates": [],
+    "estimatedCostUsd": 0
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "qualification": {
+    "passed": 0,
+    "required": 6,
+    "qualifying_success": false
+  },
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 6970,
+    "session_calls": 0,
+    "known_input_tokens": 26654308,
+    "known_output_tokens": 10711520,
+    "known_cost_eur": "406.14722279510429719554299205",
+    "reserved_input_tokens": 2966653,
+    "reserved_output_tokens": 4521984,
+    "reserved_cost_eur": "134.45524297604318406581318418",
+    "cost_upper_bound_eur": "540.60246577114748126135617623",
+    "unknown_attempts": 156,
+    "available_eur": "199.42763806155882328108877107",
+    "permanent_closures": 63,
+    "unresolved_requests": [],
+    "evidence_hash": "4ba95cd560a57bebffbfaf87fcb5e6bc1c0cc686dbf7b533ad334d6967c8a77c"
+  },
+  "captures": {
+    "snapshot-20261104T155936615866Z.private.json": "164e594a7d271d52fcb138043613edc229777cd0e9ef723943223a408d97261f",
+    "final-ledger.private.json": "59a1f0eeb010fb51fb6255b079d212a08fb1f05907913908b3aa04fe5f71245e",
+    "planning.private.log": "7cecbf2f9e878907627a30853806927dbc153484caf4c361aa1df07c6e1cdb9b",
+    "execution.private.log": "67d71fd0819c0b4c7f3e7eeb2366cbb765410710e73d1d16c9fa11081c126057",
+    "execution-restored-environment.private.log": "03f17199f475395c554e6f01769caf1454ab5fd4bfb223ccdaafbfd12230fa87",
+    "request12.private.json": "5bbdba6bf0ee1a458fd88a96111766f0ae2ecc2430597d94cdd4ce1d17eb1672",
+    "receipt12.private.json": "a7f1228295fac7b72ce209dbbb93a566400797068b73dc5cc27915818664281a",
+    "review.json": "7fe8449a5b9b6750ae31d8e8d815354f78ea100c99b95992db5e6defcda0257b",
+    "authorization.json": "f10c51359a1397ee1ef36a94fd7f79eb3e01189b830ac1721b10be7c668aff5d"
+  },
+  "limitations": [
+    "First source-specific complete artifact and delegated approval do not establish execution or qualification.",
+    "Actual Amazon navigation, dynamic extraction and workbook contents were not exercised because invocation confirmation had no stdin provider.",
+    "Nullable unguarded product slots and dynamic row semantics were recorded as review uncertainty, not changed manually.",
+    "The stopped approved run and unanswered invocation dialog are preserved. Never replay or continue this execution; next attempt uses a fresh identity.",
+    "No new unknown logical request or retention authority is needed. All historical reservations and the ceiling remain unchanged.",
+    "Owning and eleven publication checks pass; initial exact-source full-solution run stops on OpenTelemetry download SSL EOF and a fresh identical-source full run is active."
+  ]
+}

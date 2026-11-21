@@ -48,6 +48,11 @@ timeouts, output capture and process-tree termination remain enforced. See the
 
 ## Packaged filesystem commands
 
+An isolated host can set `GNOUGO_CMD_ONLY_COMMAND` to one configured alias
+for a child process. Discovery, parameter schemas, artifact metadata and
+execution then use the same single-command allowlist. Startup fails if the
+requested alias is absent from the effective configuration.
+
 The default catalog contains exactly 18 commands:
 
 | Purpose | Commands |

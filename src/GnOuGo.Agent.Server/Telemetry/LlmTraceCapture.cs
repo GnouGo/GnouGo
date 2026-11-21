@@ -41,7 +41,7 @@ public sealed class LlmTraceCapture(AgentOTelTelemetry telemetry, LlmTraceConten
         activity.SetTag("gnougo.llm.protocol", config?.ResolvedType is "openai"
             ? request.UseBackgroundMode && config.RequestPolicy.BackgroundProtocol != LLMBackgroundProtocolMode.ChatCompletions ? "Responses (background)" : "Chat Completions (foreground)"
             : "provider native");
-        foreach (var key in new[] { "gnougo-flow.step.id", "gnougo-flow.step.type", "gnougo-flow.workflow.name", "gnougo-flow.plan.session_id", "gnougo.planning.session_id" })
+        foreach (var key in new[] { "gnougo.planning.block_id", "gnougo.planning.step_id", "gnougo-flow.step.id", "gnougo-flow.step.type", "gnougo-flow.workflow.name", "gnougo-flow.plan.session_id", "gnougo.planning.session_id" })
             activity.SetTag(key, Inherited(parent, key));
         var content = new LlmTraceContent { TenantId = contents.Tenant, TraceId = activity.TraceId.ToHexString(), SpanId = activity.SpanId.ToHexString(), SessionId = session };
         await Observe(async captureToken =>

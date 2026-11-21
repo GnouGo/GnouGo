@@ -75,6 +75,33 @@ public sealed class TaskPreconditionTests
     }
 
     [Theory]
+    [InlineData(true, null, true)]
+    [InlineData(false, true, true)]
+    [InlineData(false, false, false)]
+    [InlineData(false, null, false)]
+    public async Task SiblingShortCircuitBranchesCanCheckTheSameOptionalField(bool skip, bool? flag, bool success)
+    {
+        var response = new JsonObject();
+        if (flag.HasValue) response["optional"] = flag.Value;
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("source", new() { Tools = [new() { Name = "read", InputSchema = new JsonObject { ["type"] = "object" },
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"optional":{"type":"boolean"}},"additionalProperties":false}"""), EffectKind = "none" }],
+            ToolHandlers = new() { ["read"] = _ => new() { Content = response } } });
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var catalog = await TaskPlanCompilerTests.Catalog(new(engine, (_, _) => Task.CompletedTask));
+        TaskValue Flag() => new() { Kind = "field", Port = "optional", Items = [new() { Kind = "output", Source = "observe" }] };
+        TaskValue Predicate(string op, TaskValue left, TaskValue right) => new() { Kind = "predicate", Predicate = op, Items = [left, right] };
+        var plan = Plan(Predicate("or", Predicate("or", Input("complete"), Flag()), Predicate("and", Flag(), Input("complete"))));
+        plan.Root.Tasks.Insert(0, new() { Id = "observe", Objective = "Read the optional flag", Operation = catalog.Capabilities.Single(c => c.Method == "read").Id });
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["complete"] = skip }, PlannerFixture.Ct);
+        Assert.Equal(success, result.Success);
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("observed")]
     public async Task CapturedPredicatesValidateAfterFinalLoweringInBothBranches(string? observed)
@@ -170,17 +197,5 @@ public sealed class TaskPreconditionTests
         Assert.DoesNotContain("requires", JsonSerializer.Serialize(changed, PlanningJsonContext.Default.TaskPlan));
         Assert.Empty(TaskPlanRevisions.Scope(plan, [new("TASK_CONDITION_TYPE", "/tasks/publish/requires", "invalid") ]));
         Assert.Equal(original, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
-    }
-
-    [Fact]
-    public async Task GenerationWithExplicitPreconditionUsesOneCallAndNoRepair()
-    {
-        var runtime = new TestRuntime(); var plan = Plan(Input("complete"));
-        runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Return the result only when complete", Inputs = plan.Inputs,
-            Outputs = [new() { Name = "path", Type = new() { Kind = "string" } }], Outcomes = [new("result", "Require completeness before returning the result")] } };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics.Select(d => d.Message)));
-        Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains("required precondition", PlanningReviewFormatter.TaskDiagram(state.Plan));
     }
 }

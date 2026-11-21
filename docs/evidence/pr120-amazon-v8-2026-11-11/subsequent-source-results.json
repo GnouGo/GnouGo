@@ -1,0 +1,76 @@
+{
+  "observations": [
+    {
+      "run": "amazon-slashless-context-20261111-02",
+      "source_commit": "e5a35b4c",
+      "purpose": "additional_container_observation",
+      "source_records": 1541,
+      "snapshot": "ffb000910cd848efb2d5f982b2d67565",
+      "slashless_source_occurrences": 0,
+      "explicit_reads": 1,
+      "resolution": {
+        "version": "amazon-slashless-source-diagnostic-v1",
+        "source_only": true,
+        "resolution_evidence_complete": false,
+        "source_prerequisite_qualified": false,
+        "business_oracle_passed": false,
+        "workflow_policy_modified": false,
+        "model_calls": 0,
+        "findings": [
+          "no_slashless_source_links_observed"
+        ],
+        "resolutions": []
+      },
+      "cleanup_verified": true,
+      "model_calls": 0,
+      "workflow_execution": false,
+      "new_marker_hypothesis_qualified": false,
+      "artifact_hashes": {
+        "candidates.json": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "events.json": "11ef3f854b55dc6b5a7d14b130ea5d0220c9ddd89d84dbe15d4be969a262abe7",
+        "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+        "source-selection.json": "e14194db9578e92dd6600d5a9c1b4f42349234f95b33910657588df50202c2a4",
+        "issued.json": "18e0c9abc1df0ee41cc3e5ce73e21bffd2fd361c15ce904f55f58c0e705cb781",
+        "resolution.json": "e14194db9578e92dd6600d5a9c1b4f42349234f95b33910657588df50202c2a4",
+        "profile.json": "472da05eef2dc94e012255648bed91c02a35365eff066dcf69d1efd4e3f3d5ba",
+        "admission.json": "a1395a6a5f1ee09a5ba24459635f706b003a19806fd508ad894bb00ebc5b2302"
+      }
+    },
+    {
+      "run": "amazon-v8-source-20261111-02",
+      "source_commit": "e5a35b4c",
+      "purpose": "existing_v4_requalification_after_changed_source",
+      "source_records": 1537,
+      "snapshot": "6adbea1ece974f258efb1d35273d820a",
+      "slashless_source_occurrences": 3,
+      "explicit_reads": 1,
+      "resolution": {
+        "version": "amazon-business-v8",
+        "passed": false,
+        "source_prerequisite_qualified": false,
+        "source_resolution_count": 0,
+        "expected_product_count": 0,
+        "visited_product_count": 0,
+        "findings": [
+          "search_product_redirect_route_unapproved",
+          "source_resolutions_incomplete",
+          "first_product_visits_incomplete"
+        ]
+      },
+      "cleanup_verified": true,
+      "model_calls": 0,
+      "workflow_execution": false,
+      "new_marker_hypothesis_qualified": false,
+      "artifact_hashes": {
+        "events.json": "434a960ccd7b30760225dd643c81a2d622f4e3bfe14c971304f7d0fa35f0f391",
+        "close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+        "source-selection.json": "53833c37305e670d42a0562268620895045f4a33ca68616a2ae0f2dc3ff05249",
+        "issued.json": "3103c8e2ab91990f051c18936a43cc35385977ed124c75fe261684429a27960d",
+        "failure.json": "a19dc204ad5b191bf3ba064e02a1c77ec29348deac4425247b56a8f2520a1bfd",
+        "profile.json": "18b20560d8e4da195bb3f5920e861276978c3d72afa662de7387a69adfc7cce3",
+        "admission.json": "81eaba112624215e27b4b84cf01643a5f4e96c3c00ce10bd79a0be716cca4437"
+      }
+    }
+  ],
+  "further_equivalent_retries_planned": false
+}

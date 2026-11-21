@@ -1,0 +1,6 @@
+{
+  "source_commit": "a523104a3dc05f7c629e7f1e20091896fbc57729",
+  "status": "superseded; full tests intentionally interrupted",
+  "reason": "Cross-instance page conversion could overwrite a committed writer; regression reproduced and fixed in 7169a227. Complete qualification restarts on that source.",
+  "time_utc": "2026-11-05T23:04:18.221109+00:00"
+}

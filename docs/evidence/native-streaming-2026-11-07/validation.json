@@ -1,0 +1,118 @@
+{
+  "implementation_source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+  "complete_solution": {
+    "status": "passed",
+    "source": "ac5b18e52226a74d6cbc721032235b79bcf756fc",
+    "worktree": "artifacts/native-streaming-final-validation",
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true --logger trx --results-directory ../native-streaming-20261107/final-full-tests",
+    "log": "artifacts/native-streaming-20261107/final-full-solution.log",
+    "final_exit_code": 0,
+    "assemblies": 33,
+    "passed": 8186,
+    "failed": 0,
+    "skipped": 13,
+    "tracked_source_unchanged": true,
+    "compiler_diagnostics": [],
+    "result_artifact": "full-solution-validation.json",
+    "log_sha256": "3ed7daa2ba498b8b2d50be4df731b0c9e5a8d54836c31938de78bbb439a13b72"
+  },
+  "intermediate_solution": {
+    "source": "59f69a2a4fede5c4ac58425f1e203fc763d8c4ca",
+    "passed": 8146,
+    "failed": 1,
+    "skipped": 13,
+    "failure": "RecoveredTypedRepairExpiresCandidateEvidenceAndKeepsConsumedHistory",
+    "fix": "ac5b18e5",
+    "focused_post_fix": {
+      "passed": 55,
+      "failed": 0
+    }
+  },
+  "focused_checks": [
+    {
+      "project": "GnOuGo.AI.Core.Tests",
+      "passed": 353,
+      "failed": 0,
+      "source": "702ba2be8f1f76e7363020dc505cca43ea209491"
+    },
+    {
+      "project": "GnOuGo.Flow.Integrations.Tests",
+      "passed": 121,
+      "failed": 0,
+      "source": "ac5b18e5"
+    },
+    {
+      "scope": "funding/retention/capture/inspector/encrypted HTTP recovery/permissions",
+      "project": "GnOuGo.Agent.Server.Tests",
+      "passed": 251,
+      "failed": 0,
+      "source": "341f63fd"
+    },
+    {
+      "project": "GnOuGo.Agent.Server.Tests",
+      "scope": "Captured deadlines, HTTP/financial admission/retention/recovery, inspector and provider wizard",
+      "passed": 279,
+      "failed": 0,
+      "source": "702ba2be8f1f76e7363020dc505cca43ea209491"
+    },
+    {
+      "project": "GnOuGo.DocIngestor.Tests",
+      "passed": 97,
+      "failed": 0,
+      "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+      "scope": "Included in complete current-source non-Server run"
+    }
+  ],
+  "published_checks": {
+    "native_aot_proxy": "passed",
+    "native_aot_planning_smoke": "passed",
+    "trimmed_single_file_agent_server": "passed",
+    "published_encrypted_storage_separate_processes": 2,
+    "release_packages": [
+      "GnOuGo.AI.Core",
+      "GnOuGo.AI.Local",
+      "GnOuGo.Flow.Planning",
+      "GnOuGo.Flow.Integrations",
+      "GnOuGo.DocIngestor.Core"
+    ],
+    "frontend_production_build": "passed",
+    "new_warning_suppressions": false,
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491"
+  },
+  "qualification_limitations": [
+    "Only the configured OpenAI-compatible deployment was live-tested.",
+    "Real Anthropic/Ollama/GGUF inference was not run. Local iterator and adapter protocol tests use controlled fixtures.",
+    "Retired default GitHub Models service was not live-qualified.",
+    "Agent.Server uses its CI-supported trimmed JIT profile. Its existing EF dependencies do not support its attempted Native AOT publish. Native AOT checks passed for the proxy and planner smoke.",
+    "No new Amazon session: representative streaming generation remained incomplete."
+  ],
+  "post_freeze_changes": [
+    {
+      "source": "8f2dee04",
+      "change": "Use JsonNode overload for Azure annotations; trimming/AOT compatibility."
+    },
+    {
+      "source": "9b23387d24745cd2df0423167710b7aaf8079ba4",
+      "change": "The owning HTTP attempt also honors a shorter explicit effective HttpClient.Timeout during body consumption. Live deadlines were already 600 seconds at both layers and do not change. Current AI.Core 344, targeted Server 224, DocIngestor 97 and all refreshed publications include this fix."
+    },
+    {
+      "source": "d2aa3d4f7e7f49f27e2930a417be776bb8e82556",
+      "change": "Persist actual attempt deadlines in the owned journal and prevent automatic Responses receipt recovery from extending them. Cold read-only recovery retrieves the same persisted response without a generation POST. Current AI.Core 345, targeted Server 224, DocIngestor 97, and all 12 refreshed publication stages include the fix."
+    },
+    {
+      "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+      "change": "Verify the actual adapter-built native protocol path before inferring streaming capability from official hostnames; custom paths still require declarations. Current AI.Core 353, targeted Server 279, all 32 non-Server assemblies and all 12 publication stages include this change."
+    }
+  ],
+  "current_non_server": {
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "exit_code": 0,
+    "scope": "All non-Server test assemblies; Server is excluded and reported separately.",
+    "assemblies_with_tests": 32,
+    "passed": 6412,
+    "failed": 0,
+    "skipped": 12,
+    "log_sha256": "0b6e11e137a665cde6d154a25ec31f340abd2172b7a396c4b6b1cd027c8736c5",
+    "result_artifact": "current-nonserver-validation.json"
+  }
+}

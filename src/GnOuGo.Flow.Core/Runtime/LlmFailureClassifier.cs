@@ -104,6 +104,8 @@ internal static class LlmFailureClassifier
             details["provider_code"] = failure.SafeProviderCode;
         if (failure.RetryAfterMilliseconds != null)
             details["retry_after_ms"] = failure.RetryAfterMilliseconds.Value;
+        if (failure.Stage == LLMClientFailureStage.Authentication)
+            details["provider_stage"] = "authentication";
 
         return new WorkflowRuntimeException(
             code,

@@ -23,6 +23,10 @@ public sealed class PlanningTransportBoundaryTests
         var handler = new RecordingHandler(status); using var http = new HttpClient(handler);
         var options = new LLMOptions { DefaultProvider = "fixture", DefaultModel = "renamed-model", Models =
         { ["fixture"] = new() { Type = "openai", Url = "https://example.invalid/v1/chat/completions", RetryPolicy = new() { MaxAttempts = 3 } } } };
+        // This private deployment is a transport fixture, not a public catalog ID.
+        options.ModelOverrides["openai/renamed-model"] = new() { Id = "renamed-model", ProviderType = "openai",
+            ContextWindowTokens = 128000, MaxInputTokens = 128000, MaxOutputTokens = 8192,
+            Capabilities = new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["low"] } };
         ILLMClient adapter = dynamic
             ? new DynamicRoutingLLMClientAdapter(http, new LLMRuntimeOptionsStore(Options.Create(options), NullLogger<LLMRuntimeOptionsStore>.Instance), NullLoggerFactory.Instance)
             : new SnapshotRoutingLlmClientAdapter(http, options, NullLoggerFactory.Instance);

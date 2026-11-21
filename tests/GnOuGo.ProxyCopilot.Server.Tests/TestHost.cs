@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace GnOuGo.ProxyCopilot.Server.Tests;
 
@@ -21,7 +22,7 @@ internal sealed class TestHost(WebApplication app) : IAsyncDisposable
         var app = builder.Build(); app.Run(context => handler(context));
         return await Start(app);
     }
-    public static async Task<TestHost> Proxy(string upstream, string type = "openai", Dictionary<string, string?>? extra = null)
+    public static async Task<TestHost> Proxy(string upstream, string type = "openai", Dictionary<string, string?>? extra = null, TimeProvider? clock = null)
     {
         var values = new Dictionary<string, string?>
         {
@@ -41,6 +42,7 @@ internal sealed class TestHost(WebApplication app) : IAsyncDisposable
             // Tests must never inherit workstation providers or credentials.
             builder.Configuration.Sources.Clear();
             builder.Configuration.AddInMemoryCollection(values);
+            if (clock is not null) builder.Services.AddSingleton(clock);
             builder.WebHost.UseUrls("http://127.0.0.1:0"); builder.Logging.ClearProviders();
         });
         return await Start(app);

@@ -1,0 +1,67 @@
+{
+  "source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+  "passed": 8644,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-search-expiry-full-remainder.log": "09fcfdb67a61771203d4c3cba773d4639ccab81f18fe6997ce7d60dfbb1e70ca",
+    "post-search-expiry-fixture-shard1.log": "5aa1d189754e71bfcfb4e835b51b1d581cb83c27bbf30512f6c1c06cda712e76",
+    "post-search-expiry-fixture-shard2.log": "ce1f95d888a90b5aba1b6296e5a4777e5b66066a63fbc0a3ae95f8ec06d5d494",
+    "post-search-expiry-fixture-shard3.log": "daef44b21ea49a40025857af6055d6413f9b294b255a101db267baee164b644e",
+    "post-search-expiry-fixture-shard4.log": "7cf525fcd51fa7431c788805788dcdfe27ee064ea3077eb3d423e59914fbc7d9",
+    "post-search-expiry-release-build.log": "b3a70e04d9e966237f32aa35cb6c88b2d61aaf34181963e8cadbb84a01743a59",
+    "post-search-expiry-server-tests-build.log": "7c5df0d540b60efc21ab4b4613a02153bc7d81f5bf9763a96ec24f081c327c29",
+    "post-search-expiry-server-test-inventory.log": "c4a1075cec7dca9d25390a2541af1366b4927b5596166a2a34d3486c5294d107",
+    "post-search-expiry-frontend-build.log": "cd37da0b6ac1b83f4178c78d158c2ebfc7aaac04eda0351ece08c6683172f16f",
+    "post-search-expiry-core-pack.log": "e0008804ea6a7f878bbf2179ac84d3df175af28ed37adebb3c67c05ed71b9bed",
+    "post-search-expiry-planning-pack.log": "e2ddaa72defc8d0e841e77f747cf1694ee671d481198155a966fa3df4cf81980",
+    "post-search-expiry-aot-publish.log": "b90f766083479014f6539107d0c501a3f6dfa8de03c474ad0320fa9052a2650c",
+    "post-search-expiry-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification."
+  ]
+}

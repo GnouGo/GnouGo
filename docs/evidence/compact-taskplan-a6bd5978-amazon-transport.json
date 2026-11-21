@@ -1,0 +1,119 @@
+{
+  "source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "harness_source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "cohort": "compactra6bd5978amz22j20v11a",
+  "case": "amazon",
+  "freeze_sha256": "19b4c2a192611d07fe528e0554ed9aa416f98b9a8bc76f845d36bdf1e5e0c3c3",
+  "status": "stopped",
+  "planning_ms": 367567,
+  "accounting": {
+    "logical_calls": 2,
+    "physical_attempts": 2,
+    "known_input_tokens": 546,
+    "known_output_tokens": 1841,
+    "known_cost_eur": "0.0517269076305220883534136546",
+    "unknown_attempts": 1,
+    "reserved_input_tokens": 12000,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": "0.9308701472556894243641231593"
+  },
+  "corrections": 0,
+  "artifact": false,
+  "runtime_status": "not_started",
+  "runtime_success": false,
+  "oracle_success": false,
+  "reasoning_tokens": 1535,
+  "request_counts": {
+    "admitted": 2
+  },
+  "phase_rows": [
+    {
+      "phase": "construction_intent",
+      "constructed_identities": 2,
+      "admitted_logical": 2,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 2,
+      "receipts": 1,
+      "known_provider_input_tokens": 546,
+      "known_provider_output_tokens": 1841,
+      "known_provider_reasoning_tokens": 1535,
+      "known_cost_eur": "0.0517269076305220883534136546",
+      "unknown_reserved_cost_eur": "0.9308701472556894243641231593",
+      "usage_complete": false,
+      "recorded_call_stage_ms": "353653.9418",
+      "admitted_complete_request_bytes": {
+        "count": 2,
+        "total": 12679,
+        "p50": "6339.5",
+        "p95": "9505",
+        "max": 9505
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 2,
+        "total": 4739,
+        "p50": "2369.5",
+        "p95": "3425",
+        "max": 3425
+      },
+      "constructed_complete_request_bytes": {
+        "count": 2,
+        "total": 12679,
+        "p50": "6339.5",
+        "p95": "9505",
+        "max": 9505
+      },
+      "admitted_component_utf8_bytes": {
+        "diagnostics": 52,
+        "envelope": 862,
+        "evidence": 23,
+        "instructions": 2367,
+        "intent": 3326,
+        "interfaces": 59,
+        "response_schema": 5990
+      }
+    }
+  ],
+  "inspection_stdout_sha256": "6e3dfa0214c1f86da4b3b562c2dcfd2d6bee197c0303a3cf1476679f4f8d4803",
+  "measurement_components_reconcile": true,
+  "provider_component_usage_claimed": false,
+  "raw_payload_persisted": false,
+  "provider_calls": 0,
+  "inspected_at": "2026-10-28T04:23:11.515705+00:00",
+  "complete_business_outcomes": 0,
+  "calls_per_success": null,
+  "source_correction_exercised": false,
+  "cause": "Receiptless transport failure during intent request 2, before native implementation selection. Unreceived reasoning/text remain unknown.",
+  "continued_or_replayed": false,
+  "permanent_retention": {
+    "request_id": "compactra6bd5978amz22j20v11a-amazon-1:2:b27bb3e9b19c7d04679d5fe717af2ed58164c4858f9bfb4bd155c6000f06591c",
+    "evidence_hash": "84957a7aa5460dc63004236c9471df12062dd7aa17b9739c00cc2f92ae122f8f",
+    "closure_sha256": "5bf014c9af00de11739066fddcdeb2f1f68ac600f07e4c36e3ecb855003eb8ca",
+    "idempotent": true,
+    "retained_full_reservation_eur": "0.9308701472556894243641231593",
+    "restart_guard": {
+      "run_rejected": true,
+      "exact_request_rejected": true,
+      "original_hashes_unchanged": true,
+      "accounting_unchanged": true,
+      "provider_calls": 0,
+      "new_attempts": 0,
+      "ceiling_eur": "540.0301038327063045424449473",
+      "accounting": {
+        "calls": 5270,
+        "session_calls": 2,
+        "known_input_tokens": 18059901,
+        "known_output_tokens": 6850946,
+        "known_cost_eur": "263.84784990490710732381226658",
+        "reserved_input_tokens": 1718265,
+        "reserved_output_tokens": 3145728,
+        "reserved_cost_eur": "91.86865004138120062227047353",
+        "cost_upper_bound_eur": "355.71649994628830794608274011",
+        "unknown_attempts": 111
+      },
+      "available_eur": "184.31360388641799659636220719"
+    },
+    "restart_guard_sha256": "f54c749641f38b4c5a2591fef6b92bb832aa95c5408375df58168d6cedaf1f93",
+    "authorization": "Existing user-delegated exact benchmark administrative retention; no replay, release or execution authority."
+  }
+}

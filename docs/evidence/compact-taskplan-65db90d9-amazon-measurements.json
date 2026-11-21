@@ -1,0 +1,130 @@
+{
+  "source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "presentation_version": 9,
+  "cohort": "compactr65db90d9bamz22j20v9a",
+  "captured_utc": "2026-10-27T14:37:06.138368+00:00",
+  "inspection_sha256": "ed25cf448f17890857421fb6eceb1e49b2f076cc2047592df4988ce9458c1c76",
+  "source_projection_sha256": "c6b86ec8ea4d3ce6ed5bb406876cbe20e381db2e2c0757b1628f129c9378dd9a",
+  "measurement_scope": "Saved request-metric peaks and complete received usage for 26 logical requests. Prepared requests are not additional paid calls; no original-text formatting scan was performed.",
+  "planning_wall_ms": 997118,
+  "totals": {
+    "logical_calls": 26,
+    "physical_attempts": 26,
+    "known_input_tokens": 134691,
+    "known_output_tokens": 33821,
+    "known_cost_eur": "1.5065461847389558232931726910",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "receipts": 26,
+    "known_reasoning_tokens": 26679
+  },
+  "phases": [
+    {
+      "phase": "construction_intent",
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 2320,
+      "known_output_tokens": 2288,
+      "known_cost_eur": "0.0716108879964301651048639000",
+      "usage_complete": true,
+      "request_metrics": {
+        "prepared_requests": 2,
+        "requests": 2,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 9418,
+        "peak_estimated_input_tokens": 3396,
+        "peak_admitted_input_tokens": 3396,
+        "within_captured_limits": true
+      }
+    },
+    {
+      "phase": "construction_select",
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "known_input_tokens": 27833,
+      "known_output_tokens": 16569,
+      "known_cost_eur": "0.5678134761267291387773315486",
+      "usage_complete": true,
+      "request_metrics": {
+        "prepared_requests": 7,
+        "requests": 7,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 23812,
+        "peak_estimated_input_tokens": 8194,
+        "peak_admitted_input_tokens": 8194,
+        "within_captured_limits": true
+      }
+    },
+    {
+      "phase": "construction_draft",
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "known_input_tokens": 62151,
+      "known_output_tokens": 7774,
+      "known_cost_eur": "0.4854752342704149933065595716",
+      "usage_complete": true,
+      "request_metrics": {
+        "prepared_requests": 10,
+        "requests": 7,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 62520,
+        "peak_estimated_input_tokens": 21096,
+        "peak_admitted_input_tokens": 21096,
+        "within_captured_limits": true
+      }
+    },
+    {
+      "phase": "construction_local_judge",
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 13359,
+      "known_output_tokens": 2888,
+      "known_cost_eur": "0.1369344042838018741633199465",
+      "usage_complete": true,
+      "request_metrics": {
+        "prepared_requests": 3,
+        "requests": 3,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 28047,
+        "peak_estimated_input_tokens": 9605,
+        "peak_admitted_input_tokens": 9605,
+        "within_captured_limits": true
+      }
+    },
+    {
+      "phase": "construction_discovery",
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "known_input_tokens": 29028,
+      "known_output_tokens": 4302,
+      "known_cost_eur": "0.2447121820615796519410977243",
+      "usage_complete": true,
+      "request_metrics": {
+        "prepared_requests": 9,
+        "requests": 7,
+        "rejected_before_dispatch": 0,
+        "peak_complete_request_bytes": 26149,
+        "peak_estimated_input_tokens": 8973,
+        "peak_admitted_input_tokens": 8973,
+        "within_captured_limits": true
+      }
+    }
+  ],
+  "response_observations": {
+    "received_responses": 26,
+    "empty_responses_from_saved_content_bytes": 0,
+    "provider_failure_records": 0,
+    "original_json_formatting_scan_performed": false,
+    "outside_string_whitespace_bytes": null,
+    "provider_finish_reason_counts": null,
+    "http_status_counts": null,
+    "availability": "The retained numeric projection does not establish original whitespace, every original JSON parse, provider finish reasons or per-attempt HTTP status."
+  },
+  "measurement_limits": [
+    "Estimated input tokens are admission estimates, not provider usage.",
+    "Phase reasoning-token totals, request quantiles and component totals were not retained in this bounded projection.",
+    "Planning wall time is not runtime execution latency."
+  ]
+}

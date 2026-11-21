@@ -1,0 +1,1246 @@
+{
+  "kind": "source_bound_reviewed_replacement_leaves_unimplemented_navigation_blocking_final_review",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T17:04:31.214409+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "harness_source": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "cohort": "bizc89f2e5camz32c",
+  "run": "bizc89f2e5camz32c-amazon-1",
+  "captured_profile_hash": "96a35087433a0d9751186a58cd9a2cbffcdf2cd552037b6fe727b80b5b2576ae",
+  "optimization_threshold_policy": "diagnostic-v1",
+  "status": "stopped",
+  "revision": 25,
+  "planning_ms": 1595713,
+  "logical_calls": 25,
+  "physical_attempts": 25,
+  "verified_provider_completions": 25,
+  "unknown_physical_attempts": 0,
+  "pending_request_id": null,
+  "correction_attempt_counter": 4,
+  "operator_plan_revisions": 0,
+  "accepted_checkpoints": 2,
+  "business_judge_calls": 3,
+  "known_input_tokens": 154253,
+  "known_output_tokens": 55701,
+  "reasoning_tokens_included_in_output": 45865,
+  "known_cost_eur": "2.1847168798640307719831827535",
+  "retained_reservations_eur": 0,
+  "phases": {
+    "construction_intent": {
+      "input_tokens": 1212,
+      "output_tokens": 1948,
+      "known_input_tokens": 1212,
+      "known_output_tokens": 1948,
+      "estimated_cost_eur": "0.0576974684676625816262635298",
+      "known_cost_eur": "0.0576974684676625816262635298",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "56401.3044",
+      "physical_attempts": 1
+    },
+    "construction_select": {
+      "input_tokens": 5966,
+      "output_tokens": 5572,
+      "known_input_tokens": 5966,
+      "known_output_tokens": 5572,
+      "estimated_cost_eur": "0.1762143304410054566598085696",
+      "known_cost_eur": "0.1762143304410054566598085696",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 4,
+      "elapsed_ms": "171621.48050000003",
+      "physical_attempts": 4
+    },
+    "construction_implementation": {
+      "input_tokens": 16709,
+      "output_tokens": 12174,
+      "known_input_tokens": 16709,
+      "known_output_tokens": 12174,
+      "estimated_cost_eur": "0.4014357277037302084265139996",
+      "known_cost_eur": "0.4014357277037302084265139996",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 4,
+      "elapsed_ms": "252212.83969999998",
+      "physical_attempts": 4
+    },
+    "construction_discovery": {
+      "input_tokens": 28895,
+      "output_tokens": 17970,
+      "known_input_tokens": 28895,
+      "known_output_tokens": 17970,
+      "estimated_cost_eur": "0.6114813489578674300026836032",
+      "known_cost_eur": "0.6114813489578674300026836032",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 7,
+      "elapsed_ms": "429433.8746",
+      "physical_attempts": 7
+    },
+    "construction_draft": {
+      "input_tokens": 49729,
+      "output_tokens": 10668,
+      "known_input_tokens": 49729,
+      "known_output_tokens": 10668,
+      "estimated_cost_eur": "0.5087082923338402361570802398",
+      "known_cost_eur": "0.5087082923338402361570802398",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 5,
+      "elapsed_ms": "279409.5703",
+      "physical_attempts": 5
+    },
+    "construction_local_judge": {
+      "input_tokens": 28387,
+      "output_tokens": 3359,
+      "known_input_tokens": 28387,
+      "known_output_tokens": 3359,
+      "estimated_cost_eur": "0.2171079703014580910636013955",
+      "known_cost_eur": "0.2171079703014580910636013955",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 3,
+      "elapsed_ms": "130958.7909",
+      "physical_attempts": 3
+    },
+    "replan": {
+      "input_tokens": 23355,
+      "output_tokens": 4010,
+      "known_input_tokens": 23355,
+      "known_output_tokens": 4010,
+      "estimated_cost_eur": "0.2120717416584667680472314160",
+      "known_cost_eur": "0.2120717416584667680472314160",
+      "usage_complete": true,
+      "usage_bounded": true,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "logical_calls": 1,
+      "elapsed_ms": "82210.3715",
+      "physical_attempts": 1
+    }
+  },
+  "phase_request_measurements": {
+    "construction_intent": {
+      "prepared_requests": 1,
+      "requests": 1,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 0,
+      "structured_warnings": 0,
+      "productive_transitions": 0,
+      "peak_complete_request_bytes": 7066,
+      "p50_complete_request_bytes": 7066,
+      "p95_complete_request_bytes": 7066,
+      "peak_estimated_input_tokens": 2612,
+      "peak_admitted_request_bytes": 7066,
+      "peak_admitted_input_tokens": 2612,
+      "p50_estimated_input_tokens": 2612,
+      "p95_estimated_input_tokens": 2612,
+      "within_captured_limits": true,
+      "admitted_within_captured_limits": true
+    },
+    "construction_select": {
+      "prepared_requests": 4,
+      "requests": 4,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 3,
+      "structured_warnings": 3,
+      "productive_transitions": 0,
+      "peak_complete_request_bytes": 10120,
+      "p50_complete_request_bytes": "9312.5",
+      "p95_complete_request_bytes": 10120,
+      "peak_estimated_input_tokens": 3630,
+      "peak_admitted_request_bytes": 10120,
+      "peak_admitted_input_tokens": 3630,
+      "p50_estimated_input_tokens": "3360.5",
+      "p95_estimated_input_tokens": 3630,
+      "within_captured_limits": true,
+      "admitted_within_captured_limits": true
+    },
+    "construction_implementation": {
+      "prepared_requests": 4,
+      "requests": 4,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 4,
+      "structured_warnings": 4,
+      "productive_transitions": 0,
+      "peak_complete_request_bytes": 30926,
+      "p50_complete_request_bytes": "19653.5",
+      "p95_complete_request_bytes": 30926,
+      "peak_estimated_input_tokens": 10565,
+      "peak_admitted_request_bytes": 30926,
+      "peak_admitted_input_tokens": 10565,
+      "p50_estimated_input_tokens": "6807.5",
+      "p95_estimated_input_tokens": 10565,
+      "within_captured_limits": true,
+      "admitted_within_captured_limits": true
+    },
+    "construction_discovery": {
+      "prepared_requests": 9,
+      "requests": 7,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 9,
+      "structured_warnings": 9,
+      "productive_transitions": 0,
+      "peak_complete_request_bytes": 27219,
+      "p50_complete_request_bytes": 23417,
+      "p95_complete_request_bytes": 27219,
+      "peak_estimated_input_tokens": 9329,
+      "peak_admitted_request_bytes": 27219,
+      "peak_admitted_input_tokens": 9329,
+      "p50_estimated_input_tokens": 8062,
+      "p95_estimated_input_tokens": 9329,
+      "within_captured_limits": true,
+      "admitted_within_captured_limits": true
+    },
+    "construction_draft": {
+      "prepared_requests": 5,
+      "requests": 5,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 5,
+      "structured_warnings": 5,
+      "productive_transitions": 2,
+      "peak_complete_request_bytes": 62872,
+      "p50_complete_request_bytes": 46267,
+      "p95_complete_request_bytes": 62872,
+      "peak_estimated_input_tokens": 21214,
+      "peak_admitted_request_bytes": 62872,
+      "peak_admitted_input_tokens": 21214,
+      "p50_estimated_input_tokens": 15679,
+      "p95_estimated_input_tokens": 21214,
+      "within_captured_limits": true,
+      "admitted_within_captured_limits": true
+    },
+    "construction_local_judge": {
+      "prepared_requests": 3,
+      "requests": 3,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 3,
+      "structured_warnings": 6,
+      "productive_transitions": 0,
+      "peak_complete_request_bytes": 83127,
+      "p50_complete_request_bytes": 46084,
+      "p95_complete_request_bytes": 83127,
+      "peak_estimated_input_tokens": 27965,
+      "peak_admitted_request_bytes": 83127,
+      "peak_admitted_input_tokens": 27965,
+      "p50_estimated_input_tokens": 15618,
+      "p95_estimated_input_tokens": 27965,
+      "within_captured_limits": false,
+      "admitted_within_captured_limits": false
+    },
+    "replan": {
+      "prepared_requests": 1,
+      "requests": 1,
+      "rejected_before_dispatch": 0,
+      "above_target_warnings": 1,
+      "structured_warnings": 4,
+      "productive_transitions": 1,
+      "peak_complete_request_bytes": 126497,
+      "p50_complete_request_bytes": 126497,
+      "p95_complete_request_bytes": 126497,
+      "peak_estimated_input_tokens": 42422,
+      "peak_admitted_request_bytes": 126497,
+      "peak_admitted_input_tokens": 42422,
+      "p50_estimated_input_tokens": 42422,
+      "p95_estimated_input_tokens": 42422,
+      "within_captured_limits": false,
+      "admitted_within_captured_limits": false
+    }
+  },
+  "warnings": [
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:3:b86da0068728dcd3664734b2b52254405ba9b595843ce95752f6d368938d8974:098d164696c73980592ac54ddaff070803d5a4e5d31996cb700883af3a4282bd",
+      "phase": "construction_implementation",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4772,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_implementation"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:4:f3e0d127e4eb396be674498f35fa75b6ce1b0653f05bb158d51b90c3b07aadfc:4f243840ab12817454eb80d20f157f716f62c1383670edbfc78db55d4c0f3d7c",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 4453,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:5:bb8d82f4f3766f02be85fdbda1521b4b86568700a838ef3da22390cd15c40ca7:45c4d2352f36170396ae4893c20570cfd065e9f19e504d55523a7a04598432de",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 5859,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:6:6db1d07394159c7c1a5657219f0abb1f10ba7b3508a4f55ab724d209234dfb15:c12ec2dee2e807d3f0d5ddbde4a9b124099aa4b20039e764d70c73c6b1a5b74f",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 9329,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:7:13f6ef583299f68331db7a6e47cc7287732cbf75cbfc967e827ae68fa2189e12:29547e2a675b607f9f90019301164bad9f608755b05e4f2bca1c9b0dffd7be25",
+      "phase": "construction_draft",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 14254,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:8:253c97b7559ec91dd8215de8f11f52059bde8d2c4c45f468520da38677434b02:e1a34db1c8eb5f4648c8739f9c31578f0d81b80cd021ada4678872eb56dd2aff",
+      "phase": "construction_draft",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 20075,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:9:be7a10afda8a92628a73c3d6d97004b303b6d7bb1ab9c2646b1a58b7a5b20774:320f58d3dea2c19e79e35376f06f4e91abbb0778b87c3d29225112bdd2d5b8c5",
+      "phase": "construction_implementation",
+      "block": "block_1",
+      "step": "step_2",
+      "warning": {
+        "kind": "input_target",
+        "current": 6844,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_implementation"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:10:3b9ec24bf7ea611306f524cd4e750ca3ea56c562a90a982295804c2d2879e346:d3cee36fe31593b8ae8e8646a162927adf0fc7d98a73a0255fcf6c3d2ba4e2a1",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_2",
+      "warning": {
+        "kind": "input_target",
+        "current": 7100,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:11:0387dff04c65687f01d829537d2e7ce37fd060c4341bfcac2067d639ab101a6e:8ba287e9d9ce1a82b9c5f968e825cc6561dfee9cec70368c6af190f4e956271e",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_2",
+      "warning": {
+        "kind": "input_target",
+        "current": 8062,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:12:3705040f146b7e757863076f5cf7cc90b0ed88cc02d85b79b82bc204933c8f70:874b2ad1581aeaff4b51f359b992415d697746941b1b62ba15e0ba61fcaa96dd",
+      "phase": "construction_draft",
+      "block": "block_1",
+      "step": "step_2",
+      "warning": {
+        "kind": "input_target",
+        "current": 15679,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:13:5ed0ca3b91896a99239ef33c11a617b02bb24f0b6dda7f5ebbd81524f6ac4ea8:79588bc2b6c70bb2bebef8c40e5330c4bbf86c6d56a2d49a2df08e8508f95632",
+      "phase": "construction_implementation",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 6771,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_implementation"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:14:ea60a3cf79dbfc742bc34ec11d8be224e1c0b6df8a46cbd9170b9f721267538d:d1545ad3fac681433e4a7b5f4b9e4b364ac440cfc04a78e41b84e099e144e271",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 6815,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:15:04d1e67a963afdc805b2eecc4e626a69415d6401d5ad6a29a0ca7b87b206638c:dbaa48c144c0437841cd02e869db164785a0c09331ce1418e3115ca2cef5eb63",
+      "phase": "construction_discovery",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 9207,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:16:b73ae4acfffaf471a436abf80f6c694bfd6f56de3b330b07a66418d8f43973ec:93eca9519570fc8d96036fdec348c18a2463b943fffa1c8c4951318272a80492",
+      "phase": "construction_draft",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 21214,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:17:16c9ac4d051739df82a70e48ba29c13a3a042cd30051116906f57f373cfabac1:30b66369d04eabf9bd8e2de6791b37500a39bd4aaf5428363342a5c50bae038f",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 13883,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 42422,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_maximum",
+        "current": 42422,
+        "threshold": 22000,
+        "basis": "conservative_request_estimate",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 42422,
+        "threshold": 22000,
+        "basis": "host_budget_measurement",
+        "stage": "replan"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 42422,
+        "threshold": 22000,
+        "basis": "host_budget_measurement",
+        "stage": "planning",
+        "requestId": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "request",
+        "session"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 27965,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_maximum",
+        "current": 27965,
+        "threshold": 20000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 27965,
+        "threshold": 20000,
+        "basis": "host_budget_measurement",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 27965,
+        "threshold": 20000,
+        "basis": "host_budget_measurement",
+        "stage": "planning",
+        "requestId": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "request",
+        "session"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:20:3fdc7a6d9261efc27c6c5a10cb29532c2c1b0a142caaa7cf5580e4c99bc2ba55:e80cf79b4c3323545d74119d8f38c8a60e6605d9429ff7c875e04947242f4640",
+      "phase": "construction_select",
+      "block": "block_2",
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 3145,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:21:dab9e6c805344a98e6cafa07b25b791ee97f0f2934ae64671864982e70e91457:47cc578edea720655921188a63ffc01b1facab18f31e5bcb18f19029104fd78d",
+      "phase": "construction_implementation",
+      "block": "block_2",
+      "step": "step_4",
+      "warning": {
+        "kind": "input_target",
+        "current": 10565,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_implementation"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:22:11a1a5c0ef0ed8d272b19518130ca50242784709673f5a63f78396ea3e7f7cbe:9e504f7f2e276cb9051900d212e577ece5ce1545cc14c9f830c3f00e9395beff",
+      "phase": "construction_draft",
+      "block": "block_2",
+      "step": "step_4",
+      "warning": {
+        "kind": "input_target",
+        "current": 13554,
+        "threshold": 8000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_draft"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:23:f4953a851c8bc2386a686fb339303fbc539436921f6e246d6daf9108b1cf1586:f53f2ef27b1b812d58489c7d33a8d426616f04fb7350d1fedaa7521d2aea2e97",
+      "phase": "construction_local_judge",
+      "block": "block_2",
+      "step": "step_4",
+      "warning": {
+        "kind": "input_target",
+        "current": 15618,
+        "threshold": 4000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_local_judge"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:24:cf0ba4603d0ad3998d7ebedbddfc91aa38d8c6254edadad0564123c77d557570:e704ca724ed381089babfdaa094ae0e141c7a91d20cd0597bca446523933b7af",
+      "phase": "construction_select",
+      "block": "block_2",
+      "step": "step_4",
+      "warning": {
+        "kind": "input_target",
+        "current": 3576,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:25:f44c4e7c9fe606fd4fda9d934fd07b78c4dbf718d32741ecc1a1de4d6695f3b8:db75dcc4b59004ce7ac1fb6cdc77d1162183dcb2e4bd21208948112ec6205bf5",
+      "phase": "construction_select",
+      "block": "block_2",
+      "step": "step_4",
+      "warning": {
+        "kind": "input_target",
+        "current": 3630,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_select"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:6:6f6e9020efdbcb6a538de3540da47c26740e2e25ae8e42168668364130d76b49:851a273d3cf1524c5f47c284672b872eca8f90d0a13c7ee743a9c52ced9321d4",
+      "phase": "construction_discovery",
+      "block": null,
+      "step": "step_1",
+      "warning": {
+        "kind": "input_target",
+        "current": 8739,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": "bizc89f2e5camz32c-amazon-1:15:6715c992e61564e19033db288a1a4f37b2f46278c74f67c4407c224ca089f4d3:e81fc2847d248595ca03982fd50fb3d47791775b690c985256bb80bb5fc9e44e",
+      "phase": "construction_discovery",
+      "block": null,
+      "step": "step_3",
+      "warning": {
+        "kind": "input_target",
+        "current": 8617,
+        "threshold": 3000,
+        "basis": "conservative_request_estimate",
+        "stage": "construction_discovery"
+      },
+      "origins": [
+        "request"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "evidence",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "evidence_requests",
+        "current": 11,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "evidence",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "evidence",
+      "block": "block_1",
+      "step": "step_1",
+      "warning": {
+        "kind": "evidence_requests",
+        "current": 9,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "evidence",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_1",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "fragment",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "recursive_tasks",
+        "current": 9,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "fragment",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "replan",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 42422,
+        "threshold": 22000,
+        "basis": "captured_optimization_target",
+        "stage": "replan",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "fragment",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "recursive_tasks",
+        "current": 10,
+        "threshold": 8,
+        "basis": "captured_optimization_target",
+        "stage": "fragment",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    },
+    {
+      "request_id": null,
+      "phase": "construction_local_judge",
+      "block": "block_1",
+      "step": "step_3",
+      "warning": {
+        "kind": "estimated_input_tokens",
+        "current": 27965,
+        "threshold": 20000,
+        "basis": "captured_optimization_target",
+        "stage": "construction_local_judge",
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "blockId": "block_1",
+        "stepId": "step_3",
+        "checkpoint": 0
+      },
+      "origins": [
+        "session"
+      ]
+    }
+  ],
+  "threshold_warnings": [
+    {
+      "kind": "evidence_requests",
+      "current": 11,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "evidence",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "evidence_requests",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "evidence",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 42422,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "replan",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 42422,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizc89f2e5camz32c-amazon-1:18:4b5527da5e4f5f62f463e0e5013c323646f600c8497089008dc276b270b4496a:077f6f78bf86427a2320fbd59ee7ea3201cb46df9a22529b135c7b92ac38dfda",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 10,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 27965,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_local_judge",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 27965,
+      "threshold": 20000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "bizc89f2e5camz32c-amazon-1:19:c160f9311a680a0995a24e5412f72562c897ccb10531d5adcca4fcd4f65b42e9:310c4384b21e36293cc6cba2819dd5faf0b1bcb398c2c5cfa25e934265c4b425",
+      "sessionId": "bizc89f2e5camz32c-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_3",
+      "checkpoint": 0
+    }
+  ],
+  "terminal_diagnostics": [
+    {
+      "code": "PROPOSAL_ACTION_INVALID",
+      "location": "/",
+      "message": "Return exactly one business-selection action.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: bizc89f2e5camz32c-amazon-1:25:f44c4e7c9fe606fd4fda9d934fd07b78c4dbf718d32741ecc1a1de4d6695f3b8:db75dcc4b59004ce7ac1fb6cdc77d1162183dcb2e4bd21208948112ec6205bf5; prior request: bizc89f2e5camz32c-amazon-1:24:cf0ba4603d0ad3998d7ebedbddfc91aa38d8c6254edadad0564123c77d557570:e704ca724ed381089babfdaa094ae0e141c7a91d20cd0597bca446523933b7af. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "received_trace": {
+    "draft7": "Retrieves exact offered contract evidence. No executable fragment.",
+    "draft8": "Suspends browser-only cursor step_1 with typed object prerequisite for writer and cleanup contracts; no accepted contribution.",
+    "discovery11": "Browser identity and description retrieval remain offered, but model selects writer and cleanup only.",
+    "draft12": "Suspends step_2 with any-typed prerequisite for browser contracts; no accepted contribution.",
+    "discovery15": "Finally selects browser, writer and cleanup together under step_3.",
+    "draft16": "Supplies reusable group, completeBlock:true, with no root call. No transport retry; output5534 including reasoning3582 below old16384 allocation.",
+    "local17": "Correctly identifies missing URL bindings for search and current product reads.",
+    "repair18": "Supplies actual search and product URLs and retains complete observations, error fields, exact XLSX rows/path and cleanup.",
+    "local19": "Favorable local review accepts group under block_1, step_3. Earlier unimplemented step_1/step_2 remain waiting after block_1 completes.",
+    "selection20": "Current coverage findings lead to another business responsibility that composes the accepted work with the public contract and truthful completion. Existing group is an explicit dependency.",
+    "draft22": "Adds actual root call run_amazon_fr_products_xlsx_group with query bound to the public input, without duplicating accepted group behavior.",
+    "local23": "Favorable composition review accepts root call under block_2, step_4.",
+    "selection24_and25": "No remaining deterministic reachability gap, but two obsolete typed navigation needs remain. completionRequirementIds is absent from both schemas; model returns all-null. The unchanged repeat guard stops."
+  },
+  "accepted_state": {
+    "open_scopes": [
+      "/root"
+    ],
+    "root_calls": [
+      {
+        "id": "run_amazon_fr_products_xlsx_group",
+        "kind": "call",
+        "group": "amazon_fr_products_xlsx_group",
+        "inputs": [
+          {
+            "name": "query",
+            "value": {
+              "kind": "input",
+              "text": null,
+              "number": null,
+              "boolean": null,
+              "source": "query",
+              "port": null,
+              "members": [],
+              "items": [],
+              "predicate": null
+            }
+          }
+        ]
+      }
+    ],
+    "checkpoints": [
+      {
+        "sequence": 1,
+        "technical_cursor": "step_3",
+        "business_block": "block_1"
+      },
+      {
+        "sequence": 2,
+        "technical_cursor": "step_4",
+        "business_block": "block_2"
+      }
+    ],
+    "suspended_cursors": [
+      {
+        "id": "continuation_0",
+        "parent": null,
+        "status": "waiting",
+        "technical_cursor": "step_1",
+        "business_block": "block_1",
+        "expected_type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "document_write",
+              "type": {
+                "kind": "object",
+                "nullable": false,
+                "items": null,
+                "fields": [
+                  {
+                    "name": "operationId",
+                    "type": {
+                      "kind": "string",
+                      "nullable": false,
+                      "items": null,
+                      "fields": []
+                    },
+                    "required": false,
+                    "default": null
+                  },
+                  {
+                    "name": "inputSchema",
+                    "type": {
+                      "kind": "object",
+                      "nullable": false,
+                      "items": null,
+                      "fields": []
+                    },
+                    "required": false,
+                    "default": null
+                  }
+                ]
+              },
+              "required": false,
+              "default": null
+            },
+            {
+              "name": "browser_close",
+              "type": {
+                "kind": "object",
+                "nullable": false,
+                "items": null,
+                "fields": [
+                  {
+                    "name": "operationId",
+                    "type": {
+                      "kind": "string",
+                      "nullable": false,
+                      "items": null,
+                      "fields": []
+                    },
+                    "required": false,
+                    "default": null
+                  },
+                  {
+                    "name": "inputSchema",
+                    "type": {
+                      "kind": "object",
+                      "nullable": false,
+                      "items": null,
+                      "fields": []
+                    },
+                    "required": false,
+                    "default": null
+                  }
+                ]
+              },
+              "required": false,
+              "default": null
+            }
+          ]
+        },
+        "accepted_consumer_checkpoints": []
+      },
+      {
+        "id": "continuation_1",
+        "parent": "continuation_0",
+        "status": "waiting",
+        "technical_cursor": "step_2",
+        "business_block": "block_1",
+        "expected_type": {
+          "kind": "any",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "accepted_consumer_checkpoints": []
+      }
+    ]
+  },
+  "first_demonstrated_host_cause": {
+    "acceptance": "AcceptContinuation leaves unimplemented waiting cursors active when the same business block accepts a reviewed replacement and clears CurrentBlockId.",
+    "resumption": "ResumeStep requires the suspended consumer BlockId to equal CurrentBlockId, so these old block_1 cursors cannot resume after that block closes.",
+    "finalization": "FinalReviewRequirementIds rejects any waiting or resuming cursor. The existing completion action is therefore absent even after a reachable reviewed group call is accepted.",
+    "prospective_correction": "On successful reviewed block completion, abandon only an entirely unimplemented same-block navigation chain. Preserve exact identity/types/source-contract evidence and use existing abandoned status. Never fulfill its prerequisite or resume it. Keep chains owning accepted consumer fragments or associations, resumption and cross-block relationships; partial acceptance gains no retirement authority. Final requirement closure, global review and artifact/execution approval remain mandatory."
+  },
+  "regression": {
+    "capture": "empty-navigation-red3.trx",
+    "pre_fix_failing_cases": 1,
+    "pre_fix_passing_preservation_cases": 5,
+    "target": "Reviewed replacement must release obsolete empty navigation without inventing a binding; actual accepted partial consumer and ancestor, partial block, different block, cross-block parent and resuming cursor stay retained.",
+    "validation_scope": "Focused simulated owning tests, not live convergence. Production correction and broad exact-source checks remain separately bound."
+  },
+  "coverage_projection_exercised_in_live_reselection": true,
+  "loop_item_guard_correction_exercised": false,
+  "final_artifact": false,
+  "favorable_global_review": false,
+  "artifact_bound_approval": false,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 7010,
+    "session_calls": 0,
+    "known_input_tokens": 26885761,
+    "known_output_tokens": 10791930,
+    "known_cost_eur": "409.34032146224804887279498235",
+    "reserved_input_tokens": 3023187,
+    "reserved_output_tokens": 4554752,
+    "reserved_cost_eur": "135.58746410494559036333532391",
+    "cost_upper_bound_eur": "544.92778556719363923613030626",
+    "unknown_attempts": 157,
+    "available_eur": "195.10231826551266530631464104",
+    "permanent_closures": 63,
+    "unresolved_requests": [],
+    "evidence_hash": "e9826da89a49fe38b4b889633586a677492cec66f15a7d7ede43436306358348"
+  },
+  "captures": {
+    "snapshot-20261104T165542312002Z.private.json": "eb01ffb226f135c1cfd0f977e0ee6887d5cbde6db6e69dd2df74b824089b55f1",
+    "final-ledger.private.json": "bf5456ffd09b0af89b85d29b60b933425842f88bb3e30e097e349f91badb653f",
+    "planning.private.log": "4f06c1f57dd7bb145c018838516d88d9a57f6c6d6ffc8843c709e7fc0fd1ccef",
+    "request11.private.json": "88a1f0c675a4b12a889fb54f9a4b4182e963d41179f789a9a4fbb1b823bcbb0e",
+    "request12.private.json": "e59053075497339ab803c5657a32ad54aaceb518847b0600d81d0000dfee5976",
+    "request15.private.json": "c54b4e0a553ef1e48277367a4c033ef3f93223e3d97e8b631871788bed486bb1",
+    "request16.private.json": "da9630bd211403307edd582ff67d2e8d4c4a616fe71d3b3ab73c376ac828d38c",
+    "request17.private.json": "1e1a6f1481eefd41223191cc2308fabeb6320589ff33f6f6031578fff5e4999e",
+    "request18.private.json": "39c5e6ce6d2de24e7302247366d24364d0f22cda836a15204aa1a56450d2dbbc",
+    "request20.private.json": "e8153d8badaf95d0bed00ec24e1c44eb4dfe4e207d4f777cee8ab1016e7fc52e",
+    "request22.private.json": "72ea73deb9171b13bf7e14a53859cb7d9bf99e3c8a1334c4ecbe1a60b30d34c1",
+    "request24.private.json": "0f0ec64af7bd05dc4a8cd724b9b21e8864749c8defc95f571ea2fc56fa0451cc",
+    "request25.private.json": "b8847e025386818ccfb450b942346df5bd633222aa3385b3bc76c5397bb76c23",
+    "request3.private.json": "a2cb5cab88de9b7a2d33a3a4e795599eff72f93879a797c7019249540af28e82",
+    "request7.private.json": "abdf3431b2ce2c007ac1700cdec2e83a28caf874551144122031cae02bdff213",
+    "request8.private.json": "401e107d3d111944582b276cb5d60c44a749338ce87d47e2592f79ffba9a1c84",
+    "request9.private.json": "0f2b315a532ece9415bb2bb5240bb776bb65cc2c09e092ec2a65cdaf99d4ad27",
+    "receipt11.private.json": "a7b34c903336f2bb85b928facfd889d545b3b0837bd4bf39fb9b3f66e7599a2e",
+    "receipt12.private.json": "815d6b979ae4bbe6fc8dccf33ee01ec3eaeabce3b97407cc607a81182d2d18b4",
+    "receipt15.private.json": "f67c0c1c62a771407de1ca7d2992980e96fda1461be44048a0ca76ccc441637b",
+    "receipt16.private.json": "63352843e7834346089cffffd13bbc2d74d21925ef96fef782496fc7a6388cb8",
+    "receipt17.private.json": "3913b3a34d1216d270c0fe8c596cb9abf22fe6774771b5bdbc95e78ae5d14559",
+    "receipt18.private.json": "e56564b69b44c497b18d6c5445e5b0c0788de2aeef6933c6b5f1b10400698417",
+    "receipt20.private.json": "bd9be2d3feff04832cdee6bb8e9695681b48cf023229b1aa94379953839a35c2",
+    "receipt22.private.json": "8b144e6edd14c08915141d2e8bbc4ffc724c3be6e7605791438425cd97cbce60",
+    "receipt24.private.json": "c2e40da1c1398e9220e75d60e9f670304708114a4ff23d28be787992f7982ea1",
+    "receipt25.private.json": "23beeb7fbcffee0faa851bde33321aa501d98b78ebf7743f1fa4313853093343",
+    "receipt3.private.json": "bd8baca0483a8f26c294e371eaf25b1fe6a82937d6d5c78384267e02b030c329",
+    "receipt7.private.json": "be6c505c0f1c6ef686ef5a0a5dcc468ca38772ad2aa59d9e5ee6e0f35b3a30b4",
+    "receipt8.private.json": "20fa16413e5c1b4ba5a5e45eb199746a6f80b58bc2a41b92284dda2de026a31f",
+    "receipt9.private.json": "d788f56c8b85689dde10317b262813479d8b995734cb19765ef91d3b58f0d511"
+  },
+  "limitations": [
+    "All twenty-five requests have receipts and no new unknown physical usage; all historical reservations remain untouched.",
+    "Accepted group and root call are construction-valid, locally reviewed planned behavior. No completed-workflow global review, final artifact, approval, execution or independent oracle exists.",
+    "No operator plan revision or source change occurred during this live run. Preserve its stopped state unchanged; any production correction requires a fresh source/harness and identity.",
+    "Existing c89 source owning/publication checks pass; full-solution retry remains separately active.",
+    "This exact failure is a bookkeeping dead end beyond the preceding model-selection failures. Empty-cursor abandonment is not financial request closure and grants no replay authority."
+  ]
+}

@@ -1,0 +1,204 @@
+{
+  "source": "e3f12da7",
+  "sessionId": "e5ed6d07aba34fbc85fad768e0df91fc",
+  "status": "cancelled",
+  "revision": 171,
+  "logicalPlanningCalls": 80,
+  "pendingRequestId": "e5ed6d07aba34fbc85fad768e0df91fc:80:b7f3d9258bedbe852e21d490fbdb75a4293fbc1398c38ac768d8491b79f4002b:f99ab41282fb3a08b66093b5e6ce48df5d7c02dc523f571adc3ae9944e075c34",
+  "checkpoints": 3,
+  "originalScopeExports": [
+    {
+      "name": "listedProducts",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "listed_products",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "limitations",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "spreadsheet_rows",
+        "port": "limitations",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "saveEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "save_workbook",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "browserCloseEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "close_browser",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "acceptedSurvivingExports": [
+    {
+      "name": "listedProducts",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "listed_products",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "browserCloseEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "close_browser",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "lastRejectedCandidateExports": [
+    {
+      "name": "listedProducts",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "listed_products",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "browserCloseEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "close_browser",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "listedProducts",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "listed_products",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "browserCloseEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "close_browser",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "workbookSaveEvidence",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "save_workbook",
+        "port": null,
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    },
+    {
+      "name": "dataLimitations",
+      "value": {
+        "kind": "output",
+        "text": null,
+        "number": null,
+        "boolean": null,
+        "source": "spreadsheet_rows",
+        "port": "limitations",
+        "members": [],
+        "items": [],
+        "predicate": null
+      }
+    }
+  ],
+  "validationFindings": [
+    {
+      "code": "TASK_IDENTITY_INVALID",
+      "location": "/groups/amazon_products/body/outputs",
+      "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/groups/amazon_products/body/outputs",
+      "message": "Rebuilt scopes must retain their original exported interface names and order.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "cause": "Rollback removes exports consuming invalidated producers; append-only restoration cannot insert them into the retained original order. The original scope contract was omitted from immediate rebuild presentation after tasks returned. Repeated duplicated surviving exports remained invalid.",
+  "operatorAction": "Existing cancellation marker; no plan mutation or execution; eligible final tool-free request retained with its full hold.",
+  "nextTrialFactor": "Restore exact original export bindings and order when producers return, with all normal validation and business review."
+}

@@ -15,7 +15,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
     [InlineData("complete")]
     [InlineData("incomplete")]
     [InlineData("unknown")]
-    public async Task EmittedExampleReachesReviewAndUsesOriginalRecordsForActionsAndRows(string variant)
+    public async Task CompiledCompositionUsesOriginalRecordsForActionsAndRows(string variant)
     {
         var original = new JsonArray(Enumerable.Range(0, 20).Select(i => (JsonNode)new JsonObject
         {
@@ -50,9 +50,6 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
         var runtime = new TestRuntime(engine); var state = PlannerFixture.Session();
         state.Catalog = await TaskPlanCompilerTests.Catalog(runtime.Actual); state.Catalog.Policy.RequireExternalConfirmation = false;
         string Operation(string method) => TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Method == method)).Id;
-        var request = new PlanningPrompt(state).Request();
-        const string eachGuidance = "each.input: bound input";
-        Assert.Contains(eachGuidance, request.StructuredOutputSchema!.ToJsonString());
         var extraction = new PlanTask { Id = "adapt", Kind = "transform", Mode = "extract", Objective = "Extract the compact observed label before the tab, keeping unchanged IDs per page; retain original full text separately",
             Requires = Ref("observe", "ready"), Inputs = [new("pages", Ref("observe", "pages"))],
             Each = new("pages", "candidates"),
@@ -80,22 +77,13 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
             Outputs = [new("path", Ref("save", "path"))],
             Always = [new() { Id = "close", Objective = "Release resources", Operation = Operation("release") }]
         } };
-        runtime.Proposal = new() { Plan = plan, Requirements = new() { Summary = "Visit selected entries and preserve exact text", Inputs = [],
-            Outputs = [new() { Name = "path", Type = new() }], Outcomes = [new("saved", "Visit selected entries and save their original text")] } };
-        var emitted = new List<LLMRequest>();
-        runtime.Respond = (issued, _) =>
-        {
-            emitted.Add(issued);
-            Assert.Contains(eachGuidance, issued.StructuredOutputSchema!.ToJsonString());
-            var response = TestRuntime.Response(issued, runtime.Proposal);
-            Assert.Empty(PlanningContractValidation.ValidateInstance(response.Json, issued.StructuredOutputSchema!));
-            return response;
-        };
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Single(emitted); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(calls); Assert.Empty(model.Requests);
-        Assert.Equal("compact-bindings-v15", state.Request.Options["compilation_profile"]!.ToString());
-        var result = await Execute(state.Yaml!, new(), engine);
+        // Static compiler/runtime fixture: no planning, business review or approval is claimed.
+        var compiled = new TaskPlanCompiler().Compile(plan, state.Catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, state.Catalog,
+            "composition", true, true, true, true, true, true, true, true, true, true, true, true, true);
+        Assert.Empty(calls); Assert.Empty(model.Requests);
+        var result = await Execute(yaml, new(), engine);
         Assert.True(result.Success == (variant == "complete"), result.Error?.Message);
         Assert.Equal(originalBytes, original.ToJsonString()); Assert.Equal("release", calls[^1]);
         if (variant == "incomplete")
@@ -127,39 +115,7 @@ public sealed class InitialCompositionTests(ITestOutputHelper output)
                 }
             }
         }
-        if (variant == "complete" && Environment.GetEnvironmentVariable("GNOU_GO_COMPOSITION_EVIDENCE") is { Length: > 0 } evidence)
-        {
-            Directory.CreateDirectory(evidence);
-            await File.WriteAllTextAsync(Path.Combine(evidence, "corrected-request.json"), JsonSerializer.Serialize(emitted[0], PlanningJsonContext.Default.LLMRequest), PlannerFixture.Ct);
-            await File.WriteAllTextAsync(Path.Combine(evidence, "corrected-proposal.json"), JsonSerializer.Serialize(runtime.Proposal, PlanningJsonContext.Default.PlanningProposal), PlannerFixture.Ct);
-            await File.WriteAllTextAsync(Path.Combine(evidence, "corrected-workflow.yaml"), state.Yaml, PlannerFixture.Ct);
-        }
-        output.WriteLine($"{variant}: planning=1, repairs=0; runtime calls={model.Requests.Count}; source pages=20; effects={calls.Count}; request estimate={PlanningJsonTransport.EstimateInputTokens(emitted[0].Prompt, emitted[0].StructuredOutputSchema!.AsObject())}. Deterministic adapter, not evidence of model compliance.");
-    }
-
-    [Fact]
-    public void FreshHintsDoNotReachPrivateRepairSchemasOrAuthorities()
-    {
-        var state = RepairPatchTests.State();
-        var original = PlannerFixture.Clone(state);
-        var before = PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)).ToJsonString();
-        var authority = PlanningRepairPatch.Authority(state);
-        state.RevisionScope.Clear();
-        var schema = new PlanningPrompt(state).Request().StructuredOutputSchema!.AsObject();
-        Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
-        var hints = PlanningSchemaReferences.Walk(schema, "", 0).Where(e => e.Schema.ContainsKey("description")).ToArray();
-        var hint = Assert.Single(hints, h => h.Schema["description"]!.ToString().Contains("requires:", StringComparison.Ordinal)).Schema["description"]!.ToString();
-        Assert.Contains(hints, h => h.Schema["description"]!.ToString().Contains("ALL items", StringComparison.Ordinal));
-        foreach (var term in new[] { "requires:", "condition:", "each.input:", "resultType:" }) Assert.Contains(term, hint);
-        // Accepted modes are already explicit in the schema; the annotation
-        // need not repeat that enumeration in every fresh request.
-        Assert.Contains(PlanningSchemaReferences.Walk(schema, "", 0), entry =>
-            entry.Schema["enum"] is JsonArray modes && modes.Any(m => m?.ToString() == "extract") && modes.Any(m => m?.ToString() == "interpret"));
-        state = original;
-        Assert.Equal(before, PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)).ToJsonString());
-        Assert.Equal(authority, PlanningRepairPatch.Authority(state));
-        Assert.All(PlanningSchemaReferences.Walk(PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state)), "", 0),
-            entry => Assert.False(entry.Schema.ContainsKey("description")));
+        output.WriteLine($"{variant}: static TaskPlan, no planning or approval; runtime calls={model.Requests.Count}; source pages=20; effects={calls.Count}. Deterministic adapter, not evidence of model compliance.");
     }
 
     private static McpToolInfo Tool(string name, TaskType input, TaskType result) => new()

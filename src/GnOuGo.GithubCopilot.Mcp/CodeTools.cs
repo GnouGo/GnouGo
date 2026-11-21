@@ -54,7 +54,7 @@ internal sealed class CodeTools
         => Execute("code_search_text", () => _projectService.Search(projectRoot, query, glob, caseSensitive));
 
     [McpServerTool(Name = "code_suggest_change", UseStructuredContent = true, OutputSchemaType = typeof(CodeSuggestionResult)), Description("Asks GitHub Copilot/GitHub Models for a code-change plan or patch suggestion inside an existing project root. This tool does not write files." + RequiredProjectRootToolSuffix)]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeSuggestionResult> SuggestChangeAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("Coding task to perform.")] string task,
@@ -70,11 +70,11 @@ internal sealed class CodeTools
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
-    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs GitHub Copilot SDK in agent mode with controlled file editing inside an existing project root. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
-    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = McpArtifactContractMetadata.WorkspaceDirectoryConsumerProjectRootJson)]
+    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs one bounded GitHub Copilot SDK coding task inside an existing project root. Requested work may include inspection, review, checks or edits; actual tools and command availability depend on the SDK and current host permission/sandbox policy. Bind summary for returned text and toolExecutions for observed commands and exits. The whole response also echoes the task and progress stream. A completed session does not prove commands or checks succeeded. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
-        [Description("Coding task to implement by editing files.")] string task,
+        [Description("One independently verifiable objective within the project scope and host permissions. Include known commands and prior observations. Budget interactive reads, command execution and a complete final response.")] string task,
         [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
         RequestContext<CallToolRequestParams>? requestContext = null,

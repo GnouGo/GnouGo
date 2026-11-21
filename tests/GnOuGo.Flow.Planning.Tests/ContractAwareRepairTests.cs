@@ -188,21 +188,24 @@ public sealed class ContractAwareRepairTests
     }
 
     [Fact]
-    public async Task FreshRepairUsesTheLastCallWithoutChangingLimitsOrGrantingPermission()
+    public async Task TypedRepairPreservesLimitsAndPermissionWithoutGrantingApproval()
     {
-        var (plan, catalog) = await Fixture(); var repaired = Clone(plan);
-        repaired.Root.Tasks[1].Inputs.RemoveAll(i => i.Name is "position" or "side");
+        var (plan, catalog) = await Fixture();
         var state = PlannerFixture.Session(); state.Plan = plan; state.Catalog = catalog;
         state.Requirements = PlannerFixture.Requirements(); state.ModelCalls = 7;
         state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList();
         state.RevisionScope = TaskPlanRevisions.Scope(plan, state.Diagnostics).ToList();
-        var runtime = new TestRuntime { Proposal = new() { Plan = repaired } };
-        state = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics.Select(d => d.Code + ": " + d.Message))); Assert.Empty(state.Diagnostics);
-        Assert.Equal(8, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Single(runtime.Calls);
-        Assert.Null(state.ApprovedHash); PlanningArtifactApproval.Verify(state);
-        Assert.Equal("deny", state.Plan!.Root.Tasks[1].Inputs.Single(i => i.Name == "permission").Value.Text);
-        Assert.DoesNotContain(state.Plan.Root.Tasks[1].Inputs, i => i.Name is "position" or "side");
+        var baseline = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
+        var result = RepairPatchTests.Apply(state,
+            RepairPatchTests.Edit(state, "/tasks/consume/inputs/position", "remove"),
+            RepairPatchTests.Edit(state, "/tasks/consume/inputs/side", "remove"));
+        Assert.Empty(new TaskPlanCompiler().Compile(result, catalog).Diagnostics);
+        Assert.Equal(baseline, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal(7, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        Assert.Null(state.ApprovedHash);
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
+        Assert.Equal("deny", result.Root.Tasks[1].Inputs.Single(i => i.Name == "permission").Value.Text);
+        Assert.DoesNotContain(result.Root.Tasks[1].Inputs, i => i.Name is "position" or "side");
     }
 
     [Fact]

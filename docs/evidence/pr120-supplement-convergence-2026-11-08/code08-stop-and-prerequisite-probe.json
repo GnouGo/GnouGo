@@ -1,0 +1,182 @@
+{
+  "source": "cacfbd788f5832b995ba9e606ec492c59e5ade37",
+  "run": "code-qualification-20261108-08",
+  "session_id": "a53e32dcfb874067a5b492679b3486a7",
+  "logical_calls": 26,
+  "physical_attempts": 25,
+  "status": "cancelled",
+  "technically_accepted_checkpoints": 1,
+  "accepted_task_ids": [
+    "qualification_capability_contracts"
+  ],
+  "business_qualification": false,
+  "resolved_contracts": 2,
+  "corrections": 4,
+  "cause": "Contract discovery was suspended as runtime data and echoed in an accepted value task. No workflow was approved or executed.",
+  "permanent_retention": {
+    "evidence": {
+      "version": 1,
+      "campaign": "pr120-live-20261107-400",
+      "tenant": "benchmark",
+      "run_collection": "planning-evaluation-runs",
+      "run_key": "code-qualification-20261108-08",
+      "session_id": "a53e32dcfb874067a5b492679b3486a7",
+      "revision": 64,
+      "request_id": "a53e32dcfb874067a5b492679b3486a7:26:2a8610fbe6b1fd8f7502730d96fdea66a787c2865f2bec1c1eb8f453be4f5734:f94c4cd292cf98c933252af4c8a0022e1de35c731d8f0e094fbb0edc1db1b822",
+      "phase": "construction_draft",
+      "source": "cacfbd788f5832b995ba9e606ec492c59e5ade37",
+      "run_hash": "7f260f5092ac2c9f7a098a6484e6af3809890005ea564ea7b28ed20e09c3893d",
+      "request_hash": "8f3b138d71af236feae9b43721de3448a986a0b95ea6a42d188ad5ee9eba4fbd",
+      "http_journal_hash": "e3f1ba71956d16e468a303566918181d8989e4367242c45b1431d3f6e0838423",
+      "session_policy_hash": "02e7a823c2b8a7cc518f6d12a8de08a32de357350d667518ab50651f6e6bf635",
+      "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+      "configuration_hash": "1295f38c9a73411541b5a6e8ac7c53d80cd9bc9916e0a8812f7d31ab6b66299b",
+      "retention_kind": "cancelled-planning-request",
+      "source_evidence": "server_session_and_frozen_configuration",
+      "outcome_evidence": "cancelled_reserved_attempt_without_persisted_outcome",
+      "dispatch_certainty": "unknown",
+      "server_session_hash": "98f5ab75d67823de50151f4712ce486d8036dc43b3282398ec3a31b2dc2a8cc5",
+      "server_http_hash": "5fd0c81bfd17b8ea2b381a4e654669d0dc794a79d8eed276dc2f0474d1d4861b",
+      "server_budget_hash": "be8efa34d4090a7c0cd4ccc90a5ba88837a23d6e98c7ac0d2c4e4284aaf6fc39",
+      "cancellation_failure_hash": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba",
+      "retained_application_reservation_eur": "8.088499776085982982534706672",
+      "application_reservation_in_campaign_http": false,
+      "accounting": {
+        "calls": 933,
+        "session_calls": 25,
+        "known_input_tokens": 13515478,
+        "known_output_tokens": 397057,
+        "known_cost_eur": "427.16936856247201074787282039",
+        "reserved_input_tokens": 5603214,
+        "reserved_output_tokens": 951296,
+        "reserved_cost_eur": "303.92270488132557098074339461",
+        "cost_upper_bound_eur": "731.092073443797581728616215",
+        "unknown_attempts": 30
+      },
+      "failure_hash": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba"
+    },
+    "evidence_hash": "bf942c758840c0c86db51f0da1e790eaf00d22ecaceaea646509c7cdb683e5ad",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reason": "operator_retained_uncertain_planning",
+    "operator": "Codex local operator",
+    "authorization": "User standing authorization for conservative tool-free incident handling; PR120 continuation 2026-11-08.",
+    "authorization_hash": "4ba7647fb046d9644dc919bb4af77d8ad58a6be0ff90e5d7bf6d0bc1cb3947e9",
+    "retained_at": "2026-11-08T21:05:44.1493600+00:00"
+  },
+  "zero_http_refusals": [
+    {
+      "run": "code08-runtime-prerequisite-20261108-01",
+      "reason": "retained_application_hold_understated",
+      "physical_attempts": 0
+    },
+    {
+      "run": "code08-runtime-prerequisite-20261108-02",
+      "reason": "retained_application_hold_understated",
+      "physical_attempts": 0
+    }
+  ],
+  "probe": {
+    "source": "7d6810e87208b070559d02969434f22516d93ccf",
+    "run": "code08-runtime-prerequisite-20261108-03",
+    "runtime_prerequisite_guidance": {
+      "active": true,
+      "schema_unchanged": true,
+      "added_utf8_bytes": 650
+    },
+    "schema_valid": true,
+    "usage": {
+      "input_tokens": 11221,
+      "output_tokens": 326,
+      "total_tokens": 11547,
+      "benchmark_cost_eur": "0.3540618002686968204209583520",
+      "reasoning_tokens": 29,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "physical_http_attempts": 1,
+    "independent_probe": {
+      "source_request": "a53e32dcfb874067a5b492679b3486a7:14:8ed61cbcb288de591c4289e1cef1e68bcf47d41d4707306d7279304b0a3acd59:adba7314e5f6a8c8ea8e690e1ea78079c4d0fd0532ba5e4d0dce5891de2761f2",
+      "source_request_hash": "d6e2c8b7f062f5c1723d5dee3071e4c1099967f1f91938672928d49d4fafd9c9",
+      "prompt_hash": "da108ed65b9873878edbee0b39207b01bfb9d5c6ce700d29e1b32c0e1691c72e",
+      "schema_hash": "b0eecce6594d2d90d09683bc9c39cb3ed9140a679fc39d0cf44437a7adf9cd0e",
+      "applies_candidate": false,
+      "executes_business_tools": false
+    }
+  },
+  "comparison": {
+    "response_schema_equal": true,
+    "changed_factors": [
+      "prompt guidance: +650 UTF-8 bytes",
+      "reasoning: low to medium"
+    ],
+    "one_factor_comparison": false,
+    "repeat_with_original_low_reasoning_required": false,
+    "source_http_sha256": "b3031302fb356a1c604868e4dab42bc6ece7f7bb83c45a298ab84e2e7e6b279a",
+    "probe_http_sha256": "a89ea8f24de889d5a9ff6acf35de3ba18be1cfdf9ae7df385611fe31f8c66a0c"
+  },
+  "probe_response": {
+    "commitments": null,
+    "extension": null,
+    "clarifications": null,
+    "evidenceRequests": null,
+    "reselectStep": {
+      "reason": "git_clone permet le clone unique avec branch=\"f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488\" et targetDirectory=\"workflows/pr120-live-20261107-400/code-qualification-20261108-08/repository\", mais les opérations connectées nécessaires ne sont pas sélectionnées : nettoyage du répertoire déclaré même après un échec partiel, lecture du dépôt, qualification via GitHub Copilot et exécution des commandes avec restitution exacte des codes de sortie. Resélectionner ensemble leurs contrats et leurs capacités disponibles dans les permissions et la sandbox existantes avant de construire le clone et son nettoyage. Ne pas substituer cmd_run aux capacités absentes. Conserver les entrées publiques pullRequestUrl et reviewText, les contraintes de cible, les vérifications de versions avant les checks, la conservation locale des observations pour review.json et la réutilisation du même clone pour la revue ultérieure avant suppression. Aucun clone, commande, code de sortie ou succès n’a été observé ici ; la disponibilité opérationnelle reste à établir. Les obligations originales restent ouvertes, sans publication GitHub ni extension de permissions ou de sandbox.",
+      "disposition": "abandon",
+      "prerequisite": null
+    }
+  },
+  "verified_external_reservations_eur": "13.791858486341244961934617108",
+  "limitations": [
+    "Accepted metadata echo is not business convergence.",
+    "The probe applies no candidate or business effect.",
+    "The cancelled source workflow cannot resume. All reservations remain held.",
+    "The initial medium-reasoning diagnostic changed two factors. The separate low-reasoning repeat changes only guidance; neither probe applies a candidate or qualifies a workflow."
+  ],
+  "controlled_low_reasoning_repeat": {
+    "source": "a955474faf5af3c51e45f39400053fc35592828e",
+    "run": "code08-runtime-prerequisite-20261108-04",
+    "requested_reasoning": "low",
+    "runtime_prerequisite_guidance": {
+      "active": true,
+      "schema_unchanged": true,
+      "added_utf8_bytes": 650
+    },
+    "schema_valid": true,
+    "usage": {
+      "input_tokens": 11221,
+      "output_tokens": 288,
+      "total_tokens": 11509,
+      "benchmark_cost_eur": "0.3479355127630989699955217197",
+      "reasoning_tokens": 0,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "physical_http_attempts": 1,
+    "response": {
+      "commitments": null,
+      "extension": null,
+      "clarifications": null,
+      "evidenceRequests": null,
+      "reselectStep": {
+        "reason": "git_clone permet le clone unique avec le head et le répertoire imposés, mais la sélection ne contient aucun contrat pour son nettoyage obligatoire, notamment après un clone partiellement échoué. Elle ne contient pas non plus les opérations GitHub Copilot, lecture des déclarations du dépôt, exécution des commandes avec codes de sortie observés et conservation locale des preuves nécessaires au bloc. Abandonner cette sélection incomplète et découvrir puis sélectionner ensemble les opérations connectées et leur nettoyage avant toute exécution. Préserver git_clone avec branch=\"f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488\" et targetDirectory=\"workflows/pr120-live-20261107-400/code-qualification-20261108-08/repository\", les entrées publiques pullRequestUrl et reviewText, la réutilisation du clone pour la revue ultérieure et toutes les obligations originales. Ne pas substituer cmd_run aux capacités manquantes, modifier les permissions ou publier sur GitHub. Aucun clone, contrôle, code de sortie ou résultat de disponibilité runtime n’a été observé ; les contrats seuls ne prouvent ni disponibilité ni réussite.",
+        "disposition": "abandon",
+        "prerequisite": null
+      }
+    },
+    "all_other_actual_http_fields_equal": true,
+    "schema_equal": true,
+    "only_guidance_inserted_utf8_bytes": 650,
+    "http_sha256": "8b422a538516b27f2542a1ffa22ee0178a3caa5be626baf0d582c060ccacd3c2"
+  }
+}

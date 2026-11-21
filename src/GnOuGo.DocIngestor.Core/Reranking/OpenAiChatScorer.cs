@@ -17,6 +17,7 @@ public sealed class OpenAiChatScorer : IChatScorer
     public string Name => "openai";
 
     private readonly HttpClient _http;
+    private readonly ModelProviderOptions _transportOptions;
     private readonly IApiKeyProvider _apiKeyProvider;
     private readonly string _endpointUrl;
     private readonly string _model;
@@ -28,23 +29,35 @@ public sealed class OpenAiChatScorer : IChatScorer
     /// <param name="apiKeyProvider">Provider for the API credential.</param>
     /// <param name="http">HTTP client used for requests.</param>
     /// <param name="telemetry">Optional telemetry recorder.</param>
+    /// <param name="providerOptions">Common generation transport policy and exact model overrides; the constructor endpoint remains authoritative.</param>
     public OpenAiChatScorer(
         string endpointUrl,
         string model,
         IApiKeyProvider apiKeyProvider,
         HttpClient http,
-        GenAiTelemetry? telemetry = null)
+        GenAiTelemetry? telemetry = null,
+        ModelProviderOptions? providerOptions = null)
     {
         _endpointUrl = endpointUrl;
         _model = model;
         _apiKeyProvider = apiKeyProvider;
         _http = http;
         _telemetry = telemetry;
+        _transportOptions = new ModelProviderOptions
+        {
+            Type = "openai", Url = _endpointUrl,
+            RequestPolicy = providerOptions?.RequestPolicy.Clone() ?? new(),
+            RetryPolicy = providerOptions?.RetryPolicy.Clone() ?? new() { MaxAttempts = 1 },
+            ModelTransportOverrides = LLMTransportResolver.CloneOverrides(providerOptions?.ModelTransportOverrides)
+        };
+        LLMOptionsValidation.ValidateProvider("generation", _transportOptions);
     }
 
     /// <inheritdoc />
     public async Task<double> ScoreAsync(string query, string passage, CancellationToken ct = default)
     {
+        var transport = LLMTransportResolver.Resolve(_model, _transportOptions, false,
+            new LLMModelMetadataResolver(new LLMOptions()).ResolveDeclaredMetadata("openai", _model)?.Capabilities);
         var url = OpenAiEndpoints.ChatCompletions(_endpointUrl);
         var truncated = passage.Length > 2000 ? passage[..2000] + "…" : passage;
         var userMessage = $"Query: {query}\n\nPassage: {truncated}";
@@ -59,11 +72,15 @@ public sealed class OpenAiChatScorer : IChatScorer
 
         try
         {
-            using var req = HttpRequestHelper.CreateJsonPost(url, payload);
             var apiKey = await _apiKeyProvider.GetApiKeyAsync(ct);
-            HttpRequestHelper.SetBearerAuth(req, apiKey);
-
-            using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+            HttpRequestMessage CreateRequest()
+            {
+                var req = HttpRequestHelper.CreateJsonPost(url, payload);
+                LLMTransportResolver.Apply(req, transport);
+                HttpRequestHelper.SetBearerAuth(req, apiKey);
+                return req;
+            }
+            using var resp = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, _transportOptions.RetryPolicy, ct);
             await using var stream = await resp.Content.ReadAsStreamAsync(ct);
 
             if (!resp.IsSuccessStatusCode)

@@ -1,0 +1,19 @@
+{
+  "evidence_hash": "54dbf57321790c53d95cc543fb5d7c73d4a15fc699a37d9ff452e016b86711a8",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "reason": "operator_retained_uncertain_planning",
+  "operator": "Codex",
+  "authorization_hash": "44f7885da7d23175af0bb7802b23873b3cd998577a3b2241f6fed2ab9c9d074d",
+  "retained_at": "2026-11-11T09:34:20.4836590+00:00",
+  "campaign": "pr120-live-20261107-400",
+  "run_key": "code-qualification-20261111-24",
+  "session_id": "4fee0f5c8fbc42cdad72507ef1aa81a1",
+  "revision": 140,
+  "request_id": "4fee0f5c8fbc42cdad72507ef1aa81a1:42:4419b7daffd2a7695014d8ea30f537292d8d9aed8a6c336dddb10959484c3673:df99e485ef94c472b6b11889ca00a5646b8a7ac368392f003b4b0f1fabf86819",
+  "retention_kind": "exhausted-planning-retries",
+  "private_receipt_sha256": "b6ba096d36bf2a33a0a14596a1105ef2bdfc53250af45fa264880b99a76c1218",
+  "budget_added_eur": 0
+}

@@ -1,0 +1,136 @@
+{
+  "tested_production_sha": "de905b246bd23db5acfdede02beffa11be0d3d01",
+  "tested_harness_sha": "de905b246bd23db5acfdede02beffa11be0d3d01",
+  "cohort": "compactrde905b24colhighv11a",
+  "freeze_sha256": "fa707b9f2e4faadcee7f39f8204aae95853b9ee0d61e2e9294428ca158fc0c6d",
+  "status": "three_confirmed_HTTP_500_responses_without_completion_receipt",
+  "logical_requests": 2,
+  "physical_attempts": 4,
+  "corrections": 0,
+  "planning_ms": 978924,
+  "known_input_tokens": 395,
+  "known_output_tokens": 530,
+  "known_cost_eur": "0.0159526996876394466755912539",
+  "reserved_cost_eur": "2.7926104417670682730923694779",
+  "received_responses": 1,
+  "artifact": false,
+  "runtime_executed": false,
+  "independently_fulfilled_business_obligations": 0,
+  "calls_per_success": null,
+  "requests": [
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d:1:bc5ea1e54bfa2c9872a4c3a8c828034233304dd293a1eea28df8b02bec2d6e08",
+      "requestHash": "6b8d94652d6bbe72064f45580b2126eeefe7e93827fbc522c501c04b87806bae",
+      "schemaHash": "ffc6edf758d296cd10dd919fba663202bba859c667cea78dd8934d3398b1bebe",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 12000,
+      "completeRequestBytes": 2523,
+      "estimatedInputTokens": 1097,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 434,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 482,
+          "estimatedTokens": 161
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 699,
+          "estimatedTokens": 233
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d:2:102bd5191ed7bdd1cb4485b02570e84d0fb985d9e1055ed03f24e0ced50cd085",
+      "requestHash": "269b38321c381effc27783f6d3817837680660844d7dc3825227494d393a741d",
+      "schemaHash": "bb4c5b79a4298b1138e181ab63e18d9b38cd84f1c81d84f034b415a1e0e371ca",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 12000,
+      "completeRequestBytes": 8650,
+      "estimatedInputTokens": 3140,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 438,
+          "estimatedTokens": 402
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 23,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1485,
+          "estimatedTokens": 495
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1328,
+          "estimatedTokens": 443
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5291,
+          "estimatedTokens": 1764
+        }
+      ]
+    }
+  ],
+  "response_metrics": {
+    "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d:1:bc5ea1e54bfa2c9872a4c3a8c828034233304dd293a1eea28df8b02bec2d6e08": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 427,
+      "reasoning_tokens": 429
+    }
+  },
+  "provider_error": {
+    "code": "ESG120",
+    "classification": "Routing failed; backend unavailable",
+    "body_sha256": "0e491b9ecbab696c8290235f873b327ffa0d084f2a7e4ce4b26be63ee9a4e452",
+    "zero_usage_or_provider_termination_claimed": false
+  },
+  "retention": {
+    "evidence_hash": "1d56f4787a58ba1cb02fe755312c8d749f2ef733c867f452b9e182df478c0af0",
+    "closure_file_sha256": "e83094bedd87f436715a0a73a5b778bdbe15c9902071b95d59a3f603e86cbbd1",
+    "full_reservation_retained": true,
+    "run_and_request_permanently_blocked": true,
+    "fresh_process_guards_verified": true,
+    "applied_twice_identically": true
+  },
+  "measurement_components_reconcile": true,
+  "financial_components_are_estimates_not_billed_provider_usage": true
+}

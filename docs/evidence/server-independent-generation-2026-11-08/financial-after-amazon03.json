@@ -1,0 +1,13 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "finite_allocation_eur": "400",
+  "physical_attempts": 361,
+  "known_usage_tariff_estimate_eur": "133.17659650694133452754142481",
+  "unresolved_http_reservations_eur": "86.36547245857590685176892074",
+  "retained_external_reservation_eur": "2.4215763546798029556650246305",
+  "available_in_this_allocation_eur": "178.0363546798029556650246298",
+  "globally_available_funding": null,
+  "unknown_attempts": 13,
+  "inspection_releases_money": false,
+  "provider_invoice": null
+}

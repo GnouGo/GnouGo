@@ -1,0 +1,265 @@
+{
+  "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+  "presentation_version": 10,
+  "case": "collections",
+  "role": "Frozen candidate diagnostic; no business acceptance or runtime credit.",
+  "cohort": "compactr46e356283colhighv10a",
+  "run_key": "46e356283e431c3c7911010ac7098302f8df9b71:fixture:cohort:compactr46e356283colhighv10a:collections:1",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "b705be07cf0788e0da2772992ab07d8ac33dd45fe2d69249178a938c61b1a17b",
+  "command_sha256": "6e60b91e3fbfb82c7d2e08d057d057a4a1f327c9ed9653dfa5ed3033766dad83",
+  "benchmark_binary_sha256": "f7777fb76640b17f8c31c7dd3928580291763b4226f15c0d02ac963116c12cd5",
+  "source_manifest_sha256": "fb36f47872bccd7576d5f98b079199600694d9be1772dee96e269649272448e4",
+  "phase_policy_sha256": "00a182f8ad35c3ba488261fe845ef7840a790158f32ff2d933480c074fea4158",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 8000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "limits": {
+    "physical_calls": 64,
+    "corrections": 4,
+    "total_tokens": 15000000,
+    "active_milliseconds": 18000000
+  },
+  "observation_utc": "2026-10-27T17:51:58.190323+00:00",
+  "status": "stopped",
+  "classification": {
+    "terminal_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_INPUT_LIMIT"
+    ],
+    "last_received_action": "evidenceRequests",
+    "last_received_request_number": 23,
+    "last_received_addresses": [
+      "page:interfaces:0",
+      "task:foreach_values"
+    ],
+    "all_requested_addresses_offered_and_displayed": true,
+    "pending_response": false,
+    "new_uncertain_logical_request": false,
+    "new_retention_required": false,
+    "failure_kind": "The evidence batch and then the diagnostic follow-up exceed the captured complete-request input ceiling. The follow-up is never dispatched.",
+    "received_output_exhaustion": false,
+    "duplicate_addresses_in_last_received_batch": 0
+  },
+  "planning": {
+    "logical_planning_calls": 23,
+    "physical_attempts": 23,
+    "repairs": 0,
+    "known_input_tokens": 74040,
+    "known_output_tokens": 32657,
+    "known_cost_eur": "1.2047389558232931726907630522",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "usage_complete": true,
+    "usage_bounded": true,
+    "planning_ms": 860870,
+    "receipts": 23,
+    "known_reasoning_tokens": 27213,
+    "unknown_physical_attempts": 0,
+    "logical_requests_without_receipts": 0,
+    "physical_attempt_http_statuses": null
+  },
+  "accepted_progress": {
+    "accepted_checkpoints": 6,
+    "checkpoint_sequences": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "accepted_task_kinds": {
+      "foreach": 1,
+      "call": 1,
+      "value": 1
+    },
+    "accepted_group_count": 1,
+    "accepted_root_output_names": [],
+    "open_scopes": [
+      "/tasks/foreach_values/body",
+      "/root"
+    ],
+    "closed_requirement_ids": [
+      "req_0"
+    ],
+    "requirements": [
+      {
+        "id": "req_0",
+        "status": "closed",
+        "checkpoints": [
+          2
+        ]
+      },
+      {
+        "id": "req_1",
+        "status": "in_progress",
+        "checkpoints": [
+          1,
+          3,
+          4,
+          5,
+          6
+        ]
+      }
+    ],
+    "candidate_present": true,
+    "complete": false,
+    "description": "One closed reusable double_item group computes its parameter times2. One parallel foreach over values calls it with the current item. No extra copy task. The foreach body and root remain open; the proposed body export/closure is unaccepted and no public root result exists.",
+    "independently_completed_business_obligations": 0,
+    "business_unit": "collections_complete_ordered_doubling_v1",
+    "calls_per_completed_business_obligation": null
+  },
+  "review_observations": {
+    "received_judge_calls": 7,
+    "accepted_clean_findings_calls": 6,
+    "accepted_judge_request_numbers": [
+      5,
+      8,
+      11,
+      14,
+      17,
+      20
+    ],
+    "retained_v2_manifests": 6,
+    "received_request_proposition_pairs": 26,
+    "propositions_by_kind": {
+      "local_behavior": 12,
+      "global": 6,
+      "interaction": 6,
+      "completion": 2
+    },
+    "broad_acknowledgments": 26,
+    "subject_acknowledgments": 0,
+    "retained_reuse_events": 0,
+    "retained_transition_events": 0,
+    "interpretation": "The six earlier clean reviews cover all three original units for their respective fragments. They do not establish completion or subject-bounded reuse. The final received action is evidenceRequests, not a clean review or provider inconclusive report."
+  },
+  "terminal_trajectory": [
+    {
+      "requests": [
+        21,
+        22
+      ],
+      "event": "Select and draft export call_double_item.doubled plus explicit foreach-body closure for req_1; no new task and complete=false."
+    },
+    {
+      "request": 23,
+      "event": "Ordinary scoped Judge window0 of3 covers req_0, with fresh interaction and completion propositions. It requests page:interfaces:0 and task:foreach_values, both offered/displayed. Root inputDeclarations is navigation_only with count1 and inputs[]. The exact child call/group arithmetic and tentative body export are present."
+    },
+    {
+      "after_request": 23,
+      "event": "The batch is atomically rejected at25,164B/8,644 estimated tokens against8,000. No retrieval is committed. The next request permits a single-address choice, but its complete diagnostic/original window already needs23,389B/8,053; it is rejected before another dispatch."
+    }
+  ],
+  "coverage_boundary": {
+    "last_window_count": 3,
+    "last_window_index": 0,
+    "last_window_source_ids": [
+      "requirement:req_0"
+    ],
+    "fragment_requirement_ids": [
+      "req_1"
+    ],
+    "report_repair": false,
+    "reassessment": false,
+    "coverage_complete": false,
+    "interpretation": "The requested root input/foreach binding is relevant to the current input obligation and is not equivalent to the supplied child/group producer. No unnecessary duplicate fetch is established. The retained source selects an oversized remaining mandatory window first; no complete unissued request payload is claimed reconstructed."
+  },
+  "corrections": {
+    "charged": 0,
+    "evidence_rejections_charge_taskplan_correction": false
+  },
+  "response_anomalies": {
+    "received_responses": 23,
+    "empty_received_texts": 0,
+    "empty_normalized_responses": 0,
+    "valid_original_json_responses": 23,
+    "original_response_utf8_bytes_total": 16945,
+    "outside_string_whitespace_bytes": 16,
+    "maximum_outside_string_whitespace_run": 2,
+    "responses_with_at_least_half_outside_string_whitespace": 0,
+    "provider_finish_reason_counts": {
+      "stop": 23
+    },
+    "received_output_exhaustion_markers": 0,
+    "ordinary_completion_status_available": 0,
+    "interface_extraction": {
+      "request_number": 2,
+      "original_utf8_bytes": 1181,
+      "outside_whitespace_bytes": 10,
+      "maximum_outside_whitespace_run": 2
+    },
+    "input_rejected_before_dispatch": 2,
+    "provider_input_rejections": null,
+    "http_outcome_codes": null,
+    "boundary": "All23 received original texts are nonempty valid JSON with finish_reason=stop. HTTP statuses are not exposed by this projection. Whitespace uses the retained quote/escape-aware scanner."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "execution_variants": [],
+    "independent_oracle_pass": false,
+    "business_units": 0
+  },
+  "campaign_after_terminal": {
+    "observed_utc": "2026-10-27T17:51:58.190323+00:00",
+    "campaign": "schema-portability-20261019-incremental",
+    "known_cost_eur": "245.56508328286337684634684947",
+    "reserved_cost_eur": "77.982857984263842300092874233",
+    "cost_upper_bound_eur": "323.54794126712721914643972370",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "available_eur": "216.48216256557908539600522360",
+    "unknown_attempts": 96,
+    "receiptless_logical_requests": 37,
+    "retained_closed": 37,
+    "unresolved": 0,
+    "accounting_evidence_hash": "31c329e58a70cb9ccf5226693ba5725259ba387c04f3c59504fb60d99a6f2885",
+    "inspection_stdout_sha256": "4d155a07d5ebe1e73360524b5e6525f2f3807cef72fe3505d1344591fa1e9b69",
+    "boundary": "Dated snapshot before subsequent diagnostics. All37 receiptless identities have retained closure records; no reserve released. Available is ceiling minus captured CLR-decimal upper bound, preserving its rounding."
+  },
+  "comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_freeze_sha256": "e5ac6f144cb967412656cb75b5eebdccc066a0b74aec48eeda999846a33ad63b",
+    "same_frozen_profile_and_oracles": true,
+    "control_runtime_success": true,
+    "candidate_runtime_success": null,
+    "interpretation": "Control completed both variants at28 logical/30 physical calls. Candidate stopped at23/23 without an artifact. Unequal completion provides no savings or live source-window-guidance benefit."
+  },
+  "measurements": {
+    "file": "compact-taskplan-46e35628-collections-measurements.json",
+    "sha256": "93c77d7fa031395cc2817bb61f2b7e7fb5791e3283668f1126aae5027b2f37f2",
+    "bytes": 12533
+  },
+  "evidence": {
+    "public_inspection_sha256": "d9ac68e5c1569408cfee54bcfcf4d35ba52fcd7fefb33244c16a981b121fd345",
+    "inspection_with_receipts_sha256": "8c0d31345779ef0989c2b9ea7b0b9b088fe679fe097ba8427321cbd4770f4437",
+    "safe_reduction_sha256": "8b4e3e6e92d283c447002bf1839fd993c1273d14fa4198da4aa2f5a08ba69346",
+    "received_context_supplement_sha256": "033c44a4e1dbfecd7955721ba579ca82bb6e076671bd54997247b4b965b4a90f"
+  },
+  "limitations": [
+    "No provider call, replay, continuation, approval, runtime execution or retention mutation occurred during inspection.",
+    "Original request/receipt payloads remained in RAM; saved records contain only selected structural facts, hashes and measurements.",
+    "The initial address extractor used the wrong action property and initial supplementary schema lookup used the wrong schema property; originals are preserved, corrected by the pinned supplement. No received-null or unavailable-address claim is made.",
+    "No new source defect, sufficient duplicate-byte removal, higher input setting or later convergence is established by this incomplete outcome."
+  ]
+}

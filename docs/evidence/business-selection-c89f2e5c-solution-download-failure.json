@@ -1,0 +1,88 @@
+{
+  "source_commit": "c89f2e5c5c162cf16aaa0b3613093b15e1097699",
+  "passed": false,
+  "dotnet_exit_code": 1,
+  "started_utc": "2026-11-04T15:23:46.434255+00:00",
+  "ended_utc": "2026-11-04T15:31:57.663106+00:00",
+  "elapsed_seconds": 491.07083975000205,
+  "test_outcomes": {
+    "Passed": 6150,
+    "NotExecuted": 12
+  },
+  "source_unchanged": true,
+  "changed_tracked_paths": [],
+  "observed_assembly_count": 31,
+  "missing_assemblies": [
+    "GnOuGo.Agent.Server.Tests",
+    "GnOuGo.OtlpCollector.Server.Tests"
+  ],
+  "kind": "source_bound_full_solution_external_download_failure",
+  "command": [
+    "dotnet",
+    "test",
+    "GnOuGo.Agent.sln",
+    "-m:1",
+    "-warnaserror",
+    "-p:SkipModelMetadataGeneration=true",
+    "--logger",
+    "trx;LogFilePrefix=full-solution",
+    "--results-directory",
+    "<isolated-results>"
+  ],
+  "compiler_diagnostic_count": 1,
+  "failure": {
+    "project": "src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj",
+    "target_line": 84,
+    "code": "MSB3923",
+    "dependency": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-proto/v1.4.0/opentelemetry/proto/common/v1/common.proto",
+    "cause": "SSL connection failed: unexpected EOF or zero bytes from transport stream."
+  },
+  "capture_sha256": {
+    "source-before.json": "053257c8b278410feb3eaf4b6fd6054fe1430cbeb07897e0b4074946aab708f8",
+    "source-after.json": "053257c8b278410feb3eaf4b6fd6054fe1430cbeb07897e0b4074946aab708f8",
+    "run.json": "09cc7b7dedd2b3d8c728737cfac4de764754a5ab53947d81dc8f8cded1852a81",
+    "results.json": "e3291619820fe7770f02b00f21f31f1d30ff32c4f49256c2a084c286cb3c3112",
+    "summary.json": "3a7e4cff9541057c1d50ac7fa6150eb5140d14a075ed2903848c4a0939385558",
+    "verification-report.json": "b4184cd972ebe3366a5e2b1dd4b8e1ba5b8c6c2a94fb10f10a409b29c3b67b4b",
+    "sdk-version.txt": "00922204861c9366b1259b84337ee228d58ec876604bb149e82c077108ce3be2",
+    "full-solution.log": "5a989404453c8b06fa07844fa5dfe5756a02acacddff6e9a04ae99cc4b2fe686"
+  },
+  "trx_sha256": {
+    "trx/full-solution_net10.0_20261104162412.trx": "f054ee8ab546b9843db823c73ec340a5e2b4d732727d3684c3f7c6edef14f2c8",
+    "trx/full-solution_net10.0_20261104162415.trx": "597b14f3fab40555aa42654cc9104834382e379a41e6da4e543d0ce7d299e6ab",
+    "trx/full-solution_net10.0_20261104162418.trx": "bead72b34153addd6d02696fb19710f138741a791e8b753a0720fdf3e4e8d7d7",
+    "trx/full-solution_net10.0_20261104162428.trx": "b94175015f907b47bd51f640a0cfb2d50ef94f86b7d1f90a60889c0a67ab39dd",
+    "trx/full-solution_net10.0_20261104162440.trx": "dc21768244333d81a4a6944578d255e9ff5a387f652b0fd12792cde6c6a94c60",
+    "trx/full-solution_net10.0_20261104162444.trx": "b1e755e4ad303257cf80a28eaac178a1dd01f4c9bdeebdd47b3b94f50d31e174",
+    "trx/full-solution_net10.0_20261104162445.trx": "bab33b15538bb5737bbd2fe23b065fcc0a17494931f738cfec5e8fb9d6abc968",
+    "trx/full-solution_net10.0_20261104162449.trx": "1ba3264327fb51c4449fff43b12b12a824441c8d122dbe4a95023de0b7289f39",
+    "trx/full-solution_net10.0_20261104162511.trx": "ed116056342c0841e4c622c26c7c5904af09c56c13e8dab20dcbc96c41807770",
+    "trx/full-solution_net10.0_20261104162537.trx": "1f0958fd7b267f9dd6becd923b714f0bc7d1e035a2efc7456517ab9b9bc6c137",
+    "trx/full-solution_net10.0_20261104162650.trx": "1bb4a4ca424200b42ba11f6215e978321ca0ea6bff77235978a160da1ae427c9",
+    "trx/full-solution_net10.0_20261104162652.trx": "15bf93eb9e1adc5b7b4f28e0aa9cc9c80eaaf0dcf3a7cdb428905e336ea32f5a",
+    "trx/full-solution_net10.0_20261104162655.trx": "e7ca1bc19dbdb808e12d02cf487e45765859f301b558e25d3b00bad1d12328ce",
+    "trx/full-solution_net10.0_20261104162657.trx": "942c28a538633edef1f1529bb9d291a1deb9f732caba3a165edd55133a5a40fc",
+    "trx/full-solution_net10.0_20261104162743.trx": "735834a61a97a6ad491312627d76be0fc23cf4c5b01ec8e359f02ba4d9606e2c",
+    "trx/full-solution_net10.0_20261104162745.trx": "5c5876a40c2e49d854a3c2ad1a86ae86dc07da1f0d4a0ea4395d4a66d88943dc",
+    "trx/full-solution_net10.0_20261104162747.trx": "6da2f30a2f3058e644d301daa7fa1bcd37c8b628c790d52493f26fe91cced777",
+    "trx/full-solution_net10.0_20261104162748.trx": "2b05e2af9baf5e542b7d27502fbc07261e3b7ce1a1f9263500863df063255204",
+    "trx/full-solution_net10.0_20261104162756.trx": "fd93482b7d7425b9baf66b3f5e0dc20aacc06c2acd42a9cbab2d5a78fe110bb8",
+    "trx/full-solution_net10.0_20261104162757.trx": "b37b213344027f984f9942d4e139e932598ec093f665ca70835da28bb206b9b8",
+    "trx/full-solution_net10.0_20261104162759.trx": "6eb26393b9885a51653bda9a2714c10e69fe5bd7d3b585b80331d4208b50b503",
+    "trx/full-solution_net10.0_20261104162800.trx": "2ec21b27e821e5e1b113e53f43c702c072e2decf2b4d7b166758115d875c501e",
+    "trx/full-solution_net10.0_20261104162812.trx": "5b7a76ee7e9245727e8513fc0d5c1fa8af820c8210d093c869660d82eaa53b26",
+    "trx/full-solution_net10.0_20261104162814.trx": "7e19e6b5c56b8f6795745c558f49016491908350ed183a236fd30baba181e55f",
+    "trx/full-solution_net10.0_20261104162820.trx": "943eb407d26864bde44d3792c65516c3ca8a74efc6e9944353c544f0374ebdb3",
+    "trx/full-solution_net10.0_20261104162824.trx": "edbaa854c18b06074ee62244a11df285ca4eaa735e1e1630a6b46a19322e1d4e",
+    "trx/full-solution_net10.0_20261104163132.trx": "cd711e0485c75ecb5250ae853dca34065021d5520e4a7d464fa5550657f02cbd",
+    "trx/full-solution_net10.0_20261104163146.trx": "ebfb5b9021c30961ebaae7adab638c21f01497c18fffb837473f30e31f427376",
+    "trx/full-solution_net10.0_20261104163147.trx": "be222571a51d2e0970dcffda64e9d630daa08b652627f675ef3edb923ea2b986",
+    "trx/full-solution_net10.0_20261104163156.trx": "24220112bb7aaea771e3e080495c1a702bd0c4d87f349b536d2e022148c2ea3d",
+    "trx/full-solution_net10.0_20261104163157.trx": "d0ae67a35bc5f21d7738006a46881cfe2072f4bc6c872198b0ff51640a33fab9"
+  },
+  "limitations": [
+    "31 of 33 assemblies only; this is an incomplete failed validation, not a passing full solution.",
+    "No failed tests were observed before the dependency download failure; 6150 pass and 12 skips do not substitute for the required complete run.",
+    "Fresh identical-source full solution launched at 15:55:31 UTC in a new capture; no code or test suppression changed."
+  ]
+}

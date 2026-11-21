@@ -1,0 +1,59 @@
+[
+  {
+    "identity": "amazon-aax-source-20261111-01",
+    "source": "c06d01021f234aa21f890b4668c1f380aed0d5d6",
+    "source_only": true,
+    "model_calls": 0,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "workflow_activation": false,
+    "diagnostic_complete": false,
+    "failure_type": "InvalidOperationException",
+    "last_error_code": null,
+    "cleanup": {
+      "closed": true,
+      "probe_error": true,
+      "no_active_page": true
+    },
+    "actual_content_calls": 1,
+    "finished_utc": "2026-11-11T21:43:54.452156+00:00",
+    "record_count": 1344,
+    "source_admission_validated": false,
+    "aax_reads": 0,
+    "evidence_sha256": {
+      "admission.json": "3caccedd4a8de355529952543cc3dd27d9bf7ec21084697018b7baeae3d1b88b",
+      "events.json": "9b02ccd5811b047ec249b802372fce0658db48e172a09e83f04b25c003ede99a",
+      "close.json": "8b47c83e4ea38d8d596c9ef1dc4031ec22335075ce2da315abfff142e994250c",
+      "outcome.json": "3e51042347c1a0fc41bcc90d7a2560733810872395431c7e49efea87a5832503"
+    }
+  },
+  {
+    "identity": "amazon-aax-source-20261111-02",
+    "source": "77ad1968ad82db4336696884399128defd5eb481",
+    "source_only": true,
+    "model_calls": 0,
+    "source_prerequisite_qualified": false,
+    "business_oracle_passed": false,
+    "workflow_activation": false,
+    "diagnostic_complete": false,
+    "phase": "source_authority_validation",
+    "source_occurrences": 0,
+    "cold_reload_identical": true,
+    "cleanup": {
+      "closed": true,
+      "probe_error": true,
+      "no_active_page": true
+    },
+    "actual_content_calls": 1,
+    "finished_utc": "2026-11-11T21:57:39.249186+00:00",
+    "record_count": 1373,
+    "source_admission_validated": true,
+    "aax_reads": 0,
+    "evidence_sha256": {
+      "admission.json": "0032feca5af32c28194c934810a79337061de0ddf5a94868cfdcfb7d2114ea3d",
+      "events.json": "a7e501316b914504235552896dddf17613a369b305e1324226ad4fa17682fb14",
+      "close.json": "8b47c83e4ea38d8d596c9ef1dc4031ec22335075ce2da315abfff142e994250c",
+      "outcome.json": "2d3964a1259d73ab969ea1d8f3ca4ab2acb2186f5eccd77029a1ec22c35478c5"
+    }
+  }
+]

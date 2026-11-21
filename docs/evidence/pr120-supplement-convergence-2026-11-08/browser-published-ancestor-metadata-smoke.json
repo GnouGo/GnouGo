@@ -1,0 +1,15 @@
+{
+  "kind": "published Browser stdio MCP smoke against controlled loopback fixture",
+  "published_dll_sha256": "bac672c6c3f099cb653769c762d7ee9baa9f4337a86eb5926dd164c45aa09c90",
+  "source_equivalent_main_commit": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+  "build_worktree_commit": "0bd693de87ef9dd44dc5b60a6a16c0c9c27bb08b",
+  "observed_links": 5,
+  "source_metadata_serialized": true,
+  "empty_missing_distinct": true,
+  "repeated_occurrences_distinct": true,
+  "selected_root_confined": true,
+  "actual_close_verified": true,
+  "model_dispatches": 0,
+  "business_workflow_qualification": false,
+  "passed": true
+}

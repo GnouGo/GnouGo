@@ -1,0 +1,123 @@
+{
+  "runtime_source": "e25ef5f66ad8bbeb3daf4966671558bfa0fe4228",
+  "independent_source_identity": "next-amazon-observation-20261110-01",
+  "hypothesis": "The demonstrated generic explicit-label/ARIA-heading correction survives capture through the actual benchmark Browser profile; no product identity is inferred from it.",
+  "source_only": true,
+  "real_benchmark_configuration_builder": true,
+  "policy": "amazon-observed-product-context-v3",
+  "profile_environment": {
+    "Browser__KeepBrowserOpen": "false",
+    "Browser__AllowedHosts__0": "www.amazon.fr",
+    "Browser__AllowedHosts__1": "amazon.fr",
+    "Browser__AllowedHosts__2": "sponsored-ads.amazon.fr",
+    "Browser__AllowedNavigationUrlPatterns__0": "(?:https://(?:www\\.)?amazon\\.fr/(?:s\\?[^#]+|sspa/click\\?[^#]+|(?:[^/?#]+/)?dp/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/product/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/aw/d/[A-Za-z0-9]{10}(?:\\?[^#]*)?)|https://sponsored-ads\\.amazon\\.fr/clk/\\?[^#]+)",
+    "Browser__ObservationAncestorAttributes__0": "data-asin"
+  },
+  "browser_assembly_sha256": "95b8b80c039297b650325187d256b2c7716f228b1bc734821597c709b76fb0cc",
+  "snapshot_id": "5b8184daa25741bc987b67a7dc77a03d",
+  "http_status": 200,
+  "complete_record_count": 1527,
+  "capture_truncated": false,
+  "sponsored_clk_slash_links": 44,
+  "sponsored_clk_without_slash_links": 0,
+  "sspa_click_links": 85,
+  "empty_context_sponsored_links_preserved": 17,
+  "empty_context_sponsored_links_with_observed_text": 11,
+  "explicit_aria_headings": 36,
+  "related_brand_aria_heading_retained": true,
+  "exact_retained_context_label_matches": [
+    {
+      "context_index": 0,
+      "complete": true,
+      "label_matches": [
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:58",
+          "href_sha256": "02a7a27c3e06c3ca0ce1ab13ed86251792801a6412afa05ef7f1d024d6ec94ef",
+          "observed_text": "Publicité sponsorisée à partir de BRUNO MARC. \"BRUNO MARC Chaussure homme ville.\" En savoir plus sur BRUNO MARC."
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:59",
+          "href_sha256": "239cc0ada7c033357d731d485ffc486a3fc8ef45ed8042653d81370f4da244a6",
+          "observed_text": "Fond noir avec texte blanc affichant « BRUNO MARC » en majuscules, probablement un nom de marque ou un"
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:60",
+          "href_sha256": "9dcda7d63d7505d2f7813609874b4aa8bfe2af0de89dbe95cb365dd531f8524b",
+          "observed_text": "BRUNO MARC Chaussure homme ville"
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:63",
+          "href_sha256": "df08d37119e6269924d95b291f7b64dba0fa7d3ff5c031642770a0714313bd89",
+          "observed_text": "En savoir plus sur BRUNO MARC"
+        }
+      ],
+      "retained_context_sha256": "3915f986a1081de5cdad9d830256c355719eedd45d303b5609daeac2d7a1c515"
+    },
+    {
+      "context_index": 24,
+      "complete": true,
+      "label_matches": [
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:394",
+          "href_sha256": "8357cd42e8d8df0da430a0234e34a52cc37264f56f4ea24f12e3e00dafeea1dc",
+          "observed_text": "Publicité sponsorisée à partir de JACOBS DOUWE EGBERTS. \"Découvrez nos assortiments de capsules café.\" En savoir plus sur JACOBS DOUWE EGBERTS."
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:395",
+          "href_sha256": "5dabbfae089beeb971b5545c68de7909cbb7a2eb3f2fec04ba2804f428f5b877",
+          "observed_text": "Le texte indique « L'OR ESPRESSO ». Lettres stylisées dorées formant « L'OR » au design incurvé et fluide. Le mot « ESPRESSO » en petites lettres dorées ci-dessous."
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:396",
+          "href_sha256": "0b9a3ba843562fb9b9cede56b63fa6f934b3e85a475a7265422984946ab2ab24",
+          "observed_text": "Découvrez nos assortiments de capsules café"
+        },
+        {
+          "reference": "5b8184daa25741bc987b67a7dc77a03d:record:401",
+          "href_sha256": "34841c5a7af8f5579e8c1a487c6ad462595352bcf08196ecfa9ac93579489906",
+          "observed_text": "En savoir plus sur JACOBS DOUWE EGBERTS"
+        }
+      ],
+      "retained_context_sha256": "47de7783a8b933f24385707752f9b50899b0e86e4ce478c21e8290102aec9a17"
+    },
+    {
+      "context_index": 80,
+      "complete": true,
+      "label_matches": [],
+      "retained_context_sha256": "6c1da2a6afb66cf0063af618c5a434a2276591e57cf0188232e2fb9171de6e53"
+    }
+  ],
+  "independent_oracle": {
+    "kind": "read-only actual-source inspection; no workflow execution or generation",
+    "selection_evidence": {
+      "version": "amazon-business-v7",
+      "passed": false,
+      "expected_product_count": 3,
+      "visited_product_count": 0,
+      "findings": [
+        "search_product_context_unverified",
+        "first_product_visits_incomplete"
+      ]
+    },
+    "eligible_observed_redirect_entries": 0,
+    "source_record_count": 1527,
+    "capture_truncated": false
+  },
+  "browser_close_verified": true,
+  "new_model_calls": 0,
+  "product_visits": 0,
+  "fragments_applied": 0,
+  "source_prerequisite_qualified": false,
+  "private_evidence_sha256": {
+    "next-amazon-observation-20261110-01.observation.json": "ec84c600c70bec59f3fde9f5c13d5cfc625d7581c7e2baa28aeb758f9fdd453e",
+    "next-amazon-observation-20261110-01.contexts.json": "9d2370b361337ffb8dea436937fe3ab7310585c5825af161cd42381bd8534e51",
+    "next-amazon-observation-20261110-01.profile.json": "b1070af41f36209c8726f0514c1ba553ed07487a39b3af11e5a72d209519a500",
+    "next-amazon-observation-20261110-01.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "next-amazon-observation-20261110-01.oracle.json": "c73609b15ec5026818aaba70d8352cb97a02c65b0b3f41107a662042225c37f5"
+  },
+  "limitations": [
+    "This independent search has a different advertising inventory from the prior 1495-record snapshot; it is not a before/after count comparison.",
+    "Observed labels and wrapper headings do not establish product/non-product classification or a child destination alias.",
+    "No full workflow, product-field extraction or workbook execution occurred."
+  ]
+}

@@ -1,0 +1,330 @@
+{
+  "version": 1,
+  "prepared_utc": "2026-10-24T23:46:07.488729+00:00",
+  "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+  "cohort": "compactr08c5229fcamz20v5",
+  "run_hash": "577dcfacdd39aef47a3a947da06abab9eb5e0be159f9bc6898fdf79ec5c035eb",
+  "scope": "Independent static assessment of root-exported bounded witnesses plus exact committed source. No original store/reader access or runtime observation.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-terminal-safe-metrics.json",
+      "sha256": "ff68c4256957ef2f3cd81e82b77f29ec3fcb07a69e6e59aefb74c453a21e3148",
+      "bytes": 211178
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-terminal-state-witness.json",
+      "sha256": "2e4b79833e87ff0aa976c2831f1adcb6278ae0a6a521e5dfc000d78d82594c7a",
+      "bytes": 104011
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-final-requests-witness.json",
+      "sha256": "3bb8ef94df294bba9df611af4eff5356cc0058a2511d10488553911eb0956417",
+      "bytes": 250198
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/amazon-prior-corrections-witness.json",
+      "sha256": "f12c413e834e2c46c142bb7576622912c04cc466966e72033d00d4711c13c6c9",
+      "bytes": 243621
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fcamz20v5/freeze.json",
+      "sha256": "b26245f7b8df47b9be5eb8da2ef01fc40b254409c487e11eea747186bc51be2b",
+      "bytes": 15750
+    }
+  ],
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "8bad618fc065498d04dc4354ac262298fe489eaf591d8815f6f8b6f8c7ac7236",
+      "line_anchors": [
+        144,
+        146,
+        159
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Transform.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "582143cde55e0400506e14360bb15ea09beb36b9c678d92971f4b668427149dc",
+      "line_anchors": [
+        41,
+        108,
+        112
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3",
+      "line_anchors": [
+        330,
+        334,
+        456
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "95760efd7ecbbcc33a43332236b375a8994b0b22ec6cdddb8e1bbf891ee712c6",
+      "line_anchors": [
+        291,
+        366,
+        651,
+        679,
+        755,
+        785
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "1d0eec0ce75727547683aa6951b50d3e44f20a97290566197f4dfbc5a28702df",
+      "line_anchors": [
+        233,
+        275
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs",
+      "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+      "sha256": "2fe321df56b6a677f8349b4dd85991ff6f3d3a7bad1e0c4f037c290db1012807",
+      "line_anchors": [
+        204,
+        216
+      ]
+    }
+  ],
+  "request_identity_joins": [
+    {
+      "number": 3,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:3:046478e7fcaac3f21f97e48c3358426626266e982a33da291809760016b4d638",
+      "record_hashes": {
+        "requests": "7120afdab401a6403add85d67b65500bbc1afcd678e976f597395a5b72569d51",
+        "http-attempts": "181c6366877a35f8e20da74d1c9a2b16f79c62ba829d6bf419f25cbfdd62feb7",
+        "receipts": "b28312d2e001aa0fd2c6ed511d454405a2da771449a00c565189f60cb120bc51",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "694b5afbbaf655c37b4be21857300c51ca180e0b6fe7f0d0eb4aad9ac9091970",
+      "normalized_response_sha256_from_metrics": "694b5afbbaf655c37b4be21857300c51ca180e0b6fe7f0d0eb4aad9ac9091970"
+    },
+    {
+      "number": 4,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:4:30ef59644c4c72bc23b6926e31790a225183bec02af3271f3831410b6c907de1",
+      "record_hashes": {
+        "requests": "052355ee0e9ef207338b2b8fd1afcff076226b7bfad95ab3ad977882082133f7",
+        "http-attempts": "7e173e8b8109cafde6ff05d8ef7ac912fee6453c93fd9c153f8bba148a0d7272",
+        "receipts": "33e73ab28b3ad9d07e8bb343dbcff72697dc3c05defd8462a6841670d40c1db6",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "6e04c4de39e87b8f16343d5249a9ba7d897e908c752404899e6fd342b9ea5335",
+      "normalized_response_sha256_from_metrics": "e060f524c7da528f22c66ce6e0a5999cc4f730b4c0c747b69050a2ba1595eb93"
+    },
+    {
+      "number": 24,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:24:a0f727bfde24bd301876ba3bbe8bdb362cc92a13a6642797bbeb3263125aa0e7",
+      "record_hashes": {
+        "requests": "1d9833797842b7c0c208d9667f876950ade5889e2be35a4081594449c6871dd1",
+        "http-attempts": "fd17ac191d79a8995fd7db5643fae6446126f76096d0ef719c60a8d63c6343bf",
+        "receipts": "c07b30d97a5e1697630e142ad73587c3a33336fceae75116a3d83b69f7a95186",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "fadb10fbee5716d86b3c5539c9d09dad99af2cda747e54937b83344f063aeca0",
+      "normalized_response_sha256_from_metrics": "fadb10fbee5716d86b3c5539c9d09dad99af2cda747e54937b83344f063aeca0"
+    },
+    {
+      "number": 30,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:30:0b6b02e2d82336b747ac87363d252bfd0996ce18f7c0df542572311868e11a63",
+      "record_hashes": {
+        "requests": "1f4e757fbd0c1e9845bce544f7197152cd92700439e6ed3e1827dd1b4a6203ef",
+        "http-attempts": "8b3dcbf396e64504467464b7f0889ebd84332e4422b21ad675dd9cef8b20563d",
+        "receipts": "8a7ad2626393b0d861e60b6b7d40cf179668df1014541b2d488ee596253858df",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "688603724fda8500833b2d050de5d009d5e1b507f938f9dc17d848d8c8bb1894",
+      "normalized_response_sha256_from_metrics": "688603724fda8500833b2d050de5d009d5e1b507f938f9dc17d848d8c8bb1894"
+    },
+    {
+      "number": 31,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:31:9203f79af82592a805894109a0ce54f2023301de21573634d4489d03251bb0c1",
+      "record_hashes": {
+        "requests": "d1aaa6776c1214e10eaafe7f442ed5cc1f6b55de910d4eac3e5aa69141adc735",
+        "http-attempts": "bd129e3e7974c69fc85196226bb8184415266f2364b923526825a0694b7de9bd",
+        "receipts": "3c6edf67c3e863519f53ea412ed758e73c4e070378c9d93fc22f9b0b2f593395",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "720ea0510ba0d099532b75a86ef9c935bc55ae450a2f334d470d65424ba88211",
+      "normalized_response_sha256_from_metrics": "4fb2406795d4e7aee9ad595f26ff59def11cce0c305effd39853021a07ea8cd4"
+    },
+    {
+      "number": 43,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:43:81f8d4a49765760e56554198354a68689323129fda750259f74d783f1188b08e",
+      "record_hashes": {
+        "requests": "0a9f0d5e8af1dd530ce1e0bed292020b30e0879d65adcd25c204b1ec23e49e3a",
+        "http-attempts": "4468840a817e69def7aee8020d463d4eab48be5a6c21c0380842aff89b53fcca",
+        "receipts": "39f117ede379d06a43df7b83cf81a2359b5966b8ad7a2cd42f589e4bcff2337d",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "872b74dd78a6d1dec8d29f54c7075b031dec0228021bbd723ca000bd6d9f7b23",
+      "normalized_response_sha256_from_metrics": "8df6510e601b8946a3d8adecef7659ed8832686fb587dcb2dbea456aed9cd375"
+    },
+    {
+      "number": 44,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:44:d6d51ba7612a7a2cbadb9979e7855ebcb8f7f87260453b1c800a5c64ae8c1285",
+      "record_hashes": {
+        "requests": "6f216ac6338213cf6df903743703d1839a25348954466e46823b81db62081a0c",
+        "http-attempts": "c077b929f7bb5a2e854a7b2ad0650533fe15bc8701af5dc48fc6503bf54a46d7",
+        "receipts": "0dda6d4aeeeea21968ff5dde38afe41840e1b6086b6c78701d0a6503461c74ac",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "14ed05295826c3ab8eef97235a9120108b0d8fd13ec5800b52622d73daa82847",
+      "normalized_response_sha256_from_metrics": "06c86983ca18de0b9eef80599f0e23beeef19e483ea60aae3aefcfa0c195b5d9"
+    },
+    {
+      "number": 45,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:45:88022a6d573064d7a8c43b9dc42f752f434904bc159e73e7d799551fbd881011",
+      "record_hashes": {
+        "requests": "ab12bd3a071323d99d0cc6d4ade082d46c55084793b74034e594128c2857105c",
+        "http-attempts": "0a3008292722fd5bc861a40df7531148efef9a67ffdc3ddd6e81aa15c3aa1d52",
+        "receipts": "e515afa4fb1cd2de7183456466068aa632cfec747597dacac23192a52d90df6f",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "3372c9e8af4a8ba101d3187f5f322e40dc0435cff904213b0950074080387860",
+      "normalized_response_sha256_from_metrics": "89f523df123a0913805f046ba509245357704543d461d88ec40292cd560046d4"
+    },
+    {
+      "number": 46,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:46:584fe42ed70f4d94fe2a15e94a40aab27daeab1a7c3a5d882190ed2747b79ba2",
+      "record_hashes": {
+        "requests": "b3163ce0a616bbea5f657b2c5c8c9e5479f97d9e706c5a5be02eb74e1c88dab7",
+        "http-attempts": "3ebe091988130f8116d054d5dc8d0fe1ecf45927cc5227014ff43f7adf12cb60",
+        "receipts": "61e981ca4f1ecd2dd6e40883b3612f2475743e5ce8b42db3a5650e2b4febb872",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "32102c50ee2d320147ceb4020844f7c3853798dba6525127db65a4e75064f06a",
+      "normalized_response_sha256_from_metrics": "24ab0f7b4c7fd6171fdf6e2d0c9384480de095406e0e4f54f3801cb73bb8bd81"
+    },
+    {
+      "number": 47,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:47:ec16ec811668986d7d6f840a6b412675956a0a40701c43840d60badbf628bb9a",
+      "record_hashes": {
+        "requests": "5929aa3fd03347048991026f1a1b91824d30d1125d0b98ec22829f37ef351087",
+        "http-attempts": "52677ce4075851a96752cf4e0c9fb50c5c33b560639d94f3131767f7fbed743f",
+        "receipts": "6269226b39db62798a534c11935c553bd33d989b039cdc47af4b1040233e9acc",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "d5f16e81c88278ad4bb177b212a55e09cce46fd42cd66880b167b8de5593dfb8",
+      "normalized_response_sha256_from_metrics": "d5f16e81c88278ad4bb177b212a55e09cce46fd42cd66880b167b8de5593dfb8"
+    },
+    {
+      "number": 48,
+      "request_id": "compactr08c5229fcamz20v5-amazon-1:48:3dffb749b18abdfbed8934920c77c988886decf03502f02871a5ca25b6d79ff8",
+      "record_hashes": {
+        "requests": "f7d5036796e45806aa10a6d267bf5f088e68fec30ad7e664d81fdfc02752f398",
+        "http-attempts": "6ad753b2836428cbd16b405fae7fb2d9731cb067cbb2a6dcd2e81387f3ffdbc9",
+        "receipts": "dd7d43d558e271cf5ed9ae112c1a5dad96b18753939df2638aca50c46085e9d2",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256_from_root_witness": "4ba20bc517d0ae30f0f582cdd3ce89379248d0c57bf68b6b1cae41a91b733ce6",
+      "normalized_response_sha256_from_metrics": "4ba20bc517d0ae30f0f582cdd3ce89379248d0c57bf68b6b1cae41a91b733ce6"
+    }
+  ],
+  "confirmed_findings": [
+    {
+      "id": "judge44_zero_target_capacity",
+      "classification": "supported_present_business_contract_defect",
+      "request": 44,
+      "obligation_pointer": "/requirements/0",
+      "implementation_pointer": "/draft/tasks/0",
+      "basis": "The scoped interpret transform must preserve up to the first three observed product targets; its declared non-null array has minItems0/maxItems0 and therefore permits only the empty array. Compiler TypeSchema preserves that cardinality in the strict structured output. This is distinct from a finite positive foreach safety limit.",
+      "limits": "No assertion that runtime products were actually observed; an empty list may be valid for a no-results/error execution. No global workflow closure claim was needed to identify this present output-contract conflict."
+    },
+    {
+      "id": "repair45_narrow_capacity_change",
+      "classification": "specific_declared_capacity_repaired_and_scoped_review_accepted",
+      "changed_paths": [
+        {
+          "path": "/extension/tasks/0/resultType/fields/1/type/maxItems",
+          "before": 0,
+          "after": 3
+        }
+      ],
+      "review_request": 46,
+      "prior_finding_resolution_id": "c41f667bdce2cdb7321bc8482893867fb7f797f0b61ec72b518d326e638dfed2",
+      "accepted_checkpoint": 6,
+      "accepted_task": "step_8",
+      "limits": "Only the specific 0→3 capacity defect is resolved here. Empty findings and acceptance do not establish runtime behavior, complete extraction, cleanup, workbook creation or business oracle success."
+    },
+    {
+      "id": "selection48_undeclared_caller_input",
+      "classification": "supported_deterministic_rejection",
+      "request": 48,
+      "selected_scope": "/tasks/step_2/body",
+      "declared_input_names": [
+        "query"
+      ],
+      "selected_input_name": "article_a_rechercher",
+      "diagnostic": "CONSTRUCTION_STEP_INPUT_INVALID",
+      "diagnostic_pointer": "/step/inputs/0",
+      "basis": "Both original interface requirements and the accepted plan declare query only. The proposed input is absent. ImportedInterfaces validates exact available typed bindings; inventing a caller name does not become legal through an open scope.",
+      "terminal_followup": "CONSTRUCTION_CORRECTION_ALLOWANCE stops the rejected navigation action; this assessment does not infer an allowance defect."
+    }
+  ],
+  "navigation_qualification": {
+    "classification": "confirmed_page_return_link_presentation_gap_without_established_causation",
+    "observed": "Request47 showed input:query and requested page:interfaces:4. Request48 retained the later page but no caller input row, input:query address or page:interfaces:0 address. InterfaceOffset and shared pagination explain that presentation.",
+    "remaining_authoritative_route": "Request48 still offered scope:/root. The existing fresh scope loader adds the complete original plan inputs to that exact root evidence.",
+    "retrieval_boundary": "These supplied witnesses prove that scope:/root was offered, not that the model actually fetched it between requests47 and48. Query was directly visible at47 and in earlier3/4.",
+    "limits": "The gap does not prove why a different caller name was selected and is not evidence that original declarations were lost or technically inaccessible. No claimed fix benefit or permission/type relaxation."
+  },
+  "prior_actions": [
+    {
+      "requests": [
+        3,
+        4
+      ],
+      "classification": "technical_selection_identity_misuse_then_changed_action",
+      "basis": "Request3 used kind present with source input:query; request4 retained the input-task identity diagnostic and removed that selected input for the interface-closing step."
+    },
+    {
+      "requests": [
+        24
+      ],
+      "classification": "explicit_abandon_reselection",
+      "basis": "The model abandoned a read/navigation selection that did not itself provide the requested query-to-URL mechanism. This is a retained action, not independently classified as a false Judge finding."
+    },
+    {
+      "requests": [
+        30,
+        31
+      ],
+      "classification": "targeted_contract_evidence_then_explicit_suspension",
+      "basis": "Request30 retrieved exact URL/other input and output contract addresses. Request31 explicitly suspended with a provisional non-null string prerequisite; later accepted tasks include a search-URL transform and browser read. No evidence-only call is counted here as a TaskPlan correction."
+    }
+  ],
+  "outcome_limits": {
+    "artifact": null,
+    "execution_observed": false,
+    "business_success": false,
+    "other_findings": "Unassessed; no blanket false-positive classification.",
+    "claims_excluded": [
+      "causal convergence attribution",
+      "avoided corrections",
+      "runtime product presence",
+      "semantic approval of every field",
+      "success from process exit",
+      "new authority or automatic overrule"
+    ]
+  }
+}

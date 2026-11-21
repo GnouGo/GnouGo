@@ -1,0 +1,32 @@
+{
+  "source": "42757cf7661f48a6b7e8acc3f07ab6c15e523b38",
+  "campaign": "schema-portability-20261019-incremental",
+  "run": "compactr9d25c65f9amz22j20v6-amazon-1",
+  "request": "compactr9d25c65f9amz22j20v6-amazon-1:2:79071c88d4dfb6ae097e72f949f8692ace3dbe5a32e9369615607163d980506a",
+  "verified_at": "2026-10-26T10:16:24.129102+00:00",
+  "evidence_hash": "91b380aab0459c1bda3e649af735e5766d61b1e76af175c9c6f5657dadda3441",
+  "authorization_hash": "02b989fbd45d93ddf569c1d23475d19fd855edafc57fbbd8dd1408263d9b6fe0",
+  "outcome": "inconclusive",
+  "reservation_retained_eur": "0.9308701472556894243641231593",
+  "known_cost_eur": "195.58538225653584449471811229",
+  "retained_reservations_eur": "58.837239956597621862788099577",
+  "upper_bound_eur": "254.42262221313346635750621187",
+  "available_eur_before_fresh_dispatch": "185.60748161957283818493873543",
+  "accounting_unchanged": true,
+  "original_evidence_identical": true,
+  "restart_hash_matches": true,
+  "idempotent_application": true,
+  "replay_forbidden": true,
+  "continuation_forbidden": true,
+  "closed_receiptless_requests": 31,
+  "unresolved_requests": 0,
+  "model_calls": 0,
+  "references": {
+    "verification-safe.json": "64e9d8e9ed21510f1501bb4e3455e3eb0225956bfbcc47c0264993923571e61d",
+    "apply.json": "7ae24b7add3d6ccf11f0c134f15b61abdcd03216a092137e982bf5d74f7fdfc1",
+    "readback.json": "960445843f9144d4b7c4c7d86409884f95f962ad6750f9915f731f273e908570",
+    "idempotent-application.json": "7ae24b7add3d6ccf11f0c134f15b61abdcd03216a092137e982bf5d74f7fdfc1",
+    "post-closure-readiness.jsonl": "feeac6e55ed9b23ca5073c85c4d5d2b500999b62eb4416f4485019ed142cc3b9"
+  },
+  "limitation": "Balances are captured before fresh427Code dispatch; later usage remains additional. Closed unknown usage is not provider termination or zero billed usage. Original failure archives remain unchanged."
+}

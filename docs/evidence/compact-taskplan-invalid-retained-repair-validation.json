@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "base_revision": "a93486695ee0a7a75f450128bffc0b103fc663ed",
+  "scope": "Only fresh PresentationVersion4 repair envelopes use private repair version12 within the existing repair mechanism.",
+  "problem": "Exact JSON encoding of an original value already rejected at its binding by TASK_LITERAL_INVALID cannot fix recursive semantic validation and unnecessarily freezes that invalid literal into the provider schema.",
+  "change": "Exclude only that retained alternative for exact required literal diagnostics; retain ordinary replacement, valid original object-to-JSON conversion, explicit10/11 reconstruction and issued request bytes.",
+  "patch_sha256": "f683d3f82a401ac6058df7e5d08e6d97f737a06a588a06b43602035a53630ae0",
+  "validation": {
+    "warnings_as_errors": true,
+    "focused_passed": 100,
+    "full_planning_passed": 2721,
+    "failed": 0,
+    "skipped": 0,
+    "compiler_diagnostics": 0,
+    "independent_review": "No actionable finding.",
+    "manifest": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/invalid-retained-repair-a934/validation-safe.json",
+    "manifest_sha256": "d77b77bb1175e235378a51df3ebadc5e62ad540d1e8519ea1c12f08a42e20c27",
+    "copy_manifest_sha256": "f20f617ee943c915e116693eef128fd9b2f8ce33b265bd2a206e0e947064165b"
+  },
+  "limitations": [
+    "No newline filter, literal rewriting, enum weakening, new wire fields, settings or public protocol.",
+    "No change to deterministic compiler, edit authority, accounting, runtime or execution approval.",
+    "No paid/live calls; this validates a demonstrated repair-schema cause, not successful business execution or avoided corrections."
+  ]
+}

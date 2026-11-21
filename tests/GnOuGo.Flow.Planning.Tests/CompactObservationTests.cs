@@ -195,20 +195,12 @@ public sealed partial class CompactObservationTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task SinglePlanningCallReachesReviewWithExplicitModesSourcesAndUnchangedSchema()
+    public async Task ValidatedBehaviorRetainsExplicitModesSourcesAndOriginalValues()
     {
         var plan = Plan(false, "records", "observations");
-        var runtime = new TestRuntime { Proposal = new() { Plan = plan, Requirements = new()
-        {
-            Summary = "Compare complete observations and return matching labels", Inputs = plan.Inputs,
-            Outputs = [new() { Name = "labels", Type = new() { Kind = "array", Items = new() } }],
-            Outcomes = [new("compare", "Compare all observed records with the requested group")]
-        } } };
-        var state = PlannerFixture.Session(); state.Request.Prompt = runtime.Proposal.Requirements.Summary;
-        state.Request.Generation.MaxInputTokensPerRequest = 24000;
-        state = await PlannerFixture.RunAsync(runtime, state);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join("; ", state.Diagnostics));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts);
+        var catalog = await new WorkflowPlanningRuntime(new(), (_, _) => Task.CompletedTask).DiscoverAsync(new(), PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
         var review = WebUtility.HtmlDecode(PlanningReviewFormatter.TaskDiagram(plan));
         Assert.Contains("transform, extract", review); Assert.Contains("transform, interpret", review);
         Assert.Contains("records ← input records", review); Assert.Contains("observations ← compact.observations", review);

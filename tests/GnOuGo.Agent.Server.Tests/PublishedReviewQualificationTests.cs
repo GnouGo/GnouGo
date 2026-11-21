@@ -1,0 +1,135 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Planning;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class PublishedReviewQualificationTests
+{
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("", false)]
+    [InlineData("Published on GitHub.", false)]
+    [InlineData("pnpm test exited 0.", false)]
+    [InlineData("pnpm test exited 7. uv run pytest exited 0.", false)]
+    [InlineData("pnpm test exited 7 after 0 warnings. uv run pytest exited 0 after 7 seconds.", false)]
+    [InlineData("pnpm test exited 0. uv run pytest was requested.", false)]
+    [InlineData("pnpm test exited 0. uv run pytest exited 7.", true)]
+    [InlineData("{\"result\":{\"checks\":[{\"exitCode\":0,\"command\":\"pnpm test\"},{\"command\":\"uv run pytest\",\"exitCode\":7}]}}", true)]
+    public void CallerReceivesTheObservedChecksInTheAnswerToThisInvocation(string? text, bool passed)
+    {
+        var answer = new JsonObject { ["run"] = "execution", ["agent"] = "saved", ["text"] = text };
+        var run = new JsonObject { ["run"] = "saved", ["execution_run_id"] = "execution", ["caller_response"] = answer,
+            ["observed_commands"] = new JsonArray(new JsonObject { ["command"] = "pnpm test", ["exit_code"] = 0 },
+                new JsonObject { ["command"] = "uv run pytest", ["exit_code"] = 7 }) };
+        Assert.Equal(passed, PublishedReviewQualification.ReturnedReportFinding(run) is null);
+        if (!passed) return;
+        answer["run"] = "other";
+        Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
+        answer["run"] = "execution";
+        answer["agent"] = "other";
+        Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
+    }
+
+    private static readonly PublishedReviewQualification Target = new("AxaFrance", "SmartGuide", 718, "head", "base");
+
+    [Theory]
+    [InlineData("complete", true)]
+    [InlineData("message_with_owned_pending_id", true)]
+    [InlineData("message_without_pending_readback", false)]
+    [InlineData("message_for_different_pending", false)]
+    [InlineData("local_only", false)]
+    [InlineData("other_head", false)]
+    [InlineData("other_review", false)]
+    [InlineData("other_pr", false)]
+    [InlineData("other_submit_head", false)]
+    [InlineData("other_thread", false)]
+    [InlineData("conflicting_receipt", false)]
+    [InlineData("malformed_receipt", false)]
+    [InlineData("other_verdict", false)]
+    [InlineData("no_inline", false)]
+    [InlineData("other_line", false)]
+    [InlineData("summary_as_comment", false)]
+    public void SubmittedReviewAndInlineCommentsMustMatchIndependentGitHubReadback(string variant, bool passed)
+    {
+        var events = new JsonArray();
+        JsonObject Write(string tool, JsonObject args)
+        {
+            args["owner"] = "AxaFrance"; args["repo"] = "SmartGuide"; args["pullNumber"] = 718;
+            var receipt = new JsonObject { ["tool"] = tool, ["server"] = "Github", ["arguments"] = args,
+                ["error"] = false, ["result"] = new JsonObject { ["id"] = 1001 } };
+            events.Add(receipt);
+            return args;
+        }
+        Write("pull_request_review_write", new() { ["method"] = "create", ["commitID"] = "head" });
+        Write("add_comment_to_pending_review", new() { ["subjectType"] = "LINE", ["side"] = "RIGHT", ["line"] = 5, ["path"] = "file.cs", ["body"] = "This case has a regression test." });
+        var submit = Write("pull_request_review_write", new() { ["method"] = "submit_pending", ["event"] = "APPROVE", ["body"] = "Verified." });
+        var review = new JsonObject { ["id"] = 1001, ["commit_id"] = "head", ["submitted_at"] = "2026-11-19T18:00:00Z", ["state"] = "APPROVED", ["body"] = "Verified." };
+        var comment = new JsonObject { ["pull_request_review_id"] = 1001, ["commit_id"] = "head", ["path"] = "file.cs", ["side"] = "RIGHT",
+            ["line"] = 5, ["body"] = "This case has a regression test.", ["diff_hunk"] = "@@ -4 +5 @@" };
+        var comments = new JsonArray(comment);
+        switch (variant)
+        {
+            case "message_with_owned_pending_id":
+            case "message_without_pending_readback":
+            case "message_for_different_pending":
+                foreach (var evt in events.OfType<JsonObject>()) evt["result"] = new JsonObject { ["message"] = "Success" };
+                if (variant != "message_without_pending_readback")
+                    events[0]!["observed_pending_review_id"] = variant == "message_for_different_pending" ? "1002" : "1001";
+                break;
+            case "local_only": events.Clear(); break;
+            case "other_head": review["commit_id"] = "different"; break;
+            case "other_review": comment["pull_request_review_id"] = 1000; break;
+            case "other_submit_head": submit["commitID"] = "other"; break;
+            case "other_thread": submit["threadId"] = "other"; break;
+            case "conflicting_receipt": events[0]!["observed_pending_review_id"] = "1001"; events[0]!["result"]!["id"] = 1002; break;
+            case "malformed_receipt": events[2]!["result"] = "unexpected"; break;
+            case "other_pr": submit["pullNumber"] = 610; break;
+            case "other_verdict": review["state"] = "CHANGES_REQUESTED"; break;
+            case "no_inline": comments.Clear(); break;
+            case "other_line": comment["line"] = 6; break;
+            case "summary_as_comment": comment.Remove("diff_hunk"); break;
+        }
+        var result = Target.Verify(events, review, comments);
+        Assert.True(passed == result["passed"]!.GetValue<bool>(), result.ToJsonString());
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(null, false)]
+    public void SubmissionRequiresTheCopilotBusinessReceiptToConfirmCompletion(bool? completed, bool allowed)
+    {
+        const string instructions = "Check behavior on the changed line.";
+        var result = new JsonObject();
+        if (completed.HasValue) result["success"] = completed.Value;
+        var events = new JsonArray(new JsonObject { ["server"] = "GnOuGo.GithubCopilot.Mcp", ["tool"] = "code_agent_edit",
+            ["error"] = false, ["arguments"] = new JsonObject { ["task"] = instructions }, ["result"] = result });
+        Assert.Equal(allowed, ServerBusinessExecution.ReviewInstructionsObserved(events, instructions));
+    }
+
+    [Theory]
+    [InlineData("literal")]
+    [InlineData("unused")]
+    [InlineData("optional")]
+    public void DeclaredOrEchoedReviewInstructionsCannotSubstituteForCallerInput(string variant)
+    {
+        var inputs = new JsonObject { ["reviewText"] = "Review the changed behavior." };
+        var plan = new TaskPlan { Inputs = [new() { Name = "reviewText", Type = new() { Kind = "string" }, Required = variant != "optional" }] };
+        var input = new TaskValue { Kind = "input", Source = "reviewText" };
+        plan.Root.Outputs.Add(new("text", variant == "literal" ? new() { Kind = "string", Text = inputs["reviewText"]!.ToString() } : input));
+        if (variant == "unused") plan.Root.Outputs.Clear();
+        Assert.Throws<PlanningConflictException>(() => ServerBusinessExecution.RequireInputs(plan, inputs));
+        Assert.False(ServerBusinessExecution.ReviewInstructionsObserved([], inputs["reviewText"]!.GetValue<string>()));
+    }
+
+    [Fact]
+    public void FreshPublicationDiscoveryExposesReviewButHistoricalLocalGrantDoesNot()
+    {
+        foreach (var tool in new[] { "pull_request_read", "pull_request_review_write", "add_comment_to_pending_review" })
+        {
+            Assert.False(DelegatedTestReviewAuthority.AllowsTool("code", "Github", tool));
+            Assert.True(DelegatedTestReviewAuthority.AllowsTool(PublishedReviewQualification.Scenario, "Github", tool));
+        }
+        Assert.False(DelegatedTestReviewAuthority.AllowsTool(PublishedReviewQualification.Scenario, "Github", "merge_pull_request"));
+    }
+}

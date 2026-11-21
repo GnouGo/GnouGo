@@ -1,0 +1,127 @@
+{
+  "kind": "format11_exact_request_compaction_regression",
+  "captured_date": "2026-10-28",
+  "scope": "Existing FitDraftNavigation only; no new state, protocol or execution path.",
+  "control_production_sha": "2a301e2d4ce609d99af6b41d8169fbb8be067f49",
+  "retained_live_production_sha": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "candidate_public_sha": null,
+  "candidate_source_basis": "Uncommitted working-tree correction after2a301e2d; identify the eventual commit by the exact source hash below.",
+  "production_file": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+  "production_file_sha256": "b899542255a65e7c7523f4e42e1279c359fa5b91ec035dfc2e240b9f64b0d367",
+  "fixture_files_sha256": {
+    "tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs": "27a7210959a494334fd397f5337ef02a8f7900dac579161aa3fc9b306fa7f67e",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactAcceptedTaskNavigationTests.cs": "91fbfa2b507aed7ffc83c019bf41afdd671c47cfe5dc8707c2e618cb02a3a537"
+  },
+  "same_request_reconstruction": {
+    "input_source": "Exact terminal664 accepted state and received selection22; no operational or model access.",
+    "original_request_hash": "b13eadedcfe6ba609cbfa611f944eefb24949c811afa2baf759d840615b93c9b",
+    "original_schema_hash": "ee35821410dfbe2840eeb0073ee5ee361bae8d3572773e271d9e0cf02dd5a15c",
+    "untouched2a3_matches664_draft_bytes": true,
+    "navigation_instruction_delta_does_not_apply_to_this_draft": true,
+    "issued": false,
+    "new_request_hash": "988aae3e4bfb22d66262eeabdbe8bc80298db76f437d50c409809741f463f0f1",
+    "new_schema_hash": "da5d5871228bd1c6f97cfb7db7ead00ab2871b0be9bc0247009e9bfe99ffeac3",
+    "bytes_before": 64828,
+    "bytes_after": 59095,
+    "estimate_before": 21866,
+    "estimate_after": 19955,
+    "unchanged_ceiling": 20000,
+    "fits": true
+  },
+  "correction": "Page shared output directories through their existing anchor, retain all consumed ports and exact schema closures, then reduce optional directory rows deterministically as needed. Rebuild only the displayed evidence enum and keep continuation at the first omitted original item.",
+  "unchanged": [
+    "Draft instructions and original business/global clauses.",
+    "Actual producer arguments, consumed schemas, nullable types, required siblings and reference closures.",
+    "Original contract identities, permissions and provenance.",
+    "Response grammar except displayed evidence-address choices.",
+    "Pinned model, reasoning, output allowance, complete-input ceiling, correction/call/financial controls."
+  ],
+  "exact_directory_reconstruction": [
+    {
+      "id": "cap_e87238bc6035a17954299a78",
+      "originalPorts": 16,
+      "displayedPorts": 5,
+      "next": "port-page:cap_e87238bc6035a17954299a78@c3054449c9350b0f59c43bc3e5f164932eac812f9e3d9c705d4d6e2a4ddd1f7a:/output:4",
+      "exactReconstructedPorts": 16
+    },
+    {
+      "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+      "originalPorts": 14,
+      "displayedPorts": 7,
+      "next": "port-page:cap_fa8aa0024ff2ec0a4f9e61ad@ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef:/output:6",
+      "exactReconstructedPorts": 14
+    }
+  ],
+  "components_before": {
+    "construction_context": 7228,
+    "diagnostics": 26,
+    "envelope": 441,
+    "evidence": 1259,
+    "fragment": 22,
+    "instructions": 1070,
+    "interfaces": 5413,
+    "mcp_contracts": 21514,
+    "objective": 604,
+    "requirements": 7119,
+    "response_schema": 20132
+  },
+  "components_after": {
+    "construction_context": 7228,
+    "diagnostics": 26,
+    "envelope": 441,
+    "evidence": 1259,
+    "fragment": 22,
+    "instructions": 1070,
+    "interfaces": 5413,
+    "mcp_contracts": 17671,
+    "objective": 604,
+    "requirements": 7119,
+    "response_schema": 18242
+  },
+  "validation": {
+    "warnings_as_errors": true,
+    "owning_tests": 220,
+    "passed": 220,
+    "failed": 0,
+    "skipped": 0,
+    "earlier101_subset_included_not_added": true,
+    "log_sha256": "dcf801f14fd6812cd30bf3f6a6817664cc545c7dabf1eb67fc10393ac9eac01a",
+    "prior_full_planning": {
+      "passed": 2237,
+      "failed": 3,
+      "total": 2240,
+      "skipped": 0,
+      "status": "Retained failed run before fixture adaptation; not a final pass.",
+      "failures": [
+        "DecisionAuthorBoundsWholeOriginalsAgainstThePreparedEnvelope(draft)",
+        "DecisionAuthorBoundsWholeOriginalsAgainstThePreparedEnvelope(replan)",
+        "DecisionTypedRepairInstallsOriginalsBeforeCompleteRequestBudgeting(bounded:true)"
+      ],
+      "log_sha256": "788212185776625d1f50e01f3f6f1ecd7bfe0dce5d9188b49395fbeb1fcd51da",
+      "trx_sha256": "d7c6e06478d8d76850683508c6e01edd23103d0da4c00be0842011f5116f4f37"
+    },
+    "fixture_changes": "Measure the minimum mandatory request on a clone to force whole-clause fallback; full-minus-one may now fit by optional paging. Preserve repair slots, explicit originals, bindings and consumed closures; optional directory metadata can page.",
+    "new_regression": "Same selected/producer contract with16ports, nullable referenced output beyond the first page, explicit originals, exact reconstruction, unchanged source/state and atomic oversized follow-up rejection.",
+    "live_calls": 0,
+    "runtime_success": false,
+    "final_full_planning": {
+      "warnings_as_errors": true,
+      "total": 2240,
+      "passed": 2240,
+      "failed": 0,
+      "skipped": 0,
+      "compiler_warnings": 0,
+      "duration": "2m44s",
+      "log_sha256": "1db60474221a1459387cb3148e02d4066a46f2b5b09dd9461fff11de07284974",
+      "trx_sha256": "f31ad666f2dfdda6d42bb3289e9b18883fa922aa586c96eea6075d67c9634226",
+      "production_overlay_sha256": "b899542255a65e7c7523f4e42e1279c359fa5b91ec035dfc2e240b9f64b0d367",
+      "focused220_overlap_included_not_added": true
+    }
+  },
+  "proof_sha256": "787619346411931de19594cd8ce4bc8dcd63aa7be678f27f7d8560b066513b99",
+  "limitations": [
+    "This proves admission for one exact reconstructed request, not future request fit or business convergence.",
+    "The original run remains stopped. Any live test requires a fresh source-bound freeze and normal accounting/authorization.",
+    "Owning focused cases are part of future full-suite totals and must not be counted twice."
+  ]
+}

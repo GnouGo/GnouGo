@@ -1,0 +1,73 @@
+{
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "pr": 120,
+  "draft": true,
+  "observed_at": "2026-10-25T16:14:46.670920+00:00",
+  "checks": [
+    {
+      "completedAt": "2026-10-25T13:35:00Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183283155",
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "startedAt": "2026-10-25T13:33:07Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T15:56:57Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118097/job/121183281655",
+      "name": "validate",
+      "startedAt": "2026-10-25T13:33:05Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:35:09Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118094/job/121183281715",
+      "name": "standalone",
+      "startedAt": "2026-10-25T13:33:05Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:34:55Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183283243",
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "startedAt": "2026-10-25T13:33:08Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:35:35Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183283100",
+      "name": "ProxyCopilot AOT (win-x64)",
+      "startedAt": "2026-10-25T13:33:06Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:36:18Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183283028",
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "startedAt": "2026-10-25T13:33:06Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:37:49Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183283580",
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "startedAt": "2026-10-25T13:33:09Z",
+      "status": "COMPLETED"
+    },
+    {
+      "completedAt": "2026-10-25T13:35:26Z",
+      "conclusion": "SUCCESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/40198118198/job/121183284169",
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "startedAt": "2026-10-25T13:33:07Z",
+      "status": "COMPLETED"
+    }
+  ],
+  "limitation": "Technical CI success does not establish live business acceptance."
+}

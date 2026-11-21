@@ -12,7 +12,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
     public Task FactsExtractionAndDeterministicStatusPreserveWorkbookAndRecovery(string variant)
         => ExecuteTypedComposition(variant, "compact-bindings-v15", viaHost: variant != "incomplete", producerStatus: true);
 
-    private static void AddProducerStatus(PlanningProposal proposal)
+    private static void AddProducerStatus(TaskPlanFixture proposal)
     {
         var scope = proposal.Plan!.Root.Tasks.Single(t => t.Id == "scrape_products").Body!;
         scope.Outputs.Add(new("status", V10Output("extract_product_detail", "status")));

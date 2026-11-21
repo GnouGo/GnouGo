@@ -1,0 +1,38 @@
+{
+  "basis": "1fab85fe247ad92dc679f33b4c566917c3af6cd6",
+  "kind": "actual search trace and controlled regression; not Amazon qualification",
+  "actual_source_runs": [
+    "resume300b-amazon-source01",
+    "resume300b-amazon-source02-traced",
+    "resume300b-amazon-source03-metadata"
+  ],
+  "first_cause": "A denied main-frame document request clears the prior committed document evidence before any replacement commits. Request failure leaves pending navigation set. The original search stays current but navigationEvidence is absent.",
+  "controlled_reproduction": {
+    "old_code_failed": 4,
+    "new_code_passed": 4,
+    "cases": "Denied GET/POST, with/without later same-document history change.",
+    "denied_destination_contacts": 0,
+    "retained_hops": "Only actual original successful GET; never the denied attempted request."
+  },
+  "browser_regressions": {
+    "passed": 180,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 0
+  },
+  "permissions_changed": false,
+  "oracle_changed": false,
+  "query_or_product_order_changed": false,
+  "source_patch_sha256": "20ac15cc5c48f4aabd4d377dd0b174b04a8f1b5a87e9e66679c2d965ef44f122",
+  "private_evidence_sha256": {
+    "resume300b-amazon-source03-metadata.trace.json": "d3426505c3dd83569e507657ec085f9b1cb898b12c26064cb7b64c2de360866c",
+    "resume300b-browser-denied-controlled.trace.json": "24edb61b51f4e0b8431637e0df37051b1c7778d54e93f1fe2cae871cf1aaf38c",
+    "resume300b-browser-denied-red.log": "2377ee7f9ab92dfe727e0367ea1736abcbc4bee21fe7a6c7a7ab85114c8b4f8f",
+    "resume300b-browser-denied-green.log": "b6b6cad425e4966276e4bf581212c32a6bb126540b6789932e2b06db771a34d5"
+  },
+  "qualification_limits": [
+    "No product navigation, extraction or workbook qualification established.",
+    "Sponsored cards without verifiable product context remain failures.",
+    "The /clk path remains outside the /clk/ grant."
+  ]
+}

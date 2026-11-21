@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "source": "7697449ce24fb54804cb31afc33a217c9105c65f",
+  "cohort": "compactr7697449cecol",
+  "archive": {
+    "path": "/private/tmp/gnougo-769-collections-safe-eob0ulao/compact-taskplan-7697449-collections.json",
+    "sha256": "997b8613f2e81047616d3a84e6060abf8ff67971ba198c3ca4947350a18f73ac"
+  },
+  "witness": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7697449cecol/collections-terminal-witness-safe.json",
+    "sha256": "bd7174eeca0ad241294b9b0f34e9d6c9ef53669f7a2817ee4d92cc06ed294386",
+    "bytes": 6348
+  },
+  "total_corrections": 1,
+  "phase_corrections": {
+    "construction_intent": 0,
+    "construction_select": 1,
+    "construction_draft": 0,
+    "construction_local_judge": 0,
+    "construction_intermediate_judge": 0
+  },
+  "basis": "Exact selection6 used group:double_element as an input source; selection7 corrected it to the declared parameter value. Both are construction_select. No Judge finding created a correction; terminal intermediate17 exhausted its response allowance.",
+  "terminal_measurement": {
+    "ordinal": 17,
+    "complete_request_bytes": 9379,
+    "estimated_input_tokens": 3383,
+    "input_ceiling": 8000
+  },
+  "limitations": "This supplements the unchanged archive. It creates no new run, financial record, acceptance or avoided-correction claim."
+}

@@ -45,7 +45,7 @@ internal static class PlanningJsonTransport
                 {
                     "null" or "item" or "index" => [], "string" => ["text"], "number" => ["number"], "boolean" => ["boolean"],
                     "object" => ["members"], "array" or "json" => ["items"], "input" or "choice" or "present" => ["source"],
-                    "output" => ["source", "port"], "field" => ["items", "port"], "predicate" => ["predicate", "items"], "arithmetic" => ["text", "items"], _ => null
+                    "output" => ["source", "port"], "field" => ["items", "port"], "predicate" => ["predicate", "items"], "arithmetic" or "string_operation" => ["text", "items"], _ => null
                 };
                 if (fields is not null) fields = ["kind", ..fields];
                 defaults = JsonSerializer.SerializeToNode(new TaskValue(), PlanningJsonContext.Default.TaskValue)!.AsObject();
@@ -56,8 +56,8 @@ internal static class PlanningJsonTransport
                     "string" => ["kind", "nullable", "enum"], "number" or "integer" or "boolean" or "any" => ["kind", "nullable"], _ => null };
                 defaults = JsonSerializer.SerializeToNode(new TaskType(), PlanningJsonContext.Default.TaskType)!.AsObject();
                 if (JsonNode.DeepEquals(obj["nullable"], defaults["nullable"])) obj.Remove("nullable");
-                // The fresh strict array wire shape uses null for an absent
-                // bound. Stored DTOs continue omitting absent properties.
+                // The short array shape omits both bounds. When either bound is
+                // present the strict bounded shape carries both, using null for its absent partner.
                 if (kind == "array" && (obj.ContainsKey("minItems") || obj.ContainsKey("maxItems")))
                 { obj.TryAdd("minItems", null); obj.TryAdd("maxItems", null); }
             }
