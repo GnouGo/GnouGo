@@ -262,7 +262,7 @@ public sealed class CompactContractEvidenceFlowTests
 
         var checkpoint = Assert.Single(displayed["requirements"]![0]!["acceptedProgress"]!["items"]!.AsArray())!;
         Assert.Equal(1, checkpoint["sequence"]!.GetValue<int>());
-        Assert.Equal("page:checkpoints:0", checkpoint["evidence"]!.ToString());
+        Assert.Equal("page:checkpoint:0", checkpoint["evidence"]!.ToString());
         Assert.Null(checkpoint["tasks"]);
         Assert.Equal(1, displayed["requirements"]![0]!["acceptedProgress"]!["checkpointCount"]!.GetValue<int>());
         Assert.Equal(context["requirements"]![0]!["acceptedProgress"]!["completionClaimPendingReview"]!.ToJsonString(),
@@ -273,12 +273,48 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.True(JsonNode.DeepEquals(context["requirements"]![0]!["sources"], displayed["requirements"]![0]!["sources"]));
         var schema = PlanningCompactConstruction.DraftSchema(state);
         PlanningCompactConstruction.ConstrainDraftEvidence(state, displayed, schema);
-        Assert.Contains("page:checkpoints:0", schema.ToJsonString(), StringComparison.Ordinal);
+        Assert.Contains("page:checkpoint:0", schema.ToJsonString(), StringComparison.Ordinal);
         Assert.Contains(exact, displayed["evidence"]!.AsObject().Select(pair => pair.Key));
         var retrieval = PlannerFixture.Clone(state);
         Assert.True(PlanningCompactConstruction.LoadEvidence(retrieval, checkpoint["evidence"]!.ToString(), out var page));
         Assert.True(JsonNode.DeepEquals(state.Construction.Checkpoints[0].Fragment, page!["items"]![0]!["fragment"]));
         Assert.Equal(before, context.ToJsonString());
+    }
+
+    [Fact]
+    public async Task AcceptedCheckpointDirectoryAndSpecificReadAvoidUnrelatedFragments()
+    {
+        var state = await ThreeProducerState();
+        var construction = state.Construction!;
+        construction.Checkpoints = Enumerable.Range(1, 7).Select(sequence => new PlanningConstructionCheckpoint
+        {
+            Sequence = sequence, PlanHash = "hash-" + sequence, RequirementIds = ["req_0"], TaskIds = ["task_" + sequence],
+            Fragment = new() { ["scope"] = "/root", ["retained"] = new string((char)('a' + sequence), 10000) },
+            Step = new() { Id = "step_" + sequence, Scope = "/root" }
+        }).ToList();
+        construction.Requirements[0].Checkpoints = [1, 2, 3, 4, 5, 6, 7];
+        var progress = PlanningCompactConstruction.Context(state)["requirements"]![0]!["acceptedProgress"]!;
+        var directory = progress["directory"]!.ToString();
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, directory, out var first));
+        Assert.True(first!.ToJsonString().Length < 2048);
+        Assert.Equal(7, first["total"]!.GetValue<int>());
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, first["next"]!.ToString(), out var last));
+        Assert.Null(last!["next"]);
+        var row = last["items"]!.AsArray()[1]!;
+        Assert.Equal(6, row["sequence"]!.GetValue<int>());
+        Assert.Equal("hash-6", row["hash"]!.ToString());
+        Assert.Null(row["fragment"]);
+        var detail = row["evidence"]!.ToString();
+        Assert.Contains(detail, PlanningCompactConstruction.NavigationEvidence([last]));
+        Assert.Equal(progress["items"]!.AsArray().Single(item => item!["sequence"]!.GetValue<int>() == 6)!["evidence"]!.ToString(), detail);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(PlannerFixture.Clone(state), detail, out var selected));
+        var exact = Assert.Single(selected!["items"]!.AsArray())!;
+        Assert.True(JsonNode.DeepEquals(construction.Checkpoints[5].Fragment, exact["fragment"]));
+        Assert.True(JsonNode.DeepEquals(PlanningConstruction.Node(construction.Checkpoints[5].Step, PlanningJsonContext.Default.PlanningConstructionStep), exact["step"]));
+        Assert.Null(selected["next"]);
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "page:checkpoints:4", out var retainedPage));
+        Assert.Equal(3, retainedPage!["items"]!.AsArray().Count);
+        Assert.True(JsonNode.DeepEquals(retainedPage["items"]![1], exact));
     }
 
     [Fact]

@@ -1,5 +1,22 @@
 # PR 120 planning simplification
 
+## SlimFaaS checkpoint discovery, 21 November 2026
+
+In the second fresh SlimFaaS session, discovery call 25 requested the
+directory of earlier contributions. The reply included four complete
+accepted fragments and their planning steps. Call 26 then requested one
+specific checkpoint and received a neighbouring fragment as well. Both
+requests occurred while discovering the publication operations.
+
+The new directory contains checkpoint identities, scope and task references.
+Selecting a checkpoint retrieves its complete original fragment and step.
+At revision 89 the directory payload shrank from 83,726 to 1,007 UTF-8
+bytes. Retrieving checkpoint 6 shrank from 25,400 to 20,399 bytes. Five
+individual readbacks matched their original records exactly. The regression
+also covers pagination, original four-fragment receipt replay and recovery
+after restart. All 275 focused tests passed. These measurements used the
+saved session and zero provider calls.
+
 ## Amazon 28 reconstruction diagnostic, 21 November 2026
 
 Draft 57 added a presence check to a previously accepted precondition. The

@@ -378,7 +378,7 @@ internal static partial class PlanningCompactConstruction
             // execution. Only applicable business review closes the requirement.
             ["basis"] = "accepted_checkpoint_associations_not_fulfillment", ["checkpointCount"] = checkpoints.Length,
             ["completionClaimPendingReview"] = requirement.Status != "closed" && RequirementCompletionClaimed(state, requirementId),
-            ["directory"] = checkpoints.Length > 4 ? "page:checkpoints:0" : null,
+            ["directory"] = checkpoints.Length > 4 ? "page:checkpoint-directory:0" : null,
             ["items"] = new JsonArray(checkpoints.TakeLast(4).Select(item =>
             {
                 var checkpoint = item.checkpoint;
@@ -391,7 +391,7 @@ internal static partial class PlanningCompactConstruction
                         PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskOutput)))).ToArray();
                 return (JsonNode)new JsonObject
                 {
-                    ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + item.index,
+                    ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoint:" + item.index,
                     ["scope"] = scope?.Path, ["scopeOpen"] = scope is null ? null : JsonValue.Create(construction.OpenScopes.Contains(scope.Path, StringComparer.Ordinal)),
                     ["taskCount"] = tasks.Length, ["tasks"] = new JsonArray(tasks.Take(4).Select(id =>
                     {

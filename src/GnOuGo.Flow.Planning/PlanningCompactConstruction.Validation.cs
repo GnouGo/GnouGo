@@ -433,13 +433,32 @@ internal static partial class PlanningCompactConstruction
             (next == 0 || next < (state.Requirements?.Outputs?.Count ?? 0)))
         { compact.OutputOffset = next; value = OutputDirectory(state); return true; }
         if (LoadOperationPage(state, address, out value, issuedSchema)) return true;
-        if (parts is ["page", "checkpoints", var checkpointOffset] && int.TryParse(checkpointOffset, out next) && next >= 0 && next < state.Construction!.Checkpoints.Count)
+        if (parts is ["page", "checkpoint" or "checkpoint-directory" or "checkpoints", var checkpointOffset] &&
+            int.TryParse(checkpointOffset, out next) && next >= 0 && next < state.Construction!.Checkpoints.Count)
         {
-            value = new JsonObject { ["offset"] = next, ["total"] = state.Construction.Checkpoints.Count,
-                ["items"] = new JsonArray(state.Construction.Checkpoints.Skip(next).Take(4).Select(c => (JsonNode)new JsonObject
-                { ["sequence"] = c.Sequence, ["hash"] = c.PlanHash, ["fragment"] = c.Fragment.DeepClone(),
-                    ["step"] = JsonSerializer.SerializeToNode(c.Step, PlanningJsonContext.Default.PlanningConstructionStep) }).ToArray()) };
-            value["next"] = next + 4 < state.Construction.Checkpoints.Count ? "page:checkpoints:" + (next + 4) : null;
+            var checkpoints = state.Construction.Checkpoints;
+            var detail = parts[1] == "checkpoint";
+            var items = new JsonArray();
+            foreach (var checkpoint in checkpoints.Skip(next).Take(detail ? 1 : 4))
+            {
+                var row = new JsonObject { ["sequence"] = checkpoint.Sequence, ["hash"] = checkpoint.PlanHash };
+                if (parts[1] == "checkpoint-directory")
+                {
+                    row["evidence"] = "page:checkpoint:" + (next + items.Count);
+                    row["scope"] = checkpoint.Step?.Scope ?? checkpoint.Fragment["scope"]?.ToString();
+                    row["taskCount"] = checkpoint.TaskIds.Count;
+                    row["taskIds"] = new JsonArray(checkpoint.TaskIds.Take(4).Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+                }
+                else
+                {
+                    // Historical checkpoint pages retain their original four complete fragments.
+                    row["fragment"] = checkpoint.Fragment.DeepClone();
+                    row["step"] = JsonSerializer.SerializeToNode(checkpoint.Step, PlanningJsonContext.Default.PlanningConstructionStep);
+                }
+                items.Add(row);
+            }
+            value = new JsonObject { ["offset"] = next, ["total"] = checkpoints.Count, ["items"] = items,
+                ["next"] = !detail && next + items.Count < checkpoints.Count ? "page:" + parts[1] + ":" + (next + items.Count) : null };
             return true;
         }
         return false;

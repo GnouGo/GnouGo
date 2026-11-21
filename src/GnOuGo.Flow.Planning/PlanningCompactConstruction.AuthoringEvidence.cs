@@ -22,7 +22,8 @@ internal static partial class PlanningCompactConstruction
             foreach (var checkpoint in (requirement["acceptedProgress"]?["items"] as JsonArray ?? []).OfType<JsonObject>())
             {
                 if (compactCheckpoints && checkpoint["sequence"] is JsonValue sequence && sequence.TryGetValue<int>(out var id) && id > 0 &&
-                    checkpoint["evidence"]?.ToString() is { } address && address.StartsWith("page:checkpoints:", StringComparison.Ordinal))
+                    checkpoint["evidence"]?.ToString() is { } address && (address.StartsWith("page:checkpoint:", StringComparison.Ordinal) ||
+                    address.StartsWith("page:checkpoints:", StringComparison.Ordinal)))
                 {
                     // Actual consumed interfaces and original obligations are
                     // already present. Prior checkpoints are navigation here.

@@ -169,7 +169,8 @@ internal static partial class PlanningCompactConstruction
                 checkpoint.ClosedScopes.Any(path => !state.Construction.OpenScopes.Contains(path, StringComparer.Ordinal) &&
                     symbols.Scopes.Any(scope => scope.Path == path && scope.Owner is { } owner &&
                         !checkpoint.InvalidatedTaskIds.Contains(owner.Id, StringComparer.Ordinal))))).ToArray();
-        var page = state.Construction.Evidence?.LastOrDefault(evidence => evidence.Key.StartsWith("page:checkpoints:", StringComparison.Ordinal)).Value;
+        var page = state.Construction.Evidence?.LastOrDefault(evidence => evidence.Key.StartsWith("page:checkpoint:", StringComparison.Ordinal) ||
+            evidence.Key.StartsWith("page:checkpoint-directory:", StringComparison.Ordinal) || evidence.Key.StartsWith("page:checkpoints:", StringComparison.Ordinal)).Value;
         var requested = (page?["items"] as JsonArray ?? []).Select(entry => checkpoints.SingleOrDefault(checkpoint =>
             entry?["sequence"]?.GetValue<int>() == checkpoint.Sequence && entry["hash"]?.ToString() == checkpoint.PlanHash))
             .OfType<PlanningConstructionCheckpoint>().Take(4);
@@ -185,9 +186,9 @@ internal static partial class PlanningCompactConstruction
             ["canAttemptResume"] = item.Status == "waiting" && ContinuationCurrent(state, item) &&
                 checkpoints.Length > 0,
             ["basis"] = "model_authored_navigation", ["bindingValidation"] = ContinuationValidation,
-            ["directory"] = checkpoints.Length > 0 ? "page:checkpoints:0" : null,
+            ["directory"] = checkpoints.Length > 0 ? "page:checkpoint-directory:0" : null,
             ["acceptedCheckpoints"] = new JsonArray(available.Select(checkpoint => (JsonNode)new JsonObject
-                { ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoints:" + (checkpoint.Sequence - 1) }).ToArray())
+                { ["sequence"] = checkpoint.Sequence, ["evidence"] = "page:checkpoint:" + state.Construction.Checkpoints.IndexOf(checkpoint) }).ToArray())
         };
     }
 
