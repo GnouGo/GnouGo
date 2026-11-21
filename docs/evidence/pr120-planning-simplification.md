@@ -1,5 +1,17 @@
 # PR 120 planning simplification
 
+## SlimFaaS discovery request readback, 21 November 2026
+
+Fresh Server session `810f3994d0a54b80aa03428c700fafe7` issued the same
+objective and three prerequisites twice within each of discovery requests 5,
+6, 7 and 12. Each discovery choice now carries its original ID directly on
+the corresponding objective or prerequisite. Comparing the two JSON fields
+in each captured request saved 1,743 UTF-8 bytes per request. The regression
+also covers identical wording backed by different evidence and a repeated
+prerequisite backed by the same evidence. All 246 focused discovery tests
+passed. The measured reduction is an offline comparison. The running
+Server session uses its original frozen build.
+
 ## Amazon 28 and SlimFaaS review prerequisites, 21 November 2026
 
 Amazon Server session `33299bc91181442f8b8a7422bdaea6d3` used

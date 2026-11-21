@@ -862,7 +862,7 @@ internal static partial class PlanningCompactConstruction
         if (PlanningDiscoveryFocus.Enabled(state))
         {
             context["businessResponsibility"] = CurrentBlock(state) is { } block ? BusinessBlockContext(state, block) : null;
-            context["discoveryFocuses"] = PlanningDiscoveryFocus.Presentation(state);
+            PlanningDiscoveryFocus.PresentInStep(state, context["step"]!.AsObject());
             context["discoveryLimitations"] = new JsonArray(PlanningDiscoveryRecoveryActions.Failures(state).Select(f => (JsonNode)new JsonObject
                 { ["sourceId"] = f.SourceId, ["focusId"] = f.FocusId, ["outcome"] = f.Category,
                   ["message"] = f.Message, ["superseded"] = false }).ToArray());

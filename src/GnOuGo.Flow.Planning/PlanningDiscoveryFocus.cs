@@ -7,12 +7,14 @@ internal static class PlanningDiscoveryFocus
 {
     internal sealed record Focus(string Id, string Query, string Basis);
     internal static bool Enabled(PlanningSession state) => state.Construction?.Compact?.CurrentStep?.DiscoveryProtocol == 2;
-    internal static IReadOnlyList<Focus> Choices(PlanningSession state)
+    internal static IReadOnlyList<Focus> Choices(PlanningSession state) => StepChoices(state).DistinctBy(f => f.Id).ToArray();
+
+    private static List<Focus> StepChoices(PlanningSession state)
     {
         var step = state.Construction!.Compact!.CurrentStep!;
         var result = new List<Focus> { Create(step.Objective, "implementation_objective", []) };
         foreach (var need in step.Prerequisites ?? []) result.Add(Create(need.Need, "retained_prerequisite", need.EvidenceAddresses));
-        return result.DistinctBy(f => f.Id).ToArray();
+        return result;
         Focus Create(string text, string basis, IEnumerable<string> evidence) => new(
             "focus_" + PlanningGraphCompiler.Fingerprint(string.Join("\n", new[] { state.Request.TenantId, state.Request.SessionId, step.Id, step.BaseHash, basis, text }.Concat(evidence)))[..24], text, basis);
     }
@@ -26,8 +28,14 @@ internal static class PlanningDiscoveryFocus
         return Choices(state).SingleOrDefault(f => f.Id == focus)?.Query
             ?? throw new PlanningConflictException("The discovery focus does not belong to this implementation step.");
     }
-    internal static JsonArray Presentation(PlanningSession state) => new(Choices(state).Select(f => (JsonNode)new JsonObject
-        { ["id"] = f.Id, ["need"] = f.Query, ["basis"] = f.Basis }).ToArray());
+    internal static void PresentInStep(PlanningSession state, JsonObject step)
+    {
+        var choices = StepChoices(state);
+        step["focusId"] = choices[0].Id;
+        if (step["prerequisites"] is JsonArray prerequisites)
+            for (var i = 0; i < prerequisites.Count; i++)
+                prerequisites[i]!["focusId"] = choices[i + 1].Id;
+    }
     internal static string SourceKey(string source, string query, string? focus = null) => source + "\n" + query + (focus is null ? "" : "\n" + focus);
     // Active action references select metadata for decisions. Historical pages
     // remain retained and available through their exact versioned evidence.

@@ -11,6 +11,27 @@ public sealed class FocusedDiscoveryTests
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
+    [Fact]
+    public void DiscoveryShowsTheFocusBesideItsOriginalObjectiveOrPrerequisite()
+    {
+        var (state, _) = Ready(new Source("archive", 1));
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Prerequisites = [
+            new() { Need = "Verify the recorded input.", EvidenceAddresses = ["requirement:req_0"] },
+            new() { Need = "Verify the recorded input.", EvidenceAddresses = ["scope:/root"] },
+            new() { Need = "Verify the recorded input.", EvidenceAddresses = ["requirement:req_0"] }];
+        var before = JsonSerializer.Serialize(step, PlanningJsonContext.Default.PlanningConstructionStep);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var view = context["step"]!;
+        Assert.Null(context["discoveryFocuses"]);
+        Assert.Equal(step.Objective, PlanningDiscoveryFocus.Query(state, view["focusId"]!.ToString()));
+        var rows = view["prerequisites"]!.AsArray();
+        Assert.All(rows, row => Assert.Equal(row!["need"]!.ToString(), PlanningDiscoveryFocus.Query(state, row["focusId"]!.ToString())));
+        Assert.NotEqual(rows[0]!["focusId"]!.ToString(), rows[1]!["focusId"]!.ToString());
+        Assert.Equal(rows[0]!["focusId"]!.ToString(), rows[2]!["focusId"]!.ToString());
+        Assert.Equal(before, JsonSerializer.Serialize(step, PlanningJsonContext.Default.PlanningConstructionStep));
+    }
+
     [Theory]
     [InlineData("complete", false)]
     [InlineData("partial", true)]
