@@ -41,7 +41,8 @@ public sealed class FailureObligationGuidanceTests
         Assert.Contains("Preserve explicitly requested recovery", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("raised operation failure", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("False requires stops the workflow", request.Prompt, StringComparison.Ordinal);
-        Assert.Contains("Guard only the consumer needing completeness", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("place the effect and its dependent actions inside conditional.body", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("otherwise and continue to the requested result", request.Prompt, StringComparison.Ordinal);
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
         if (phase.EndsWith("review", StringComparison.Ordinal))
         {

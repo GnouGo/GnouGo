@@ -119,6 +119,25 @@ public sealed class ConditionalEntryGuardTests
     }
 
     [Theory]
+    [InlineData("enable", true)]
+    [InlineData("follow", false)]
+    public async Task ConditionalEffectPreservesTheObservedResultOnBothPaths(string observed, bool eligible)
+    {
+        var (engine, catalog, calls) = await Environment();
+        var plan = Plan(corrected: true);
+        var route = plan.Root.Tasks.Single();
+        route.Body!.Outputs = [new("performed", Flag(true))];
+        route.Otherwise!.Outputs = [new("performed", Flag(false))];
+        plan.Root.Outputs = [new("observed", Input("action")), new("performed", Output(route.Id, "performed"))];
+        var result = await Execute(engine, catalog, plan, "exact", observed, true);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(observed, result.Outputs!["observed"]!.GetValue<string>());
+        Assert.Equal(eligible, result.Outputs["performed"]!.GetValue<bool>());
+        Assert.Equal(eligible ? new[] { "exact" } : [], calls);
+        Assert.Contains(result.StepResults, r => r.Output?["cleaned"]?.GetValue<bool>() == true);
+    }
+
+    [Theory]
     [InlineData("conjunction")][InlineData("common_disjunction")][InlineData("negation")][InlineData("alias")][InlineData("export")][InlineData("nested")][InlineData("group")][InlineData("loop")]
     public async Task ExplicitFactsSurviveScopeAndBooleanComposition(string variant)
     {

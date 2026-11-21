@@ -358,6 +358,12 @@ A task may declare `requires` as a boolean TaskValue. Omission preserves histori
 
 `present` can inspect preceding tasks in the same or a lexically enclosing scope. Nested finalizers capture availability independently and retain an absent payload as omission inside compiler-owned switch envelopes. They never eagerly evaluate an unavailable result. Report observed evidence in `always` and put release operations in its nested `always`, so preservation failure still permits cleanup. Unknown completion continues to block both. Required conditions cannot be weakened by scoped repairs; use an explicit revision and fresh approval.
 
+When the caller needs a result even if an effect is ineligible, put the effect
+and the work that depends on it in the eligible branch of a conditional. Export
+the observed reason on the other branch. A subsequent task can then deliver
+the original observations on either path. An exception raised while executing
+an eligible effect still propagates through normal finalization.
+
 Fresh implementation/discovery requests also present these same finalization rules
 when their binding schema offers a local control. TaskPlan control kinds, the
 `always` scope list and the `present` value operator have no MCP operation contract
