@@ -56,6 +56,29 @@ ordered extraction contract for repeated field rules. These are technical
 checks. All 3,301 planner tests passed. A fresh provider response and
 execution are tracked separately.
 
+Two short paid diagnostics used the frozen Amazon 27 requests at calls 10
+and 16. Only the revised draft instructions changed. Both returned complete
+structured responses and both passed structural and compiler replay against
+their original Server checkpoints. Call 10 proposed a serial page loop with
+a 100-item bound and one ordered `extract.each` over each page's records.
+The original had nested a per-record interpretation inside two loops.
+Call 16 proposed a conditional with observed unresolved entries and counts
+available on both paths. Its eligible path visited up to ten source records
+serially. Both probes left the original plan unchanged and performed no
+business operations. The two physical calls settled at EUR 0.64879913
+and EUR 0.74350437 respectively.
+
+## Amazon source check 28, 21 November 2026
+
+A fresh search on `b2bbb368` returned 1,409 records in 64 pages.
+The v14 independent verifier established ten ordered product identities
+after 13 permitted source-link resolutions under the existing v10 grant.
+All 13 resolved to store pages. Reloading the captured events returned
+the same selection. The Browser close succeeded and the subsequent
+observation confirmed that it had no active page. These 14 reads used zero
+model calls and produced no workbook or business visits. The capture's
+SHA-256 is `a1fd5556fb94712ce9eb0cf071d31261d5b30c3a2e162000910c96bcbb7fae9d`.
+
 ## Amazon source check 26, 21 November 2026
 
 A new live search on `b509478b` returned 1,633 records over 79 pages
