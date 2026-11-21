@@ -57,6 +57,9 @@ internal static class ServerLiveDiagnostics
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var amazonQuery = SchemaPortabilityCampaign.Option(args, "--amazon-query");
+        if (amazonQuery is not null && (delegatedScenario != "amazon" || string.IsNullOrWhiteSpace(amazonQuery)))
+            throw new ArgumentException("Supply a nonempty --amazon-query for a fresh Amazon plan. Retained runs use their captured inputs.");
         var discoveryScenario = delegatedScenario == "code" ? PublishedReviewQualification.Scenario : delegatedScenario;
         var browserObservationPolicy = AmazonObservedRedirectPolicy.Capture(args, delegatedScenario ?? "");
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
@@ -593,7 +596,7 @@ internal static class ServerLiveDiagnostics
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 report["workspace_relative"] = relative;
-                report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = "chaussure geox homme 45" } : scenario == "code"
+                report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = amazonQuery ?? "chaussure geox homme 45" } : scenario == "code"
                     ? new JsonObject { ["pullRequestUrl"] = SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = SchemaPortabilityCampaign.Option(args, "--review-text") ?? LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
                 if (SchemaPortabilityCampaign.Option(args, "--local-kind-toolchain") is { } bin)
                 {

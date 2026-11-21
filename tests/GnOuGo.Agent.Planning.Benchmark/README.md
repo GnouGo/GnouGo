@@ -1357,6 +1357,11 @@ the checkout to the receiving repository and captured head, and readback to
 the review created by the current run. The original v1/v2 profiles resolve
 their recorded SmartGuide target when historical evidence is inspected.
 
+Fresh Server Amazon runs accept `--amazon-query <text>` for the chat form.
+The benchmark records this input separately from the planning prompt and
+uses it when verifying the search observation and ordered workbook rows.
+Omitting the option uses the original qualification search.
+
 The disposable `copilot-probe --local-kind-profile` runs a host-supplied
 Python probe through the actual SDK. It records command exits, package-registry
 responses, cluster creation, a node query and deletion under a private kubeconfig.
