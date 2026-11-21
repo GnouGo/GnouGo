@@ -1,5 +1,30 @@
 # PR 120 planning simplification
 
+## Amazon 22, 21 November 2026
+
+Fresh Server session `5b20855cb70245d39d8df20c75ed13b9` started on
+`5d49e53b` after the Review 40 audit. Calls 8 and 10 requested the same
+schema directory for the selected browser operation and version. The first
+request inspected the search result's pages. Call 9 accepted the search
+and root browser cleanup. Continuing the same draft restored 8,030 bytes
+of older directories and dropped the 779-byte page that the draft needed
+next.
+
+The planner now fills the existing 8,192-byte contract preview with the
+most recently read eligible pages first when the same draft continues.
+It preserves their relative read order for subsequent checkpoints. The
+detached call-9 replay accepted the identical search and cleanup plan
+(`dd5c67a92d457dde7aa39b395350e2ebecf4a69f6048e99daf4d48224fd5cb26`).
+The next draft carried 6,598 bytes, including that exact page, and omitted
+the repeated read from its response grammar. The replay made zero provider
+requests. All 269 related contract and navigation tests passed.
+
+The fresh model subsequently generated serial loops over up to 100 original
+pages and 200 sponsored occurrences per page. It bound the literal occurrence
+URL to the browser operation and checked its source index with `array_length`.
+These are planning observations. Browser visits and workbook contents require
+runtime receipts.
+
 ## Review 40, 21 November 2026
 
 Fresh Server session `3732e7bc64274cb7aa9d7fc60975c67a` started on

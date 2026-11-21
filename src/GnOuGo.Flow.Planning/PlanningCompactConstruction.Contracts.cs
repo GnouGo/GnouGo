@@ -137,7 +137,10 @@ internal static partial class PlanningCompactConstruction
         if (State(state).CurrentStep is not { DiscoveryComplete: true, OperationIds.Count: > 0 } step ||
             Encoding.UTF8.GetByteCount(retained.ToJsonString()) >= ContinuedScopePreviewBytes) return;
         HashSet<string>? companionDescriptions = null;
-        foreach (var (address, original) in inspected)
+        // On continuation the newest page is often the next level of a directory
+        // the draft is still traversing. Preserve read order across checkpoints.
+        var firstContractPage = retained.Count;
+        foreach (var (address, original) in continuing ? inspected.Reverse() : inspected)
         {
             if (retained.ContainsKey(address) || original is not JsonObject page || page["id"]?.ToString() is not { } id ||
                 page["version"]?.ToString() is not { } version) continue;
@@ -160,7 +163,8 @@ internal static partial class PlanningCompactConstruction
             }
             catch (PlanningResponseException) { continue; }
             if (current is null || !JsonNode.DeepEquals(current, original)) continue;
-            retained[address] = current;
+            if (continuing) retained.Insert(firstContractPage, address, current);
+            else retained[address] = current;
             if (Encoding.UTF8.GetByteCount(retained.ToJsonString()) > ContinuedScopePreviewBytes) retained.Remove(address);
         }
     }

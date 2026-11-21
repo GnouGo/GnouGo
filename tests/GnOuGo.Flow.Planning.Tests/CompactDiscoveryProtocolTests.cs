@@ -319,6 +319,40 @@ public sealed partial class CompactDiscoveryProtocolTests
         Assert.Empty(step.SchemaPointers);
     }
 
+    [Fact]
+    public async Task ContinuedDraftKeepsTheMostRecentlyReadContractPagesWithinTheSamePreviewBudget()
+    {
+        var (state, _) = await BoundOperations(2);
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var step = state.Construction!.Compact!.CurrentStep!;
+        var operation = state.Discovery.Resolved.Single();
+        var identity = PlanningCompactConstruction.ContractIdentity(step.OperationIds.Single(), operation.Version);
+        foreach (var schema in new[] { operation.InputSchema, operation.OutputSchema })
+            for (var i = 0; i < 8; i++)
+                schema["properties"]![new string('a', 260) + i] = new JsonObject { ["type"] = "string" };
+        var older = "schema-page:" + identity + ":/input:0";
+        var latest = "schema-page:" + identity + ":/output:0";
+        var description = "description:" + identity + ":0";
+        var pages = new JsonObject();
+        foreach (var address in new[] { older, latest, description })
+            pages[address] = PlanningCompactConstruction.LoadContractEvidence(state, address);
+        Assert.True(System.Text.Encoding.UTF8.GetByteCount(pages.ToJsonString()) > 8192);
+        state.Construction.Evidence = pages.DeepClone().AsObject();
+        for (var continuation = 0; continuation < 2; continuation++)
+        {
+            PlanningCompactConstruction.RetainPrerequisiteEvidence(state, continuedScope: step.Scope);
+            var retained = state.Construction.Evidence!;
+            Assert.True(JsonNode.DeepEquals(pages[latest], retained[latest]));
+            Assert.True(JsonNode.DeepEquals(pages[description], retained[description]));
+            Assert.Equal(new[] { latest, description }, retained.Select(pair => pair.Key));
+            Assert.True(System.Text.Encoding.UTF8.GetByteCount(retained.ToJsonString()) <= 8192);
+        }
+        var draft = PlanningConstruction.DraftRequest(state, false);
+        Assert.True(JsonNode.DeepEquals(pages[latest], Context(draft)["evidence"]?[latest]));
+        Assert.DoesNotContain(JsonSerializer.Serialize(latest), draft.StructuredOutputSchema!["properties"]!["evidenceRequests"]!.ToJsonString(), StringComparison.Ordinal);
+        Assert.Empty(step.SchemaPointers);
+    }
+
     [Theory]
     [InlineData("unchanged", true)]
     [InlineData("different_content", false)]
