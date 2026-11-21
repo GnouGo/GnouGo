@@ -156,6 +156,48 @@ public sealed class ConstructionDefectProgressTests
         }
     }
 
+    [Theory]
+    [InlineData("guard", "composition_changed")]
+    [InlineData("uncited", "unchanged")]
+    [InlineData("other_finding", "unchanged")]
+    [InlineData("cleanup", "unchanged")]
+    [InlineData("objective", "unchanged")]
+    [InlineData("missing_context", "unchanged")]
+    public async Task ScopeReachabilityTracksTheGuardOfItsJointlyCitedTask(string change, string expected)
+    {
+        var (state, _) = await BusinessReviewProtocolTests.Ready();
+        var candidate = state.Construction!.Candidate!;
+        var task = candidate.Plan.Root.Tasks.Single();
+        task.Requires = new() { Kind = "boolean", Boolean = false };
+        if (change == "cleanup")
+        {
+            candidate.Plan.Root.Tasks.Remove(task);
+            candidate.Plan.Root.Always.Add(task);
+        }
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+        var context = PlanningBusinessProjection.Build(state, false);
+        var findings = new JsonArray();
+        var targets = change == "uncited" ? new[] { "/scopes/0" } : new[] { "/scopes/0", "/actions/0" };
+        foreach (var target in targets)
+            findings.Add(new JsonObject { ["kind"] = "business_fulfillment", ["location"] = target,
+                ["evidence"] = new JsonArray("/requirements/0", target), ["uncertainty"] = "",
+                ["explanation"] = change == "other_finding" && target == "/actions/0"
+                    ? "Check the multiplier." : "The assertion prevents the requested result from being returned." });
+        var witness = PlanningConstruction.DefectWitness(state, context, findings);
+        Assert.NotNull(witness);
+        candidate.Reviews.Add(new() { ["outcome"] = "needs_change", ["defectWitness"] = witness,
+            ["context"] = change == "missing_context" ? null : context });
+        if (change == "objective") task.Objective = "Return a result.";
+        else task.Requires = null;
+        candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
+
+        var progress = PlanningConstruction.DefectProgressContext(state, PlanningBusinessProjection.Build(state, false))!;
+        var scope = Assert.Single(progress, row => row!["targets"]![0]!.ToString() == "/root")!;
+        Assert.Equal(expected, scope["status"]!.ToString());
+        Assert.Null(scope["resolved"]);
+        Assert.False(candidate.BusinessReviewed);
+    }
+
     private static void Reject(PlanningSession state, string? task = null, string suffix = "")
     {
         var context = PlanningBusinessProjection.Build(state, false);

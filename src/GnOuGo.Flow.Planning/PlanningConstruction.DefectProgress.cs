@@ -118,7 +118,7 @@ internal static partial class PlanningConstruction
             var status = !sameBasis || !sameSource ? "basis_changed" : !sameClaims ? "claims_changed" : !found ? "unverified" :
                 entry["before"]?["hash"]?.ToString() == snapshot!["hash"]!.ToString() ? "unchanged" : "changed";
             if (status == "unchanged" && DefectDependencyChanged(candidate, witness, selector, currentContext)) status = "dependency_changed";
-            if (status == "unchanged" && DefectCompositionChanged(state, witness, selector, priorContext, currentContext)) status = "composition_changed";
+            if (status == "unchanged" && DefectCompositionChanged(state, witness, entry, priorContext, currentContext)) status = "composition_changed";
             var progress = new JsonObject
             {
                 ["id"] = entry["id"]!.DeepClone(), ["kind"] = entry["kind"]!.DeepClone(), ["status"] = status,
@@ -145,9 +145,12 @@ internal static partial class PlanningConstruction
         return result.Count == 0 ? null : result;
     }
 
-    private static bool DefectCompositionChanged(PlanningSession state, JsonObject witness, JsonArray? selector, JsonObject? prior, JsonObject current)
+    private static bool DefectCompositionChanged(PlanningSession state, JsonObject witness, JsonObject concern, JsonObject? prior, JsonObject current)
     {
-        if (prior is null || selector?.FirstOrDefault()?.ToString() != "actions" ||
+        if (prior is null || concern["selector"] is not JsonArray selector) return false;
+        if (selector.Count == 2 && selector[0]?.ToString() == "scopes")
+            return ScopeMemberGuardChanged(witness, concern, selector, prior, current);
+        if (selector.FirstOrDefault()?.ToString() != "actions" ||
             selector.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } task) return false;
         // A replacement for a withdrawn claim may add a new consumer. Its
         // precondition can check the exact producer result under review.
@@ -185,6 +188,26 @@ internal static partial class PlanningConstruction
             JsonArray values => values.Any(References),
             _ => false
         };
+    }
+
+    private static bool ScopeMemberGuardChanged(JsonObject witness, JsonObject concern, JsonArray selector, JsonObject prior, JsonObject current)
+    {
+        // Scope projections list task identities. A member's assertion can stop
+        // normal execution without changing that list or the scope's exports.
+        if (!DefectRead(prior, selector, out var scope, out _) || scope?["tasks"] is not JsonArray members) return false;
+        foreach (var cited in (witness["findings"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            if (cited["selector"] is not JsonArray { Count: 2 } action || action[0]?.ToString() != "actions" ||
+                !JsonNode.DeepEquals(cited["explanation"], concern["explanation"]) ||
+                !JsonNode.DeepEquals(cited["obligationPointer"], concern["obligationPointer"]) ||
+                !JsonNode.DeepEquals(cited["obligations"], concern["obligations"]) ||
+                !DefectRead(prior, action, out var before, out _) || !DefectRead(current, action, out var after, out _) ||
+                before is not JsonObject original || after is not JsonObject revised) continue;
+            if (members.Any(id => JsonNode.DeepEquals(id, original["id"])) &&
+                JsonNode.DeepEquals(original["scope"], scope["id"]) && JsonNode.DeepEquals(revised["scope"], scope["id"]) &&
+                !JsonNode.DeepEquals(original["requires"], revised["requires"])) return true;
+        }
+        return false;
     }
 
     private static JsonObject? ExactSnapshot(JsonNode? snapshot, JsonObject? context, string? pointer)

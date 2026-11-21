@@ -29,6 +29,22 @@ checkpoint changed only this guidance. Its original schema and accepted
 TaskPlan hash matched. The Release benchmark build had zero warnings and
 errors.
 
+The independent call 31 comparison cost EUR 0.46051 and returned
+`needs_change` for the tentative value and its owning scope. The ordinary
+coordinator issued a correction from the original accepted checkpoint.
+A second complete provider response cost EUR 1.10486. It retained the
+observations and removed the premature assertion from the tentative value.
+
+Replaying those responses exposed another defect. The scope still contained
+the same ordered task IDs, so its finding was reported unchanged even though
+the cited member no longer stopped the scope. A focused regression reproduced
+the rejection. The planner now recognizes a change to a normal member's guard
+when the same finding cites both the scope and that member. It compares the
+two review projections against the same original obligation and explanation.
+Uncited tasks, independent findings, cleanup and cosmetic edits grant no such
+progress. The replay preserved the accepted plan, passed technical checks and
+reached a fresh request for business review.
+
 ## EUR 3,100 campaign opening, 21 November 2026
 
 The opening audit matched the EUR 2,600 closeout byte for byte. The existing
