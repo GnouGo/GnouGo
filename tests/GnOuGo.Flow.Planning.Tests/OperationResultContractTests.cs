@@ -168,7 +168,15 @@ public sealed class OperationResultContractTests
     [InlineData("opaque_contract")]
     [InlineData("open_contract")]
     [InlineData("undeclared_field")]
-    public async Task RequiredFieldOfAClosedMcpResultVariantChecksBeforeDispatch(string variant)
+    [InlineData("matching", true)]
+    [InlineData("empty", true)]
+    [InlineData("other_object", true)]
+    [InlineData("array_index", true)]
+    [InlineData("root_constraint", true)]
+    [InlineData("opaque_contract", true)]
+    [InlineData("open_contract", true)]
+    [InlineData("undeclared_field", true)]
+    public async Task RequiredFieldOfAClosedMcpResultVariantChecksBeforeDispatch(string variant, bool retainInObject = false)
     {
         var resultSchema = Schema("""{"oneOf":[{"type":"null"},{"type":"object","properties":{"label":{"type":"string"}},"required":["label"],"additionalProperties":false},{"type":"object","properties":{"message":{"type":"string"}},"required":["message"],"additionalProperties":false},{"type":"array","items":{"type":"string"}}]}""");
         if (variant == "opaque_contract") resultSchema["oneOf"]!.AsArray().Add(new JsonObject());
@@ -197,7 +205,9 @@ public sealed class OperationResultContractTests
         var engine = new WorkflowEngine { McpClientFactory = factory };
         var catalog = await Catalog(engine);
         string Operation(string method) => TaskOperations.Describe(catalog.Capabilities.Single(c => c.Server == "service" && c.Method == method)).Id;
-        TaskValue Whole() => Reference("obtain", null);
+        TaskValue Whole() => retainInObject
+            ? TaskFieldBindingTests.Field(Reference("retain", "bundle"), "observation")
+            : Reference("obtain", null);
         TaskValue Field() => TaskFieldBindingTests.Field(Whole(), variant == "undeclared_field" ? "missing" : selectedField);
         TaskValue Compare(string op, params TaskValue[] operands) => new() { Kind = "predicate", Predicate = op, Items = [.. operands] };
         var plan = new TaskPlan { Root = new() { Tasks = [
@@ -205,6 +215,9 @@ public sealed class OperationResultContractTests
             new() { Id = "deliver", Kind = "operation", Objective = "Deliver the observed message.", Operation = Operation("deliver"),
                 Requires = Compare("and", Compare("not_equal", Whole(), new()), Compare("not_equal", Field(), Text(""))),
                 Inputs = [new("message", Field())] }] } };
+        if (retainInObject)
+            plan.Root.Tasks.Insert(1, new() { Id = "retain", Kind = "value", Objective = "Retain the complete source observation.",
+                Outputs = [new("bundle", new() { Kind = "object", Members = [new("observation", Reference("obtain"))] })] });
         var state = PlannerFixture.Session();
         state.Requirements = PlannerFixture.Requirements(); state.Catalog = catalog;
         var grammar = PlanningSchemas.TaskPlanGrammar(state);
@@ -278,7 +291,7 @@ public sealed class OperationResultContractTests
         if (compact) request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
         var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
         Assert.Empty(compiled.Diagnostics); Assert.NotNull(compiled.Graph);
-        Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph, catalog));
+        Assert.Empty(PlanningGeneratedGraph.Validate(compiled.Graph, catalog, compact));
         Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph, catalog));
         var yaml = compact ? new PlanningGraphCompiler().Compile(compiled.Graph, catalog, "variants", descriptions: true,
             fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true, readableMappings: true,

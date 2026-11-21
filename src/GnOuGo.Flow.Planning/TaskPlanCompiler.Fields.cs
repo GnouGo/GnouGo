@@ -31,11 +31,13 @@ public sealed partial class TaskPlanCompiler
             var matching = variants.OfType<JsonObject>().Where(branch => DeclaresObject(branch) && branch["properties"]?[value.Port!] is JsonObject).ToArray();
             if (matching.Length > 0 && matching.Length < variants.Count)
             {
-                // Validate the actual whole response before looking up a property. An array
+                // Validate the actual union value before looking up a property. An array
                 // can have a numeric index with the same name as a declared object property.
                 var contract = source.Schema.DeepClone().AsObject();
                 contract[source.Schema.ContainsKey("oneOf") ? "oneOf" : "anyOf"] =
                     new JsonArray(matching.Select(branch => branch.DeepClone()).ToArray());
+                // A reused field may itself be a projection within a larger record.
+                if (source.SelectionSource is not null) source = Value(value.Items[0], scope);
                 source = Consume(source with { Schema = contract, SelectionSource = source, SelectionPath = [] }, scope);
             }
         }
@@ -46,7 +48,8 @@ public sealed partial class TaskPlanCompiler
         // Compose explicit nested selections against the authoritative container.
         // Emit one check at consumption, including inside branches and finalizers.
         var selected = new Bound(new() { Kind = "output" }, schema,
-            SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location);
+            SelectionSource: source.SelectionSource ?? source, SelectionPath: [.. source.SelectionPath ?? [], value.Port!], TypeLocation: location)
+            .Retaining(source.RetainedMembers?.GetValueOrDefault(value.Port!));
         return consume ? Consume(selected, scope) : selected;
 
         JsonObject FieldContract(JsonObject contract, int depth)

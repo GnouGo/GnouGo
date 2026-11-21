@@ -29,6 +29,11 @@ explicitly. Recursive, unresolved and external references retain ordinary valida
 no reference is fetched or discarded. Exact input/output schema selections use the
 same closure while retaining the original capability and schema-pointer authority.
 
+A value task can retain a whole MCP result inside a named object member.
+Selecting a field from that member checks the actual response against the same
+closed union alternatives as a direct selection. Numeric array indexes cannot
+satisfy a named object field. Unknown or opaque alternatives still fail validation.
+
 Internal planning format **11** has one active protocol. Retired sessions and approvals
 are rejected without migration; original encrypted records remain unchanged. TaskPlan
 and execution journal schema 9 are separate from this storage rupture.

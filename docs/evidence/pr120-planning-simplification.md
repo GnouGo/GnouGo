@@ -1,5 +1,37 @@
 # PR 120 planning simplification
 
+## Review 46, 21 November 2026
+
+Fresh Server session `3728171b83054226a72f748f89d32b2b` ran on
+`702a9bb5`. Calls 8 and 10 saw the single granted cleanup alias. Two
+business checks accepted the preparation and Copilot review blocks. The
+publication block included a pending review, an ordered loop over line and
+range comments, submission and retention of the acknowledgement.
+
+Call 45 rejected the block. Its eligibility assertions stopped execution before
+the requested report on the path with incomplete evidence. Call 46 identified
+that its three issued edit paths could change arguments or a retained result,
+but could not put the effects inside a conditional. The session stopped in
+clarification at revision 142. No workflow or clone ran. An independent
+GitHub read found zero reviews and zero inline comments. Its 46 physical
+requests settled for EUR 24.27494541 with no new holds. The campaign audit
+counted 4,316 attempts, EUR 2,179.52113174 measured at captured tariffs,
+EUR 492.52354211 in 55 HTTP holds and EUR 171.63356950 in separate Server
+holds. EUR 256.32175665 remained available.
+
+Call 22 originally failed `TASK_FIELD_UNKNOWN` when a guard selected a field
+from a previously retained whole MCP response. Call 23 added another
+extraction. A read through the configured GitHub MCP on the captured PR
+returned a single `diff` field of 247,190 characters under its seven-way
+response contract. The diagnostic used zero model calls and performed no write.
+The compiler now tracks the original response through deterministic object
+assembly and checks its actual variant at consumption. The grammar, both
+compilation profiles and the executing engine exercised the retained value,
+including a numeric array index that could be mistaken for an object field.
+All 231 focused tests passed. Replaying the unchanged call 22 produced candidate
+`5344a28130e5d344318b4c757cb6f7818f36b1a9a1e8459de2c107f0a6d75e5b`
+and reached local review at revision 77 without another model call.
+
 ## Review 45, 21 November 2026
 
 Fresh Server session `91788026b2c8409e8b5577dc340a798b` ran on

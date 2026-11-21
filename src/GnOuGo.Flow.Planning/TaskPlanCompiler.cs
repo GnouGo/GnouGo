@@ -50,7 +50,17 @@ public sealed record TaskCompilation(PlanningGraph? Graph, IReadOnlyList<Plannin
 public sealed partial class TaskPlanCompiler
 {
     private sealed record Bound(PlanningValue Value, JsonObject Schema,
-        Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null, bool WholeMcpResult = false);
+        Bound? SelectionSource = null, List<string>? SelectionPath = null, string? TypeLocation = null, bool WholeMcpResult = false,
+        IReadOnlyDictionary<string, Bound>? RetainedMembers = null)
+    {
+        public Bound Retaining(Bound? original) => original is { WholeMcpResult: true } or { RetainedMembers.Count: > 0 }
+            ? this with { WholeMcpResult = original.WholeMcpResult, RetainedMembers = original.RetainedMembers }
+            : this;
+    }
+
+    private static Dictionary<string, Bound> RetainedMembers(IEnumerable<(string Name, Bound Bound)> fields) =>
+        fields.Where(f => f.Bound.WholeMcpResult || f.Bound.RetainedMembers is { Count: > 0 })
+            .ToDictionary(f => f.Name, f => f.Bound, StringComparer.Ordinal);
     private sealed class Scope(PlanningWorkflow workflow, Scope? parent)
     {
         public PlanningWorkflow Workflow { get; } = workflow;
@@ -311,7 +321,7 @@ public sealed partial class TaskPlanCompiler
                     target.Skip(selectionStart).All(n => n.Type == "set" && n.Input.Kind == "projection" && n.If is null);
                 if (fuse) foreach (var node in target.Skip(selectionStart)) node.InternalRole = "inline:" + key;
                 target.Add(new() { Key = key, Purpose = task.Objective, InternalRole = fuse ? "typed_assembly" : null, Type = "set", Input = Object(values.Select(v => new PlanningMember(v.Name, v.Bound.Value))), OutputSchema = Contract(ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema)))) });
-                outputs = Result(key, "set", ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema)))); break;
+                outputs = Result(key, "set", ObjectSchema(values.Select(v => (v.Name, v.Bound.Schema))), RetainedMembers(values)); break;
             case "call":
                 var definition = _plan.Groups.SingleOrDefault(g => g.Id == task.Group);
                 if (definition is null) Fail("TASK_GROUP_UNKNOWN", "Choose a declared reusable task group.");
@@ -708,7 +718,8 @@ public sealed partial class TaskPlanCompiler
             case "object":
                 Unique(value.Members.Select(m => m.Name));
                 var fields = value.Members.Select(m => (m.Name, Bound: Value(m.Value, scope))).ToArray();
-                return new(Object(fields.Select(f => new PlanningMember(f.Name, f.Bound.Value))), ObjectSchema(fields.Select(f => (f.Name, f.Bound.Schema))));
+                return new(Object(fields.Select(f => new PlanningMember(f.Name, f.Bound.Value))), ObjectSchema(fields.Select(f => (f.Name, f.Bound.Schema))),
+                    RetainedMembers: RetainedMembers(fields));
             case "array":
                 var items = value.Items.Select(i => Value(i, scope)).ToArray();
                 var schemas = items.Select(i => i.Schema).DistinctBy(s => s.ToJsonString()).ToArray();
@@ -771,7 +782,7 @@ public sealed partial class TaskPlanCompiler
             var transfer = captured.SelectionSource ?? captured;
             scope.Workflow.Inputs.Add(new() { Name = name, Schema = Contract(transfer.Schema) });
             scope.Captures.Add(new(name, transfer.Value));
-            var input = Input(name, transfer.Schema) with { TypeLocation = captured.TypeLocation };
+            var input = Input(name, transfer.Schema).Retaining(transfer) with { TypeLocation = captured.TypeLocation };
             already = captured.SelectionSource is null ? input : captured with { SelectionSource = input };
             scope.Inputs[name] = already;
         }
@@ -816,7 +827,7 @@ public sealed partial class TaskPlanCompiler
             if (scope.Cleanup) GuardCleanup(node);
             scope.Target.Add(node); _sources[key] = _location;
         }
-        return Output(key, "set", ["value"], value.Schema) with { TypeLocation = value.TypeLocation };
+        return Output(key, "set", ["value"], value.Schema).Retaining(value) with { TypeLocation = value.TypeLocation };
     }
 
     private Bound StringOperation(TaskValue value, Scope scope)
@@ -978,11 +989,11 @@ public sealed partial class TaskPlanCompiler
         return Result(aggregate, "set", schema);
     }
     private static Dictionary<string, Bound> WorkflowResult(string key, PlanningWorkflow workflow) => Result(key, "workflow.call", ObjectSchema(workflow.Outputs.Select(o => (o.Name, o.Schema.Contract!))));
-    private static Dictionary<string, Bound> Result(string key, string type, JsonObject schema)
+    private static Dictionary<string, Bound> Result(string key, string type, JsonObject schema, IReadOnlyDictionary<string, Bound>? retained = null)
     {
-        var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, type, [], schema) };
+        var outputs = new Dictionary<string, Bound>(StringComparer.Ordinal) { [""] = Output(key, type, [], schema) with { RetainedMembers = retained } };
         if (schema["properties"] is JsonObject properties)
-            foreach (var (name, field) in properties) outputs.Add(name, Output(key, type, [name], field!.AsObject()));
+            foreach (var (name, field) in properties) outputs.Add(name, Output(key, type, [name], field!.AsObject()).Retaining(retained?.GetValueOrDefault(name)));
         return outputs;
     }
     private static Bound Output(string key, string type, List<string> path, JsonObject schema) => new(Reference(key, path.ToArray()),
