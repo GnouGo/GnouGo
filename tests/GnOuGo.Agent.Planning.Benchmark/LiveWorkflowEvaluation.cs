@@ -605,7 +605,7 @@ internal static class LiveWorkflowEvaluation
         private int _calls;
         public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
         {
-            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls), outputLimit), ct);
+            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls), outputLimit), ct, attemptTimeoutLimitMilliseconds: 270_000);
         }
     }
 
