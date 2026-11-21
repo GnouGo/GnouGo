@@ -7,7 +7,7 @@ internal sealed partial class PlanningPrompt
 {
     private const string EvidenceInstructions = "Keep original IDs/exact values, order/repeats, missing/null; invent no results/provenance.";
 
-    internal const string FailureObligationSemantics = "Missing data in a successfully returned observation is distinct from a raised operation failure. Propagate raised failures with required always cleanup. Do not infer mandatory recovery or partial delivery from truthfulness or cleanup alone. Preserve explicitly requested recovery; if unsupported, diagnose it rather than inventing a catch mechanism, successful result or weaker obligation.";
+    internal const string FailureObligationSemantics = "Return requested incomplete observations even when a later effect is ineligible. False requires stops the workflow. Guard only the consumer needing completeness. Propagate a raised operation failure with always cleanup. Do not infer mandatory recovery or partial delivery from truthfulness or cleanup alone. Preserve explicitly requested recovery and diagnose unsupported recovery.";
 
     internal const string RepairInstructions = """
         Return only typed edits for the issued slots, a permitted discovery batch, or clarifications. Use one edit per slot. Combine all required conditions for the same guard in its single replacement. editablePaths identifies an explicitly authorized revision; only those fields may change, including a required condition when expressly selected. The baseline and accepted requirements are host-owned; never regenerate tasks or a plan. Ports required unless false.

@@ -1,5 +1,34 @@
 # PR 120 planning simplification
 
+## Review 39, 21 November 2026
+
+Fresh Server session `62d120702f6d4c5ea0bccff67367ebd4` used source
+`51e54b1b`. It generated the runtime URL and instruction inputs, one
+pinned clone from the base repository, a root cleanup task, Copilot checks,
+a paginated merge-base comparison and a separate Copilot review.
+
+Call 30 put a readiness assertion on a value that retained the observations.
+The first local judge accepted it on call 31. The next block used that value
+to build the caller's report. On call 36 the judge established that an
+ordinary incomplete result could stop delivery before the report identified
+the missing evidence. Call 37 correctly identified the earlier accepted
+guard as outside its repair slots. The session stopped at revision 115.
+The workflow never ran. The target still had zero inline comments.
+
+All 37 physical requests settled for EUR 26.14304 at the campaign tariffs.
+The Server's planning estimate was EUR 26.14780. Available campaign funding
+was EUR 476.34532, with the existing HTTP and Server reservations unchanged.
+Both scenarios remained at zero of two verified executions.
+
+The shared generation and review guidance now states that a false task
+assertion stops the workflow. It places a completeness check on the consumer
+that needs it and keeps explicitly requested incomplete observations
+available. Six phase regressions failed before the change. All 3,246 planner
+tests passed afterward. Rebuilding the original call 31 from its encrypted
+checkpoint changed only this guidance. Its original schema and accepted
+TaskPlan hash matched. The Release benchmark build had zero warnings and
+errors.
+
 ## EUR 3,100 campaign opening, 21 November 2026
 
 The opening audit matched the EUR 2,600 closeout byte for byte. The existing
