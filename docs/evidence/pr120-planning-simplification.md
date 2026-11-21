@@ -29,6 +29,17 @@ Oversized originals retain their evidence addresses. New intent guidance
 also permits a source-derived name for unnamed, human-readable returns.
 All 3,289 planner tests passed on the resulting implementation.
 
+At call 23 the generated Copilot review passed the entire preceding check
+receipt to a second model. The discovered contract already described the
+summary, completion status, errors and command observations. Applied to
+the original Review 36 receipt, those fields keep all 96 SDK observations
+in 74,587 UTF-8 bytes. The full value is 264,897 bytes and includes 1,255
+progress events. The draft instructions now describe how to bind the
+required fields together at a text consumer. A compiled regression
+executed the field selection and JSON conversion over a real engine
+with an in-memory MCP. It preserved the observed failure and command
+records. All 245 focused tests passed. Review 48 runs its frozen source.
+
 ## Review 47, 21 November 2026
 
 Fresh Server session `9d9c9b644bcb4b6e9dadc54640bf7f3f` started on

@@ -222,6 +222,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var request = PlanningConstruction.DraftRequest(state, false);
         Assert.Contains("Work backward from the next requested result", request.Prompt, StringComparison.Ordinal);
         Assert.Contains("Attach field selection and its checks to the consuming task", request.Prompt, StringComparison.Ordinal);
+        Assert.Contains("declared fields needed for its decision", request.Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("When the current contracts support a useful executable prefix", request.Prompt, StringComparison.Ordinal);
     }
 
