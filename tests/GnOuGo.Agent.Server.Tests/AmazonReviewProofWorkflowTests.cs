@@ -24,6 +24,9 @@ public sealed class AmazonReviewProofWorkflowTests
         const string resolution = "Before business product selection, resolve every sponsored source-link occurrence with unverified identity by GET of its exact literal href in source order, including repeated hrefs.";
         Assert.Contains(resolution, AmazonResolvedProductPolicy.PlanningFacts, StringComparison.Ordinal);
         Assert.Contains(resolution, AmazonReviewProofPolicy.PlanningFacts, StringComparison.Ordinal);
+        Assert.Contains("ancestorAttributes.data-asin.value", AmazonAaxProductPolicy.PlanningFacts, StringComparison.Ordinal);
+        Assert.Contains("10 ASCII letters or digits", AmazonAaxProductPolicy.PlanningFacts, StringComparison.Ordinal);
+        Assert.Contains("skip its early GET", AmazonAaxProductPolicy.PlanningFacts, StringComparison.Ordinal);
         Assert.DoesNotContain("Resolve every navigable source-link occurrence", AmazonReviewProofPolicy.PlanningFacts, StringComparison.Ordinal);
     }
 

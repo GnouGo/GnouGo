@@ -25,6 +25,40 @@ URL to the browser operation and checked its source index with `array_length`.
 These are planning observations. Browser visits and workbook contents require
 runtime receipts.
 
+The generated artifact passed global business review and technical
+validation at revision 95. All 18 tasks matched the delegated review of
+`217a984c38fca2c73b25489396710a0ecb6523c0eb3e45b991a09ce6c1ef96e5`.
+The saved chat agent `4ab86c0d-f9ba-48d0-8113-ab6003745b7d` received
+the runtime query. Its Server run `97aea35a754d763c292efee741e84e1c`
+acquired a complete HTTP 200 search with 1,585 records in 77 pages.
+The independent v14 source verifier identified an empty-ASIN product card
+at record 494 containing a Black Friday link to `https://www.amazon.fr/deals`
+at record 498. The active v10 grant offered zero follow-up reads. The
+attempted sponsored GET was refused before transport. The workflow closed
+the browser, an independent no-active-page check confirmed closure, and the
+journal recorded completed finalization. The workbook was absent. There
+were zero business product visits.
+
+A fresh source-only diagnostic with the actual Browser MCP acquired
+1,605 records in 78 pages. The same promotion appeared at record 499 in the
+card of heading 495. Cold verification returned the same finding and zero
+eligible source reads. Browser closure was verified. The diagnostic made
+zero model calls. The separate proposal for this link is inactive.
+[Existing grant and offline proposal](pr120-amazon-deals-proposal-2026-11-13/proposal.md)
+
+The failed workflow also selected record 64 for early sponsored resolution
+even though its nearest DOM ASIN already identified the card. The model-facing
+policy now states the exact observed field and the same ten-character test
+used by the guard. A focused regression failed against the earlier description.
+All 166 related Server tests passed. This description grants no additional
+navigation.
+
+Amazon 22 used 34 planning requests (EUR 16.41343) and two execution
+requests (EUR 1.29091). All settled. The closing audit recorded 4,084
+campaign requests and EUR 406.56094 available, with the historical holds
+unchanged. The Server run and the independent source capture each had zero
+qualified business outcomes.
+
 ## Review 40, 21 November 2026
 
 Fresh Server session `3732e7bc64274cb7aa9d7fc60975c67a` started on
@@ -71,6 +105,13 @@ second block. The plan hash remained
 Resolving the request-local aliases produced the same response schema.
 All 3,253 planner tests passed, including the checks for invalidated,
 group-local and literal sources. This replay made zero provider requests.
+
+The independent Server comparison issued one native request at EUR 0.09528.
+Its complete schema-valid response selected `completionRequirementIds: [req_0]`.
+Applying it to the detached revision through the ordinary coordinator created
+the final completion candidate with the same plan hash and zero required
+technical findings. The independent Review 41 campaign run started with
+EUR 406.46566 available.
 
 The closing audit counted 91 physical Review 40 requests and EUR 49.99492
 of measured usage at captured tariffs. Across the campaign it recorded
