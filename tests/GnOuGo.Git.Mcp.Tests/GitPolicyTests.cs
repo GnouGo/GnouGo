@@ -179,6 +179,7 @@ public sealed class GitPolicyTests : IDisposable
         var ex = Assert.Throws<InvalidOperationException>(() => policy.ResolveCloneTargetDirectory("workflows/existing-target"));
 
         Assert.Contains("already exists and is not empty", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("not empty", File.ReadAllText(Path.Combine(targetDirectory, "README.md")));
     }
 
     [Fact]

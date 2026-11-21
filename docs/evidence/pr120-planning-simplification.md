@@ -1,5 +1,21 @@
 # PR 120 planning simplification
 
+## Review 40, 21 November 2026
+
+Fresh Server session `3732e7bc64274cb7aa9d7fc60975c67a` started on
+`949b3e64` with EUR 474.26020 available. It declared two runtime inputs
+and a public string result, generated one full-history clone from the base
+repository at the observed head SHA, and compared the original revisions
+using the materialized checkout.
+
+Call 14 also added a preliminary deletion of the run's clone destination.
+The path was absent on inspection. Git already verifies occupancy before
+writing. Its discovery contract now explains that callers can supply a
+fresh destination directly and that Git refuses an occupied target. The
+stdio discovery regression failed against the previous description. All
+87 Git tests passed after the change, including a check that an existing
+file kept its contents. End-of-run cleanup remains independently required.
+
 ## Review 39, 21 November 2026
 
 Fresh Server session `62d120702f6d4c5ea0bccff67367ebd4` used source
@@ -44,6 +60,15 @@ two review projections against the same original obligation and explanation.
 Uncited tasks, independent findings, cleanup and cosmetic edits grant no such
 progress. The replay preserved the accepted plan, passed technical checks and
 reached a fresh request for business review.
+
+The renewed judge returned `ok` for EUR 0.51976. Replaying that complete
+response through the coordinator accepted the corrected block and left the
+remaining workflow obligations open. The three independent probes used one
+physical request each. Their retained response SHA-256 hashes, in order, are
+`94578fee407432bffb458b46d8adb97000f61eeb343b37c537e3289b521dd62d`,
+`e562d64d37a7760ed52aa514800a5edb8d69e3a9a2a03ad3915841cf3ceb89a2` and
+`84e487050a34e47857357a13896f00bd7bc1f16fe6a04c502a8ff72f1ec42bcb`.
+The focused repair and scope suite passed 40 tests.
 
 ## EUR 3,100 campaign opening, 21 November 2026
 

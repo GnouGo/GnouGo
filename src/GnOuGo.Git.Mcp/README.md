@@ -53,7 +53,7 @@ The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:All
 
 Every `git_clone.targetDirectory` must be a purpose-specific, workspace-relative child below `workflows/`, for example `workflows/github-review-123`. **Breaking change:** absolute targets are rejected, including absolute paths inside the workspace. Use forward slashes and nonempty segments; dot/parent segments, backslashes, wildcards and control characters are invalid. Values are not silently normalized or prefixed. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
 
-The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. An absent or empty destination is accepted; creating it first is unnecessary. `git_get_policy` is optional inspection, not a required preliminary operation.
+The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. Pass an absent or empty destination directly. The clone checks occupancy before writing and refuses a nonempty target with its contents intact. `git_get_policy` is optional inspection, not a required preliminary operation.
 
 When `branch` is a full commit ID, a successful clone has already checked out that commit in the worktree.
 
