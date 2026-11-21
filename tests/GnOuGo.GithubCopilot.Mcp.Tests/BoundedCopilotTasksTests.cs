@@ -98,6 +98,25 @@ public sealed partial class BoundedCopilotTasksTests
         Assert.True(Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, TestContext.Current.CancellationToken)).Passed);
     }
 
+    [Theory]
+    [InlineData("{", "failed")]
+    [InlineData("", "failed")]
+    [InlineData("{}", "failed")]
+    [InlineData("null", "completed")]
+    public async Task OnlyCompleteJsonCanSatisfyANullOutputContract(string reply, string status)
+    {
+        await using var fixture = new Fixture();
+        var ct = TestContext.Current.CancellationToken;
+        var context = fixture.Context with { Task = fixture.Context.Task with { OutputSchema = new() { ["type"] = "null" } } };
+        fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", reply, "fixture", []));
+
+        var result = await fixture.Tasks.RunAsync(context, ct);
+        Assert.Equal(status, result.Status);
+        Assert.Equal(status, (await fixture.Tasks.RunAsync(context, ct)).Status);
+        Assert.Equal(1, fixture.Host.Sends);
+        if (status == "failed") Assert.Equal("AGENT_OUTPUT_INVALID", result.Failure?.Code);
+    }
+
     [Fact]
     public async Task InterruptedReceiptDoesNotTriggerAnotherManagedSession()
     {

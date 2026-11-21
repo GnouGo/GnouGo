@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.GithubCopilot.Core;
@@ -225,9 +226,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                         new() { ["exists"] = hash is not null, ["sha256"] = hash ?? "", ["changed"] = before[requirement.Subject] != hash }));
                     if (hash is not null) artifacts.Add(new(requirement.Id, "file", Path.Combine(runtime.WorkingDirectory, requirement.Subject), hash));
                 }
-                JsonNode? output = null;
-                try { output = JsonNode.Parse(sent.Content); } catch (JsonException) { }
-                result = new(bounds.Exhausted ? "budget_exhausted" : "completed", output, evidence, artifacts, new(0, 0, 0));
+                result = CompletedTurn(sent.Content, context.Task.OutputSchema, evidence, artifacts, bounds.Exhausted);
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -280,6 +279,21 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         record["status"] = result.Status; record["result"] = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult);
         await SaveAsync(context, record, CancellationToken.None);
         return result;
+    }
+
+    private static AgentTaskResult CompletedTurn(string content, JsonObject schema, List<AgentTaskEvidence> evidence,
+        List<AgentTaskArtifact> artifacts, bool exhausted)
+    {
+        if (exhausted) return new("budget_exhausted", null, evidence, artifacts, new(0, 0, 0));
+        try
+        {
+            var output = JsonNode.Parse(content);
+            if (PlanningContractValidation.ValidateInstance(output, schema).Count == 0)
+                return new("completed", output, evidence, artifacts, new(0, 0, 0));
+        }
+        catch (JsonException) { /* Incomplete output must never be interpreted as JSON null. */ }
+        return Failed("AGENT_OUTPUT_INVALID", "Copilot returned invalid JSON or a result outside the approved output schema.")
+            with { Evidence = evidence, Artifacts = artifacts };
     }
 
     private static bool CessationObserved(CopilotSendResult observed, IReadOnlySet<string> tools)
