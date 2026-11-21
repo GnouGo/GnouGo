@@ -42,7 +42,7 @@ internal static class LiveWorkflowEvaluation
         "\nDeux entrées texte obligatoires, sans valeur par défaut : pullRequestUrl et reviewText. " +
         "Résous la PR depuis pullRequestUrl à chaque exécution et transmets les consignes reviewText intégrales à Copilot pour la revue du diff de sa base et de sa tête. " +
         "Clone sa révision une seule fois dans " + relative + "/repository. Retourne à l’utilisateur un rapport avec les commandes, leurs codes de sortie et les vérifications incomplètes. " +
-        "Utilise le dépôt de base qui expose la tête de la PR. Depuis sa racine, le profil local autorise le test kind avec cette commande : `" + SlimFaasReviewProfile.KindCommand(SlimFaasReviewProfile.Cluster(relative)) + "`. Vérifie le nettoyage du cluster et du kubeconfig même après échec. " +
+        "Utilise le dépôt de base qui expose la tête de la PR. Depuis sa racine, le profil local autorise le test kind avec cette commande : `" + SlimFaasReviewProfile.KindCommand(SlimFaasReviewProfile.Cluster(relative)) + "`. Vérifie le nettoyage du cluster et du kubeconfig même après échec. " + SlimFaasReviewProfile.CleanupContract + " " +
         "Publie réellement sur cette PR la décision GitHub d’approbation ou de demande de changements, sa justification et les commentaires sur les lignes modifiées. " +
         "Ancre au moins une observation vérifiée dans le diff. Lors de la soumission, l’hôte demande la confirmation du verdict et des commentaires concrets, " +
         "puis revérifie la tête de la PR avant de transmettre la soumission à GitHub.";
@@ -609,12 +609,15 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null, Func<string, string, JsonObject, CancellationToken, Task>? beforeCall = null) : IMcpClientFactory, IMcpExecutionHooks
+    internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null, Func<string, string, JsonObject, CancellationToken, Task>? beforeCall = null,
+        bool localKindCleanup = false, Func<Task<JsonObject>>? releaseCluster = null) : IMcpClientFactory, IMcpExecutionHooks
     {
         private readonly Func<JsonObject, Task> _save = save;
         private readonly DelegatedTestReviewAuthority? _authority = authority;
         private readonly string? _discoveryScenario = discoveryScenario;
         private readonly Func<string, string, JsonObject, CancellationToken, Task>? _beforeCall = beforeCall;
+        private readonly bool _localKindCleanup = localKindCleanup;
+        private readonly Func<Task<JsonObject>>? _releaseCluster = releaseCluster;
         private readonly SemaphoreSlim _reviewWrites = new(1);
         internal int DiscoveryReads;
         public IDisposable BeginCall(McpCallExecutionContext context)
@@ -649,7 +652,7 @@ internal static class LiveWorkflowEvaluation
                 if (owner._discoveryScenario is not { } scenario) return tools;
                 var allowed = tools.Where(t => DelegatedTestReviewAuthority.AllowsTool(scenario, ServerName, t.Name));
                 return scenario == PublishedReviewQualification.Scenario
-                    ? allowed.Select(t => PublishedReviewQualification.DescribeGuardedTool(ServerName, t)).ToArray() : allowed.ToArray();
+                    ? allowed.Select(t => PublishedReviewQualification.DescribeGuardedTool(ServerName, t, owner._localKindCleanup)).ToArray() : allowed.ToArray();
             }
             public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => inner.ListResourcesAsync(ct);
             public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => owner._discoveryScenario is null
@@ -689,8 +692,32 @@ internal static class LiveWorkflowEvaluation
                     throw new InvalidOperationException("Remote publication is outside this live campaign.");
                 var evt = new JsonObject { ["server"] = ServerName, ["tool"] = toolName, ["arguments"] = arguments?.DeepClone(), ["started"] = DateTimeOffset.UtcNow.ToString("O") };
                 var clock = Stopwatch.StartNew();
-                try { var result = await inner.CallToolAsync(toolName, arguments, ct); evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone();
-                    owner._authority?.ObserveTool(ServerName, toolName, arguments, result); return result; }
+                try
+                {
+                    McpCallResult result;
+                    try { result = await inner.CallToolAsync(toolName, arguments, ct); }
+                    finally
+                    {
+                        if (owner._releaseCluster is { } release && ServerName == "GnOuGo.Cmd.Mcp" && toolName == "cmd_run" &&
+                            arguments?["commandName"]?.ToString() == DelegatedTestReviewAuthority.CleanupCommand)
+                        {
+                            try { evt["kind_cleanup"] = await release(); }
+                            catch (Exception error) when (error is IOException or UnauthorizedAccessException or OperationCanceledException)
+                            {
+                                evt["kind_cleanup"] = new JsonObject { ["absent"] = false, ["error"] = error.GetType().Name };
+                            }
+                        }
+                    }
+                    if (evt["kind_cleanup"] is JsonObject cleanup && cleanup["absent"]?.GetValue<bool>() != true && !result.IsError)
+                    {
+                        evt["directory_release_result"] = result.Content?.DeepClone();
+                        result = new McpCallResult { IsError = true, Content = new JsonObject { ["success"] = false,
+                            ["error_code"] = "LOCAL_KIND_CLEANUP_UNVERIFIED", ["error_message"] = "Could not verify removal of the run cluster, its nodes and kubeconfig." } };
+                    }
+                    evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone();
+                    owner._authority?.ObserveTool(ServerName, toolName, arguments, result);
+                    return result;
+                }
                 catch (Exception ex) { owner._authority?.ObserveTool(ServerName, toolName, arguments, null); evt["exception"] = ex.GetType().Name; throw; }
                 finally { evt["latency_ms"] = clock.ElapsedMilliseconds; await owner._save(evt); }
             }

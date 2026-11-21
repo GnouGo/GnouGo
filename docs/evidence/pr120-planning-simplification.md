@@ -1,5 +1,27 @@
 # PR 120 planning simplification
 
+## First SlimFaaS Server review, 21 November 2026
+
+The fresh Server session made 39 planning calls on `4c8b5711`. Calls 18
+and 28 identified the same missing contract. The checkout release could
+delete the repository, while the kind test's own finalizer could leave
+resources after an interruption. At revision 122 the planner asked for an
+independent cleanup operation. The operator cancelled at revision 123
+with no pending request. The session reached no execution. GitHub still
+had its four original reviews and six inline comments.
+
+The new local profile advertises the permitted Copilot terminal operation
+and extends the existing confined checkout release. Its failure-path
+diagnostic created a real kind cluster and observed its node container,
+then invoked reconciliation after removing the checkout fixture. It
+observed the remaining cluster, deleted it once through kind, and verified
+absence through both kind and Podman. A second call observed absence and
+issued zero deletes. The native Cmd regression also covers an inconclusive
+cluster release after a successful checkout deletion. The planner suite
+passes all 3,316 tests after restoring the single-pass collection guidance
+and fitting adaptive selection within the captured input allowance.
+[Cluster observations](pr120-live-20261121/slim519-kind-release.json)
+
 ## SlimFaaS discovery request readback, 21 November 2026
 
 Fresh Server session `810f3994d0a54b80aa03428c700fafe7` issued the same

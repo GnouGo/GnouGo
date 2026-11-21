@@ -1379,3 +1379,10 @@ For `copilot-probe --local-kind-profile` and fresh Server code runs,
 pnpm entrypoint hashes. Only the spawned Copilot MCP receives the additional
 PATH directory. The kind test uses a run-owned cluster name and kubeconfig.
 The live prerequisite used one-operation approvals under ordinary isolation.
+
+New local kind sessions capture `run-owned-kind-release-v1`. Their checkout
+release also queries kind and Podman for the initially absent run name. It
+requests deletion only after observing a remaining cluster or labelled node,
+then checks the cluster, nodes and kubeconfig again. The Cmd event retains
+the observations even if checkout deletion fails. The independent end-of-run
+probe checks the same resources after the workflow terminates.

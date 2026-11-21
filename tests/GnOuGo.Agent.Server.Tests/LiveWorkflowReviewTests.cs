@@ -22,6 +22,9 @@ public sealed class LiveWorkflowReviewTests
         Assert.Equal("https://github.com/SlimPlanet/SlimFaas/pull/519", LiveWorkflowEvaluation.ReviewUrl);
         var prompt = LiveWorkflowEvaluation.CodeEvaluationPrompt("workflows/campaign/run");
         Assert.Contains("kubeconfig", prompt, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("delete_directory", prompt, StringComparison.Ordinal);
+        Assert.Contains("cluster", PublishedReviewQualification.DescribeGuardedTool("GnOuGo.Cmd.Mcp",
+            new McpToolInfo { Name = "cmd_run" }, localKindCleanup: true).Description, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("pullRequestUrl", prompt);
         Assert.Contains("reviewText", prompt);
         Assert.DoesNotContain("github.com/", prompt);

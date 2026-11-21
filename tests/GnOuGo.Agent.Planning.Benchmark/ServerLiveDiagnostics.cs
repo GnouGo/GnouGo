@@ -104,6 +104,7 @@ internal static class ServerLiveDiagnostics
         var retainedReport = executionOnly ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
         var freshOutcome = delegatedScenario is not null || retainedReport?["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
         var business = freshOutcome ? new ServerBusinessExecution() : null;
+        var localKindCleanup = delegatedScenario == "code" || retainedReport?["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
         if (retainedReport is not null && business is not null)
         {
             discoveryScenario = retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : "amazon";
@@ -185,7 +186,7 @@ internal static class ServerLiveDiagnostics
                                 var current = await sp.GetRequiredService<LlmDefaultsResolver>().ResolveAsync(ct);
                                 var agent = current.McpServers["GnOuGo.Agent.Mcp"];
                                 return new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions> { ["GnOuGo.Agent.Mcp"] = agent });
-                            }, business is null ? null : business.AllowsAgentCall);
+                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup);
                     }
                     var planningClient = new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
                         sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>());
@@ -596,6 +597,7 @@ internal static class ServerLiveDiagnostics
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 report["workspace_relative"] = relative;
+                if (localKindCleanup) report["kind_cleanup_profile"] = SlimFaasReviewProfile.CleanupProfile;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = amazonQuery ?? "chaussure geox homme 45" } : scenario == "code"
                     ? new JsonObject { ["pullRequestUrl"] = SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = SchemaPortabilityCampaign.Option(args, "--review-text") ?? LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
                 if (SchemaPortabilityCampaign.Option(args, "--local-kind-toolchain") is { } bin)
@@ -862,11 +864,12 @@ internal static class ServerLiveDiagnostics
         current = await store.LoadAsync(current.Request.TenantId, current.Request.SessionId, CancellationToken.None)
             ?? throw new PlanningConflictException("The retained session disappeared.");
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
-        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString());
+        var discoveryScenario = PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString());
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
-        await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), scenario,
-            DelegatedDiscoveryPolicyHash());
+        await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), discoveryScenario,
+            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile);
         var previousRevision = current.Revision;
         var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
         {
@@ -1089,14 +1092,16 @@ internal static class ServerLiveDiagnostics
         Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
 
     internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
-        Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null, Func<string, JsonNode?, bool>? authorizedAgentCall = null)
+        Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null, Func<string, JsonNode?, bool>? authorizedAgentCall = null,
+        bool localKindCleanup = false)
         : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
     {
-        private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario);
+        private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario, localKindCleanup: localKindCleanup);
         private const string AgentServer = "GnOuGo.Agent.Mcp";
         public IReadOnlyList<McpServerMetadata> ServerMetadata => _filtered.ServerMetadata.Where(s => s.Name != AgentServer).ToArray();
         public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
-            ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash)
+            ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash
+                + (localKindCleanup && serverName is "GnOuGo.Cmd.Mcp" or "GnOuGo.GithubCopilot.Mcp" ? "\n" + SlimFaasReviewProfile.CleanupProfile : ""))
             : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
         {

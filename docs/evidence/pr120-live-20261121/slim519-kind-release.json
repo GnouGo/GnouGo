@@ -1,0 +1,76 @@
+{
+  "before": {
+    "cluster": "gnougo-8aeee528f9f4f3790e",
+    "kubeconfig_absent": true,
+    "kind": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "absent": true
+  },
+  "cluster": "gnougo-8aeee528f9f4f3790e",
+  "source": "local-profile-diagnostic",
+  "model_calls": 0,
+  "create_exit": 0,
+  "observed_after_create": {
+    "cluster": "gnougo-8aeee528f9f4f3790e",
+    "kubeconfig_absent": false,
+    "kind": {
+      "exit_code": 0,
+      "absent": false
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": false
+    },
+    "absent": false
+  },
+  "after_release": {
+    "cluster": "gnougo-8aeee528f9f4f3790e",
+    "kubeconfig_absent": true,
+    "kind": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "absent": true,
+    "before_release": {
+      "cluster": "gnougo-8aeee528f9f4f3790e",
+      "kubeconfig_absent": true,
+      "kind": {
+        "exit_code": 0,
+        "absent": false
+      },
+      "podman": {
+        "exit_code": 0,
+        "absent": false
+      },
+      "absent": false,
+      "kind_delete": {
+        "exit_code": 0,
+        "completed": true
+      }
+    }
+  },
+  "repeat_after_settlement": {
+    "cluster": "gnougo-8aeee528f9f4f3790e",
+    "kubeconfig_absent": true,
+    "kind": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "absent": true
+  },
+  "scope": "Host integration diagnostic. The original pinned test was simulated as interrupted after creating the cluster. Native Cmd checkout removal and propagated cleanup status were verified separately in the Server test."
+}

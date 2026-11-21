@@ -78,10 +78,14 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
     private string Api => $"repos/{Owner}/{Repository}/pulls/{Number}";
 
     // These grants belong to the qualification host. The provider's metadata also serves other hosts.
-    internal static McpToolInfo DescribeGuardedTool(string server, McpToolInfo tool)
+    internal static McpToolInfo DescribeGuardedTool(string server, McpToolInfo tool, bool localKindCleanup = false)
     {
         var guard = (server, tool.Name) switch
         {
+            ("GnOuGo.Cmd.Mcp", "cmd_run") when localKindCleanup => SlimFaasReviewProfile.CleanupContract,
+            ("GnOuGo.GithubCopilot.Mcp", "code_agent_edit") when localKindCleanup =>
+                "The local review profile permits Copilot to run the repository checks, including the supplied kind command, in the authorized checkout. " +
+                "Each shell action uses its existing permission prompt. Inspect toolExecutions for completed terminal commands, working directories and exit codes.",
             ("GnOuGo.Git.Mcp", "git_clone") => "The host checks remoteUrl, branch and targetDirectory before dispatch. " +
                 "They must identify the authorized repository, the exact captured pull request head and the confined checkout directory.",
             ("Github", "pull_request_review_write") => "Permitted write methods are create and submit_pending. The host checks for an existing pending review before create " +

@@ -130,6 +130,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         }
         var inputs = report["inputs"]!.AsObject();
         var localKind = report["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion;
+        var releaseKind = localKind && report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
         var relative = report["workspace_relative"]!.ToString();
         RequireInputs(state.Plan, inputs);
         _authority = authority;
@@ -220,7 +221,12 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 }
                 await Target!.CheckWriteAsync(tool, args, githubEvents, token);
             }
-        });
+        }, localKindCleanup: releaseKind, releaseCluster: releaseKind ? () =>
+        {
+            if (_runId is null || report["kind_cluster_before"]?["absent"]?.GetValue<bool>() != true)
+                throw new PlanningConflictException("Cluster release requires the bound execution and its fresh resource observation.");
+            return SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None, releaseRemaining: true);
+        } : null);
         foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);
         if (scenario == "code" && !proxy.Ready) throw new PlanningConflictException("SDK inference admission is unavailable.");
         if (localKind)

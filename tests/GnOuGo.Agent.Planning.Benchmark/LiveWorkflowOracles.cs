@@ -169,6 +169,13 @@ internal static partial class LiveWorkflowOracles
             if (run["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion &&
                 run["kind_cluster_after"]?["absent"]?.GetValue<bool>() != true)
                 findings.Add("run_cluster_or_kubeconfig_cleanup_unverified");
+            if (run["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile && !events.Any(e =>
+                e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
+                e["arguments"]?["commandName"]?.ToString() == DelegatedTestReviewAuthority.CleanupCommand &&
+                e["error"]?.GetValue<bool>() == false && e["result"]?["success"]?.GetValue<bool>() == true &&
+                e["kind_cleanup"]?["cluster"]?.ToString() == SlimFaasReviewProfile.Cluster(run["workspace_relative"]!.ToString()) &&
+                e["kind_cleanup"]?["absent"]?.GetValue<bool>() == true))
+                findings.Add("workflow_cluster_release_receipt_missing");
             var readback = await target.ReadBackAsync(run["events"]!.AsArray(), CancellationToken.None);
             run["github_readback"] = readback;
             findings.AddRange(readback["findings"]!.AsArray().Select(f => f!.ToString()));

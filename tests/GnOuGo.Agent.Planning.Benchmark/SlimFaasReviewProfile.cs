@@ -8,6 +8,9 @@ using System.Text.Json.Nodes;
 // receives the repository instructions and has no dependency on this verifier.
 internal static class SlimFaasReviewProfile
 {
+    internal const string CleanupProfile = "run-owned-kind-release-v1";
+    internal const string CleanupContract = "In this local profile, cmd_run delete_directory on the authorized checkout also reconciles the run-owned kind cluster. " +
+        "It deletes remaining cluster resources only when observed, and verifies absence of the cluster, its Podman nodes and kubeconfig before reporting success. This cleanup is available after a failed repository check.";
     internal static readonly string[] ManifestPaths = ["AGENTS.md", "global.json", ".github/workflows/main.yml",
         ".github/workflows/dashboard.yml", ".github/workflows/SiteBuild.yml", ".agents/skills/slimfaas-build-test/SKILL.md",
         "src/SlimFaasSite/package.json", "src/SlimFaasPlanetSaver/package.json", "src/SlimFaas/ClientApp/package.json",
@@ -48,20 +51,21 @@ internal static class SlimFaasReviewProfile
     internal static string KindCommand(string cluster) =>
         $"KUBECONFIG=./{cluster}.kubeconfig KIND_EXPERIMENTAL_PROVIDER=podman python3 .bin/test-annotation-policy.py --cluster {cluster}";
 
-    internal static async Task<JsonObject> ObserveClusterAsync(string relative, string workspace, CancellationToken ct)
+    internal static async Task<JsonObject> ObserveClusterAsync(string relative, string workspace, CancellationToken ct, bool releaseRemaining = false)
     {
         var name = Cluster(relative);
         var config = Path.Combine(workspace, relative, "repository", name + ".kubeconfig");
         var evidence = new JsonObject { ["cluster"] = name, ["kubeconfig_absent"] = !Path.Exists(config) &&
             new FileInfo(config).LinkTarget is null };
-        async Task<bool> Query(string executable, string[] arguments, Func<string, bool> absent)
+        async Task<bool> Query(string executable, string[] arguments, Func<string, bool> matches, string? releaseConfig = null)
         {
+            var key = releaseConfig is null ? executable : "kind_delete";
             var start = new ProcessStartInfo(executable) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false };
             foreach (var arg in arguments) start.ArgumentList.Add(arg);
-            start.Environment["KUBECONFIG"] = config;
+            start.Environment["KUBECONFIG"] = releaseConfig ?? config;
             start.Environment["KIND_EXPERIMENTAL_PROVIDER"] = "podman";
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            deadline.CancelAfter(TimeSpan.FromSeconds(15));
+            deadline.CancelAfter(TimeSpan.FromSeconds(releaseConfig is null ? 15 : 90));
             using var process = new Process { StartInfo = start };
             try
             {
@@ -70,21 +74,35 @@ internal static class SlimFaasReviewProfile
                 var stderr = process.StandardError.ReadToEndAsync(deadline.Token);
                 try { await Task.WhenAll(stdout, stderr, process.WaitForExitAsync(deadline.Token)); }
                 catch (OperationCanceledException) { if (!process.HasExited) process.Kill(entireProcessTree: true); throw; }
-                var result = process.ExitCode == 0 && absent(await stdout);
-                evidence[executable] = new JsonObject { ["exit_code"] = process.ExitCode, ["absent"] = result };
+                var result = process.ExitCode == 0 && matches(await stdout);
+                evidence[key] = new JsonObject { ["exit_code"] = process.ExitCode, [releaseConfig is null ? "absent" : "completed"] = result };
                 return result;
             }
             catch (Exception error) when (error is System.ComponentModel.Win32Exception or IOException or OperationCanceledException)
             {
-                evidence[executable] = new JsonObject { ["error"] = error.GetType().Name };
+                evidence[key] = new JsonObject { ["error"] = error.GetType().Name };
                 return false;
             }
         }
         var clusters = await Query("kind", ["get", "clusters"], output => !output.Split('\n', StringSplitOptions.TrimEntries).Contains(name, StringComparer.Ordinal));
         var containers = await Query("podman", ["ps", "--all", "--filter", "label=io.x-k8s.kind.cluster=" + name, "--format", "{{.ID}}"], string.IsNullOrWhiteSpace);
         evidence["absent"] = clusters && containers && evidence["kubeconfig_absent"]!.GetValue<bool>();
+        if (releaseRemaining && OwnedClusterObserved(evidence))
+        {
+            // The checkout may have disappeared or contain a repository-provided kubeconfig.
+            // kind deletion uses only the run name and its own empty, private configuration.
+            var scratch = Directory.CreateTempSubdirectory("gnougo-kind-release-");
+            try { await Query("kind", ["delete", "cluster", "--name", name], _ => true, Path.Combine(scratch.FullName, "config")); }
+            finally { scratch.Delete(recursive: true); }
+            var after = await ObserveClusterAsync(relative, workspace, ct);
+            after["before_release"] = evidence;
+            return after;
+        }
         return evidence;
     }
+
+    internal static bool OwnedClusterObserved(JsonObject evidence) => new[] { "kind", "podman" }.Any(source =>
+        evidence[source]?["exit_code"]?.GetValue<int>() == 0 && evidence[source]?["absent"]?.GetValue<bool>() == false);
 
     internal static void Verify(JsonObject run, string repository, JsonArray commands, HashSet<string> inconclusive, JsonObject checks)
     {

@@ -45,6 +45,30 @@ public sealed class BenchmarkDiscoveryVisibilityTests
             var cleanup = await session.CallToolAsync("cmd_run", new JsonObject { ["commandName"] = "delete_directory", ["parameters"] = parameters.DeepClone() }, ct);
             Assert.False(cleanup.IsError);
             Assert.False(Directory.Exists(checkout));
+            foreach (var absent in new[] { false, true })
+            {
+                var events = new List<JsonObject>();
+                var releases = 0;
+                var profileTransport = new LiveWorkflowEvaluation.ObservedMcp(factory,
+                    evt => { events.Add(evt); return Task.CompletedTask; }, discoveryScenario: PublishedReviewQualification.Scenario,
+                    localKindCleanup: true, releaseCluster: () =>
+                    {
+                        releases++;
+                        Assert.False(Directory.Exists(checkout));
+                        return Task.FromResult(new JsonObject { ["absent"] = absent });
+                    });
+                await using var observed = await profileTransport.GetClientAsync(server, ct);
+                var scopedTool = Assert.Single(await observed.ListToolsAsync(ct), t => t.Name == "cmd_run");
+                Assert.Contains(SlimFaasReviewProfile.CleanupContract, scopedTool.Description);
+                Directory.CreateDirectory(checkout);
+                var result = await observed.CallToolAsync("cmd_run", new JsonObject {
+                    ["commandName"] = DelegatedTestReviewAuthority.CleanupCommand, ["parameters"] = parameters.DeepClone() }, ct);
+                Assert.Equal(!absent, result.IsError);
+                Assert.Equal(1, releases);
+                var receipt = Assert.Single(events);
+                Assert.Equal(absent, receipt["kind_cleanup"]!["absent"]!.GetValue<bool>());
+                if (!absent) Assert.True(receipt["directory_release_result"]!["success"]!.GetValue<bool>());
+            }
             Assert.Equal(saved, JsonSerializer.Serialize(configured));
             configured[server].EnvironmentVariables![timeout] = "20000";
             Assert.Equal("20000", LiveWorkflowEvaluation.Configuration(configured, PublishedReviewQualification.Scenario, null, build, source)
