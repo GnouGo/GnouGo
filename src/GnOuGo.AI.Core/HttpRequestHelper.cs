@@ -523,7 +523,8 @@ public static class HttpRequestHelper
                 var requested = initial.Remaining(utcNow());
                 if (requested.TotalMilliseconds > remainingDelay)
                     throw CreateFailure("Background receipt retrieval is deferred until the provider permits polling.", (HttpStatusCode)(attempt.ObservedStatus ?? 202),
-                        new(1, true, ToMilliseconds(requested), LLMProviderFailureKind.RateLimited, null, initial.NotBeforeUtc, "receipt_retrieval", attempt.Id));
+                        new(1, true, ToMilliseconds(initial.Remaining(initial.ObservedAtUtc)), LLMProviderFailureKind.RateLimited, null,
+                            initial.NotBeforeUtc, "receipt_retrieval", attempt.Id, attempt.ProviderRequestIdHash));
                 waitBefore = requested;
             }
             if (attempt.ReceiptRetrievals.LastOrDefault() is { } prior)
@@ -539,8 +540,12 @@ public static class HttpRequestHelper
                         throw CreateFailure("Background receipt retrieval stopped at the provider retry boundary.", status,
                             new(attempt.ReceiptRetrievals.Count, retryable, ToMilliseconds(prior.ProviderRetryDelay?.Remaining(prior.ProviderRetryDelay.ObservedAtUtc)), kind.Kind, kind.SafeProviderCode, prior.NotBefore, prior.FailurePhase ?? "receipt_retrieval", prior.RequestId, prior.ProviderRequestIdHash));
                 }
-                else if (failures >= policy.MaxAttempts || prior.ProviderRetryDelay is not null && wait.TotalMilliseconds > remainingDelay)
-                    throw new HttpRequestException("Background receipt retrieval is deferred by its captured wait or attempt limit.");
+                else if (prior.Status is >= 200 and < 300 && prior.ProviderRetryDelay is { } cooldown && wait.TotalMilliseconds > remainingDelay)
+                    throw CreateFailure("Background receipt retrieval is deferred until the provider permits polling.", (HttpStatusCode)prior.Status.Value,
+                        new(attempt.ReceiptRetrievals.Count, true, ToMilliseconds(cooldown.Remaining(cooldown.ObservedAtUtc)), LLMProviderFailureKind.RateLimited,
+                            null, cooldown.NotBeforeUtc, "receipt_retrieval", prior.RequestId, prior.ProviderRequestIdHash));
+                else if (failures >= policy.MaxAttempts)
+                    throw new HttpRequestException("The captured background receipt attempt limit was reached.");
                 if (prior.Status is >= 400 || prior.ProviderRetryDelay is not null) waitBefore = wait;
                 else if (wait > TimeSpan.Zero) await delay(wait, ct).ConfigureAwait(false);
             }
@@ -607,7 +612,13 @@ public static class HttpRequestHelper
             catch (Exception ex)
             {
                 retrieval.FailurePhase = retrieval.Status is null ? "response_headers" : "response_body";
-                retrieval.Failure = ct.IsCancellationRequested ? "cancelled" : ex is OperationCanceledException ? "timeout" : "retrieval failed";
+                var timedOut = ex is OperationCanceledException or TimeoutException;
+                retrieval.Failure = ct.IsCancellationRequested ? "cancelled" : timedOut ? "timeout" : "retrieval failed";
+                if (!ct.IsCancellationRequested && ex is not InvalidDataException && (timedOut || ex is HttpRequestException or IOException or JsonException))
+                    throw CreateFailure("The provider receipt could not be retrieved completely.", (HttpStatusCode?)retrieval.Status,
+                        new(attempt.ReceiptRetrievals.Count, false, ToMilliseconds(retrieval.ProviderRetryDelay?.Remaining(retrieval.ProviderRetryDelay.ObservedAtUtc)),
+                            timedOut ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport, null, retrieval.NotBefore, retrieval.FailurePhase,
+                            retrieval.RequestId, retrieval.ProviderRequestIdHash));
                 throw;
             }
             finally
@@ -672,7 +683,7 @@ public static class HttpRequestHelper
 
     internal static HttpRequestException CreateFailure(
         string safeMessage,
-        HttpStatusCode statusCode,
+        HttpStatusCode? statusCode,
         LLMHttpRetryMetadata? retryMetadata,
         Exception? inner = null)
     {

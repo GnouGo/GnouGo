@@ -99,6 +99,9 @@ request. The transport honors `Retry-After` seconds (including fractional provid
 valid headers arrive, the latest allowed instant wins. In their absence it uses
 full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
 cumulatively. A delay outside that budget stops recovery and records the earliest retry.
+Background polling also honors cooldowns on successful responses whose work is still
+pending. A failed receipt read records its own HTTP status when available, failure
+phase and correlation. Recovery retrieves the same provider response ID.
 The OpenAI and Azure SDKs also recognize provider millisecond headers.
 [OpenAI SDK](https://github.com/openai/openai-python/blob/main/src/openai/_base_client.py) ·
 [Azure SDK](https://github.com/Azure/azure-sdk-for-js/blob/main/sdk/core/ts-http-runtime/src/retryStrategies/throttlingRetryStrategy.ts)

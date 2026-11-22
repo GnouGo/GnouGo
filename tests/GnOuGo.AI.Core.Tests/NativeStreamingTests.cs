@@ -400,9 +400,11 @@ public sealed class NativeStreamingTests
     }
 
     [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task BackgroundReceiptRateLimitSurvivesRestartAndOnlyRetrievesTheOriginalId(bool streaming)
+    [InlineData(true, HttpStatusCode.TooManyRequests)]
+    [InlineData(false, HttpStatusCode.TooManyRequests)]
+    [InlineData(true, HttpStatusCode.Accepted)]
+    [InlineData(false, HttpStatusCode.OK)]
+    public async Task BackgroundReceiptRateLimitSurvivesRestartAndOnlyRetrievesTheOriginalId(bool streaming, HttpStatusCode pollStatus)
     {
         var journal = new Journal();
         var start = DateTimeOffset.UnixEpoch;
@@ -419,9 +421,12 @@ public sealed class NativeStreamingTests
             Assert.Equal(HttpRequestHelper.JournalRetryOwner, req.Headers.GetValues(HttpRequestHelper.RetryOwnerHeader).Single());
             if (sends.Count == 2)
             {
-                var rejected = new HttpResponseMessage(HttpStatusCode.TooManyRequests) { Content = new StringContent("""{"error":{"code":"rate_limit_exceeded"}}""") };
-                rejected.Headers.TryAddWithoutValidation("x-ms-retry-after-ms", "2500");
-                return Task.FromResult(rejected);
+                var body = pollStatus == HttpStatusCode.TooManyRequests ? """{"error":{"code":"rate_limit_exceeded"}}""" :
+                    """{"id":"resp_timing","status":"in_progress"}""";
+                var poll = new HttpResponseMessage(pollStatus) { Content = new StringContent(body) };
+                poll.Headers.TryAddWithoutValidation("x-ms-retry-after-ms", "2500");
+                poll.Headers.TryAddWithoutValidation("x-request-id", "private-poll-id");
+                return Task.FromResult(poll);
             }
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"id":"resp_timing","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1}}""") });
         }));
@@ -437,8 +442,13 @@ public sealed class NativeStreamingTests
         using (new LLMHttpRetryContext("capture", journal, policy).Activate())
         {
             var failure = await Assert.ThrowsAsync<HttpRequestException>(Send);
-            Assert.Equal(HttpStatusCode.TooManyRequests, failure.StatusCode);
-            Assert.Equal(start.AddMilliseconds(2500), HttpRequestHelper.GetRetryMetadata(failure)!.NotBeforeUtc);
+            Assert.Equal(pollStatus, failure.StatusCode);
+            var metadata = HttpRequestHelper.GetRetryMetadata(failure)!;
+            Assert.Equal(start.AddMilliseconds(2500), metadata.NotBeforeUtc);
+            Assert.Equal(2500, metadata.RetryAfterMilliseconds);
+            Assert.Equal(pollStatus == HttpStatusCode.TooManyRequests ? "provider_rejection" : "receipt_retrieval", metadata.FailurePhase);
+            Assert.Equal(Assert.Single(Assert.Single(journal.State!.Attempts).ReceiptRetrievals!).RequestId, metadata.PhysicalRequestId);
+            Assert.Equal(64, metadata.ProviderRequestIdHash?.Length);
         }
         now = start.AddSeconds(1);
         using (new LLMHttpRetryContext("capture", journal, policy).Activate()) await Assert.ThrowsAsync<HttpRequestException>(Send);
@@ -447,6 +457,48 @@ public sealed class NativeStreamingTests
         using (var recovered = await Send()) Assert.Contains("completed", await recovered.Content.ReadAsStringAsync(Ct));
         Assert.Equal([("POST", start), ("GET", start), ("GET", start.AddMilliseconds(2500))], sends);
         Assert.Equal(2, Assert.Single(journal.State!.Attempts).ReceiptRetrievals!.Count);
+    }
+
+    [Theory]
+    [InlineData("network", "response_headers", LLMProviderFailureKind.Transport)]
+    [InlineData("timeout", "response_body", LLMProviderFailureKind.Timeout)]
+    [InlineData("truncated", "response_body", LLMProviderFailureKind.Transport)]
+    public async Task InterruptedPollingExposesThePhysicalPhaseAndRecoversOnlyTheOriginalReceipt(
+        string failure, string phase, LLMProviderFailureKind kind)
+    {
+        var journal = new Journal();
+        List<HttpMethod> calls = [];
+        using var http = NewHttp(new Handler(req =>
+        {
+            calls.Add(req.Method);
+            if (req.Method == HttpMethod.Post) return Task.FromResult(Response("openai", Event(new
+                { type = "response.created", sequence_number = 0, response = new { id = "resp_poll", status = "in_progress" } })));
+            Assert.EndsWith("/responses/resp_poll", req.RequestUri!.AbsolutePath);
+            if (calls.Count == 2 && failure == "network") throw new HttpRequestException("private-fixture-marker");
+            var body = calls.Count == 2 ? new FragmentStream("""{"id":"resp"""u8.ToArray(), waitAtEnd: failure == "timeout") :
+                new FragmentStream("""{"id":"resp_poll","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1}}"""u8.ToArray());
+            var result = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(body) };
+            result.Headers.TryAddWithoutValidation("x-request-id", "private-fixture-marker");
+            return Task.FromResult(result);
+        }));
+        var policy = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, AttemptTimeoutMilliseconds = 500 };
+        var request = Request();
+        request.UseBackgroundMode = true;
+        using (new LLMHttpRetryContext("poll", journal, policy).Activate())
+        {
+            var error = await Assert.ThrowsAsync<LLMProviderException>(() => Client(http, "openai").CallAsync(request, Ct));
+            Assert.Equal(kind, error.Kind);
+            Assert.Equal(phase, error.FailurePhase);
+            var poll = Assert.Single(Assert.Single(journal.State!.Attempts).ReceiptRetrievals!);
+            Assert.Equal(poll.RequestId, error.PhysicalRequestId);
+            Assert.Equal(poll.Status, error.StatusCode);
+            Assert.Equal(poll.ProviderRequestIdHash, error.ProviderRequestIdHash);
+            Assert.DoesNotContain("private-fixture-marker", error.Message);
+        }
+        using (new LLMHttpRetryContext("poll", journal, policy).Activate())
+            Assert.NotNull((await Client(http, "openai").CallAsync(request, Ct)).Usage);
+        Assert.Equal([HttpMethod.Post, HttpMethod.Get, HttpMethod.Get], calls);
+        Assert.Single(journal.State!.Attempts);
     }
 
     [Fact]
