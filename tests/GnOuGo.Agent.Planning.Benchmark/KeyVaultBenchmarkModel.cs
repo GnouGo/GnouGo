@@ -559,7 +559,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     {
         var policy = captured?["effective_retry_policy"]?.Deserialize(LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
             ?? _options.ResolveProvider(Provider)!.RetryPolicy.Clone();
-        policy.MaxAttempts = 1; policy.MaxUncertainRetries = 0;
+        policy.MaxAttempts = Math.Min(policy.MaxAttempts, 3);
+        policy.MaxUncertainRetries = 0;
+        if (captured is null) policy.AttemptTimeoutMilliseconds = Math.Min(policy.AttemptTimeoutMilliseconds, 270_000);
         if (attemptTimeoutLimitMilliseconds is { } limit)
         {
             ArgumentOutOfRangeException.ThrowIfNegativeOrZero(limit);
@@ -568,14 +570,18 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         return policy;
     }
 
-    private JsonObject RuntimeTransportPolicy(string mode, LLMRequest request, int? attemptTimeoutLimitMilliseconds = null) => new()
+    private JsonObject RuntimeTransportPolicy(string mode, LLMRequest request, int? attemptTimeoutLimitMilliseconds = null, int? maximumAttempts = null)
     {
-        ["version"] = 2, ["mode"] = mode, ["disable_transport_retries"] = true,
-        ["request_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
-        ["allow_http_recovery"] = true,
-        ["effective_retry_policy"] = JsonSerializer.SerializeToNode(RuntimeRetryPolicy(attemptTimeoutLimitMilliseconds: attemptTimeoutLimitMilliseconds),
-            LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
-    };
+        var policy = RuntimeRetryPolicy(attemptTimeoutLimitMilliseconds: attemptTimeoutLimitMilliseconds);
+        policy.MaxAttempts = Math.Min(policy.MaxAttempts, request.DisableTransportRetries ? 1 : maximumAttempts ?? policy.MaxAttempts);
+        return new()
+        {
+            ["version"] = 2, ["mode"] = mode, ["disable_transport_retries"] = policy.MaxAttempts == 1,
+            ["request_hash"] = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)),
+            ["allow_http_recovery"] = true,
+            ["effective_retry_policy"] = JsonSerializer.SerializeToNode(policy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
+        };
+    }
 
     // A saved logical request is not permission to repeat an unresolved physical attempt.
     // Check identity before the campaign's historical receipt fast path; never rewrite its policy.
@@ -592,10 +598,10 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             journal["effective_transport_policy_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(policy.ToJsonString()))
             throw new InvalidOperationException("The retained runtime transport policy hash changed.");
         var captured = journal?["effective_transport_policy"] as JsonObject;
-        if (BenchmarkHttpJournal.IsRuntimeSingleAttempt(captured))
+        if (BenchmarkHttpJournal.IsRuntimePolicy(captured))
         {
             if (captured!["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) ||
-                captured["mode"]?.ToString() != (sdkWireFingerprint is null ? "runtime_single_attempt" : "sdk_proxy_single_attempt") ||
+                (captured["mode"]?.ToString() is "sdk_proxy_single_attempt" or "sdk_proxy_confirmed_retry") != (sdkWireFingerprint is not null) ||
                 sdkWireFingerprint is not null && captured["wire_fingerprint"]?.ToString() != sdkWireFingerprint)
                 throw new InvalidOperationException("The captured runtime admission does not match this exact request and upstream.");
         }
@@ -610,9 +616,14 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         }
         var attempts = journal["transport"]?["Attempts"] as JsonArray
             ?? throw new InvalidOperationException("The runtime HTTP journal is incomplete.");
-        if (attempts.Count == 0 && BenchmarkHttpJournal.IsRuntimeSingleAttempt(journal["effective_transport_policy"] as JsonObject)) return journal;
+        if (attempts.Count == 0 && BenchmarkHttpJournal.IsRuntimePolicy(journal["effective_transport_policy"] as JsonObject)) return journal;
         if (attempts.LastOrDefault() is JsonObject last && last["Status"]?.GetValue<int>() is >= 200 and < 300 &&
             last["Body"] is not null && last["Failure"] is null && original is not null) return journal;
+        if (captured?["mode"]?.ToString() is "runtime_confirmed_retry" or "sdk_proxy_confirmed_retry" &&
+            original is not null && attempts.LastOrDefault() is JsonObject transient && transient["Status"]?.GetValue<int>() is 429 or 500 or 502 or 503 or 504 &&
+            transient["Failure"] is null && transient["ResponseBodyComplete"]?.GetValue<bool>() == true &&
+            transient["Body"] is not null && transient["RetryDecision"]?.ToString() != "cancelled; no retry")
+            return journal; // AI.Core rechecks classification, stored delay and attempt count before admission.
         throw new InvalidOperationException("Runtime inference has no exact completed response; another dispatch is forbidden.");
     }
 
@@ -631,7 +642,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             !JsonNode.DeepEquals(reserved, JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)))
             throw new InvalidOperationException("The reserved request changed.");
         var dispatched = CreateDispatchRequest(request, Provider, Model, execution, advisoryTokens);
-        if (execution && (runtimeJournal is null || BenchmarkHttpJournal.IsRuntimeSingleAttempt(runtimeJournal["effective_transport_policy"] as JsonObject)))
+        if (execution && BenchmarkHttpJournal.IsRuntimeSingleAttempt(runtimeJournal?["effective_transport_policy"] as JsonObject))
             dispatched.DisableTransportRetries = true;
         if (incremental && capturedTransport is null) dispatched.DisableTransportRetries = true;
         else if (capturedTransport is not null) dispatched.DisableTransportRetries = request.DisableTransportRetries;
@@ -657,7 +668,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["effective_retry_policy"] = JsonSerializer.SerializeToNode(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
         };
         if (execution)
-            effectiveTransportPolicy = runtimeJournal is null ? RuntimeTransportPolicy("runtime_single_attempt", request, attemptTimeoutLimitMilliseconds) :
+            effectiveTransportPolicy = runtimeJournal is null ? RuntimeTransportPolicy("runtime_confirmed_retry", request, attemptTimeoutLimitMilliseconds) :
                 runtimeJournal["effective_transport_policy"]?.DeepClone().AsObject();
         if (capturedTransport is not null)
         {
@@ -703,7 +714,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 reviewInput, reviewOutput, effectiveTransportPolicy);
         }, async token =>
         {
-            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy).Activate();
+            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy, time: execution ? _time : null).Activate();
             var response = await _client.CallAsync(dispatched, token);
             await CompleteResponseAsync(request, response, journal!);
             return response;
@@ -862,8 +873,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             ["reserved_output_tokens"] = pending * record["output_ceiling"]!.GetValue<long>(),
             ["reserved_cost_eur"] = pending * record["cost_ceiling_eur"]!.GetValue<decimal>() };
     }
-    internal async Task<(int Status, string ContentType, string Body)> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct,
-        string? chatToolsReasoningEffort = null, string? wireApi = null, string? inferenceTransport = null, int outputLimit = 32768)
+    internal async Task<CampaignInferenceResponse> ProxyInferenceAsync(string run, Dictionary<string, string> headers, string body, CancellationToken ct,
+        string? chatToolsReasoningEffort = null, string? wireApi = null, string? inferenceTransport = null, int outputLimit = 32768, int physicalCredit = 3, int? maximumAttempts = null)
     {
         await _dispatchGate.WaitAsync(ct);
         try
@@ -900,7 +911,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             BenchmarkHttpJournal? journal = null;
             var wireFingerprint = PlanningGraphCompiler.Fingerprint("POST\n" + upstream.AbsoluteUri + "\n" + body);
             var retained = await RuntimeJournalAsync(request, ct, wireFingerprint);
-            var transportPolicy = retained is null ? RuntimeTransportPolicy("sdk_proxy_single_attempt", request, 270_000) :
+            var transportPolicy = retained is null ? RuntimeTransportPolicy("sdk_proxy_confirmed_retry", request, 270_000, maximumAttempts) :
                 retained["effective_transport_policy"]?.DeepClone().AsObject();
             if (retained is null)
             {
@@ -923,62 +934,55 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             }, async token =>
             {
                 var state = await journal!.LoadAsync(token) ?? new();
-                if (state.Attempts.Count == 0)
+                var completed = state.Attempts.LastOrDefault();
+                // A retained wire response already contains everything needed to verify and recover the SDK reply.
+                if (completed is not { Status: >= 200 and < 300, Body: not null, Failure: null })
                 {
-                    state.Fingerprint = wireFingerprint;
-                    state.RequestMethod = "POST";
-                    state.Endpoint = new UriBuilder(upstream) { UserName = "", Password = "", Query = "", Fragment = "" }.Uri.GetLeftPart(UriPartial.Path);
-                    state.RequestBody = body;
-                    var timeoutMs = transportPolicy!["timeout_ms"]!.GetValue<long>();
-                    var started = _time.GetUtcNow();
-                    var physical = new LLMHttpAttempt { Id = id, StartedAtUtc = started, DeadlineAtUtc = started.AddMilliseconds(timeoutMs) };
-                    state.Attempts.Add(physical);
-                    await journal.SaveAsync(state, token);
-                    using var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
-                    foreach (var header in headers)
-                        if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) && header.Key is not ("Host" or "Content-Length" or "Content-Type"))
-                            message.Headers.TryAddWithoutValidation(header.Key, header.Value);
-                    // ResponseHeadersRead ends HttpClient.Timeout at the headers. Apply the
-                    // captured physical deadline to the body as well, including stalled streams.
-                    using var attempt = CancellationTokenSource.CreateLinkedTokenSource(token);
-                    if (timeoutMs > 0) attempt.CancelAfter(TimeSpan.FromMilliseconds(timeoutMs));
-                    try
-                    {
-                        using var result = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, attempt.Token);
-                        physical.ObservedStatus = (int)result.StatusCode;
-                        physical.ContentType = result.Content.Headers.ContentType?.ToString() ?? "application/json";
-                        physical.Body = await result.Content.ReadAsStringAsync(attempt.Token);
-                        physical.ResponseBodyComplete = true;
-                        physical.Status = physical.ObservedStatus;
-                    }
-                    catch (Exception failure) when (failure is HttpRequestException or IOException or OperationCanceledException or InvalidOperationException)
-                    {
-                        physical.Failure = failure.GetType().Name;
-                        physical.TerminationStatus = physical.ObservedStatus.HasValue ? "response_body_interrupted" : "response_headers_unavailable";
-                        if (failure is OperationCanceledException)
-                            physical.CancellationSource = token.IsCancellationRequested ? "caller" : attempt.IsCancellationRequested ? "attempt_deadline" : "transport";
-                        physical.ResponseBodyComplete = false;
-                        physical.CompletedAtUtc = _time.GetUtcNow();
-                        await journal.SaveAsync(state, CancellationToken.None);
-                        throw;
-                    }
-                    physical.CompletedAtUtc = _time.GetUtcNow();
-                    await journal.SaveAsync(state, CancellationToken.None);
+                    var retry = RuntimeRetryPolicy(transportPolicy);
+                    using var context = new LLMHttpRetryContext(id, new SdkAttemptCreditJournal(journal, physicalCredit), retry, time: _time).Activate();
+                    using var result = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, retry, token);
+                    state = await journal.LoadAsync(token) ?? throw new InvalidOperationException("The SDK HTTP journal is missing.");
+                    completed = state.Attempts[^1];
                 }
-                if (state.Fingerprint != wireFingerprint || state.Attempts.Count != 1 ||
-                    state.Attempts[0].Status is null || state.Attempts[0].Body is null || state.Attempts[0].Failure is not null)
+                if (!string.Equals(state.Fingerprint, wireFingerprint, StringComparison.OrdinalIgnoreCase) ||
+                    completed.Status is null || completed.Body is null || completed.Failure is not null)
                     throw new InvalidOperationException("No exact completed SDK inference response is available.");
-                var completed = state.Attempts[0];
+
+                HttpRequestMessage CreateRequest()
+                {
+                    var message = new HttpRequestMessage(HttpMethod.Post, upstream) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
+                    foreach (var header in headers)
+                        if (!header.Key.StartsWith("X-GnOuGo-Inference-", StringComparison.OrdinalIgnoreCase) &&
+                            !header.Key.Equals("Host", StringComparison.OrdinalIgnoreCase) && !header.Key.StartsWith("Content-", StringComparison.OrdinalIgnoreCase))
+                            message.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                    return message;
+                }
                 var text = completed.Body!; var contentType = completed.ContentType ?? "application/json";
                 JsonNode? native;
-                if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase) && completed.Status is >= 200 and < 300)
+                try
                 {
-                    using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text), writable: false);
-                    var protocol = upstream.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal) ?
-                        LLMTransportResolver.Responses : LLMTransportResolver.ChatCompletions;
-                    native = await NativeStreamingResponse.ReadAsync(stream, protocol, token);
+                    if (contentType.StartsWith("text/event-stream", StringComparison.OrdinalIgnoreCase) && completed.Status is >= 200 and < 300)
+                    {
+                        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text), writable: false);
+                        var protocol = upstream.AbsolutePath.EndsWith("/responses", StringComparison.Ordinal) ?
+                            LLMTransportResolver.Responses : LLMTransportResolver.ChatCompletions;
+                        native = await NativeStreamingResponse.ReadAsync(stream, protocol, token);
+                    }
+                    else native = completed.Status is >= 200 and < 300 ? JsonNode.Parse(text) : null;
                 }
-                else native = JsonNode.Parse(text);
+                catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or HttpRequestException)
+                {
+                    await MarkInvalidProtocol();
+                    throw;
+                }
+                async Task MarkInvalidProtocol()
+                {
+                    if (transportPolicy?["mode"]?.ToString() != "sdk_proxy_confirmed_retry" || completed.StreamFailure == "invalid_protocol") return;
+                    completed.ProtocolComplete = false;
+                    completed.StreamFailure = "invalid_protocol";
+                    completed.FailurePhase = "response_protocol";
+                    await journal.SaveAsync(state, CancellationToken.None);
+                }
                 var usage = native?["usage"];
                 JsonObject? measured = null;
                 if (completed.Status is >= 200 and < 300 && (usage?["input_tokens"] ?? usage?["prompt_tokens"])?.GetValue<long>() is { } usedInput &&
@@ -993,11 +997,17 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                         ? native?["status"]?.ToString() == "completed" && native["output"] is JsonArray
                         : native?["choices"] is JsonArray { Count: 1 } choices && choices[0]?["message"] is JsonObject &&
                           choices[0]?["finish_reason"]?.ToString() is "stop" or "tool_calls" or "function_call";
-                    if (!complete) throw new InvalidDataException("The SDK provider did not complete its response.");
+                    if (!complete)
+                    {
+                        await MarkInvalidProtocol();
+                        throw new InvalidDataException("The SDK provider did not complete its response.");
+                    }
                 }
-                return new LLMResponse { Text = text, Json = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType }, Usage = measured };
+                var info = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType };
+                if (completed.ProviderRetryDelay is { } timing) info["retry_header"] = new JsonObject { ["name"] = timing.Header, ["value"] = timing.Value };
+                return new LLMResponse { Text = text, Json = info, Usage = measured };
             }, ct, allowHttpRecovery: true);
-            return (response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text);
+            return new(response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text, response.Json["retry_header"] as JsonObject);
         }
         finally { _dispatchGate.Release(); }
     }

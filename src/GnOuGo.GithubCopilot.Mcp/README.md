@@ -328,6 +328,14 @@ explicit output ceilings and conservative, non-refundable token reservations;
 opaque prior-conversation references, multimodal requests and unaccounted WebSockets
 are rejected. Receipts label reservations `reserved_upper_bound`.
 
+A campaign relay can advertise journal-owned retries at its loopback readiness
+endpoint. A confirmed rejection can then request another physical reservation
+for the same SDK request and wire body. The SDK does not rerun the preceding
+tool action. Once a rejection is terminal or a response is interrupted, that
+client stops forwarding further model requests. The campaign records each
+physical attempt separately. Per-attempt deadlines cover the entire upstream
+response, and workflow cancellation also covers waits.
+
 Terminal preparation failures carry an optional safe `failure` alongside the existing
 result/receipt fields. Codes distinguish `AGENT_ISOLATION_REQUIRED`,
 `AGENT_ISOLATION_POLICY_INVALID`, `AGENT_ISOLATION_UNAVAILABLE` and

@@ -31,6 +31,45 @@ public sealed class CopilotInferenceProxyTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NegotiatedJournalStopsAnSdkRetryAfterRejectionOrInterruptedBody(bool interrupted)
+    {
+        var forwards = 0;
+        using var client = new HttpClient(new Handler(request =>
+        {
+            if (request.RequestUri!.AbsolutePath.EndsWith("/ready", StringComparison.Ordinal))
+            {
+                var ready = new HttpResponseMessage(HttpStatusCode.NoContent);
+                ready.Headers.Add(CopilotInferenceProxyHandler.RetryOwnerHeader, CopilotInferenceProxyHandler.RetryOwner);
+                return Task.FromResult(ready);
+            }
+            forwards++;
+            return Task.FromResult(interrupted
+                ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new BrokenStream()) }
+                : new HttpResponseMessage(HttpStatusCode.TooManyRequests));
+        }));
+        var proxy = new TestProxy(client, new Uri("http://127.0.0.1:8123/inference"));
+        await proxy.VerifyReadyAsync(TestContext.Current.CancellationToken);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/responses");
+        using var first = await proxy.Send(request, Context("first"));
+        if (interrupted)
+        {
+            using var stream = await first.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken);
+            await Assert.ThrowsAsync<IOException>(() => stream.ReadAsync(new byte[1], TestContext.Current.CancellationToken).AsTask());
+        }
+        else Assert.Equal(HttpStatusCode.TooManyRequests, first.StatusCode);
+        await Assert.ThrowsAsync<HttpRequestException>(() => proxy.Send(request, Context("sdk-retry-with-new-id")));
+        Assert.Equal(1, forwards);
+    }
+
+    private sealed class BrokenStream : MemoryStream
+    {
+        public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default)
+            => ValueTask.FromException<int>(new IOException("Fixture connection closed."));
+    }
+
+    [Theory]
     [InlineData("https://external.example/policy")]
     [InlineData("http://user@localhost/policy")]
     [InlineData("http://localhost/policy#fragment")]

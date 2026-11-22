@@ -9,6 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="../Shared/ManualClock.cs" Link="ManualClock.cs" />
     <ProjectReference Include="..\..\src\GnOuGo.Agent.Server\GnOuGo.Agent.Server.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj" />
     <ProjectReference Include="../../src/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp.csproj" />

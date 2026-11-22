@@ -55,11 +55,16 @@ builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopil
 builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
 builder.Services.AddHttpClient(nameof(CopilotInferenceProxyHandler), client => client.Timeout = Timeout.InfiniteTimeSpan)
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false });
-builder.Services.AddSingleton<ICopilotSdkClientFactory>(sp =>
+builder.Services.AddSingleton(sp =>
 {
     var endpoint = sp.GetRequiredService<IOptions<CodeServerSettings>>().Value.Copilot.InferenceProxyEndpoint;
-    return new GitHubCopilotSdkClientFactory(sp.GetRequiredService<ILoggerFactory>(), endpoint is null ? null :
-        new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute)),
+    return new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)),
+        new Uri(endpoint ?? throw new InvalidOperationException("The inference proxy is not configured."), UriKind.Absolute));
+});
+builder.Services.AddSingleton<ICopilotSdkClientFactory>(sp =>
+{
+    var configured = sp.GetRequiredService<IOptions<CodeServerSettings>>().Value.Copilot.InferenceProxyEndpoint is not null;
+    return new GitHubCopilotSdkClientFactory(sp.GetRequiredService<ILoggerFactory>(), configured ? sp.GetRequiredService<CopilotInferenceProxyHandler>() : null,
         configuration => CopilotStructuredToolAdapter.NormalizeTransport(configuration.InferenceTransport) is null
             ? null : new CopilotStructuredToolAdapter());
 });
@@ -133,14 +138,12 @@ if (keyVaultOverlay.Warning is not null)
     logger.LogWarning("{KeyVaultConfigurationWarning}", keyVaultOverlay.Warning);
 var policy = host.Services.GetRequiredService<CodePolicy>();
 var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().Value;
-if (settings.Copilot.InferenceProxyEndpoint is { } inferenceProxy)
+if (settings.Copilot.InferenceProxyEndpoint is not null)
 {
     // Resolve the configured SDK factory before attesting that its interception is enabled.
     _ = host.Services.GetRequiredService<ICopilotSdkClientFactory>();
-    var client = host.Services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler));
     using var readyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-    using var ready = await client.PostAsync(inferenceProxy.TrimEnd('/') + "/ready", new StringContent("sdk-http-interception-v1"), readyTimeout.Token);
-    ready.EnsureSuccessStatusCode();
+    await host.Services.GetRequiredService<CopilotInferenceProxyHandler>().VerifyReadyAsync(readyTimeout.Token);
 }
 var info = policy.DescribePolicy();
 

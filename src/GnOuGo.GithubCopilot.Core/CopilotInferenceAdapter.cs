@@ -34,14 +34,35 @@ internal static class CopilotInferenceDispatch
         var actual = prepared?.Request ?? original;
         if (reserve is not null) await reserve(actual, prepared, context.CancellationToken);
         var deadline = CancellationTokenSource.CreateLinkedTokenSource(context.CancellationToken);
-        deadline.CancelAfter(attemptTimeout ?? TimeSpan.FromSeconds(270));
+        // A negotiated journal applies the physical timer independently to each upstream send.
+        // The SDK invocation cancellation still bounds the entire exchange, including its waits.
+        if (proxy?.JournalOwnsRetries != true || attemptTimeout.HasValue)
+            deadline.CancelAfter(attemptTimeout ?? TimeSpan.FromSeconds(270));
         HttpResponseMessage? response = null;
         var streaming = false;
+        void RecordFailure()
+        {
+            proxy?.StopAfterUncertainResponse();
+            transportFailed?.Invoke();
+        }
         try
         {
-            response = proxy is null
-                ? await Direct.SendAsync(actual, HttpCompletionOption.ResponseHeadersRead, deadline.Token)
-                : await proxy.DispatchAsync(actual, context, deadline.Token);
+            if (proxy is null) response = await Direct.SendAsync(actual, HttpCompletionOption.ResponseHeadersRead, deadline.Token);
+            else
+            {
+                for (var attempt = 1; ; attempt++)
+                {
+                    response = await proxy.DispatchAsync(actual, context, deadline.Token, attempt);
+                    if (!proxy.JournalOwnsRetries || response.StatusCode != System.Net.HttpStatusCode.Conflict ||
+                        !response.Headers.TryGetValues(CopilotInferenceProxyHandler.NextAttemptHeader, out var next)) break;
+                    if (attempt >= 3 || !next.SequenceEqual([(attempt + 1).ToString(System.Globalization.CultureInfo.InvariantCulture)]))
+                        throw new InvalidDataException("Invalid retry admission challenge from the inference journal.");
+                    response.Dispose(); response = null;
+                    if (reserve is null) continue;
+                    actual.Options.Set(CopilotInferenceProxyHandler.RepeatedReservation, true);
+                    await reserve(actual, null, deadline.Token);
+                }
+            }
             if (prepared is not null)
             {
                 var restored = await prepared.RestoreResponseAsync(response, deadline.Token);
@@ -53,7 +74,7 @@ internal static class CopilotInferenceDispatch
             }
             var content = response.Content;
             var body = await content.ReadAsStreamAsync(deadline.Token);
-            var bounded = new StreamContent(new CopilotInferenceStream(body, content, deadline, transportFailed));
+            var bounded = new StreamContent(new CopilotInferenceStream(body, content, deadline, RecordFailure));
             foreach (var header in content.Headers) bounded.Headers.TryAddWithoutValidation(header.Key, header.Value);
             response.Content = bounded;
             streaming = true;
@@ -62,6 +83,7 @@ internal static class CopilotInferenceDispatch
         catch (Exception ex)
         {
             response?.Dispose();
+            proxy?.StopAfterUncertainResponse();
             if (response is null || ex is HttpRequestException or OperationCanceledException or IOException)
                 transportFailed?.Invoke();
             throw;

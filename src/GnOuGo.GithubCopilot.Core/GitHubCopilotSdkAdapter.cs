@@ -32,15 +32,16 @@ public sealed class GitHubCopilotSdkClientFactory : ICopilotSdkClientFactory
             throw new InvalidOperationException("The captured inference transport requires its registered host adapter.");
         if ((configuration.ExecutionBounds is not null || configuration.LogicalInferenceBudget is not null || adapter is not null) && _requestHandler is not null and not CopilotInferenceProxyHandler)
             throw new InvalidOperationException("The configured inference handler does not support bounded dispatch.");
+        var proxy = (_requestHandler as CopilotInferenceProxyHandler)?.ForClient();
         var options = new CopilotClientOptions
         {
             WorkingDirectory = configuration.WorkingDirectory,
             GitHubToken = string.IsNullOrWhiteSpace(configuration.GitHubToken) ? null : configuration.GitHubToken,
             UseLoggedInUser = configuration.UseLoggedInUser,
             Environment = configuration.Environment,
-            RequestHandler = configuration.ExecutionBounds is { } bounds ? new CopilotBoundedInferenceHandler(bounds, _requestHandler as CopilotInferenceProxyHandler, adapter)
-                : configuration.LogicalInferenceBudget is { } logical ? new CopilotLogicalInferenceHandler(logical, _requestHandler as CopilotInferenceProxyHandler, adapter)
-                : adapter is not null ? new CopilotAdaptedInferenceHandler(adapter, _requestHandler as CopilotInferenceProxyHandler) : _requestHandler,
+            RequestHandler = configuration.ExecutionBounds is { } bounds ? new CopilotBoundedInferenceHandler(bounds, proxy, adapter)
+                : configuration.LogicalInferenceBudget is { } logical ? new CopilotLogicalInferenceHandler(logical, proxy, adapter)
+                : adapter is not null ? new CopilotAdaptedInferenceHandler(adapter, proxy) : proxy ?? _requestHandler,
             LogLevel = ParseLogLevel(configuration.LogLevel),
             Telemetry = configuration.Telemetry is { } telemetry ? new TelemetryConfig
             {

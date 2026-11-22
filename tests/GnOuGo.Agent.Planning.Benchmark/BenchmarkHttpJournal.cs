@@ -16,6 +16,9 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal static bool IsRuntimeSingleAttempt(JsonObject? policy) => policy?["version"]?.GetValue<int>() == 2 &&
         policy["mode"]?.ToString() is "runtime_single_attempt" or "sdk_proxy_single_attempt";
 
+    internal static bool IsRuntimePolicy(JsonObject? policy) => IsRuntimeSingleAttempt(policy) ||
+        policy?["version"]?.GetValue<int>() == 2 && policy["mode"]?.ToString() is "runtime_confirmed_retry" or "sdk_proxy_confirmed_retry";
+
     internal static JsonObject UndispatchedUsage() => new()
     {
         ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m,
@@ -46,7 +49,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             throw new InvalidOperationException("An issued HTTP attempt limit cannot change during recovery.");
         var maximumReviews = 2;
         if (reviewAttemptHeadroom > 2 && sessionAttemptLimit is { } capturedLimit &&
-            _effectiveTransportPolicy?["version"]?.GetValue<int>() == 2 && !IsRuntimeSingleAttempt(_effectiveTransportPolicy))
+            _effectiveTransportPolicy?["version"]?.GetValue<int>() == 2 && !IsRuntimePolicy(_effectiveTransportPolicy))
         {
             var planning = await campaign.LoadAsync("planning-evaluation-session-policy", requestId.Split(':')[0], ct);
             if (planning?["planning_format"]?.GetValue<int>() == 11 &&
@@ -97,12 +100,12 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 if (_effectiveTransportPolicy?["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() is not (>= 1 and <= 3) ||
                     state.Attempts.Count > _effectiveTransportPolicy["effective_retry_policy"]!["MaxAttempts"]!.GetValue<int>())
                     throw new InvalidOperationException("The captured request attempt allowance is exhausted.");
-                if (IsRuntimeSingleAttempt(_effectiveTransportPolicy))
+                if (IsRuntimePolicy(_effectiveTransportPolicy))
                 {
-                    if (_effectiveTransportPolicy?["disable_transport_retries"]?.GetValue<bool>() != true ||
-                        _effectiveTransportPolicy["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1 ||
-                        _effectiveTransportPolicy["effective_retry_policy"]?["MaxUncertainRetries"]?.GetValue<int>() != 0)
-                        throw new InvalidOperationException("Runtime inference requires one attempt without uncertain replay.");
+                    if ((IsRuntimeSingleAttempt(_effectiveTransportPolicy) || _effectiveTransportPolicy!["disable_transport_retries"]?.GetValue<bool>() == true) &&
+                        _effectiveTransportPolicy!["effective_retry_policy"]?["MaxAttempts"]?.GetValue<int>() != 1 ||
+                        _effectiveTransportPolicy!["effective_retry_policy"]?["MaxUncertainRetries"]?.GetValue<int>() != 0)
+                        throw new InvalidOperationException("The captured runtime policy forbids this retry.");
                 }
                 else
                 {

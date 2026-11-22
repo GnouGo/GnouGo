@@ -14,7 +14,7 @@ using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class BenchmarkAdmissionTests
+public sealed partial class BenchmarkAdmissionTests
 {
     [Fact]
     public async Task ElapsedBusinessTestTargetWarnsAndStillObservesCompletion()
@@ -485,7 +485,7 @@ public sealed class BenchmarkAdmissionTests
 
     [Theory]
     [InlineData(270_000, 270_000)]
-    [InlineData(700_000, 600_000)]
+    [InlineData(700_000, 270_000)]
     public async Task IndependentProbeDeadlineCapsOnlyItsFreshPhysicalAttempt(int limit, int expected)
     {
         using var fixture = new Fixture();
@@ -657,9 +657,10 @@ public sealed class BenchmarkAdmissionTests
     [InlineData(true, 429)]
     [InlineData(true, 500)]
     [InlineData(true, 0)]
-    public async Task FreshRuntimeReservesEveryFailureAndNeverRetries(bool proxy, int status)
+    public async Task ExplicitSingleAttemptReservesEveryFailureAndNeverRetries(bool proxy, int status)
     {
         using var fixture = new Fixture(); var options = RuntimeOptions();
+        options.Models["fixture"].RetryPolicy.MaxAttempts = 1;
         using var handler = new RuntimeHandler(status); using var http = new HttpClient(handler);
         using var model = RuntimeModel(fixture, options, http);
         var id = RuntimeId(proxy);
@@ -821,7 +822,7 @@ public sealed class BenchmarkAdmissionTests
         using var handler = new ToolReasoningHandler(); using var http = new HttpClient(handler);
         using var model = RuntimeModel(fixture, RuntimeOptions(), http);
         const string body = """{"model":"pinned","messages":[{"role":"user","content":"Inspect repository"}],"max_tokens":8192,"tools":[{"type":"function","function":{"name":"inspect","parameters":{"type":"object"}}}]}""";
-        Task<(int Status, string ContentType, string Body)> Invoke(string? selected) => model.ProxyInferenceAsync("runtime", new()
+        Task<CampaignInferenceResponse> Invoke(string? selected) => model.ProxyInferenceAsync("runtime", new()
         {
             ["X-GnOuGo-Inference-Upstream"] = "https://example.invalid/v1/chat/completions",
             ["X-GnOuGo-Inference-Request"] = "sdk-one"
@@ -848,7 +849,7 @@ public sealed class BenchmarkAdmissionTests
     {
         using var fixture = new Fixture(); using var handler = new RuntimeHandler(200); using var http = new HttpClient(handler);
         using var model = RuntimeModel(fixture, RuntimeOptions(), http);
-        Task<(int Status, string ContentType, string Body)> Invoke() => model.ProxyInferenceAsync("runtime", new()
+        Task<CampaignInferenceResponse> Invoke() => model.ProxyInferenceAsync("runtime", new()
         {
             ["X-GnOuGo-Inference-Upstream"] = "https://example.invalid/v1" + path,
             ["X-GnOuGo-Inference-Request"] = "sdk-one"
@@ -922,8 +923,8 @@ public sealed class BenchmarkAdmissionTests
         return options;
     }
     private static string RuntimeId(bool proxy) => proxy ? "runtime-copilot:" + PlanningGraphCompiler.Fingerprint("sdk-one") : "runtime-execution:one";
-    private static KeyVaultBenchmarkModel RuntimeModel(Fixture fixture, LLMOptions options, HttpClient http) => new(fixture.Campaign,
-        options, new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)), new Rates(fixture.Time), new Price(), fixture.Time, http);
+    private static KeyVaultBenchmarkModel RuntimeModel(Fixture fixture, LLMOptions options, HttpClient http, TimeProvider? clock = null) => new(fixture.Campaign,
+        options, new RoutingLLMClientAdapter(new RoutingLLMClient(http, options)), new Rates(clock ?? fixture.Time), new Price(), clock ?? fixture.Time, http);
     private static async Task InvokeRuntime(KeyVaultBenchmarkModel model, bool proxy, string prompt = "exact input",
         int output = 8192, string upstream = "https://example.invalid/v1/chat/completions")
     {
@@ -948,9 +949,9 @@ public sealed class BenchmarkAdmissionTests
         Assert.IsAssignableFrom<HttpRequestException>(error);
         var journal = (await fixture.Campaign.LoadAsync(BenchmarkHttpJournal.Collection, RuntimeId(true), Ct))!;
         var attempt = Assert.Single(journal["transport"]!["Attempts"]!.AsArray())!;
-        Assert.Equal(afterHeaders ? "response_body_interrupted" : "response_headers_unavailable", attempt["TerminationStatus"]?.ToString());
+        Assert.Equal(afterHeaders ? "response_body" : "response_headers", attempt["FailurePhase"]?.ToString());
         Assert.Equal(afterHeaders ? 200 : (int?)null, attempt["ObservedStatus"]?.GetValue<int>());
-        Assert.Equal("HttpRequestException", attempt["Failure"]?.ToString());
+        Assert.NotNull(attempt["Failure"]);
         Assert.Null(attempt["Body"]);
         Assert.Null(attempt["Status"]);
         Assert.NotNull(attempt["CompletedAtUtc"]);
@@ -1094,7 +1095,7 @@ public sealed class BenchmarkAdmissionTests
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
         { CapabilityCalls++; return Unavailable ? Task.FromResult<IReadOnlyList<string>?>([]) : ((ILLMCapabilityResolver)inner).SupportedReasoningLevelsAsync(provider, model, ct); }
     }
-    private sealed class Rates(Clock time) : IExchangeRateProvider
+    private sealed class Rates(TimeProvider time) : IExchangeRateProvider
     {
         internal int Calls; internal string? Defect; internal CancellationTokenSource? Cancel;
         public ValueTask<CurrencyExchangeQuote?> GetQuoteAsync(string sourceCurrency, string targetCurrency, CancellationToken ct)

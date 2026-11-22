@@ -667,6 +667,11 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             StopReason = null;
             return response;
         }
+        catch (SdkAttemptCreditRequired)
+        {
+            // The last confirmed rejection and due time are durable. No new physical attempt was reserved.
+            throw;
+        }
         catch (Exception ex)
         {
             StopReason ??= stage == "preflight" ? "preflight_failed" : "uncertain_dispatch";
@@ -679,6 +684,10 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
             var details = new JsonObject { ["stage"] = stage, ["exception_type"] = ex.GetType().Name, ["kind"] = failure?.Kind.ToString(),
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
+            if (failure?.RetryNotBeforeUtc is { } due) details["retry_not_before_utc"] = due;
+            if (failure?.FailurePhase is { } phase) details["failure_phase"] = phase;
+            if (failure?.PhysicalRequestId is { } physical) details["physical_request_id"] = physical;
+            if (failure?.ProviderRequestIdHash is { } providerId) details["provider_request_id_sha256"] = providerId;
             if (ex.Data[BudgetRefusalData] is JsonObject budgetRefusal) details["budget_refusal"] = budgetRefusal.DeepClone();
             if (failure?.Stage == LLMClientFailureStage.Authentication) details["provider_stage"] = "authentication";
             if (stage == "preflight") details["reason"] = ex.Message switch

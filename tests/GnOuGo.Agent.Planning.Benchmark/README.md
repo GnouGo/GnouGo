@@ -135,6 +135,17 @@ deadline, first and last bytes, terminal marker and usage separately. A
 client deadline alone does not establish a proxy timeout. An unfinished
 stream requires receipt recovery or explicit retention of its full hold.
 
+For fresh plans, `Profiles/server-proxy-270s-confirmed.json` permits up to
+three separately reserved physical attempts, 60 seconds of cumulative waiting,
+and zero uncertain retries. Existing captures retain their original limits.
+Workflow and SDK inference capture the configured provider policy with a ceiling
+of three attempts and 270 seconds per upstream request. A stricter request,
+provider or client timeout still applies. The journal owns confirmed rejection
+retries. Each extra SDK attempt also consumes an existing SDK inference and
+token reservation before the campaign admits the send. A client using the
+original loopback protocol receives one attempt. The relay preserves the
+validated provider cooldown on a terminal HTTP response.
+
 Ordinary sessions preserve physical-call, correction and time targets as guards.
 Captured API allocations and financial guards remain explicit.
 The trusted campaign builder may capture `--advisory-token-thresholds` before fresh

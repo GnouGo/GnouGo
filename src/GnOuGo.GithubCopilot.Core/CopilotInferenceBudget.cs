@@ -67,6 +67,9 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
                 inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
                 remaining = maxTotalTokens - ChargedTokens - inputCeiling;
             }
+            // An additional physical send must fit the exact already-journaled wire request.
+            if (request.Options.TryGetValue(CopilotInferenceProxyHandler.RepeatedReservation, out var repeated) && repeated &&
+                outputCeiling > remaining) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             if (outputCeiling > remaining)
             {

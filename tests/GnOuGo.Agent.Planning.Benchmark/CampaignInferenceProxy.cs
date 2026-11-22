@@ -1,8 +1,26 @@
 using GnOuGo.AI.Core;
+using GnOuGo.GithubCopilot.Core;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+
+internal sealed class SdkAttemptCreditRequired(int number) : Exception("The next physical attempt needs an SDK reservation.")
+{
+    public int Number { get; } = number;
+}
+
+internal sealed class SdkAttemptCreditJournal(ILLMHttpRetryJournal journal, int limit) : ILLMHttpRetryJournal
+{
+    public Task<LLMHttpRetryState?> LoadAsync(CancellationToken ct) => journal.LoadAsync(ct);
+    public Task SaveAsync(LLMHttpRetryState state, CancellationToken ct)
+    {
+        if (state.Attempts.Count > limit) throw new SdkAttemptCreditRequired(state.Attempts.Count);
+        return journal.SaveAsync(state, ct);
+    }
+}
+
+internal sealed record CampaignInferenceResponse(int Status, string ContentType, string Body, System.Text.Json.Nodes.JsonObject? RetryHeader);
 
 // The existing SDK interception hook attests at /ready before its MCP starts.
 // This test host admits every inference through the same encrypted EUR ledger.
@@ -23,6 +41,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
         {
             using var reader = new StreamReader(context.Request.Body);
             if (await reader.ReadToEndAsync(context.RequestAborted) != "sdk-http-interception-v1") { context.Response.StatusCode = 400; return; }
+            context.Response.Headers[CopilotInferenceProxyHandler.RetryOwnerHeader] = CopilotInferenceProxyHandler.RetryOwner;
             proxy.Ready = true; context.Response.StatusCode = 204;
         });
         app.MapPost("/inference", async (HttpContext context) =>
@@ -32,10 +51,20 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             var body = await reader.ReadToEndAsync(context.RequestAborted);
             try
             {
-                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort, wireApi, inferenceTransport, outputLimit);
+                var value = context.Request.Headers[CopilotInferenceProxyHandler.AttemptHeader].ToString();
+                var credit = value.Length == 0 ? 1 : int.TryParse(value, out var parsed) && parsed is >= 1 and <= 3
+                    ? parsed : throw new InvalidOperationException("Invalid SDK physical attempt allowance.");
+                var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort, wireApi, inferenceTransport, outputLimit, credit, value.Length == 0 ? 1 : null);
                 context.Response.StatusCode = result.Status;
                 context.Response.ContentType = result.ContentType;
+                if (result.RetryHeader?["name"]?.ToString() is "Retry-After" or "retry-after-ms" or "x-ms-retry-after-ms")
+                    context.Response.Headers[result.RetryHeader["name"]!.ToString()] = result.RetryHeader["value"]!.ToString();
                 await context.Response.WriteAsync(result.Body, context.RequestAborted);
+            }
+            catch (SdkAttemptCreditRequired next)
+            {
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                context.Response.Headers[CopilotInferenceProxyHandler.NextAttemptHeader] = next.Number.ToString(System.Globalization.CultureInfo.InvariantCulture);
             }
             catch (Exception ex)
             {
