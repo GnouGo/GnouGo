@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Runtime.CompilerServices;
@@ -15,6 +14,12 @@ namespace GnOuGo.AI.Core;
 /// </summary>
 public static class HttpRequestHelper
 {
+    public const string RetryOwnerHeader = "X-GnOuGo-Retry-Owner";
+    public const string JournalRetryOwner = "physical-journal-v1";
+
+    public static LLMHttpFailureClassification ClassifyRejection(HttpStatusCode status, string body)
+        => LLMProviderFailureClassifier.ClassifyResponse(status, body, permanentFirst: true);
+
     internal const string CompletedDecision = "completed; no retry";
     private const int MaxErrorBodyCharacters = 64 * 1024;
     private const string ExceptionRetryMetadataKey = "gnougo.llm.retry_metadata";
@@ -81,9 +86,9 @@ public static class HttpRequestHelper
             logger,
             operationName,
             new LLMProviderRetryPolicyOptions(),
-            static (delay, cancellationToken) => Task.Delay(delay, cancellationToken),
+            static (delay, cancellationToken) => Task.Delay(delay, LLMHttpRetryContext.Current?.Time ?? TimeProvider.System, cancellationToken),
             static upperBound => TimeSpan.FromMilliseconds(Random.Shared.NextInt64(0, (long)upperBound.TotalMilliseconds + 1)),
-            static () => DateTimeOffset.UtcNow,
+            static () => (LLMHttpRetryContext.Current?.Time ?? TimeProvider.System).GetUtcNow(),
             ct);
 
     internal static Task<HttpResponseMessage> SendWithServerErrorRetryAsync(
@@ -101,9 +106,9 @@ public static class HttpRequestHelper
             logger,
             operationName,
             retryPolicy,
-            static (delay, cancellationToken) => Task.Delay(delay, cancellationToken),
+            static (delay, cancellationToken) => Task.Delay(delay, LLMHttpRetryContext.Current?.Time ?? TimeProvider.System, cancellationToken),
             static upperBound => TimeSpan.FromMilliseconds(Random.Shared.NextInt64(0, (long)upperBound.TotalMilliseconds + 1)),
-            static () => DateTimeOffset.UtcNow,
+            static () => (LLMHttpRetryContext.Current?.Time ?? TimeProvider.System).GetUtcNow(),
             ct);
 
     // Deterministic seam retained for focused tests.
@@ -124,7 +129,7 @@ public static class HttpRequestHelper
             new LLMProviderRetryPolicyOptions(),
             delayAsync,
             static upperBound => upperBound,
-            static () => DateTimeOffset.UtcNow,
+            static () => (LLMHttpRetryContext.Current?.Time ?? TimeProvider.System).GetUtcNow(),
             ct);
 
     internal static Task<HttpResponseMessage> SendWithTransientRetryAsync(
@@ -223,7 +228,7 @@ public static class HttpRequestHelper
             state.RequestBody = payload;
             state.Transport = transport;
         }
-        var backgroundStreaming = streaming && transport!.Protocol == LLMTransportResolver.Responses &&
+        var background = transport?.Protocol == LLMTransportResolver.Responses &&
             JsonNode.Parse(payload)?["background"]?.GetValue<bool>() == true;
         Exception? originalFailure = null;
         while (true)
@@ -235,9 +240,16 @@ public static class HttpRequestHelper
                 // A fired generation timer is authoritative even if UTC clock resolution
                 // still shows time remaining. Only a new receipt-recovery invocation may
                 // retrieve after that timeout; this invocation must not extend its work.
-                if (backgroundStreaming && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled" &&
+                if (background && !streaming && previous is { ProviderResponseId: null, Status: >= 200 and < 300, Body: not null } &&
+                    JsonNode.Parse(previous.Body) is JsonObject submitted && submitted["status"]?.ToString() is "queued" or "in_progress")
+                {
+                    previous.ProviderResponseId = submitted["id"]?.GetValue<string>() is { Length: > 0 } id ? id :
+                        throw new InvalidDataException("The background response has no receipt identity.");
+                    await SaveAsync(CancellationToken.None).ConfigureAwait(false);
+                }
+                if (background && previous.ProviderResponseId is not null && previous.ProtocolComplete != true && previous.Failure != "cancelled" &&
                     (originalFailure is null || previous.Failure != "timeout"))
-                    await RecoverBackgroundResponseAsync(http, template, previous, retryPolicy, () => SaveAsync(CancellationToken.None), delayAsync, utcNow, originalFailure is null, ct).ConfigureAwait(false);
+                    await RecoverBackgroundResponseAsync(http, template, previous, retryPolicy, () => SaveAsync(CancellationToken.None), delayAsync, jitter, utcNow, originalFailure is null, logger, ct).ConfigureAwait(false);
                 if (previous.Failure == "cancelled" || previous.RetryDecision == "cancelled; no retry")
                     throw new OperationCanceledException("The reserved attempt was cancelled; it cannot be retried.", ct);
                 // Only a failure observed by this invocation can authorize independent
@@ -257,13 +269,14 @@ public static class HttpRequestHelper
                 {
                     var incomplete = new HttpRequestException("The native stream is incomplete; exact receipt recovery is required before independent generation.", originalFailure);
                     incomplete.Data[ExceptionRetryMetadataKey] = new LLMHttpRetryMetadata(state.Attempts.Count, false, null,
-                        previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport, previous.ProviderErrorCode);
+                        previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport, previous.ProviderErrorCode, FailurePhase: previous.FailurePhase ?? "response_body", PhysicalRequestId: previous.Id, ProviderRequestIdHash: previous.ProviderRequestIdHash);
                     throw incomplete;
                 }
                 var response = previous.Status is { } code ? Restore(previous, code) : null;
-                var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "", confirmedOnly);
+                var classification = response is null ? null : LLMProviderFailureClassifier.ClassifyResponse(response.StatusCode, previous.Body ?? "", permanentFirst: true);
                 var uncertain = response is null;
-                var retryAfter = response is not null ? ParseRetryAfter(response, utcNow()) : null;
+                var providerDelay = previous.ProviderRetryDelay ?? (response is null ? null : ProviderRetryDelay.Read(response.Headers, previous.CompletedAtUtc ?? utcNow()));
+                var retryAfter = providerDelay?.Remaining(utcNow());
                 var retryable = response is not null
                     ? safeToRepeat && (confirmedOnly ? ConfirmedTransient(response.StatusCode, classification!, retryAfter)
                         : IsRetryableStatus(response.StatusCode) && classification!.Kind is not (LLMProviderFailureKind.QuotaOrBilling or LLMProviderFailureKind.Authentication or LLMProviderFailureKind.Authorization))
@@ -277,20 +290,23 @@ public static class HttpRequestHelper
                 var durationExhausted = independentLimit is not null &&
                     (previous.IndependentGenerationDurationExhausted == true || IndependentRemaining() <= delay);
                 exhausted |= durationExhausted;
-                var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(retryAfter),
-                    classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode);
+                var metadata = new LLMHttpRetryMetadata(state.Attempts.Count, retryable && exhausted, ToMilliseconds(providerDelay?.Remaining(providerDelay.ObservedAtUtc)),
+                    classification?.Kind ?? (previous.Failure == "permanent" ? LLMProviderFailureKind.Unknown : previous.Failure == "timeout" ? LLMProviderFailureKind.Timeout : LLMProviderFailureKind.Transport), classification?.SafeProviderCode,
+                    providerDelay?.NotBeforeUtc ?? previous.NotBefore, previous.FailurePhase ?? (previous.Status >= 400 ? "provider_rejection" : null), previous.Id, previous.ProviderRequestIdHash);
                 var decision = response?.IsSuccessStatusCode == true ? CompletedDecision :
                     durationExhausted ? "blocked; captured generation duration exhausted" :
                     uncertain && confirmedOnly && !independent ? "blocked; uncertain outcome" :
                     !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" :
                     independent ? "abandoned; independent tool-free generation retry" : "retry; captured transient-response policy";
+                if (retryable && exhausted && providerDelay is not null && previous.NotBefore is null)
+                    previous.NotBefore = providerDelay.NotBeforeUtc;
                 if (previous.RetryDecision != decision)
                 { previous.RetryDecision = decision; await SaveAsync(ct).ConfigureAwait(false); }
                 if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))
                 {
                     SetRetryMetadata(response, metadata);
-                    if (exhausted && retryable) logger.LogError("Transient HTTP recovery exhausted during {OperationName}. StatusCode={StatusCode}; AttemptCount={AttemptCount}; RetryExhausted={RetryExhausted}; ElapsedMs={ElapsedMs}",
-                        operationName, previous.Status, state.Attempts.Count, true, state.DelayMilliseconds);
+                    if (exhausted && retryable) logger.LogError("Transient HTTP recovery exhausted during {OperationName}. StatusCode={StatusCode} AttemptCount={AttemptCount} RetryExhausted={RetryExhausted} ElapsedMs={ElapsedMs} RequestedDelayMs={RequestedDelayMs} NotBeforeUtc={NotBeforeUtc} PhysicalRequest={RequestId}",
+                        operationName, previous.Status, state.Attempts.Count, true, state.DelayMilliseconds, metadata.RetryAfterMilliseconds, metadata.NotBeforeUtc, previous.Id);
                     return response;
                 }
                 response?.Dispose();
@@ -309,7 +325,8 @@ public static class HttpRequestHelper
                     state.DelayMilliseconds += delay.TotalMilliseconds;
                     await SaveAsync(ct).ConfigureAwait(false);
                 }
-                logger.LogWarning("Retrying transient HTTP failure during {OperationName}. Attempt={Attempt}; BackoffMs={BackoffMs}; Uncertain={Uncertain}", operationName, state.Attempts.Count, delay.TotalMilliseconds, uncertain);
+                logger.LogWarning("Retrying {OperationName} after HTTP {StatusCode}. Attempt {Attempt}, waiting {BackoffMs} ms until {NotBeforeUtc}, request {RequestId}, uncertain {Uncertain}",
+                    operationName, previous.Status, state.Attempts.Count, delay.TotalMilliseconds, previous.NotBefore, previous.Id, uncertain);
                 try { await delayAsync(delay, ct).ConfigureAwait(false); }
                 catch (OperationCanceledException) when (ct.IsCancellationRequested)
                 {
@@ -336,6 +353,11 @@ public static class HttpRequestHelper
             // Hosts reserve possible usage atomically with this identity before dispatch.
             await SaveAsync(ct).ConfigureAwait(false);
             using var request = requestFactory();
+            if (context is not null)
+            {
+                request.Headers.Remove(RetryOwnerHeader);
+                request.Headers.TryAddWithoutValidation(RetryOwnerHeader, JournalRetryOwner);
+            }
             request.Headers.Remove("X-Client-Request-Id");
             request.Headers.TryAddWithoutValidation("X-Client-Request-Id", attempt.Id);
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -352,6 +374,9 @@ public static class HttpRequestHelper
                 timeout.Token.ThrowIfCancellationRequested();
                 received = await http.SendAsync(request, context is null && !streaming ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                 attempt.ObservedStatus = (int)received.StatusCode;
+                attempt.ProviderRetryDelay = ProviderRetryDelay.Read(received.Headers, utcNow());
+                if (attempt.ProviderRetryDelay is { Header: "Retry-After" } standard) attempt.RetryAfter = standard.Value;
+                attempt.ProviderRequestIdHash = HashProviderRequestId(received);
                 attempt.ResponseHttpVersion = received.Version.ToString();
                 attempt.ContentType = received.Content.Headers.ContentType?.ToString();
                 if (streaming && received.IsSuccessStatusCode)
@@ -389,7 +414,6 @@ public static class HttpRequestHelper
                     attempt.Body = partial.ToString();
                     attempt.ResponseBodyComplete = true;
                 }
-                attempt.RetryAfter = received.Headers.TryGetValues("Retry-After", out var values) ? values.FirstOrDefault() : null;
                 attempt.Status = (int)received.StatusCode;
             }
             catch (OperationCanceledException ex)
@@ -424,6 +448,7 @@ public static class HttpRequestHelper
             finally
             {
                 attempt.CompletedAtUtc = utcNow();
+                if (attempt.Failure is not null) attempt.FailurePhase = received is null ? "response_headers" : "response_body";
                 if (attempt.Failure == "cancelled" && ct.IsCancellationRequested)
                     attempt.CancellationSource ??= "caller";
                 if (streaming)
@@ -469,25 +494,55 @@ public static class HttpRequestHelper
     // Receipt retrieval continues the same response id. It never creates or reserves another generation.
     private static async Task RecoverBackgroundResponseAsync(HttpClient http, HttpRequestMessage original, LLMHttpAttempt attempt,
         LLMProviderRetryPolicyOptions policy, Func<Task> save, Func<TimeSpan, CancellationToken, Task> delay,
-        Func<DateTimeOffset> utcNow, bool allowExpiredReceipt, CancellationToken ct)
+        Func<TimeSpan, TimeSpan> jitter, Func<DateTimeOffset> utcNow, bool allowExpiredReceipt, ILogger logger, CancellationToken ct)
     {
         var endpoint = new UriBuilder(original.RequestUri!) { Path = original.RequestUri!.AbsolutePath.TrimEnd('/') + "/" + Uri.EscapeDataString(attempt.ProviderResponseId!) };
         attempt.ReceiptRetrievals ??= [];
         attempt.StreamFailure ??= attempt.Failure;
         var deadline = attempt.DeadlineAtUtc ?? (attempt.StartedAtUtc ?? utcNow()) + EffectiveAttemptTimeout(http, policy);
         // Historical exact retrieval remains read-only; it cannot finance another POST.
-        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
         var remaining = deadline - utcNow();
         if (remaining <= TimeSpan.Zero && !allowExpiredReceipt) throw new TimeoutException("The captured generation deadline expired before receipt recovery.");
-        var retrievalWindow = remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(30);
-        timeout.CancelAfter(retrievalWindow < EffectiveAttemptTimeout(http, policy) ? retrievalWindow : EffectiveAttemptTimeout(http, policy));
-        if (attempt.ReceiptRetrievals.Any(r => r.Status is >= 400 && !IsRetryableStatus((HttpStatusCode)r.Status.Value)))
-            throw new HttpRequestException("The recorded non-transient receipt retrieval cannot be retried.");
-        var token = timeout.Token;
-        while (attempt.ReceiptRetrievals.Count < 128 && attempt.ReceiptRetrievals.Count(r => r.Failure is not null || r.Status is >= 400) < policy.MaxAttempts)
+        var physicalLimit = EffectiveAttemptTimeout(http, policy);
+        if (remaining <= TimeSpan.Zero && physicalLimit > TimeSpan.FromSeconds(30)) physicalLimit = TimeSpan.FromSeconds(30);
+        while (attempt.ReceiptRetrievals.Count < 128)
         {
-            token.ThrowIfCancellationRequested();
-            var retrieval = new LLMHttpReceiptRetrieval { StartedAtUtc = utcNow() };
+            ct.ThrowIfCancellationRequested();
+            var remainingDelay = policy.MaxTotalDelayMilliseconds - attempt.ReceiptRetrievals.Sum(r => r.WaitBeforeMilliseconds ?? 0);
+            var waitBefore = TimeSpan.Zero;
+            var failures = attempt.ReceiptRetrievals.Count(r => r.Failure is not null || r.Status is >= 400);
+            if (attempt.ReceiptRetrievals.Count == 0 && attempt.ProviderRetryDelay is { } initial)
+            {
+                var requested = initial.Remaining(utcNow());
+                if (requested.TotalMilliseconds > remainingDelay)
+                    throw CreateFailure("Background receipt retrieval is deferred until the provider permits polling.", (HttpStatusCode)(attempt.ObservedStatus ?? 202),
+                        new(1, true, ToMilliseconds(requested), LLMProviderFailureKind.RateLimited, null, initial.NotBeforeUtc, "receipt_retrieval", attempt.Id));
+                waitBefore = requested;
+            }
+            if (attempt.ReceiptRetrievals.LastOrDefault() is { } prior)
+            {
+                var wait = prior.NotBefore - utcNow() ?? TimeSpan.Zero;
+                if (wait < TimeSpan.Zero) wait = TimeSpan.Zero;
+                if (prior.Status is >= 400)
+                {
+                    var status = (HttpStatusCode)prior.Status.Value;
+                    var kind = LLMProviderFailureClassifier.ClassifyResponse(status, prior.Body ?? "", true);
+                    var retryable = prior.Body is not null && ConfirmedTransient(status, kind, prior.ProviderRetryDelay?.Remaining(utcNow()));
+                    if (!retryable || failures >= policy.MaxAttempts || wait.TotalMilliseconds > remainingDelay)
+                        throw CreateFailure("Background receipt retrieval stopped at the provider retry boundary.", status,
+                            new(attempt.ReceiptRetrievals.Count, retryable, ToMilliseconds(prior.ProviderRetryDelay?.Remaining(prior.ProviderRetryDelay.ObservedAtUtc)), kind.Kind, kind.SafeProviderCode, prior.NotBefore, prior.FailurePhase ?? "receipt_retrieval", prior.RequestId, prior.ProviderRequestIdHash));
+                }
+                else if (failures >= policy.MaxAttempts || prior.ProviderRetryDelay is not null && wait.TotalMilliseconds > remainingDelay)
+                    throw new HttpRequestException("Background receipt retrieval is deferred by its captured wait or attempt limit.");
+                if (prior.Status is >= 400 || prior.ProviderRetryDelay is not null) waitBefore = wait;
+                else if (wait > TimeSpan.Zero) await delay(wait, ct).ConfigureAwait(false);
+            }
+            if (waitBefore > TimeSpan.Zero) await delay(waitBefore, ct).ConfigureAwait(false);
+            using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            timeout.CancelAfter(physicalLimit);
+            var token = timeout.Token;
+            var retrieval = new LLMHttpReceiptRetrieval { StartedAtUtc = utcNow(), RequestId = Guid.NewGuid().ToString("N"),
+                WaitBeforeMilliseconds = waitBefore > TimeSpan.Zero ? waitBefore.TotalMilliseconds : null };
             attempt.ReceiptRetrievals.Add(retrieval);
             await save().ConfigureAwait(false);
             try
@@ -495,8 +550,14 @@ public static class HttpRequestHelper
                 using var get = new HttpRequestMessage(HttpMethod.Get, endpoint.Uri);
                 foreach (var header in original.Headers)
                     if (header.Key is not ("Accept" or "X-Client-Request-Id")) get.Headers.TryAddWithoutValidation(header.Key, header.Value);
+                get.Headers.Remove(RetryOwnerHeader);
+                get.Headers.TryAddWithoutValidation(RetryOwnerHeader, JournalRetryOwner);
+                get.Headers.TryAddWithoutValidation("X-Client-Request-Id", retrieval.RequestId);
                 using var response = await http.SendAsync(get, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
                 retrieval.Status = (int)response.StatusCode;
+                retrieval.ProviderRequestIdHash = HashProviderRequestId(response);
+                retrieval.ProviderRetryDelay = ProviderRetryDelay.Read(response.Headers, utcNow());
+                retrieval.NotBefore = retrieval.ProviderRetryDelay?.NotBeforeUtc;
                 // Bounded full receipt retrieval; never interpret connection EOF as native stream completion.
                 using var body = new StreamReader(await response.Content.ReadAsStreamAsync(token).WaitAsync(token).ConfigureAwait(false));
                 var text = new StringBuilder(); var buffer = new char[4096]; int count;
@@ -508,7 +569,8 @@ public static class HttpRequestHelper
                 retrieval.Body = text.ToString();
                 if (!response.IsSuccessStatusCode)
                 {
-                    if (!IsRetryableStatus(response.StatusCode)) throw new InvalidDataException("The configured Responses route rejected receipt retrieval.");
+                    retrieval.FailurePhase = "provider_rejection";
+                    retrieval.NotBefore ??= utcNow() + CalculateJitterDelay(policy, failures + 1, jitter);
                 }
                 else
                 {
@@ -518,9 +580,11 @@ public static class HttpRequestHelper
                     if (status is "completed" or "incomplete" or "failed")
                     {
                         if (status != "failed" && result["output"] is not JsonArray) throw new InvalidDataException("Retrieved response output is missing.");
-                        attempt.Body = retrieval.Body;
+                        // Keep an accepted buffered POST and its status immutable. Its terminal
+                        // GET receipt is restored through AssembledBody on every later read.
+                        attempt.Body ??= retrieval.Body;
                         attempt.AssembledBody = retrieval.Body;
-                        attempt.Status = (int)response.StatusCode;
+                        attempt.Status ??= (int)response.StatusCode;
                         attempt.Failure = null;
                         attempt.ProtocolComplete = true;
                         attempt.ResponseBodyComplete = true;
@@ -530,21 +594,33 @@ public static class HttpRequestHelper
                         return;
                     }
                     if (status is not ("queued" or "in_progress")) throw new InvalidDataException("Unexpected retrieved response status.");
+                    retrieval.NotBefore ??= utcNow() + TimeSpan.FromSeconds(Math.Min(10, Math.Pow(1.5, attempt.ReceiptRetrievals.Count - 1)));
                 }
             }
             catch (Exception ex)
             {
+                retrieval.FailurePhase = retrieval.Status is null ? "response_headers" : "response_body";
                 retrieval.Failure = ct.IsCancellationRequested ? "cancelled" : ex is OperationCanceledException ? "timeout" : "retrieval failed";
                 throw;
             }
             finally
             {
                 retrieval.CompletedAtUtc = utcNow();
+                if (retrieval.FailurePhase is not null || retrieval.NotBefore is not null)
+                    logger.LogInformation("Receipt poll {RequestId} for generation {GenerationId}. StatusCode={StatusCode} Phase={Phase} RequestedDelayMs={RequestedDelayMs} NotBeforeUtc={NotBeforeUtc} ProviderRequestIdHash={ProviderRequestIdHash}",
+                        retrieval.RequestId, attempt.Id, retrieval.Status, retrieval.FailurePhase, ToMilliseconds(retrieval.ProviderRetryDelay?.Remaining(retrieval.ProviderRetryDelay.ObservedAtUtc)), retrieval.NotBefore, retrieval.ProviderRequestIdHash);
                 await save().ConfigureAwait(false);
             }
-            await delay(TimeSpan.FromSeconds(Math.Min(10, Math.Pow(1.5, attempt.ReceiptRetrievals.Count - 1))), token).ConfigureAwait(false);
         }
         throw new HttpRequestException("The captured response receipt retrieval allowance is exhausted; no generation was replayed.");
+    }
+
+    private static string? HashProviderRequestId(HttpResponseMessage response)
+    {
+        foreach (var header in new[] { "x-request-id", "request-id", "apim-request-id" })
+            if (response.Headers.TryGetValues(header, out var ids) && ids.FirstOrDefault() is { } id)
+                return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id)));
+        return null;
     }
 
     private static bool ConfirmedTransient(HttpStatusCode status, LLMHttpFailureClassification classification, TimeSpan? retryAfter)
@@ -566,7 +642,8 @@ public static class HttpRequestHelper
         var response = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(attempt.AssembledBody ?? attempt.Body ?? "", Encoding.UTF8) };
         if (attempt.AssembledBody is not null) response.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
         else if (MediaTypeHeaderValue.TryParse(attempt.ContentType, out var contentType)) response.Content.Headers.ContentType = contentType;
-        if (attempt.RetryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", attempt.RetryAfter);
+        if (attempt.ProviderRetryDelay is { } timing) response.Headers.TryAddWithoutValidation(timing.Header, timing.Value);
+        else if (attempt.RetryAfter is not null) response.Headers.TryAddWithoutValidation("Retry-After", attempt.RetryAfter);
         return response;
     }
 
@@ -627,40 +704,6 @@ public static class HttpRequestHelper
         return selected > upperBound ? upperBound : selected;
     }
 
-    private static TimeSpan? ParseRetryAfter(HttpResponseMessage response, DateTimeOffset now)
-    {
-        if (!response.Headers.TryGetValues("Retry-After", out var values))
-            return null;
-
-        var raw = values.FirstOrDefault()?.Trim();
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-        if (long.TryParse(raw, NumberStyles.None, CultureInfo.InvariantCulture, out var seconds)
-            && seconds >= 0)
-        {
-            try
-            {
-                return TimeSpan.FromSeconds(seconds);
-            }
-            catch (OverflowException)
-            {
-                return TimeSpan.MaxValue; // Honor an unrepresentably long delay by exhausting the budget.
-            }
-        }
-        if (raw.All(char.IsAsciiDigit)) return TimeSpan.MaxValue;
-
-        if (!DateTimeOffset.TryParse(
-                raw,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeUniversal,
-                out var date))
-        {
-            return null;
-        }
-
-        return date <= now ? TimeSpan.Zero : date - now;
-    }
-
     private static int? ToMilliseconds(TimeSpan? delay)
         => delay is null
             ? null
@@ -674,4 +717,8 @@ internal sealed record LLMHttpRetryMetadata(
     bool RetryExhausted,
     int? RetryAfterMilliseconds,
     LLMProviderFailureKind? FailureKind,
-    string? SafeProviderCode);
+    string? SafeProviderCode,
+    DateTimeOffset? NotBeforeUtc = null,
+    string? FailurePhase = null,
+    string? PhysicalRequestId = null,
+    string? ProviderRequestIdHash = null);

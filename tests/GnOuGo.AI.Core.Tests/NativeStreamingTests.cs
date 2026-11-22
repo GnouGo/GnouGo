@@ -399,6 +399,90 @@ public sealed class NativeStreamingTests
         Assert.Equal(1, httpCalls(http));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BackgroundReceiptRateLimitSurvivesRestartAndOnlyRetrievesTheOriginalId(bool streaming)
+    {
+        var journal = new Journal();
+        var start = DateTimeOffset.UnixEpoch;
+        var now = start;
+        List<(string Method, DateTimeOffset At)> sends = [];
+        using var http = NewHttp(new Handler(req =>
+        {
+            sends.Add((req.Method.Method, now));
+            if (req.Method == HttpMethod.Post)
+                return Task.FromResult(streaming ? Response("openai", Event(new { type = "response.created", sequence_number = 0,
+                    response = new { id = "resp_timing", status = "in_progress" } })) :
+                    new HttpResponseMessage(HttpStatusCode.Accepted) { Content = new StringContent("""{"id":"resp_timing","status":"queued"}""") });
+            Assert.EndsWith("/responses/resp_timing", req.RequestUri!.AbsolutePath);
+            Assert.Equal(HttpRequestHelper.JournalRetryOwner, req.Headers.GetValues(HttpRequestHelper.RetryOwnerHeader).Single());
+            if (sends.Count == 2)
+            {
+                var rejected = new HttpResponseMessage(HttpStatusCode.TooManyRequests) { Content = new StringContent("""{"error":{"code":"rate_limit_exceeded"}}""") };
+                rejected.Headers.TryAddWithoutValidation("x-ms-retry-after-ms", "2500");
+                return Task.FromResult(rejected);
+            }
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"id":"resp_timing","status":"completed","output":[],"usage":{"input_tokens":3,"output_tokens":1}}""") });
+        }));
+        var policy = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, MaxTotalDelayMilliseconds = 100 };
+        Task<HttpResponseMessage> Send() => HttpRequestHelper.SendWithTransientRetryAsync(http, () =>
+        {
+            var request = HttpRequestHelper.CreateJsonPost("https://gateway.example/v1/responses", """{"background":true}"""u8.ToArray());
+            var mode = streaming ? LLMStreamingMode.Streaming : LLMStreamingMode.NonStreaming;
+            request.Options.Set(LLMTransportResolver.SelectionKey, new(mode, mode, LLMTransportResolver.Responses, "test"));
+            return request;
+        }, HttpCompletionOption.ResponseHeadersRead, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, "test", policy,
+            (wait, _) => { now += wait; return Task.CompletedTask; }, upper => upper, () => now, Ct);
+        using (new LLMHttpRetryContext("capture", journal, policy).Activate())
+        {
+            var failure = await Assert.ThrowsAsync<HttpRequestException>(Send);
+            Assert.Equal(HttpStatusCode.TooManyRequests, failure.StatusCode);
+            Assert.Equal(start.AddMilliseconds(2500), HttpRequestHelper.GetRetryMetadata(failure)!.NotBeforeUtc);
+        }
+        now = start.AddSeconds(1);
+        using (new LLMHttpRetryContext("capture", journal, policy).Activate()) await Assert.ThrowsAsync<HttpRequestException>(Send);
+        now = start.AddMilliseconds(2450);
+        using (new LLMHttpRetryContext("capture", journal, policy).Activate())
+        using (var recovered = await Send()) Assert.Contains("completed", await recovered.Content.ReadAsStringAsync(Ct));
+        Assert.Equal([("POST", start), ("GET", start), ("GET", start.AddMilliseconds(2500))], sends);
+        Assert.Equal(2, Assert.Single(journal.State!.Attempts).ReceiptRetrievals!.Count);
+    }
+
+    [Fact]
+    public async Task RepeatedReceiptRejectionsShareOneWaitBudgetAcrossRestarts()
+    {
+        var journal = new Journal();
+        var now = DateTimeOffset.UnixEpoch;
+        var origin = now;
+        List<DateTimeOffset> gets = [];
+        using var http = NewHttp(new Handler(request =>
+        {
+            if (request.Method == HttpMethod.Post) return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Accepted)
+                { Content = new StringContent("""{"id":"resp_wait","status":"queued"}""") });
+            gets.Add(now);
+            var response = new HttpResponseMessage(HttpStatusCode.ServiceUnavailable) { Content = new StringContent("{}") };
+            response.Headers.TryAddWithoutValidation("retry-after-ms", "80");
+            return Task.FromResult(response);
+        }));
+        var policy = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, MaxTotalDelayMilliseconds = 100 };
+        Task<HttpResponseMessage> Send() => HttpRequestHelper.SendWithTransientRetryAsync(http, () =>
+        {
+            var request = HttpRequestHelper.CreateJsonPost("https://gateway.example/v1/responses", """{"background":true}"""u8.ToArray());
+            request.Options.Set(LLMTransportResolver.SelectionKey, new(LLMStreamingMode.NonStreaming, LLMStreamingMode.NonStreaming, LLMTransportResolver.Responses, "test"));
+            return request;
+        }, HttpCompletionOption.ResponseHeadersRead, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, "test", policy,
+            (wait, _) => { now += wait; return Task.CompletedTask; }, upper => upper, () => now, Ct);
+        for (var invocation = 0; invocation < 2; invocation++)
+        {
+            using var scope = new LLMHttpRetryContext("capture", journal, policy).Activate();
+            var error = await Assert.ThrowsAsync<HttpRequestException>(Send);
+            Assert.Equal(origin.AddMilliseconds(160), HttpRequestHelper.GetRetryMetadata(error)!.NotBeforeUtc);
+        }
+        Assert.Equal([origin, origin.AddMilliseconds(80)], gets);
+        Assert.Single(journal.State!.Attempts);
+    }
+
     [Fact]
     public async Task BackgroundStreamRecoveryRetrievesTheSameResponseWithoutAnotherPostOrCharge()
     {

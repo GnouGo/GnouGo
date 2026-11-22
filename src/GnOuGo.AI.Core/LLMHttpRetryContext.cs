@@ -30,6 +30,18 @@ public sealed class LLMHttpRetryState
 
 public sealed class LLMHttpReceiptRetrieval
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public double? WaitBeforeMilliseconds { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderRequestIdHash { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? RequestId { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProviderRetryDelay? ProviderRetryDelay { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DateTimeOffset? NotBefore { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailurePhase { get; set; }
     public DateTimeOffset StartedAtUtc { get; set; }
     public DateTimeOffset? CompletedAtUtc { get; set; }
     public int? Status { get; set; }
@@ -99,6 +111,12 @@ public sealed class LLMHttpAttempt
     public string? Body { get; set; }
     public string? ContentType { get; set; }
     public string? RetryAfter { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ProviderRetryDelay? ProviderRetryDelay { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? FailurePhase { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? ProviderRequestIdHash { get; set; }
     public string? Failure { get; set; }
     public DateTimeOffset? NotBefore { get; set; }
 }
@@ -146,6 +164,7 @@ public sealed class LLMHttpRetryContext
 {
     private static readonly AsyncLocal<LLMHttpRetryContext?> Ambient = new();
     internal static LLMHttpRetryContext? Current => Ambient.Value;
+    internal TimeProvider Time { get; }
     internal string RequestId { get; }
     internal ILLMHttpRetryJournal Journal { get; }
     internal LLMProviderRetryPolicyOptions? PolicyOverride { get; }
@@ -153,7 +172,7 @@ public sealed class LLMHttpRetryContext
     private ExceptionDispatchInfo? _journalFailure;
 
     public LLMHttpRetryContext(string requestId, ILLMHttpRetryJournal journal, LLMProviderRetryPolicyOptions? policyOverride = null,
-        int? independentGenerationMaxElapsedMilliseconds = null)
+        int? independentGenerationMaxElapsedMilliseconds = null, TimeProvider? time = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(journal);
@@ -166,6 +185,7 @@ public sealed class LLMHttpRetryContext
             policyOverride.AttemptTimeoutMilliseconds <= 0 || policyOverride.BaseDelayMilliseconds <= 0 ||
             policyOverride.MaxDelayMilliseconds < policyOverride.BaseDelayMilliseconds || policyOverride.MaxTotalDelayMilliseconds < 0))
             throw new ArgumentException("A confirmed-response policy requires at most three attempts and no uncertain retries.", nameof(policyOverride));
+        Time = time ?? TimeProvider.System;
         RequestId = requestId;
         Journal = journal;
         PolicyOverride = policyOverride?.Clone();

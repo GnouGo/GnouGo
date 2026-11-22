@@ -24,6 +24,8 @@ public static class LLMProviderFailureMapper
             failure.RetryExhausted,
             failure.RetryAfterMilliseconds)
         {
+            RetryNotBeforeUtc = failure.RetryNotBeforeUtc, FailurePhase = failure.FailurePhase,
+            PhysicalRequestId = failure.PhysicalRequestId, ProviderRequestIdHash = failure.ProviderRequestIdHash,
             Stage = failure.Stage == LLMProviderFailureStage.Authentication ? LLMClientFailureStage.Authentication : null
         };
     }

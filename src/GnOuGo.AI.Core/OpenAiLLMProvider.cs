@@ -257,6 +257,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
         CancellationToken ct)
     {
         var delay = BackgroundInitialPollDelay;
+        string? receiptId = null;
 
         while (true)
         {
@@ -266,8 +267,12 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 ? statusElement.GetString()
                 : null;
 
-            if (string.IsNullOrWhiteSpace(status) || string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
+            var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
+            if (receiptId is not null && id != receiptId) throw new InvalidDataException("The retrieved background response identity changed.");
+            if (string.Equals(status, "completed", StringComparison.OrdinalIgnoreCase))
             {
+                if (!root.TryGetProperty("output", out var output) || output.ValueKind != JsonValueKind.Array)
+                    throw new InvalidDataException("The completed background response lacks output.");
                 _logger.LogInformation(
                     "OpenAI Responses background call completed. ResponseId={ResponseId}; Status={Status}",
                     root.TryGetProperty("id", out var completedId) ? completedId.GetString() : null,
@@ -275,6 +280,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                 return BuildResponsesApiResponse(root, request);
             }
 
+            if (string.IsNullOrWhiteSpace(status)) throw new InvalidDataException("The background response lacks a terminal or pending status.");
             if (IsTerminalResponsesStatus(status))
                 throw new HttpRequestException(
                     $"OpenAI background response ended with status '{status}': "
@@ -288,12 +294,12 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
                     + FormatProviderErrorBody(responseBody, sensitiveValues: [request.Prompt]));
             }
 
-            var id = root.TryGetProperty("id", out var idElement) ? idElement.GetString() : null;
             if (string.IsNullOrWhiteSpace(id))
                 throw new HttpRequestException(
                     "OpenAI background response did not include an id: "
                     + FormatProviderErrorBody(responseBody, sensitiveValues: [request.Prompt]));
 
+            receiptId = id;
             await Task.Delay(delay, ct);
             if (delay < BackgroundMaxPollDelay)
                 delay = TimeSpan.FromMilliseconds(Math.Min(delay.TotalMilliseconds * 1.5, BackgroundMaxPollDelay.TotalMilliseconds));

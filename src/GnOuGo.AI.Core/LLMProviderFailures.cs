@@ -79,11 +79,15 @@ public sealed class LLMProviderException : Exception
     public bool RetryExhausted { get; }
 
     public int? RetryAfterMilliseconds { get; }
+    public DateTimeOffset? RetryNotBeforeUtc { get; init; }
+    public string? FailurePhase { get; init; }
+    public string? PhysicalRequestId { get; init; }
+    public string? ProviderRequestIdHash { get; init; }
 
     public LLMProviderFailureStage? Stage { get; internal set; }
 }
 
-internal sealed record LLMHttpFailureClassification(
+public sealed record LLMHttpFailureClassification(
     LLMProviderFailureKind Kind,
     bool Retryable,
     string? SafeProviderCode);
@@ -127,7 +131,7 @@ internal static partial class LLMProviderFailureClassifier
             {
                 var metadata = HttpRequestHelper.GetRetryMetadata(current);
                 return Create(LLMProviderFailureKind.Timeout, retryable: true, attemptCount: metadata?.AttemptCount ?? 1,
-                    retryExhausted: metadata?.RetryExhausted ?? false);
+                    retryExhausted: metadata?.RetryExhausted ?? false, metadata: metadata);
             }
 
             if (current is LocalLLMException local)
@@ -154,7 +158,8 @@ internal static partial class LLMProviderFailureClassifier
         if (HttpRequestHelper.GetRetryMetadata(exception) is { } metadata)
         {
             var kind = metadata.FailureKind ?? ClassifyStatus(exception.StatusCode).Kind;
-            var retryable = (exception.StatusCode is null || HttpRequestHelper.IsRetryableStatus(exception.StatusCode.Value)) && kind is LLMProviderFailureKind.Transport
+            var deferredPoll = metadata.FailurePhase == "receipt_retrieval" && metadata.NotBeforeUtc.HasValue && kind == LLMProviderFailureKind.RateLimited;
+            var retryable = deferredPoll || (exception.StatusCode is null || HttpRequestHelper.IsRetryableStatus(exception.StatusCode.Value)) && kind is LLMProviderFailureKind.Transport
                 or LLMProviderFailureKind.Timeout
                 or LLMProviderFailureKind.RateLimited
                 or LLMProviderFailureKind.ServiceUnavailable;
@@ -165,7 +170,7 @@ internal static partial class LLMProviderFailureClassifier
                 metadata.SafeProviderCode,
                 metadata.AttemptCount,
                 metadata.RetryExhausted,
-                metadata.RetryAfterMilliseconds);
+                metadata.RetryAfterMilliseconds, metadata);
         }
 
         var marker = FindKnownMarker(exception.Message);
@@ -254,7 +259,7 @@ internal static partial class LLMProviderFailureClassifier
         string? safeProviderCode = null,
         int attemptCount = 1,
         bool retryExhausted = false,
-        int? retryAfterMilliseconds = null)
+        int? retryAfterMilliseconds = null, LLMHttpRetryMetadata? metadata = null)
         => new(
             kind,
             BuildSafeMessage(kind),
@@ -263,7 +268,11 @@ internal static partial class LLMProviderFailureClassifier
             safeProviderCode,
             attemptCount,
             retryExhausted,
-            retryAfterMilliseconds);
+            retryAfterMilliseconds)
+        {
+            RetryNotBeforeUtc = metadata?.NotBeforeUtc, FailurePhase = metadata?.FailurePhase,
+            PhysicalRequestId = metadata?.PhysicalRequestId, ProviderRequestIdHash = metadata?.ProviderRequestIdHash
+        };
 
     private static string BuildSafeMessage(LLMProviderFailureKind kind)
         => kind switch

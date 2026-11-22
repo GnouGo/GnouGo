@@ -132,7 +132,8 @@ public sealed class PlanningHttpModelJournal(
             {
                 var before = previous.Attempts[index]; var after = state.Attempts[index];
                 if (before.Id != after.Id || before.Status is not null &&
-                    (before.Status != after.Status || before.Body != after.Body || before.ContentType != after.ContentType || before.RetryAfter != after.RetryAfter) ||
+                    (before.Status != after.Status || before.Body != after.Body || before.ContentType != after.ContentType || before.RetryAfter != after.RetryAfter ||
+                     before.ProviderRetryDelay != after.ProviderRetryDelay || before.ProviderRequestIdHash != after.ProviderRequestIdHash) ||
                     index < oldCount - 1 && !Same(before, after)) throw Conflict();
             }
         if (state.Attempts.Count > oldCount)

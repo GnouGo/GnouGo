@@ -111,18 +111,25 @@ public sealed class HttpRequestHelperTests
         Assert.Equal(1, attempts);
     }
 
-    [Fact]
-    public async Task SendWithTransientRetryAsync_HonorsRetryAfterDelta()
+    [Theory]
+    [InlineData("Retry-After", "5", 5000)]
+    [InlineData("retry-after-ms", "120", 120)]
+    [InlineData("x-ms-retry-after-ms", "375", 375)]
+    public async Task SendWithTransientRetryAsync_HonorsRetryAfterDelta(string header, string value, int waitMs)
     {
+        var start = DateTimeOffset.UnixEpoch;
+        var now = start;
+        var dispatches = new List<DateTimeOffset>();
         var attempts = 0;
         var delays = new List<TimeSpan>();
         using var http = new HttpClient(new StubHttpMessageHandler(_ =>
         {
             attempts++;
+            dispatches.Add(now);
             var response = new HttpResponseMessage(
                 attempts == 1 ? HttpStatusCode.TooManyRequests : HttpStatusCode.OK);
             if (attempts == 1)
-                response.Headers.TryAddWithoutValidation("Retry-After", "5");
+                response.Headers.TryAddWithoutValidation(header, value);
             return Task.FromResult(response);
         }));
 
@@ -136,14 +143,16 @@ public sealed class HttpRequestHelperTests
             (delay, _) =>
             {
                 delays.Add(delay);
+                now += delay;
                 return Task.CompletedTask;
             },
             static _ => throw new InvalidOperationException("Jitter must not replace Retry-After."),
-            static () => new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero),
+            () => now,
             TestContext.Current.CancellationToken);
 
         Assert.Equal(2, attempts);
-        Assert.Equal([TimeSpan.FromSeconds(5)], delays);
+        Assert.Equal([start, start.AddMilliseconds(waitMs)], dispatches);
+        Assert.Equal([TimeSpan.FromMilliseconds(waitMs)], delays);
         Assert.Equal(2, HttpRequestHelper.GetRetryMetadata(response)!.AttemptCount);
     }
 

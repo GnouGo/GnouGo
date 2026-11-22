@@ -93,6 +93,10 @@ internal static class WorkflowFailureFormatter
             var attemptCount = ReadIntDeep(error.Details, "attempt_count");
             var retryExhausted = ReadBoolDeep(error.Details, "retry_exhausted");
             var retryAfterMilliseconds = ReadIntDeep(error.Details, "retry_after_ms");
+            if (ReadBoundedStringDeep(error.Details, "retry_not_before_utc", 50) is { Length: > 0 } due)
+                builder.AppendLine($"Provider retry permitted from {due}.");
+            if (ReadBoundedStringDeep(error.Details, "failure_phase", 40) is { Length: > 0 } phase)
+                builder.AppendLine($"Transport phase {phase}.");
             var providerCode = ReadBoundedStringDeep(error.Details, "provider_code", 120);
             var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 120);
 

@@ -94,7 +94,9 @@ semantic retries and provider fallback.
 
 The default policy for GETs and journaled generation POSTs permits at most four
 attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Unjournaled POSTs are single-attempt. Every attempt receives a fresh
-request. A valid `Retry-After` delta or HTTP date is honored; otherwise recovery uses
+request. The transport honors `Retry-After` seconds or HTTP dates and the
+`retry-after-ms` and `x-ms-retry-after-ms` millisecond headers. When several
+valid headers arrive, the latest allowed instant wins. In their absence it uses
 full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
 cumulatively. A delay outside that budget stops recovery instead of holding a workflow open.
 
@@ -171,8 +173,16 @@ authorization, quota or billing exhaustion, invalid requests, unavailable models
 and unknown terminal failures. Transport, timeout, rate-limit, and service failures
 are retryable; the remaining categories fail immediately. Exception metadata may contain an
 HTTP status, actual attempt count, retry-exhaustion flag, accepted `Retry-After`, and a safe
-provider error code, but never a response body, endpoint, credential, request prompt, or raw
-user content.
+provider error code. The durable transport record and safe error also carry the
+earliest retry instant, failure phase, physical request identity and a hash of the
+provider correlation ID when supplied. These diagnostic fields exclude credentials
+and request or response content.
+
+Background Responses retrieval follows the original response ID. Each poll records
+its own request identity, status and provider timing. Confirmed rejections share
+the captured wait allowance across restarts. A deferred poll can resume once the
+remaining wait fits. The physical timer covers headers and the complete body of
+each request, independently of waits between requests.
 
 ### OpenAI background Responses
 

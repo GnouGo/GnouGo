@@ -83,6 +83,10 @@ public sealed class LLMClientException : Exception
     public bool RetryExhausted { get; }
 
     public int? RetryAfterMilliseconds { get; }
+    public DateTimeOffset? RetryNotBeforeUtc { get; init; }
+    public string? FailurePhase { get; init; }
+    public string? PhysicalRequestId { get; init; }
+    public string? ProviderRequestIdHash { get; init; }
 
     public LLMClientFailureStage? Stage { get; init; }
 }
