@@ -12,14 +12,14 @@ using Microsoft.Extensions.DependencyInjection;
 
 // Test-host dependencies for the ordinary Server approve/save, typed composer, and SmartFlow execution.
 internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider, IMcpClientFactory, IMcpExecutionHooks,
-    IMcpSourceConfigurationFingerprint, ILLMClient
+    IMcpSourceConfigurationFingerprint, IJournaledBudgetClient
 {
     internal ServerLiveDiagnostics.DelegatedPlanningDiscovery Discovery { private get; set; } = null!;
     internal ILLMClient PlanningModel { private get; set; } = null!;
     internal PublishedReviewQualification? Target { get; set; }
     internal AdaptiveLiveProfile? Adaptive { get; set; }
     private LiveWorkflowEvaluation.ObservedMcp? _execution;
-    private ILLMClient? _executionModel;
+    private LiveWorkflowEvaluation.ExecutionModel? _executionModel;
     private DelegatedTestReviewAuthority? _authority;
     private PlanningSession? _saving;
     private string? _savedId;
@@ -47,6 +47,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
     public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) =>
         _execution is { } active && serverName != "GnOuGo.Agent.Mcp" ? active.GetClientAsync(serverName, ct) : Discovery.GetClientAsync(serverName, ct);
     public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => (_executionModel ?? PlanningModel).CallAsync(request, ct);
+    public Task<LLMResponse> CallWithBudgetAsync(LLMRequest request, JournaledModelBudget budget, CancellationToken ct) =>
+        _executionModel?.CallWithBudgetAsync(request, budget, ct) ?? budget.Scope.CallAsync(PlanningModel, budget.Estimator, request, budget.Stage, ct);
     public IDisposable BeginCall(McpCallExecutionContext context)
     {
         if (Adaptive is not null && context.Correlation is { ServerName: AdaptiveLiveProfile.Backend, MethodName: "copilot_task_contract", RunId: null })

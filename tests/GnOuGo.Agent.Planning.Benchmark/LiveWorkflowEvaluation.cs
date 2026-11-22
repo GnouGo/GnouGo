@@ -594,7 +594,7 @@ internal static class LiveWorkflowEvaluation
         }
     }
 
-    internal sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run, int outputLimit = 32768) : ILLMClient, ILLMCapabilityResolver
+    internal sealed class ExecutionModel(KeyVaultBenchmarkModel model, string run, int outputLimit = 32768) : IJournaledBudgetClient, ILLMCapabilityResolver
     {
         public Task<int?> InputTokenAllowanceAsync(string? provider, string name, int outputTokens, CancellationToken ct)
             => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
@@ -603,10 +603,10 @@ internal static class LiveWorkflowEvaluation
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct)
             => model.SupportedReasoningLevelsAsync(provider, name, ct);
         private int _calls;
-        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
-        {
-            return model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls), outputLimit), ct, attemptTimeoutLimitMilliseconds: 270_000);
-        }
+        public Task<LLMResponse> CallWithBudgetAsync(LLMRequest request, JournaledModelBudget budget, CancellationToken ct) => Send(request, budget, ct);
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => Send(request, null, ct);
+        private Task<LLMResponse> Send(LLMRequest request, JournaledModelBudget? budget, CancellationToken ct)
+            => model.CallExecutionAsync(ExecutionRequest(request, run, Interlocked.Increment(ref _calls), outputLimit), ct, 270_000, budget);
     }
 
     internal sealed class ObservedMcp(IMcpClientFactory inner, Func<JsonObject, Task> save, DelegatedTestReviewAuthority? authority = null, string? discoveryScenario = null, Func<string, string, JsonObject, CancellationToken, Task>? beforeCall = null,

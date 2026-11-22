@@ -685,6 +685,13 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
             if (failure?.RetryNotBeforeUtc is { } due) details["retry_not_before_utc"] = due;
+            if (ex is WorkflowRuntimeException { Details: JsonObject next } && next["dispatch_status"]?.ToString() == "prior_attempts_recorded" &&
+                next["next_attempt_started"]?.GetValue<bool>() == false)
+            {
+                details["physical_admission"] = next.DeepClone();
+                details["status_code"] = next["status_code"]?.DeepClone();
+                details["attempt_count"] = next["attempt_count"]?.DeepClone();
+            }
             if (ex.Data[GnOuGo.GithubCopilot.Core.CopilotInferenceFailure.Header] is GnOuGo.GithubCopilot.Core.CopilotInferenceFailure sdkFailure)
                 details["sdk_transport"] = JsonSerializer.SerializeToNode(sdkFailure, GnOuGo.GithubCopilot.Core.CopilotCoreJsonContext.Default.CopilotInferenceFailure);
             if (failure?.FailurePhase is { } phase) details["failure_phase"] = phase;

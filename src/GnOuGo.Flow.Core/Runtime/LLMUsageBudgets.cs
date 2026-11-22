@@ -316,6 +316,8 @@ public sealed partial class LLMUsageBudgetScope
         using var warnings = ObserveTokenWarnings(request.ClientRequestId);
 
         var safeStage = SanitizeStage(stage);
+        if (client is IJournaledBudgetClient journaled)
+            return await journaled.CallWithBudgetAsync(request, new(this, costEstimator, safeStage), ct).ConfigureAwait(false);
         var reservations = new List<LocalReservation>();
         try
         {

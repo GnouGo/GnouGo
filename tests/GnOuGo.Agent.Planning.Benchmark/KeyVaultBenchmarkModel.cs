@@ -547,12 +547,12 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         if (last?["Status"]?.GetValue<int>() is >= 200 and < 300 && last["Body"] is not null && last["Failure"] is null)
             await CallAsync(request, ct);
     }
-    internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null)
-        => CallBoundedAsync(request, true, ct, attemptTimeoutLimitMilliseconds);
-    private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null)
+    internal Task<LLMResponse> CallExecutionAsync(LLMRequest request, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null, JournaledModelBudget? budget = null)
+        => CallBoundedAsync(request, true, ct, attemptTimeoutLimitMilliseconds, budget);
+    private async Task<LLMResponse> CallBoundedAsync(LLMRequest request, bool execution, CancellationToken ct, int? attemptTimeoutLimitMilliseconds = null, JournaledModelBudget? budget = null)
     {
         await _dispatchGate.WaitAsync(ct);
-        try { return await DispatchAsync(request, ct, execution, attemptTimeoutLimitMilliseconds); }
+        try { return await DispatchAsync(request, ct, execution, attemptTimeoutLimitMilliseconds, budget); }
         finally { _dispatchGate.Release(); }
     }
 
@@ -628,7 +628,7 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
         throw new InvalidOperationException("Runtime inference has no exact completed response; another dispatch is forbidden.");
     }
 
-    private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false, int? attemptTimeoutLimitMilliseconds = null)
+    private async Task<LLMResponse> DispatchAsync(LLMRequest request, CancellationToken ct, bool execution = false, int? attemptTimeoutLimitMilliseconds = null, JournaledModelBudget? budget = null)
     {
         if (AdvisoryFinancialForecasts && RetainedExternalReservationsEur > 0 && !await HasSavedResponseAsync(request, ct))
             await _campaign.RequireRetainedApplicationHoldsAsync(RetainedExternalReservationsEur, ct, requireComplete: true);
@@ -691,7 +691,8 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             else throw new InvalidOperationException("Capture the remaining planning duration before dispatch.");
         }
         BenchmarkHttpJournal? journal = null;
-        return await _campaign.CallAsync(request, async token =>
+        RuntimeBudgetJournal? budgetJournal = null;
+        var result = await _campaign.CallAsync(request, async token =>
         {
             var json = JsonSerializer.Serialize(dispatched, PlanningJsonContext.Default.LLMRequest);
             var phaseInputLimit = PlanningInputLimit(policy, request);
@@ -710,16 +711,29 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
             if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||
                 estimatedPlanningInput > phaseInputLimit && !advisoryTokens))
                 throw BenchmarkCampaign.AdmissionFailure("captured_session_request_allowance");
+            var priorAttempts = (runtimeJournal?["transport"]?["Attempts"] as JsonArray)?.Count ?? 0;
+            if (budget is not null && priorAttempts == 0)
+                await budget.Scope.EnsureAllowanceAsync(request, budget.Estimator, input, [output], budget.Stage, token);
             journal = await PrepareAdmissionAsync(request.ClientRequestId!, input, output,
                 execution ? null : policy?["max_physical_attempts"]?.GetValue<int>() ?? 8, token, reviewCount,
                 reviewInput, reviewOutput, effectiveTransportPolicy);
+            if (budget is not null && (priorAttempts == 0 || !BenchmarkHttpJournal.IsRuntimeSingleAttempt(effectiveTransportPolicy)))
+                budgetJournal = new(journal, budget, request, input, output);
         }, async token =>
         {
-            using var context = new LLMHttpRetryContext(request.ClientRequestId!, journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy, time: execution ? _time : null).Activate();
+            using var context = new LLMHttpRetryContext(request.ClientRequestId!, (ILLMHttpRetryJournal?)budgetJournal ?? journal!, execution ? RuntimeRetryPolicy(effectiveTransportPolicy) : capturedTransport is null ? null : retryPolicy, time: execution ? _time : null).Activate();
             var response = await _client.CallAsync(dispatched, token);
             await CompleteResponseAsync(request, response, journal!);
             return response;
         }, ct, allowHttpRecovery: capturedTransport is not null || !incremental);
+        if (budget is not null && (budgetJournal is not null || runtimeJournal is not null))
+        {
+            // A logical receipt may bypass dispatch entirely on restart. Repair its
+            // application settlement from the same encrypted campaign identities.
+            var record = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, CancellationToken.None);
+            await RuntimeBudgetJournal.RestoreAsync(record, request, budget, result);
+        }
+        return result;
     }
 
     private async Task CompleteResponseAsync(LLMRequest request, LLMResponse response, BenchmarkHttpJournal journal)

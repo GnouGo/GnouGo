@@ -144,7 +144,12 @@ provider or client timeout still applies. The journal owns confirmed rejection
 retries. Each extra SDK attempt also consumes an existing SDK inference and
 token reservation before the campaign admits the send. A client using the
 original loopback protocol receives one attempt. The relay preserves the
-validated provider cooldown on a terminal HTTP response.
+validated provider cooldown on a terminal HTTP response. Runtime model calls
+under an application or workflow budget reserve each physical identity in
+the active scope and its parents. A confirmed rejection retains its exposure.
+Verified final usage settles its own identity. Recovery of the exact response
+uses the original identities and snapshot. If a parent denies the next attempt,
+the failure records the previous HTTP status and the number of attempts sent.
 
 Ordinary sessions preserve physical-call, correction and time targets as guards.
 Captured API allocations and financial guards remain explicit.

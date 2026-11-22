@@ -1,3 +1,6 @@
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Tests.Shared;
 using System.Net;
 using System.Text;
@@ -45,6 +48,55 @@ public sealed partial class BenchmarkAdmissionTests
         var totals = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
         Assert.Equal(2L, totals["calls"]!.GetValue<long>());
         Assert.Equal(1L, totals["unknown_attempts"]!.GetValue<long>());
+    }
+
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(2, false)]
+    [InlineData(1, true)]
+    public async Task RuntimeAttemptReservationsRespectTheWorkflowAndParentCallCeilings(int ceiling, bool monetary)
+    {
+        using var fixture = new Fixture();
+        using var upstream = new RetryProvider(TimeProvider.System, 503);
+        using var http = new HttpClient(upstream);
+        var options = RuntimeOptions();
+        options.ModelOverrides["openai/pinned"].Capabilities = new() { SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] };
+        using var model = RuntimeModel(fixture, options, http, TimeProvider.System);
+        var parent = new LLMUsageBudgetScope(new LLMUsageBudgetLimits
+            { MaxCalls = monetary ? 4 : ceiling, MaxEstimatedCostUsd = monetary ? 0.15m : null });
+        var child = parent.CreateChild(new() { MaxCalls = 4 });
+        var client = new LiveWorkflowEvaluation.ExecutionModel(model, "scoped");
+        var request = new LLMRequest { Provider = "fixture", Model = "pinned", Prompt = "Read only.", ClientRequestId = "one", MaxTokens = 128 };
+        Task<LLMResponse> Send() => child.CallAsync(client, new Price(), request, "llm.call", Ct);
+        if (ceiling == 1)
+        {
+            var denied = await Assert.ThrowsAsync<WorkflowRuntimeException>(Send);
+            Assert.Equal("prior_attempts_recorded", denied.Details!["dispatch_status"]!.ToString());
+            Assert.False(denied.Details["next_attempt_started"]!.GetValue<bool>());
+            Assert.Equal(503, denied.Details["status_code"]!.GetValue<int>());
+        }
+        else
+        {
+            Assert.NotNull((await Send()).Usage);
+            Assert.Equal(ceiling, parent.Snapshot.Calls);
+            var original = parent.Snapshot;
+            Assert.Null(original.JournaledAttempts![upstream.Ids[0]].VerifiedUsage);
+            Assert.NotNull(original.JournaledAttempts[upstream.Ids[1]].VerifiedUsage);
+            var codec = PlanningJsonContext.Default.LLMUsageBudgetSnapshot;
+            var encoded = JsonSerializer.Serialize(original, codec);
+            var restoredParent = new LLMUsageBudgetScope(parent.Limits, JsonSerializer.Deserialize(encoded, codec));
+            var restoredChild = new LLMUsageBudgetScope(child.Limits,
+                JsonSerializer.Deserialize(JsonSerializer.Serialize(child.Snapshot, codec), codec), restoredParent);
+            using var reopened = RuntimeModel(fixture, options, http, TimeProvider.System);
+            await restoredChild.CallAsync(new LiveWorkflowEvaluation.ExecutionModel(reopened, "scoped"), new Price(), request, "llm.call", Ct);
+            Assert.Equal(encoded, JsonSerializer.Serialize(restoredParent.Snapshot, codec));
+            Assert.Equal(ceiling, restoredChild.Snapshot.Calls);
+        }
+        Assert.Equal(ceiling, upstream.Ids.Count);
+        Assert.Equal(ceiling, parent.Snapshot.Calls);
+        Assert.Equal(ceiling, child.Snapshot.Calls);
+        var accounting = await BenchmarkHttpJournal.AccountingAsync(fixture.Campaign, ct: Ct);
+        Assert.Equal(ceiling, accounting["calls"]!.GetValue<long>());
     }
 
     [Fact]

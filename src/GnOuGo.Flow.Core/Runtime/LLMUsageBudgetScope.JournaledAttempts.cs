@@ -16,6 +16,14 @@ public sealed record LLMJournaledAttempt(int InputTokenCeiling, int OutputTokenC
 public sealed record LLMJournaledAttemptUsage(long InputTokens, long OutputTokens, long TotalTokens,
     decimal EstimatedCost, decimal EstimatedCostUsd, string UsageHash, string? CostUnavailableReason = null);
 
+// Host-injected transports with a durable physical journal take ownership of both
+// admission and settlement for the entire scope chain.
+internal interface IJournaledBudgetClient : ILLMClient
+{
+    Task<LLMResponse> CallWithBudgetAsync(LLMRequest request, JournaledModelBudget budget, CancellationToken ct);
+}
+internal sealed record JournaledModelBudget(LLMUsageBudgetScope Scope, IModelUsageCostEstimator? Estimator, string Stage);
+
 public sealed partial class LLMUsageBudgetScope
 {
     /// <summary>
