@@ -1,5 +1,83 @@
 # PR 120 planning simplification
 
+## Provider cooldowns and Review 02 readback, 22 November 2026
+
+The real Copilot SDK 1.0.34 and bundled runtime 1.0.112 used the local campaign
+relay against a scripted provider. Copilot ran one tool, then received HTTP 429
+on the following model request. A 10 ms cooldown led to one retry of the
+same wire body, three physical requests in total, three SDK reservations and
+one tool effect. With a 90-second cooldown and a 60-second wait allowance,
+the same tool ran once and the provider received two requests in total.
+The interrupted SDK result reported the status, requested wait and earliest
+retry. Both cases completed in six seconds together.
+[Controlled execution evidence](pr120-live-20261122/controlled-tests.json)
+
+The Server's provider validation submitted one background request. An exact
+receipt GET returned 429 and a 45-second delay. The chat event exposed the
+cooldown, failure phase and correlation without exposing the test secret.
+Pending GETs with statuses 200 and 202 and a 2,500 ms cooldown retain the
+requested delay, earliest retry and request identity across restart. A lost
+connection, a truncated receipt body and an expired physical body deadline
+each recovered with a GET on the original ID. Restart tests checked both
+buffered and streaming receipts and enforced the cumulative waiting allowance
+for generations and polls. Fresh campaign
+requests retain their physical 270-second cap, including the response body.
+The captured policy can permit up to three separately funded physical sends
+for confirmed rejections. All planned retries keep the original logical
+request and workflow invocation.
+[Confirmed-retry profile](../../tests/GnOuGo.Agent.Planning.Benchmark/Profiles/server-proxy-270s-confirmed.json)
+
+A confirmed 503 previously reached the provider a second time under a
+one-call parent workflow budget. Each physical send now reserves the same
+identity in the campaign and workflow journals. The one-call cap and the
+USD 0.15 parent cost cap each stopped the second send. The two-call case
+settled the response, retained the rejected attempt's reservation and
+reopened both application scopes without sending a third request.
+[Campaign and parent-budget regression](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionTests.RateLimits.cs)
+
+On a local catalog, Chromium and the document MCP visited the first ten of
+twelve offered products in order and produced an XLSX with a header and ten
+matching rows. The independent oracle verified the cells and browser closure.
+The retained plan used 43 observation pages. Its frozen model fixture and local
+site put this run in controlled qualification. The existing authorized
+`browser_get_content(url)` capability performs navigation before extraction.
+[Product fixture and independent workbook oracle](../../tests/GnOuGo.Agent.Server.Tests/LocalProductOutcomeExecutionTests.Retained.cs)
+
+The full Release suite built at `eb487916` passed 9,883 tests with 13 skipped
+across 33 assemblies. The solution built at `3261f1ee` with zero warnings or
+errors. A further 3,316 Release tests passed on that exact source across seven
+affected assemblies, including 550 Server campaign, admission, review and
+provider diagnostics tests. The totals overlap. The serial macOS arm64
+publication gate on the same commit passed eight Vite builds, nine Native
+AOT profiles, five managed trimmed profiles and all published-binary smokes.
+A preceding concurrent run exited during native compilation without a compiler
+diagnostic. The gate used the existing fingerprints for the two EF Core
+experimental-feature notices.
+[Commands, source revisions and individual results](pr120-live-20261122/controlled-tests.json)
+
+The paid multi-MCP smoke, Amazon and SlimFaaS review await external provider
+evidence for Review 02 and the operator's network check. The original
+attempt still has one EUR 3.2908297 reservation and no provider receipt,
+status or usage. The previously verified clone, run-owned kubeconfig and
+cluster remain absent. GitHub still shows the same four reviews and six
+inline comment IDs. All 30 required repository checks were unexecuted in
+Review 02. The requested publication and chat report remain outstanding.
+Both live qualification streaks stand at 0/2.
+[Readback and financial audit](pr120-live-20261122/campaign-readback.json)
+
+Once the operator verifies the provider route and obtains authoritative
+disposition or usage for the recorded request fingerprint, reconcile Review
+02 against its original journal. The next fresh run is the small real-model
+multi-MCP Server smoke, followed by Amazon and SlimFaaS.
+
+The opening and closing financial audits match the previous audit byte for
+byte. This pass added zero paid requests, charges or reservations. The
+campaign has 4,806 historical physical requests, EUR 2,476.7233424 in
+measured-token costs, EUR 495.8143718 reserved on 56 HTTP attempts, and
+EUR 171.6335695 in separate application reservations. Its remaining margin
+under the EUR 3,600 ceiling is EUR 455.8287163.
+[Ceiling history and accounting basis](pr120-live-20261121/campaign-balance.json)
+
 ## .NET 11 adaptive execution verification, 21 November 2026
 
 One compiled workflow ran twice through the workflow engine with the same

@@ -1,0 +1,266 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "mode": "controlled, no paid provider traffic",
+  "implementationCommits": [
+    "150c7a8f039ac17b6b8900892bf102bc01b1ccf8",
+    "4e5c21a2833f8b911cd85dc1c8832117b70ead6e",
+    "eb487916f6fd9163fa2e118e2c1298c62e50013f",
+    "5907746914843480b133a27fd1fd560eb87a9b96",
+    "7ea0368652ec4fd1f28a6e67e9131eb794ff2472",
+    "713b55b6cbe10558ce4b8a2d80d070f200bcc44c",
+    "7a61783960f4f7985b3bd679a14aaed15627edd2",
+    "2074738c4ccac0c4d06b5abbed9bae994f07fdde",
+    "110a925f2ce5dddcf10608d5e4b5cf55dbc018f2",
+    "3261f1ee899b5799f94d1af1862c5a035712c0ec"
+  ],
+  "regressions": {
+    "missingMillisecondDelay": {
+      "redCases": 2,
+      "redLogSha256": "ec273de625746cdb48045de6ea26b2099bc9d9bc23423233bfd0b5584a2ff270"
+    },
+    "coldCumulativeBudget": {
+      "before": "A cold invocation sent attempt 3, exceeded its captured wait allowance and returned 200. Expected 503 with its due time.",
+      "redLogSha256": "5169555008dfcc7dcdc9072ba9e6cd681f43d8414338118b21e94a87cc730cc8",
+      "after": "At virtual t=80 ms a cold resume returned 503. At t=145 ms the 15 ms remaining fit the budget. Attempt 3 began at t=160 ms, 95 ms total charged wait."
+    },
+    "workflowPhysicalBudget": {
+      "before": "A parent with one available call accepted two physical POSTs after a confirmed 503.",
+      "redLogSha256": "b055681f6a90ac03b62916d57d722c34ec6d332d7b4993abbed6b8646dd78e1e",
+      "after": "Both the one-call parent and the USD 0.15 parent refuse the second physical send. Two available calls retain the first reservation and settle the successful second one. Fresh application scopes restored from snapshots replayed the journal without a third POST.",
+      "cases": 3
+    },
+    "pendingReceiptCooldown": {
+      "before": "A queued GET response with HTTP 200 or 202 and a 2500 ms cooldown returned an exception with no HTTP status or retry metadata.",
+      "redLogSha256": "9e63c7ffd147afde5fb424e2a14263ea129a4b0e8c50236b298af1297248467e",
+      "after": "Buffered and streaming calls retained the HTTP status, phase, original delay, earliest permitted GET, physical request ID and hashed provider ID. One POST and two GETs at virtual t=0 and t=2500 ms returned the completed receipt."
+    },
+    "interruptedReceipt": {
+      "before": "The network, timeout and truncated receipt fixtures lost the physical phase or its classification.",
+      "after": "Response-header network loss, response-body timeout and truncated JSON returned typed diagnostics, local correlation and any observed status. All three recovered by GET on the exact response ID. Each fixture observed one POST and two GETs.",
+      "redCases": 3,
+      "redLogSha256": "fc1a9d696d8a82000c9321e0a7207ca18e00e8dcc9f534a5da85c49fd57d314d"
+    }
+  },
+  "checks": {
+    "aiCore": {
+      "command": "dotnet test tests/GnOuGo.AI.Core.Tests --no-restore -m:1 -warnaserror",
+      "sha256": "77077b574723615240603ad2dd43c2e886dad898f458a3336a51aa39484805ad",
+      "summary": "Passed!  - Failed:     0, Passed:   406, Skipped:     0, Total:   406, Duration: 4 s - GnOuGo.AI.Core.Tests.dll (net11.0)"
+    },
+    "proxy": {
+      "sha256": "c2ecd4075f099758b2d63aa85878b0eec56eb19c50d0e3ae80d111229c458f30",
+      "summary": "Passed!  - Failed:     0, Passed:   218, Skipped:     0, Total:   218, Duration: 5 s - GnOuGo.ProxyCopilot.Server.Tests.dll (net11.0)",
+      "command": "dotnet test tests/GnOuGo.ProxyCopilot.Server.Tests --no-restore -warnaserror"
+    },
+    "copilotCore": {
+      "sha256": "c54cf9d42001515b7d720674814fcb4897d9fa72645678f238644e8ba023d2f1",
+      "summary": "Passed!  - Failed:     0, Passed:   185, Skipped:     0, Total:   185, Duration: 510 ms - GnOuGo.GithubCopilot.Core.Tests.dll (net11.0)",
+      "command": "dotnet test tests/GnOuGo.GithubCopilot.Core.Tests --no-restore -warnaserror"
+    },
+    "copilotMcp": {
+      "sha256": "133afa51b05f011cbc752db4c4608c75f2df2b52cb981ef9bb4491289287ab43",
+      "summary": "Passed!  - Failed:     0, Passed:   274, Skipped:     0, Total:   274, Duration: 22 s - GnOuGo.GithubCopilot.Mcp.Tests.dll (net11.0)",
+      "command": "dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests --no-restore -warnaserror"
+    },
+    "serverProviderValidation": {
+      "sha256": "0f355204928ae4973e02e77b5f56467f189652bc2c9b8a9cdb1f39262e4a92c3",
+      "summary": "Passed!  - Failed:     0, Passed:    72, Skipped:     0, Total:    72, Duration: 1 s - GnOuGo.Agent.Server.Tests.dll (net11.0)",
+      "command": "dotnet test tests/GnOuGo.Agent.Server.Tests --no-restore -warnaserror --filter 'FullyQualifiedName~ConfigureProvidersServiceTests|FullyQualifiedName~WorkflowFailureFormatterTests'"
+    },
+    "serverCampaignSelection": {
+      "sha256": "d183f18747bc6a35fb68a27e80b47d6c4f9b2ea3c03b7f1463a2520c4963c37a",
+      "summary": "Passed!  - Failed:     0, Passed:   490, Skipped:     0, Total:   490, Duration: 19 s - GnOuGo.Agent.Server.Tests.dll (net11.0)",
+      "command": "GNOUGO_TEST_LOCAL_COPILOT=1 dotnet test tests/GnOuGo.Agent.Server.Tests --no-restore -warnaserror --filter 'FullyQualifiedName~BenchmarkAdmissionTests|FullyQualifiedName~BenchmarkCampaignTests|FullyQualifiedName~DelegatedTestReviewTests|FullyQualifiedName~WorkflowFailureFormatterTests|FullyQualifiedName~AdaptiveLiveProfileTests'"
+    },
+    "nativeSdkBothCases": {
+      "sha256": "7a62ceb9c02c3a5e6c05b88f8253e894bea6e43bf42510c3b3607675cbbee4ab",
+      "summary": "Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 6 s - GnOuGo.Agent.Server.Tests.dll (net11.0)",
+      "command": "GNOUGO_TEST_LOCAL_COPILOT=1 dotnet test tests/GnOuGo.Agent.Server.Tests --no-restore -warnaserror --filter 'FullyQualifiedName~LocalSdkReceivesRetryCredit'"
+    },
+    "sdkReadinessAndAdmission": {
+      "command": "GNOUGO_TEST_LOCAL_COPILOT=1 dotnet test tests/GnOuGo.Agent.Server.Tests --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~BenchmarkAdmissionTests|FullyQualifiedName~AdaptiveLiveProfileTests|FullyQualifiedName~DelegatedTestReviewTests'",
+      "sha256": "d3912c7d7caa79c6deade71cceacc4b4d9daf09089cf3b0d0dce07b1974135c5",
+      "summary": "Passed!  - Failed:     0, Passed:   235, Skipped:     0, Total:   235, Duration: 25 s - GnOuGo.Agent.Server.Tests.dll (net11.0)"
+    },
+    "flowScopes": {
+      "command": "dotnet test tests/GnOuGo.Flow.Tests --no-restore -m:1 -warnaserror",
+      "sha256": "22bee500c6d3007e277a07aa21987f7198875d16ab59105e9ff31fd0eeda9780",
+      "summary": "Passed!  - Failed:     0, Passed:  1559, Skipped:     0, Total:  1559, Duration: 2 s - GnOuGo.Flow.Tests.dll (net11.0)"
+    },
+    "workflowRetryBudgets": {
+      "command": "dotnet test tests/GnOuGo.Agent.Server.Tests --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~RuntimeAttemptReservationsRespectTheWorkflowAndParentCallCeilings'",
+      "sha256": "6f746014fc003ea1f918d93674b3515a11faf15ca307008fa8ecf06815b09bb0",
+      "summary": "Passed!  - Failed:     0, Passed:     3, Skipped:     0, Total:     3, Duration: 751 ms - GnOuGo.Agent.Server.Tests.dll (net11.0)"
+    },
+    "twoMcpObservationAndResume": {
+      "command": "dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests --no-restore -m:1 -warnaserror --filter 'FullyQualifiedName~SameApprovedScopeUsesCurrentObservationAcrossServersAndInspectsWithoutRewriting|FullyQualifiedName~CanceledQueuedActionCannotBeIssuedAndClaimedActionCannotBeIssuedTwice'",
+      "sha256": "11e26d18ad75e92d67b2cf46110d950cc28a5c0fc6202e918d866d19806f5f67",
+      "summary": "Passed!  - Failed:     0, Passed:     2, Skipped:     0, Total:     2, Duration: 391 ms - GnOuGo.GithubCopilot.Mcp.Tests.dll (net11.0)",
+      "fixture": "Controlled decision policy and two fixture MCP sessions. One retained scope handled a direct value and a cursor; each run wrote once. An interrupted write was inspected without writing again."
+    }
+  },
+  "checksOverlap": true,
+  "sdkFixture": {
+    "sdk": "1.0.34",
+    "runtime": "1.0.112",
+    "interception": "real SDK HTTP interception and Kestrel campaign relay, scripted provider and synthetic SDK host tool",
+    "optIn": "GNOUGO_TEST_LOCAL_COPILOT=1",
+    "recoverable": {
+      "statuses": [
+        200,
+        429,
+        200
+      ],
+      "physicalAttempts": 3,
+      "sdkReservations": 3,
+      "toolEffects": 1,
+      "identicalWireBodyOnRetry": true,
+      "terminalText": "observed"
+    },
+    "deferred": {
+      "statuses": [
+        200,
+        429
+      ],
+      "requestedDelayMs": 90000,
+      "waitAllowanceMs": 60000,
+      "physicalAttempts": 2,
+      "sdkReservations": 2,
+      "toolEffects": 1,
+      "terminalFailure": "RateLimited",
+      "absoluteRetryTimeReturned": true,
+      "testTurnLimitSeconds": 15
+    }
+  },
+  "serverValidation": {
+    "entry": "ConfigureProvidersService.ValidateConfigAsync, called when saving OpenAI-compatible credentials",
+    "requests": [
+      "POST /v1/responses",
+      "GET /v1/responses/resp_fixture"
+    ],
+    "pollStatus": 429,
+    "requestedDelayMs": 45000,
+    "chatMessageIncludes": [
+      "status",
+      "requested delay",
+      "earliest retry",
+      "phase",
+      "local physical identity",
+      "provider correlation SHA-256"
+    ],
+    "secretAbsent": true
+  },
+  "controlledProducts": {
+    "fixture": "RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(typed-lookup-repair)",
+    "target": "loopback site",
+    "browser": "real Chromium and browser MCP",
+    "document": "real document MCP",
+    "candidateCount": 12,
+    "firstProductVisitsInOrder": 10,
+    "observationPages": 43,
+    "observationRecords": 77,
+    "matchingWorkbookRowsIncludingHeader": 11,
+    "browserClosed": true,
+    "unresolvedReceipts": 0,
+    "planningCalls": 0,
+    "mappingFixtureCalls": 13,
+    "interpretationFixtureCalls": 15,
+    "logSha256": "4cc6473d6a1ab2fc346351e035a6f42c22c81b713d98c648be8bd52ac9e05bbe"
+  },
+  "solutionSuite": {
+    "buildSource": "eb487916f6fd9163fa2e118e2c1298c62e50013f",
+    "configuration": "Release",
+    "command": "GNOUGO_TEST_LOCAL_COPILOT=1 dotnet test GnOuGo.Agent.sln -c Release -m:1 --no-build --no-restore -warnaserror",
+    "assemblies": 33,
+    "failed": 0,
+    "passed": 9883,
+    "skipped": 13,
+    "total": 9896,
+    "sha256": "f234a9e7bff79e327ab4df0fe408b4c035cd80729fde4ad97dc049b189157dba",
+    "coverage": "Full solution at the earlier Release build. See the final-source checks for the subsequent transport, application and Server corrections."
+  },
+  "finalSourceRelease": {
+    "source": "3261f1ee899b5799f94d1af1862c5a035712c0ec",
+    "configuration": "Release",
+    "fullSolutionBuild": {
+      "command": "dotnet build GnOuGo.Agent.sln -c Release -m:1 --no-restore -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true",
+      "warnings": 0,
+      "errors": 0,
+      "sha256": "c7f5a40a60899286016a08546d968b2b5de944caf5674ec4865445f992284833"
+    },
+    "testCommand": "GNOUGO_TEST_LOCAL_COPILOT=1 dotnet test tests/<project> -c Release -m:1 --no-build --no-restore -warnaserror",
+    "serverFilter": "FullyQualifiedName~BenchmarkAdmissionTests|FullyQualifiedName~BenchmarkCampaignTests|FullyQualifiedName~DelegatedTestReviewTests|FullyQualifiedName~AdaptiveLiveProfileTests|FullyQualifiedName~ConfigureProvidersServiceTests|FullyQualifiedName~WorkflowFailureFormatterTests",
+    "tests": {
+      "GnOuGo.AI.Core.Tests": {
+        "passed": 406,
+        "skipped": 0,
+        "sha256": "569cd92a952d277ddb4fafb3397fde4c34326b1fbf0fe905271bbfcc1985ab3b"
+      },
+      "GnOuGo.Agent.Server.Tests": {
+        "passed": 550,
+        "skipped": 0,
+        "sha256": "55ddb052fc288bc6cfbdbd9e6d835ad715d71dafb66002be659c7cad12bafb33"
+      },
+      "GnOuGo.Flow.Integrations.Tests": {
+        "passed": 124,
+        "skipped": 0,
+        "sha256": "9162f4972ad45dca63c8fd2f7312a0584e68193aaae1f9cd9da8421fd77b6268"
+      },
+      "GnOuGo.Flow.Tests": {
+        "passed": 1559,
+        "skipped": 0,
+        "sha256": "474030c5120eac8bfca03bfc69169e85e02e0f001891bd094cfa68502c6e57ca"
+      },
+      "GnOuGo.GithubCopilot.Core.Tests": {
+        "passed": 185,
+        "skipped": 0,
+        "sha256": "a3769cd5941376092869fa6e33007778d3a97fbbc5006cd709ff0a541bd2906c"
+      },
+      "GnOuGo.GithubCopilot.Mcp.Tests": {
+        "passed": 274,
+        "skipped": 0,
+        "sha256": "6d12ede60b3b7870b81df86b2ed6ad2021145039f873d7404b52778eff239e5a"
+      },
+      "GnOuGo.ProxyCopilot.Server.Tests": {
+        "passed": 218,
+        "skipped": 0,
+        "sha256": "76d761f18d5310f6e368e5309a30b9ee1d36bcf277115065b0c4de4485f1c0c1"
+      }
+    },
+    "passed": 3316,
+    "published": {
+      "runtime": "osx-arm64",
+      "command": "pwsh -NoProfile -File scripts/verify-warning-free-publishes.ps1 -RuntimeIdentifier osx-arm64",
+      "sha256": "a166d830038e2a3aae6feed9aa7c3456b8db2f6c4458f7bd1b7baf6cc4336fdd",
+      "nativeAot": 9,
+      "managedTrimmed": 5,
+      "viteBuilds": 8,
+      "copilotArchive": "Pinned 1.0.112 archive served locally after checking SHA-256 against the cached published checksum list.",
+      "smokes": [
+        "PASS published CLI: encrypted receipts, native EF query/index rebuild, tenant isolation, retained results and revision checks",
+        "PASS published server: encrypted restart recovery, streamed durable human answers, tenant isolation and revision checks",
+        "PASS published Copilot MCP: SDK/runtime handshake, typed attachment discovery/refusal, bounded protocol, unsupported-scope refusal before inference, terminal failed receipt envelope"
+      ],
+      "result": "All Vite builds, publish profiles, warning checks, and published-binary smoke tests passed."
+    }
+  },
+  "publishDiagnostics": {
+    "macArm64MatrixDuringImplementation": {
+      "runStartedOn": "110a925f2ce5dddcf10608d5e4b5cf55dbc018f2",
+      "profileCount": 14,
+      "viteBuilds": 8,
+      "sha256": "0f7cffed3fc6b274382b52a1ac050fdae398604b0f36180dfbac058f4e02722a",
+      "result": "all published smokes and expected-warning checks passed"
+    },
+    "extraStrictCommand": {
+      "scope": "dotnet publish Flow.Cli with blanket -warnaserror",
+      "result": "MSBuild elevated the two upstream EF Core Native AOT/query-precompilation notices to errors. The repository gate identifies these precise diagnostics by fingerprint.",
+      "sha256": "3567600cd95cf068fc0634760319de634289d970c0db886063440c3afd82566d"
+    },
+    "overlappingRun": {
+      "source": "3261f1ee899b5799f94d1af1862c5a035712c0ec",
+      "result": "A concurrent matrix stopped at the GitHub Copilot MCP native compile with exit 1 and no compiler diagnostic; the complete matrix was relaunched serially.",
+      "sha256": "6da9250d670fa01e2eeb0a46163f507224e1dee10bd609108a98b17a6b0edd42"
+    }
+  }
+}
