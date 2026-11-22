@@ -10,6 +10,19 @@ cases or duplicates. All five partition-runner unit tests passed. This exercise
 used the scripted provider and made zero paid calls.
 [Linux job and original outcomes](https://github.com/GnouGo/GnouGo/actions/runs/45009446992/job/137168291540)
 
+The Server's configured runtime discovered two live tool contracts and started
+the bundled Git, Document and Copilot MCP processes in an isolated workspace.
+The scripted provider selected Git status, obtained a fresh random filename
+from the result, then selected Document read and returned the file's random
+value. The two permission grants and two tool receipts matched the selected
+contracts. The ordinary case used three model requests. A 429 after Git status
+raised that to four, with the exact rejected body reissued and each request
+counted in the campaign and the Copilot receipt. Inspection and repeat execution
+recovered both original evidence IDs without new grants or provider calls.
+This controlled test enters at the Server runtime and exercises one adaptive
+task. Real-model chat qualification still awaits Review 02 reconciliation.
+[Server multi-MCP integration test](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionTests.MultiMcp.cs)
+
 ## Provider cooldowns and Review 02 readback, 22 November 2026
 
 The real Copilot SDK 1.0.34 and bundled runtime 1.0.112 used the local campaign

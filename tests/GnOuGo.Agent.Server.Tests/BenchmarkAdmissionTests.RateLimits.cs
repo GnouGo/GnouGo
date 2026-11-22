@@ -225,14 +225,19 @@ public sealed partial class BenchmarkAdmissionTests
             var selecting = tool && Ids.Count == 1;
             var message = selecting ? """{"role":"assistant","tool_calls":[{"index":0,"id":"call_fixture","type":"function","function":{"name":"fixture_observe","arguments":"{}"}}]}"""
                 : """{"role":"assistant","content":"observed"}""";
-            var streamed = JsonNode.Parse(Bodies[^1])?["stream"]?.GetValue<bool>() == true;
-            var choice = new JsonObject { ["index"] = 0, [streamed ? "delta" : "message"] = JsonNode.Parse(message),
-                ["finish_reason"] = selecting ? "tool_calls" : "stop" };
-            var reply = new JsonObject { ["id"] = "chatcmpl-fixture", ["model"] = "pinned", ["created"] = clock.GetUtcNow().ToUnixTimeSeconds(),
-                ["object"] = streamed ? "chat.completion.chunk" : "chat.completion", ["choices"] = new JsonArray(choice),
-                ["usage"] = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 2 } }.ToJsonString();
-            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(streamed ? "data: " + reply + "\n\ndata: [DONE]\n\n" : reply,
-                Encoding.UTF8, streamed ? "text/event-stream" : "application/json") };
+            return ChatReply(JsonNode.Parse(Bodies[^1])!, JsonNode.Parse(message)!.AsObject(), clock);
         }
+    }
+
+    private static HttpResponseMessage ChatReply(JsonNode request, JsonObject message, TimeProvider clock)
+    {
+        var streamed = request["stream"]?.GetValue<bool>() == true;
+        var choice = new JsonObject { ["index"] = 0, [streamed ? "delta" : "message"] = message,
+            ["finish_reason"] = message.ContainsKey("tool_calls") ? "tool_calls" : "stop" };
+        var reply = new JsonObject { ["id"] = "chatcmpl-fixture", ["model"] = "pinned", ["created"] = clock.GetUtcNow().ToUnixTimeSeconds(),
+            ["object"] = streamed ? "chat.completion.chunk" : "chat.completion", ["choices"] = new JsonArray(choice),
+            ["usage"] = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 2 } }.ToJsonString();
+        return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(streamed ? "data: " + reply + "\n\ndata: [DONE]\n\n" : reply,
+            Encoding.UTF8, streamed ? "text/event-stream" : "application/json") };
     }
 }
