@@ -685,6 +685,8 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 ["status_code"] = failure?.StatusCode, ["safe_provider_code"] = failure?.SafeProviderCode, ["retryable"] = failure?.Retryable,
                 ["attempt_count"] = failure?.AttemptCount, ["retry_exhausted"] = failure?.RetryExhausted, ["retry_after_ms"] = failure?.RetryAfterMilliseconds };
             if (failure?.RetryNotBeforeUtc is { } due) details["retry_not_before_utc"] = due;
+            if (ex.Data[GnOuGo.GithubCopilot.Core.CopilotInferenceFailure.Header] is GnOuGo.GithubCopilot.Core.CopilotInferenceFailure sdkFailure)
+                details["sdk_transport"] = JsonSerializer.SerializeToNode(sdkFailure, GnOuGo.GithubCopilot.Core.CopilotCoreJsonContext.Default.CopilotInferenceFailure);
             if (failure?.FailurePhase is { } phase) details["failure_phase"] = phase;
             if (failure?.PhysicalRequestId is { } physical) details["physical_request_id"] = physical;
             if (failure?.ProviderRequestIdHash is { } providerId) details["provider_request_id_sha256"] = providerId;

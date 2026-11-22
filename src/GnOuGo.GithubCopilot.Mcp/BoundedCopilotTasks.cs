@@ -275,6 +275,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             result = result with { Status = terminal ? "budget_exhausted" : "needs_reconciliation", Output = null,
                 Failure = BudgetFailure(admission, terminal) };
         }
+        if (result.Failure is null && observed?.InferenceFailure is { } failure)
+            result = result with { Failure = new WorkflowError { Code = "AGENT_PROVIDER_FAILURE", Type = "provider",
+                Message = failure.Summary, Retryable = false, Details = JsonSerializer.SerializeToNode(failure, CopilotCoreJsonContext.Default.CopilotInferenceFailure) } };
         result = result with { Usage = Usage(record, started) };
         record["status"] = result.Status; record["result"] = JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult);
         await SaveAsync(context, record, CancellationToken.None);

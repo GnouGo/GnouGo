@@ -148,7 +148,14 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 // A partial payload is evidence, not a completion receipt. Fail the
                 // transport task so the caller's journal cannot release cleanup.
                 // The SDK's later SetCompleted is idempotently ignored by the store.
-                using var error = JsonDocument.Parse("""{"code":-32603,"message":"COPILOT_NEEDS_RECONCILIATION: external completion is unknown; partial evidence is retained in the logical task."}""");
+                var incident = new JsonObject { ["code"] = -32603,
+                    ["message"] = "COPILOT_NEEDS_RECONCILIATION: external completion is unknown; partial evidence is retained in the logical task." };
+                if (final.InferenceFailure is { } failure)
+                {
+                    incident["message"] = incident["message"] + " " + failure.Summary;
+                    incident["data"] = JsonSerializer.SerializeToNode(failure, CopilotCoreJsonContext.Default.CopilotInferenceFailure);
+                }
+                using var error = JsonDocument.Parse(incident.ToJsonString());
                 await store.SetFailedAsync(id, error.RootElement, receipt.Token);
             }
             else

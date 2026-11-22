@@ -334,7 +334,11 @@ for the same SDK request and wire body. The SDK does not rerun the preceding
 tool action. Once a rejection is terminal or a response is interrupted, that
 client stops forwarding further model requests. The campaign records each
 physical attempt separately. Per-attempt deadlines cover the entire upstream
-response, and workflow cancellation also covers waits.
+response, and workflow cancellation also covers waits. A terminal journal response
+closes that invocation's tool and inference admissions and ends the SDK wait.
+The interrupted result can carry `inferenceFailure` with the upstream status,
+phase, wait, earliest retry time and hashed correlation IDs. Its completion
+and reconciliation fields continue to describe the observed tool effects.
 
 Terminal preparation failures carry an optional safe `failure` alongside the existing
 result/receipt fields. Codes distinguish `AGENT_ISOLATION_REQUIRED`,

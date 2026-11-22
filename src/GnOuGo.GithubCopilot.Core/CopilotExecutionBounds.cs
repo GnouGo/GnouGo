@@ -33,6 +33,13 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     public bool Exhausted => AdmissionStop is not null;
     public CopilotAdmissionStop? AdmissionStop => _inference.AdmissionStop;
     private volatile bool _transportFailed;
+    internal CopilotInferenceFailure? ProviderFailure => _inference.ProviderFailure;
+    internal CancellationToken ProviderRejected => _inference.ProviderRejected;
+    internal void RecordProviderFailure(CopilotInferenceFailure failure)
+    {
+        _stopped = true;
+        _inference.RecordProviderFailure(failure);
+    }
     internal bool TransportFailed => _transportFailed;
     internal void RecordTransportFailure() => _transportFailed = true;
     public string? ApprovedPrompt { get; init; }
@@ -127,7 +134,7 @@ internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds boun
     CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
     protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, bounds.ReserveAsync, bounds.RecordTransportFailure);
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, bounds.ReserveAsync, bounds.RecordTransportFailure, rejected: bounds.RecordProviderFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded tasks."));
 }

@@ -20,7 +20,7 @@ internal sealed class SdkAttemptCreditJournal(ILLMHttpRetryJournal journal, int 
     }
 }
 
-internal sealed record CampaignInferenceResponse(int Status, string ContentType, string Body, System.Text.Json.Nodes.JsonObject? RetryHeader);
+internal sealed record CampaignInferenceResponse(int Status, string ContentType, string Body, System.Text.Json.Nodes.JsonObject? RetryHeader, System.Text.Json.Nodes.JsonObject? Failure);
 
 // The existing SDK interception hook attests at /ready before its MCP starts.
 // This test host admits every inference through the same encrypted EUR ledger.
@@ -56,6 +56,7 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
                     ? parsed : throw new InvalidOperationException("Invalid SDK physical attempt allowance.");
                 var result = await model.ProxyInferenceAsync(run, context.Request.Headers.ToDictionary(p => p.Key, p => p.Value.ToString(), StringComparer.OrdinalIgnoreCase), body, context.RequestAborted, chatToolsReasoningEffort, wireApi, inferenceTransport, outputLimit, credit, value.Length == 0 ? 1 : null);
                 context.Response.StatusCode = result.Status;
+                if (result.Failure is not null) context.Response.Headers[CopilotInferenceFailure.Header] = result.Failure.ToJsonString();
                 context.Response.ContentType = result.ContentType;
                 if (result.RetryHeader?["name"]?.ToString() is "Retry-After" or "retry-after-ms" or "x-ms-retry-after-ms")
                     context.Response.Headers[result.RetryHeader["name"]!.ToString()] = result.RetryHeader["value"]!.ToString();
@@ -70,6 +71,8 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             {
                 await model.RetainProxyFailureAsync(run, body, ex, context.Request.Headers["X-GnOuGo-Inference-Upstream"].ToString());
                 context.Response.StatusCode = ex is InvalidOperationException ? 400 : 502;
+                if (ex.Data[CopilotInferenceFailure.Header] is CopilotInferenceFailure failure)
+                    context.Response.Headers[CopilotInferenceFailure.Header] = System.Text.Json.JsonSerializer.Serialize(failure, CopilotCoreJsonContext.Default.CopilotInferenceFailure);
                 await context.Response.WriteAsync("Campaign inference admission or transport failed; encrypted evidence retained.", CancellationToken.None);
             }
         });

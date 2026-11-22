@@ -44,7 +44,7 @@ public class CopilotInferenceProxyHandler : CopilotRequestHandler
     protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
         => CopilotInferenceDispatch.SendAsync(request, context, null, this, null, null);
 
-    internal async Task<HttpResponseMessage> DispatchAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context, CancellationToken ct, int attempt = 1)
+    internal async Task<HttpResponseMessage> DispatchAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context, CancellationToken ct, int attempt, Func<Task>? reserve)
     {
         if (!_journalOwnsRetries) return await ForwardAsync(request, context, ct, attempt);
         await _dispatch.WaitAsync(ct);
@@ -54,6 +54,7 @@ public class CopilotInferenceProxyHandler : CopilotRequestHandler
             if (terminal != 0)
                 throw new HttpRequestException("The inference journal stopped this SDK invocation after a terminal rejection or uncertain exchange.",
                     null, terminal > 0 ? (System.Net.HttpStatusCode)terminal : null);
+            if (reserve is not null) await reserve();
             var response = await ForwardAsync(request, context, ct, attempt);
             if (!response.IsSuccessStatusCode && !(response.StatusCode == System.Net.HttpStatusCode.Conflict && response.Headers.Contains(NextAttemptHeader)))
                 Interlocked.CompareExchange(ref _terminalStatus, (int)response.StatusCode, 0);

@@ -195,6 +195,9 @@ public sealed record CopilotSendResult(
     [property: Description("Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.")]
     bool Completed = true)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CopilotInferenceFailure? InferenceFailure { get; init; }
+
     public CopilotUsage? Usage { get; init; }
     public IReadOnlyList<string> ModifiedFiles { get; init; } = [];
     /// <summary>Host-only complete output artifacts for encrypted persistence. Never included in model-facing tool results.</summary>

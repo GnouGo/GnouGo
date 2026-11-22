@@ -52,15 +52,19 @@ public sealed class CopilotInferenceProxyTests
         var proxy = new TestProxy(client, new Uri("http://127.0.0.1:8123/inference"));
         await proxy.VerifyReadyAsync(TestContext.Current.CancellationToken);
         using var request = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/responses");
-        using var first = await proxy.Send(request, Context("first"));
+        var reservations = 0;
+        Task<HttpResponseMessage> Send(string id) => CopilotInferenceDispatch.SendAsync(request, Context(id), null, proxy,
+            (_, _, _) => { reservations++; return Task.CompletedTask; }, null);
+        using var first = await Send("first");
         if (interrupted)
         {
             using var stream = await first.Content.ReadAsStreamAsync(TestContext.Current.CancellationToken);
             await Assert.ThrowsAsync<IOException>(() => stream.ReadAsync(new byte[1], TestContext.Current.CancellationToken).AsTask());
         }
         else Assert.Equal(HttpStatusCode.TooManyRequests, first.StatusCode);
-        await Assert.ThrowsAsync<HttpRequestException>(() => proxy.Send(request, Context("sdk-retry-with-new-id")));
+        await Assert.ThrowsAsync<HttpRequestException>(() => Send("sdk-retry-with-new-id"));
         Assert.Equal(1, forwards);
+        Assert.Equal(1, reservations);
     }
 
     private sealed class BrokenStream : MemoryStream

@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.AI.Core;
+using GnOuGo.GithubCopilot.Core;
 using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Agent.Server.Configuration;
 using GnOuGo.Agent.Mcp;
@@ -940,7 +941,13 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 {
                     var retry = RuntimeRetryPolicy(transportPolicy);
                     using var context = new LLMHttpRetryContext(id, new SdkAttemptCreditJournal(journal, physicalCredit), retry, time: _time).Activate();
-                    using var result = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, retry, token);
+                    try { using var result = await HttpRequestHelper.SendGenerationAsync(_http, CreateRequest, retry, token); }
+                    catch (Exception ex) when (ex is HttpRequestException or TimeoutException or IOException)
+                    {
+                        if (await journal.LoadAsync(CancellationToken.None) is { Attempts.Count: > 0 } failed)
+                            ex.Data[CopilotInferenceFailure.Header] = DescribeSdkFailure(failed);
+                        throw;
+                    }
                     state = await journal.LoadAsync(token) ?? throw new InvalidOperationException("The SDK HTTP journal is missing.");
                     completed = state.Attempts[^1];
                 }
@@ -972,16 +979,22 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                 }
                 catch (Exception ex) when (ex is JsonException or InvalidDataException or IOException or HttpRequestException)
                 {
-                    await MarkInvalidProtocol();
+                    await MarkInvalidProtocol(ex);
                     throw;
                 }
-                async Task MarkInvalidProtocol()
+                async Task MarkInvalidProtocol(Exception error)
                 {
-                    if (transportPolicy?["mode"]?.ToString() != "sdk_proxy_confirmed_retry" || completed.StreamFailure == "invalid_protocol") return;
+                    if (transportPolicy?["mode"]?.ToString() != "sdk_proxy_confirmed_retry") return;
+                    if (completed.StreamFailure == "invalid_protocol")
+                    {
+                        error.Data[CopilotInferenceFailure.Header] = DescribeSdkFailure(state);
+                        return;
+                    }
                     completed.ProtocolComplete = false;
                     completed.StreamFailure = "invalid_protocol";
                     completed.FailurePhase = "response_protocol";
                     await journal.SaveAsync(state, CancellationToken.None);
+                    error.Data[CopilotInferenceFailure.Header] = DescribeSdkFailure(state);
                 }
                 var usage = native?["usage"];
                 JsonObject? measured = null;
@@ -999,18 +1012,36 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
                           choices[0]?["finish_reason"]?.ToString() is "stop" or "tool_calls" or "function_call";
                     if (!complete)
                     {
-                        await MarkInvalidProtocol();
-                        throw new InvalidDataException("The SDK provider did not complete its response.");
+                        var error = new InvalidDataException("The SDK provider did not complete its response.");
+                        await MarkInvalidProtocol(error);
+                        throw error;
                     }
                 }
                 var info = new JsonObject { ["status"] = completed.Status, ["content_type"] = contentType };
+                if (completed.Status >= 400)
+                    info["failure"] = JsonSerializer.SerializeToNode(DescribeSdkFailure(state), CopilotCoreJsonContext.Default.CopilotInferenceFailure);
                 if (completed.ProviderRetryDelay is { } timing) info["retry_header"] = new JsonObject { ["name"] = timing.Header, ["value"] = timing.Value };
                 return new LLMResponse { Text = text, Json = info, Usage = measured };
             }, ct, allowHttpRecovery: true);
-            return new(response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text, response.Json["retry_header"] as JsonObject);
+            return new(response.Json!["status"]!.GetValue<int>(), response.Json["content_type"]!.ToString(), response.Text, response.Json["retry_header"] as JsonObject, response.Json["failure"] as JsonObject);
         }
         finally { _dispatchGate.Release(); }
     }
+    private static CopilotInferenceFailure DescribeSdkFailure(LLMHttpRetryState state)
+    {
+        var attempt = state.Attempts[^1];
+        var status = attempt.Status ?? attempt.ObservedStatus;
+        var kind = attempt is { Status: >= 400, ResponseBodyComplete: true, Body: not null } ?
+            HttpRequestHelper.ClassifyRejection((System.Net.HttpStatusCode)attempt.Status, attempt.Body).Kind :
+            attempt.Failure == "timeout" ? LLMProviderFailureKind.Timeout : attempt.StreamFailure == "invalid_protocol"
+                ? LLMProviderFailureKind.Unknown : LLMProviderFailureKind.Transport;
+        var timing = attempt.ProviderRetryDelay;
+        var milliseconds = timing?.Remaining(timing.ObservedAtUtc).TotalMilliseconds;
+        return new(status, kind.ToString(), attempt.FailurePhase ?? (status >= 400 ? "provider_rejection" : "response_headers"),
+            state.Attempts.Count, milliseconds.HasValue ? (int)Math.Min(int.MaxValue, Math.Ceiling(milliseconds.Value)) : null,
+            timing?.NotBeforeUtc ?? attempt.NotBefore, PlanningGraphCompiler.Fingerprint(attempt.Id), attempt.ProviderRequestIdHash);
+    }
+
     internal static JsonObject PrepareProxyPayload(JsonObject original, string model, string path, string? chatToolsReasoningEffort = null,
         bool preserveSdkReasoning = false, int outputLimit = 32768)
     {

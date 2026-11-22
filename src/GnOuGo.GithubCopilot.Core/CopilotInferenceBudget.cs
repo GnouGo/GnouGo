@@ -20,6 +20,15 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     public int ModelCalls { get; private set; } = initialCalls;
     public long ChargedTokens { get; private set; } = initialTokens;
     public CopilotAdmissionStop? AdmissionStop { get; private set; }
+    private readonly CancellationTokenSource _providerRejected = new();
+    internal CancellationToken ProviderRejected => _providerRejected.Token;
+    public CopilotInferenceFailure? ProviderFailure { get; private set; }
+    internal void RecordProviderFailure(CopilotInferenceFailure failure)
+    {
+        ProviderFailure = failure;
+        CloseAdmissions();
+        _providerRejected.Cancel();
+    }
     public bool TransportFailed { get; private set; }
     internal bool AdmitsTools => !_stopped && DateTimeOffset.UtcNow < Deadline;
     internal void RecordTransportFailure() => TransportFailed = true;
@@ -120,7 +129,7 @@ internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budg
     CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
     protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, budget.ReserveAsync, budget.RecordTransportFailure);
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, budget.ReserveAsync, budget.RecordTransportFailure, rejected: budget.RecordProviderFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded logical operations."));
 }

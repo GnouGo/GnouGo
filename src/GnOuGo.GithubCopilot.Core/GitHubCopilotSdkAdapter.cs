@@ -1032,6 +1032,8 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
         try
         {
             var timeout = TimeSpan.FromSeconds(Math.Max(1, request.TimeoutSeconds ?? _configuration.RequestTimeoutSeconds));
+            var rejection = _configuration.ExecutionBounds?.ProviderRejected ?? _configuration.LogicalInferenceBudget?.ProviderRejected ?? default;
+            using var send = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, rejection);
             var response = await _session.SendAndWaitAsync(new MessageOptions
             {
                 Prompt = request.Prompt,
@@ -1039,7 +1041,8 @@ internal sealed class GitHubCopilotSdkSession : ICopilotSdkSession
                 AgentMode = ParseAgentMode(request.AgentMode),
                 RequestHeaders = request.RequestHeaders?.ToDictionary(p => p.Key, p => p.Value, StringComparer.OrdinalIgnoreCase),
                 Attachments = BuildAttachments(request.Attachments, _configuration.WorkingDirectory, _filePolicy)
-            }, timeout, cancellationToken);
+            }, timeout, send.Token);
+            rejection.ThrowIfCancellationRequested();
 
             var content = response?.Data?.Content;
             if (_configuration.LogicalInferenceBudget is { } completedBudget)

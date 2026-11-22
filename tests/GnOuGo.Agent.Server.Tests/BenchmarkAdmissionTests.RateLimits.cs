@@ -68,17 +68,25 @@ public sealed partial class BenchmarkAdmissionTests
         using var response = await local.SendAsync(message, Ct);
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
         Assert.Equal("10", response.Headers.GetValues("retry-after-ms").Single());
+        var diagnostic = JsonSerializer.Deserialize(response.Headers.GetValues(CopilotInferenceFailure.Header).Single(), CopilotCoreJsonContext.Default.CopilotInferenceFailure)!;
+        Assert.Equal("RateLimited", diagnostic.Classification);
+        Assert.Equal(10, diagnostic.RequestedDelayMilliseconds);
+        Assert.Equal(1, diagnostic.Attempts);
+        Assert.Equal("provider_rejection", diagnostic.Phase);
+        Assert.Equal(429, diagnostic.Status);
         Assert.Single(upstream.Ids);
     }
 
-    [Fact]
-    public async Task LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce(bool deferred)
     {
         Assert.SkipUnless(Environment.GetEnvironmentVariable("GNOUGO_TEST_LOCAL_COPILOT") == "1", "Opt in to the bundled local Copilot runtime.");
         using var fixture = new Fixture();
         var options = RuntimeOptions();
         options.Models["fixture"].Url = "http://127.0.0.1:1/v1";
-        using var handler = new RetryProvider(TimeProvider.System, 429, tool: true);
+        using var handler = new RetryProvider(TimeProvider.System, 429, tool: true, waitMs: deferred ? "90000" : "10");
         using var transport = new HttpClient(handler);
         using var model = RuntimeModel(fixture, options, transport, TimeProvider.System);
         await using var relay = await CampaignInferenceProxy.StartAsync(model, "offline");
@@ -106,7 +114,24 @@ public sealed partial class BenchmarkAdmissionTests
         var provider = new CopilotProviderResolution("fixture", "pinned", new() { Type = "openai", WireApi = "completions",
             BaseUrl = options.Models["fixture"].Url, ApiKey = "offline-fixture", ModelId = "pinned" });
         await using var session = await client.CreateSessionAsync(new(new(context, config), provider, new FixturePermission()), Ct);
-        var answer = await session.SendAsync(session.SessionId, new(context, session.SessionId, prompt, TimeoutSeconds: 60), Ct);
+        Task<CopilotSendResult> Send() => session.SendAsync(session.SessionId, new(context, session.SessionId, prompt, TimeoutSeconds: 45), Ct);
+        if (deferred)
+        {
+            using var deadline = CancellationTokenSource.CreateLinkedTokenSource(Ct);
+            deadline.CancelAfter(TimeSpan.FromSeconds(15));
+            var incident = await Assert.ThrowsAsync<CopilotSendInterruptedException>(() => Send().WaitAsync(deadline.Token));
+            var failure = Assert.IsType<CopilotInferenceFailure>(incident.Snapshot.InferenceFailure);
+            Assert.Equal(429, failure.Status);
+            Assert.Equal(90000, failure.RequestedDelayMilliseconds);
+            Assert.NotNull(failure.NotBeforeUtc);
+            Assert.Equal("RateLimited", failure.Classification);
+            Assert.Equal(1, failure.Attempts);
+            Assert.Equal(["observed"], effects);
+            Assert.Equal([1, 2], charges);
+            Assert.Equal(2, handler.Ids.Count);
+            return;
+        }
+        var answer = await Send();
         Assert.True(answer.Completed);
         Assert.Equal("observed", answer.Content.Trim());
         Assert.Equal(["observed"], effects);
@@ -123,7 +148,7 @@ public sealed partial class BenchmarkAdmissionTests
             => Task.FromResult(new CopilotHumanInputResponse(request.RequestedHostTool == "fixture_observe", "Allow once"));
     }
 
-    private sealed class RetryProvider(TimeProvider clock, int status, bool tool = false) : HttpMessageHandler
+    private sealed class RetryProvider(TimeProvider clock, int status, bool tool = false, string waitMs = "10") : HttpMessageHandler
     {
         internal List<DateTimeOffset> Times { get; } = [];
         internal List<string> Ids { get; } = [];
@@ -136,7 +161,7 @@ public sealed partial class BenchmarkAdmissionTests
             if (Ids.Count == (tool ? 2 : 1))
             {
                 var rejected = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent("""{"error":{"code":"rate_limit_exceeded"}}""") };
-                rejected.Headers.TryAddWithoutValidation("retry-after-ms", "10");
+                rejected.Headers.TryAddWithoutValidation("retry-after-ms", waitMs);
                 return rejected;
             }
             var selecting = tool && Ids.Count == 1;
