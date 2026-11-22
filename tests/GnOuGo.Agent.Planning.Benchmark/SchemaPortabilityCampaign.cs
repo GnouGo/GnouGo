@@ -40,6 +40,11 @@ internal static class SchemaPortabilityCampaign
         var records = KeyVaultBenchmarkModel.WorkspaceRecords(root);
         var campaignId = Option(args, "--campaign") ?? throw new ArgumentException("Supply a new --campaign.");
         var campaign = new BenchmarkCampaign(records, campaignId);
+        if (phase == "inspect-http-request")
+        {
+            Console.WriteLine((await BenchmarkHttpJournal.InspectRequestAsync(campaign, RequiredOption(args, "--request-id"), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "server-live-funding")
         {
             await ServerLiveFundingEvidence.RunAsync(args, campaign, records, root);

@@ -19,6 +19,69 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
     internal static bool IsRuntimePolicy(JsonObject? policy) => IsRuntimeSingleAttempt(policy) ||
         policy?["version"]?.GetValue<int>() == 2 && policy["mode"]?.ToString() is "runtime_confirmed_retry" or "sdk_proxy_confirmed_retry";
 
+    internal static async Task<JsonObject> InspectRequestAsync(BenchmarkCampaign campaign, string requestId, CancellationToken ct)
+    {
+        var record = await campaign.LoadAsync(Collection, requestId, ct) ?? throw new InvalidOperationException("No HTTP journal for this campaign request.");
+        if (record["transport"] is not JsonObject wire || wire["Attempts"] is not JsonArray)
+            throw new InvalidDataException("The retained HTTP journal has no attempt inventory.");
+        var accounting = LiveCampaignEvidence.Summarize([record]);
+        return new()
+        {
+            ["campaign"] = campaign.Id, ["request_id"] = requestId, ["wire_sha256"] = Digest(wire["Fingerprint"]),
+            ["attempts"] = AttemptEvidence(wire), ["unknown_usage_attempts"] = accounting["unknown_attempts"]?.DeepClone(),
+            ["reserved_cost_eur"] = accounting["reserved_cost_eur"]?.DeepClone(),
+            ["measured_cost_eur"] = record["usage"] is null ? null : accounting["known_cost_eur"]?.DeepClone()
+        };
+    }
+
+    // Read only the metadata fields. Provider bodies, tool arguments and opaque receipt IDs stay in the vault.
+    internal static JsonArray? AttemptEvidence(JsonObject wire)
+    {
+        if (wire["Attempts"] is not JsonArray attempts) return null;
+        var evidence = new JsonArray();
+        foreach (var attempt in attempts)
+        {
+            var row = attempt!.AsObject();
+            var summary = TransportEvent(row, "Id");
+            summary["observed_status"] = row["ObservedStatus"]?.GetValue<int>();
+            summary["protocol_complete"] = row["ProtocolComplete"]?.GetValue<bool>();
+            summary["usage_known"] = row["UsageKnown"]?.GetValue<bool>();
+            summary["response_id_available"] = row["ProviderResponseId"] is not null;
+            summary["body_available"] = row["Body"] is not null || row["AssembledBody"] is not null;
+            summary["partial_body_available"] = row["PartialBody"] is not null || row["PartialBodyBase64"] is not null;
+            summary["receipt_retrievals"] = new JsonArray((row["ReceiptRetrievals"] as JsonArray ?? []).Select(poll =>
+                (JsonNode)TransportEvent(poll!.AsObject(), "RequestId")).ToArray());
+            evidence.Add(summary);
+        }
+        return evidence;
+    }
+
+    private static JsonObject TransportEvent(JsonObject row, string idKey)
+    {
+        var timing = row["ProviderRetryDelay"]?.Deserialize(LLMHttpRetryJsonContext.Default.ProviderRetryDelay);
+        if (timing is null && row["RetryAfter"]?.GetValue<string>() is { } legacy && row["CompletedAtUtc"]?.GetValue<DateTimeOffset>() is { } captured)
+        {
+            using var response = new HttpResponseMessage();
+            response.Headers.TryAddWithoutValidation("Retry-After", legacy);
+            timing = ProviderRetryDelay.Read(response.Headers, captured);
+        }
+        var phase = row["FailurePhase"]?.GetValue<string>();
+        return new()
+        {
+            ["physical_id_sha256"] = row[idKey]?.GetValue<string>() is { Length: > 0 } id ? PlanningGraphCompiler.Fingerprint(id) : null,
+            ["provider_request_id_sha256"] = Digest(row["ProviderRequestIdHash"]),
+            ["status"] = row["Status"]?.GetValue<int>(), ["started_utc"] = row["StartedAtUtc"]?.GetValue<DateTimeOffset>(),
+            ["completed_utc"] = row["CompletedAtUtc"]?.GetValue<DateTimeOffset>(),
+            ["failure_phase"] = phase is "response_headers" or "response_body" or "provider_rejection" or "receipt_retrieval" ? phase : null,
+            ["retry_header"] = timing?.Header is "Retry-After" or "retry-after-ms" or "x-ms-retry-after-ms" ? timing.Header : null,
+            ["requested_delay_ms"] = timing?.Remaining(timing.ObservedAtUtc).TotalMilliseconds,
+            ["retry_not_before_utc"] = row["NotBefore"]?.GetValue<DateTimeOffset>() ?? timing?.NotBeforeUtc
+        };
+    }
+
+    private static string? Digest(JsonNode? node)
+        => node?.GetValue<string>() is { Length: 64 } digest && digest.All(char.IsAsciiHexDigit) ? digest.ToLowerInvariant() : null;
+
     internal static JsonObject UndispatchedUsage() => new()
     {
         ["input_tokens"] = 0L, ["output_tokens"] = 0L, ["benchmark_cost_eur"] = 0m,

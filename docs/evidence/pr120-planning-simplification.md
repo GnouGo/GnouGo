@@ -23,6 +23,19 @@ This controlled test enters at the Server runtime and exercises one adaptive
 task. Real-model chat qualification still awaits Review 02 reconciliation.
 [Server multi-MCP integration test](../../tests/GnOuGo.Agent.Server.Tests/BenchmarkAdmissionTests.MultiMcp.cs)
 
+The Server provider probe previously omitted a background GET's 429 and
+1,750 ms cooldown from its diagnostic report. The probe and the new
+`inspect-http-request` command share a projection of the encrypted HTTP
+journal. Regression tests cover the requested delay, earliest retry, failure
+phase, hashed correlations, secret redaction and historical missing fields.
+All 373 selected Server tests passed. A read of Review 02 with the new command
+found one unknown-usage attempt, EUR 3.2908296943 reserved and no response ID.
+The campaign audit still has SHA-256
+`639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96`.
+GitHub returned the same four review and six inline comment IDs. The checkout,
+run kubeconfig and run-owned kind cluster remained absent.
+[Read-only Review 02 command output](pr120-live-20261122/review02-http-readback.json)
+
 ## Provider cooldowns and Review 02 readback, 22 November 2026
 
 The real Copilot SDK 1.0.34 and bundled runtime 1.0.112 used the local campaign

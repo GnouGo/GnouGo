@@ -12,6 +12,37 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class BenchmarkAdmissionTests
 {
+    [Fact]
+    public async Task RequestInspectionRetainsHistoricalUncertaintyAndReadsOnlyItsCampaign()
+    {
+        using var fixture = new Fixture();
+        var campaign = fixture.Campaign;
+        const string requestId = "session-copilot:request";
+        var wireHash = new string('a', 64);
+        var original = new JsonObject
+        {
+            ["input_ceiling"] = 12L, ["output_ceiling"] = 8L, ["cost_ceiling_eur"] = 3.25m,
+            ["transport"] = new JsonObject { ["Fingerprint"] = wireHash,
+                ["Attempts"] = new JsonArray(new JsonObject { ["Id"] = requestId }) }
+        };
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, requestId, original, Ct);
+        var before = fixture.Records.MutationAttempts;
+        var evidence = await BenchmarkHttpJournal.InspectRequestAsync(campaign, requestId, Ct);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            BenchmarkHttpJournal.InspectRequestAsync(new(fixture.Records, "other"), requestId, Ct));
+        Assert.Equal(wireHash, evidence["wire_sha256"]!.ToString());
+        Assert.Equal(1L, evidence["unknown_usage_attempts"]!.GetValue<long>());
+        Assert.Equal(3.25m, evidence["reserved_cost_eur"]!.GetValue<decimal>());
+        Assert.Null(evidence["measured_cost_eur"]);
+        var attempt = Assert.Single(evidence["attempts"]!.AsArray())!;
+        Assert.Null(attempt["started_utc"]);
+        Assert.Null(attempt["status"]);
+        Assert.Null(attempt["requested_delay_ms"]);
+        Assert.False(attempt["response_id_available"]!.GetValue<bool>());
+        Assert.Equal(before, fixture.Records.MutationAttempts);
+        Assert.True(JsonNode.DeepEquals(original, await campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, Ct)));
+    }
+
     [Theory]
     [InlineData(false, 429)]
     [InlineData(true, 429)]

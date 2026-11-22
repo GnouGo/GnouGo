@@ -151,6 +151,14 @@ Verified final usage settles its own identity. Recovery of the exact response
 uses the original identities and snapshot. If a parent denies the next attempt,
 the failure records the previous HTTP status and the number of attempts sent.
 
+For an uncertain request, run `--schema-portability inspect-http-request
+--workspace <workspace> --campaign <campaign> --request-id <exact-request-id>`.
+The command reads one encrypted campaign journal. It reports the wire fingerprint,
+hashed physical and provider correlations, HTTP status, failure phase, requested
+delay, earliest retry, receipt-poll history and the existing reservation. Unknown
+timestamps and usage stay null. A missing journal fails the lookup. The command
+does not call the provider, settle usage, change funding or authorize replay.
+
 Ordinary sessions preserve physical-call, correction and time targets as guards.
 Captured API allocations and financial guards remain explicit.
 The trusted campaign builder may capture `--advisory-token-thresholds` before fresh

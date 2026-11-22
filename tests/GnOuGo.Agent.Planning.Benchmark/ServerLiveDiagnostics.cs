@@ -744,7 +744,8 @@ internal static class ServerLiveDiagnostics
             ["model"] = body["model"]?.DeepClone(), ["reasoning_effort"] = body["reasoning_effort"]?.DeepClone(),
             ["max_completion_tokens"] = body["max_completion_tokens"]?.DeepClone(), ["stream"] = body["stream"]?.DeepClone(),
             ["tool_count"] = (body["tools"] as JsonArray)?.Count ?? 0,
-            ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone() };
+            ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone(),
+            ["attempts"] = BenchmarkHttpJournal.AttemptEvidence(wire) };
     }
 
     internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string? reasoning, int outputTokens,

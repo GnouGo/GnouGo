@@ -18,6 +18,53 @@ public sealed class IndependentProviderProbeTests
         Assert.Null(ServerLiveDiagnostics.ProbeHttpEvidence(journal));
     }
 
+    [Fact]
+    public void ProbeReportKeepsGenerationAndPollTimingWithoutProviderContents()
+    {
+        const string secret = "private-wire-value";
+        var start = DateTimeOffset.UnixEpoch;
+        var due = start.AddMilliseconds(1750);
+        var correlation = PlanningGraphCompiler.Fingerprint(secret);
+        var attempt = new LLMHttpAttempt
+        {
+            Id = "local-id", Status = 202, Body = secret, ProviderResponseId = secret,
+            ReceiptRetrievals = [new() { Status = 429, RequestId = "poll-id", Body = secret,
+                FailurePhase = "provider_rejection", ProviderRequestIdHash = correlation, NotBefore = due,
+                ProviderRetryDelay = new("x-ms-retry-after-ms", "1750", due, start) }]
+        };
+        var journal = new JsonObject { ["transport"] = JsonSerializer.SerializeToNode(new LLMHttpRetryState
+        {
+            Endpoint = "https://fixture.example/" + secret, RequestBody = """{"input":"private-wire-value"}""", Attempts = [attempt]
+        }, LLMHttpRetryJsonContext.Default.LLMHttpRetryState) };
+        var report = ServerLiveDiagnostics.ProbeHttpEvidence(journal)!;
+        var physical = Assert.Single(Assert.IsType<JsonArray>(report["attempts"]))!;
+        var poll = Assert.Single(physical["receipt_retrievals"]!.AsArray())!;
+        Assert.Equal(429, poll["status"]!.GetValue<int>());
+        Assert.Equal("x-ms-retry-after-ms", poll["retry_header"]!.ToString());
+        Assert.Equal(1750d, poll["requested_delay_ms"]!.GetValue<double>());
+        Assert.Equal(due, poll["retry_not_before_utc"]!.GetValue<DateTimeOffset>());
+        Assert.Equal("provider_rejection", poll["failure_phase"]!.ToString());
+        Assert.Equal(correlation, poll["provider_request_id_sha256"]!.ToString());
+        Assert.Equal(PlanningGraphCompiler.Fingerprint("poll-id"), poll["physical_id_sha256"]!.ToString());
+        Assert.DoesNotContain(secret, report.ToJsonString());
+    }
+
+    [Fact]
+    public void HistoricalCooldownUsesTheCapturedClockWhenAvailable()
+    {
+        var completion = DateTimeOffset.UnixEpoch.AddDays(1);
+        var wire = new JsonObject { ["Attempts"] = new JsonArray(
+            new JsonObject { ["RetryAfter"] = "3", ["CompletedAtUtc"] = completion },
+            new JsonObject { ["RetryAfter"] = "3" },
+            new JsonObject { ["RetryAfter"] = "private-invalid-header", ["CompletedAtUtc"] = completion }) };
+        var rows = BenchmarkHttpJournal.AttemptEvidence(wire)!;
+        Assert.Equal(3000d, rows[0]!["requested_delay_ms"]!.GetValue<double>());
+        Assert.Equal(completion.AddSeconds(3), rows[0]!["retry_not_before_utc"]!.GetValue<DateTimeOffset>());
+        Assert.Null(rows[1]!["retry_not_before_utc"]);
+        Assert.Null(rows[2]!["retry_header"]);
+        Assert.DoesNotContain("private-invalid-header", rows.ToJsonString());
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
