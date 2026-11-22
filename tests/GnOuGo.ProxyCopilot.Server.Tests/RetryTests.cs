@@ -1,3 +1,4 @@
+using GnOuGo.Tests.Shared;
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text.Json.Nodes;
@@ -146,6 +147,30 @@ public sealed class RetryTests
     }
 
     [Theory]
+    [InlineData(true, "rate_limit_exceeded")]
+    [InlineData(false, "insufficient_quota")]
+    public async Task PhysicalOwnerAndBillingBothPreventNestedRetries(bool callerOwnsRetries, string providerCode)
+    {
+        var attempts = 0;
+        await using var upstream = await TestHost.Upstream(async context =>
+        {
+            attempts++;
+            context.Response.StatusCode = 429;
+            context.Response.Headers["x-ms-retry-after-ms"] = "10";
+            await context.Response.WriteAsync(new JsonObject { ["error"] = new JsonObject { ["code"] = providerCode } }.ToJsonString());
+        });
+        await using var proxy = await TestHost.Proxy(upstream.Url, extra: Options(attempts: 3));
+        if (callerOwnsRetries) proxy.Client.DefaultRequestHeaders.Add(GnOuGo.AI.Core.HttpRequestHelper.RetryOwnerHeader, GnOuGo.AI.Core.HttpRequestHelper.JournalRetryOwner);
+        using var result = await Send(proxy, streaming: false, TestContext.Current.CancellationToken);
+        Assert.Equal(HttpStatusCode.TooManyRequests, result.StatusCode);
+        Assert.Equal("10", result.Headers.GetValues("x-ms-retry-after-ms").Single());
+        var details = JsonNode.Parse(await result.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!["error"]!;
+        Assert.Equal(providerCode, details["code"]!.ToString());
+        Assert.NotNull(details["retry_at_utc"]);
+        Assert.Equal(1, attempts);
+    }
+
+    [Theory]
     [InlineData("151")] [InlineData("9999999999999999999999999")]
     public async Task DelayExceedingBudgetReturnsHttpErrorWithoutStartingSse(string delay)
     {
@@ -156,6 +181,7 @@ public sealed class RetryTests
         using var response = await Send(proxy, ct: TestContext.Current.CancellationToken);
         Assert.Equal(HttpStatusCode.TooManyRequests, response.StatusCode);
         Assert.Equal("application/json", response.Content.Headers.ContentType!.MediaType); Assert.Equal(1, attempts);
+        Assert.Equal(delay, response.Headers.GetValues("Retry-After").Single());
     }
 
     [Theory]

@@ -1,4 +1,4 @@
-namespace GnOuGo.ProxyCopilot.Server.Tests;
+namespace GnOuGo.Tests.Shared;
 
 // Small virtual scheduler for exercising the real HTTP relay without minute-long
 // tests. Callbacks run outside the scheduler lock, like System.Threading.Timer.

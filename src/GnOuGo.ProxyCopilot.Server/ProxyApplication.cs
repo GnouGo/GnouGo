@@ -173,11 +173,15 @@ public static class ProxyApplication
     {
         if (context.Response.HasStarted) { context.Abort(); return; }
         context.Response.StatusCode = error.StatusCode;
+        if (error.RetryDelay is { } timing) context.Response.Headers[timing.Header] = timing.Value;
         context.Response.ContentType = "application/json; charset=utf-8";
         await context.Response.WriteAsync(ErrorBody(error).ToJsonString(ProxyJsonContext.Default.Options), context.RequestAborted);
     }
 
-    internal static JsonObject ErrorBody(ProxyException error) => new() { ["error"] = new JsonObject {
-            ["message"] = error.Message, ["type"] = error.StatusCode < 500 ? "invalid_request_error" : "api_error", ["code"] = error.Code
-        } };
+    internal static JsonObject ErrorBody(ProxyException error)
+    {
+        var details = new JsonObject { ["message"] = error.Message, ["type"] = error.StatusCode < 500 ? "invalid_request_error" : "api_error", ["code"] = error.Code };
+        if (error.RetryDelay is { } timing) details["retry_at_utc"] = timing.NotBeforeUtc;
+        return new() { ["error"] = details };
+    }
 }

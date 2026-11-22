@@ -4,6 +4,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.AI.Core;
 using GnOuGo.ProxyCopilot.Server.Configuration;
 using GnOuGo.ProxyCopilot.Server.Protocols;
 using GnOuGo.ProxyCopilot.Server.Traffic;
@@ -68,6 +69,8 @@ public sealed class ProxyRelay : IDisposable
         using var heartbeatStop = CancellationTokenSource.CreateLinkedTokenSource(requestLifetime.Token);
         Task? heartbeat = null;
         var policy = route.Options.Connection.RetryPolicy;
+        var maximumAttempts = context.Request.Headers[HttpRequestHelper.RetryOwnerHeader].ToString() == HttpRequestHelper.JournalRetryOwner
+            ? 1 : policy.MaxAttempts;
         var streaming = false;
         var readingUpstream = false;
         async Task Heartbeat()
@@ -115,7 +118,7 @@ public sealed class ProxyRelay : IDisposable
             var ct = requestLifetime.Token;
             try
             {
-                for (var attempt = 1; attempt <= policy.MaxAttempts; attempt++)
+                for (var attempt = 1; attempt <= maximumAttempts; attempt++)
                 {
                     ct.ThrowIfCancellationRequested();
                     _traffic.UpdateRetry(callId, attempt);
@@ -132,13 +135,16 @@ public sealed class ProxyRelay : IDisposable
                     response = await _http.SendAsync(outgoing, HttpCompletionOption.ResponseHeadersRead, ct);
                     if (response.IsSuccessStatusCode) break;
                     var delay = RetryTiming.Delay(response, attempt, policy.BaseDelayMilliseconds, policy.MaxDelayMilliseconds, _clock.GetUtcNow());
-                    var retry = response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable
-                        && attempt < policy.MaxAttempts && delay <= TimeSpan.FromMilliseconds(policy.MaxTotalDelayMilliseconds) - totalDelay;
+                    var errorBody = await HttpRequestHelper.ReadErrorBodyAsync(response, ct);
+                    var classification = HttpRequestHelper.ClassifyRejection(response.StatusCode, errorBody);
+                    var timing = ProviderRetryDelay.Read(response.Headers, _clock.GetUtcNow());
+                    var retry = classification.Retryable && response.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable
+                        && attempt < maximumAttempts && delay <= TimeSpan.FromMilliseconds(policy.MaxTotalDelayMilliseconds) - totalDelay;
                     var rejection = (int)response.StatusCode;
                     _traffic.UpdateRetry(callId, attempt, rejection);
                     if (retry) _traffic.Append(callId, "upstreamRejections", Encoding.UTF8.GetBytes($"\nAttempt {attempt}: HTTP {rejection}\n"));
-                    await CaptureError(response, callId, retry ? "upstreamRejections" : "upstreamResponse", ct);
-                    if (!retry) throw new ProxyException(rejection, "upstream_rejected", $"The upstream rejected the request (HTTP {rejection}); no retry is available within the configured attempt and waiting limits.");
+                    _traffic.Append(callId, retry ? "upstreamRejections" : "upstreamResponse", Encoding.UTF8.GetBytes(errorBody));
+                    if (!retry) throw new ProxyException(rejection, classification.SafeProviderCode ?? "upstream_rejected", $"The upstream rejected the request (HTTP {rejection}); no retry is available within the configured attempt and waiting limits.") { RetryDelay = timing };
                     response.Dispose(); response = null;
                     ct.ThrowIfCancellationRequested();
                     attemptCancellation.Dispose(); attemptCancellation = null;
@@ -252,20 +258,6 @@ public sealed class ProxyRelay : IDisposable
         context.Response.ContentType = streaming ? "text/event-stream; charset=utf-8" : "application/json; charset=utf-8";
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers["X-Accel-Buffering"] = "no";
-    }
-
-    private async Task CaptureError(HttpResponseMessage response, string id, string capture, CancellationToken ct)
-    {
-        await using var body = await response.Content.ReadAsStreamAsync(ct);
-        var buffer = new byte[4096];
-        var remaining = _options.Capture.MaxBodyBytes + 1;
-        while (remaining > 0)
-        {
-            var count = await body.ReadAsync(buffer.AsMemory(0, Math.Min(remaining, buffer.Length)), ct);
-            if (count == 0) break;
-            _traffic.Append(id, capture, buffer.AsSpan(0, count));
-            remaining -= count;
-        }
     }
 
     private async Task Emit(HttpContext context, string id, string text, CancellationToken ct)
