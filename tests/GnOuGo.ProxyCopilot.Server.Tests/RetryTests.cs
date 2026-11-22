@@ -29,10 +29,10 @@ public sealed class RetryTests
     }
 
     [Theory]
-    [InlineData("150", 150)] [InlineData("0", 0)]
+    [InlineData("150", 150)] [InlineData("0", 0)] [InlineData("0.125", 0.125)]
     [InlineData("Mon, 28 Sep 2026 12:02:30 GMT", 150)]
     [InlineData("Mon, 28 Sep 2026 11:59:00 GMT", 0)]
-    public void HeaderDeltaOrDateIsNotClampedToBackoff(string header, int seconds)
+    public void HeaderDeltaOrDateIsNotClampedToBackoff(string header, double seconds)
     {
         using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
         response.Headers.TryAddWithoutValidation("Retry-After", header);
@@ -40,7 +40,7 @@ public sealed class RetryTests
     }
 
     [Theory]
-    [InlineData(null)] [InlineData("nonsense")] [InlineData("-5")] [InlineData("1.5")]
+    [InlineData(null)] [InlineData("nonsense")] [InlineData("-5")] [InlineData("1.5.0")]
     public void MissingOrInvalidHeadersUseBoundedJitter(string? header)
     {
         using var response = new HttpResponseMessage(HttpStatusCode.TooManyRequests);
@@ -156,6 +156,7 @@ public sealed class RetryTests
         {
             attempts++;
             context.Response.StatusCode = 429;
+            context.Response.Headers["x-request-id"] = "provider-fixture";
             context.Response.Headers["x-ms-retry-after-ms"] = "10";
             await context.Response.WriteAsync(new JsonObject { ["error"] = new JsonObject { ["code"] = providerCode } }.ToJsonString());
         });
@@ -167,6 +168,8 @@ public sealed class RetryTests
         var details = JsonNode.Parse(await result.Content.ReadAsStringAsync(TestContext.Current.CancellationToken))!["error"]!;
         Assert.Equal(providerCode, details["code"]!.ToString());
         Assert.NotNull(details["retry_at_utc"]);
+        Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData("provider-fixture"u8)),
+            result.Headers.GetValues(GnOuGo.AI.Core.HttpRequestHelper.ProviderCorrelationHeader).Single());
         Assert.Equal(1, attempts);
     }
 

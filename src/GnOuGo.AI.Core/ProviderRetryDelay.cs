@@ -18,8 +18,7 @@ public sealed record ProviderRetryDelay(string Header, string Value, DateTimeOff
                 if (value.Length == 0) continue;
                 DateTimeOffset due;
                 var headerName = name;
-                if (value.All(char.IsAsciiDigit) || name != "Retry-After" && decimal.TryParse(value, NumberStyles.AllowDecimalPoint,
-                        CultureInfo.InvariantCulture, out _) && value.All(c => char.IsAsciiDigit(c) || c == '.'))
+                if (IsUnsignedDecimal(value))
                 {
                     var scale = name == "Retry-After" ? TimeSpan.TicksPerSecond : TimeSpan.TicksPerMillisecond;
                     var available = DateTimeOffset.MaxValue.UtcTicks - now.UtcTicks;
@@ -28,7 +27,7 @@ public sealed record ProviderRetryDelay(string Header, string Value, DateTimeOff
                     if (value.Length > 64)
                     {
                         headerName = "Retry-After";
-                        value = due.ToString("R", CultureInfo.InvariantCulture);
+                        value = decimal.Ceiling((decimal)(due.UtcTicks - now.UtcTicks) / TimeSpan.TicksPerSecond).ToString(CultureInfo.InvariantCulture);
                     }
                 }
                 else if (name == "Retry-After" && RetryConditionHeaderValue.TryParse(value, out var header) && header.Date is { } date)
@@ -41,6 +40,19 @@ public sealed record ProviderRetryDelay(string Header, string Value, DateTimeOff
             }
         }
         return latest;
+    }
+
+    private static bool IsUnsignedDecimal(string value)
+    {
+        var point = false;
+        var digit = false;
+        foreach (var character in value)
+        {
+            if (char.IsAsciiDigit(character)) digit = true;
+            else if (character == '.' && !point) point = true;
+            else return false;
+        }
+        return digit;
     }
 
     public TimeSpan Remaining(DateTimeOffset now) => NotBeforeUtc == DateTimeOffset.MaxValue ? TimeSpan.MaxValue :

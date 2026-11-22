@@ -374,6 +374,7 @@ public static class HttpRequestHelper
                 timeout.Token.ThrowIfCancellationRequested();
                 received = await http.SendAsync(request, context is null && !streaming ? completionOption : HttpCompletionOption.ResponseHeadersRead, timeout.Token).ConfigureAwait(false);
                 attempt.ObservedStatus = (int)received.StatusCode;
+                if (!received.IsSuccessStatusCode) attempt.FailurePhase = "provider_rejection";
                 attempt.ProviderRetryDelay = ProviderRetryDelay.Read(received.Headers, utcNow());
                 if (attempt.ProviderRetryDelay is { Header: "Retry-After" } standard) attempt.RetryAfter = standard.Value;
                 attempt.ProviderRequestIdHash = HashProviderRequestId(received);
@@ -615,9 +616,13 @@ public static class HttpRequestHelper
         throw new HttpRequestException("The captured response receipt retrieval allowance is exhausted; no generation was replayed.");
     }
 
-    private static string? HashProviderRequestId(HttpResponseMessage response)
+    public const string ProviderCorrelationHeader = "X-GnOuGo-Provider-Request-SHA256";
+
+    public static string? HashProviderRequestId(HttpResponseMessage response)
     {
-        foreach (var header in new[] { "x-request-id", "request-id", "apim-request-id" })
+        if (response.Headers.TryGetValues(ProviderCorrelationHeader, out var hashes) &&
+            hashes.FirstOrDefault() is { Length: 64 } digest && digest.All(char.IsAsciiHexDigit)) return digest.ToLowerInvariant();
+        foreach (var header in new[] { "x-request-id", "request-id", "apim-request-id", "X-GnOuGo-Request-Id" })
             if (response.Headers.TryGetValues(header, out var ids) && ids.FirstOrDefault() is { } id)
                 return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(id)));
         return null;

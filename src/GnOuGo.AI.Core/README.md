@@ -94,11 +94,14 @@ semantic retries and provider fallback.
 
 The default policy for GETs and journaled generation POSTs permits at most four
 attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Unjournaled POSTs are single-attempt. Every attempt receives a fresh
-request. The transport honors `Retry-After` seconds or HTTP dates and the
+request. The transport honors `Retry-After` seconds (including fractional provider values) or HTTP dates and the
 `retry-after-ms` and `x-ms-retry-after-ms` millisecond headers. When several
 valid headers arrive, the latest allowed instant wins. In their absence it uses
 full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
-cumulatively. A delay outside that budget stops recovery instead of holding a workflow open.
+cumulatively. A delay outside that budget stops recovery and records the earliest retry.
+The OpenAI and Azure SDKs also recognize provider millisecond headers.
+[OpenAI SDK](https://github.com/openai/openai-python/blob/main/src/openai/_base_client.py) ·
+[Azure SDK](https://github.com/Azure/azure-sdk-for-js/blob/main/sdk/core/ts-http-runtime/src/retryStrategies/throttlingRetryStrategy.ts)
 
 Before replay, GnOuGo inspects a bounded error envelope. Quota/billing, authentication,
 and authorization failures are terminal even when a gateway transports them as `429`.
@@ -123,9 +126,9 @@ sending or charging again. A reserved attempt without a response remains uncerta
 consumes the uncertain-retry allowance; its identity is never reused. Caller cancellation
 is durable and terminal. Journal failures stop without an in-process resend. The configurable
 `AttemptTimeoutMilliseconds` covers both headers and body; `MaxAttempts` includes the
-initial attempt and `MaxUncertainRetries` defaults to one. Logs contain only the operation, status, attempt, selected
-delay, and exhaustion state—not endpoints, prompts, payloads, response bodies, tokens, headers,
-or credentials.
+initial attempt and `MaxUncertainRetries` defaults to one. Transport diagnostics contain
+the operation, status, attempt count, elapsed and requested waits, earliest retry, phase,
+correlation and exhaustion state. Credentials and request or response content stay out of these logs.
 
 An optional captured policy on `LLMHttpRetryContext` selects confirmed-response-only
 recovery: at most three total attempts, with no uncertain retries. It permits fully

@@ -133,6 +133,12 @@ public sealed class ProxyRelay : IDisposable
                     // No client credentials, cookies, forwarding headers, or arbitrary URLs
                     // are inherited from the incoming request. Redirects are disabled.
                     response = await _http.SendAsync(outgoing, HttpCompletionOption.ResponseHeadersRead, ct);
+                    if (!context.Response.HasStarted)
+                    {
+                        if (HttpRequestHelper.HashProviderRequestId(response) is { } providerRequest)
+                            context.Response.Headers[HttpRequestHelper.ProviderCorrelationHeader] = providerRequest;
+                        else context.Response.Headers.Remove(HttpRequestHelper.ProviderCorrelationHeader);
+                    }
                     if (response.IsSuccessStatusCode) break;
                     var delay = RetryTiming.Delay(response, attempt, policy.BaseDelayMilliseconds, policy.MaxDelayMilliseconds, _clock.GetUtcNow());
                     var errorBody = await HttpRequestHelper.ReadErrorBodyAsync(response, ct);

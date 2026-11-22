@@ -205,6 +205,8 @@ internal static partial class LLMProviderFailureClassifier
 
     internal static LLMHttpFailureClassification ClassifyResponse(HttpStatusCode statusCode, string errorBody, bool permanentFirst = false)
     {
+        if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.PaymentRequired &&
+            FindKnownMarker(errorBody, permanentOnly: true) is null) return ClassifyStatus(statusCode);
         var marker = permanentFirst ? FindKnownMarker(errorBody, permanentOnly: true) ?? FindKnownMarker(errorBody) : FindKnownMarker(errorBody);
         if (marker != null)
         {
