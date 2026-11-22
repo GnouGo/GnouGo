@@ -215,7 +215,7 @@ internal sealed class FakeMcpSession : IMcpSession
 internal static class SmartFlowTestFactory
 {
     public static ConfigureProvidersService CreateProvidersService(
-        RecordingLlmClient llmClient,
+        ILLMClient llmClient,
         ILLMModelCatalog? modelCatalog = null,
         LLMOptions? options = null,
         AgentHumanInputProvider? humanInput = null,

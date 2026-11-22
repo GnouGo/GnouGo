@@ -97,6 +97,10 @@ internal static class WorkflowFailureFormatter
                 builder.AppendLine($"Provider retry permitted from {due}.");
             if (ReadBoundedStringDeep(error.Details, "failure_phase", 40) is { Length: > 0 } phase)
                 builder.AppendLine($"Transport phase {phase}.");
+            if (ReadBoundedStringDeep(error.Details, "physical_request_id", 240) is { Length: > 0 } physical)
+                builder.AppendLine($"Physical request {Sanitize(physical, 240)}.");
+            if (ReadBoundedStringDeep(error.Details, "provider_request_id_sha256", 64) is { Length: 64 } hash && hash.All(char.IsAsciiHexDigit))
+                builder.AppendLine($"Provider request SHA-256 {hash}.");
             var providerCode = ReadBoundedStringDeep(error.Details, "provider_code", 120);
             var recommendedAction = ReadBoundedStringDeep(error.Details, "recommended_action", 120);
 

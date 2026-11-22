@@ -3978,7 +3978,7 @@ public sealed partial class ConfigureProvidersService
         }
     }
 
-    private async IAsyncEnumerable<SmartFlowEvent> ValidateConfigAsync(
+    internal async IAsyncEnumerable<SmartFlowEvent> ValidateConfigAsync(
         JsonNode outputs,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
@@ -4007,8 +4007,6 @@ public sealed partial class ConfigureProvidersService
 
         // Run the test call outside try/catch so we can yield the result safely
         string? validationError = null;
-        var providerUrl = _optionsStore.Current.ResolveProvider(provider)?.Url ?? "(unknown)";
-        span.SetTag("http.url", providerUrl);
         try
         {
             await _llm.CallAsync(new GnOuGo.Flow.Core.Runtime.LLMRequest
@@ -4020,21 +4018,17 @@ public sealed partial class ConfigureProvidersService
                 UseBackgroundMode = IsOpenAiCompatible(provider),
             }, ct);
         }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch (Exception ex)
         {
-            var fullMessage = ex.InnerException is not null
-                ? $"{ex.Message} → {ex.InnerException.Message}"
-                : ex.Message;
-
-            validationError = fullMessage.Contains("401") || fullMessage.Contains("Unauthorized")
-                ? "The provided credentials appear to be invalid, revoked, or unauthorized."
-                : fullMessage.Contains("404") || fullMessage.Contains("model")
-                    ? $"The selected endpoint or model '{model}' was not found. Check the URL, model and generation protocol with `/llm edit {provider}`."
-                    : $"{fullMessage} (URL: {providerUrl})";
-
-            _logger.LogWarning(ex, "LLM provider '{Provider}' validation failed (url={Url}): {Error}", provider, providerUrl, fullMessage);
-            span.SetTag("error.type", ex.GetType().FullName);
-            span.SetTag("error.message", fullMessage);
+            validationError = "The model provider validation failed.";
+            if (LlmFailureClassifier.Classify(ex) is { } classified)
+            {
+                var error = classified.ToWorkflowError();
+                error.Message = validationError;
+                validationError = WorkflowFailureFormatter.Format(error).UserMessage;
+            }
+            _logger.LogWarning("Provider {Provider} validation failed. {Diagnostic}", provider, validationError);
         }
 
         if (validationError is null)
