@@ -119,6 +119,9 @@ public sealed class LLMHttpAttempt
     public string? ProviderRequestIdHash { get; set; }
     public string? Failure { get; set; }
     public DateTimeOffset? NotBefore { get; set; }
+    // Historical NotBefore values were written when reserving the wait.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? WaitReserved { get; set; }
 }
 
 /// <summary>What the response stream reader observed, not which remote hop caused it.

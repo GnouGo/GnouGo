@@ -450,6 +450,40 @@ public sealed class NativeStreamingTests
     }
 
     [Fact]
+    public async Task RestartOfADeferredGenerationRetainsTheCumulativeWaitAllowance()
+    {
+        var journal = new Journal();
+        var now = DateTimeOffset.UnixEpoch;
+        var start = now;
+        List<DateTimeOffset> times = [];
+        using var http = NewHttp(new Handler(_ =>
+        {
+            times.Add(now);
+            var response = new HttpResponseMessage(times.Count <= 2 ? HttpStatusCode.ServiceUnavailable : HttpStatusCode.OK)
+                { Content = new StringContent("{}") };
+            if (!response.IsSuccessStatusCode) response.Headers.TryAddWithoutValidation("retry-after-ms", "80");
+            return Task.FromResult(response);
+        }));
+        var policy = new LLMProviderRetryPolicyOptions { MaxAttempts = 3, MaxUncertainRetries = 0, MaxTotalDelayMilliseconds = 100 };
+        async Task<HttpStatusCode> Send()
+        {
+            using var scope = new LLMHttpRetryContext("capture", journal, policy).Activate();
+            using var reply = await HttpRequestHelper.SendWithTransientRetryAsync(http,
+                () => HttpRequestHelper.CreateJsonPost("https://gateway.example/v1/chat/completions", "{}"u8.ToArray()),
+                HttpCompletionOption.ResponseHeadersRead, Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance, "test", policy,
+                (wait, _) => { now += wait; return Task.CompletedTask; }, upper => upper, () => now, Ct);
+            return reply.StatusCode;
+        }
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, await Send());
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, await Send());
+        Assert.Equal([start, start.AddMilliseconds(80)], times);
+        now = start.AddMilliseconds(145);
+        Assert.Equal(HttpStatusCode.OK, await Send());
+        Assert.Equal([start, start.AddMilliseconds(80), start.AddMilliseconds(160)], times);
+        Assert.Equal(95, journal.State!.DelayMilliseconds);
+    }
+
+    [Fact]
     public async Task RepeatedReceiptRejectionsShareOneWaitBudgetAcrossRestarts()
     {
         var journal = new Journal();

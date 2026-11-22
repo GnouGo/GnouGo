@@ -285,8 +285,9 @@ public static class HttpRequestHelper
                     state.Attempts.Count(a => a.Status is null) > retryPolicy.MaxUncertainRetries;
                 var delay = !retryable || exhausted || response?.IsSuccessStatusCode == true ? TimeSpan.Zero : previous.NotBefore is { } due ? due - utcNow() : retryAfter ?? CalculateJitterDelay(retryPolicy, state.Attempts.Count, jitter);
                 if (delay < TimeSpan.Zero) delay = TimeSpan.Zero;
+                var waitReserved = previous.NotBefore is not null && previous.WaitReserved != false;
                 exhausted |= delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds ||
-                    previous.NotBefore is null && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
+                    !waitReserved && state.DelayMilliseconds + delay.TotalMilliseconds > retryPolicy.MaxTotalDelayMilliseconds;
                 var durationExhausted = independentLimit is not null &&
                     (previous.IndependentGenerationDurationExhausted == true || IndependentRemaining() <= delay);
                 exhausted |= durationExhausted;
@@ -298,8 +299,12 @@ public static class HttpRequestHelper
                     uncertain && confirmedOnly && !independent ? "blocked; uncertain outcome" :
                     !retryable ? "blocked; nonretryable outcome" : exhausted ? "blocked; captured retry allowance exhausted" :
                     independent ? "abandoned; independent tool-free generation retry" : "retry; captured transient-response policy";
-                if (retryable && exhausted && providerDelay is not null && previous.NotBefore is null)
-                    previous.NotBefore = providerDelay.NotBeforeUtc;
+                if (retryable && exhausted && previous.NotBefore is null && (providerDelay is not null || delay > TimeSpan.Zero))
+                {
+                    previous.NotBefore = providerDelay?.NotBeforeUtc ?? utcNow() + delay;
+                    previous.WaitReserved = false;
+                    metadata = metadata with { NotBeforeUtc = previous.NotBefore };
+                }
                 if (previous.RetryDecision != decision)
                 { previous.RetryDecision = decision; await SaveAsync(ct).ConfigureAwait(false); }
                 if (response is not null && (response.IsSuccessStatusCode || !retryable || exhausted))
@@ -319,9 +324,10 @@ public static class HttpRequestHelper
                     failure.Data[ExceptionRetryMetadataKey] = metadata;
                     throw failure;
                 }
-                if (previous.NotBefore is null)
+                if (!waitReserved)
                 {
-                    previous.NotBefore = utcNow() + delay;
+                    previous.NotBefore ??= utcNow() + delay;
+                    previous.WaitReserved = true;
                     state.DelayMilliseconds += delay.TotalMilliseconds;
                     await SaveAsync(ct).ConfigureAwait(false);
                 }
