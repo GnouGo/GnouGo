@@ -166,7 +166,7 @@ internal static class LiveWorkflowEvaluation
             }
             var session = await ApproveAsync(run, command, runtime, CancellationToken.None);
             PlanningArtifactApproval.Verify(session, delegated?.Receipt);
-            if (scenario == "code" && !proxy.Ready) throw new InvalidOperationException("SDK inference interception is not attested.");
+            if (scenario == "code") proxy.RequireSdkAdmission(configurations);
             proxy.ExecutionEnabled = true;
             var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(session.Yaml!));
             run["execution_started"] = DateTimeOffset.UtcNow.ToString("O"); await Save();

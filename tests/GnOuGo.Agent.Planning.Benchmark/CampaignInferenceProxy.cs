@@ -27,8 +27,15 @@ internal sealed record CampaignInferenceResponse(int Status, string ContentType,
 internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposable
 {
     internal string Endpoint => app.Urls.Single() + "/inference";
-    internal bool Ready { get; private set; }
-    internal bool ExecutionEnabled { get; set; }
+    private volatile bool _ready;
+    private volatile bool _executionEnabled;
+    internal bool ExecutionEnabled { get => _executionEnabled; set => _executionEnabled = value; }
+    internal void RequireSdkAdmission(IReadOnlyDictionary<string, McpServerOptions> servers)
+    {
+        if (!_ready || !servers.TryGetValue(BenchmarkCampaign.SdkServer, out var server) ||
+            server.EnvironmentVariables?.GetValueOrDefault("Code__Copilot__InferenceProxyEndpoint") != Endpoint)
+            throw new GnOuGo.Flow.Core.Planning.PlanningConflictException("The reviewed Copilot backend has not attested this campaign inference relay.");
+    }
     internal static async Task<CampaignInferenceProxy> StartAsync(KeyVaultBenchmarkModel model, string run, string? chatToolsReasoningEffort = null,
         string? wireApi = null, string? inferenceTransport = null, int outputLimit = 32768)
     {
@@ -42,11 +49,11 @@ internal sealed class CampaignInferenceProxy(WebApplication app) : IAsyncDisposa
             using var reader = new StreamReader(context.Request.Body);
             if (await reader.ReadToEndAsync(context.RequestAborted) != "sdk-http-interception-v1") { context.Response.StatusCode = 400; return; }
             context.Response.Headers[CopilotInferenceProxyHandler.RetryOwnerHeader] = CopilotInferenceProxyHandler.RetryOwner;
-            proxy.Ready = true; context.Response.StatusCode = 204;
+            proxy._ready = true; context.Response.StatusCode = 204;
         });
         app.MapPost("/inference", async (HttpContext context) =>
         {
-            if (!proxy.Ready || !proxy.ExecutionEnabled) { context.Response.StatusCode = 403; return; }
+            if (!proxy._ready || !proxy.ExecutionEnabled) { context.Response.StatusCode = 403; return; }
             using var reader = new StreamReader(context.Request.Body);
             var body = await reader.ReadToEndAsync(context.RequestAborted);
             try

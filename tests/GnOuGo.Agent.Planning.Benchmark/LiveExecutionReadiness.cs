@@ -72,7 +72,8 @@ internal static class LiveExecutionReadiness
         { state["events"]!.AsArray().Add(evt); await campaign.SaveAsync(collection, label, state); });
         var session = await observed.GetClientAsync("GnOuGo.GithubCopilot.Mcp", CancellationToken.None);
         var tools = await session.ListToolsAsync(CancellationToken.None);
-        if (!proxy.Ready || !tools.Any(t => t.Name == "code_agent_edit")) throw new InvalidOperationException("Copilot inference interception or operation is unavailable.");
+        proxy.RequireSdkAdmission(settings);
+        if (!tools.Any(t => t.Name == "code_agent_edit")) throw new InvalidOperationException("The Copilot edit operation is unavailable.");
         Directory.CreateDirectory(directory);
         var seed = "observed-" + label;
         await File.WriteAllTextAsync(Path.Combine(directory, "seed.txt"), seed);

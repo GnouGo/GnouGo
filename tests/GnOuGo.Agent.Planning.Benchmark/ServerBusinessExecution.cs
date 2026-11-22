@@ -231,7 +231,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             return SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None, releaseRemaining: true);
         } : null);
         foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);
-        if (scenario == "code" && !proxy.Ready) throw new PlanningConflictException("SDK inference admission is unavailable.");
+        if (scenario == "code" || Adaptive is not null) proxy.RequireSdkAdmission(configurations);
         if (localKind)
         {
             var before = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);

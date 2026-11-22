@@ -1008,7 +1008,7 @@ internal static class ServerLiveDiagnostics
                 await Save();
             }, authority, scenario);
             foreach (var server in configurations.Keys) _ = await (await observed.GetClientAsync(server, CancellationToken.None)).ListToolsAsync(CancellationToken.None);
-            if (scenario == "code" && !proxy.Ready) throw new PlanningConflictException("SDK inference interception is not attested; execution is forbidden.");
+            if (scenario == "code") proxy.RequireSdkAdmission(configurations);
             var options = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
             var engine = new WorkflowEngine { McpClientFactory = observed, HumanInputProvider = human,
                 LLMClient = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId), LLMCapabilities = model,
