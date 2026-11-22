@@ -1156,6 +1156,8 @@ mandatory. Exact method filters keep theory rows together. The runner independen
 compares every full TRX case name against discovery, rejects omissions, duplicates,
 failures and unexpected skips, and verifies that staged managed binaries did not
 change. Only the existing platform-dependent clarification-browser skip is accepted.
+The runner enables the bundled Copilot SDK fixtures against their local scripted
+provider in each test process. These cases require no live credentials or campaign funds.
 Per-test console progress, TRX, a five-minute no-dump hang diagnostic and the exact
 coverage manifest are retained in `server-test-diagnostics`. A cancelled or timed-out
 job is not a pass. This orchestration changes no runtime, live request timeout,

@@ -1,5 +1,15 @@
 # PR 120 planning simplification
 
+## Deterministic Server coverage, 22 November 2026
+
+Linux discovered both local Copilot cooldown cases but reported `NotExecuted`
+for both. The exact-coverage runner reproduced those TRX outcomes locally with
+the parent opt-in unset. Enabling the bundled SDK fixture in the runner's child
+process turned the same two cases into two passes with zero skips, missing
+cases or duplicates. All five partition-runner unit tests passed. This exercise
+used the scripted provider and made zero paid calls.
+[Linux job and original outcomes](https://github.com/GnouGo/GnouGo/actions/runs/45009446992/job/137168291540)
+
 ## Provider cooldowns and Review 02 readback, 22 November 2026
 
 The real Copilot SDK 1.0.34 and bundled runtime 1.0.112 used the local campaign

@@ -9,6 +9,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -101,8 +102,10 @@ def run_partition(partition, directory):
                "--logger", "trx;LogFileName=server.trx", "--results-directory", str(directory),
                "--blame-hang-timeout", "5m", "--blame-hang-dump-type", "none"]
     with (directory / "console.log").open("w") as log:
+        # The exact-coverage run includes the bundled SDK's loopback provider fixtures.
+        env = {**os.environ, "GNOUGO_TEST_LOCAL_COPILOT": "1"}
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                              text=True, bufsize=1) as process:
+                              text=True, bufsize=1, env=env) as process:
             for line in process.stdout:
                 log.write(line)
                 log.flush()
