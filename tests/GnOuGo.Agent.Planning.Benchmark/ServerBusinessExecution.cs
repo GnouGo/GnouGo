@@ -268,7 +268,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 if (journal is not null)
                 {
                     if (journal.Limits.AgentId != _savedId || journal.WorkflowYaml != saved.Yaml ||
-                        !report["inputs"]!.AsObject().All(p => JsonNode.DeepEquals(p.Value, journal.Inputs?[p.Key])))
+                        !MatchesSubmittedInputs(report["inputs"], journal.Inputs))
                         throw new PlanningConflictException("The journal does not match the approved workflow and submitted form inputs.");
                     if (journal.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Cancelled or WorkflowRunStatus.NeedsReconciliation or WorkflowRunStatus.Failed) break;
                     foreach (var wait in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is null))
@@ -320,4 +320,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             await Save();
         }
     }
+
+    internal static bool MatchesSubmittedInputs(JsonNode? submitted, JsonNode? actual) =>
+        submitted is JsonObject fields && actual is JsonObject envelope &&
+        fields.All(field => envelope.TryGetPropertyValue(field.Key, out var value) && JsonNode.DeepEquals(value, field.Value));
 }

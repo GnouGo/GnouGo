@@ -406,6 +406,16 @@ result; application retains the complete reservation and forbids continuation.
 authorizations and configuration-record names through the public encrypted store.
 Historical authorizations are evidence to assess, never an automatic new grant.
 
+For a failed Server execution, `--retention-kind finalized-server-sdk-request`
+verifies the saved workflow, submitted inputs and finalized execution under the
+planning and execution leases. Each MCP invocation must match a unique recorded
+event, including its arguments and actual result. The failed Copilot turn must
+report zero tool executions and modified files. Its one unreceived foreground
+structured-text request must match the captured wire bytes, endpoint, dispatch
+interval and full reservation. An authorized closure preserves every source
+record and the full chargeable hold. It permanently closes the original run,
+planning session, execution and request to continuation.
+
 Captured-policy retention also admits a fully received terminal HTTP 400 request
 rejection when the retained error-only body and normalized `InvalidRequest`,
 nonretryable, non-exhausted failure agree. Every earlier attempt must be an eligible

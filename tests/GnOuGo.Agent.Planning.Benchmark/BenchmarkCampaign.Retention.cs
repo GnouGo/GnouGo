@@ -80,8 +80,10 @@ internal sealed partial class BenchmarkCampaign
             if (closure["reason"]?.ToString() != PermanentRetentionReason) continue;
             ValidatePermanentClosure(closure, row.Key[(Id.Length + 1)..]);
             var abandoned = closure["evidence"]!["session_id"]!.ToString();
-            var runtimeRoot = closure["evidence"]?["retention_kind"]?.ToString() == RuntimeDiagnosticRetention ? closure["evidence"]?["run_key"]?.ToString() : null;
-            if (sessionId == abandoned || sessionId == abandoned + "-execution" || sessionId == abandoned + "-copilot" ||
+            var kind = closure["evidence"]?["retention_kind"]?.ToString();
+            var runtimeRoot = kind is RuntimeDiagnosticRetention or FinalizedSdkRetention ? closure["evidence"]?["run_key"]?.ToString() : null;
+            if (kind == FinalizedSdkRetention && sessionId == closure["evidence"]?["execution_run_id"]?.ToString() ||
+                sessionId == abandoned || sessionId == abandoned + "-execution" || sessionId == abandoned + "-copilot" ||
                 runtimeRoot is not null && (sessionId == runtimeRoot || sessionId == runtimeRoot + "-execution" || sessionId == runtimeRoot + "-copilot"))
                 throw new InvalidOperationException("This planning run is permanently retained as inconclusive and cannot be continued or executed.");
         }
@@ -106,6 +108,13 @@ internal sealed partial class BenchmarkCampaign
             inspection["already_retained"] = true;
             inspection["existing_closure_hash"] = Hash(retained);
             return inspection;
+        }
+        if (retentionKind == FinalizedSdkRetention)
+        {
+            var owner = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("The exact Server run is missing.");
+            await using var session = await OpenInterruptedServerAsync(owner, collection, runKey, workspace, ct);
+            await using var execution = await OpenFinalizedExecutionAsync(owner, workspace!, ct);
+            return await InspectFinalizedSdkAsync(owner, session, execution.Run, requestId, ct);
         }
         if (retentionKind == ProviderProbeRetention)
             return await InspectProviderProbeRetentionAsync(collection, runKey, requestId, ct);
@@ -346,10 +355,13 @@ internal sealed partial class BenchmarkCampaign
         var beforeCampaign = retentionKind is CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention;
         var serverHoldWithoutTransport = beforeCampaign || retentionKind == CancelledPlanningRetention &&
             (await LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct))?["transport"]?["Attempts"] is JsonArray { Count: 0 };
-        var serverRun = retentionKind == InterruptedProcessRetention || serverHoldWithoutTransport ? await LoadAsync(collection, runKey, ct) : null;
+        var serverRun = retentionKind is InterruptedProcessRetention or FinalizedSdkRetention || serverHoldWithoutTransport ? await LoadAsync(collection, runKey, ct) : null;
         await using var serverScope = serverRun?["host"]?.ToString() == "GnOuGo.Agent.Server"
             ? await OpenInterruptedServerAsync(serverRun, collection, runKey, workspace, ct) : null;
-        var inspected = serverScope is null ? await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind)
+        await using var execution = retentionKind == FinalizedSdkRetention && serverScope is not null
+            ? await OpenFinalizedExecutionAsync(serverRun!, workspace!, ct) : null;
+        var inspected = execution is not null ? await InspectFinalizedSdkAsync(serverRun!, serverScope!, execution.Run, requestId, ct)
+            : serverScope is null ? await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind)
             : await InspectInterruptedServerAsync(serverRun!, collection, runKey, requestId, serverScope, ct, retentionKind!);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)
             throw new InvalidOperationException("Retention evidence changed; inspect and review the exact current evidence.");
@@ -358,6 +370,7 @@ internal sealed partial class BenchmarkCampaign
         closure["operator"] = operatorIdentity; closure["authorization"] = authorization;
         closure["authorization_hash"] = authorizationHash;
         closure["retained_at"] = DateTimeOffset.UtcNow.ToString("O");
+        if (retentionKind == FinalizedSdkRetention) ValidatePermanentClosure(closure, requestId);
         await SaveAsync("planning-evaluation-closures", requestId, closure, ct);
         return closure;
     }
@@ -366,7 +379,8 @@ internal sealed partial class BenchmarkCampaign
     {
         if (closure["reason"]?.ToString() != PermanentRetentionReason ||
             closure["evidence"] is not JsonObject evidence || evidence["version"]?.GetValue<int>() != 1 ||
-            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention) ||
+            evidence["retention_kind"]?.ToString() is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention or FinalizedSdkRetention) ||
+            evidence["retention_kind"]?.ToString() == FinalizedSdkRetention && !ValidFinalizedSdkEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() == ProviderProbeRetention && !ValidProviderProbeEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() == RuntimeDiagnosticRetention && !ValidRuntimeDiagnosticEvidence(evidence) ||
             evidence["retention_kind"]?.ToString() is (CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention) && !ValidBeforeCampaignServerEvidence(evidence) ||
@@ -402,7 +416,7 @@ internal sealed partial class BenchmarkCampaign
             evidence["campaign"]?.ToString() != Id || evidence["tenant"]?.ToString() != "benchmark" ||
             evidence["request_id"]?.ToString() != requestId ||
             evidence["session_id"]?.ToString() is not { Length: > 0 } sessionId ||
-            !requestId.StartsWith(sessionId + ":", StringComparison.Ordinal) ||
+            !requestId.StartsWith(sessionId + (evidence["retention_kind"]?.ToString() == FinalizedSdkRetention ? "-copilot:" : ":"), StringComparison.Ordinal) ||
             closure["evidence_hash"]?.ToString() != Hash(evidence) ||
             closure["authorization_hash"]?.ToString() != Hash(new JsonObject
                 { ["operator"] = closure["operator"]?.DeepClone(), ["authorization"] = closure["authorization"]?.DeepClone() }) ||
@@ -416,7 +430,7 @@ internal sealed partial class BenchmarkCampaign
 
     private static void ValidateRetentionKind(string? retentionKind)
     {
-        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention))
+        if (retentionKind is not (null or SingleHttp500Retention or SingleHttp502Retention or SingleHttp504Retention or InterruptedProcessRetention or ExhaustedPlanningRetriesRetention or UnstartedPlanningRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or ProviderProbeRetention or RuntimeDiagnosticRetention or FinalizedSdkRetention))
             throw new ArgumentException("Choose an exact supported permanent-retention kind.", nameof(retentionKind));
     }
 
