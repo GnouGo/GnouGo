@@ -1,0 +1,56 @@
+{
+  "source": "42cbcc71a26c3ff3cf823fec281f0457050b06ca",
+  "run": "browser-document-20261123-02",
+  "phase": "observed_workbook",
+  "started_utc": "2026-11-23T16:06:26.318252+00:00",
+  "finished_utc": "2026-11-23T16:08:47.958765+00:00",
+  "passed": true,
+  "durable_receipt": true,
+  "browser_observation_sha256": "6d54c753de33d2c1c6dce96aa31a73ef9e9f9690e9aedfc760b71c87d474772d",
+  "workbook_sha256": "582b8aa6abae1c889841a677f9976298950f6a3efdbdfc34bd332b516c5cd9b7",
+  "workbook_verified": true,
+  "browser_closed": true,
+  "usage": {
+    "input_tokens": 268,
+    "output_tokens": 29,
+    "total_tokens": 297,
+    "benchmark_cost_eur": "0.0120633187772925764192139738",
+    "reasoning_tokens": 0,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "attempts": [
+    {
+      "physical_id_sha256": "691cb5e6149b34a1ae65a25be86a890eed8838b784ae75b3bca481e446f636d8",
+      "provider_request_id_sha256": "2b49992e3f84400e15720d06dd7e2dc953778e94b9b9e4645afdc18a701cd49b",
+      "status": 200,
+      "started_utc": "2026-11-23T16:07:18.254144+00:00",
+      "completed_utc": "2026-11-23T16:08:45.267865+00:00",
+      "failure_phase": null,
+      "retry_header": null,
+      "requested_delay_ms": null,
+      "retry_not_before_utc": null,
+      "observed_status": 200,
+      "protocol_complete": true,
+      "usage_known": true,
+      "response_id_available": true,
+      "body_available": true,
+      "partial_body_available": false,
+      "receipt_retrievals": []
+    }
+  ],
+  "financial_after": {
+    "ceiling_eur": 3600,
+    "physical_calls": 4809,
+    "known_cost_eur": "2476.7559297727710941705479341",
+    "http_holds_eur": "495.81437180601547344334618",
+    "unknown_usage_attempts": 56,
+    "application_holds_eur": "171.63356950311035727717154657",
+    "available_rounded_eur": "455.80",
+    "audit_sha256": "0f6788b202d64af0938cdfe7131c1f803f4ca9ea53e223fb18afd1c21ab3f5e6"
+  }
+}

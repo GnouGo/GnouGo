@@ -1,5 +1,26 @@
 # PR 120 planning simplification
 
+## Live Browser, model and Document handoff, 23 November 2026
+
+The first Server run read a new local page and received a complete model response.
+The independent browser check still found an active page. A zero-model reproduction
+with the desktop configuration received `closed: false` and could still read the
+page. The diagnostic now uses the existing isolated browser profile. A controlled
+test with the desktop preference enabled verified browser closure and real XLSX
+cleanup, leaving the original preference intact.
+[First run and controlled MCP receipts](pr120-live-20261123/workbook-01.json)
+
+The fresh Server run `browser-document-20261123-02` on `42cbcc71` passed.
+The real model extracted the unique marker from the Browser MCP observation in
+one complete HTTP 200 response (268 input tokens, 29 output, EUR 0.01206332).
+The Document MCP wrote the workbook. The host reopened the XLSX, checked both
+cells, recorded the file digest, observed a successful close and verified that
+the Browser MCP had no active page. The fixture was then removed. The campaign
+audit counted 4,809 physical calls and EUR 455.80 available. This small
+integration used a disposable local page. Full Amazon and GitHub review streaks
+were both zero at this checkpoint.
+[Second run, file hash, physical receipt and budget](pr120-live-20261123/workbook-02.json)
+
 ## Review 02 closure and fresh model receipt, 23 November 2026
 
 The operator permanently closed Review 02 as inconclusive. The original five
