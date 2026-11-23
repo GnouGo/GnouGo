@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Expressions;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
@@ -9,6 +11,31 @@ using GnOuGo.Workspace;
 
 internal static class SchemaPortabilityCampaign
 {
+    internal static async Task WriteFinancialAuditAsync(BenchmarkCampaign campaign, TextWriter output, CancellationToken ct)
+    {
+        var authorization = await campaign.LoadAsync("planning-evaluation-configuration", "spending-authorization", ct);
+        var audit = new JsonObject { ["campaign"] = campaign.Id, ["ceilingEur"] = await campaign.CostCeilingAsync(ct),
+            ["ceilingSource"] = authorization is null ? "code_default_50_eur" : "persisted_spending_authorizations",
+            ["ceilingHistory"] = new JsonArray((authorization?["history"]?.AsArray() ?? []).Select(entry => (JsonNode)new JsonObject {
+                ["previousCeilingEur"] = entry?["previous_ceiling_eur"]?.DeepClone(), ["ceilingEur"] = entry?["ceiling_eur"]?.DeepClone(),
+                ["authorizedAtUtc"] = entry?["authorized_at"]?.DeepClone(), ["authorizationHash"] = PlanningGraphCompiler.Fingerprint(entry?["authorization"]?.ToString() ?? "") }).ToArray()),
+            ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: ct, includeSessions: true),
+            ["retainedApplicationReservationsEur"] = null,
+            ["globallyAvailableFunding"] = null, ["fundingLimitation"] = "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+            ["modelDispatches"] = 0, ["historicalChanges"] = false };
+        try
+        {
+            audit["retainedApplicationReservationsEur"] = await campaign.RetainedApplicationReservationsAsync(ct);
+        }
+        catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.LlmBudgetUnverifiable && ex.Details?["reason"] is JsonValue reason)
+        {
+            audit["applicationReservationFailure"] = reason.DeepClone();
+            output.WriteLine(audit.ToJsonString());
+            throw;
+        }
+        output.WriteLine(audit.ToJsonString());
+    }
+
     internal static string MeasurementManifest(PlanningRequest request, bool comparison = false)
     {
         var paths = new[] { "tests/Shared/PlanningBenchmarkCases.cs", "tests/Shared/PlanningCorpus.cs", "tests/Shared/PlanningBenchmarkMeasurements.cs",
@@ -52,16 +79,8 @@ internal static class SchemaPortabilityCampaign
         }
         if (phase == "financial-audit")
         {
-            var authorization = await campaign.LoadAsync("planning-evaluation-configuration", "spending-authorization");
-            Console.WriteLine(new JsonObject { ["campaign"] = campaign.Id, ["ceilingEur"] = await campaign.CostCeilingAsync(),
-                ["ceilingSource"] = authorization is null ? "code_default_50_eur" : "persisted_spending_authorizations",
-                ["ceilingHistory"] = new JsonArray((authorization?["history"]?.AsArray() ?? []).Select(entry => (JsonNode)new JsonObject {
-                    ["previousCeilingEur"] = entry?["previous_ceiling_eur"]?.DeepClone(), ["ceilingEur"] = entry?["ceiling_eur"]?.DeepClone(),
-                    ["authorizedAtUtc"] = entry?["authorized_at"]?.DeepClone(), ["authorizationHash"] = PlanningGraphCompiler.Fingerprint(entry?["authorization"]?.ToString() ?? "") }).ToArray()),
-                ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(campaign, includeSessions: true),
-                ["retainedApplicationReservationsEur"] = await campaign.RetainedApplicationReservationsAsync(CancellationToken.None),
-                ["globallyAvailableFunding"] = null, ["fundingLimitation"] = "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
-                ["modelDispatches"] = 0, ["historicalChanges"] = false }.ToJsonString()); return;
+            await WriteFinancialAuditAsync(campaign, Console.Out, CancellationToken.None);
+            return;
         }
         if (phase == "inspect-configuration")
         {

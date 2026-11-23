@@ -145,6 +145,15 @@ public sealed partial class BenchmarkPermanentRetentionTests
         {
             var before = await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct);
             await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => campaign.RetainedApplicationReservationsAsync(Ct));
+            using var auditOutput = new StringWriter();
+            var refusal = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+                SchemaPortabilityCampaign.WriteFinancialAuditAsync(campaign, auditOutput, Ct));
+            var audit = JsonNode.Parse(auditOutput.ToString())!.AsObject();
+            Assert.Equal(refusal.Details!["reason"]!.ToString(), audit["applicationReservationFailure"]!.ToString());
+            Assert.NotNull(audit["accounting"]!["calls"]);
+            Assert.True(audit.ContainsKey("retainedApplicationReservationsEur"));
+            Assert.Null(audit["retainedApplicationReservationsEur"]);
+            Assert.Equal(0, audit["modelDispatches"]!.GetValue<int>());
             var proposal = await campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, kind, workspace);
             Assert.Equal("unknown", proposal["evidence"]!["dispatch_certainty"]!.ToString());
             Assert.True(proposal["evidence"]!["campaign_envelope_absent"]!.GetValue<bool>());
@@ -152,6 +161,12 @@ public sealed partial class BenchmarkPermanentRetentionTests
             var cold = new BenchmarkCampaign(new KeyVaultRecordStore(Path.Combine(fixture.Root, "vault.db")), "retention");
             await cold.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, proposal["evidence_hash"]!.ToString(), Operator, Authorization, Ct, kind, workspace);
             Assert.Equal(.95m, await cold.RetainedApplicationReservationsAsync(Ct));
+            using var reconciledOutput = new StringWriter();
+            await SchemaPortabilityCampaign.WriteFinancialAuditAsync(cold, reconciledOutput, Ct);
+            var reconciled = JsonNode.Parse(reconciledOutput.ToString())!.AsObject();
+            Assert.Equal(.95m, reconciled["retainedApplicationReservationsEur"]!.GetValue<decimal>());
+            Assert.False(reconciled.ContainsKey("applicationReservationFailure"));
+            Assert.True(JsonNode.DeepEquals(audit["accounting"], reconciled["accounting"]));
             await cold.RequireRetainedApplicationHoldsAsync(.95m, Ct, requireComplete: true);
             await Assert.ThrowsAsync<InvalidOperationException>(() => cold.RequireRunNotRetainedAsync(Session, Ct));
             Assert.Equal(before, await fixture.Records.GetAsync("agent-planning-budgets-v11", "benchmark", Session, "test", Ct));

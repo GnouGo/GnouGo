@@ -1000,6 +1000,12 @@ owned Server lease and exact evidence hash; it creates no request or response an
 releases no reservation. The whole application hold remains external to campaign
 HTTP accounting, and replay and continuation are permanently forbidden.
 
+If application reservations cannot be verified, `financial-audit` still prints
+the verified physical HTTP ledger and ceiling. The JSON sets
+`retainedApplicationReservationsEur` to null and includes the typed
+`applicationReservationFailure` reason. The command exits with its original
+refusal. A complete audit is required before using its values in a fresh run.
+
 For an empty campaign attempt journal, the exact retained Server reservation is
 also an external liability. Its independently captured FX quote may differ from
 the campaign's quote; neither estimate replaces or caps the other. Retention
