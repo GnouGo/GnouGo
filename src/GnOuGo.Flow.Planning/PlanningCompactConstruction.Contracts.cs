@@ -532,7 +532,16 @@ internal static partial class PlanningCompactConstruction
     {
         var operation = PlanningCapabilityArguments.Editable(capability);
         var identity = ContractIdentity(operation.Id, operation.Version);
-        if (useCandidate) return CandidateContractView(state, capability, operation, identity);
+        var view = useCandidate ? CandidateContractView(state, capability, operation, identity) :
+            DraftContractView(state, capability, operation, identity);
+        var suppliedPaths = PlanningCapabilityArguments.SuppliedInputPaths(capability);
+        if (suppliedPaths.Length > 0)
+            view["catalogSuppliedInputPaths"] = new JsonArray(suppliedPaths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+        return view;
+    }
+
+    private static JsonObject DraftContractView(PlanningSession state, PlanningCapability capability, PlanningOperation operation, string identity)
+    {
         var selected = SelectedSchemaPointers(state, capability);
         var omitted = new List<string>();
         var input = ProjectCapabilityInput(state, capability, selected, omitted);

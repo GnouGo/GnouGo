@@ -285,6 +285,12 @@ cannot rebuild a missing map. TaskPlan references and original contracts are unc
 Optional input retrieval rows retain their original field pointers beside those IDs,
 including after other branches were inspected. Reading a row's exact schema is still
 required before that optional branch enters the editable input grammar.
+
+Selected contract views identify inputs that the catalog supplies at execution
+using JSON Pointers in `catalogSuppliedInputPaths`. The empty pointer covers the
+whole request. These inputs can appear in the original schema's required list.
+The compiler supplies them, and the draft binds the remaining editable fields.
+The directory exposes paths without printing the bound values.
 Host-fixed draft facts come from the frozen step, with unavailable branches omitted from
 the model grammar and complete semantic validation retained.
 Scoped revision associates its affected requirements without completing open work.

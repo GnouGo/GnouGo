@@ -62,6 +62,9 @@ internal static class PlanningCapabilityArguments
         };
     }
 
+    internal static string[] SuppliedInputPaths(PlanningCapability capability) =>
+        Bindings(capability).Select(binding => string.Concat(binding.Path.Select(part => "/" + PlanningFieldPaths.Escape(part)))).ToArray();
+
     internal static bool Owns(PlanningCapability capability, IReadOnlyList<string> path) => Bindings(capability).Any(b => Prefix(b.Path, path));
 
     internal static PlanningOperation Editable(PlanningCapability capability) => Editable(capability, null);

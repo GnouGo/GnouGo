@@ -10,6 +10,38 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
+    [InlineData(true, "/runner")]
+    [InlineData(false, "/target")]
+    public async Task DraftExplainsRequiredInputsSuppliedByTheCatalog(bool runner, string ownedPath)
+    {
+        var (state, _) = await Ready();
+        var capability = state.Discovery.Resolved[0];
+        var key = runner ? "runner" : "target";
+        capability.InputSchema["properties"]![key] = new JsonObject { ["type"] = "string" };
+        capability.InputSchema["required"] = new JsonArray(key);
+        if (runner)
+        {
+            capability.StepType = "agent.run";
+            capability.Kind = "agent";
+            capability.Server = null;
+            capability.Method = "scoped-observer";
+            capability.FixedInput[key] = capability.Method;
+            state.Catalog!.AllowedStepTypes = ["agent.run"];
+        }
+        else
+        {
+            capability.RequestBindings = [new(ownedPath, JsonValue.Create("HOST-OWNED-VALUE"))];
+        }
+
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var view = Assert.Single(Context(request)["operations"]!.AsArray())!;
+        Assert.Contains(key, view["inputSchema"]!["required"]!.AsArray().Select(entry => entry!.ToString()));
+        Assert.DoesNotContain(view["editableInputs"]!.AsArray(), entry => entry!["name"]!.ToString() == key);
+        Assert.Equal(ownedPath, Assert.Single(Assert.IsType<JsonArray>(view["catalogSuppliedInputPaths"]))!.ToString());
+        Assert.DoesNotContain("HOST-OWNED-VALUE", request.Prompt, StringComparison.Ordinal);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task DraftAndDiscoveryCanSeeWhetherTheCallerRequestedAnAdditionalResult(bool returnsReceipt)
