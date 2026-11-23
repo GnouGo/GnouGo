@@ -19,6 +19,14 @@ Server accepted the stop after receipt 35. It had reserved €3.540653 for logic
 request 36 before the campaign recorded an HTTP envelope. The cold retention
 preview classified dispatch as unknown. The live admission guard stopped new
 spending. The workflow did not start, visit product pages or deliver a workbook.
+The operator subsequently authorized permanent closure with the outcome
+unknown. The post-closure audit counted the same 4,883 physical attempts
+and preserved the ceiling history. The campaign had €175.174222 in retained
+application reservations and €405.586726 available. The audit now emits
+verified HTTP accounting even if an application reservation blocks admission.
+The blocked audit still exits with its typed refusal. The 514 selected
+accounting and retention tests passed, and the physical ledger from the
+blocked audit matched the post-closure read.
 [Issued requests, replays, reservation and accounting](pr120-live-20261123/amazon-31.json)
 
 ## Compact command receipts from Review 04

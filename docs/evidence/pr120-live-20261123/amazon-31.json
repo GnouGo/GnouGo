@@ -95,7 +95,7 @@
   },
   "logical_requests": 36,
   "physical_attempts": 35,
-  "measured_usage_eur": "17.254175764192139737991266374",
+  "measured_usage_eur": "17.254175764192139737991266388",
   "attempts_without_usage": 0,
   "last_request": {
     "id": "45dec634e74d434d8f46acb18eca9437:36:07d9fbee8232cb044c99c5ecbf1f1e47c6c3c3c5f38767f1928287f6252bfe58:7a62d69212b67feaada57d354eb8f8cf6d6417c6b240d3c7fe40f90ce6f86795",
@@ -106,11 +106,22 @@
   "accounting": {
     "campaign_ceiling_eur": 3600,
     "campaign_physical_through_run": 4883,
-    "campaign_measured_eur_through_run": "2523.424679772771094170547935774",
+    "campaign_measured_eur_through_run": "2523.4246797727710941705479371",
     "http_holds_eur": "495.81437180601547344334618",
     "historical_application_holds_eur": "171.63356950311035727717154657",
     "pending_application_hold_eur": "3.5406527104854191425175975866",
-    "arithmetic_headroom_eur_including_all_holds": "405.5867262076176559664167400694",
+    "arithmetic_headroom_eur_including_all_holds": "405.58672620761765596641673874",
     "admission_at_preview": "unretained_server_application_hold_before_campaign_envelope"
+  },
+  "authorized_closure": {
+    "authorization_hash": "f5c4e584f12c901883a2480f0fc4b84f996dd3b1357cb12b1885db60f288ab7d",
+    "evidence_hash": "6828a1f1f2e75766847efff005fa13e1472ce24dd0410462c670b8315aa3e61a",
+    "retained_at": "2026-11-23T17:36:16.1637170+00:00",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_application_reservations_eur": "175.17422221359577641968914416",
+    "same_http_ledger_and_ceiling_history": true
   }
 }
