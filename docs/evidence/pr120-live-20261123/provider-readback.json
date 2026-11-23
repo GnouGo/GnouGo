@@ -151,5 +151,62 @@
   "live_streaks": {
     "amazon": 0,
     "slimfaas": 0
-  }
+  },
+  "server_mcp_readiness": [
+    {
+      "run": "github-review-readiness-20261123-01",
+      "source": "2d0e80e68c56b55d87f44345c692a2883a9b222b",
+      "finished_utc": "2026-11-23T13:36:28.323105+00:00",
+      "mcp_server": "Github",
+      "tool_count": 50,
+      "published_review_operations": [
+        "add_comment_to_pending_review",
+        "pull_request_read",
+        "pull_request_review_write"
+      ],
+      "passed": true,
+      "planning_mutations_blocked": true,
+      "provider_dispatches": 0
+    },
+    {
+      "run": "copilot-readiness-20261123-01",
+      "source": "2d0e80e68c56b55d87f44345c692a2883a9b222b",
+      "finished_utc": "2026-11-23T13:36:45.755351+00:00",
+      "mcp_server": "GnOuGo.GithubCopilot.Mcp",
+      "tool_count": 47,
+      "passed": true,
+      "planning_mutations_blocked": true,
+      "provider_dispatches": 0
+    },
+    {
+      "run": "git-readiness-20261123-01",
+      "source": "2d0e80e68c56b55d87f44345c692a2883a9b222b",
+      "finished_utc": "2026-11-23T13:37:10.493556+00:00",
+      "mcp_server": "GnOuGo.Git.Mcp",
+      "tool_count": 22,
+      "passed": true,
+      "planning_mutations_blocked": true,
+      "provider_dispatches": 0
+    },
+    {
+      "run": "browser-readiness-20261123-01",
+      "source": "2d0e80e68c56b55d87f44345c692a2883a9b222b",
+      "finished_utc": "2026-11-23T13:36:49.101698+00:00",
+      "mcp_server": "GnOuGo.Browser.Mcp",
+      "tool_count": 9,
+      "passed": true,
+      "planning_mutations_blocked": true,
+      "provider_dispatches": 0
+    },
+    {
+      "run": "document-readiness-20261123-01",
+      "source": "2d0e80e68c56b55d87f44345c692a2883a9b222b",
+      "finished_utc": "2026-11-23T13:36:52.64985+00:00",
+      "mcp_server": "GnOuGo.Document.Mcp",
+      "tool_count": 4,
+      "passed": true,
+      "planning_mutations_blocked": true,
+      "provider_dispatches": 0
+    }
+  ]
 }

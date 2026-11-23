@@ -23,6 +23,12 @@ journal times from the same campaign-scoped read. Three regression cases cover a
 missing body, an empty body and a Unicode body with whitespace. All 395 selected
 Server tests passed, including the controlled Git and Document MCP runs. The
 benchmark built in Release with zero warnings and errors.
+
+Five fresh Server metadata runs on `2d0e80e6` listed 50 GitHub tools, 47
+Copilot tools, 22 Git tools, nine Browser tools and four Document tools. GitHub
+advertised both `add_comment_to_pending_review` and `pull_request_review_write`.
+Each host rejected planning mutations and recorded zero generation calls. The
+financial audit after the five runs matched the opening audit byte for byte.
 [Redacted route, journal and admission evidence](pr120-live-20261123/provider-readback.json)
 
 ## Deterministic Server coverage, 22 November 2026
