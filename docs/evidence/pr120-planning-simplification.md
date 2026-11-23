@@ -1,5 +1,26 @@
 # PR 120 planning simplification
 
+## Amazon 31 rejected a runner input supplied by the catalog
+
+The fresh Server session accepted a search task and its cleanup. In issued
+drafting calls 10, 23 and 33 the original schema required `runner`, the binding
+grammar omitted it, and the selected contract view did not indicate that the
+catalog supplied it. The model abandoned the adaptive step each time.
+
+Selected operations now show their catalog-supplied input paths. Two controlled
+regressions failed on the old view. All 3,322 planning tests passed after the
+change. A separate process reconstructed all three archived selections with
+the new generator and the original typed catalog. Each view exposed `/runner`,
+preserved the contract hash and excluded the field from editable inputs.
+The replay used zero model calls.
+
+The 35 physical planning attempts have usage receipts totalling €17.254176.
+Server accepted the stop after receipt 35. It had reserved €3.540653 for logical
+request 36 before the campaign recorded an HTTP envelope. The cold retention
+preview classified dispatch as unknown. The live admission guard stopped new
+spending. The workflow did not start, visit product pages or deliver a workbook.
+[Issued requests, replays, reservation and accounting](pr120-live-20261123/amazon-31.json)
+
 ## Compact command receipts from Review 04
 
 The independent 12,288-token diagnostic for the original review decision
