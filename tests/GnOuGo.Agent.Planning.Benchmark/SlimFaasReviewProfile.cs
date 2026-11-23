@@ -104,6 +104,30 @@ internal static class SlimFaasReviewProfile
     internal static bool OwnedClusterObserved(JsonObject evidence) => new[] { "kind", "podman" }.Any(source =>
         evidence[source]?["exit_code"]?.GetValue<int>() == 0 && evidence[source]?["absent"]?.GetValue<bool>() == false);
 
+    // The local profile has one root solution. Recognize its explicit CLI form without
+    // treating another solution, a filtered test run or a shell pipeline as the same check.
+    private static bool MatchesExplicitSolution(string command, string[] candidates)
+    {
+        var words = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (words.Length < 3 || words[0] != "dotnet" || words[2] != "SlimFaas.sln" ||
+            words[1] is not ("restore" or "build" or "test") || !candidates.Contains("dotnet " + words[1], StringComparer.Ordinal))
+            return false;
+
+        for (var index = 3; index < words.Length; index++)
+        {
+            if (words[index] == "--verbosity" && index + 1 < words.Length && words[index + 1] is "minimal" or "normal")
+            {
+                index++;
+                continue;
+            }
+            if (words[index] == "-p:SkipClientAppBuild=true" ||
+                words[index] == "--no-restore" && words[1] is "build" or "test" ||
+                words[index] == "--no-build" && words[1] == "test") continue;
+            return false;
+        }
+        return true;
+    }
+
     internal static void Verify(JsonObject run, string repository, JsonArray commands, HashSet<string> inconclusive, JsonObject checks)
     {
         var cluster = Cluster(run["workspace_relative"]!.GetValue<string>());
@@ -123,7 +147,7 @@ internal static class SlimFaasReviewProfile
                     cwd = directory;
                 }
                 if (cwd != directory) return false;
-                if (candidates.Contains(command, StringComparer.Ordinal)) return true;
+                if (candidates.Contains(command, StringComparer.Ordinal) || MatchesExplicitSolution(command, candidates)) return true;
                 // These npm options change cache and reporting behavior. Keep the raw command
                 // and terminal receipt for the report. Unknown options and shell syntax fail closed.
                 return candidates.Contains("npm ci", StringComparer.Ordinal) && command.StartsWith("npm ci ", StringComparison.Ordinal) &&

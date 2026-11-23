@@ -307,6 +307,26 @@ public sealed class CodeReportOracleTests
         }
     }
 
+    [Theory]
+    [InlineData("restore SlimFaas.sln -p:SkipClientAppBuild=true --verbosity minimal", "dotnet_restore", "passed")]
+    [InlineData("build SlimFaas.sln --no-restore -p:SkipClientAppBuild=true --verbosity minimal", "dotnet_build", "passed")]
+    [InlineData("test SlimFaas.sln --no-build --no-restore -p:SkipClientAppBuild=true --verbosity minimal", "dotnet_tests", "passed")]
+    [InlineData("test other.sln --no-build", "dotnet_tests", "not_executed")]
+    [InlineData("test SlimFaas.sln --filter TestName=One", "dotnet_tests", "not_executed")]
+    [InlineData("build SlimFaas.sln || true", "dotnet_build", "not_executed")]
+    [InlineData("restore SlimFaas.sln --no-dependencies", "dotnet_restore", "not_executed")]
+    public void SolutionChecksRecognizeOnlyTheExpectedSolutionAndScope(string arguments, string check, string expected)
+    {
+        var run = PublishedRun();
+        run["oracle_version"] = PublishedReviewQualification.LocalKindVersion;
+        run["events"]![1]!["result"]!["toolExecutions"]!.AsArray().Clear();
+        run["events"]![1]!["result"]!["toolExecutions"]!.AsArray().Add(Call("solution-check", "dotnet " + arguments, 0, "Completed"));
+
+        LiveCodeEvidence.Verify(run, Repository);
+
+        Assert.Equal(expected, run["required_check_status"]![check]!.ToString());
+    }
+
     [Fact]
     public void LocalKindReviewCannotApproveWithOnlyHistoricalProjectChecks()
     {

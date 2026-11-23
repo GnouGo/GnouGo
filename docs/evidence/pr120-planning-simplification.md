@@ -15,6 +15,14 @@ All 104 review and publication regressions passed afterwards. This controlled
 classification neither submits a review nor changes the live run's pinned verifier.
 [Receipt and negative tests](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
 
+Review 04 also selected the named root solution for restore, build and test.
+The previous verifier classified all three commands as unexecuted when their
+receipts named the solution and specified minimal logging. The local profile
+now recognizes these forms, preserves the per-command exit evidence and keeps
+frontend checks independent. Replays using another solution, filtered tests,
+a masked exit or a partial restore still fail to match. All 111 focused review
+and publication tests passed after the change.
+
 ## Fresh Amazon source qualification, 23 November 2026
 
 The Browser returned HTTP 200 for the search and all 20 permitted source-link
