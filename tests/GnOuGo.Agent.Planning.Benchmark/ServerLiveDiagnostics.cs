@@ -55,6 +55,7 @@ internal static class ServerLiveDiagnostics
         var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
         var retained = inspectionOnly || executionOnly || revalidationOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
+        var observedWorkbook = args.ElementAtOrDefault(1) == "server-live-probe" && args.Contains("--probe-observed-workbook", StringComparer.Ordinal);
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
         var adaptiveRequested = args.Contains("--adaptive-mcp-tools", StringComparer.Ordinal);
@@ -175,11 +176,14 @@ internal static class ServerLiveDiagnostics
         await using var app = GnOuGoAgentWebHost.Build(hostArgs, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false,
             services => {
                 services.AddSingleton<IPlanningDiscoveryRecoveryGuard>(new RetainedDiscoveryGuard(campaign));
-                if (!planning && business is null) return;
+                if (!planning && business is null && !observedWorkbook) return;
                 if (business is not null) services.AddSingleton<IPlanningApprovalReviewProvider>(business);
                 services.AddSingleton<SecureWorkflowRuntimeFactory>(sp =>
                 {
                     IMcpClientFactory? discovery = null;
+                    if (observedWorkbook)
+                        discovery = new ConfiguredMcpClientFactory(LiveWorkflowEvaluation.Configuration(model.McpServers, "observed_workbook", null, "Release"),
+                            defaultLlmProvider: model.Provider, defaultLlmModel: model.Model);
                     if (discoveryScenario is not null)
                     {
                         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null);
@@ -260,7 +264,7 @@ internal static class ServerLiveDiagnostics
             if (!await access.CanInspectAsync()) return Results.Forbid();
             await antiforgery.ValidateRequestAsync(context);
             if (Interlocked.CompareExchange(ref invoked, 1, 0) != 0) return Results.Conflict("A fresh independent run is required; this probe cannot replay.");
-            if (args.Contains("--probe-observed-workbook", StringComparer.Ordinal))
+            if (observedWorkbook)
             {
                 if (args.Any(a => a.StartsWith("--probe-", StringComparison.Ordinal) && a != "--probe-observed-workbook"))
                     throw new ArgumentException("The observed-workbook diagnostic has its own bounded request.");
@@ -283,9 +287,7 @@ internal static class ServerLiveDiagnostics
                             throw new InvalidOperationException("The model must return a complete structured page observation.");
                         report["usage"] = response.Usage?.DeepClone();
                         return result!["value"]!.GetValue<string>();
-                    }, context.RequestAborted);
-                    report["workbook_verified"] = true;
-                    report["browser_closed"] = true;
+                    }, context.RequestAborted, report);
                     report["passed"] = true;
                 }
                 catch (Exception error)

@@ -125,6 +125,29 @@ public sealed class BenchmarkDiscoveryVisibilityTests
     }
 
     [Fact]
+    public async Task WorkbookProfileClosesItsRealPageEvenWhenDesktopKeepsBrowsersOpen()
+    {
+        var sourceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
+        var build = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
+        var configured = new[] { "Browser", "Document" }.ToDictionary(n => "GnOuGo." + n + ".Mcp", _ => new McpServerOptions());
+        using var root = new TemporaryDirectoryForWorkbook();
+        configured["GnOuGo.Browser.Mcp"].EnvironmentVariables = new() { ["Browser__KeepBrowserOpen"] = "true", ["Browser__Headless"] = "true",
+            ["Browser__AllowedHosts__0"] = "127.0.0.1", ["Browser__HoldOpenMs"] = "0" };
+        configured["GnOuGo.Document.Mcp"].EnvironmentVariables = new() { ["Document__DefaultWorkingDirectory"] = root.Path, ["Document__AllowedWorkingRoots__0"] = root.Path };
+        var profile = LiveWorkflowEvaluation.Configuration(configured, "observed_workbook", null, build, sourceRoot);
+        await using var factory = new ConfiguredMcpClientFactory(profile);
+        await LiveExecutionReadiness.VerifyAsync(factory, root.Path, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.Empty(Directory.EnumerateFiles(root.Path, "*.xlsx", SearchOption.AllDirectories));
+        Assert.Equal("true", configured["GnOuGo.Browser.Mcp"].EnvironmentVariables!["Browser__KeepBrowserOpen"]);
+    }
+
+    private sealed class TemporaryDirectoryForWorkbook : IDisposable
+    {
+        internal string Path { get; } = Directory.CreateTempSubdirectory().FullName;
+        public void Dispose() => Directory.Delete(Path, true);
+    }
+
+    [Fact]
     public void ExplicitBrowserScopeIsFrozenWithoutMutatingOrReplacingSavedRestrictions()
     {
         var sourceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));

@@ -158,7 +158,7 @@ internal static class LiveExecutionReadiness
         }
     }
     internal static async Task VerifyAsync(IMcpClientFactory transport, string workspace,
-        Func<JsonNode, CancellationToken, Task<string>>? interpretPage = null, CancellationToken cancellationToken = default)
+        Func<JsonNode, CancellationToken, Task<string>>? interpretPage = null, CancellationToken cancellationToken = default, JsonObject? evidence = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(interpretPage is null ? TimeSpan.FromSeconds(60) : TimeSpan.FromMinutes(7));
@@ -194,6 +194,11 @@ internal static class LiveExecutionReadiness
             var cells = workbook.WorkbookPart!.WorksheetParts.SelectMany(p => p.Worksheet!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>());
             if (!cells.Select(cell => cell.InnerText).SequenceEqual(new[] { "probe", marker }, StringComparer.Ordinal))
                 throw new InvalidOperationException("The written XLSX does not contain the independently observed readiness value.");
+            if (evidence is not null)
+            {
+                evidence["workbook_verified"] = true;
+                evidence["workbook_sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(path, ct)));
+            }
         }
         finally
         {
@@ -201,10 +206,12 @@ internal static class LiveExecutionReadiness
             {
                 using var close = new CancellationTokenSource(TimeSpan.FromSeconds(45));
                 var receipt = await browser.CallToolAsync("browser_close", new JsonObject(), close.Token);
-                if (receipt.IsError) throw new InvalidOperationException("The configured browser failed to close the readiness page.");
+                if (receipt.IsError || receipt.Content?["closed"]?.GetValue<bool>() != true)
+                    throw new InvalidOperationException("The configured browser did not acknowledge closing the readiness page.");
                 var after = await browser.CallToolAsync("browser_get_content", new JsonObject(), close.Token);
                 if (!after.IsError || !after.Content!.ToJsonString().Contains("No active page", StringComparison.Ordinal))
                     throw new InvalidOperationException("Browser cleanup did not release its active page.");
+                if (evidence is not null) evidence["browser_closed"] = true;
             }
             finally
             {
