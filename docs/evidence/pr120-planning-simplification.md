@@ -1,5 +1,30 @@
 # PR 120 planning simplification
 
+## Provider route and Review 02 correlation, 23 November 2026
+
+The configured issuer issued a fresh OIDC token in 473 ms. The gateway answered
+an authenticated OPTIONS request on the configured chat route with HTTP 400 and
+a GET on the configured model catalog with HTTP 404. The diagnostic sent zero
+generation requests. A separate fresh Server probe stopped at campaign admission
+with `campaign_uncertain_request_requires_recovery`. The deployment, host
+fingerprint and authorization still matched the selected campaign configuration.
+
+Review 02's exact HTTP journal contains a 73,125-byte UTF-8 body with SHA-256
+`3e91b826e30111b2c9342b3f239dea58df9af8a0ee3881dd3e8e81578a7b9411`.
+On 21 November the journal was updated at 19:32:03.372757 UTC, followed by a
+local dispatch-stage `HttpRequestException` record at 19:32:03.396370 UTC.
+These storage times narrow the provider log lookup. Physical send time, provider
+status and usage remain unknown. The original €3.2908297 reservation remains held.
+GitHub returned the original four review IDs and six inline comment IDs. The run
+checkout, kubeconfig, kind cluster and matching Podman containers were absent.
+
+The inspection command now exposes the exact body digest, byte count and local
+journal times from the same campaign-scoped read. Three regression cases cover a
+missing body, an empty body and a Unicode body with whitespace. All 395 selected
+Server tests passed, including the controlled Git and Document MCP runs. The
+benchmark built in Release with zero warnings and errors.
+[Redacted route, journal and admission evidence](pr120-live-20261123/provider-readback.json)
+
 ## Deterministic Server coverage, 22 November 2026
 
 Linux discovered both local Copilot cooldown cases but reported `NotExecuted`

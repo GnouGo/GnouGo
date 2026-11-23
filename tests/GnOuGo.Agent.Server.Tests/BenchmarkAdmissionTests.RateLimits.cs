@@ -12,8 +12,11 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class BenchmarkAdmissionTests
 {
-    [Fact]
-    public async Task RequestInspectionRetainsHistoricalUncertaintyAndReadsOnlyItsCampaign()
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData("", 0, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")]
+    [InlineData(" { \"note\": \"privé 🧪\" }\r\n", 28, "48b9bd012ea75bb7c881428530034b50ffe78aa9754ac5e829e01cc76e9ae970")]
+    public async Task RequestInspectionRetainsHistoricalUncertaintyAndReadsOnlyItsCampaign(string? body, int? bytes, string? bodyHash)
     {
         using var fixture = new Fixture();
         var campaign = fixture.Campaign;
@@ -25,12 +28,21 @@ public sealed partial class BenchmarkAdmissionTests
             ["transport"] = new JsonObject { ["Fingerprint"] = wireHash,
                 ["Attempts"] = new JsonArray(new JsonObject { ["Id"] = requestId }) }
         };
+        if (body is not null) original["transport"]!["RequestBody"] = body;
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, requestId, new JsonObject(), Ct);
         await campaign.SaveAsync(BenchmarkHttpJournal.Collection, requestId, original, Ct);
+        var stored = await fixture.Records.GetAsync(BenchmarkHttpJournal.Collection, "benchmark", campaign.Id + ":" + requestId, BenchmarkCampaign.Author, Ct);
         var before = fixture.Records.MutationAttempts;
         var evidence = await BenchmarkHttpJournal.InspectRequestAsync(campaign, requestId, Ct);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             BenchmarkHttpJournal.InspectRequestAsync(new(fixture.Records, "other"), requestId, Ct));
         Assert.Equal(wireHash, evidence["wire_sha256"]!.ToString());
+        Assert.True(stored!.UpdatedAt > stored.CreatedAt);
+        Assert.Equal(stored.CreatedAt.ToUniversalTime(), evidence["journal_created_utc"]?.GetValue<DateTimeOffset>());
+        Assert.Equal(stored.UpdatedAt.ToUniversalTime(), evidence["journal_updated_utc"]?.GetValue<DateTimeOffset>());
+        Assert.Equal(bytes, evidence["request_body_utf8_bytes"]?.GetValue<int>());
+        Assert.Equal(bodyHash, evidence["request_body_sha256"]?.ToString());
+        Assert.DoesNotContain("priv", evidence.ToJsonString());
         Assert.Equal(1L, evidence["unknown_usage_attempts"]!.GetValue<long>());
         Assert.Equal(3.25m, evidence["reserved_cost_eur"]!.GetValue<decimal>());
         Assert.Null(evidence["measured_cost_eur"]);

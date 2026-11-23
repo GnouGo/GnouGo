@@ -1,0 +1,155 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "configuration_selection": {
+    "accepted": true,
+    "configuration_exists": true,
+    "material_hash_matches": true,
+    "configuration_matches": true,
+    "host_fingerprint_matches": true,
+    "authorization_binding_matches": true,
+    "failed_checks": []
+  },
+  "provider_route_checks": [
+    {
+      "observed_utc": "2026-11-23T13:27:45.606449+00:00",
+      "provider": "OpenAi",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "observations": [
+        {
+          "phase": "credentials",
+          "source": "oidc",
+          "credential_available": true,
+          "elapsed_ms": 473
+        },
+        {
+          "phase": "configured_chat_options",
+          "http_status": 400,
+          "original_route": true,
+          "elapsed_ms": 357
+        },
+        {
+          "phase": "configured_model_catalog",
+          "http_status": 404,
+          "original_route": true,
+          "elapsed_ms": 196
+        }
+      ],
+      "generation_posts": 0
+    },
+    {
+      "observed_utc": "2026-11-23T13:32:57.583737+00:00",
+      "provider": "OpenAi",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "observations": [
+        {
+          "phase": "credentials",
+          "source": "oidc",
+          "credential_available": true,
+          "elapsed_ms": 433
+        },
+        {
+          "phase": "configured_chat_options",
+          "http_status": 400,
+          "original_route": true,
+          "error_format": "non_json",
+          "elapsed_ms": 274
+        },
+        {
+          "phase": "configured_model_catalog",
+          "http_status": 404,
+          "original_route": true,
+          "gateway_error_code": "NotFound",
+          "elapsed_ms": 240
+        }
+      ],
+      "generation_posts": 0
+    }
+  ],
+  "fresh_server_probe": {
+    "run": "provider-route-20261123-01",
+    "outcome": "campaign_uncertain_request_requires_recovery",
+    "generation_attempts": 0
+  },
+  "review02": {
+    "run": "slim519-verified-20261121-02",
+    "request": {
+      "campaign": "pr120-live-20261107-400",
+      "request_id": "11ff84808e0a45358f5de80b1af5cee0-copilot:24f834efc5515301dfee47481ee30193c08b0530dda462afab18df6809177fc6",
+      "wire_sha256": "577d9ceb9a877c71e0cb4df2d6361b1d99c6d72ef62a90e2d21becbc8ae611e0",
+      "journal_created_utc": "2026-11-21T19:32:01.632649+00:00",
+      "journal_updated_utc": "2026-11-21T19:32:03.372757+00:00",
+      "request_body_utf8_bytes": 73125,
+      "request_body_sha256": "3e91b826e30111b2c9342b3f239dea58df9af8a0ee3881dd3e8e81578a7b9411",
+      "attempts": [
+        {
+          "physical_id_sha256": "76336379033f50b9fae0e059c237055be4f3b1bea3090dbf55445a903cab4029",
+          "provider_request_id_sha256": null,
+          "status": null,
+          "started_utc": null,
+          "completed_utc": null,
+          "failure_phase": null,
+          "retry_header": null,
+          "requested_delay_ms": null,
+          "retry_not_before_utc": null,
+          "observed_status": null,
+          "protocol_complete": null,
+          "usage_known": null,
+          "response_id_available": false,
+          "body_available": false,
+          "partial_body_available": false,
+          "receipt_retrievals": []
+        }
+      ],
+      "unknown_usage_attempts": 1,
+      "reserved_cost_eur": "3.2908296943231441048034934498",
+      "measured_cost_eur": null
+    },
+    "local_failure_record": {
+      "created_utc": "2026-11-21T19:32:03.39637+00:00",
+      "updated_utc": "2026-11-21T19:32:03.39637+00:00",
+      "stage": "dispatch",
+      "kind": null,
+      "exception_type": "HttpRequestException",
+      "status_code": null,
+      "attempt_count": null,
+      "dispatch_status": null,
+      "retry_exhausted": null
+    },
+    "provider_receipt": null,
+    "github_review_ids": [
+      5965332934,
+      5965449885,
+      5965450275,
+      5965450631
+    ],
+    "github_inline_ids": [
+      4620992966,
+      4620992982,
+      4620992998,
+      4621091918,
+      4621092251,
+      4621092563
+    ],
+    "checkout_absent": true,
+    "kubeconfig_absent": true,
+    "kind_cluster_absent": true,
+    "podman_cluster_containers": 0
+  },
+  "financial_audit": {
+    "opening_and_closing_sha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+    "ceiling_eur": 3600,
+    "total_historical_calls": 4806,
+    "measured_token_cost_eur": "2476.7233424365265526858317768",
+    "reserved_http_eur": "495.81437180601547344334618",
+    "reserved_http_attempts": 56,
+    "reserved_application_eur": "171.63356950311035727717154657",
+    "remaining_eur": "455.8287162543476165936504964",
+    "paid_calls_this_pass": 0,
+    "new_charges_eur": 0,
+    "new_reservations_eur": 0
+  },
+  "live_streaks": {
+    "amazon": 0,
+    "slimfaas": 0
+  }
+}

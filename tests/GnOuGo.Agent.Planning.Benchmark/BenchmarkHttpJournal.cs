@@ -21,13 +21,18 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
 
     internal static async Task<JsonObject> InspectRequestAsync(BenchmarkCampaign campaign, string requestId, CancellationToken ct)
     {
-        var record = await campaign.LoadAsync(Collection, requestId, ct) ?? throw new InvalidOperationException("No HTTP journal for this campaign request.");
+        var stored = await campaign.ReadRecordAsync(Collection, requestId, ct) ?? throw new InvalidOperationException("No HTTP journal for this campaign request.");
+        var record = JsonNode.Parse(stored.Value)!.AsObject();
         if (record["transport"] is not JsonObject wire || wire["Attempts"] is not JsonArray)
             throw new InvalidDataException("The retained HTTP journal has no attempt inventory.");
         var accounting = LiveCampaignEvidence.Summarize([record]);
+        var body = wire["RequestBody"]?.GetValue<string>();
         return new()
         {
             ["campaign"] = campaign.Id, ["request_id"] = requestId, ["wire_sha256"] = Digest(wire["Fingerprint"]),
+            ["journal_created_utc"] = stored.CreatedAt.ToUniversalTime(), ["journal_updated_utc"] = stored.UpdatedAt.ToUniversalTime(),
+            ["request_body_utf8_bytes"] = body is null ? null : System.Text.Encoding.UTF8.GetByteCount(body),
+            ["request_body_sha256"] = body is null ? null : PlanningGraphCompiler.Fingerprint(body),
             ["attempts"] = AttemptEvidence(wire), ["unknown_usage_attempts"] = accounting["unknown_attempts"]?.DeepClone(),
             ["reserved_cost_eur"] = accounting["reserved_cost_eur"]?.DeepClone(),
             ["measured_cost_eur"] = record["usage"] is null ? null : accounting["known_cost_eur"]?.DeepClone()

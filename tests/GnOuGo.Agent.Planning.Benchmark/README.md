@@ -155,7 +155,10 @@ For an uncertain request, run `--schema-portability inspect-http-request
 --workspace <workspace> --campaign <campaign> --request-id <exact-request-id>`.
 The command reads one encrypted campaign journal. It reports the wire fingerprint,
 hashed physical and provider correlations, HTTP status, failure phase, requested
-delay, earliest retry, receipt-poll history and the existing reservation. Unknown
+delay, earliest retry, receipt-poll history and the existing reservation. To match
+gateway logs, use the UTF-8 byte count and SHA-256 of the captured request body.
+The journal creation and update times describe local storage writes. Physical
+send and response times have their own fields. Unknown
 timestamps and usage stay null. A missing journal fails the lookup. The command
 does not call the provider, settle usage, change funding or authorize replay.
 

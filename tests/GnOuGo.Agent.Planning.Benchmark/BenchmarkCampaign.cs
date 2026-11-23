@@ -22,8 +22,10 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     internal string? StopReason { get; private set; }
     private static string ValidateId(string value) => value.Length is >= 1 and <= 80 && value.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')
         ? value : throw new ArgumentException("Invalid campaign identifier.");
+    internal Task<KeyVaultRecordValue?> ReadRecordAsync(string collection, string key, CancellationToken ct)
+        => records.GetAsync(collection, "benchmark", Id + ":" + key, Author, ct);
     internal async Task<JsonObject?> LoadAsync(string collection, string key, CancellationToken ct = default)
-        => await records.GetAsync(collection, "benchmark", Id + ":" + key, Author, ct) is { } record ? JsonNode.Parse(record.Value)!.AsObject() : null;
+        => await ReadRecordAsync(collection, key, ct) is { } record ? JsonNode.Parse(record.Value)!.AsObject() : null;
     internal Task SaveAsync(string collection, string key, JsonObject value, CancellationToken ct = default)
         => records.UpsertAsync(collection, "benchmark", Id + ":" + key, value.ToJsonString(), Author, ct);
     internal async Task<IReadOnlyList<string>> OwnedKeysAsync(string collection, CancellationToken ct, string relativePrefix = "")
