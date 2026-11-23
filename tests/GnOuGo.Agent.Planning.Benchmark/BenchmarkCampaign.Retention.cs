@@ -417,7 +417,7 @@ internal sealed partial class BenchmarkCampaign
             evidence["request_id"]?.ToString() != requestId ||
             evidence["session_id"]?.ToString() is not { Length: > 0 } sessionId ||
             !requestId.StartsWith(sessionId + (evidence["retention_kind"]?.ToString() == FinalizedSdkRetention ? "-copilot:" : ":"), StringComparison.Ordinal) ||
-            closure["evidence_hash"]?.ToString() != Hash(evidence) ||
+            closure["evidence_hash"]?.ToString() != (evidence["retention_kind"]?.ToString() == FinalizedSdkRetention ? FinalizedSdkEvidenceHash(evidence) : Hash(evidence)) ||
             closure["authorization_hash"]?.ToString() != Hash(new JsonObject
                 { ["operator"] = closure["operator"]?.DeepClone(), ["authorization"] = closure["authorization"]?.DeepClone() }) ||
             string.IsNullOrWhiteSpace(closure["operator"]?.ToString()) || string.IsNullOrWhiteSpace(closure["authorization"]?.ToString()) ||

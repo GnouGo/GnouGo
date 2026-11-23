@@ -68,7 +68,7 @@ internal sealed partial class BenchmarkCampaign
             ["request_accounting"] = money, ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct),
             ["outcome_evidence"] = "terminal_workflow_with_unreceived_text_inference"
         };
-        return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
+        return new() { ["evidence"] = evidence, ["evidence_hash"] = FinalizedSdkEvidenceHash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
 
@@ -164,6 +164,21 @@ internal sealed partial class BenchmarkCampaign
     }
 
     private static bool IsSha256(string? value) => value is { Length: 64 } && value.All(char.IsAsciiHexDigit);
+
+    internal static string FinalizedSdkEvidenceHash(JsonObject evidence)
+    {
+        // The issuer serialized typed UTC timestamps. A reloaded JsonNode writes
+        // their '+' as a Unicode escape unless we restore the original scalar type.
+        var material = evidence.DeepClone().AsObject();
+        foreach (var key in new[] { "reservation_recorded_utc", "failure_recorded_utc" })
+        {
+            if (material[key] is not JsonValue date || !date.TryGetValue<DateTimeOffset>(out var timestamp) || timestamp.Offset != TimeSpan.Zero ||
+                date.TryGetValue<string>(out var encoded) && JsonSerializer.SerializeToElement(timestamp).GetString() != encoded)
+                throw new InvalidOperationException("The original canonical SDK journal timestamps are required.");
+            material[key] = timestamp;
+        }
+        return Hash(material);
+    }
 
     private static bool ValidFinalizedSdkEvidence(JsonObject evidence) =>
         evidence["run_collection"]?.ToString() == "planning-evaluation-runs" && Guid.TryParseExact(evidence["execution_run_id"]?.ToString(), "N", out _) &&

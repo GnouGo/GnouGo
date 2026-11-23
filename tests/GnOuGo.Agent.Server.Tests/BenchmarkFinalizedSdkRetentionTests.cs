@@ -9,6 +9,24 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class BenchmarkFinalizedSdkRetentionTests
 {
     [Fact]
+    public void ColdReaderVerifiesTheIssuedHashIncludingBothUtcTimestamps()
+    {
+        var start = DateTimeOffset.UnixEpoch.AddMicroseconds(372757);
+        var original = new JsonObject { ["reservation_recorded_utc"] = start, ["failure_recorded_utc"] = start.AddMilliseconds(24), ["receipt"] = "verified" };
+        var issued = PlanningGraphCompiler.Fingerprint(original.ToJsonString());
+        var cold = JsonNode.Parse(original.ToJsonString())!.AsObject();
+        Assert.Equal(issued, BenchmarkCampaign.FinalizedSdkEvidenceHash(original));
+        Assert.Equal(issued, BenchmarkCampaign.FinalizedSdkEvidenceHash(cold));
+        cold["receipt"] = "changed";
+        Assert.NotEqual(issued, BenchmarkCampaign.FinalizedSdkEvidenceHash(cold));
+        cold["receipt"] = "verified";
+        cold["failure_recorded_utc"] = start;
+        Assert.NotEqual(issued, BenchmarkCampaign.FinalizedSdkEvidenceHash(cold));
+        cold["reservation_recorded_utc"] = "1970-01-01T00:00:00.372757Z";
+        Assert.Throws<InvalidOperationException>(() => BenchmarkCampaign.FinalizedSdkEvidenceHash(cold));
+    }
+
+    [Fact]
     public void ExecutionUsesTheSubmittedFieldsWithinTheServerChatEnvelope()
     {
         var submitted = new JsonObject { ["query"] = "live", ["optional"] = null };
