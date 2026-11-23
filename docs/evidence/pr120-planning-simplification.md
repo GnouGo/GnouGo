@@ -1,5 +1,31 @@
 # PR 120 planning simplification
 
+## Review 04 execution and provider output limit, 23 November 2026
+
+The typed chat form executed the unchanged 20-task artifact. Git cloned once
+and compared the eight changed files at the captured base and head. Copilot
+returned 25 terminal receipts. The solution restore, build, solution tests
+and run-owned kind integration exited 0. Both dashboard installs initially
+missed the npm cache and then exited 0 on their observed retries. The Python
+test command returned 2 at first and 0 when run from the package with its source
+on the import path. Several repository checks, including the frontend lint,
+have no terminal receipt.
+
+The following structured decision received 65,068 input tokens. The provider
+returned 4,096 output tokens, including 275 reasoning tokens, and stopped
+with `finish_reason=length`. Its 14,184-character output ended inside a JSON
+string. The workflow failed before creating a pending review. Chat returned
+no report. GitHub still listed the original four reviews and six inline
+comments. Cleanup removed the checkout, kubeconfig, cluster and Podman nodes.
+
+The ordinary workflow runtime previously classified this receipt as a JSON
+schema error and could accept syntactically valid content carrying the same
+incomplete provider status. Five controlled cases reproduced those behaviors.
+The executor now journals the terminal status and usage and rejects output
+limits, incomplete results, refusals and provider failures before downstream
+steps can consume any content. All 55 selected runtime tests passed.
+[Execution, terminal receipts and accounting](pr120-live-20261123/review-04.json)
+
 ## Review 04 installation receipts, 23 November 2026
 
 After the Server chat form submitted the approved review, Copilot requested

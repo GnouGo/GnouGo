@@ -278,7 +278,7 @@ internal static partial class PlanningModelCalls
                     details: new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output, ["origin"] = capacity["origin"]?.DeepClone(), ["replay_allowed"] = false });
             }
         }
-        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT",
+        if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException(ErrorCodes.ModelOutputLimit,
             $"The provider returned incomplete output: allocation {call.Request.MaxTokens}, reported output {activeMeasurement?.OutputTokens?.ToString() ?? "unknown"}, " +
             $"reasoning {activeMeasurement?.ReasoningTokens?.ToString() ?? "unknown"}. No fragment was accepted; this response cannot authorize replay or allocation escalation.",
             details: new JsonObject { ["location"] = "/phases/" + purpose, ["limit_kind"] = "provider_output_allocation",
@@ -286,7 +286,7 @@ internal static partial class PlanningModelCalls
                 ["reasoning_tokens"] = activeMeasurement?.ReasoningTokens, ["completion_status"] = response.CompletionStatus,
                 ["request_id"] = call.Id, ["replay_allowed"] = false });
         if (response.CompletionStatus is "refused" or "failed" or "incomplete")
-            throw new WorkflowRuntimeException("MODEL_COMPLETION_REJECTED",
+            throw new WorkflowRuntimeException(ErrorCodes.ModelCompletionRejected,
                 "The provider's terminal outcome does not authorize accepting its content. The receipt and accounting remain retained; no fragment or business operation was accepted.",
                 details: new JsonObject { ["completion_status"] = response.CompletionStatus, ["request_id"] = call.Id, ["replay_allowed"] = false });
         JsonNode json;
@@ -312,7 +312,7 @@ internal static partial class PlanningModelCalls
                 if (measured > maximum && !PlanningTokenThresholds.OptimizationAdvisory(state.Request) && (reported.HasValue || !PlanningTokenThresholds.Advisory(state.Request)))
                 {
                     if (activeMeasurement is not null) activeMeasurement.Result = "output_allowance_exceeded";
-                    throw new WorkflowRuntimeException("MODEL_OUTPUT_LIMIT", "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
+                    throw new WorkflowRuntimeException(ErrorCodes.ModelOutputLimit, "The completed construction response exceeded its issued output allowance; no fragment was accepted.", details: new JsonObject
                     { ["location"] = "/phases/" + purpose, ["limit"] = maximum, ["current"] = measured,
                         ["measurement"] = reported.HasValue ? "reported_output_tokens" : "conservative_serialized_response_tokens", ["unit"] = "tokens", ["stage"] = purpose });
                 }

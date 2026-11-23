@@ -165,8 +165,10 @@ public sealed class LlmCallExecutor : IStepExecutor
         try
         {
             var response = await ctx.CallLLMAsync(llmClient, request, "llm.call", ct);
-            await ctx.RecordExternalCompletionAsync(new JsonObject { ["text"] = response.Text,
-                ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() }, CancellationToken.None);
+            var observation = new JsonObject { ["text"] = response.Text,
+                ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() };
+            if (response.CompletionStatus is { } status) observation["completion_status"] = status;
+            await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
 
 
             // ── Thinking: preview first 120 chars of the LLM response ──
@@ -183,7 +185,7 @@ public sealed class LlmCallExecutor : IStepExecutor
             }
 
             // ── Telemetry: record response attributes ──
-            var finishReason = response.ToolCalls?.Count > 0 ? "tool_calls" : "stop";
+            var finishReason = response.CompletionStatus ?? (response.ToolCalls?.Count > 0 ? "tool_calls" : "stop");
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", finishReason);
             long? inputTokens = null;
@@ -211,6 +213,14 @@ public sealed class LlmCallExecutor : IStepExecutor
                     provider);
                 if (estimatedCost.HasValue)
                     ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
+            }
+
+            if (response.CompletionStatus is "output_limit" or "incomplete" or "refused" or "failed")
+            {
+                var code = response.CompletionStatus == "output_limit" ? ErrorCodes.ModelOutputLimit : ErrorCodes.ModelCompletionRejected;
+                throw new WorkflowRuntimeException(code, $"Provider reported {response.CompletionStatus} for llm.call.",
+                    details: new JsonObject { ["completion_status"] = response.CompletionStatus, ["limit"] = request.MaxTokens,
+                        ["output_tokens"] = outputTokens, ["request_id"] = request.ClientRequestId, ["replay_allowed"] = false });
             }
 
             if (ctx.Limits.LogStepContent && (!string.IsNullOrWhiteSpace(response.Text) || response.Json != null))

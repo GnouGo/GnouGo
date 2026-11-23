@@ -1,0 +1,310 @@
+{
+  "run": "slim519-adaptive-20261123-04",
+  "source": "42cbcc71a26c3ff3cf823fec281f0457050b06ca",
+  "session_id": "66d5196b831f40dea5be46de9d090181",
+  "chat_execution": "b2fa52307383341645cb7d8b45037364",
+  "artifact_sha256": "3d50febc0606e1f385dd35afc64906c43ad6c808e5ecb21e040692f09317999a",
+  "revision": 110,
+  "reviewed_tasks": 20,
+  "result": "failed",
+  "repository": "SlimPlanet/SlimFaas",
+  "pr": 519,
+  "head": "9585afcbaeefddd5f634b795d589e4383243a8a5",
+  "base": "e4deed940d34719b44db32e8d0ad7821e66f7e41",
+  "changed_files": 8,
+  "effects": [
+    {
+      "server": "Github",
+      "tool": "pull_request_read",
+      "error": false
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_clone",
+      "error": false
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_fetch",
+      "error": false
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_compare_refs",
+      "error": false
+    },
+    {
+      "server": "GnOuGo.GithubCopilot.Mcp",
+      "tool": "code_agent_edit",
+      "error": false
+    },
+    {
+      "server": "GnOuGo.Cmd.Mcp",
+      "tool": "cmd_run",
+      "error": false
+    }
+  ],
+  "terminal_receipt_count": 25,
+  "check_terminal_receipts": [
+    {
+      "command": "dotnet restore SlimFaas.sln -p:SkipClientAppBuild=true --verbosity minimal",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_cec35c66340e9d409a6d359f",
+      "cache_miss": false,
+      "stdout_sha256": "0840f2b05392b4278961e103a82dfb45d44c2983838b2f9427f1508b82b37893"
+    },
+    {
+      "command": "cd src/SlimFaas/ClientApp && npm ci --ignore-scripts --offline --no-audit --no-fund",
+      "working_directory": ".",
+      "exit_code": 1,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_c648f003cb83d4dda96781f1",
+      "cache_miss": true,
+      "stdout_sha256": "b9e15df52c47fea1fe90355e08bd10685b79dc32bf712d7540709e06063cb5f0"
+    },
+    {
+      "command": "cd src/SlimFaasMcp/ClientApp && npm ci --ignore-scripts --offline --no-audit --no-fund",
+      "working_directory": ".",
+      "exit_code": 1,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_34775462d44fa1859ffba12c",
+      "cache_miss": true,
+      "stdout_sha256": "a71ddfe41d818a5f8f1947df4d0afd216ef145480569cba78666550f5ef6b462"
+    },
+    {
+      "command": "cd src/SlimFaasSite && npm exec --offline --yes --package=pnpm@12.21.0 -- pnpm install --frozen-lockfile --offline",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_9822f4f26d86e61acb863c91",
+      "cache_miss": false,
+      "stdout_sha256": "a0595f9e452a9a0e214fdff5bae21cf0114ced8108a7aec5b9ba0eec1aaf9ee0"
+    },
+    {
+      "command": "cd src/SlimFaasPlanetSaver && npm exec --offline --yes --package=pnpm@12.21.0 -- pnpm install --frozen-lockfile --offline",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_f756872dbefed4512f88dd30",
+      "cache_miss": false,
+      "stdout_sha256": "9a881aa61fc80049c262221c6cf232ded207abb19a49072dac8a348eb05e318b"
+    },
+    {
+      "command": "cd samples/FibonacciReact && npm exec --offline --yes --package=pnpm@12.21.0 -- pnpm install --frozen-lockfile --offline",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_209c9c56cf924acd1a26b648",
+      "cache_miss": false,
+      "stdout_sha256": "db7b73a0320b68732a3dba8361a5a69fed97ecacb7380bcdc833e5cc982d2649"
+    },
+    {
+      "command": "uv sync --project client/python/slimfaas-client --frozen --extra dev --no-build --no-install-project --offline",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_a2fdebe7dc274121eaa46a17",
+      "cache_miss": false,
+      "stdout_sha256": "c7af8ec266fc74232e766baead13e21f438fb63bc2461ce541f1ff9c20a1f5e5"
+    },
+    {
+      "command": "KUBECONFIG=./gnougo-222279693272aa6cec.kubeconfig KIND_EXPERIMENTAL_PROVIDER=podman python3 .bin/test-annotation-policy.py --cluster gnougo-222279693272aa6cec",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_a838f681048d8bc9e66dc20c",
+      "cache_miss": false,
+      "stdout_sha256": "35c7d3123742d8dda96f9b04f8ce130c771d086a5476a788f83a631a92d83920"
+    },
+    {
+      "command": "dotnet build SlimFaas.sln --no-restore -p:SkipClientAppBuild=true --verbosity minimal",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_5df1c1cf3c95f826e070fa11",
+      "cache_miss": false,
+      "stdout_sha256": "2b59361f7862c6d3b328af43d99e47c2d9bb306a064c27b28ddf1c2e84f82db5"
+    },
+    {
+      "command": "cd src/SlimFaas/ClientApp && npm ci --ignore-scripts --prefer-offline --no-fund",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_d6c10194f394172f6ca140d2",
+      "cache_miss": false,
+      "stdout_sha256": "a9a9f2082418a5829efd1dbb9afe77748af29eab89c0e0aff6df5c213cfcb267"
+    },
+    {
+      "command": "cd src/SlimFaasMcp/ClientApp && npm ci --ignore-scripts --prefer-offline --no-fund",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_6906036860307c8abf69ef64",
+      "cache_miss": false,
+      "stdout_sha256": "ab572484cdf2d3de316c90ffed5e4eac2aa0486e7faf00832ae93b95bdd141e5"
+    },
+    {
+      "command": "npm exec --offline --yes --package=node@26.13.1 -- node --version",
+      "working_directory": ".",
+      "exit_code": 1,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_ce4ac420fb7edfa02c2e6768",
+      "cache_miss": true,
+      "stdout_sha256": "b52f46ad0290d27aa4227001f54d96f02899dff6cbde0ebb919ef4b974936224"
+    },
+    {
+      "command": "python3 .bin/test-annotation-policy-cleanup.py",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_25cabac78762c20341704eab",
+      "cache_miss": false,
+      "stdout_sha256": "b6a161abed43b9a0dba9259cd451b39b20b10425ac13cc14786554c0e6fac7f1"
+    },
+    {
+      "command": "uv run --project client/python/slimfaas-client --no-sync --no-build --offline python -m pytest",
+      "working_directory": ".",
+      "exit_code": 2,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_bf45f3a8673eb129689b6f42",
+      "cache_miss": false,
+      "stdout_sha256": "a239f54fa55be408bd4022180b9d6967bab4b6cccaffa774bfd1788b56063d8b"
+    },
+    {
+      "command": "npm exec --yes --package=node@26.13.1 -- node --version",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_f9cbdeed133ecbdd029ea59a",
+      "cache_miss": false,
+      "stdout_sha256": "417336d0f30f0481a3e337b10abf4da8263d1a181c639c757a2a68401935bdb6"
+    },
+    {
+      "command": "dotnet test SlimFaas.sln --no-build --no-restore -p:SkipClientAppBuild=true --verbosity minimal",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_46cbacf1c6b21777789e34bf",
+      "cache_miss": false,
+      "stdout_sha256": "f6b9f2ec0a0f75697631ea7ba5710631fa8d000f1e91f690a9165418dcc16703"
+    },
+    {
+      "command": "cd client/python/slimfaas-client && PYTHONPATH=src uv run --no-sync --no-build --offline python -m pytest",
+      "working_directory": ".",
+      "exit_code": 0,
+      "tool_call_id": "84352f1a-55cc-467f-98c3-5e99c8892441:call_45030a36dd7f8d825fd6d854",
+      "cache_miss": false,
+      "stdout_sha256": "f5ac616e9d8d51d93837c72a0c7b3a28f7945259948f49c4e16cc5b7cce4bfc9"
+    }
+  ],
+  "original_verifier": {
+    "dotnet_restore": "not_executed",
+    "dotnet_build": "not_executed",
+    "dotnet_tests": "not_executed",
+    "dotnet_client_tests": "not_executed",
+    "python_client_install": "not_executed",
+    "python_client_tests": "not_executed",
+    "raft_recovery_harness": "not_executed",
+    "podman_compose_helper": "not_executed",
+    "python_client_coverage": "not_executed",
+    "fibonacci_healthcheck": "not_executed",
+    "memory_lab_report": "not_executed",
+    "annotation_policy_cleanup": "passed",
+    "status_stream_benchmark": "not_executed",
+    "zlinq_benchmark": "not_executed",
+    "site_install": "not_executed",
+    "site_lint": "not_executed",
+    "site_typecheck": "not_executed",
+    "site_test": "not_executed",
+    "site_build": "not_executed",
+    "planet_install": "not_executed",
+    "planet_lint": "not_executed",
+    "planet_coverage": "not_executed",
+    "dashboard_install": "not_executed",
+    "dashboard_tests": "not_executed",
+    "mcp_dashboard_install": "not_executed",
+    "mcp_dashboard_tests": "not_executed",
+    "traffic_integration": "not_executed",
+    "native_publish": "not_executed",
+    "native_integration": "not_executed",
+    "kind_integration": "passed"
+  },
+  "original_verifier_findings": [
+    "workflow_execution_failed",
+    "caller_review_report_missing",
+    "repository_required_checks_not_independently_verified",
+    "unique_submitted_review_receipt_missing"
+  ],
+  "structured_decision": {
+    "id": "174cfc194b74154b90ee1607e434bbfd4feb21b09c0a6bd5b5f7e46f6577c2b3",
+    "end": "2026-11-23T16:51:23.370577+00:00",
+    "completionStatus": "output_limit",
+    "textLength": 14184,
+    "parse": "invalid at line 13 byte 12284",
+    "finish": "length",
+    "max": 4096,
+    "responseFormat": "json_schema",
+    "usage": {
+      "input_tokens": 65068,
+      "output_tokens": 4096,
+      "total_tokens": 69164,
+      "benchmark_cost_eur": 2.4466157205240173,
+      "reasoning_tokens": 275,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    }
+  },
+  "chat_report_returned": false,
+  "form_response_text": null,
+  "publication": {
+    "new_reviews": 0,
+    "new_comments": 0,
+    "observed_review_ids": [
+      5965332934,
+      5965449885,
+      5965450275,
+      5965450631
+    ],
+    "observed_inline_comment_ids": [
+      4620992966,
+      4620992982,
+      4620992998,
+      4621091918,
+      4621092251,
+      4621092563
+    ]
+  },
+  "cleanup": {
+    "finalized": true,
+    "checkout_absent": true,
+    "cluster": "gnougo-222279693272aa6cec",
+    "kubeconfig_absent": true,
+    "kind": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "absent": true
+  },
+  "accounting": {
+    "calls": 39,
+    "new_unresolved": 0,
+    "cost_eur": "29.41457423580786026200873363",
+    "groups": [
+      {
+        "session": "66d5196b831f40dea5be46de9d090181",
+        "physical": 28,
+        "usage_cost_eur": "13.13949235807860262008733625"
+      },
+      {
+        "session": "66d5196b831f40dea5be46de9d090181-copilot",
+        "physical": 8,
+        "usage_cost_eur": "13.637745633187772925764192141"
+      },
+      {
+        "session": "66d5196b831f40dea5be46de9d090181-execution",
+        "physical": 3,
+        "usage_cost_eur": "2.6373362445414847161572052402"
+      }
+    ],
+    "campaign_physical": 4848,
+    "campaign_measured_eur": "2506.1705040085789544325566694",
+    "http_reservations_eur": "495.81437180601547344334618",
+    "application_reservations_eur": "171.63356950311035727717154657",
+    "available_eur": "426.3815546822952148469256040",
+    "ceiling_eur": 3600
+  }
+}
