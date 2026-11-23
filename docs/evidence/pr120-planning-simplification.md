@@ -29,6 +29,18 @@ accounting and retention tests passed, and the physical ledger from the
 blocked audit matched the post-closure read.
 [Issued requests, replays, reservation and accounting](pr120-live-20261123/amazon-31.json)
 
+## Review 04 isolated model decision with compact command evidence
+
+A fresh tool-free Server probe sent the earlier decision prompt with its 25
+terminal receipts projected into `commandResults`. The original response schema
+and 4,096-token output allowance were preserved. The provider returned a complete
+structured response in one physical attempt, using 31,842 input and 3,320 output
+tokens for €1.412718. The 9,821-character report reproduced 18 of the 25 command
+strings verbatim. The model left the decision null, cited missing checks and
+proposed one inline comment. The probe made no GitHub publication and supplied
+no chat report to a workflow caller.
+[Model receipt and output checks](pr120-live-20261123/review-04-compact-probe.json)
+
 ## Compact command receipts from Review 04
 
 The independent 12,288-token diagnostic for the original review decision

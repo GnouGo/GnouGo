@@ -1,0 +1,29 @@
+{
+  "run": "review04-compact-decision-20261123-02",
+  "source": "0515adaa823da133109567ab04e6816d6cb74bd4",
+  "request_id": "review04-compact-decision-20261123-02:probe:76827030c37f4f01a2b2ce9b237e9d85:72e84997f982ad37578e7c112ccde455246748f139a12d46d10987d95997015c",
+  "transport": {
+    "body_sha256": "33bb612adc525e8e74171eb122e2ee4515e03a15f8ec7653372768475ede900a",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "max_completion_tokens": 4096,
+    "stream": true,
+    "tool_count": 0
+  },
+  "model_attempts": 1,
+  "receipt": true,
+  "response_schema_valid": true,
+  "usage": {
+    "input_tokens": 31842,
+    "output_tokens": 3320,
+    "reasoning_tokens": 300
+  },
+  "usage_tariff_estimate_eur": "1.4127183406113537117903930131",
+  "command_result_rows_supplied": 25,
+  "commands_reproduced_verbatim_in_report": 18,
+  "returned_report_chars": 9821,
+  "proposed_verdict": null,
+  "proposed_inline_comments": 1,
+  "github_publications": 0,
+  "workflow_executions": 0,
+  "chat_reports_delivered": 0
+}
