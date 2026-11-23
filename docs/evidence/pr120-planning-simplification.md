@@ -1,5 +1,20 @@
 # PR 120 planning simplification
 
+## Review 04 installation receipts, 23 November 2026
+
+After the Server chat form submitted the approved review, Copilot requested
+`npm ci --ignore-scripts --offline --no-audit --no-fund` in each dashboard
+directory. Both npm logs identify the run-owned checkout, exit 1 and
+`ENOTCACHED`. The publication verifier classified a terminal with these exact
+arguments as `not_executed`. Its check now accepts the npm cache and reporting
+flags on the existing clean-install contract and identifies an explicit cache
+miss as `environment_blocked`. Each failure retains the original command, exit
+code and tool-call ID. A dry run, alternate install prefix or masked exit still
+cannot qualify. The three positive regression cases failed before the correction.
+All 104 review and publication regressions passed afterwards. This controlled
+classification neither submits a review nor changes the live run's pinned verifier.
+[Receipt and negative tests](../../tests/GnOuGo.Agent.Server.Tests/CodeReportOracleTests.cs)
+
 ## Fresh Amazon source qualification, 23 November 2026
 
 The Browser returned HTTP 200 for the search and all 20 permitted source-link

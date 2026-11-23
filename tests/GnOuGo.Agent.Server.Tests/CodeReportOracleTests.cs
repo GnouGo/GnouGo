@@ -279,6 +279,34 @@ public sealed class CodeReportOracleTests
                 ["body"] = "pnpm run e2e exited 1 when opening the checkout." }));
     }
 
+    [Theory]
+    [InlineData("npm ci --ignore-scripts --offline --no-audit --no-fund", 1, "npm error code ENOTCACHED", "environment_blocked")]
+    [InlineData("npm ci --ignore-scripts --prefer-offline --no-fund", 0, "installed", "passed")]
+    [InlineData("npm ci --no-audit --offline", 1, "lockfile mismatch", "failed")]
+    [InlineData("npm ci --offline --dry-run", 0, "installed", "not_executed")]
+    [InlineData("npm ci --offline || true", 0, "installed", "not_executed")]
+    [InlineData("npm ci --offline --prefix=somewhere-else", 0, "installed", "not_executed")]
+    public void DashboardInstallUsesTheOriginalDirectoryCommandAndExitReceipt(string command, int exit, string output, string expected)
+    {
+        var run = PublishedRun();
+        run["oracle_version"] = PublishedReviewQualification.LocalKindVersion;
+        var original = "cd src/SlimFaas/ClientApp && " + command;
+        var receipt = Call("npm-install", original, exit, output);
+        run["events"]![1]!["result"]!["toolExecutions"]!.AsArray().Add(receipt);
+
+        LiveCodeEvidence.Verify(run, Repository);
+
+        Assert.Equal(expected, run["required_check_status"]!["dashboard_install"]!.ToString());
+        Assert.Equal("not_executed", run["required_check_status"]!["mcp_dashboard_install"]!.ToString());
+        if (expected is "failed" or "environment_blocked")
+        {
+            var failure = run["required_check_failures"]!["dashboard_install"]![0]!;
+            Assert.Equal(original, failure["command"]!.ToString());
+            Assert.Equal((long)exit, failure["exit_code"]!.GetValue<long>());
+            Assert.Equal("npm-install", failure["tool_call_id"]!.ToString());
+        }
+    }
+
     [Fact]
     public void LocalKindReviewCannotApproveWithOnlyHistoricalProjectChecks()
     {

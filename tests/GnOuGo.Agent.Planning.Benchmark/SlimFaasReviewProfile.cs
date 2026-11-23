@@ -114,16 +114,32 @@ internal static class SlimFaasReviewProfile
         var failures = new JsonObject();
         void Check(string name, string directory, params string[] candidates)
         {
-            bool Matches(string command, string cwd) =>
-                cwd == directory && candidates.Contains(command, StringComparer.Ordinal) ||
-                cwd == "." && directory != "." && candidates.Any(c => command == $"cd {directory} && {c}");
+            bool Matches(string command, string cwd)
+            {
+                var prefix = $"cd {directory} && ";
+                if (cwd == "." && directory != "." && command.StartsWith(prefix, StringComparison.Ordinal))
+                {
+                    command = command[prefix.Length..];
+                    cwd = directory;
+                }
+                if (cwd != directory) return false;
+                if (candidates.Contains(command, StringComparer.Ordinal)) return true;
+                // These npm options change cache and reporting behavior. Keep the raw command
+                // and terminal receipt for the report. Unknown options and shell syntax fail closed.
+                return candidates.Contains("npm ci", StringComparer.Ordinal) && command.StartsWith("npm ci ", StringComparison.Ordinal) &&
+                    command[7..].Split(' ', StringSplitOptions.RemoveEmptyEntries).All(option =>
+                        option is "--offline" or "--prefer-offline" or "--no-audit" or "--no-fund" ||
+                        option == "--ignore-scripts" && candidates.Contains("npm ci --ignore-scripts", StringComparer.Ordinal));
+            }
             var matches = commands.OfType<JsonObject>().Where(c => Matches(c["command"]!.ToString(),
                 Path.GetRelativePath(repository, c["cwd"]!.ToString()).Replace(Path.DirectorySeparatorChar, '/'))).ToArray();
             var failed = matches.Where(c => c["exit_code"]!.GetValue<long>() != 0).ToArray();
             var uncertain = inconclusive.Any(c => Matches(c, directory) || Matches(c, "."));
             var blocked = failed.Any(c => c["exit_code"]!.GetValue<long>() is 126 or 127 &&
                 (c["output"]?.ToString().Contains("command not found", StringComparison.OrdinalIgnoreCase) == true ||
-                 c["output"]?.ToString().Contains("permission denied", StringComparison.OrdinalIgnoreCase) == true));
+                 c["output"]?.ToString().Contains("permission denied", StringComparison.OrdinalIgnoreCase) == true) ||
+                candidates.Contains("npm ci", StringComparer.Ordinal) &&
+                c["output"]?.ToString().Contains("npm error code ENOTCACHED", StringComparison.Ordinal) == true);
             statuses[name] = uncertain ? "inconclusive" : blocked ? "environment_blocked" :
                 failed.Length > 0 ? "failed" : matches.Length == 0 ? "not_executed" : "passed";
             checks[name] = !uncertain && !blocked && matches.Length != 0;
