@@ -17,7 +17,7 @@ internal sealed partial class BenchmarkCampaign
         return await store.AcquireAsync("benchmark", id, run.Revision, ct);
     }
 
-    private async Task<JsonObject> InspectFinalizedSdkAsync(JsonObject report, ServerRetentionScope scope, WorkflowRun execution, string id, CancellationToken ct)
+    private async Task<JsonObject> InspectFinalizedSdkAsync(JsonObject report, ServerRetentionScope scope, WorkflowRun execution, string id, CancellationToken ct, string? sdkApiVersion)
     {
         var session = await scope.Store.LoadAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("The saved planning session is missing.");
         var prefix = scope.Session + "-copilot:";
@@ -54,7 +54,7 @@ internal sealed partial class BenchmarkCampaign
             failure["status_code"] is not null || failure["dispatch_status"] is not null)
             throw new InvalidOperationException("The recorded failure does not identify an unresolved transport dispatch.");
 
-        var money = VerifyUnreceivedSdkWire(id, request, http, frozen);
+        var money = VerifyUnreceivedSdkWire(id, request, http, frozen, sdkApiVersion);
         var effects = FinalizedSdkEffects(execution, report["events"] as JsonArray, storedHttp.UpdatedAt, storedFailure.CreatedAt);
         var evidence = new JsonObject
         {
@@ -72,7 +72,7 @@ internal sealed partial class BenchmarkCampaign
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
 
-    internal static JsonObject VerifyUnreceivedSdkWire(string id, JsonObject request, JsonObject http, JsonObject frozen)
+    internal static JsonObject VerifyUnreceivedSdkWire(string id, JsonObject request, JsonObject http, JsonObject frozen, string? sdkApiVersion = null)
     {
         var logical = request.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
         var policy = http["effective_transport_policy"];
@@ -90,13 +90,24 @@ internal sealed partial class BenchmarkCampaign
             !Uri.TryCreate(wire["Endpoint"]?.ToString(), UriKind.Absolute, out var endpoint) || !Uri.TryCreate(frozen["endpoint"]?.ToString(), UriKind.Absolute, out var origin) ||
             endpoint.GetLeftPart(UriPartial.Authority) != origin.GetLeftPart(UriPartial.Authority) ||
             !endpoint.AbsolutePath.StartsWith(origin.AbsolutePath.TrimEnd('/') + "/", StringComparison.Ordinal) || !endpoint.AbsolutePath.EndsWith("/chat/completions", StringComparison.Ordinal) ||
-            capture["endpoint_sha256"]?.ToString() != PlanningGraphCompiler.Fingerprint(endpoint.AbsoluteUri) ||
-            capture["wire_fingerprint"]?.ToString() != PlanningGraphCompiler.Fingerprint("POST\n" + endpoint.AbsoluteUri + "\n" + text) ||
             wire["Attempts"] is not JsonArray { Count: 1 } attempts || attempts[0] is not JsonObject attempt || attempt["Id"]?.ToString() != id ||
             attempt.Any(p => p.Key != "Id" && p.Value is not null) || http["usage"] is not null ||
             http["input_ceiling"]?.GetValue<long>() is not > 0 || http["output_ceiling"]?.GetValue<long>() != logical.MaxTokens ||
             http["cost_ceiling_eur"]?.GetValue<decimal>() is not > 0 || http["exchange_quote"] is not JsonObject)
             throw new InvalidOperationException("The exact bounded SDK request, unknown outcome and reservation must agree.");
+        // The HTTP journal deliberately strips the query. An API version is only
+        // a candidate for reconstructing the original URI. Both digests must match.
+        var originalUri = endpoint.AbsoluteUri;
+        if (sdkApiVersion is not null)
+        {
+            if (sdkApiVersion.Length is 0 or > 64 || sdkApiVersion.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not ('-' or '.')) ||
+                endpoint.Query.Length != 0)
+                throw new InvalidOperationException("An SDK API version must be a single bounded query value.");
+            originalUri = new UriBuilder(endpoint) { Query = "api-version=" + sdkApiVersion }.Uri.AbsoluteUri;
+        }
+        if (capture["endpoint_sha256"]?.ToString() != PlanningGraphCompiler.Fingerprint(originalUri) ||
+            capture["wire_fingerprint"]?.ToString() != PlanningGraphCompiler.Fingerprint("POST\n" + originalUri + "\n" + text))
+            throw new InvalidOperationException("The reconstructed SDK URI and request body must match both original digests.");
         // Only text generation can remain uncertain. Provider-hosted tools, continuations and background work are ineligible.
         if (JsonNode.Parse(text) is not JsonObject body || body.Any(p => p.Key is not
                 ("model" or "max_completion_tokens" or "reasoning_effort" or "messages" or "response_format" or "temperature" or "stream")) ||

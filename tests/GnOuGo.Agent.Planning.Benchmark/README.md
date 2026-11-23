@@ -415,6 +415,10 @@ structured-text request must match the captured wire bytes, endpoint, dispatch
 interval and full reservation. An authorized closure preserves every source
 record and the full chargeable hold. It permanently closes the original run,
 planning session, execution and request to continuation.
+For versioned endpoints, supply the original nonsecret `--sdk-api-version` to
+preview and apply. The journal strips query parameters. The verifier restores
+the version and checks both the full endpoint and the exact POST body against
+their recorded digests.
 
 Captured-policy retention also admits a fully received terminal HTTP 400 request
 rejection when the retained error-only body and normalized `InvalidRequest`,

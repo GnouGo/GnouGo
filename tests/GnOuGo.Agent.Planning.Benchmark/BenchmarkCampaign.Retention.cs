@@ -90,7 +90,7 @@ internal sealed partial class BenchmarkCampaign
     }
 
     internal async Task<JsonObject> InspectPermanentRetentionAsync(string collection, string runKey, string requestId, CancellationToken ct,
-        string? retentionKind = null, string? workspace = null)
+        string? retentionKind = null, string? workspace = null, string? sdkApiVersion = null)
     {
         ValidateRetentionKind(retentionKind);
         if (collection is not ("planning-evaluation-runs" or SchemaPortabilityCampaign.Collection))
@@ -114,7 +114,7 @@ internal sealed partial class BenchmarkCampaign
             var owner = await LoadAsync(collection, runKey, ct) ?? throw new InvalidOperationException("The exact Server run is missing.");
             await using var session = await OpenInterruptedServerAsync(owner, collection, runKey, workspace, ct);
             await using var execution = await OpenFinalizedExecutionAsync(owner, workspace!, ct);
-            return await InspectFinalizedSdkAsync(owner, session, execution.Run, requestId, ct);
+            return await InspectFinalizedSdkAsync(owner, session, execution.Run, requestId, ct, sdkApiVersion);
         }
         if (retentionKind == ProviderProbeRetention)
             return await InspectProviderProbeRetentionAsync(collection, runKey, requestId, ct);
@@ -331,7 +331,7 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds the campaign lease. Inspect is read-only; apply publishes exactly one
     // immutable closure. Neither path constructs a provider, alters evidence or settles usage.
     internal async Task<JsonObject> ApplyPermanentRetentionAsync(string collection, string runKey, string requestId,
-        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null, string? workspace = null)
+        string expectedEvidenceHash, string operatorIdentity, string authorization, CancellationToken ct, string? retentionKind = null, string? workspace = null, string? sdkApiVersion = null)
     {
         ValidateRetentionKind(retentionKind);
         ArgumentException.ThrowIfNullOrWhiteSpace(operatorIdentity);
@@ -360,7 +360,7 @@ internal sealed partial class BenchmarkCampaign
             ? await OpenInterruptedServerAsync(serverRun, collection, runKey, workspace, ct) : null;
         await using var execution = retentionKind == FinalizedSdkRetention && serverScope is not null
             ? await OpenFinalizedExecutionAsync(serverRun!, workspace!, ct) : null;
-        var inspected = execution is not null ? await InspectFinalizedSdkAsync(serverRun!, serverScope!, execution.Run, requestId, ct)
+        var inspected = execution is not null ? await InspectFinalizedSdkAsync(serverRun!, serverScope!, execution.Run, requestId, ct, sdkApiVersion)
             : serverScope is null ? await InspectPermanentRetentionAsync(collection, runKey, requestId, ct, retentionKind)
             : await InspectInterruptedServerAsync(serverRun!, collection, runKey, requestId, serverScope, ct, retentionKind!);
         if (inspected["evidence_hash"]?.ToString() != expectedEvidenceHash)

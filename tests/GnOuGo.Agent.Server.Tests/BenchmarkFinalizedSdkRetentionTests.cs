@@ -84,6 +84,8 @@ public sealed class BenchmarkFinalizedSdkRetentionTests
     [InlineData("endpoint")]
     [InlineData("wire digest")]
     [InlineData("endpoint digest")]
+    [InlineData("versioned")]
+    [InlineData("wrong version")]
     public void FinancialInspectionRequiresAnUnreceivedTextDecisionAndRetainsItsFullHold(string? defect)
     {
         var body = new JsonObject { ["model"] = "deployment", ["max_completion_tokens"] = 256,
@@ -98,19 +100,21 @@ public sealed class BenchmarkFinalizedSdkRetentionTests
         var attempt = new JsonObject { ["Id"] = defect == "identity" ? "other" : id };
         if (defect == "receipt") attempt["ProviderResponseId"] = "received";
         if (defect == "partial") attempt["PartialBody"] = "fragment";
-        var fp = PlanningGraphCompiler.Fingerprint(defect == "wire digest" ? "changed" : "POST\n" + endpoint + "\n" + text);
+        var originalUri = defect is "versioned" or "wrong version" ? endpoint + "?api-version=stable-1" : endpoint;
+        var fp = PlanningGraphCompiler.Fingerprint(defect == "wire digest" ? "changed" : "POST\n" + originalUri + "\n" + text);
         var policy = new JsonObject { ["version"] = 2, ["mode"] = "sdk_proxy_single_attempt", ["sdk_inference_transport"] = BenchmarkCampaign.SdkStructuredTransport,
             ["disable_transport_retries"] = true, ["allow_http_recovery"] = true,
             ["effective_retry_policy"] = new JsonObject { ["MaxAttempts"] = 1, ["MaxUncertainRetries"] = 0 }, ["request_hash"] = PlanningGraphCompiler.Fingerprint(request.ToJsonString()),
-            ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(defect == "endpoint digest" ? "changed" : endpoint), ["wire_fingerprint"] = fp };
+            ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(defect == "endpoint digest" ? "changed" : originalUri), ["wire_fingerprint"] = fp };
         var http = new JsonObject { ["input_ceiling"] = 100L, ["output_ceiling"] = 256L, ["cost_ceiling_eur"] = defect == "hold" ? 0m : 3.29m,
             ["exchange_quote"] = new JsonObject(), ["effective_transport_policy"] = policy, ["effective_transport_policy_hash"] = PlanningGraphCompiler.Fingerprint(policy.ToJsonString()),
             ["transport"] = new JsonObject { ["Fingerprint"] = fp, ["Endpoint"] = endpoint, ["RequestMethod"] = "POST", ["RequestBody"] = text, ["Attempts"] = new JsonArray(attempt) } };
         if (defect == "usage") http["usage"] = new JsonObject();
         if (defect == "policy") policy["mode"] = "changed";
         var frozen = new JsonObject { ["provider"] = "provider", ["model"] = "deployment", ["endpoint"] = defect == "endpoint" ? "https://elsewhere.example" : "https://provider.example/v1" };
-        JsonObject Inspect() => BenchmarkCampaign.VerifyUnreceivedSdkWire(id, request, http, frozen);
-        if (defect is null) Assert.Equal(3.29m, Inspect()["reserved_cost_eur"]!.GetValue<decimal>());
+        JsonObject Inspect() => BenchmarkCampaign.VerifyUnreceivedSdkWire(id, request, http, frozen,
+            defect switch { "versioned" => "stable-1", "wrong version" => "stable-2", _ => null });
+        if (defect is null or "versioned") Assert.Equal(3.29m, Inspect()["reserved_cost_eur"]!.GetValue<decimal>());
         else Assert.Throws<InvalidOperationException>(Inspect);
     }
 }
