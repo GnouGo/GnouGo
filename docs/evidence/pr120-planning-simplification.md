@@ -1,5 +1,20 @@
 # PR 120 planning simplification
 
+## Compact command receipts from Review 04
+
+The independent 12,288-token diagnostic for the original review decision
+stopped at input admission. The conservative estimate was 100,090 tokens
+against the probe's 96,000-token limit. It made zero physical attempts.
+The original business prompt included 36 raw SDK tool observations. A new
+typed `code_agent_edit.commandResults` field projects the same SDK terminal
+evidence for downstream reports. Cold replay preserved all 25 original command
+strings, working directories, exit codes and source command IDs. Substituting
+that field reduced the prompt from 197,497 to 93,651 characters and kept the
+full PR diff and response schema. The original review receipt and plan remain
+available. This projection used zero model calls. The 185 Copilot Core tests
+and 276 MCP tests passed.
+[Controlled measurement](pr120-live-20261123/compact-command-results.json)
+
 ## Review 04 execution and provider output limit, 23 November 2026
 
 The typed chat form executed the unchanged 20-task artifact. Git cloned once

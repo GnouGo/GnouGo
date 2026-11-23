@@ -64,7 +64,7 @@ internal sealed class CopilotCodeService(
             return receipt = new(task, contextFiles.Select(f => f.Path).ToArray(), value.ModifiedFiles, value.Content, value.Model,
                 Usage(value.Usage), events.ToArray(), BuildAgentEditOutput(value, context, events),
                 context?.TraceId, context?.CorrelationId, context?.TraceParent, Success: value.Completed, ErrorCode: error,
-                ErrorMessage: value.Completed ? null : value.Content) { ToolExecutions = value.ToolExecutions };
+                ErrorMessage: value.Completed ? null : value.Content) { ToolExecutions = value.ToolExecutions, CommandResults = CodeCommandResult.FromObservations(value.ToolExecutions) };
         }
     }
 

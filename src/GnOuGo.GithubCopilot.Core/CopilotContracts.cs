@@ -238,8 +238,10 @@ public sealed record CopilotToolExecutionObservation(
         {
             foreach (var terminal in Terminals.Where(t => t.SourceToolCallId is not null))
             {
-                var source = observations.SingleOrDefault(o => o.ToolCallId == terminal.SourceToolCallId && o.CopilotSessionId == CopilotSessionId);
-                if (source is null || !source.CompletionObserved || source.ConflictingCompletion || source.ToolSucceeded != true ||
+                var sources = observations.Where(o => o.ToolCallId == terminal.SourceToolCallId && o.CopilotSessionId == CopilotSessionId).Take(2).ToArray();
+                if (sources is not [var source] || string.IsNullOrEmpty(CopilotSessionId) ||
+                    StartedSequence is null || CompletedSequence is null || source.StartedSequence is null || source.CompletedSequence is null ||
+                    !source.CompletionObserved || source.ConflictingCompletion || source.ToolSucceeded != true ||
                     source.StartedSequence <= StartedSequence || source.CompletedSequence <= CompletedSequence ||
                     !source.Terminals.Contains(terminal with { SourceToolCallId = null })) return null;
             }

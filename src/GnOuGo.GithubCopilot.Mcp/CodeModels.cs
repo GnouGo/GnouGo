@@ -1,4 +1,6 @@
 using System.ComponentModel;
+using System.Text.Json;
+using GnOuGo.GithubCopilot.Core;
 using System.Text.Json.Serialization;
 
 namespace GnOuGo.GithubCopilot.Mcp;
@@ -106,7 +108,7 @@ public sealed record CodeAgentEditResult(
     string Task,
     IReadOnlyList<string> ContextFiles,
     IReadOnlyList<string> ModifiedFiles,
-    [property: Description("Copilot's returned text. Read success and error_code for completion, and toolExecutions for observed work.")]
+    [property: Description("Copilot's returned text. Read success and error_code for completion, and commandResults for observed commands and exit codes.")]
     string Summary,
     string? Model,
     string? UsageJson,
@@ -121,8 +123,46 @@ public sealed record CodeAgentEditResult(
     [property: JsonPropertyName("error_message")] string? ErrorMessage = null)
 {
     [Description("SDK tool observations including original arguments and terminal exit codes when observed. A missing exit code remains unknown.")]
-    public IReadOnlyList<GnOuGo.GithubCopilot.Core.CopilotToolExecutionObservation> ToolExecutions { get; init; } = [];
+    public IReadOnlyList<CopilotToolExecutionObservation> ToolExecutions { get; init; } = [];
+    [Description("Ordered commands, working directories and verified exit codes for reporting. Bind this field with summary when raw terminal output is unnecessary. A null exitCode means unverified completion. Older receipts may omit commandResults.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<CodeCommandResult>? CommandResults { get; init; }
     public bool Ok => Success;
+}
+
+public sealed record CodeCommandResult(string ToolCallId, string? Command, string? WorkingDirectory, long? ExitCode, string? SourceToolCallId)
+{
+    internal static IReadOnlyList<CodeCommandResult> FromObservations(IReadOnlyList<CopilotToolExecutionObservation> observations)
+    {
+        var results = new List<CodeCommandResult>();
+        foreach (var call in observations)
+        {
+            var command = ReadCommand(call.ArgumentsJson);
+            if (call.IsShellCommand != true && (command is null || call.Terminals.Count == 0)) continue;
+            var terminals = call.GetVerifiedTerminals(observations);
+            if (command is null || terminals is not { Count: > 0 })
+                results.Add(new(call.ToolCallId, command, null, null, null));
+            else
+                foreach (var terminal in terminals)
+                    results.Add(new(call.ToolCallId, command, terminal.WorkingDirectory, terminal.ExitCode, terminal.SourceToolCallId));
+        }
+        return results;
+    }
+
+    private static string? ReadCommand(string? arguments)
+    {
+        if (string.IsNullOrEmpty(arguments)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(arguments);
+            var root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object) return null;
+            foreach (var key in new[] { "command", "cmd", "script" })
+                if (root.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String) return value.GetString();
+        }
+        catch (JsonException) { }
+        return null;
+    }
 }
 
 public sealed record CodeWriteResult(

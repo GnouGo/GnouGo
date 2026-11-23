@@ -16,6 +16,41 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
     [Fact]
+    public void CommandResultsRetainOrderedReceiptsAndLeaveConflictsOrMissingCommandsUnverified()
+    {
+        var terminal = new CopilotTerminalObservation("/repo", 1, new string('x', 50000));
+        var completed = new CopilotToolExecutionObservation("install", null, "shell", """{"command":"npm ci"}""",
+            true, true, false, [terminal], null) { IsShellCommand = true };
+        var conflict = completed with { ToolCallId = "conflict", ConflictingCompletion = true };
+        var waiting = completed with { ToolCallId = "waiting", CompletionObserved = false };
+        var invalid = completed with { ToolCallId = "missing", ArgumentsJson = "{" };
+        var read = completed with { ToolCallId = "read", IsShellCommand = false, ArgumentsJson = """{"path":"file.txt"}""" };
+
+        var rows = CodeCommandResult.FromObservations([completed, read, conflict, waiting, invalid]);
+
+        Assert.Collection(rows,
+            row => Assert.Equal(new CodeCommandResult("install", "npm ci", "/repo", 1, null), row),
+            row => Assert.Equal(new CodeCommandResult("conflict", "npm ci", null, null, null), row),
+            row => Assert.Equal(new CodeCommandResult("waiting", "npm ci", null, null, null), row),
+            row => Assert.Equal(new CodeCommandResult("missing", null, null, null, null), row));
+        Assert.Equal(50000, terminal.Text!.Length);
+    }
+
+    [Fact]
+    public void CompactDeferredExitRequiresOneLaterSourceInTheSameSession()
+    {
+        var terminal = new CopilotTerminalObservation("/repo", 2, "observed") { ShellId = "shell" };
+        var read = new CopilotToolExecutionObservation("read", null, "read_terminal", "{}", true, true, false, [terminal], null)
+            { CopilotSessionId = "s", StartedSequence = 3, CompletedSequence = 4 };
+        var cmd = new CopilotToolExecutionObservation("test", null, "shell", """{"cmd":"run-test"}""", true, true, false,
+            [terminal with { SourceToolCallId = "read" }], null)
+            { IsShellCommand = true, CopilotSessionId = "s", StartedSequence = 1, CompletedSequence = 2 };
+        Assert.Equal(new CodeCommandResult("test", "run-test", "/repo", 2, "read"), Assert.Single(CodeCommandResult.FromObservations([cmd, read])));
+        Assert.Null(Assert.Single(CodeCommandResult.FromObservations([cmd, read, read])).ExitCode);
+        Assert.Null(Assert.Single(CodeCommandResult.FromObservations([cmd, read with { CopilotSessionId = "other" }])).ExitCode);
+    }
+
+    [Fact]
     public void LegacyAgentContract_HidesInjectedContextAndExposesObservations()
     {
         var method = typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!;
@@ -36,6 +71,8 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
         Assert.Contains("returned text", fields["summary"]?["description"]?.ToString() ?? "");
         Assert.Contains("terminal exit codes", fields["toolExecutions"]?["description"]?.ToString() ?? "");
         Assert.Contains("Progress stream", fields["progressEvents"]?["description"]?.ToString() ?? "");
+        Assert.NotNull(fields["commandResults"]);
+        Assert.Contains("exitCode", fields["commandResults"]!.ToJsonString());
     }
 
     [Theory]

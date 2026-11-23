@@ -174,6 +174,13 @@ does not contain shell commands.
 
 Tenant-scoped calls require transport metadata `_meta.gnougo.tenantId`. Business tools no longer accept `tenantId`; there is no environment, activity or default-tenant fallback for ownership. Bounded task envelopes must match the transport tenant. Standalone callers must send metadata; Agent.Server supplies the execution owner. Refresh discovery and revise/regenerate workflows using the removed argument; do not turn tenant identity into a workflow input. Agentic execution defaults to interactive permission requests and fails
 closed when human input is unavailable. Broad approval is disabled in shipped defaults.
+Use `commandResults` for a report of commands, working directories and exit
+codes. Each entry identifies its SDK tool invocation and, for a deferred exit,
+its source invocation. An unverified command has a null exit code. These rows
+omit terminal output. The complete SDK observations remain available in
+`toolExecutions` for inspecting failures and auditing the source of an exit.
+Older saved results can omit the compact field.
+
 `code_agent_edit` exposes the Copilot text in `summary`, the SDK observations
 in `toolExecutions` and completion in `success` and `error_code`. Consumers
 can bind those fields directly. The whole response also includes the original
