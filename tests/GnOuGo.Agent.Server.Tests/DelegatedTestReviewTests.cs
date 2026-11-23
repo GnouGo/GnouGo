@@ -694,6 +694,25 @@ public sealed class DelegatedTestReviewTests
         return (authority, state);
     }
 
+    [Fact]
+    public async Task ServerApprovalCarriesOnlyTheCapturedAdaptiveRunnerIntoExecution()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        var report = new JsonObject { ["source"] = authorization.SourceRevision, ["workspace_relative"] = "workflows/campaign/run" };
+        var business = new ServerBusinessExecution();
+        DelegatedTestReviewAuthority Create() => ServerLiveDiagnostics.CreateReviewAuthority(authorization, new(receipt, evidence),
+            authorization.Campaign, receipt.SessionId, "amazon", authorization.WorkspaceRoot, report, business);
+        var metadata = new JsonObject { ["hostToolsOnly"] = true };
+        Assert.Throws<PlanningConflictException>(() => Create().RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", metadata));
+        business.Adaptive = new AdaptiveLiveProfile("amazon");
+        Assert.Throws<PlanningConflictException>(Create);
+        report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
+        var captured = Create();
+        captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", metadata);
+        Assert.Throws<PlanningConflictException>(() => captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", new JsonObject()));
+        Assert.Throws<PlanningConflictException>(() => captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_run", new JsonObject()));
+    }
+
     private static DelegatedTestReviewAuthority Authority(DelegatedTestAuthorization authorization, DelegatedReviewEvidence evidence,
         PlanningApprovalReview receipt, string scenario = "synthetic") => new(authorization, new(receipt, evidence),
         "campaign", "test-run", scenario, Path.GetTempPath(), "frozen-source");

@@ -13,8 +13,9 @@ records `host-mcp-observations-v1`, the selected binaries and their source.
 The Amazon profile exposes the existing guarded browser read. The review profile
 exposes the existing Git comparison and Copilot file read. The generated task
 declares the selected contract IDs, action limit and verification conditions.
-Each physical read uses the same argument guard and event recorder as an explicit
-call. Clone, test execution, publication, XLSX output and cleanup use their
+At artifact approval, the Server checks the captured profile version and passes
+the same runner scope to execution. Each physical read uses the same argument
+guard and event recorder as an explicit call. Clone, test execution, publication, XLSX output and cleanup use their
 existing guarded contracts. Both profiles route Copilot inference through the
 campaign admission proxy. Original sessions retain their captured profile.
 

@@ -789,6 +789,18 @@ internal static class ServerLiveDiagnostics
         return request;
     }
 
+    internal static DelegatedTestReviewAuthority CreateReviewAuthority(DelegatedTestAuthorization authorization, DelegatedTestReviewDocument document,
+        string campaign, string sessionId, string scenario, string workspace, JsonObject report, ServerBusinessExecution? business)
+    {
+        var grant = scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" :
+            business?.Target is not null ? PublishedReviewQualification.Scenario : scenario;
+        var adaptive = business?.Adaptive;
+        if (report["adaptive_runner_profile"]?.ToString() != (adaptive is null ? null : AdaptiveLiveProfile.Version))
+            throw new PlanningConflictException("The adaptive runner differs from the profile captured for this review.");
+        return new(authorization, document, campaign, sessionId, grant, workspace, report["source"]!.ToString(),
+            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target, adaptive);
+    }
+
     internal static JsonObject? ProbeHttpEvidence(JsonObject? transportEvidence)
     {
         if (transportEvidence?["transport"] is not JsonObject wire ||
@@ -986,8 +998,7 @@ internal static class ServerLiveDiagnostics
         await RequireNotCancelledAsync(app, state, CancellationToken.None);
         var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
         var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
-        var authority = new DelegatedTestReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" : business?.Target is not null ? PublishedReviewQualification.Scenario : scenario, workspace, report["source"]!.ToString(),
-            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target);
+        var authority = CreateReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario, workspace, report, business);
         authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
         if (business is not null)
         {
