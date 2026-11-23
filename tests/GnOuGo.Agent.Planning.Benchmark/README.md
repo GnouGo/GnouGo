@@ -288,6 +288,12 @@ It opens the XLSX on disk, closes and checks the browser, and removes the
 fixture. The encrypted report identifies the physical POST and model receipt.
 This checks the two-tool handoff before business qualification.
 
+A fresh business `server-live-plan` can capture `--workflow-output-tokens N`
+(1–32,768) for workflow model calls. A smaller explicit step allowance still
+applies. Planning, the Copilot SDK cap, physical deadlines and financial
+admission keep their own bounds. Retained runs reuse their recorded settings.
+Without the option the original execution allowance applies.
+
 Use
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
 small nonce/schema availability check. `--probe-source-request <owned-request-id>`

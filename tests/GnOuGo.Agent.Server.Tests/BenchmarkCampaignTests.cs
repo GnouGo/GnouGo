@@ -1663,6 +1663,25 @@ public sealed class BenchmarkCampaignTests
             Assert.Throws<InvalidOperationException>(() => KeyVaultBenchmarkModel.PrepareProxyPayload(JsonNode.Parse(invalid)!.AsObject(), "pinned", path));
     }
     [Theory]
+    [InlineData(null, null, 4096)]
+    [InlineData(12288, null, 12288)]
+    [InlineData(12288, 512, 512)]
+    public void WorkflowOutputAllowancePreservesSdkAndExplicitStepBounds(int? workflowLimit, int? stepLimit, int expected)
+    {
+        var report = new JsonObject { ["execution_model_output_limit"] = 4096 };
+        if (workflowLimit is int limit) report["workflow_model_output_limit"] = limit;
+        var original = new LLMRequest { Prompt = "Summarize the observed checks.", MaxTokens = stepLimit };
+
+        var issued = LiveWorkflowEvaluation.ExecutionRequest(original, "run", 1, ServerBusinessExecution.WorkflowOutputLimit(report));
+
+        Assert.Equal(expected, issued.MaxTokens);
+        Assert.Equal(stepLimit, original.MaxTokens);
+        Assert.Equal(4096, report["execution_model_output_limit"]!.GetValue<int>());
+        report["workflow_model_output_limit"] = 32769;
+        Assert.Throws<PlanningConflictException>(() => ServerBusinessExecution.WorkflowOutputLimit(report));
+    }
+
+    [Theory]
     [InlineData(null, 4096)]
     [InlineData(512, 512)]
     [InlineData(32768, 4096)]

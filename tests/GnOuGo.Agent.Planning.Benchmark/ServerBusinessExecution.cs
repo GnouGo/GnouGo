@@ -245,7 +245,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         report["execution_started"] = DateTimeOffset.UtcNow;
         await Save();
         proxy.ExecutionEnabled = true;
-        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId, outputLimit);
+        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId, WorkflowOutputLimit(report));
         _execution = observed;
         using var browser = ServerLiveDiagnostics.StartObserver(app, report["working_directory"]!.ToString(), client.BaseAddress!.ToString(),
             state.Request.SessionId, report["run"]!.ToString(), _agentName, report["inputs"]!.AsObject());
@@ -319,6 +319,12 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             if (!browser.HasExited) browser.Kill(entireProcessTree: true);
             await Save();
         }
+    }
+
+    internal static int WorkflowOutputLimit(JsonObject report)
+    {
+        var limit = (report["workflow_model_output_limit"] ?? report["execution_model_output_limit"])?.GetValue<int>() ?? 32768;
+        return limit is >= 1 and <= 32768 ? limit : throw new PlanningConflictException("Invalid captured workflow output allowance.");
     }
 
     internal static bool MatchesSubmittedInputs(JsonNode? submitted, JsonNode? actual) =>

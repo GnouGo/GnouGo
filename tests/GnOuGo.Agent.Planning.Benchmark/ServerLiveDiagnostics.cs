@@ -58,6 +58,15 @@ internal static class ServerLiveDiagnostics
         var observedWorkbook = args.ElementAtOrDefault(1) == "server-live-probe" && args.Contains("--probe-observed-workbook", StringComparer.Ordinal);
         var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var workflowOutput = SchemaPortabilityCampaign.Option(args, "--workflow-output-tokens");
+        int? workflowOutputLimit = null;
+        if (args.Contains("--workflow-output-tokens", StringComparer.Ordinal))
+        {
+            if (delegatedScenario is null || !int.TryParse(workflowOutput, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var tokens) || tokens is < 1 or > 32768)
+                throw new ArgumentException("A fresh business workflow output allowance must be between 1 and 32768 tokens.");
+            workflowOutputLimit = tokens;
+        }
         var adaptiveRequested = args.Contains("--adaptive-mcp-tools", StringComparer.Ordinal);
         if (adaptiveRequested && delegatedScenario is null)
             throw new ArgumentException("Select the adaptive tool profile only for a fresh Amazon or Review plan.");
@@ -247,6 +256,7 @@ internal static class ServerLiveDiagnostics
             if (retainedReport is not null && (retainedReport["target_head"]?.ToString() != target.Head || retainedReport["target_base"]?.ToString() != target.Base))
                 throw new PlanningConflictException("The retained review target has changed.");
         }
+        if (workflowOutputLimit is not null) report["workflow_model_output_limit"] = workflowOutputLimit.Value;
         if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (sdkWireApi is not null) report["sdk_wire_api"] = sdkWireApi;
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
@@ -491,14 +501,15 @@ internal static class ServerLiveDiagnostics
                 // existing single-attempt inference journal, never planning defaults.
                 var result = await capture.CallAsync(request, options,
                     (r, ct) => model.CallExecutionAsync(r, ct, attemptTimeoutLimitMilliseconds), context.RequestAborted);
-                var received = result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text));
-                var schemaValid = PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
+                report["completion_status"] = result.CompletionStatus;
+                report["usage"] = result.Usage?.DeepClone();
+                var received = CompleteProbeContent(result);
+                var schemaValid = result.CompletionStatus is null && PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
                 report["schema_valid"] = schemaValid;
                 report["executable_extension_returned"] = received?["extension"] is JsonObject;
                 report["passed"] = result.CompletionStatus is null && schemaValid && (original is null
                     ? received?["ok"]?.GetValue<bool>() == true && received?["nonce"]?.ToString() == nonce
                     : !args.Contains("--probe-require-extension", StringComparer.Ordinal) || received?["extension"] is JsonObject);
-                report["completion_status"] = result.CompletionStatus; report["usage"] = result.Usage?.DeepClone();
             }
             catch (Exception error)
             {
@@ -776,6 +787,9 @@ internal static class ServerLiveDiagnostics
             if (business is not null) await business.DisposeAsync();
         }
     }
+
+    internal static JsonNode? CompleteProbeContent(LLMResponse result) =>
+        result.CompletionStatus is null ? result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text)) : null;
 
     internal static LLMRequest ObservedWorkbookRequest(string provider, string model, string run, JsonNode page)
     {

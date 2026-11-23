@@ -26,6 +26,15 @@ limits, incomplete results, refusals and provider failures before downstream
 steps can consume any content. All 55 selected runtime tests passed.
 [Execution, terminal receipts and accounting](pr120-live-20261123/review-04.json)
 
+The final Review 04 request inherited its 4,096-token bound from the drafting
+policy. Its JSON ended within the caller's report field. New business sessions
+can capture a separate workflow-output allowance without changing the planning
+or SDK limits. Legacy sessions retain their original allowance. Thirty-three
+focused Server tests passed, including smaller explicit step bounds and
+preservation of incomplete probe receipts. The full Server suite on the source
+used for Review 04 passed all 2,717 tests with the real local Copilot and
+Playwright fixtures enabled.
+
 ## Review 04 installation receipts, 23 November 2026
 
 After the Server chat form submitted the approved review, Copilot requested

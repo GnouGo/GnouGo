@@ -9,6 +9,17 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class IndependentProviderProbeTests
 {
+    [Theory]
+    [InlineData("{")]
+    [InlineData("{}")]
+    public void OutputLimitedProbePreservesItsReceiptWithoutParsingOrUsingTheFragment(string text)
+    {
+        var response = new LLMResponse { CompletionStatus = "output_limit", Text = text, Usage = new JsonObject { ["output_tokens"] = 4096 } };
+        Assert.Null(ServerLiveDiagnostics.CompleteProbeContent(response));
+        Assert.Equal(4096, response.Usage["output_tokens"]!.GetValue<int>());
+        Assert.Equal(text, response.Text);
+    }
+
     [Fact]
     public void WorkbookRequestBindsTheBrowserObservationAndKeepsTheAnswerOutOfTheSchema()
     {
