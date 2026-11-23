@@ -27,6 +27,13 @@ public sealed class CopilotListStdioTests
                 }
             }), cancellationToken: TestContext.Current.CancellationToken);
             var tools = await client.ListToolsAsync(cancellationToken: TestContext.Current.CancellationToken);
+            var edit = Assert.Single(tools, tool => tool.Name == "code_agent_edit");
+            var output = edit.ProtocolTool.OutputSchema!.Value.GetProperty("properties");
+            Assert.True(output.TryGetProperty("toolExecutions", out _));
+            var commandResults = output.GetProperty("commandResults").GetRawText();
+            Assert.Contains("exitCode", commandResults, StringComparison.Ordinal);
+            Assert.Contains("toolCallId", commandResults, StringComparison.Ordinal);
+
             foreach (var pair in CopilotListContractTests.Parameters)
             {
                 var tool = pair.Data.Item1; var parameter = pair.Data.Item2;

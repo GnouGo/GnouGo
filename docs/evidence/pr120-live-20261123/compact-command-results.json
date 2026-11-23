@@ -14,5 +14,14 @@
   "benchmark_tests": {
     "copilot_core": 185,
     "copilot_mcp": 276
+  },
+  "native_aot": {
+    "source": "618e30ff",
+    "rid": "osx-arm64",
+    "exe_sha256": "6d71c2ddfccbe144851480f462ab227d08ff0d61031bfe4d86ce0424812abe90",
+    "published_stdio_discovery": true,
+    "command_results_schema": true,
+    "original_tool_execution_schema": true,
+    "provider_calls": 0
   }
 }
