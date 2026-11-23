@@ -260,6 +260,49 @@ internal static class ServerLiveDiagnostics
             if (!await access.CanInspectAsync()) return Results.Forbid();
             await antiforgery.ValidateRequestAsync(context);
             if (Interlocked.CompareExchange(ref invoked, 1, 0) != 0) return Results.Conflict("A fresh independent run is required; this probe cannot replay.");
+            if (args.Contains("--probe-observed-workbook", StringComparer.Ordinal))
+            {
+                if (args.Any(a => a.StartsWith("--probe-", StringComparison.Ordinal) && a != "--probe-observed-workbook"))
+                    throw new ArgumentException("The observed-workbook diagnostic has its own bounded request.");
+                report["phase"] = "observed_workbook";
+                report["passed"] = false;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                try
+                {
+                    await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(context.RequestAborted);
+                    await LiveExecutionReadiness.VerifyAsync(runtime.McpClientFactory, workspace, async (page, ct) =>
+                    {
+                        var request = ObservedWorkbookRequest(model.Provider, model.Model, run, page);
+                        report["request_id"] = request.ClientRequestId;
+                        report["browser_observation_sha256"] = PlanningGraphCompiler.Fingerprint(page.ToJsonString());
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report, ct);
+                        var response = await capture.CallAsync(request, options, (r, token) =>
+                            model.CallExecutionAsync(r, token, Math.Min(270000, attemptTimeoutLimitMilliseconds ?? 270000)), ct);
+                        var result = response.Json ?? (response.Text is null ? null : JsonNode.Parse(response.Text));
+                        if (response.CompletionStatus is not null || PlanningContractValidation.ValidateInstance(result, request.StructuredOutputSchema!).Count != 0)
+                            throw new InvalidOperationException("The model must return a complete structured page observation.");
+                        report["usage"] = response.Usage?.DeepClone();
+                        return result!["value"]!.GetValue<string>();
+                    }, context.RequestAborted);
+                    report["workbook_verified"] = true;
+                    report["browser_closed"] = true;
+                    report["passed"] = true;
+                }
+                catch (Exception error)
+                {
+                    report["exception_type"] = error.GetType().Name;
+                    report["diagnostic"] = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(error.Message);
+                }
+                if (report["request_id"]?.ToString() is { } issued)
+                {
+                    report["effective_http"] = ProbeHttpEvidence(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, issued));
+                    report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", issued) is not null;
+                    report["passed"] = report["passed"]!.GetValue<bool>() && report["durable_receipt"]!.GetValue<bool>();
+                }
+                report["finished_utc"] = DateTimeOffset.UtcNow;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                return Results.Json(report);
+            }
             var nonce = Guid.NewGuid().ToString("N");
             var sourceRequest = SchemaPortabilityCampaign.Option(args, "--probe-source-request");
             var original = sourceRequest is null ? null :
@@ -730,6 +773,18 @@ internal static class ServerLiveDiagnostics
             await app.StopAsync();
             if (business is not null) await business.DisposeAsync();
         }
+    }
+
+    internal static LLMRequest ObservedWorkbookRequest(string provider, string model, string run, JsonNode page)
+    {
+        var request = new LLMRequest
+        {
+            Provider = provider, Model = model, MaxTokens = 512, Reasoning = "medium", DisableTransportRetries = true, RequireOutputTokenLimit = true,
+            Prompt = "Extract the single readiness marker from the visible text of this Browser MCP result. Return its exact value.\n" + page.ToJsonString(),
+            StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject()
+        };
+        request.ClientRequestId = run + ":observed:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return request;
     }
 
     internal static JsonObject? ProbeHttpEvidence(JsonObject? transportEvidence)

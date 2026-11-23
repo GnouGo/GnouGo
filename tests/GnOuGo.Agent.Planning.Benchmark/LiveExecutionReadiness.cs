@@ -157,12 +157,16 @@ internal static class LiveExecutionReadiness
             if (state["passed"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
         }
     }
-    internal static async Task VerifyAsync(IMcpClientFactory transport, string workspace)
+    internal static async Task VerifyAsync(IMcpClientFactory transport, string workspace,
+        Func<JsonNode, CancellationToken, Task<string>>? interpretPage = null, CancellationToken cancellationToken = default)
     {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(60)); var ct = timeout.Token;
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(interpretPage is null ? TimeSpan.FromSeconds(60) : TimeSpan.FromMinutes(7));
+        var ct = timeout.Token;
         var marker = "readiness-" + Guid.NewGuid().ToString("N");
         var relative = "workflows/" + marker + "/probe.xlsx";
         var path = Path.Combine(workspace, relative);
+        var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", ct);
         var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
         var serve = Task.Run(async () =>
         {
@@ -174,7 +178,6 @@ internal static class LiveExecutionReadiness
             await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n"), ct);
             await stream.WriteAsync(body, ct);
         }, ct);
-        var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", ct);
         try
         {
             var page = await browser.CallToolAsync("browser_get_content", new JsonObject
@@ -182,24 +185,35 @@ internal static class LiveExecutionReadiness
             if (page.IsError || !page.Content!.ToJsonString().Contains(marker, StringComparison.Ordinal))
                 throw new InvalidOperationException("The configured browser cannot read the disposable readiness page.");
             await serve;
+            var value = interpretPage is null ? marker : await interpretPage(page.Content, ct);
+            if (value != marker) throw new InvalidOperationException("The extracted value differs from the run-owned page.");
             var document = await transport.GetClientAsync("GnOuGo.Document.Mcp", ct);
-            var write = await document.CallToolAsync("document_write", new JsonObject { ["filePath"] = relative, ["content"] = "probe\n" + marker }, ct);
+            var write = await document.CallToolAsync("document_write", new JsonObject { ["filePath"] = relative, ["content"] = "probe\n" + value }, ct);
             if (write.IsError || !File.Exists(path)) throw new InvalidOperationException("The configured XLSX destination is not writable.");
             using var workbook = SpreadsheetDocument.Open(path, false);
-            if (!workbook.WorkbookPart!.WorksheetParts.Any(p => p.Worksheet!.InnerText.Contains(marker, StringComparison.Ordinal)))
+            var cells = workbook.WorkbookPart!.WorksheetParts.SelectMany(p => p.Worksheet!.Descendants<DocumentFormat.OpenXml.Spreadsheet.Cell>());
+            if (!cells.Select(cell => cell.InnerText).SequenceEqual(new[] { "probe", marker }, StringComparer.Ordinal))
                 throw new InvalidOperationException("The written XLSX does not contain the independently observed readiness value.");
         }
         finally
         {
-            await browser.CallToolAsync("browser_close", new JsonObject(), CancellationToken.None);
-            listener.Stop(); await timeout.CancelAsync();
-            try { await serve; } catch (Exception e) when (e is OperationCanceledException or SocketException) { }
-            if (File.Exists(path)) File.Delete(path);
-            if (Directory.Exists(Path.GetDirectoryName(path))) Directory.Delete(Path.GetDirectoryName(path)!);
+            try
+            {
+                using var close = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                var receipt = await browser.CallToolAsync("browser_close", new JsonObject(), close.Token);
+                if (receipt.IsError) throw new InvalidOperationException("The configured browser failed to close the readiness page.");
+                var after = await browser.CallToolAsync("browser_get_content", new JsonObject(), close.Token);
+                if (!after.IsError || !after.Content!.ToJsonString().Contains("No active page", StringComparison.Ordinal))
+                    throw new InvalidOperationException("Browser cleanup did not release its active page.");
+            }
+            finally
+            {
+                await timeout.CancelAsync(); listener.Stop();
+                try { await serve; } catch (Exception e) when (e is OperationCanceledException or SocketException or IOException) { }
+                if (File.Exists(path)) File.Delete(path);
+                if (Directory.Exists(Path.GetDirectoryName(path))) Directory.Delete(Path.GetDirectoryName(path)!);
+            }
         }
-        var after = await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None);
-        if (!after.IsError || !after.Content!.ToJsonString().Contains("No active page", StringComparison.Ordinal))
-            throw new InvalidOperationException("Browser cleanup did not release its active page.");
-        Console.WriteLine("{\"browser_local_page\":true,\"browser_cleanup\":true,\"xlsx_independent_read\":true,\"model_calls\":0}");
+        if (interpretPage is null) Console.WriteLine("{\"browser_local_page\":true,\"browser_cleanup\":true,\"xlsx_independent_read\":true,\"model_calls\":0}");
     }
 }

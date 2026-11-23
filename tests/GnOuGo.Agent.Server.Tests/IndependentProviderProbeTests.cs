@@ -10,6 +10,19 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class IndependentProviderProbeTests
 {
     [Fact]
+    public void WorkbookRequestBindsTheBrowserObservationAndKeepsTheAnswerOutOfTheSchema()
+    {
+        var marker = Guid.NewGuid().ToString("N");
+        var page = new JsonObject { ["text"] = marker };
+        var request = ServerLiveDiagnostics.ObservedWorkbookRequest("provider", "model", "fresh", page);
+        Assert.Contains(marker, request.Prompt);
+        Assert.DoesNotContain(marker, request.StructuredOutputSchema!.ToJsonString());
+        Assert.True(request.DisableTransportRetries);
+        page["text"] = "a different observation";
+        Assert.NotEqual(request.ClientRequestId, ServerLiveDiagnostics.ObservedWorkbookRequest("provider", "model", "fresh", page).ClientRequestId);
+    }
+
+    [Fact]
     public void AuthenticationFailureBeforeGenerationHasNoEffectiveHttpRequest()
     {
         var journal = new JsonObject { ["transport"] = JsonSerializer.SerializeToNode(new LLMHttpRetryState(),

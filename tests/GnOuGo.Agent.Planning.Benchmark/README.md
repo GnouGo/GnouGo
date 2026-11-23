@@ -279,6 +279,15 @@ HTTP journal with zero attempts. Its report preserves the authentication
 failure and attempt count. Wire parameters appear only for a captured request.
 
 `server-live-probe` also supports independent diagnostic requests. Use
+`--probe-observed-workbook` for a small integration with the configured
+Browser and Document MCPs. The Server reads a fresh marker from a disposable
+loopback page, sends the observed page to the funded model, and verifies its
+answer against the independently generated value before writing the workbook.
+It opens the XLSX on disk, closes and checks the browser, and removes the
+fixture. The encrypted report identifies the physical POST and model receipt.
+This checks the two-tool handoff before business qualification.
+
+Use
 `--probe-reasoning <declared-effort> --probe-output-tokens <positive-bound>` for the
 small nonce/schema availability check. `--probe-source-request <owned-request-id>`
 copies the exact retained prompt and schema into a fresh nonce/run identity.
