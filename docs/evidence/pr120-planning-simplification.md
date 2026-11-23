@@ -1,5 +1,18 @@
 # PR 120 planning simplification
 
+## Fresh Amazon source qualification, 23 November 2026
+
+The Browser returned HTTP 200 for the search and all 20 permitted source-link
+resolutions. The single search snapshot spans 1,594 records and 76 fragments.
+Three links belonging to the same empty-ASIN card resolved to product
+`B0H4HPQLVM`. The same card contained an additional literal `/deals` link
+outside the captured workflow grant. The independent v14 verifier rejected
+the source and reproduced the finding from the saved observations. Cleanup
+closed the browser and a separate read confirmed it had no active page.
+The diagnostic used zero model calls. Business visits and XLSX delivery
+remain unqualified for this capture.
+[Ordered source records and verification](pr120-live-20261123/amazon-source-30.json)
+
 ## Live Browser, model and Document handoff, 23 November 2026
 
 The first Server run read a new local page and received a complete model response.
