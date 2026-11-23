@@ -1,5 +1,23 @@
 # PR 120 planning simplification
 
+## Review 02 closure and fresh model receipt, 23 November 2026
+
+The operator permanently closed Review 02 as inconclusive. The original five
+external invocation receipts, failed SDK request and EUR 3.2908296943 hold
+remain in the encrypted campaign. A fresh process verified the issued closure
+against the saved execution and both original wire hashes. The pre-closure
+and post-closure financial audits were byte-identical. The checkout, kubeconfig,
+cluster and run containers were absent. GitHub returned the same review and
+inline-comment IDs.
+
+On `10d128a3`, the Server admitted `independent-availability-20261123-03`.
+Its single physical streaming POST returned HTTP 200 in 102.38 seconds, completed
+the protocol and returned the correct fresh nonce. The saved receipt accounted
+for 97 input and 32 output tokens, EUR 0.00788755 at captured tariffs. After
+4,807 physical attempts the campaign had EUR 455.82083 available within its
+EUR 3,600 ceiling. Both business streaks were zero at this point.
+[Closure, tool receipts, live HTTP evidence and financial audits](pr120-live-20261123/authorized-closure-and-live-generation.json)
+
 ## Provider route and Review 02 correlation, 23 November 2026
 
 The configured issuer issued a fresh OIDC token in 473 ms. The gateway answered

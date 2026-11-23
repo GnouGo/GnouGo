@@ -1,0 +1,146 @@
+{
+  "source": "10d128a31a30c67d8f20c031bfbbbf03e1fa145c",
+  "campaign": "pr120-live-20261107-400",
+  "review02": {
+    "evidence_hash": "ddf95126efda8507fd789c5f1979fe80227c642939e600576aeadc219b8f4dfc",
+    "retained_at": "2026-11-23T15:03:44.8802780+00:00",
+    "outcome": "inconclusive",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reservation_retained": true,
+    "run_key": "slim519-verified-20261121-02",
+    "session_id": "11ff84808e0a45358f5de80b1af5cee0",
+    "execution_run_id": "690a1adf14b6bb909df42deb3b06c228",
+    "artifact_hash": "c95c540479dae96a4fbe0670a6240135bbe45cb3621ab98db5b4d1c93ea8dac5",
+    "request_accounting": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 96000,
+      "reserved_output_tokens": 4096,
+      "reserved_cost_eur": "3.2908296943231441048034934498"
+    },
+    "reservation_recorded_utc": "2026-11-21T19:32:03.372757+00:00",
+    "failure_recorded_utc": "2026-11-21T19:32:03.39637+00:00",
+    "terminal_invocations": [
+      {
+        "type": "mcp.call",
+        "server": "GnOuGo.Cmd.Mcp",
+        "method": "cmd_run",
+        "status": "completed",
+        "finalization": true,
+        "receipt_sha256": "429c01da4fed1413bf4ad94974ed97fff3db7d232cc811b1a82ef8f2d44822e0"
+      },
+      {
+        "type": "mcp.call",
+        "server": "Github",
+        "method": "pull_request_read",
+        "status": "completed",
+        "finalization": false,
+        "receipt_sha256": "958669db1be94ca39e8913aec76275a2580afe872391f3f27e6deb4953ce40bf"
+      },
+      {
+        "type": "llm.call",
+        "server": null,
+        "method": null,
+        "status": "completed",
+        "finalization": false,
+        "receipt_sha256": "0cb6b9d5cb71452d44dac67406b95b846370736758fba76ccfed5c71025bbcb2"
+      },
+      {
+        "type": "mcp.call",
+        "server": "GnOuGo.Git.Mcp",
+        "method": "git_clone",
+        "status": "completed",
+        "finalization": false,
+        "receipt_sha256": "c89dcca6affc005ea2fbe4325e914dfaff411ab6069ae9a05dcf83997402b19e"
+      },
+      {
+        "type": "mcp.call",
+        "server": "GnOuGo.GithubCopilot.Mcp",
+        "method": "code_agent_edit",
+        "status": "failed",
+        "finalization": false,
+        "receipt_sha256": "9794c0de898bc4e8f707073c73a1b060af91ec4c5b0b53f849c33e034d859d3f"
+      }
+    ],
+    "external_readback": {
+      "github_reviews_match": true,
+      "inline_comments_match": true,
+      "checkout_absent": true,
+      "kubeconfig_absent": true,
+      "kind_cluster_absent": true,
+      "containers_absent": true
+    },
+    "full_sdk_endpoint_and_wire_sha256_verified": true
+  },
+  "opening_audit_sha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+  "post_closure_audit_sha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+  "before": {
+    "ceiling": 3600,
+    "calls": 4806,
+    "known_cost_eur": "2476.7233424365265526858317768",
+    "http_holds_eur": "495.81437180601547344334618",
+    "http_holds": 56,
+    "application_holds_eur": "171.63356950311035727717154657",
+    "available_eur": "455.8287162543476165936504966"
+  },
+  "probe": {
+    "run": "independent-availability-20261123-03",
+    "host": "GnOuGo.Agent.Server",
+    "model": "gpt-6.1-sol-2026-09-29",
+    "trace_id": "2870b96b4041ca36c52b46f7502c738b",
+    "started_utc": "2026-11-23T15:06:48.881577+00:00",
+    "finished_utc": "2026-11-23T15:09:29.973909+00:00",
+    "passed": true,
+    "durable_receipt": true,
+    "schema_valid": true,
+    "requested_output_tokens": 512,
+    "physical_http_attempts": 1,
+    "completion_status": null,
+    "transport": {
+      "method": "POST",
+      "endpoint_sha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+      "reasoning_effort": "medium",
+      "max_completion_tokens": 512,
+      "attempts": [
+        {
+          "physical_id_sha256": "2377b3b7d2b0aca9131ca64a5e618966a2eeeeaba389c348269678aba4368a02",
+          "provider_request_id_sha256": "6ed21837196fe5488e9099d3942b2445a51176f6bf1ba6947365ab5f4eac6161",
+          "status": 200,
+          "started_utc": "2026-11-23T15:07:47.519719+00:00",
+          "completed_utc": "2026-11-23T15:09:29.900233+00:00",
+          "failure_phase": null,
+          "retry_header": null,
+          "requested_delay_ms": null,
+          "retry_not_before_utc": null,
+          "observed_status": 200,
+          "protocol_complete": true,
+          "usage_known": true,
+          "response_id_available": true,
+          "body_available": true,
+          "partial_body_available": false,
+          "receipt_retrievals": []
+        }
+      ]
+    },
+    "usage": {
+      "input_tokens": 97,
+      "output_tokens": 32,
+      "total_tokens": 129
+    }
+  },
+  "after": {
+    "ceiling": 3600,
+    "calls": 4807,
+    "known_cost_eur": "2476.7312299911117055242597244",
+    "http_holds_eur": "495.81437180601547344334618",
+    "http_holds": 56,
+    "application_holds_eur": "171.63356950311035727717154657",
+    "available_eur": "455.8208286997624637552225490"
+  },
+  "post_probe_audit_sha256": "268b1a6e4305db09370c48df81bd9dd98e7ca9a1274c55b3130cc71436953d48"
+}
