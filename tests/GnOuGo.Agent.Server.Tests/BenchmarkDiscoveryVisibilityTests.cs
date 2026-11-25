@@ -125,6 +125,20 @@ public sealed class BenchmarkDiscoveryVisibilityTests
     }
 
     [Fact]
+    public async Task WorkbookPageServesTheBrowserWhileAPreconnectedSocketIsIdle()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var marker = Guid.NewGuid().ToString("N");
+        await using var site = LiveExecutionReadiness.CreateReadinessSite(marker);
+        await site.StartAsync(ct);
+        var address = new Uri(site.Urls.Single());
+        using var preconnect = new System.Net.Sockets.TcpClient();
+        await preconnect.ConnectAsync(address.Host, address.Port, ct);
+        using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        Assert.Contains(marker, await http.GetStringAsync(address, ct));
+    }
+
+    [Fact]
     public async Task WorkbookProfileClosesItsRealPageEvenWhenDesktopKeepsBrowsersOpen()
     {
         var sourceRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));

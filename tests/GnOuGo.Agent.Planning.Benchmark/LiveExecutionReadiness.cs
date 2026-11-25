@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
-using System.Text;
 using System.Text.Json.Nodes;
 using DocumentFormat.OpenXml.Packaging;
 using GnOuGo.Flow.Core.Runtime;
@@ -9,6 +7,10 @@ using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Integrations;
 using GnOuGo.Flow.Persistence;
 using GnOuGo.KeyVault.Core.Services;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 // Disposable prerequisites. The SDK probe uses finite campaign admission and
 // explicit interaction; browser/document readiness dispatches no inference.
@@ -157,6 +159,17 @@ internal static class LiveExecutionReadiness
             if (state["passed"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
         }
     }
+    internal static WebApplication CreateReadinessSite(string marker)
+    {
+        var builder = WebApplication.CreateSlimBuilder();
+        builder.Configuration.Sources.Clear();
+        builder.Logging.ClearProviders();
+        builder.WebHost.ConfigureKestrel(options => options.Listen(IPAddress.Loopback, 0));
+        var site = builder.Build();
+        site.MapGet("/", () => Results.Content("<html><body>" + marker + "</body></html>", "text/html"));
+        return site;
+    }
+
     internal static async Task VerifyAsync(IMcpClientFactory transport, string workspace,
         Func<JsonNode, CancellationToken, Task<string>>? interpretPage = null, CancellationToken cancellationToken = default, JsonObject? evidence = null)
     {
@@ -167,24 +180,14 @@ internal static class LiveExecutionReadiness
         var relative = "workflows/" + marker + "/probe.xlsx";
         var path = Path.Combine(workspace, relative);
         var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", ct);
-        var listener = new TcpListener(IPAddress.Loopback, 0); listener.Start();
-        var serve = Task.Run(async () =>
-        {
-            using var connection = await listener.AcceptTcpClientAsync(ct);
-            await using var stream = connection.GetStream();
-            using var reader = new StreamReader(stream, Encoding.ASCII, leaveOpen: true);
-            while (await reader.ReadLineAsync(ct) is { Length: > 0 }) { }
-            var body = Encoding.UTF8.GetBytes("<html><body>" + marker + "</body></html>");
-            await stream.WriteAsync(Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n"), ct);
-            await stream.WriteAsync(body, ct);
-        }, ct);
+        await using var site = CreateReadinessSite(marker);
+        await site.StartAsync(ct);
         try
         {
             var page = await browser.CallToolAsync("browser_get_content", new JsonObject
-                { ["url"] = "http://127.0.0.1:" + ((IPEndPoint)listener.LocalEndpoint).Port, ["format"] = "text", ["waitUntil"] = "domcontentloaded" }, ct);
+                { ["url"] = site.Urls.Single(), ["format"] = "text", ["waitUntil"] = "domcontentloaded" }, ct);
             if (page.IsError || !page.Content!.ToJsonString().Contains(marker, StringComparison.Ordinal))
                 throw new InvalidOperationException("The configured browser cannot read the disposable readiness page.");
-            await serve;
             var value = interpretPage is null ? marker : await interpretPage(page.Content, ct);
             if (value != marker) throw new InvalidOperationException("The extracted value differs from the run-owned page.");
             var document = await transport.GetClientAsync("GnOuGo.Document.Mcp", ct);
@@ -215,8 +218,7 @@ internal static class LiveExecutionReadiness
             }
             finally
             {
-                await timeout.CancelAsync(); listener.Stop();
-                try { await serve; } catch (Exception e) when (e is OperationCanceledException or SocketException or IOException) { }
+                await site.StopAsync();
                 if (File.Exists(path)) File.Delete(path);
                 if (Directory.Exists(Path.GetDirectoryName(path))) Directory.Delete(Path.GetDirectoryName(path)!);
             }

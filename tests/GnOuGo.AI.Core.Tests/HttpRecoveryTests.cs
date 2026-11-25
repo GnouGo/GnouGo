@@ -386,6 +386,8 @@ public sealed class HttpRecoveryTests
     [Fact]
     public async Task IndependentGenerationTotalDurationBoundsBodyConsumptionAndCannotRestartAnUncertainAttempt()
     {
+        // The first durable journal save can initialize the JSON serializer on a cold test host.
+        const int generationMilliseconds = 1000;
         var journal = new Journal(); var calls = 0;
         using var http = new HttpClient(new Handler((_, _) =>
         {
@@ -395,13 +397,13 @@ public sealed class HttpRecoveryTests
         var policy = ConfirmedPolicy(); policy.MaxUncertainRetries = 1;
         for (var restart = 0; restart < 2; restart++)
         {
-            using var scope = new LLMHttpRetryContext("bounded-generation", journal, policy, 50).Activate();
+            using var scope = new LLMHttpRetryContext("bounded-generation", journal, policy, generationMilliseconds).Activate();
             await Assert.ThrowsAsync<TimeoutException>(() => Send(http, post: true));
         }
         var attempt = Assert.Single(journal.State!.Attempts);
         Assert.Equal(1, calls); Assert.Equal("timeout", attempt.Failure);
         Assert.Equal("{\"partial\":", attempt.PartialBody);
-        Assert.True(attempt.DeadlineAtUtc - attempt.StartedAtUtc <= TimeSpan.FromMilliseconds(50));
+        Assert.True(attempt.DeadlineAtUtc - attempt.StartedAtUtc <= TimeSpan.FromMilliseconds(generationMilliseconds));
         Assert.Equal("blocked; captured generation duration exhausted", attempt.RetryDecision);
     }
 
