@@ -559,6 +559,22 @@ per scenario on the same production source/profile, including both Collections v
 
 ## Explicit model configuration amendments
 
+`register-configuration --capture-current-settings --github-credential-amendment`
+verifies a rotation of the configured GitHub HTTP MCP API key. Supply the funded
+`--previous-configuration-id`, the original `--expected-configuration` hash, an
+authorization reference and the explicit KeyVault versions through
+`--previous-credential-version` and `--current-credential-version`. The trusted
+KeyVault service audits both reads. The verifier substitutes the historical key
+into a detached in-memory copy and checks the full funded host fingerprint,
+campaign configuration and declared metadata. The preview returns only the
+record identity, version numbers, field name, registered configuration identity
+and fingerprints. A matching preview can be applied with `--apply` and the exact
+`--expected-amendment`. The funded chain validates the new link on every admission.
+
+A change to another MCP, including the bundled Git server's Git token, makes the
+one-field proof fail. A new version timestamp identifies a write. Establishing
+which value changed requires its own scoped evidence.
+
 New live launches identify both `--model <exact-snapshot>` and
 `--campaign-configuration <registered-id>`. The existing campaign remains the
 financial owner. Original configuration, spending, reservations, retry policy,

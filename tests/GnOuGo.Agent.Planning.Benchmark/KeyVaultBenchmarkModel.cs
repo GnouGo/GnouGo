@@ -24,7 +24,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.ML.Tokenizers;
 
 /// <summary>One configured live model and one authorized spending ledger shared by planning and explicit live execution hosts.</summary>
-internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission, IDisposable
+internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolver, IPlanningConstructionAdmission, IDisposable
 {
     public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).InputTokenAllowanceAsync(Provider, Model, outputTokens, ct);
@@ -60,8 +60,9 @@ internal sealed class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilityResolve
     internal string Model => _options.DefaultModel;
     internal string Provider => _options.DefaultProvider;
     internal IReadOnlyDictionary<string, McpServerOptions> McpServers => _options.McpServers;
-    internal string ConfigurationFingerprint => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(_options) +
-        JsonSerializer.Serialize(new RoutingLLMClient(_options, []).ResolveDeclaredMetadata(Provider, Model)));
+    internal string ConfigurationFingerprint => HostFingerprint(_options);
+    private static string HostFingerprint(LLMOptions options) => PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(options) +
+        JsonSerializer.Serialize(new RoutingLLMClient(options, []).ResolveDeclaredMetadata(options.DefaultProvider, options.DefaultModel)));
     internal IReadOnlyDictionary<string, LLMModelMetadata>? PersistedModelOverrides { get; private init; }
     internal JsonObject MetadataSources { get; private init; } = new();
     internal bool AdvisoryFinancialForecasts { get; set; }

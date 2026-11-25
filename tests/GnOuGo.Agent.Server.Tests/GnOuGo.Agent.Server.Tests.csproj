@@ -45,6 +45,7 @@
 
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs" Link="BenchmarkCampaign.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.SdkTransport.cs" Link="BenchmarkCampaign.SdkTransport.cs" /></ItemGroup>
+  <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.GithubCredential.cs" Link="BenchmarkCampaign.GithubCredential.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.HttpAccounting.cs" Link="BenchmarkCampaign.HttpAccounting.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../src/GnOuGo.Agent.Desktop/DesktopOperatorLauncher.cs" Link="DesktopOperatorLauncher.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.Retention.cs" Link="BenchmarkCampaign.Retention.cs" /></ItemGroup>

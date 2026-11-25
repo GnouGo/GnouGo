@@ -133,9 +133,15 @@ internal static class SchemaPortabilityCampaign
                     ? await proposed.StreamingTransportProofAsync(RequiredOption(args, "--previous-configuration-id"), CancellationToken.None) : null,
                 sdkTransportProof: args.Contains("--sdk-transport-amendment", StringComparer.Ordinal)
                     ? await proposed.SdkTransportProofAsync(RequiredOption(args, "--previous-configuration-id"),
-                        RequiredOption(args, "--previous-sdk-transport"), CancellationToken.None) : null);
+                        RequiredOption(args, "--previous-sdk-transport"), CancellationToken.None) : null,
+                githubCredentialProof: args.Contains("--github-credential-amendment", StringComparer.Ordinal)
+                    ? await proposed.GithubCredentialProofAsync(root, RequiredOption(args, "--previous-configuration-id"),
+                        int.Parse(RequiredOption(args, "--previous-credential-version"), System.Globalization.CultureInfo.InvariantCulture),
+                        int.Parse(RequiredOption(args, "--current-credential-version"), System.Globalization.CultureInfo.InvariantCulture), CancellationToken.None) : null);
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
+            if (amendment["material"]?["credential_rotation_proof"] is JsonObject proof)
+                amendment["credential_rotation_proof"] = proof.DeepClone();
             amendment.Remove("material");
             amendment["provider"] = proposed.Provider; amendment["model"] = proposed.Model;
             amendment["endpoint_hash"] = PlanningGraphCompiler.Fingerprint(proposed.CampaignConfiguration()["endpoint"]!.ToString());

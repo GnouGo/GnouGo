@@ -14,6 +14,59 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("rotation")] [InlineData("history")] [InlineData("current")] [InlineData("version")]
+    [InlineData("endpoint")] [InlineData("permission")] [InlineData("metadata")] [InlineData("another-record")] [InlineData("git-token")]
+    public async Task GithubCredentialRotationRequiresTheExactParentAndPreservesTheExistingGrant(string change)
+    {
+        var records = new Records();
+        var campaign = new BenchmarkCampaign(records, "credential-test");
+        var options = new LLMOptions { DefaultProvider = "OpenAi", DefaultModel = "model",
+            Models = new() { ["OpenAi"] = new() { Type = "openai", Url = "https://gateway.invalid/v1" } },
+            ModelOverrides = new() { ["openai/model"] = new() { Id = "model", ProviderType = "openai", MaxOutputTokens = 1024 } } };
+        options.McpServers["Github"] = new() { Type = "http", Url = "https://github.invalid/mcp", ApiKey = "old-fixture" };
+        options.McpServers["GnOuGo.Git.Mcp"] = new() { Type = "stdio", Command = "dotnet", EnvironmentVariables = new() { ["Git__Token"] = "git-fixture-one" } };
+        using var initial = new KeyVaultBenchmarkModel(campaign, options);
+        var config = initial.CampaignConfiguration();
+        var configHash = PlanningGraphCompiler.Fingerprint(config.ToJsonString());
+        var metadataHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new RoutingLLMClient(options, []).ResolveDeclaredMetadata("OpenAi", "model")));
+        await campaign.PinAsync(config, Ct);
+        var grant = await campaign.AuthorizeFreshAllocationAsync("prior", 20m, "initial-grant", config,
+            initial.ConfigurationFingerprint, metadataHash, Ct, previousCampaignUnavailable: true);
+        var parentId = grant["configuration_id"]!.ToString();
+        options.McpServers["Github"].ApiKey = "new-fixture";
+        if (change == "endpoint") options.McpServers["Github"].Url += "/other";
+        if (change == "permission") options.McpServers["other"] = new() { Type = "stdio", Command = "other" };
+        if (change == "git-token") options.McpServers["GnOuGo.Git.Mcp"].EnvironmentVariables!["Git__Token"] = "git-fixture-two";
+        if (change == "metadata") options.ModelOverrides["openai/model"].MaxOutputTokens++;
+        using var rotated = new KeyVaultBenchmarkModel(campaign, options);
+        var recordId = Guid.NewGuid();
+        GnOuGo.KeyVault.Core.Models.SecretValueDto Version(Guid id, int number, string value) => new(id, BenchmarkCampaign.GithubSecret,
+            new JsonObject { ["apiKey"] = value, ["authType"] = "api_key" }.ToJsonString(), number, null, DateTimeOffset.UtcNow);
+        var before = Version(recordId, 1, change == "history" ? "unrelated" : "old-fixture");
+        var after = Version(change == "another-record" ? Guid.NewGuid() : recordId, change == "version" ? 1 : 2,
+            change == "current" ? "stale" : "new-fixture");
+        if (change != "rotation")
+        {
+            await Assert.ThrowsAsync<PlanningConflictException>(() => rotated.ProveGithubCredentialAsync(parentId, before, after, Ct));
+            return;
+        }
+        var proof = await rotated.ProveGithubCredentialAsync(parentId, before, after, Ct);
+        Assert.DoesNotContain("fixture", proof.ToJsonString());
+        Task<JsonObject> Register(bool apply, string? expected = null) => campaign.RegisterConfigurationAsync(config,
+            rotated.ConfigurationFingerprint, metadataHash, configHash, "rotate-github-key", apply, Ct, expected,
+            captureCurrentSettings: true, githubCredentialProof: proof);
+        var preview = await Register(false);
+        var identity = preview["configuration_id"]!.ToString();
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Register(true, parentId));
+        var first = await Register(true, identity);
+        Assert.True(JsonNode.DeepEquals(first, await Register(true, identity)));
+        var reopened = new BenchmarkCampaign(records, campaign.Id);
+        await reopened.SelectConfigurationAsync(identity, config, rotated.ConfigurationFingerprint, Ct);
+        Assert.True(JsonNode.DeepEquals(grant, await reopened.FreshAllocationAsync(Ct)));
+        Assert.Equal(20m, await reopened.CostCeilingAsync(Ct));
+    }
+
+    [Theory]
     [InlineData("none")] [InlineData("receipt")] [InlineData("usage")] [InlineData("response")]
     [InlineData("navigation")] [InlineData("business")] [InlineData("candidate")] [InlineData("artifact")]
     [InlineData("session")] [InlineData("owner")] [InlineData("configuration")] [InlineData("harness")]

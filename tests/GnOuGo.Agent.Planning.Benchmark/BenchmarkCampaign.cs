@@ -89,7 +89,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
     internal async Task<JsonObject> RegisterConfigurationAsync(JsonObject configuration, string hostHash, string metadataHash,
         string expectedPreviousHash, string authorization, bool apply, CancellationToken ct, string? expectedIdentity = null,
         bool captureCurrentSettings = false, JsonObject? reasoningCapabilityProof = null, JsonObject? streamingTransportProof = null,
-        JsonObject? sdkTransportProof = null)
+        JsonObject? sdkTransportProof = null, JsonObject? githubCredentialProof = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(authorization);
         var original = await LoadAsync("planning-evaluation-configuration", "configuration", ct)
@@ -97,10 +97,10 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         if (PlanningGraphCompiler.Fingerprint(original.ToJsonString()) != expectedPreviousHash ||
             hostHash.Length != 64 || metadataHash.Length != 64 || !hostHash.All(char.IsAsciiHexDigit) || !metadataHash.All(char.IsAsciiHexDigit))
             throw new PlanningConflictException("The amendment must identify the exact previous configuration and inspected host/model metadata.");
-        if ((reasoningCapabilityProof is null ? 0 : 1) + (streamingTransportProof is null ? 0 : 1) + (sdkTransportProof is null ? 0 : 1) > 1)
+        if (new[] { reasoningCapabilityProof, streamingTransportProof, sdkTransportProof, githubCredentialProof }.Count(proof => proof is not null) > 1)
             throw new PlanningConflictException("One immutable amendment must vary one declared factor.");
         var unchanged = configuration.DeepClone();
-        if (streamingTransportProof is not null || reasoningCapabilityProof is not null || sdkTransportProof is not null)
+        if (streamingTransportProof is not null || reasoningCapabilityProof is not null || sdkTransportProof is not null || githubCredentialProof is not null)
         {
             if (original.ContainsKey("model_transport_overrides")) unchanged["model_transport_overrides"] = original["model_transport_overrides"]?.DeepClone();
             else unchanged.AsObject().Remove("model_transport_overrides");
@@ -159,6 +159,16 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
                 throw new PlanningConflictException("The SDK transport amendment must preserve the exact prior funded deployment and metadata.");
             material["amendment_scope"] = "sdk_transport_only";
             material["sdk_transport_proof"] = sdkTransportProof.DeepClone();
+        }
+        if (githubCredentialProof is not null)
+        {
+            var parentId = githubCredentialProof["previous_configuration_id"]?.ToString();
+            var parent = parentId is { Length: 64 } ? await LoadAsync(FundingCollection, "configuration:" + parentId, ct) : null;
+            if (!captureCurrentSettings || parent is null || !ValidGithubRotation(githubCredentialProof, configuration, hostHash, metadataHash, parent) ||
+                !(await CheckConfigurationSelectionAsync(parentId!, configuration, parent["host_configuration_hash"]!.ToString(), ct)).Accepted)
+                throw new PlanningConflictException("The GitHub credential amendment must preserve the verified funded parent and metadata.");
+            material["amendment_scope"] = CredentialRotationScope;
+            material["credential_rotation_proof"] = githubCredentialProof.DeepClone();
         }
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());
         if (expectedIdentity is not null && expectedIdentity != identity)
