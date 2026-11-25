@@ -9,7 +9,10 @@ internal static class AmazonDealsPolicy
     internal static bool Allows(string href) => href == Address || AmazonAaxProductPolicy.Allows(href);
     internal static bool IsEntry(string href) => href == Address || AmazonAaxProductPolicy.IsEntry(href);
     internal static bool IsSourceEntry(string href) => href == Address || AmazonAaxProductPolicy.IsSourceEntry(href);
+    internal static bool CanAcquireSource(JsonNode? arguments)
+        => arguments?["format"]?.ToString() == "observation_complete" && arguments["selector"] is null;
     internal const string PlanningFacts = "Authorized browser policy " + Id + " extends the observed AAX policy. " +
+        "For the initial search use format=observation_complete and omit selector so the owning Browser acquires the observed entries. " +
         "Read every literal https://www.amazon.fr/deals link from the owned search once per occurrence, interleaved in original order with the other required source reads. " +
         "It can prove an auxiliary listing only with its own complete single GET 200 to that unchanged address. " +
         "Within an unresolved product card it must be a non-heading anchor in the same empty-ASIN div without a semantic occurrence. " +

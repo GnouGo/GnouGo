@@ -17,6 +17,10 @@ public sealed class AmazonDealsContextProposalTests
         Assert.Throws<InvalidOperationException>(() => AmazonObservedRedirectPolicy.Capture(["--amazon-deals-context", "--amazon-scope-approval", AmazonAaxProductPolicy.Approval], "amazon"));
         Assert.Throws<ArgumentException>(() => AmazonObservedRedirectPolicy.Capture(["--amazon-deals-context", "--amazon-aax-product-context"], "amazon"));
         Assert.DoesNotContain("deals", AmazonObservedRedirectPolicy.Pattern(policy!));
+        var restricted = events[0].DeepClone().AsObject();
+        restricted["arguments"]!["selector"] = "body";
+        restricted["result"]!["selector"] = "body";
+        Assert.Empty(LiveWorkflowOracles.ResolvedSourceAllowedEntries([restricted], policy!));
         for (var index = 1; index < events.Count; index++)
             Assert.Equal(events[index]["arguments"]!["url"]!.ToString(),
                 Assert.Single(LiveWorkflowOracles.ResolvedSourceAllowedEntries(events.Take(index).ToArray(), policy!)));
@@ -167,6 +171,10 @@ public sealed class AmazonDealsContextProposalTests
     private static List<JsonObject> Events()
     {
         var events = AmazonAaxWorkflowTests.SourceProofs();
+        events[0]["arguments"]!.AsObject().Remove("selector");
+        events[0]["arguments"]!["format"] = "observation_complete";
+        events[0]["result"]!["selector"] = null;
+        events[0]["result"]!["resolvedSelector"] = "body";
         var records = Records(events); var offer = records[0]!.DeepClone().AsObject();
         offer["href"] = Deals; offer["selector"] = "#deal"; offer["heading"] = null;
         records.Insert(3, offer); Reindex(events); events.Insert(3, DealRead("own-deal"));

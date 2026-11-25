@@ -1388,7 +1388,9 @@ evidence](../../docs/evidence/pr120-amazon-deals-proposal-2026-11-13/proposal.md
 On 25 November the operator separately approved workflow policy v11 and
 business verifier v15. A fresh Amazon run selects them with
 `--amazon-deals-context --amazon-scope-approval user-amazon-deals-workflow-20261125`.
-The Browser acquires the literal listing address from its own complete search.
+The initial Browser search uses `format=observation_complete` and omits
+`selector` so the owning Browser can acquire the observed entries. A new
+main-frame navigation during acquisition expires the old source authority.
 Every occurrence needs its own ordered, complete, single GET 200 to that exact
 address. The verifier accounts for an auxiliary link in an unresolved product
 card only under the approved same-card proof. Later business visits, workbook

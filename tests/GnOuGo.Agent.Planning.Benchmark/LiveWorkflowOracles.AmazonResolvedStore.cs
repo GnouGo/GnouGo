@@ -41,7 +41,8 @@ internal static partial class LiveWorkflowOracles
         var (first, sourceIndex) = navigations[0];
         var requested = first["arguments"]!["url"]!.ToString();
         if (SearchAddress(requested) && query is null) query = SearchQuery(new Uri(requested));
-        if (reads[0].read != first || !WholeDocumentSearch(first) || !SearchAddress(requested) || string.IsNullOrWhiteSpace(query) ||
+        if (reads[0].read != first || !WholeDocumentSearch(first) || deals && !AmazonDealsPolicy.CanAcquireSource(first["arguments"]) ||
+            !SearchAddress(requested) || string.IsNullOrWhiteSpace(query) ||
             SearchQuery(new Uri(requested)) != query || !complete.TryGetValue(first, out var source) ||
             !ValidNavigationEvidence(first, observedAax ? AmazonSourceCoveragePolicy.Id : policy) || !SearchAddress(source.Url) || SearchQuery(new Uri(source.Url!)) != query ||
             !SearchAddress(first["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) ||

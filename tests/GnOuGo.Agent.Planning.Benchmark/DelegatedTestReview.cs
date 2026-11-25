@@ -206,6 +206,9 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         {
             if (args["url"] is { } url)
             {
+                if (browserObservationPolicy == AmazonDealsPolicy.Id && Uri.TryCreate(url.ToString(), UriKind.Absolute, out var search) &&
+                    search.AbsolutePath == "/s" && !AmazonDealsPolicy.CanAcquireSource(args))
+                    throw new PlanningConflictException("The observed-entry search requires observation_complete with no selector.");
                 if (!(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy)
                     ? AmazonObservedRedirectPolicy.Allows(url.ToString(), browserObservationPolicy!) &&
                         (!AmazonObservedRedirectPolicy.IsEntry(url.ToString(), browserObservationPolicy!) || _observedRedirects.Contains(url.ToString()))
