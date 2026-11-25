@@ -15,7 +15,8 @@ internal sealed partial class BenchmarkCampaign
     internal const string CredentialRotationScope = "github_mcp_api_key_rotation";
 
     private static bool ValidGithubRotation(JsonObject proof, JsonObject configuration, string host, string metadata, JsonObject parent)
-        => JsonNode.DeepEquals(configuration, parent["configuration"]) &&
+        => proof.Count == 10 && proof["previous_configuration_id"]?.ToString() is { Length: 64 } &&
+            JsonNode.DeepEquals(configuration, parent["configuration"]) &&
             proof["previous_host_configuration_hash"]?.ToString() == parent["host_configuration_hash"]?.ToString() &&
             proof["previous_declared_metadata_hash"]?.ToString() == parent["declared_metadata_hash"]?.ToString() &&
             metadata == parent["declared_metadata_hash"]?.ToString() && proof["host_configuration_hash"]?.ToString() == host &&

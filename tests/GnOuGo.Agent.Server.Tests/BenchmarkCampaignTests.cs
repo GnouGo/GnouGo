@@ -57,6 +57,9 @@ public sealed class BenchmarkCampaignTests
             captureCurrentSettings: true, githubCredentialProof: proof);
         var preview = await Register(false);
         var identity = preview["configuration_id"]!.ToString();
+        proof["unexpected_payload"] = "unregistered";
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Register(false));
+        proof.Remove("unexpected_payload");
         await Assert.ThrowsAsync<PlanningConflictException>(() => Register(true, parentId));
         var first = await Register(true, identity);
         Assert.True(JsonNode.DeepEquals(first, await Register(true, identity)));
