@@ -1,5 +1,15 @@
 # PR 120 planning simplification
 
+## Windows qualification, 25 November 2026
+
+The funded Terra deployment completed the Browser → model → Document
+workbook probe. Amazon's observed listing returned a 302 to `/blackfriday`,
+and a later source contained two sponsored review links without exact
+same-card twins. Review PR stopped in the GitHub MCP and sandbox preflight.
+The separate €20 campaign recorded two paid requests and €0.001148 in
+measured usage. Both business success streaks remain zero.
+[Windows evidence and launch commands](pr120-windows-20261125.md)
+
 ## Amazon 31 rejected a runner input supplied by the catalog
 
 The fresh Server session accepted a search task and its cleanup. In issued
