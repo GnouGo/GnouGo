@@ -1,9 +1,12 @@
 // Actual Server startup regression. Operator bootstrap is received through stdin.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
 const { launch, url, session, scenario, output } = JSON.parse(input);
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+const modulePath = process.env.PLAYWRIGHT_MODULE_PATH;
+const { chromium } = await import(isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });

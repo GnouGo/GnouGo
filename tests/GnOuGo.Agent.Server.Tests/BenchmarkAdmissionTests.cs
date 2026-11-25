@@ -1175,7 +1175,11 @@ public sealed partial class BenchmarkAdmissionTests
         }
         internal EncryptedWorkflowRunStore Store() => new(RunRecords, Path.Combine(Root, "index.db"), Path.Combine(Root, "owners"));
         internal WorkflowEngine Engine(ILLMClient client) => new() { LLMClient = client, RunStore = Store(), LlmDefaults = new() { Model = "pinned" }, Limits = new() { TenantId = "tenant", RunId = "run" } };
-        public void Dispose() => Directory.Delete(Root, true);
+        public void Dispose()
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(Root, true);
+        }
     }
     private sealed class Records(IKeyVaultRecordStore inner) : IKeyVaultRecordStore
     {

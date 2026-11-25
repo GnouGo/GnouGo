@@ -204,7 +204,8 @@ public sealed partial class BenchmarkAdmissionTests
             ApprovedPrompt = prompt, MaxActions = 1, AdaptiveActions = new((_, _) => Task.CompletedTask, new HashSet<string>())
         };
         var config = new CopilotRuntimeConfiguration(fixture.Root, "pinned", AvailableTools: [tool],
-            Environment: new Dictionary<string, string> { ["COPILOT_HOME"] = fixture.Root, ["COPILOT_TELEMETRY"] = "false" })
+            Environment: new Dictionary<string, string> { ["COPILOT_HOME"] = fixture.Root, ["COPILOT_TELEMETRY"] = "false",
+                ["TMP"] = fixture.Root, ["TEMP"] = fixture.Root })
         {
             ExecutionBounds = bounds, HostTools = [new(tool, "Read fixture", JsonDocument.Parse("""{"type":"object","properties":{},"additionalProperties":false}""").RootElement,
                 (_, _) => { effects.Add("observed"); return Task.FromResult(JsonSerializer.SerializeToElement("observed")); })]

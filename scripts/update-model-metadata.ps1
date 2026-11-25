@@ -252,7 +252,7 @@ if ($DownloadLatest) {
         Write-Host "Continuing with existing local metadata..."
     }
 }
-$json = Get-Content $JsonPath -Raw | ConvertFrom-Json
+$json = Get-Content $JsonPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $models = Get-JsonPropertyValue $json "models"
 $aliases = Get-JsonPropertyValue $json "aliases"
 function CsString($Value) {
@@ -331,7 +331,7 @@ foreach ($prop in $models.PSObject.Properties) {
     Append-IfNotNull $sb "ContextWindowTokens" (CsInt (Get-JsonPropertyValue $m "contextWindowTokens"))
     Append-IfNotNull $sb "MaxInputTokens" (CsInt (Get-JsonPropertyValue $m "maxInputTokens"))
     Append-IfNotNull $sb "MaxOutputTokens" (CsInt (Get-JsonPropertyValue $m "maxOutputTokens"))
-    if ($null -ne $pricing) {
+    if ($null -ne $pricing -and @($pricing.PSObject.Properties).Count -gt 0) {
         $currency = Get-JsonPropertyValue $pricing "currency"
         if ([string]::IsNullOrWhiteSpace([string]$currency)) { $currency = "USD" }
         [void]$sb.AppendLine("            Pricing = new ModelPricingMetadata")
@@ -340,6 +340,7 @@ foreach ($prop in $models.PSObject.Properties) {
         Append-IfNotNull $sb "InputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "inputPer1MTokens"))
         Append-IfNotNull $sb "OutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "outputPer1MTokens"))
         Append-IfNotNull $sb "CachedInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cachedInputPer1MTokens"))
+        Append-IfNotNull $sb "ReasoningOutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "reasoningOutputPer1MTokens"))
         Append-IfNotNull $sb "CacheWriteInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cacheWriteInputPer1MTokens"))
         Append-IfNotNull $sb "CacheWrite12hInputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "cacheWrite12hInputPer1MTokens"))
         Append-IfNotNull $sb "LongContextThresholdTokens" (CsInt (Get-JsonPropertyValue $pricing "longContextThresholdTokens"))
@@ -349,10 +350,9 @@ foreach ($prop in $models.PSObject.Properties) {
         Append-IfNotNull $sb "FlexBatchMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "flexBatchMultiplier"))
         Append-IfNotNull $sb "UltrafastMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "ultrafastMultiplier"))
         Append-IfNotNull $sb "RegionalMultiplier" (CsDecimal (Get-JsonPropertyValue $pricing "regionalMultiplier"))
-        Append-IfNotNull $sb "ReasoningOutputPer1MTokens" (CsDecimal (Get-JsonPropertyValue $pricing "reasoningOutputPer1MTokens"))
         [void]$sb.AppendLine("            },")
     }
-    if ($null -ne $cap) {
+    if ($null -ne $cap -and @($cap.PSObject.Properties).Count -gt 0) {
         [void]$sb.AppendLine("            Capabilities = new ModelCapabilityMetadata")
         [void]$sb.AppendLine("            {")
         Append-IfNotNull $sb "SupportsTemperature" (CsBool (Get-JsonPropertyValue $cap "supportsTemperature"))
@@ -362,12 +362,12 @@ foreach ($prop in $models.PSObject.Properties) {
         Append-IfNotNull $sb "SupportsJsonMode" (CsBool (Get-JsonPropertyValue $cap "supportsJsonMode"))
         Append-IfNotNull $sb "SupportsVision" (CsBool (Get-JsonPropertyValue $cap "supportsVision"))
         Append-IfNotNull $sb "SupportsAudio" (CsBool (Get-JsonPropertyValue $cap "supportsAudio"))
+        Append-IfNotNull $sb "SupportsEmbeddings" (CsBool (Get-JsonPropertyValue $cap "supportsEmbeddings"))
+        Append-IfNotNull $sb "TemperatureReasoningEfforts" (CsStringListProperty $cap "temperatureReasoningEfforts")
         Append-IfNotNull $sb "SupportsResponses" (CsBool (Get-JsonPropertyValue $cap "supportsResponses"))
         Append-IfNotNull $sb "SupportsChatCompletions" (CsBool (Get-JsonPropertyValue $cap "supportsChatCompletions"))
         Append-IfNotNull $sb "SupportsStreaming" (CsBool (Get-JsonPropertyValue $cap "supportsStreaming"))
         Append-IfNotNull $sb "ChatToolsReasoningEfforts" (CsStringListProperty $cap "chatToolsReasoningEfforts")
-        Append-IfNotNull $sb "TemperatureReasoningEfforts" (CsStringListProperty $cap "temperatureReasoningEfforts")
-        Append-IfNotNull $sb "SupportsEmbeddings" (CsBool (Get-JsonPropertyValue $cap "supportsEmbeddings"))
         Append-IfNotNull $sb "SupportedReasoningEfforts" (CsStringListProperty $cap "supportedReasoningEfforts")
         Append-IfNotNull $sb "UnsupportedRequestParameters" (CsStringListProperty $cap "unsupportedRequestParameters")
         [void]$sb.AppendLine("            },")
@@ -388,5 +388,5 @@ if ($aliases) {
 }
 [void]$sb.AppendLine("    }.ToFrozenDictionary(StringComparer.OrdinalIgnoreCase);")
 [void]$sb.AppendLine("}")
-Set-Content $OutputPath -Value $sb.ToString() -Encoding UTF8
+[IO.File]::WriteAllText($OutputPath, $sb.ToString().Replace("`r`n", "`n"), [Text.UTF8Encoding]::new($false))
 Write-Host "`nGenerated $OutputPath ($modelCount models, $aliasCount aliases)"

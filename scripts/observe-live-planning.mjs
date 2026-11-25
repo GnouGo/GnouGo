@@ -1,9 +1,12 @@
 // Observe planning and submit typed inputs to a saved workflow on the local Agent.Server. Bootstrap arrives on stdin, never argv/logs.
 import assert from 'node:assert/strict';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { isAbsolute } from 'node:path';
+import { pathToFileURL } from 'node:url';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
 const { launch, url, session, output, mode, agent, inputs, awaitPlanningClarification } = JSON.parse(input);
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+const modulePath = process.env.PLAYWRIGHT_MODULE_PATH;
+const { chromium } = await import(isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath);
 await mkdir(output, { recursive: true });
 let browser;
 let stage = 'browser startup';

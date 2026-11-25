@@ -200,7 +200,13 @@ public sealed class CodeReportOracleTests
             Assert.Equal(new[] { "package.json", "packages/member with spaces/package.json" },
                 run["tracked_package_manifests"]!.AsArray().Select(value => value!.ToString()));
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            if (OperatingSystem.IsWindows())
+                foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                    File.SetAttributes(file, File.GetAttributes(file) & ~FileAttributes.ReadOnly);
+            Directory.Delete(root, recursive: true);
+        }
     }
 
     [Theory]
