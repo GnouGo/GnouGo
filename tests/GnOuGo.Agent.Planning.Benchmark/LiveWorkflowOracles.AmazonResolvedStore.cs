@@ -236,7 +236,9 @@ internal static partial class LiveWorkflowOracles
         if (string.IsNullOrWhiteSpace(query)) findings.Add("search_query_does_not_match_input");
         if (!source.Complete) findings.Add("source_resolutions_incomplete");
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
-        var visits = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"] is not null)
+        // A failed prefix cannot establish where the business visits begin.
+        var visits = policy == AmazonFirstProductsPolicy.Id && !source.Complete ? [] :
+            events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"] is not null)
             .Skip(1 + source.ResolutionCount).ToArray();
         var expected = source.Products.Take(maximum).ToArray();
         if (visits.Length != expected.Length || expected.Length == 0) findings.Add("first_product_visits_incomplete");

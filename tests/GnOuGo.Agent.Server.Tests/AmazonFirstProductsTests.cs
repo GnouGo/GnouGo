@@ -77,7 +77,9 @@ public sealed class AmazonFirstProductsTests
         if (change == "closed") events.Add(new JsonObject { ["tool"] = "browser_close" });
         if (change == "new_search") events.Add(source.DeepClone().AsObject());
         if (change == "closed") events.Add(AmazonAaxSourceDiagnosticTests.Resolution(Product(First), "expired"));
-        Assert.False(Verify(events, 2)["source_prerequisite_qualified"]!.GetValue<bool>());
+        var report = Verify(events, 2);
+        Assert.False(report["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Equal(0, report["visited_product_count"]!.GetValue<int>());
         Assert.Empty(LiveWorkflowOracles.ResolvedSourceAllowedEntries(events, AmazonFirstProductsPolicy.Id));
     }
 

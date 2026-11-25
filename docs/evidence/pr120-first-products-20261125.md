@@ -12,6 +12,17 @@ From the repository root and the .NET SDK configured for this checkout, run the 
 dotnet test tests/GnOuGo.Agent.Server.Tests -c Release --filter 'FullyQualifiedName~Amazon'
 ```
 
+Replay original captures without a model, network connection or campaign access. The command reports the raw file hash, the complete outcome under both versions and, when relevant, the prefix preceding a recorded failure.
+
+```powershell
+$q = Join-Path $env:LOCALAPPDATA 'GnOuGo-Pr120-Qualification'
+$bench = 'tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net11.0/GnOuGo.Agent.Planning.Benchmark.dll'
+dotnet build tests/GnOuGo.Agent.Planning.Benchmark -c Release
+dotnet $bench --amazon-first-products-replay "$q/amazon-source-v11-win-04/events.json" 'chaussure geox homme 45'
+dotnet $bench --amazon-first-products-replay "$q/amazon-source-v11-win-05/events.json" 'chaussure geox homme 45'
+dotnet $bench --amazon-first-products-replay "$q/amazon-source-v12-win-01/events.json" 'chaussure geox homme 45'
+```
+
 The previous Windows report supplies the workspace, campaign, effective model, transport and budget argument setup. For a new authorized Amazon run use the new profile and a fresh identity. Review the resulting concrete artifact in the attached terminal. [Windows campaign and budget setup](pr120-windows-20261125.md)
 
 ```powershell

@@ -12,6 +12,29 @@ using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using GnOuGo.Workspace;
 
+if (args.FirstOrDefault() == "--amazon-first-products-replay")
+{
+    if (args.Length != 3 || string.IsNullOrWhiteSpace(args[2]))
+        throw new ArgumentException("Supply the original Browser events JSON and the exact search query.");
+    var bytes = await File.ReadAllBytesAsync(args[1]);
+    var events = JsonNode.Parse(bytes)!.AsArray().Select(e => e!.AsObject()).ToArray();
+    JsonObject Compare(IReadOnlyList<JsonObject> reads) => new()
+    {
+        ["event_count"] = reads.Count,
+        ["v15"] = LiveWorkflowOracles.VerifyAmazonDealsSelection(reads, 10, args[2]),
+        ["v16"] = LiveWorkflowOracles.VerifyAmazonFirstProducts(reads, 10, args[2])
+    };
+    var result = new JsonObject
+    {
+        ["events_sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)),
+        ["full_capture"] = Compare(events)
+    };
+    var failure = Array.FindIndex(events, e => e["error"]?.GetValue<bool>() == true);
+    if (failure > 0) result["prefix_before_failed_read"] = Compare(events[..failure]);
+    Console.WriteLine(result.ToJsonString());
+    return;
+}
+
 if (args.FirstOrDefault() == "--compact-comparison")
 {
     if (args.Length != 2 || new FileInfo(args[1]).Length > 16_777_216)
