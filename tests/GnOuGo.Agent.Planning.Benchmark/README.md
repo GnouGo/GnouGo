@@ -909,6 +909,13 @@ campaign cannot be reset. Admission verifies publication and configuration bindi
 before each new logical request and HTTP attempt; received evidence and exact
 receipt recovery remain writable/readable after authority failure.
 
+On a new machine where the named predecessor's encrypted configuration was
+lost, an operator who explicitly authorizes a separate finite allowance can add
+`--previous-campaign-unavailable` to this command. The grant binds that
+declaration to its one-use reference. The predecessor's ceiling, accounting and
+global balance remain unknown. An available predecessor uses the ordinary
+snapshot path. Each new paid attempt still requires admission under the new cap.
+
 Use the returned configuration identity for fresh probe/plan runs. The host remains
 Limited and captures the new allowance for new sessions. The external-reservation
 argument then refers only to liabilities **inside this new allocation** (initially

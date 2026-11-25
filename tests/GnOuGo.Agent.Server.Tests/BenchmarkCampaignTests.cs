@@ -492,6 +492,39 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Fact]
+    public async Task FreshFundingWithUnavailableHistoryRequiresExplicitAuthorityAndPreservesUnknowns()
+    {
+        var records = new Records();
+        var previous = new BenchmarkCampaign(records, "lost");
+        var fresh = new BenchmarkCampaign(records, "new");
+        var config = new JsonObject { ["model"] = "model" };
+        await fresh.PinAsync(config, Ct);
+        Task<JsonObject> Grant(BenchmarkCampaign target, bool unavailable) =>
+            target.AuthorizeFreshAllocationAsync(previous.Id, 20m, "new-device-grant", config,
+                new string('a', 64), new string('b', 64), Ct, previousCampaignUnavailable: unavailable);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Grant(fresh, false));
+        var result = await Grant(fresh, true);
+        Assert.Equal("unavailable", result["previous_campaign_evidence"]!.ToString());
+        Assert.Null(result["previous_ceiling_eur"]);
+        Assert.Null(result["globally_available_funding"]);
+        Assert.Null(await previous.LoadAsync("planning-evaluation-configuration", "configuration", Ct));
+        var scope = await fresh.LoadAsync("planning-evaluation-configuration", "independent-funding-scope", Ct);
+        Assert.Null(scope!["previous_accounting"]);
+        var held = new BenchmarkHttpJournal(fresh, "probe:1:hash", 10, 10, 20m);
+        await held.PrepareAsync(Ct);
+        await held.SaveAsync(new() { Attempts = [new() { Id = "probe:1:hash:1" }] }, Ct);
+        var reopened = new BenchmarkCampaign(records, fresh.Id);
+        Assert.Equal(20m, (await Grant(reopened, true))["current_authorized_ceiling_eur"]!.GetValue<decimal>());
+        Assert.Equal(20m, (await BenchmarkHttpJournal.AccountingAsync(reopened, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+        var other = new BenchmarkCampaign(records, "other");
+        await other.PinAsync(config, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => Grant(other, true));
+        await previous.PinAsync(config, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => other.AuthorizeFreshAllocationAsync(previous.Id,
+            20m, "separate-grant", config, new string('a', 64), new string('b', 64), Ct, previousCampaignUnavailable: true));
+    }
+
+    [Fact]
     public async Task ExplicitFreshFundingRetainsOldLiabilitiesAndCannotResetOrDuplicateANewGrant()
     {
         var records = new Records(); var previous = new BenchmarkCampaign(records, "retained");

@@ -12,17 +12,19 @@ internal sealed partial class BenchmarkCampaign
     // The caller holds both the campaign lease and the authorization-reference lease.
     // This allocates new spending authority; it never clears or reprices an old ledger.
     internal async Task<JsonObject> AuthorizeFreshAllocationAsync(string previousId, decimal amount, string reference,
-        JsonObject configuration, string hostHash, string metadataHash, CancellationToken ct)
+        JsonObject configuration, string hostHash, string metadataHash, CancellationToken ct, bool previousCampaignUnavailable = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(reference);
         if (amount <= 0 || previousId == Id) throw new ArgumentException("A fresh allocation needs a positive amount and a distinct previous campaign.");
         var previous = new BenchmarkCampaign(records, previousId);
-        if (await previous.LoadAsync(FundingCollection, "configuration", ct) is null)
+        var previousConfiguration = await previous.LoadAsync(FundingCollection, "configuration", ct);
+        if (!previousCampaignUnavailable && previousConfiguration is null)
             throw new PlanningConflictException("The retained previous campaign is missing.");
         var material = new JsonObject { ["version"] = 1, ["kind"] = "independent_new_spend", ["campaign"] = Id,
             ["previous_campaign"] = previousId, ["authorization_reference"] = reference, ["allowance_eur"] = amount,
             ["configuration_hash"] = PlanningGraphCompiler.Fingerprint(configuration.ToJsonString()),
             ["host_configuration_hash"] = hostHash, ["declared_metadata_hash"] = metadataHash };
+        if (previousCampaignUnavailable) material["previous_campaign_evidence"] = "unavailable";
         var binding = await records.GetAsync(FundingCollection, "benchmark", GrantKey(reference), Author, ct);
         if (binding is not null && !JsonNode.DeepEquals(JsonNode.Parse(binding.Value), material))
             throw new PlanningConflictException("This funding authorization is already bound to another allocation.");
@@ -31,6 +33,8 @@ internal sealed partial class BenchmarkCampaign
             throw new PlanningConflictException("The captured fresh funding allocation changed.");
         if (scope is null)
         {
+            if (previousCampaignUnavailable && previousConfiguration is not null)
+                throw new PlanningConflictException("The predecessor configuration is available. Use the retained-campaign grant.");
             foreach (var collection in new[] { "planning-evaluation-requests", "planning-evaluation-receipts", BenchmarkHttpJournal.Collection,
                 "planning-evaluation-runs", "planning-evaluation-session-policy", "planning-evaluation-budgets" })
             {
@@ -43,8 +47,8 @@ internal sealed partial class BenchmarkCampaign
             if (await LoadAsync(FundingCollection, "spending-authorization", ct) is not null)
                 throw new PlanningConflictException("This campaign already has a spending authorization.");
             scope = new() { ["material"] = material.DeepClone(), ["status"] = "pending", ["created_at_utc"] = DateTimeOffset.UtcNow,
-                ["initial_new_consumption_eur"] = 0m, ["previous_ceiling_eur"] = await previous.CostCeilingAsync(ct),
-                ["previous_accounting"] = await BenchmarkHttpJournal.AccountingAsync(previous, ct: ct),
+                ["initial_new_consumption_eur"] = 0m, ["previous_ceiling_eur"] = previousCampaignUnavailable ? null : await previous.CostCeilingAsync(ct),
+                ["previous_accounting"] = previousCampaignUnavailable ? null : await BenchmarkHttpJournal.AccountingAsync(previous, ct: ct),
                 ["historical_liabilities_unreconciled"] = true, ["globally_available_funding"] = null };
             // Intent before the globally unique grant prevents partial initialization from authorizing inference.
             await SaveAsync(FundingCollection, FundingKey, scope, ct);
@@ -87,11 +91,16 @@ internal sealed partial class BenchmarkCampaign
             throw AdmissionFailure("funding_scope_configuration_changed");
         if (ConfigurationId is not null && ConfigurationId != identity)
             await VerifyFundedConfigurationChainAsync(ConfigurationId, identity, ct);
-        return new() { ["kind"] = "independent_new_spend", ["campaign"] = Id, ["allowance_eur"] = material["allowance_eur"]!.DeepClone(),
+        var unavailable = material["previous_campaign_evidence"]?.ToString() == "unavailable";
+        if (unavailable && (scope["previous_ceiling_eur"] is not null || scope["previous_accounting"] is not null))
+            throw AdmissionFailure("funding_scope_predecessor_evidence");
+        var result = new JsonObject { ["kind"] = "independent_new_spend", ["campaign"] = Id, ["allowance_eur"] = material["allowance_eur"]!.DeepClone(),
             ["current_authorized_ceiling_eur"] = ceiling,
             ["authorization_reference"] = reference, ["configuration_id"] = identity,
-            ["previous_campaign"] = material["previous_campaign"]!.DeepClone(), ["previous_ceiling_eur"] = scope["previous_ceiling_eur"]!.DeepClone(),
+            ["previous_campaign"] = material["previous_campaign"]!.DeepClone(), ["previous_ceiling_eur"] = unavailable ? null : scope["previous_ceiling_eur"]!.DeepClone(),
             ["historical_liabilities_unreconciled"] = true, ["initial_new_consumption_eur"] = 0m, ["globally_available_funding"] = null };
+        if (unavailable) result["previous_campaign_evidence"] = "unavailable";
+        return result;
     }
 
     // The original grant stays immutable. Later authority comes only from the existing

@@ -350,7 +350,8 @@ internal static class SchemaPortabilityCampaign
             var ready = await proposed.ReadinessAsync(CancellationToken.None); KeyVaultBenchmarkModel.RequireReady(ready);
             var grant = await campaign.AuthorizeFreshAllocationAsync(RequiredOption(args, "--previous-campaign"),
                 decimal.Parse(RequiredOption(args, "--amount-eur"), System.Globalization.CultureInfo.InvariantCulture), reference,
-                proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None);
+                proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None,
+                previousCampaignUnavailable: args.Contains("--previous-campaign-unavailable", StringComparer.Ordinal));
             Console.WriteLine(grant.ToJsonString()); return;
         }
         if (phase is "retain-schema-rejection" or "retain-context-rejection")
