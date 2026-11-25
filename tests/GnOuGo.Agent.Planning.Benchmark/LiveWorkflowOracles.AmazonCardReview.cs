@@ -104,13 +104,16 @@ internal static partial class LiveWorkflowOracles
 
     private static void BindKnownCardReviews(IReadOnlyDictionary<string, KnownCardReview> known, ResolvedStoreSource state)
     {
-        foreach (var (reference, card) in known) state.AliasEvidence.Add(new JsonObject
+        foreach (var (reference, card) in known) state.AliasEvidence.Add(CardMembership(reference, card, "known_source_card_membership"));
+    }
+
+    private static JsonObject CardMembership(string reference, KnownCardReview card, string proofKind)
+        => new()
         {
-            ["source_record"] = reference, ["proof_kind"] = "known_source_card_membership", ["product_identity"] = card.Identity,
+            ["source_record"] = reference, ["proof_kind"] = proofKind, ["product_identity"] = card.Identity,
             ["proof_source_records"] = new JsonArray(card.Entries.Select(r => (JsonNode)JsonValue.Create(r)).ToArray()),
             ["proof_event_indices"] = new JsonArray(), ["http_call_created"] = false, ["business_visit"] = false
-        });
-    }
+        };
 }
 
 internal static class AmazonCardReviewPolicy

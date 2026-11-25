@@ -66,9 +66,11 @@ internal static partial class LiveWorkflowOracles
 
     private static bool ValidResolvedNavigation(JsonObject read, string policy, ResolvedStoreSource state)
     {
-        if (policy is not (AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id)) return ValidNavigationEvidence(read, policy);
+        if (policy is not (AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id)) return ValidNavigationEvidence(read, policy);
         bool Allows(string value) => AmazonSourceCoveragePolicy.Allows(value) || state.ObservedAaxEntries.Contains(value) ||
-            policy == AmazonDealsPolicy.Id && value == AmazonDealsPolicy.Address && state.ObservedDeals;
+            policy is AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id && value == AmazonDealsPolicy.Address && state.ObservedDeals ||
+            policy == AmazonFirstProductsPolicy.Id && read["arguments"]?["url"]?.ToString() == AmazonDealsPolicy.Address &&
+                state.ObservedDeals && value == AmazonFirstProductsPolicy.SeasonalListing;
         if (!ValidNavigationEvidence(read, Allows)) return false;
         // Check the literal redirect before URI canonicalization, matching the
         // production Browser's before-contact decision. Old versions stay intact.

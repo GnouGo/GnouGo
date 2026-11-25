@@ -29,11 +29,12 @@ internal static partial class LiveWorkflowOracles
 
     private static bool SearchAddress(string? value) => AmazonAddress(value, out var uri) && uri.AbsolutePath == "/s";
 
-    private static ResolvedStoreSource ResolveStoreSource(IReadOnlyList<JsonObject> events, string? query, string policy = AmazonResolvedStorePolicy.Id)
+    private static ResolvedStoreSource ResolveStoreSource(IReadOnlyList<JsonObject> events, string? query, string policy = AmazonResolvedStorePolicy.Id, int maximum = 10)
     {
         var state = new ResolvedStoreSource();
-        var deals = policy == AmazonDealsPolicy.Id;
-        var observedAax = policy is AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id;
+        var firstProducts = policy == AmazonFirstProductsPolicy.Id;
+        var deals = policy == AmazonDealsPolicy.Id || firstProducts;
+        var observedAax = policy == AmazonAaxProductPolicy.Id || deals;
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
         var reads = events.Select((read, index) => (read, index)).Where(p => p.read["tool"]?.ToString() == "browser_get_content").ToArray();
         var navigations = reads.Where(p => p.read["arguments"]?["url"] is not null).ToArray();
@@ -70,13 +71,15 @@ internal static partial class LiveWorkflowOracles
         {
             var id = CaptureId(first);
             if (id is null || source.Records.Where((r, i) => r?["reference"]?.ToString() != id + ":record:" + i).Any() ||
-                !ConsistentCardMetadata(source.Records.OfType<JsonObject>()))
+                !firstProducts && !ConsistentCardMetadata(source.Records.OfType<JsonObject>()))
             { state.Findings.Add("search_record_provenance_inconsistent"); return state; }
             state.CaptureIds.Add(id);
             state.ObservedDeals = deals && source.Records.OfType<JsonObject>().Any(r => r["kind"]?.ToString() == "link" && r["href"]?.ToString() == AmazonDealsPolicy.Address);
             state.ObservedAaxEntries = source.Records.OfType<JsonObject>().Where(r => r["kind"]?.ToString() == "link" &&
                 r["href"]?.ToString() is { } href && AmazonAaxProductPolicy.IsAaxEntry(href)).Select(r => r["href"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         }
+
+        if (firstProducts) return ResolveFirstProductCards(source, navigations.Skip(1).ToArray(), complete, state, maximum);
 
         var knownReviews = new Dictionary<string, KnownCardReview>(StringComparer.Ordinal);
         var aliases = policy is AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id ? CardReviewAliases(source, state.Findings, out knownReviews) :
@@ -206,8 +209,14 @@ internal static partial class LiveWorkflowOracles
 
     internal static IEnumerable<string> ResolvedSourceAllowedEntries(IReadOnlyList<JsonObject> reads, string policy)
     {
+        if (policy == AmazonFirstProductsPolicy.Id && reads.Any(r => r["tool"]?.ToString() == "browser_close")) return [];
         var source = ResolveStoreSource(reads, null, policy);
         if (source.Findings.Count != 0) return [];
+        if (policy == AmazonFirstProductsPolicy.Id && source.Complete)
+        {
+            var visits = reads.Count(r => r["tool"]?.ToString() == "browser_get_content" && r["arguments"]?["url"] is not null) - 1 - source.ResolutionCount;
+            return visits >= 0 && visits < source.Products.Count ? source.Products[visits].Urls : [];
+        }
         return source.NextResolution is { } next ? [next] : source.Complete ? source.Products.SelectMany(p => p.Urls).Distinct(StringComparer.Ordinal) : [];
     }
 
@@ -239,11 +248,11 @@ internal static partial class LiveWorkflowOracles
                 !complete.TryGetValue(read, out var snapshot) || ObservedProductIdentity(snapshot.Url) != product.Identity)
                 findings.Add("first_product_identity_or_order_mismatch");
             if (!ValidResolvedNavigation(read, policy, source) ||
-                policy is AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id && (CaptureId(read) is not { } capture || !businessCaptures.Add(capture)) ||
+                policy is AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id && (CaptureId(read) is not { } capture || !businessCaptures.Add(capture)) ||
                 ObservedProductIdentity(read["result"]?["navigationEvidence"]?["finalUrl"]?.ToString()) != product.Identity)
                 findings.Add("product_navigation_provenance_incomplete");
         }
-        var report = new JsonObject { ["version"] = policy == AmazonDealsPolicy.Id ? AmazonDealsVersion : policy == AmazonAaxProductPolicy.Id ? AmazonAaxProductVersion : policy == AmazonSourceCoveragePolicy.Id ? AmazonSourceCoverageVersion : policy == AmazonStoreListPolicy.Id ? AmazonStoreListVersion : policy == AmazonCardReviewPolicy.Id ? AmazonCardReviewVersion : policy == AmazonReviewProofPolicy.Id ? AmazonReviewProofVersion : policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
+        var report = new JsonObject { ["version"] = policy == AmazonFirstProductsPolicy.Id ? AmazonFirstProductsVersion : policy == AmazonDealsPolicy.Id ? AmazonDealsVersion : policy == AmazonAaxProductPolicy.Id ? AmazonAaxProductVersion : policy == AmazonSourceCoveragePolicy.Id ? AmazonSourceCoverageVersion : policy == AmazonStoreListPolicy.Id ? AmazonStoreListVersion : policy == AmazonCardReviewPolicy.Id ? AmazonCardReviewVersion : policy == AmazonReviewProofPolicy.Id ? AmazonReviewProofVersion : policy == AmazonResolvedProductPolicy.Id ? AmazonResolvedProductVersion : AmazonResolvedStoreVersion, ["passed"] = findings.Count == 0,
             ["source_prerequisite_qualified"] = source.Complete && !string.IsNullOrWhiteSpace(query), ["source_resolution_count"] = source.ResolutionCount,
             ["expected_product_count"] = expected.Length, ["visited_product_count"] = visits.Length,
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
@@ -256,6 +265,12 @@ internal static partial class LiveWorkflowOracles
         if (policy is AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) report["source_proof_aliases"] = source.AliasEvidence.DeepClone();
         if (policy is AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) report["source_store_list_evidence"] = source.StoreListEvidence.DeepClone();
         if (policy is AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) report["unclassified_heading_contexts"] = source.UnclassifiedContexts.DeepClone();
+        if (policy == AmazonFirstProductsPolicy.Id)
+        {
+            report["source_resolution_evidence"] = source.ResolutionEvidence.DeepClone();
+            report["source_card_membership"] = source.AliasEvidence.DeepClone();
+            report["selected_identities"] = new JsonArray(expected.Select(p => (JsonNode)JsonValue.Create(p.Identity)).ToArray());
+        }
         if (policy == AmazonDealsPolicy.Id) report["deals_context_evidence"] = source.DealsContexts.DeepClone();
         if (policy is AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) report["aax_product_context_evidence"] = source.AaxContextEvidence.DeepClone();
         return report;

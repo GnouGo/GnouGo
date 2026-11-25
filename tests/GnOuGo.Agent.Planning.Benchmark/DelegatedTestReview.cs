@@ -206,7 +206,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         {
             if (args["url"] is { } url)
             {
-                if (browserObservationPolicy == AmazonDealsPolicy.Id && Uri.TryCreate(url.ToString(), UriKind.Absolute, out var search) &&
+                if (browserObservationPolicy is AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id && Uri.TryCreate(url.ToString(), UriKind.Absolute, out var search) &&
                     search.AbsolutePath == "/s" && !AmazonDealsPolicy.CanAcquireSource(args))
                     throw new PlanningConflictException("The observed-entry search requires observation_complete with no selector.");
                 if (!(AmazonObservedRedirectPolicy.IsObserved(browserObservationPolicy)
@@ -214,7 +214,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                         (!AmazonObservedRedirectPolicy.IsEntry(url.ToString(), browserObservationPolicy!) || _observedRedirects.Contains(url.ToString()))
                     : AmazonUrl(url.ToString())) || args["cursor"] is not null)
                     throw new PlanningConflictException("Only authorized product/search reads are permitted.");
-                if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id && new Uri(url.ToString()).AbsolutePath != "/s" &&
+                if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id && new Uri(url.ToString()).AbsolutePath != "/s" &&
                     !_observedRedirects.Contains(url.ToString()))
                     throw new PlanningConflictException("Only the next exact source resolution or a qualified source product link is authorized.");
                 if (browserObservationPolicy is not null && new Uri(url.ToString()).AbsolutePath == "/s") { _observedRedirects.Clear(); _searchReads.Clear(); }
@@ -268,7 +268,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         if (tool == "browser_close" || result is null || result.IsError || result.Content?["success"]?.GetValue<bool>() != true)
         {
             ClearBrowser();
-            if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
+            if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
             return;
         }
         var content = result.Content!;
@@ -280,7 +280,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                 arguments?["url"] is null && (url != _browserUrl || snapshot != _browserSnapshot))
             {
                 ClearBrowser();
-                if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
+                if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id) { _observedRedirects.Clear(); _searchReads.Clear(); }
                 throw new PlanningConflictException("Browser producer evidence left the authorized URL or observation generation.");
             }
             // A product navigation may enter another search through a redirect,
@@ -293,7 +293,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             bool Search(string? value) => value is not null && AmazonObservedRedirectPolicy.Allows(value, browserObservationPolicy!) &&
                 new Uri(value).AbsolutePath == "/s";
             _browserUrl = url; _browserSnapshot = snapshot;
-            if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id)
+            if (browserObservationPolicy is AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id)
             {
                 _searchReads.Add(new JsonObject { ["tool"] = tool, ["error"] = false,
                     ["arguments"] = arguments?.DeepClone(), ["result"] = content.DeepClone() });

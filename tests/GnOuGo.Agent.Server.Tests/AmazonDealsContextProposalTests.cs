@@ -179,7 +179,7 @@ public sealed class AmazonDealsContextProposalTests
         Assert.Equal(bytes, Serialize(events));
     }
 
-    private static List<JsonObject> Events()
+    internal static List<JsonObject> Events()
     {
         var events = AmazonAaxWorkflowTests.SourceProofs();
         events[0]["arguments"]!.AsObject().Remove("selector");
@@ -191,7 +191,7 @@ public sealed class AmazonDealsContextProposalTests
         records.Insert(3, offer); Reindex(events); events.Insert(3, DealRead("own-deal"));
         return events;
     }
-    private static JsonObject DealRead(string id)
+    internal static JsonObject DealRead(string id)
     {
         var read = AmazonAaxSourceDiagnosticTests.Resolution(Deals, id); var result = read["result"]!;
         result["url"] = Deals; result["acquisition"]!["navigation"]!["url"] = Deals;
