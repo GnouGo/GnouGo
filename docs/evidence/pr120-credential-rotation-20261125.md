@@ -23,7 +23,7 @@ The verifier binds the immutable amendment to its parent, both host fingerprints
 
 The tested verifier is `37b983be926375076015fce2f12d0214c0133e25`. All 24 KeyVault core tests and 253 campaign tests passed. The final proof-shape change passed all nine focused rotation cases. The Release benchmark build reported zero warnings and errors.
 
-The solution-wide run also found Windows cleanup failures outside the rotation tests. In Flow.Integrations, 27 tests failed and 97 passed. The first failure was an open `vault.db` when `CapabilitySnapshotJournalTests` deleted its temporary directory. The private solution log is `rotation-solution.log`. [Machine-readable admission checks, accounting and receipt hashes](pr120-credential-rotation-20261125.json)
+The solution-wide run also found Windows failures outside the rotation tests. In Flow.Integrations, 27 tests failed and 97 passed. The first failure was an open `vault.db` when `CapabilitySnapshotJournalTests` deleted its temporary directory. Cmd.Mcp also had one child-process cancellation test fail. The broader run was stopped during Browser.Mcp tests after it had already recorded failures there. The full solution has no passing result for this checkout. The private solution log is `rotation-solution.log`. [Machine-readable admission checks, accounting and receipt hashes](pr120-credential-rotation-20261125.json)
 
 The private receipts are in `%LOCALAPPDATA%\GnOuGo-Pr120-Qualification`, including `rotation-preview-error.log`, `rotation-version-dates.txt`, `rotation-deployment.json`, `rotation-audit.json` and `rotation-cold-reopen.log`. The previous ordered-visit diagnostics remain available in the [Amazon evidence](pr120-first-products-20261125.md).
 
