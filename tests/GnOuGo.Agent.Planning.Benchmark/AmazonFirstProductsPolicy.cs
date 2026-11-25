@@ -96,7 +96,9 @@ internal static partial class LiveWorkflowOracles
                 // A named variation link in its own nested listitem is distinct from the card's primary heading.
                 if (headings.Length != 1 || !ProductEntry(link["href"]!.ToString()) || !AuxiliaryCardAnchor(link) || link["role"]?.ToString() != "link" ||
                     link["groupContext"]?["role"]?.ToString() != "listitem" || link["occurrence"]?["selector"]?.ToString() is not { } parent ||
-                    link["group"]?.ToString() is not { } group || !group.StartsWith(parent + " > ", StringComparison.Ordinal) ||
+                    link["group"]?.ToString() is not { Length: > 0 } group || group == parent ||
+                    link["groupContext"]?["index"] is not JsonValue ordinal || !ordinal.TryGetValue<int>(out var index) || index < 0 ||
+                    group.StartsWith('#') && !group.StartsWith(parent + " > ", StringComparison.Ordinal) ||
                     string.IsNullOrWhiteSpace(link["text"]?.ToString()))
                     return Fail("source_card_product_identity_conflict");
             }

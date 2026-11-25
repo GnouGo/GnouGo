@@ -107,9 +107,12 @@ public sealed class AmazonFirstProductsTests
         var variant = Link(Product(Second), First, 1);
         variant["role"] = "link";
         variant["text"] = "Brown";
-        variant["groupContext"] = new JsonObject { ["role"] = "listitem" };
+        variant["groupContext"] = new JsonObject { ["role"] = "listitem", ["index"] = 7 };
         variant["group"] = "#card-1 > div";
         var source = Source(variant, Link(Product(First), First, 1, true));
+        Assert.True(Verify([source], 1)["source_prerequisite_qualified"]!.GetValue<bool>());
+        // Browser may identify the nested group with a document-unique relative selector.
+        variant["group"] = "div:nth-of-type(3) > div:nth-of-type(1)";
         Assert.True(Verify([source], 1)["source_prerequisite_qualified"]!.GetValue<bool>());
         variant["group"] = "#different-card > div";
         Assert.False(Verify([source], 1)["source_prerequisite_qualified"]!.GetValue<bool>());
