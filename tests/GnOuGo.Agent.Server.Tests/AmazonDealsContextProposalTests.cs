@@ -62,6 +62,17 @@ public sealed class AmazonDealsContextProposalTests
     }
 
     [Fact]
+    public void ASecondListingResponseCannotBeCountedAsOneOwnedGet()
+    {
+        var events = Events();
+        var evidence = events[3]["result"]!["navigationEvidence"]!;
+        evidence["supersededResponses"] = evidence["hops"]!.DeepClone();
+        var result = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query);
+        Assert.False(result["source_prerequisite_qualified"]!.GetValue<bool>());
+        Assert.Contains("exact_deals_destination_unverified", result["findings"]!.AsArray().Select(f => f!.ToString()));
+    }
+
+    [Fact]
     public void RepeatedAuxiliaryOccurrencesEachRequireTheirOwnReadInSourceOrder()
     {
         var events = Events(); var records = Records(events);

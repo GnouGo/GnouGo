@@ -29,6 +29,7 @@ internal static partial class LiveWorkflowOracles
     private static bool ExactListingRead(JsonObject read, string? documentUrl)
         => documentUrl == AmazonDealsPolicy.Address && read["result"]?["url"]?.ToString() == AmazonDealsPolicy.Address &&
             read["result"]?["acquisition"]?["navigation"]?["url"]?.ToString() == AmazonDealsPolicy.Address &&
+            read["result"]?["navigationEvidence"]?["supersededResponses"] is null or JsonArray { Count: 0 } &&
             read["result"]?["navigationEvidence"]?["hops"] is JsonArray { Count: 1 } hops &&
             hops[0]?["statusCode"]?.GetValue<int>() == 200;
 }
