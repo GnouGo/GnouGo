@@ -1,6 +1,8 @@
 # Proposed exact auxiliary-listing amendment
 
-**Inactive. Separate workflow/verifier activation approval required. No added budget.**
+**Historical proposal, 13 November.** The operator approved this exact amendment
+on 25 November under the independent Windows spending ceiling. The original
+source-only evidence and earlier workflow captures retain their versions.
 
 The source-only authorization `user-amazon-deals-source-only-20261113` has been used. Diagnostic01 completed 38 exact observed `https://www.amazon.fr/deals` GETs. Fresh combined diagnostic02 retained 1,580 source records and 57 own reads in original order: 38 exact-address occurrences and 19 previously authorized sponsored resolutions. Every bare `/deals` read returned HTTP 200 at that same exact address in one GET. The three own sponsored product reads, exact review alias and auxiliary offer link belong to the same retained source and empty-ASIN div context. No observation loss is demonstrated. V10/v14 correctly remains blocked under its current grant.
 

@@ -6,9 +6,8 @@ internal static partial class LiveWorkflowOracles
     // capture, Browser configuration, planning facts and business-oracle dispatch.
     internal static JsonObject AnalyzeAmazonDealsContextProposal(IReadOnlyList<JsonObject> events, string query)
     {
-        const string deals = "https://www.amazon.fr/deals";
+        const string deals = AmazonDealsPolicy.Address;
         var findings = new List<string>();
-        var contexts = new JsonArray();
         Snapshot? source = null;
         if (events.FirstOrDefault() is { } first)
         {
@@ -60,6 +59,21 @@ internal static partial class LiveWorkflowOracles
                 identity == ObservedProductIdentity(read["result"]?["url"]?.ToString())) products.Add(reference, identity);
             else if (!ProposedStoreDestination(navigation["finalUrl"]?.ToString() ?? "")) findings.Add("source_destination_unverified");
         }
+        var contexts = DealsContextEvidence(records, products, offers, findings);
+        if (contexts.Count == 0) findings.Add("deals_original_product_context_missing");
+        return new JsonObject { ["version"] = "amazon-deals-context-v11-v15-proposal-v1", ["active"] = false,
+            ["relationship_evidence_complete"] = findings.Count == 0, ["contexts"] = contexts,
+            ["ordered_own_read_count"] = candidates.Length, ["own_deals_read_count"] = offers.Count,
+            ["findings"] = new JsonArray(findings.Distinct(StringComparer.Ordinal).Select(f => (JsonNode)JsonValue.Create(f)).ToArray()),
+            ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false, ["navigation_authorized"] = false,
+            ["model_calls"] = 0, ["navigation_calls"] = 0 };
+    }
+
+    private static JsonArray DealsContextEvidence(JsonObject[] records, IReadOnlyDictionary<string, string> products,
+        IReadOnlySet<string> offers, List<string> findings)
+    {
+        const string deals = AmazonDealsPolicy.Address;
+        var contexts = new JsonArray();
         var examined = new HashSet<string>(StringComparer.Ordinal);
         foreach (var heading in records.Where(r => r["kind"]?.ToString() == "link" && r["heading"]?.ToString() is { Length: > 0 } &&
             ContextAttribute(r)?["value"]?.ToString() == "" && r["href"]?.ToString() is { } href && AmazonAaxProductPolicy.IsEntry(href)))
@@ -97,12 +111,6 @@ internal static partial class LiveWorkflowOracles
                 ["candidate_identity"] = identities.Count == 1 ? identities.Single() : null, ["exact_review_aliases"] = aliases,
                 ["relationship_supported"] = findings.Count == before });
         }
-        if (contexts.Count == 0) findings.Add("deals_original_product_context_missing");
-        return new JsonObject { ["version"] = "amazon-deals-context-v11-v15-proposal-v1", ["active"] = false,
-            ["relationship_evidence_complete"] = findings.Count == 0, ["contexts"] = contexts,
-            ["ordered_own_read_count"] = candidates.Length, ["own_deals_read_count"] = offers.Count,
-            ["findings"] = new JsonArray(findings.Distinct(StringComparer.Ordinal).Select(f => (JsonNode)JsonValue.Create(f)).ToArray()),
-            ["source_prerequisite_qualified"] = false, ["business_oracle_passed"] = false, ["navigation_authorized"] = false,
-            ["model_calls"] = 0, ["navigation_calls"] = 0 };
+        return contexts;
     }
 }

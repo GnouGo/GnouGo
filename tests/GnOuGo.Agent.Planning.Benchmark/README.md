@@ -1385,8 +1385,15 @@ ordered complete capture and the narrow empty-ASIN product-card relationship; it
 never qualifies a source, grants navigation or claims business completion. V10/v14
 remain unchanged. See the [versioned activation proposal and controlled/retained
 evidence](../../docs/evidence/pr120-amazon-deals-proposal-2026-11-13/proposal.md).
-Separate explicit approval is required before implementation and activation of
-the proposed policy v11/verifier v15.
+On 25 November the operator separately approved workflow policy v11 and
+business verifier v15. A fresh Amazon run selects them with
+`--amazon-deals-context --amazon-scope-approval user-amazon-deals-workflow-20261125`.
+The Browser acquires the literal listing address from its own complete search.
+Every occurrence needs its own ordered, complete, single GET 200 to that exact
+address. The verifier accounts for an auxiliary link in an unresolved product
+card only under the approved same-card proof. Later business visits, workbook
+contents and cleanup have their usual independent checks. Captures selecting
+v10/v14 continue to use their original rules. The allocation is separate.
 
 ## Fresh Server business qualifications
 

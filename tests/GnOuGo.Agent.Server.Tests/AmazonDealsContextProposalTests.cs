@@ -8,6 +8,33 @@ public sealed class AmazonDealsContextProposalTests
     private const string Deals = "https://www.amazon.fr/deals";
 
     [Fact]
+    public void ApprovedWorkflowRequiresOwnOrderedReadsAndSeparateProductVisits()
+    {
+        var events = Events();
+        var original = Serialize(events);
+        var policy = AmazonObservedRedirectPolicy.Capture(["--amazon-deals-context", "--amazon-scope-approval", AmazonDealsPolicy.Approval], "amazon");
+        Assert.Equal(AmazonDealsPolicy.Id, policy);
+        Assert.Throws<InvalidOperationException>(() => AmazonObservedRedirectPolicy.Capture(["--amazon-deals-context", "--amazon-scope-approval", AmazonAaxProductPolicy.Approval], "amazon"));
+        Assert.Throws<ArgumentException>(() => AmazonObservedRedirectPolicy.Capture(["--amazon-deals-context", "--amazon-aax-product-context"], "amazon"));
+        Assert.DoesNotContain("deals", AmazonObservedRedirectPolicy.Pattern(policy!));
+        for (var index = 1; index < events.Count; index++)
+            Assert.Equal(events[index]["arguments"]!["url"]!.ToString(),
+                Assert.Single(LiveWorkflowOracles.ResolvedSourceAllowedEntries(events.Take(index).ToArray(), policy!)));
+        var proof = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query);
+        Assert.True(proof["source_prerequisite_qualified"]!.GetValue<bool>(), proof.ToJsonString());
+        Assert.False(proof["passed"]!.GetValue<bool>());
+        Assert.Equal(1, proof["expected_product_count"]!.GetValue<int>());
+        Assert.Equal(0, proof["visited_product_count"]!.GetValue<int>());
+        Assert.Equal(1, Assert.Single(proof["deals_context_evidence"]!.AsArray())!["own_auxiliary_deals_reads"]!.GetValue<int>());
+        Assert.Equal(original, Serialize(events));
+        events.Add(AmazonAaxSourceDiagnosticTests.Resolution(AmazonAaxSourceDiagnosticTests.Heading, "business-visit"));
+        var outcome = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query);
+        Assert.True(outcome["passed"]!.GetValue<bool>(), outcome.ToJsonString());
+        events[^1]["result"]!["observationSnapshot"]!["id"] = "own-deal";
+        Assert.False(LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query)["passed"]!.GetValue<bool>());
+    }
+
+    [Fact]
     public void OwnAuxiliaryProofSupportsOnlyTheInactiveRelationshipAndPreservesEveryRecord()
     {
         var events = Events(); var bytes = Serialize(events);
@@ -39,8 +66,10 @@ public sealed class AmazonDealsContextProposalTests
         var result = Analyze(events);
         Assert.True(result["relationship_evidence_complete"]!.GetValue<bool>(), result.ToJsonString());
         Assert.Equal(2, result["own_deals_read_count"]!.GetValue<int>());
+        Assert.True(LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query)["source_prerequisite_qualified"]!.GetValue<bool>());
         events.RemoveAt(4);
         Assert.False(Analyze(events)["relationship_evidence_complete"]!.GetValue<bool>());
+        Assert.False(LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, Query)["source_prerequisite_qualified"]!.GetValue<bool>());
     }
 
     [Fact]
@@ -51,6 +80,8 @@ public sealed class AmazonDealsContextProposalTests
         var result = Analyze(events);
         Assert.True(result["relationship_evidence_complete"]!.GetValue<bool>(), result.ToJsonString());
         Assert.False(LiveWorkflowOracles.VerifyAmazonAaxProductSelection(events, 3, Query)["source_prerequisite_qualified"]!.GetValue<bool>());
+        var active = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 3, Query);
+        Assert.True(active["source_prerequisite_qualified"]!.GetValue<bool>(), active.ToJsonString());
     }
 
     [Fact]
@@ -70,6 +101,10 @@ public sealed class AmazonDealsContextProposalTests
         Assert.True(result["relationship_evidence_complete"]!.GetValue<bool>(), result.ToJsonString());
         Assert.Single(result["contexts"]!.AsArray());
         Assert.Equal(5, result["ordered_own_read_count"]!.GetValue<int>());
+        var active = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 3, Query);
+        Assert.True(active["source_prerequisite_qualified"]!.GetValue<bool>(), active.ToJsonString());
+        Assert.Equal(2, active["expected_product_count"]!.GetValue<int>());
+        Assert.Equal(2, active["source_resolution_evidence"]!.AsArray().Count(row => row?["kind"]?.ToString() == "auxiliary_listing"));
         Assert.Equal(bytes, Serialize(events));
     }
 
@@ -123,6 +158,9 @@ public sealed class AmazonDealsContextProposalTests
         var result = LiveWorkflowOracles.AnalyzeAmazonDealsContextProposal(events, change == "wrong_query" ? "different" : Query);
         Assert.False(result["relationship_evidence_complete"]!.GetValue<bool>(), result.ToJsonString());
         Assert.False(result["source_prerequisite_qualified"]!.GetValue<bool>());
+        var active = LiveWorkflowOracles.VerifyAmazonDealsSelection(events, 1, change == "wrong_query" ? "different" : Query);
+        Assert.DoesNotContain(active["deals_context_evidence"]!.AsArray(), c => c?["relationship_supported"]?.GetValue<bool>() == true &&
+            active["source_prerequisite_qualified"]!.GetValue<bool>());
         Assert.Equal(bytes, Serialize(events));
     }
 

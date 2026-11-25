@@ -673,6 +673,7 @@ internal static class ServerLiveDiagnostics
                 if (scenario is "amazon" or "code")
                 {
                     report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
+                        browserObservationPolicy == AmazonDealsPolicy.Id ? LiveWorkflowOracles.AmazonDealsVersion :
                         browserObservationPolicy == AmazonAaxProductPolicy.Id ? LiveWorkflowOracles.AmazonAaxProductVersion :
                         browserObservationPolicy == AmazonSourceCoveragePolicy.Id ? LiveWorkflowOracles.AmazonSourceCoverageVersion :
                         browserObservationPolicy == AmazonStoreListPolicy.Id ? LiveWorkflowOracles.AmazonStoreListVersion :

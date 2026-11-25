@@ -28,7 +28,7 @@ internal static partial class LiveWorkflowOracles
         return aliases;
     }
 
-    private static bool PrepareAaxCoverage(Snapshot source, ResolvedStoreSource state, IReadOnlySet<string> aliases)
+    private static bool PrepareAaxCoverage(Snapshot source, ResolvedStoreSource state, IReadOnlySet<string> aliases, bool deals)
     {
         state.UnclassifiedContexts = UnclassifiedHeadingContexts(source);
         var records = source.Records.OfType<JsonObject>().ToDictionary(r => r["reference"]!.ToString(), StringComparer.Ordinal);
@@ -37,7 +37,9 @@ internal static partial class LiveWorkflowOracles
             var heading = records[context["heading_record"]!.ToString()];
             var code = context["asin_context"]?["value"]?.ToString();
             if (!AmazonAaxProductPolicy.IsAaxEntry(heading["href"]!.ToString()) || code != "" && !ProductCode(code) ||
-                context["source_records"]!.AsArray().Any(r => !AmazonAaxProductPolicy.Allows(records[r!.ToString()]["href"]!.ToString()) && !aliases.Contains(r!.ToString())))
+                context["source_records"]!.AsArray().Select(r => records[r!.ToString()]).Any(r =>
+                    !AmazonAaxProductPolicy.Allows(r["href"]!.ToString()) && !aliases.Contains(r["reference"]!.ToString()) &&
+                    !(deals && r["href"]!.ToString() == AmazonDealsPolicy.Address && AuxiliaryCardAnchor(r))))
                 state.Findings.Add("search_heading_context_unaccounted");
         }
         return state.Findings.Count == 0;
@@ -50,19 +52,23 @@ internal static partial class LiveWorkflowOracles
             products.ContainsKey(r["reference"]!.ToString())).ToArray();
         var identities = own.ToDictionary(r => r["reference"]!.ToString(), r => products[r["reference"]!.ToString()], StringComparer.Ordinal);
         var originals = own.Select(r => r["href"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-        state.AaxContextEvidence = AaxProductContextEvidence(source, identities, originals, state.Findings, emptyOnly: true);
+        var listingHeadings = state.DealsContexts.OfType<JsonObject>().Where(c => c["relationship_supported"]!.GetValue<bool>())
+            .Select(c => c["original_context"]!["heading_record"]!.ToString()).ToHashSet(StringComparer.Ordinal);
+        state.AaxContextEvidence = AaxProductContextEvidence(source, identities, originals, state.Findings, emptyOnly: true, listingHeadings);
         var supported = state.AaxContextEvidence.OfType<JsonObject>().Where(c => c["relationship_supported"]?.GetValue<bool>() == true)
             .Select(c => c["original_context"]!["heading_record"]!.ToString()).ToHashSet(StringComparer.Ordinal);
         state.UnclassifiedContexts = new JsonArray(state.UnclassifiedContexts.OfType<JsonObject>()
-            .Where(c => !ProductCode(c["asin_context"]?["value"]?.ToString()) && !supported.Contains(c["heading_record"]!.ToString()))
+            .Where(c => !ProductCode(c["asin_context"]?["value"]?.ToString()) && !supported.Contains(c["heading_record"]!.ToString()) &&
+                !listingHeadings.Contains(c["heading_record"]!.ToString()))
             .Select(c => (JsonNode)c.DeepClone()).ToArray());
         if (state.UnclassifiedContexts.Count != 0) state.Findings.Add("search_heading_context_unaccounted");
     }
 
     private static bool ValidResolvedNavigation(JsonObject read, string policy, ResolvedStoreSource state)
     {
-        if (policy != AmazonAaxProductPolicy.Id) return ValidNavigationEvidence(read, policy);
-        bool Allows(string value) => AmazonSourceCoveragePolicy.Allows(value) || state.ObservedAaxEntries.Contains(value);
+        if (policy is not (AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id)) return ValidNavigationEvidence(read, policy);
+        bool Allows(string value) => AmazonSourceCoveragePolicy.Allows(value) || state.ObservedAaxEntries.Contains(value) ||
+            policy == AmazonDealsPolicy.Id && value == AmazonDealsPolicy.Address && state.ObservedDeals;
         if (!ValidNavigationEvidence(read, Allows)) return false;
         // Check the literal redirect before URI canonicalization, matching the
         // production Browser's before-contact decision. Old versions stay intact.
@@ -75,12 +81,13 @@ internal static partial class LiveWorkflowOracles
     private static string? CaptureId(JsonObject read) => read["result"]?["observationSnapshot"]?["id"]?.ToString() ??
         read["result"]?["observationManifest"]?["id"]?.ToString() ?? read["result"]?["observation"]?["id"]?.ToString();
     private static JsonArray AaxProductContextEvidence(Snapshot source, IReadOnlyDictionary<string, string> identities,
-        IReadOnlySet<string> originals, List<string> findings, bool emptyOnly = false)
+        IReadOnlySet<string> originals, List<string> findings, bool emptyOnly = false, IReadOnlySet<string>? provedHeadings = null)
     {
         var contexts = new JsonArray();
         var records = source.Records.OfType<JsonObject>().ToDictionary(record => record["reference"]!.ToString(), StringComparer.Ordinal);
         foreach (var context in UnclassifiedHeadingContexts(source).OfType<JsonObject>())
         {
+            if (provedHeadings?.Contains(context["heading_record"]!.ToString()) == true) continue;
             if (emptyOnly && context["asin_context"]?["value"]?.ToString() != "") continue;
             var members = context["source_records"]!.AsArray().Select(reference => records[reference!.ToString()]).ToArray();
             if (!members.Any(member => originals.Contains(member["href"]!.ToString()))) continue;
@@ -136,7 +143,8 @@ internal static class AmazonAaxProductPolicy
     internal static bool IsSourceEntry(string value) => AmazonSourceCoveragePolicy.IsSourceEntry(value) || IsAaxEntry(value) || IsReview(value);
     private static readonly Regex Reviews = new(@"\A(?:" + EntryPattern + @")#customerReviews\z", RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
     internal static bool IsReview(string value) => Reviews.IsMatch(value);
-    internal const string PlanningFacts = "Authorized browser policy " + Id + ". Use the complete current search observation. " +
+    internal const string PlanningFacts = "Authorized browser policy " + Id + ". " + SourceFacts;
+    internal const string SourceFacts = "Use the complete current search observation. " +
         "Keep the original ordered records with their card, nearest data-asin, heading, literal href and repeated occurrences. " +
         AmazonResolvedProductPolicy.SourceResolutionFacts + " Keep each complete receipt with its original record. " +
         "The host verifies card membership, heading coverage and product identity against the search, redirect receipts and destination observations. " +

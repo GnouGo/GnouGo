@@ -25,7 +25,7 @@ internal static partial class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
             if (run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion &&
                 (run["browser_observation_policy"]?.ToString() != AmazonObservedRedirectPolicy.Id ||
@@ -60,6 +60,9 @@ internal static partial class LiveWorkflowOracles
             if (run["oracle_version"]?.ToString() == AmazonSourceCoverageVersion &&
                 (run["browser_observation_policy"]?.ToString() != AmazonSourceCoveragePolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonSourceCoveragePolicy.Approval))
                 throw new InvalidOperationException("Source coverage requires its versioned capture and unchanged existing grant.");
+            if (run["oracle_version"]?.ToString() == AmazonDealsVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonDealsPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonDealsPolicy.Approval))
+                throw new InvalidOperationException("The auxiliary listing verifier requires its separately captured workflow grant.");
             if (run["oracle_version"]?.ToString() == AmazonAaxProductVersion &&
                 (run["browser_observation_policy"]?.ToString() != AmazonAaxProductPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonAaxProductPolicy.Approval))
                 throw new InvalidOperationException("The AAX verifier requires its separately captured workflow grant.");
@@ -100,16 +103,16 @@ internal static partial class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion)
                     {
-                        var resolvedPolicy = run["oracle_version"]?.ToString() == AmazonAaxProductVersion ? AmazonAaxProductPolicy.Id : run["oracle_version"]?.ToString() == AmazonSourceCoverageVersion ? AmazonSourceCoveragePolicy.Id : run["oracle_version"]?.ToString() == AmazonStoreListVersion ? AmazonStoreListPolicy.Id : run["oracle_version"]?.ToString() == AmazonCardReviewVersion ? AmazonCardReviewPolicy.Id : run["oracle_version"]?.ToString() == AmazonReviewProofVersion ? AmazonReviewProofPolicy.Id : run["oracle_version"]?.ToString() == AmazonResolvedProductVersion ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
-                        var resolvedSource = run["oracle_version"]?.ToString() is AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion
+                        var resolvedPolicy = run["oracle_version"]?.ToString() == AmazonDealsVersion ? AmazonDealsPolicy.Id : run["oracle_version"]?.ToString() == AmazonAaxProductVersion ? AmazonAaxProductPolicy.Id : run["oracle_version"]?.ToString() == AmazonSourceCoverageVersion ? AmazonSourceCoveragePolicy.Id : run["oracle_version"]?.ToString() == AmazonStoreListVersion ? AmazonStoreListPolicy.Id : run["oracle_version"]?.ToString() == AmazonCardReviewVersion ? AmazonCardReviewPolicy.Id : run["oracle_version"]?.ToString() == AmazonReviewProofVersion ? AmazonReviewProofPolicy.Id : run["oracle_version"]?.ToString() == AmazonResolvedProductVersion ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
+                        var resolvedSource = run["oracle_version"]?.ToString() is AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion
                             ? ResolveStoreSource(events, run["inputs"]?["query"]?.ToString(), resolvedPolicy) : null;
                         var evidence = VerifyObservedProducts(events, rows, productLimit,
-                            resolvedSource?.Complete == true ? resolvedPolicy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id ? resolvedSource.SourceReads : resolvedSource.StoreReads : null);
+                            resolvedSource?.Complete == true ? resolvedPolicy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id ? resolvedSource.SourceReads : resolvedSource.StoreReads : null);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
-                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion)
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion)
                         {
                             var selection = resolvedSource is not null
                                 ? ResolvedStoreSelection(events, productLimit, run["inputs"]?["query"]?.ToString(), resolvedSource, resolvedPolicy)

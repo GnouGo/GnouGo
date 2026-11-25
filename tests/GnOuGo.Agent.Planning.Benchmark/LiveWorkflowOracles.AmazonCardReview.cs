@@ -81,14 +81,15 @@ internal static partial class LiveWorkflowOracles
     }
 
     private static Dictionary<string, string> ResolvedCardProductReferences(Snapshot source,
-        IReadOnlyDictionary<string, string> productReferences, List<string> findings)
+        IReadOnlyDictionary<string, string> productReferences, List<string> findings, IReadOnlySet<string>? provedListingMembers = null)
     {
         var accepted = new Dictionary<string, string>(StringComparer.Ordinal);
         var records = source.Records.OfType<JsonObject>().ToArray(); var examined = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in records.Where(r => productReferences.ContainsKey(r["reference"]?.ToString() ?? "")))
         {
             if (!examined.Add(record["reference"]!.ToString())) continue;
-            var card = records.Where(r => SameCard(record, r) && r["kind"]?.ToString() == "link" && r["href"] is not null).ToArray();
+            var card = records.Where(r => SameCard(record, r) && r["kind"]?.ToString() == "link" && r["href"] is not null &&
+                provedListingMembers?.Contains(r["reference"]!.ToString()) != true).ToArray();
             foreach (var link in card) examined.Add(link["reference"]!.ToString());
             var context = ContextAttribute(record);
             if (context?["value"]?.ToString() != "" || context["tag"]?.ToString() == "nav" || context["role"]?.ToString() == "navigation" ||
