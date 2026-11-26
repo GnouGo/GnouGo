@@ -9,7 +9,7 @@ internal static class AmazonFirstProductsPolicy
     internal static bool Allows(string href) => AmazonDealsPolicy.Allows(href) || href == SeasonalListing;
     internal static bool IsEntry(string href) => AmazonDealsPolicy.IsEntry(href) || href == SeasonalListing;
     internal static bool IsSourceEntry(string href) => AmazonDealsPolicy.IsSourceEntry(href);
-    internal static void ConfigureDetailText(IDictionary<string, string> environment)
+    internal static void ConfigureDetailText(IDictionary<string, string?> environment)
     {
         const string key = "Browser__ObservationTextSelectorPrefixes__";
         string[] prefixes = ["#title", "#productTitle", "#productDescription", "#productFactsDesktopExpander", "#feature-bullets",

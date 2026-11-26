@@ -15,7 +15,7 @@ public sealed class AmazonFirstProductsTests
     public void DetailTextProfileAddsMissingPrefixesAndKeepsExistingConfiguration()
     {
         const string key = "Browser__ObservationTextSelectorPrefixes__";
-        var environment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        var environment = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
             { [key + "0"] = "#user-selector", [key + "4"] = "#productDescription", ["Unrelated"] = "keep" };
         AmazonFirstProductsPolicy.ConfigureDetailText(environment);
         var captured = environment.OrderBy(pair => pair.Key).ToArray();
