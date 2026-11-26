@@ -1,0 +1,57 @@
+{
+  "run": "win-product-extraction-20261126-174038",
+  "source": "85690d0d7e1fdb268398cca87d5c8714692c96d8",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-terra",
+  "campaign": "pr120-win-amazon-review-20261126-15",
+  "model_request": "win-product-extraction-20261126-174038:diagnostic:65d00a711bd4f156c2036cb691dbd7132fc7b1ca3ea2111210a18739b4cbee6d",
+  "capture": "amazon-one-20261126-172311",
+  "profile": "amazon-observed-first-products-v12",
+  "original_order_verifier": "amazon-business-v16",
+  "product": [
+    "B0H3KRKGNN"
+  ],
+  "source_resolutions": 4,
+  "ordered_product_visits": 1,
+  "row_source_references": [
+    "f198717a0aa845989c7f4e40f0b5f49f:record:86",
+    "f198717a0aa845989c7f4e40f0b5f49f:record:127",
+    "f198717a0aa845989c7f4e40f0b5f49f:record:90"
+  ],
+  "workbook_sha256": "f1b866206f41b456a922048e752ff7772f32d523ff952df75423308deb70a62a",
+  "source_capture_sha256": "6bccec7703518e7b5dcb4191fc4128108cbccc7b70b1f7f399d122cf0ec42234",
+  "first_product_verifier": {
+    "version": "observed-products-v2",
+    "passed": true,
+    "visit_count": 1,
+    "visits": [
+      {
+        "event_index": 5,
+        "redirected": true
+      }
+    ],
+    "rows": [
+      {
+        "row": 1,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      }
+    ],
+    "findings": []
+  },
+  "independent_zip_xml_readback": {
+    "sheets": 1,
+    "headers": [
+      "Nom",
+      "Description",
+      "Prix"
+    ],
+    "data_rows": 1,
+    "matched_source_records": 3
+  },
+  "browser_closed": true,
+  "followup_read_rejected": true,
+  "generated_server_plan": false
+}
