@@ -128,7 +128,8 @@ public sealed class TentativeScopeBusinessRepairTests
         {
             Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root",
             Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose the result for this number.",
-                Condition = new() { Kind = "boolean", Boolean = true }, Body = new()
+                Condition = new() { Kind = "predicate", Predicate = "equal", Items =
+                    [new() { Kind = "number", Number = 1 }, new() { Kind = "number", Number = 1 }] }, Body = new()
                 {
                     Tasks = [new() { Id = "project", Kind = "value", Objective = "Compute the candidate value.", Outputs = Branch(2).Outputs },
                         new() { Id = "unexported", Kind = "value", Objective = "Compute a separate value.", Outputs = Branch(3).Outputs }],
@@ -163,6 +164,42 @@ public sealed class TentativeScopeBusinessRepairTests
         var repair = cited == "choose" ? "/tasks/choose/condition" : "/tasks/project/outputs/result";
         Assert.Equal(new[] { repair, "/tasks/deliver/outputs/result" }.Order(), candidate.AuthorizedPaths!.Order());
         Assert.Equal(branch, Assert.Single(candidate.Reviews.Last()["readOnlyTargets"]!.AsArray())!.ToString());
+        if (cited != "choose") return;
+
+        var priorPaths = candidate.AuthorizedPaths!.Order().ToArray();
+        var priorGuard = new TaskPlanSymbols(candidate.Plan).Tasks["choose"].Task.Condition!;
+        runtime.Respond = (request, purpose) =>
+        {
+            Assert.Equal("replan", purpose);
+            var slot = PlanningRepairPatch.RequestContext(request)["repair"]!["slots"]!.AsArray()
+                .Single(slot => slot!["location"]!.ToString() == repair)!;
+            Assert.Contains(slot["actions"]!.AsArray(), item => item!.ToString() == "conjoin");
+            return new() { Json = PlanningCorpus.Transport(new JsonObject { ["patch"] = new JsonObject
+            {
+                ["edits"] = new JsonArray(new JsonObject { ["slot"] = slot["id"]!.DeepClone(), ["action"] = "conjoin",
+                    ["value"] = new JsonObject { ["kind"] = "predicate", ["predicate"] = "not_equal", ["items"] = new JsonArray(
+                        new JsonObject { ["kind"] = "input", ["source"] = "x" }, new JsonObject { ["kind"] = "number", ["number"] = 0 }) } })
+            } }, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) };
+        };
+        state = await BusinessReviewProtocolTests.Advance(BusinessReviewProtocolTests.Clone(state), runtime);
+        var combined = new TaskPlanSymbols(state.Construction!.Candidate!.Plan).Tasks["choose"].Task.Condition!;
+        Assert.Equal("and", combined.Predicate);
+        Assert.True(TaskPlanRevisions.Same(priorGuard, combined.Items[0]));
+        Assert.Equal("not_equal", combined.Items[1].Predicate);
+
+        const string fallback = "/tasks/choose/otherwise";
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject
+        {
+            ["verdict"] = "needs_change", ["reason"] = "The fallback value also applies to negative inputs. The owner's guard still selects them.",
+            ["obligations"] = new JsonArray("work"), ["targets"] = new JsonArray("choose", fallback, "deliver")
+        } } };
+        state = await BusinessReviewProtocolTests.Advance(BusinessReviewProtocolTests.Clone(state), runtime);
+        candidate = state.Construction!.Candidate!;
+        Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "CONSTRUCTION_BUSINESS_REVIEW");
+        Assert.Equal(priorPaths, candidate.AuthorizedPaths!.Order());
+        Assert.Equal(priorPaths, candidate.Reviews.Last()["pendingRepairPaths"]!.AsArray().Select(path => path!.ToString()).Order());
+        Assert.Equal(fallback, Assert.Single(candidate.Reviews.Last()["readOnlyTargets"]!.AsArray())!.ToString());
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
     }
 
     [Theory]

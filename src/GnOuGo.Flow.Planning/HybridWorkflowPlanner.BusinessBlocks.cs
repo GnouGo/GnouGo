@@ -109,9 +109,9 @@ public sealed partial class HybridWorkflowPlanner
         foreach (var branch in citedScopes)
         {
             var exportsCitedProducer = branch.Source.Outputs.SelectMany(output => TaskPlanCompiler.Values(output.Value))
-                .Any(value => value is { Kind: "output", Source: { } source } && tasks.Contains(source, StringComparer.Ordinal) &&
-                    accepted.Tasks[source].Scope.Path == branch.Path);
-            if (!(tasks.Contains(branch.Owner!.Id, StringComparer.Ordinal) || exportsCitedProducer) ||
+                .Any(value => value is { Kind: "output", Source: { } source } && CitedRepairableTask(source) &&
+                    accepted.Tasks.TryGetValue(source, out var producer) && producer.Scope.Path == branch.Path);
+            if (!(CitedRepairableTask(branch.Owner!.Id) || exportsCitedProducer) ||
                 current.Scopes.SingleOrDefault(scope => scope.Path == branch.Path) is not { } proposed ||
                 !JsonNode.DeepEquals(PlanningConstruction.Node(branch.Source, PlanningJsonContext.Default.TaskScope),
                     PlanningConstruction.Node(proposed.Source, PlanningJsonContext.Default.TaskScope))) return;
@@ -121,7 +121,10 @@ public sealed partial class HybridWorkflowPlanner
             foreach (var target in targets.Where(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
             {
                 if (!current.Tasks.TryGetValue(target, out var task)) return;
-                paths.AddRange(TaskRepairPaths(current, task.Task, offerMissingGuard: local && !accepted.Tasks.ContainsKey(target)));
+                if (candidate.AuthorizedPaths is { Count: > 0 } issued)
+                    paths.AddRange(issued.Where(path => path.StartsWith("/tasks/" + target + "/", StringComparison.Ordinal)));
+                else
+                    paths.AddRange(TaskRepairPaths(current, task.Task, offerMissingGuard: local && !accepted.Tasks.ContainsKey(target)));
             }
         if (paths.Count == 0) return;
         var authorized = (candidate.AuthorizedPaths ?? []).Concat(paths).Distinct(StringComparer.Ordinal).ToList();
@@ -132,6 +135,10 @@ public sealed partial class HybridWorkflowPlanner
         review["pendingRepairPaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
         if (readOnlyTargets.Count > 0)
             review["readOnlyTargets"] = new JsonArray(readOnlyTargets.Select(target => (JsonNode?)JsonValue.Create(target)).ToArray());
+
+        bool CitedRepairableTask(string id) => tasks.Contains(id, StringComparer.Ordinal) ||
+            targets.Contains(id, StringComparer.Ordinal) && candidate.TaskIds.Contains(id, StringComparer.Ordinal) &&
+            candidate.AuthorizedPaths?.Any(path => path.StartsWith("/tasks/" + id + "/", StringComparison.Ordinal)) == true;
 
         bool ReviewedTarget(PlanningConstructionCheckpoint owner, string target)
         {

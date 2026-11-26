@@ -31,8 +31,9 @@ internal partial class RepairJsonContext : JsonSerializerContext;
 
 internal static class PlanningRepairPatch
 {
-    // One typed repair vocabulary; retired envelopes are not interpreted.
-    internal const int CurrentVersion = 12;
+    // Version 13 adds an additive edit for an existing Boolean predicate.
+    // Already issued version 12 requests retain their exact vocabulary and hash.
+    internal const int CurrentVersion = 13;
     internal static int Version(PlanningSession state) => CurrentVersion;
     internal static JsonObject Template(PlanningSession state) => PlanningSchemas.TaskPlanGrammar(state);
     internal sealed record Slot(string Id, string Location, string Kind, JsonObject ValueSchema, string[] Actions);
@@ -70,7 +71,7 @@ internal static class PlanningRepairPatch
             ? new(null, parent, path[(split + 1)..], null, -1) : null;
     }
 
-    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions)
+    internal static IReadOnlyList<Slot> Slots(PlanningSession state, JsonObject definitions, int version = CurrentVersion)
     {
         var plan = state.Plan!; var symbols = new TaskPlanSymbols(plan);
         var index = Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
@@ -101,6 +102,9 @@ internal static class PlanningRepairPatch
                 if (site is not null && symbols.Values.ContainsKey(path))
                     schema = TypedValue(path) ?? schema;
                 actions.Add("replace");
+                if (version >= 13 && path.Split('/') is ["", "tasks", _, "condition" or "requires"] &&
+                    symbols.Values.TryGetValue(path, out var guard) && guard.Value.Kind == "predicate")
+                    actions.Add("conjoin");
             }
             else if (exportRepair.Additions.TryGetValue(path, out var export))
             {
@@ -226,6 +230,10 @@ internal static class PlanningRepairPatch
         }
     }
 
+    private static IEnumerable<TaskValue> Conjuncts(TaskValue value) =>
+        value is { Kind: "predicate", Predicate: "and", Items.Count: 2 }
+            ? value.Items.SelectMany(Conjuncts) : [value];
+
     private static JsonObject FixedName(JsonObject schema, string property, string value)
     {
         if (schema["anyOf"] is JsonArray alternatives)
@@ -234,10 +242,10 @@ internal static class PlanningRepairPatch
         return schema;
     }
 
-    internal static JsonObject Schema(PlanningSession state, JsonObject template)
+    internal static JsonObject Schema(PlanningSession state, JsonObject template, int version = CurrentVersion)
     {
         var definitions = template["$defs"]!.DeepClone().AsObject();
-        var slots = Slots(state, definitions); var edits = new JsonArray();
+        var slots = Slots(state, definitions, version); var edits = new JsonArray();
         foreach (var slot in slots)
             foreach (var action in slot.Actions)
                 edits.Add((JsonNode)(action is "remove" or "remove_owned" or "remove_forwarder"
@@ -267,16 +275,16 @@ internal static class PlanningRepairPatch
         return PlanningSchemas.Compact(schema);
     }
 
-    internal static string Authority(PlanningSession state)
+    internal static string Authority(PlanningSession state, int version = CurrentVersion)
     {
         var authority = new JsonObject
         {
-        ["version"] = CurrentVersion,
+        ["version"] = version,
         ["tenant"] = state.Request.TenantId, ["session"] = state.Request.SessionId,
         ["baseline"] = JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan),
         ["requirements"] = JsonSerializer.SerializeToNode(state.Requirements, PlanningJsonContext.Default.PlanningRequirements),
         ["scope"] = new JsonArray(state.RevisionScope.Select(p => (JsonNode?)JsonValue.Create(p)).ToArray()),
-        ["permissions"] = PermissionDescriptors(state),
+        ["permissions"] = PermissionDescriptors(state, version),
         ["diagnostics"] = new JsonArray(state.Diagnostics.Where(d => d.Required && d.Code is not ("MODEL_DISPATCH_UNVERIFIABLE" or "LLM_BUDGET_UNVERIFIABLE" or "PLANNING_HOST_FAILURE"))
             .OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal)
             .Select(d => (JsonNode)new JsonObject { ["code"] = d.Code, ["location"] = d.Location }).ToArray()),
@@ -291,10 +299,10 @@ internal static class PlanningRepairPatch
         return PlanningGraphCompiler.Fingerprint(authority.ToJsonString());
     }
 
-    private static JsonObject PermissionDescriptors(PlanningSession state)
+    private static JsonObject PermissionDescriptors(PlanningSession state, int version)
     {
         var definitions = Template(state)["$defs"]!.AsObject();
-        var slots = Slots(state, definitions);
+        var slots = Slots(state, definitions, version);
         return new() { ["definitions"] = definitions.DeepClone(), ["slots"] = new JsonArray(slots.Select(s => (JsonNode)new JsonObject
         { ["id"] = s.Id, ["location"] = s.Location, ["kind"] = s.Kind, ["schema"] = s.ValueSchema.DeepClone(),
             ["actions"] = new JsonArray(s.Actions.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()) }).ToArray()) };
@@ -309,9 +317,15 @@ internal static class PlanningRepairPatch
 
     internal static bool Verify(PlanningSession state, LLMRequest request)
     {
+        VerifyVersion(state, request);
+        return true;
+    }
+
+    private static int VerifyVersion(PlanningSession state, LLMRequest request)
+    {
         var repair = RequestContext(request)["repair"];
         var version = repair?["version"]?.GetValue<int>();
-        if (version == CurrentVersion)
+        if (version is 12 or CurrentVersion)
         {
             if (state.EditablePaths is not null)
             {
@@ -319,16 +333,16 @@ internal static class PlanningRepairPatch
                 if (!state.EditablePaths.SequenceEqual(state.RevisionScope, StringComparer.Ordinal))
                     throw new PlanningConflictException("The explicit revision authority changed.");
             }
-            if (repair!["authority"]?.ToString() == Authority(state)) return true;
+            if (repair!["authority"]?.ToString() == Authority(state, version.Value)) return version.Value;
         }
         throw new PlanningConflictException("The repair baseline, scope or contracts changed. The retained request cannot be rebased or redispatched.");
     }
 
     internal static TaskPlan Apply(PlanningSession state, RepairPatch patch, LLMRequest request, IReadOnlySet<string>? constructionScopes = null)
     {
-        Verify(state, request);
+        var version = VerifyVersion(state, request);
         var definitions = Template(state)["$defs"]!.AsObject();
-        var slots = Slots(state, definitions).ToDictionary(s => s.Id, StringComparer.Ordinal);
+        var slots = Slots(state, definitions, version).ToDictionary(s => s.Id, StringComparer.Ordinal);
         // Recovery and direct callers both enforce the exact issued response schema.
         var response = new JsonObject { ["discoveryRequests"] = null, ["patch"] = JsonSerializer.SerializeToNode(patch, RepairJsonContext.Default.RepairPatch) };
         if (request.StructuredOutputSchema?["properties"]?["clarifications"] is not null) response["clarifications"] = null;
@@ -360,6 +374,17 @@ internal static class PlanningRepairPatch
             var slot = slots[edit.Slot];
             var index = Index(tree); var site = FindSite(index, slot.Location);
             if (edit.Action == "remove") site!.Remove();
+            else if (edit.Action == "conjoin")
+            {
+                var existing = symbols.Values[slot.Location].Value;
+                var additional = edit.Value!.Deserialize(PlanningJsonContext.Default.TaskValue)!;
+                var retained = Conjuncts(existing).ToArray();
+                if (Conjuncts(additional).All(check => check is { Kind: "boolean", Boolean: true } ||
+                    retained.Any(current => TaskPlanRevisions.Same(current, check))))
+                    throw new WorkflowRuntimeException("REPLAN_NO_PROGRESS", "The additional guard is already satisfied by the issued predicate.");
+                site!.Set(JsonSerializer.SerializeToNode(new TaskValue { Kind = "predicate", Predicate = "and", Items = [existing, additional] },
+                    PlanningJsonContext.Default.TaskValue));
+            }
             else if (edit.Action == "remove_owned")
             {
                 var owned = TaskPlanRevisions.OwnedInput(symbols, slot.Location, state.Catalog)!;

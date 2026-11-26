@@ -51,6 +51,14 @@ to or from its unchanged producer. Retain the original review context; unrelated
 exports, stale context and repeated unchanged bindings remain non-progress.
 Changing the composition neither resolves the finding nor grants approval.
 
+On a subsequent local review, an unchanged branch can again serve as evidence
+for its cited owner or a cited producer exported directly from that branch.
+The receipt records the branch as read-only and reuses the previously issued
+field paths. An explicit revision of an existing predicate can use `conjoin`
+to add a check. The host keeps the original condition as the first operand,
+rejects repeated checks and validates the resulting plan. Previously issued
+version 12 repairs retain their original schema and authority.
+
 The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.

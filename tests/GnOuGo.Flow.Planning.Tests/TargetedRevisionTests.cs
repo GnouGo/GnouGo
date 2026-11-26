@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
@@ -9,6 +10,36 @@ public sealed class TargetedRevisionTests
     private static TaskValue Text(string text) => new() { Kind = "string", Text = text };
     private static TaskValue Output(string task, string port) => new() { Kind = "output", Source = task, Port = port };
     private static string Plan(TaskPlan? plan) => JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
+
+    [Fact]
+    public void ExistingIssuedGuardRetainsItsVersionAndRejectsAdditiveOrRedundantEdits()
+    {
+        var state = PlannerFixture.Session();
+        state.Catalog = new();
+        state.Plan = PlanningCorpus.Greeting();
+        var task = state.Plan.Root.Tasks[0];
+        task.Requires = new() { Kind = "predicate", Predicate = "equal", Items = [Text("one"), Text("two")] };
+        state.EditablePaths = state.RevisionScope = ["/tasks/" + task.Id + "/requires"];
+        var before = Plan(state.Plan);
+        var value = new JsonObject { ["kind"] = "predicate", ["predicate"] = "equal", ["items"] = new JsonArray(
+            new JsonObject { ["kind"] = "string", ["text"] = "one" }, new JsonObject { ["kind"] = "string", ["text"] = "two" }) };
+        var old = new LLMRequest
+        {
+            Prompt = "Repair\n" + new JsonObject { ["repair"] = new JsonObject { ["version"] = 12, ["authority"] = PlanningRepairPatch.Authority(state, 12) } },
+            StructuredOutputSchema = PlanningRepairPatch.Schema(state, PlanningRepairPatch.Template(state), 12)
+        };
+        var restored = PlannerFixture.Clone(state);
+        Assert.True(PlanningRepairPatch.Verify(restored, old));
+        var edit = new RepairEdit { Slot = "s0", Action = "conjoin", Value = value };
+        var patch = new RepairPatch { Edits = [edit] };
+        Assert.Throws<PlanningResponseException>(() => PlanningRepairPatch.Apply(restored, patch, old));
+        var fresh = RepairPatchTests.Request(restored);
+        Assert.Equal("REPLAN_NO_PROGRESS", Assert.Throws<WorkflowRuntimeException>(() => PlanningRepairPatch.Apply(restored, patch, fresh)).Code);
+        edit.Action = "replace";
+        edit.Value = new JsonObject { ["kind"] = "boolean", ["boolean"] = false };
+        Assert.False(PlanningRepairPatch.Apply(restored, patch, old).Root.Tasks[0].Requires!.Boolean);
+        Assert.Equal(before, Plan(restored.Plan));
+    }
     private static PlanningCommand Revise(PlanningSession state, params string[] paths) => new()
     {
         Kind = "revise", PreserveRequirements = true, ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(),

@@ -463,7 +463,7 @@ internal static class TaskPlanRevisions
             }
         }
     }
-    private static bool Same(TaskValue left, TaskValue right) => JsonNode.DeepEquals(JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
+    internal static bool Same(TaskValue left, TaskValue right) => JsonNode.DeepEquals(JsonSerializer.SerializeToNode(left, PlanningJsonContext.Default.TaskValue), JsonSerializer.SerializeToNode(right, PlanningJsonContext.Default.TaskValue));
     internal static string Element(string path, JsonNode? node, int index)
     {
         var collection = path.Split('/')[^1];

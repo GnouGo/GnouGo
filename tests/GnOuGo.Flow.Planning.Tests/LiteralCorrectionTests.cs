@@ -20,9 +20,9 @@ public sealed class LiteralCorrectionTests
         Assert.Equal("TASK_LITERAL_INVALID", diagnostic.Code);
         Assert.Equal("/tasks/consumer/inputs/text", diagnostic.Location);
         Assert.True(diagnostic.Required);
-        Assert.Equal(12, PlanningRepairPatch.Version(state));
+        Assert.Equal(PlanningRepairPatch.CurrentVersion, PlanningRepairPatch.Version(state));
         var request = RepairPatchTests.Request(state);
-        Assert.Equal(12, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
+        Assert.Equal(PlanningRepairPatch.CurrentVersion, PlanningRepairPatch.RequestContext(request)["repair"]!["version"]!.GetValue<int>());
         Assert.True(PlanningRepairPatch.Verify(state, request));
         Assert.Empty(PlanningContractValidation.ValidateSchema(request.StructuredOutputSchema!, strict: true));
         var encoded = new TaskValue { Kind = "json", Items = [original] };
