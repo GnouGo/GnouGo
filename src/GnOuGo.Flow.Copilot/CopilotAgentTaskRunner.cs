@@ -51,6 +51,8 @@ public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfig
         if (context?.Execution?.Engine.HumanInputProvider is { } human)
             services.AddSingleton<ICopilotHumanInputProvider>(new WorkflowCopilotHumanInput(context, human, ct));
         services.AddCodeTaskServices();
+        services.AddSingleton(sp => new CodeProgressReporter(sp.GetRequiredService<CodeMcpTraceContextAccessor>(),
+            update => context?.Progress?.Invoke(new(update.Kind, update.Message))));
         await using var provider = services.BuildServiceProvider();
         var trace = new CodeMcpTraceContext(null, null, null, null, null, context?.ExecutionId, context?.RunId, context?.InvocationId,
             "agent.run", null, null, null) { TenantId = context?.TenantId, ExecutionId = context?.ExecutionId,

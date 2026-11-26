@@ -6,6 +6,7 @@ internal sealed class CodeProgressReporter
 {
     private const string ProgressEnvelopeType = "gnougo.mcp.progress";
     private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
+    private readonly Action<CodeProgressEvent>? _workflow;
     private readonly bool _captured;
     private readonly CodeMcpTraceContext? _capturedContext;
 
@@ -14,6 +15,8 @@ internal sealed class CodeProgressReporter
         _traceContextAccessor = traceContextAccessor;
     }
 
+    internal CodeProgressReporter(CodeMcpTraceContextAccessor accessor, Action<CodeProgressEvent> workflow) : this(accessor) => _workflow = workflow;
+
     private CodeProgressReporter(CodeMcpTraceContextAccessor accessor, CodeMcpTraceContext? context)
     {
         _traceContextAccessor = accessor;
@@ -21,7 +24,7 @@ internal sealed class CodeProgressReporter
         _capturedContext = context;
     }
 
-    public CodeProgressReporter Capture() => new(_traceContextAccessor, CodeMcpTraceContext.Capture(_traceContextAccessor));
+    public CodeProgressReporter Capture() => _workflow is not null ? this : new(_traceContextAccessor, CodeMcpTraceContext.Capture(_traceContextAccessor));
 
     public CodeProgressEvent Report(
         string kind,
@@ -57,6 +60,7 @@ internal sealed class CodeProgressReporter
     {
         try
         {
+            if (_workflow is not null) { _workflow(progressEvent); return; }
             var context = _captured ? _capturedContext : CodeMcpTraceContext.Capture(_traceContextAccessor);
             var envelope = new CodeMcpProgressEnvelope(
                 Type: ProgressEnvelopeType,

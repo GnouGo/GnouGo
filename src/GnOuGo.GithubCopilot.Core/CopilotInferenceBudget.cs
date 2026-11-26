@@ -21,6 +21,8 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     public long ChargedTokens { get; private set; } = initialTokens;
     public CopilotAdmissionStop? AdmissionStop { get; private set; }
     internal Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync { get; set; }
+    internal Func<int, string, HttpContent, string, CancellationToken, Task>? SettleHostAttemptAsync { get; set; }
+    internal static readonly HttpRequestOptionsKey<Func<HttpContent, CancellationToken, Task>> SettleReceipt = new("gnougo.copilot.settle_usage");
     private readonly CancellationTokenSource _providerRejected = new();
     internal CancellationToken ProviderRejected => _providerRejected.Token;
     public CopilotInferenceFailure? ProviderFailure { get; private set; }
@@ -91,8 +93,13 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
             if (body["n"] is { } count && count.GetValue<int>() != 1)
                 throw new InvalidOperationException("Bounded inference permits one completion per request.");
             if (ReserveHostAttemptAsync is { } reserve)
-                await reserve(ModelCalls + 1, body["model"]?.GetValue<string>() ?? throw new InvalidDataException("Missing inference model."),
-                    checked((int)inputCeiling), checked((int)outputCeiling), ct);
+            {
+                var model = body["model"]?.GetValue<string>() ?? throw new InvalidDataException("Missing inference model.");
+                var attempt = ModelCalls + 1;
+                await reserve(attempt, model, checked((int)inputCeiling), checked((int)outputCeiling), ct);
+                if (SettleHostAttemptAsync is { } settle)
+                    request.Options.Set(SettleReceipt, (content, token) => settle(attempt, model, content, path, token));
+            }
             ModelCalls++; ChargedTokens = checked(ChargedTokens + inputCeiling + outputCeiling);
             await persistReservation(ModelCalls, ChargedTokens, ct);
             // One model-context update per admitted request, even when its tools finish concurrently.

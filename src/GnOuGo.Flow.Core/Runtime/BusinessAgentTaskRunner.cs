@@ -102,6 +102,7 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
         Task CheckpointAsync(string message) => execution.RecordExternalObservationAsync(
             JsonSerializer.SerializeToNode(Result("needs_reconciliation", message: message), AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None);
 
+        var retries = 0;
         while (budget.Snapshot.Calls < task.Budget.MaxModelCalls)
         {
             ct.ThrowIfCancellationRequested();
@@ -121,10 +122,25 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
                 return Result("budget_exhausted", message: "Workflow inference admission or settlement failed.")
                     with { Failure = new WorkflowError { Code = ex.Code, Type = "budget", Message = ex.Message, Details = ex.Details?.DeepClone() } };
             }
+            catch (LLMClientException ex)
+            {
+                if (!ex.Retryable || ex.RetryExhausted || ex.AttemptCount != 1 || ex.StatusCode is not (429 or 503) ||
+                    retries >= 2 || budget.Snapshot.Calls >= task.Budget.MaxModelCalls)
+                    return Result("failed", message: ex.Message);
+                var delay = TimeSpan.FromMilliseconds(Math.Max(500 << retries, ex.RetryAfterMilliseconds ?? 0));
+                if (ex.RetryNotBeforeUtc is { } retryAt && retryAt - DateTimeOffset.UtcNow > delay)
+                    delay = retryAt - DateTimeOffset.UtcNow;
+                if (delay >= TimeSpan.FromMilliseconds(task.Budget.MaxElapsedMilliseconds) - elapsed.Elapsed)
+                    return Result("budget_exhausted", message: "Provider retry admission exceeds the approved deadline.");
+                retries++;
+                await Task.Delay(delay, ct);
+                continue;
+            }
             catch (OperationCanceledException)
             {
                 return Result(ct.IsCancellationRequested ? "cancelled" : "failed", message: "The model decision was interrupted.");
             }
+            retries = 0;
             if (response.CompletionStatus is not (null or "completed" or "stop") ||
                 PlanningContractValidation.ValidateInstance(response.Json, schema).Count != 0)
                 return Result("failed", message: "The provider returned an incomplete or malformed decision.");

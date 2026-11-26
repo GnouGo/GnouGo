@@ -20,3 +20,6 @@ Use `agent.run` when an observation determines the next action. The plan identif
 **Results.** Flow verifies the output schema and every requested evidence condition before a dependent step receives the output. `file.read` records a successful SDK file read and its arguments, `file.content` records a file hash and change status, and `command.exit` records the observed terminal result. A review can use those facts to establish the files and checks it covered. Anchor validation establishes a location. The reviewer supplies the reasoning behind a finding. Publication requires an explicitly authorized workflow operation.
 
 [Bounded coding example](../GnOuGo.Flow.Cli/examples/bounded-coding.yaml)
+
+
+For a review, feed the output of the pinned Git comparison into `inputs.review` with `base`, `head` and per-file `files` containing paths, statuses and patches. The `review.diff` evidence subject is the exact head SHA. The code task returns findings, the files it read and limitations. The verifier checks diff anchors, removes duplicate ambiguity and compares claimed coverage with successful SDK read receipts. A review can return zero findings. Publication requires its own authorized workflow operation.

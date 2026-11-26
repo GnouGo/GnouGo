@@ -78,10 +78,10 @@ internal static partial class LiveWorkflowOracles
                 findings.Add("workflow_browser_close_receipt_or_ten_product_contract_missing");
             if (run["workflow_readback_required"]?.GetValue<bool>() == true)
             {
-                var path = run["workspace_relative"]!.ToString() + "/products.xlsx";
+                var relativeWorkbook = run["workspace_relative"]!.ToString() + "/products.xlsx";
                 bool WorkbookCall(JsonObject evt, string method) => evt["server"]?.ToString() == "GnOuGo.Document.Mcp" &&
                     evt["tool"]?.ToString() == method && evt["error"]?.GetValue<bool>() == false &&
-                    evt["result"]?["success"]?.GetValue<bool>() == true && evt["arguments"]?["filePath"]?.ToString() == path;
+                    evt["result"]?["success"]?.GetValue<bool>() == true && evt["arguments"]?["filePath"]?.ToString() == relativeWorkbook;
                 var lastWrite = Array.FindLastIndex(events, evt => WorkbookCall(evt, "document_write"));
                 if (lastWrite < 0 || !events.Skip(lastWrite + 1).Any(evt => WorkbookCall(evt, "document_read")))
                     findings.Add("independent_workflow_workbook_read_missing");

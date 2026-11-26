@@ -70,6 +70,14 @@ internal static class CopilotInferenceDispatch
             }
             if (proxy?.JournalOwnsRetries == true && !response.IsSuccessStatusCode && CopilotInferenceFailure.Read(response) is { } failure)
                 rejected?.Invoke(failure);
+            var content = response.Content;
+            var body = await content.ReadAsStreamAsync(deadline.Token);
+            actual.Options.TryGetValue(CopilotInferenceBudget.SettleReceipt, out var settle);
+            var bounded = new StreamContent(new CopilotInferenceStream(body, content, deadline, RecordFailure,
+                response.IsSuccessStatusCode ? settle : null));
+            foreach (var header in content.Headers) bounded.Headers.TryAddWithoutValidation(header.Key, header.Value);
+            response.Content = bounded;
+            streaming = true;
             if (prepared is not null)
             {
                 var restored = await prepared.RestoreResponseAsync(response, deadline.Token);
@@ -79,12 +87,6 @@ internal static class CopilotInferenceDispatch
                     return restored;
                 }
             }
-            var content = response.Content;
-            var body = await content.ReadAsStreamAsync(deadline.Token);
-            var bounded = new StreamContent(new CopilotInferenceStream(body, content, deadline, RecordFailure));
-            foreach (var header in content.Headers) bounded.Headers.TryAddWithoutValidation(header.Key, header.Value);
-            response.Content = bounded;
-            streaming = true;
             return response;
         }
         catch (Exception ex)

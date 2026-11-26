@@ -193,7 +193,7 @@ public sealed class CopilotAttachmentTests
             f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
             f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.Root, "vault.db"), f.Root), f.Host.Trace, Path.Combine(f.Root, "leases"), settings.Copilot.LogicalLimits);
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
-            var target = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
+            var target = new CopilotTools(f.Host.Manager, policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "attachments-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions);

@@ -23,6 +23,8 @@ public sealed class CopilotAgentTaskRunnerTests
 
     [Theory]
     [InlineData("success", "completed", 1)]
+    [InlineData("retry", "completed", 1)]
+    [InlineData("late_retry", "budget_exhausted", 0)]
     [InlineData("fabricate", "completed", 0)]
     [InlineData("repeat", "failed", 1)]
     [InlineData("unknown", "failed", 0)]
@@ -55,7 +57,7 @@ public sealed class CopilotAgentTaskRunnerTests
         Assert.Equal(actions, result.Usage.Actions);
         Assert.Equal(model.Calls, result.Usage.ModelCalls);
         if (result.Status == "completed")
-            Assert.Equal(test == "success", Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
+            Assert.Equal(test is "success" or "retry", Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
         if (test == "success")
         {
             Assert.Equal(Transport.LargeContent, Assert.Single(result.Evidence).Facts["result"]!.GetValue<string>());
@@ -77,7 +79,10 @@ public sealed class CopilotAgentTaskRunnerTests
             Calls++;
             LastPrompt = request.Prompt;
             Assert.True(request.DisableTransportRetries);
-            var finish = scenario == "fabricate" || Calls > 1 && scenario != "repeat";
+            if (scenario is "retry" or "late_retry" && Calls == 1)
+                throw new LLMClientException(LLMClientFailureKind.RateLimited, "Rate limited", true, 429, null, 1, false,
+                    scenario == "late_retry" ? 300000 : 1);
+            var finish = scenario == "fabricate" || Calls > (scenario == "retry" ? 2 : 1) && scenario != "repeat";
             return Task.FromResult(new LLMResponse
             {
                 Json = new JsonObject { ["action"] = finish ? "finish" : scenario == "unknown" ? "shell" : tool,

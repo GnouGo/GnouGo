@@ -37,6 +37,10 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     public bool Exhausted => AdmissionStop is not null;
     public CopilotAdmissionStop? AdmissionStop => _inference.AdmissionStop;
     private volatile bool _transportFailed;
+    public Func<int, string, HttpContent, string, CancellationToken, Task>? SettleHostAttemptAsync
+    {
+        init => _inference.SettleHostAttemptAsync = value;
+    }
     internal CopilotInferenceFailure? ProviderFailure => _inference.ProviderFailure;
     internal CancellationToken ProviderRejected => _inference.ProviderRejected;
     internal void RecordProviderFailure(CopilotInferenceFailure failure)

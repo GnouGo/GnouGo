@@ -247,46 +247,6 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
     }
 
     [Fact]
-    public void CompleteCopilotReview_AdvertisesEncapsulatedReviewPhases()
-    {
-        var review = DiscoverCopilotTools()["copilot_review"];
-        var validation = McpCapabilityCompositionParser.ParseAndValidate(review.ProtocolTool.Meta);
-
-        Assert.True(validation.IsValid, string.Join(Environment.NewLine, validation.Errors));
-        Assert.Equal(McpCapabilityCompositionMetadata.CompleteOperationKind, validation.Contract!.Kind);
-        Assert.Equal(
-            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
-            validation.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
-        var artifactMetadata = Assert.IsType<JsonObject>(
-            review.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]?[McpArtifactContractMetadata.ArtifactsPropertyName]);
-        Assert.Contains(
-            Assert.IsType<JsonArray>(artifactMetadata["consumes"]),
-            item => item is JsonObject consume
-                    && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.RevisionComparisonFilesKind
-                    && consume["pointer"]?.GetValue<string>() == "/filesJson"
-                    && consume["required"]?.GetValue<bool>() == true);
-        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
-            review.ProtocolTool.Meta,
-            JsonNode.Parse(review.ProtocolTool.InputSchema.GetRawText()),
-            JsonNode.Parse(review.ProtocolTool.OutputSchema!.Value.GetRawText()));
-        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
-    }
-
-    [Theory]
-    [InlineData("copilot_review")]
-    [InlineData("copilot_review_start")]
-    public void ReviewToolsDeclareOptionalRuntimeResultsContext(string name)
-    {
-        var schema = JsonNode.Parse(DiscoverCopilotTools()[name].ProtocolTool.InputSchema.GetRawText())!;
-        var context = schema["properties"]!["runtimeContextJson"]!;
-        Assert.Contains("string", context["type"]!.ToJsonString());
-        Assert.Contains("original upstream execution results", context["description"]!.ToString());
-        Assert.DoesNotContain(schema["required"]!.AsArray(), p => p?.ToString() == "runtimeContextJson");
-        Assert.NotNull(schema["properties"]!["reviewInstructions"]);
-        Assert.NotNull(schema["properties"]!["existingCommentsJson"]);
-    }
-
-    [Fact]
     public void CopilotSessionAndOneShotTools_AdvertiseComposableLifecycleContracts()
     {
         var tools = DiscoverCopilotTools();
@@ -501,64 +461,9 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             Assert.Equal("/projectRoot", consumed.Pointer);
             Assert.True(consumed.Required);
         }
-        var reviewMetadata = tools["copilot_review"].ProtocolTool.Meta?[McpCapabilityCompositionMetadata.MetaPropertyName];
-        var reviewComposition = Assert.IsType<JsonObject>(
-            reviewMetadata?[McpCapabilityCompositionMetadata.CompositionPropertyName]);
-        Assert.Equal(
-            McpCapabilityCompositionMetadata.CompleteOperationKind,
-            reviewComposition["kind"]?.GetValue<string>());
-        Assert.Equal(
-            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
-            Assert.IsType<JsonArray>(reviewComposition["encapsulates"])
-                .Select(static item => item!["method"]!.GetValue<string>())
-                .ToArray());
         Assert.Equal(
             "management_only",
             tools["copilot_permission_grants_list"].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());
-    }
-
-    [Fact]
-    public void ExistingReviewComments_AcceptsDirectArraysAndThreadEnvelopes()
-    {
-        var parser = typeof(CopilotTools).GetMethod(
-            "ParseExistingReviewComments",
-            BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(parser);
-
-        static IReadOnlyList<ExistingReviewComment> Parse(MethodInfo method, string json) =>
-            Assert.IsAssignableFrom<IReadOnlyList<ExistingReviewComment>>(method.Invoke(null, [json]));
-
-        var direct = Parse(parser!, """
-            [{"path":"src/a.cs","side":"Right","startLine":4,"endLine":5,"body":"Existing issue","fingerprint":"fp-1"}]
-            """);
-        var enveloped = Parse(parser!, """
-            {
-              "review_threads": [
-                {
-                  "path": "src/b.cs",
-                  "side": "RIGHT",
-                  "line": 17,
-                  "comments": [{"body":"Thread comment"}]
-                }
-              ],
-              "totalCount": 1,
-              "pageInfo": {"hasNextPage": false}
-            }
-            """);
-        var emptyEnvelope = Parse(parser!, """
-            {"review_threads":[],"totalCount":0,"pageInfo":{"hasNextPage":false}}
-            """);
-        var absent = Parse(parser!, "null");
-
-        Assert.Single(direct);
-        Assert.Equal("fp-1", direct[0].Fingerprint);
-        var thread = Assert.Single(enveloped);
-        Assert.Equal("src/b.cs", thread.Path);
-        Assert.Equal(17, thread.EndLine);
-        Assert.Equal(ReviewDiffSide.Right, thread.Side);
-        Assert.Equal("Thread comment", thread.Body);
-        Assert.Empty(emptyEnvelope);
-        Assert.Empty(absent);
     }
 
     private static Type UnwrapToolReturnType(Type returnType)

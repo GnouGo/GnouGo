@@ -38,7 +38,7 @@ additional external read operation. Legacy results deserialize with an empty lis
 - Emit structured GnOuGo progress events in real time on stderr and return them in `progressEvents`, so `GnOuGo.Flow.Core` can surface them as UI thinking/progress messages without depending on Copilot SDK event types.
 - Optionally write files with `code_write_file` when `Code:AllowWrites=true`.
 - Use the additive `copilot_*` tools backed by `GnOuGo.GithubCopilot.Core` for status/auth/models, explicit managed or one-shot sessions, foreground selection, messages/steering/queueing, safe history, abort, plans, modes/models, attachments, workspace files, skills/tool filtering, and stable elicitation callbacks.
-- Run structured reviews with `copilot_review_start`, `copilot_review_analyze_batch`, `copilot_review_finish`, or the one-call `copilot_review` wrapper.
+- Run a bounded code task for project exploration, editing or review. The workflow code profile and the external task façade share the same SDK service.
 - Use review results as workflow data. GitHub mutations use the configured official GitHub MCP through normal workflow execution and its generic approval/confirmation mechanisms.
 
 Git repository workflows are provided by the separate `GnOuGo.Git.Mcp` tool.
@@ -117,32 +117,7 @@ Provider resolution order is an explicit tool argument, the MCP provider overrid
 
 ## Pull-request review contract
 
-Git MCP supplies exact patches. `copilot_review_start` and `copilot_review` accept optional `reviewInstructions` (maximum 32,000 characters) and `existingCommentsJson`. Optional `runtimeContextJson` is a JSON object (at most 32,000 characters) containing original upstream execution results under named keys, including failures and uncertainty. It is validated before session creation and included as encoded, untrusted context in every batch; it cannot authorize publication or replace caller instructions or existing comments. Existing comments contain path, optional side/line range, body, and optional fingerprint; only comments relevant to the current batch are included as bounded untrusted model context. Copilot review results contain fingerprint, severity, category, confidence, path, diff side, line range, evidence, explanation, and optional suggested patch. The server rejects unknown paths and lines outside the supplied diff, removes matching fingerprints or equivalent location/body findings, and reports binary/submodule skips plus truncated files.
-
-The review session has no tools, no configuration discovery, no write permission, and is deleted after completion. Results include `complete`, derived from completed batches, coverage and rejected invalid findings, plus `blockingFindingCount`, which retains blockers whose duplicate comments were suppressed. An empty model response is invalid; an explicit `[]` can represent a completed review with no findings.
-
-Review analysis does not publish or authorize a GitHub mutation. Workflows use the configured official GitHub MCP for those operations, with normal workflow approval, generic runtime confirmation and MCP elicitation. No host-managed draft, publication gate, fresh-head check or publication replay guarantee is supplied. See [MCP workflow execution and removed publication APIs](../../docs/github-mcp-workflow-execution.md).
-
-Managed interactive operations tell the SDK their shared interaction and inference limits. After an admitted inference request, the first tool completion or failure gives the model the remaining call and token allowance. This evidence helps it finish with the observed command outcomes and identify unfinished work. The host continues to enforce its original reservations and validates the terminal receipt.
-
-`code_suggest_change` and `code_agent_edit` also accept an optional `provider` parameter. When omitted, the default GitHub Copilot SDK behavior above is unchanged.
-When provided, the MCP reads the matching provider from its typed `CodeCopilotSettings.Providers` dictionary and passes it as a custom Copilot SDK provider for that call. At process startup, the MCP uses the storage-agnostic `IKeyVaultSecretCatalogReader` contract to map shared provider secrets and MCP-specific leaf overrides into the `Code:Copilot` configuration namespace before typed settings are created. Database resolution, SQL, decryption, auditing, and storage-specific failures remain encapsulated by `GnOuGo.KeyVault.Core`.
-Supported provider section names are:
-
-- `Code:Copilot:Providers:<provider>`
-- compatibility fallback: `Code:Copilot:Providers:LLM--Models--<provider>`
-- legacy fallback: `Code:Copilot:Providers:gnougo_llm_<provider>`
-
-The section must contain at least `url`; `model` is recommended and falls back to `Code:Copilot:Model` when omitted. Supported provider fields include `type`, `wireApi`, `wireModel`, `authType`, `apiKey`, `bearerToken`, and OIDC fields such as `oidcIssuer`, `oidcClientId`, `oidcScopes`, `oidcClientSecret`, or `oidcPrivateKeyPem`. Keep secret values in KeyVault, environment variables, or another secure configuration provider; do not commit real tokens to `appsettings.json`.
-
-For a versioned URL containing `/deployments/<deployment>`, Chat Completions uses the SDK Azure base route and deployment identity. An explicit `wireApi: responses` retains the configured deployment URL because the SDK appends `/responses` directly. Authentication, model identity and API version remain unchanged. Gateway support for that configured endpoint must be verified separately; the resolver never falls back to a sibling route.
-
-For local Agent/Desktop usage, LLM provider secrets saved by `/llm add` are stored through `GnOuGo.KeyVault.Core` with keys such as `LLM--Models--OpenAi` and legacy `gnougo_llm_OpenAi`. Provider identity is case-insensitive. One canonical key wins over one legacy key; multiple same-priority canonical or legacy variants are ambiguous and fail startup without exposing their values. Agent configuration saves reuse the existing canonical key and retire equivalent aliases so the ambiguity cannot be recreated by a case-only edit. Provider JSON is flattened into `Code:Copilot:Providers:<provider>:...`, and secrets prefixed with `LLM--McpServerOverrides--GnOuGo.GithubCopilot.Mcp--Code--Copilot--` are mapped to the matching `Code:Copilot:...` leaves. Objects and indexed collections are supported.
-
-Configuration precedence is packaged/appsettings/environment/command line, then shared provider secrets, then MCP-specific KeyVault overrides. The complete KeyVault overlay therefore has the highest priority, with MCP-specific values winning over shared provider fields. It is loaded once when the MCP process starts. If optional KeyVault storage is missing or unavailable, the entire overlay is discarded and a redacted warning is logged; if a present value is malformed, ambiguous, or invalid for a typed setting, startup fails without logging the value.
-
-Anthropic providers with `provider`/`type` set to `anthropic` are supported as custom SDK providers. They map to SDK provider type `anthropic` and default `wireApi` to `messages`; API-key auth is passed through as `ApiKey` for the Anthropic Messages API. The legacy `claude` provider/type values are still accepted as compatibility aliases.
-If the requested provider does not exist, the tool returns structured content with `success: false`, `ok: false`, `error_code`, and `error_message`.
+Git provides the pinned comparison. A read-only code task explores the checkout. The `review.diff` verification requirement checks file reads, exact diff anchors and duplicate findings against the supplied comparison. The workflow writes the report or performs an explicitly approved publication step. See [workflow agent runners](../GnOuGo.Flow.Copilot/README.md).
 
 ## Structured Error Handling
 

@@ -1,8 +1,14 @@
 namespace GnOuGo.GithubCopilot.Core;
 
 /// <summary>Keeps the physical attempt deadline active after HTTP response headers arrive.</summary>
-internal sealed class CopilotInferenceStream(Stream body, HttpContent owner, CancellationTokenSource deadline, Action? failed) : Stream
+internal sealed class CopilotInferenceStream(Stream body, HttpContent owner, CancellationTokenSource deadline, Action? failed,
+    Func<HttpContent, CancellationToken, Task>? settle = null) : Stream
 {
+    // A complete, successful wire response is needed to replace its own reservation.
+    // Oversized, interrupted or partially consumed streams keep their original charge.
+    private const int MaxReceiptBytes = 2 * 1024 * 1024;
+    private MemoryStream? _receipt = settle is null ? null : new MemoryStream();
+
     public override bool CanRead => true;
     public override bool CanSeek => false;
     public override bool CanWrite => false;
@@ -26,6 +32,25 @@ internal sealed class CopilotInferenceStream(Stream body, HttpContent owner, Can
             token.ThrowIfCancellationRequested();
             var count = await body.ReadAsync(buffer, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
+            if (_receipt is { } receipt && !buffer.IsEmpty)
+            {
+                if (receipt.Length + count > MaxReceiptBytes)
+                {
+                    _receipt = null;
+                    receipt.Dispose();
+                }
+                else if (count > 0) receipt.Write(buffer.Span[..count]);
+                else
+                {
+                    _receipt = null;
+                    using (receipt)
+                    using (var content = new ByteArrayContent(receipt.GetBuffer(), 0, checked((int)receipt.Length)))
+                    {
+                        content.Headers.ContentType = owner.Headers.ContentType;
+                        await settle!(content, token).ConfigureAwait(false);
+                    }
+                }
+            }
             if (count == 0 && !buffer.IsEmpty) deadline.CancelAfter(Timeout.InfiniteTimeSpan);
             return count;
         }
@@ -37,6 +62,7 @@ internal sealed class CopilotInferenceStream(Stream body, HttpContent owner, Can
     {
         if (disposing)
         {
+            _receipt?.Dispose();
             owner.Dispose();
             deadline.Dispose();
         }

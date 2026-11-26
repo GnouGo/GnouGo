@@ -46,7 +46,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => c == "project.read" ||
             c == "project.native_read" && readiness == CopilotSandboxReadiness.Configured ||
             c == "project.write" && policy.DescribePolicy().AllowWrites || c == "command.execute" && commands).Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
-        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content", "file.read") : new JsonArray("file.content", "file.read");
+        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content", "file.read", CodeReviewEvidence.Kind) : new JsonArray("file.content", "file.read", CodeReviewEvidence.Kind);
         return new()
         {
             ["schemaVersion"] = 9, ["hostToolProtocol"] = 1,
@@ -57,6 +57,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                     (readiness == CopilotSandboxReadiness.Configured ? "Host policy disables writes. " : new CopilotSandboxRequiredException(readiness).Message + " ")) +
                 "Project file tools obey the host file policy. With project.read, project.native_read enables sandboxed view and rg on exact absolute project files. Commands require a mandatory host sandbox, permit project writes and host-defined sandbox read-only locations, and deny network and credential grants. " +
                 "command.exit verification subject is the exact shell command; facts: exit_code (integer), working_directory (string), tool_success (boolean). " +
+                "review.diff uses a pinned head SHA subject, inputs.review {base,head,files} from Git, and output {base,head,findings,reviewed_files,limitations}. Supply exact per-file patches and require observed changed-file reads. " +
                 "file.read requires an observed successful SDK read of the named relative file; facts include tool and exact arguments. " +
                 "file.content subject is a relative project file; facts: exists (boolean), sha256 (string), changed (boolean). " +
                 "Require changed=true when an edit is required. Return structured JSON matching output_schema. Usage tokens are conservatively charged upper bounds.", schema), AgentTaskJsonContext.Default.AgentTaskRunnerContract)
@@ -81,6 +82,12 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         foreach (var requirement in context.Task.Verification)
         {
             if (requirement.Kind == "mcp.result" && hostTools?.ContainsKey(requirement.Subject) == true) continue;
+            if (requirement.Kind == CodeReviewEvidence.Kind)
+            {
+                if (!context.Task.Capabilities.Contains("project.read") || context.Task.Inputs["review"]?["head"]?.ToString() != requirement.Subject)
+                    errors.Add("Review validation requires project.read and a comparison pinned to the approved head.");
+                continue;
+            }
             if (requirement.Kind is not ("command.exit" or "file.content" or "file.read")) errors.Add("The required evidence kind is unavailable.");
             if (requirement.Kind == "command.exit" && !context.Task.Capabilities.Contains("command.execute")) errors.Add("Command evidence requires command.execute.");
             if (requirement.Kind is "file.content" or "file.read" && (!context.Task.Capabilities.Contains("project.read") || Path.IsPathRooted(requirement.Subject) || requirement.Subject.Split('/', '\\').Contains("..")))
@@ -181,6 +188,16 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                         return hostBudget.ReserveJournaledAttemptAsync(id, request, context.Execution.Engine.ModelUsageCostEstimator,
                             input, output, [], "agent.run.execution", token);
                     } : null,
+                SettleHostAttemptAsync = context.Execution?.LLMUsageBudget is { } settlement
+                    ? async (attempt, model, content, path, token) =>
+                    {
+                        var usage = await ReadProviderUsageAsync(content, path, token);
+                        if (usage is null) return;
+                        var id = Key(context) + ":sdk:" + attempt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        var request = new LLMRequest { ClientRequestId = id, Model = model, Provider = baseConfiguration.ProviderName };
+                        await settlement.SettleJournaledAttemptAsync(id, request, context.Execution.Engine.ModelUsageCostEstimator,
+                            usage, "agent.run.execution", token);
+                    } : null,
                 AdaptiveActions = context.Task.Budget.MaxActions.HasValue ? new CopilotAdaptiveActions(async (id, observation) =>
                 {
                     observation["scope_hash"] = scopeHash;
@@ -254,7 +271,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                         new() { ["exists"] = hash is not null, ["sha256"] = hash ?? "", ["changed"] = before[requirement.Subject] != hash }));
                     if (hash is not null) artifacts.Add(new(requirement.Id, "file", Path.Combine(runtime.WorkingDirectory, requirement.Subject), hash));
                 }
-                result = CompletedTurn(sent.Content, context.Task.OutputSchema, evidence, artifacts, bounds.Exhausted);
+                result = CodeReviewEvidence.Verify(context.Task, CompletedTurn(sent.Content, context.Task.OutputSchema, evidence, artifacts, bounds.Exhausted));
             }
         }
         catch (Exception ex) when (ex is not OutOfMemoryException)
@@ -393,6 +410,26 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         if (capabilities.Contains("command.execute")) tools.UnionWith(OperatingSystem.IsWindows() ? ["powershell", "read_powershell", "write_powershell", "stop_powershell"] : new[] { "bash", "read_bash", "write_bash", "stop_bash" });
         return tools;
     }
+    private static async Task<JsonNode?> ReadProviderUsageAsync(HttpContent content, string path, CancellationToken ct)
+    {
+        try
+        {
+            JsonNode? response;
+            if (content.Headers.ContentType?.MediaType == "text/event-stream")
+            {
+                var protocol = path.EndsWith("/responses", StringComparison.Ordinal)
+                    ? GnOuGo.AI.Core.LLMTransportResolver.Responses : GnOuGo.AI.Core.LLMTransportResolver.ChatCompletions;
+                response = await GnOuGo.AI.Core.NativeStreamingResponse.ReadAsync(await content.ReadAsStreamAsync(ct), protocol, ct);
+            }
+            else response = JsonNode.Parse(await content.ReadAsStringAsync(ct));
+            return response is JsonObject obj && obj["usage"] is JsonObject usage &&
+                (usage["input_tokens"] ?? usage["prompt_tokens"]) is not null &&
+                (usage["output_tokens"] ?? usage["completion_tokens"]) is not null ? usage : null;
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or GnOuGo.AI.Core.LLMProviderException)
+        { return null; }
+    }
+
     private static string Prompt(AgentTaskDefinition task) =>
         "Complete only the approved objective below, within its declared capabilities and workspace. " +
         "Run each required verification command exactly as written and wait for its structured exit status. " +

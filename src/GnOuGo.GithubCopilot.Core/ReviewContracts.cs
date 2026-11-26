@@ -68,49 +68,10 @@ public sealed record ReviewCoverage(
     IReadOnlyList<string> SkippedPaths,
     IReadOnlyList<string> TruncatedPaths);
 
-public sealed record CopilotReviewStartRequest(
-    CopilotRequestContext Context,
-    CopilotRuntimeConfiguration Configuration,
-    string BaseSha,
-    string HeadSha,
-    IReadOnlyList<ReviewFilePatch> Files,
-    int MaxBatchCharacters = 60_000,
-    CopilotPermissionMode PermissionMode = CopilotPermissionMode.Deny,
-    string? ReviewInstructions = null,
-    IReadOnlyList<ExistingReviewComment>? ExistingComments = null)
-{
-    /// <summary>Optional JSON object containing original upstream execution results, retained as untrusted review context.</summary>
-    public string? RuntimeContextJson { get; init; }
-}
-
-public sealed record CopilotReviewSession(
-    string ReviewHandle,
-    string SessionHandle,
-    string BaseSha,
-    string HeadSha,
-    int BatchCount,
-    ReviewCoverage Coverage);
+public sealed record ObservedReview(IReadOnlyList<string> ObservedFiles, IReadOnlyList<string> UnobservedFiles,
+    IReadOnlyList<ReviewFinding> Findings, IReadOnlyList<string> Errors);
 
 public sealed record CopilotReviewBatch(
     int Index,
     IReadOnlyList<ReviewFilePatch> Files,
     int CharacterCount);
-
-public sealed record CopilotReviewAnalyzeResult(
-    string ReviewHandle,
-    int BatchIndex,
-    IReadOnlyList<ReviewFinding> Findings,
-    IReadOnlyList<string> RejectedFindings);
-
-public sealed record CopilotReviewResult(
-    string BaseSha,
-    string HeadSha,
-    IReadOnlyList<ReviewFinding> Findings,
-    ReviewCoverage Coverage,
-    IReadOnlyList<string> RejectedFindings,
-    string Summary)
-{
-    public bool Complete { get; init; }
-    // Includes validated findings suppressed because an existing comment already reports them.
-    public int BlockingFindingCount { get; init; }
-}

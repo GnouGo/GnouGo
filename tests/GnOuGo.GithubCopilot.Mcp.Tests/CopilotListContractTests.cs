@@ -139,7 +139,7 @@ public sealed class CopilotListContractTests
             f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
             f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.root, "vault.db"), f.root), f.Host.Trace, Path.Combine(f.root, "leases"));
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
-            var copilot = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
+            var copilot = new CopilotTools(f.Host.Manager, policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var service = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options,
                 f.Host.Trace, new(f.Host.Trace), logical);

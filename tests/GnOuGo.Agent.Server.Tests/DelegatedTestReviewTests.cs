@@ -732,14 +732,15 @@ public sealed class DelegatedTestReviewTests
         DelegatedTestReviewAuthority Create() => ServerLiveDiagnostics.CreateReviewAuthority(authorization, new(receipt, evidence),
             authorization.Campaign, receipt.SessionId, "amazon", authorization.WorkspaceRoot, report, business);
         var metadata = new JsonObject { ["hostToolsOnly"] = true };
-        Assert.Throws<PlanningConflictException>(() => Create().RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", metadata));
+        Assert.Throws<PlanningConflictException>(() => Create().RequireTool("GnOuGo.GithubCopilot.Mcp", "copilot_task_contract", metadata));
         business.Adaptive = new AdaptiveLiveProfile("amazon");
         Assert.Throws<PlanningConflictException>(Create);
         report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
         var captured = Create();
-        captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", metadata);
-        Assert.Throws<PlanningConflictException>(() => captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_contract", new JsonObject()));
-        Assert.Throws<PlanningConflictException>(() => captured.RequireTool(AdaptiveLiveProfile.Backend, "copilot_task_run", new JsonObject()));
+        captured.RequireTool("GnOuGo.Browser.Mcp", "browser_get_content", null, inspectOnly: true);
+        Assert.Throws<PlanningConflictException>(() => captured.RequireTool("GnOuGo.GithubCopilot.Mcp", "copilot_task_contract", metadata));
+        Assert.Throws<PlanningConflictException>(() => captured.RequireTool("GnOuGo.GithubCopilot.Mcp", "copilot_task_contract", new JsonObject()));
+        Assert.Throws<PlanningConflictException>(() => captured.RequireTool("GnOuGo.GithubCopilot.Mcp", "copilot_task_run", new JsonObject()));
     }
 
     private static DelegatedTestReviewAuthority Authority(DelegatedTestAuthorization authorization, DelegatedReviewEvidence evidence,

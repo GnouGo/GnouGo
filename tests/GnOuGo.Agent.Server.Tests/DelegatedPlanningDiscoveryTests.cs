@@ -13,17 +13,16 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class DelegatedPlanningDiscoveryTests
 {
     [Fact]
-    public async Task AdaptiveDiscoveryExposesOnlyHostToolContractBeforeArtifactApproval()
+    public async Task AdaptiveDiscoveryListsPinnedBusinessSchemasWithoutExecutingAnyTool()
     {
-        var inner = new Factory(AdaptiveLiveProfile.Backend, "code_read_file", "copilot_task_run");
-        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario,
-            "bound-host", adaptive: true);
-        await using var session = await discovery.GetClientAsync(AdaptiveLiveProfile.Backend, TestContext.Current.CancellationToken);
-        await session.CallToolAsync("copilot_task_contract", new JsonObject { ["hostToolsOnly"] = true }, TestContext.Current.CancellationToken);
-        Assert.Equal(1, inner.BusinessCalls);
-        foreach (var method in new[] { "copilot_task_contract", "copilot_task_run", "code_read_file" })
-            await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync(method, new JsonObject(), TestContext.Current.CancellationToken));
-        Assert.Equal(1, inner.BusinessCalls);
+        var ct = TestContext.Current.CancellationToken;
+        const string browser = "GnOuGo.Browser.Mcp";
+        var inner = new Factory(browser, "browser_get_content", "unapproved");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "bound-host", adaptive: true);
+        await using var session = await discovery.GetClientAsync(browser, ct);
+        Assert.Equal("browser_get_content", Assert.Single(await session.ListToolsAsync(ct)).Name);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("browser_get_content", new JsonObject(), ct));
+        Assert.Equal(0, inner.BusinessCalls);
     }
 
     [Fact]

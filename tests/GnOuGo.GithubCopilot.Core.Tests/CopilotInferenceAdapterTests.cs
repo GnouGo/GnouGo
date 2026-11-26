@@ -6,6 +6,28 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 
 public sealed class CopilotInferenceAdapterTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OnlyFullyConsumedProviderBodiesSettleTheirOwnReservation(bool finish)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var bytes = Encoding.UTF8.GetBytes("""{"usage":{"input_tokens":4,"output_tokens":3}}""");
+        using var owner = new ByteArrayContent(bytes);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var receipts = new List<string>();
+        using var stream = new CopilotInferenceStream(new MemoryStream(bytes), owner, deadline, null, async (content, token) =>
+            receipts.Add(await content.ReadAsStringAsync(token)));
+        var buffer = new byte[7];
+        Assert.Equal(7, await stream.ReadAsync(buffer, ct));
+        if (finish)
+        {
+            await stream.CopyToAsync(Stream.Null, ct);
+            Assert.Equal(Encoding.UTF8.GetString(bytes), Assert.Single(receipts));
+        }
+        else Assert.Empty(receipts);
+    }
+
     [Fact]
     public async Task ReservationUsesTheUtf8JsonSentToTheProvider()
     {
