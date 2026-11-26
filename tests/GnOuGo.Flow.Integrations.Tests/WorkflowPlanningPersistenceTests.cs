@@ -164,6 +164,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
             Assert.Equal(1, reopened.Session.Usage.Calls);
         }
         Assert.Equal(1, client.Calls);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var file in Directory.GetFiles(_directory, "*", SearchOption.AllDirectories))
         {
             var bytes = await File.ReadAllBytesAsync(file, Ct);
@@ -360,5 +361,9 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
                 : new LLMResponse { CompletionStatus = "completed", Json = new JsonObject { ["value"] = "secret result" }, Usage = new JsonObject { ["input_tokens"] = 3, ["output_tokens"] = 2, ["total_tokens"] = 5 } });
         }
     }
-    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+    }
 }

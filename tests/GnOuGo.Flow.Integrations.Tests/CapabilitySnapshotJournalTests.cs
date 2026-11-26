@@ -22,6 +22,7 @@ public sealed class CapabilitySnapshotJournalTests : IDisposable
         Assert.Equal(Serialize(snapshot), Serialize(restored));
         var again = await new PlanningCapabilitySnapshotJournal(Records()).PublishAsync("tenant", "session", "action", snapshot, Ct);
         Assert.Equal(reference, again);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var file in Directory.EnumerateFiles(_directory))
             Assert.DoesNotContain("PRIVATE_CATALOG_BUSINESS", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)), StringComparison.Ordinal);
     }
@@ -64,7 +65,11 @@ public sealed class CapabilitySnapshotJournalTests : IDisposable
     private static CapabilitySourceSnapshot Snapshot() => new("source", PlanningGraphCompiler.Fingerprint("configured source"),
         [new() { Id = "operation", Version = "version", Description = "PRIVATE_CATALOG_BUSINESS", InputSchema = new() { ["type"] = "object" } }]);
     private static string Serialize(CapabilitySourceSnapshot value) => JsonSerializer.Serialize(value, CapabilitySnapshotJsonContext.Default.CapabilitySourceSnapshot);
-    public void Dispose() { if (Directory.Exists(_directory)) Directory.Delete(_directory, true); }
+    public void Dispose()
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_directory)) Directory.Delete(_directory, true);
+    }
 
     private sealed class InterruptPublication(IKeyVaultRecordStore inner) : IKeyVaultRecordStore
     {

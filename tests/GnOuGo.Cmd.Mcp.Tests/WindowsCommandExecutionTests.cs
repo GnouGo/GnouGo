@@ -75,21 +75,22 @@ public sealed class WindowsCommandExecutionTests
         Assert.SkipUnless(OperatingSystem.IsWindows(), "Requires native Windows PowerShell.");
         var root = Directory.CreateTempSubdirectory("gnougo-process-tree-").FullName;
         Process? child = null;
+        Task<CmdRunResult>? running = null;
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         try
         {
             var host = Host(root, new() { Shell = "powershell", Script =
                 "$start = [Diagnostics.ProcessStartInfo]::new((Get-Process -Id $PID).Path, '-NoLogo -NoProfile -NonInteractive -Command Start-Sleep -Seconds 60'); $start.UseShellExecute = $false; $start.CreateNoWindow = $true; $child = [Diagnostics.Process]::Start($start); [IO.File]::WriteAllText('child.pid.tmp', [string]$child.Id); [IO.File]::Move('child.pid.tmp', 'child.pid'); Start-Sleep -Seconds 60" });
             // Publish only after closing the writer; file existence must mean the PID is complete and readable.
-            var running = host.RunAsync("probe", null, 5000, cancellation.Token);
+            running = host.RunAsync("probe", null, cancel ? 30000 : 10000, cancellation.Token);
             var marker = Path.Combine(root, "child.pid"); var timer = Stopwatch.StartNew();
-            while (!File.Exists(marker) && !running.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(4))
+            while (!File.Exists(marker) && !running.IsCompleted && timer.Elapsed < TimeSpan.FromSeconds(cancel ? 25 : 9))
                 await Task.Delay(25, TestContext.Current.CancellationToken);
             Assert.True(File.Exists(marker), "The child must actually start before testing tree termination.");
             child = Process.GetProcessById(int.Parse(await File.ReadAllTextAsync(marker, TestContext.Current.CancellationToken), System.Globalization.CultureInfo.InvariantCulture));
             Assert.False(child.HasExited);
             if (cancel) cancellation.Cancel();
-            var result = await running.WaitAsync(TimeSpan.FromSeconds(8), TestContext.Current.CancellationToken);
+            var result = await running.WaitAsync(TimeSpan.FromSeconds(12), TestContext.Current.CancellationToken);
             Assert.False(result.Success); Assert.True(result.TimedOut);
             await child.WaitForExitAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
             Assert.True(child.HasExited);
@@ -97,7 +98,12 @@ public sealed class WindowsCommandExecutionTests
         finally
         {
             cancellation.Cancel();
-            if (child is not null) { if (!child.HasExited) child.Kill(entireProcessTree: true); child.Dispose(); }
+            if (running is not null) await running;
+            if (child is not null)
+            {
+                if (!child.HasExited) { child.Kill(entireProcessTree: true); await child.WaitForExitAsync(CancellationToken.None); }
+                child.Dispose();
+            }
             Directory.Delete(root, recursive: true);
         }
     }

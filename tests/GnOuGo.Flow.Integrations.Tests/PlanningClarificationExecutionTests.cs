@@ -60,6 +60,7 @@ public sealed class PlanningClarificationExecutionTests
             Assert.Equal(interaction ? 1 : 0, decisions.Questions); Assert.Equal(interaction ? 0 : 1, human.Questions);
             Assert.Contains(model.Requests.Skip(2), request => request.Prompt.Contains(custom ? "CUSTOM_INTENT" : "compact", StringComparison.Ordinal));
             if (interaction) Assert.True(decisions.AnswerCheckpointed);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             foreach (var file in Directory.GetFiles(root, "*", SearchOption.AllDirectories))
                 Assert.DoesNotContain("CUSTOM_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, TestContext.Current.CancellationToken)));
         }
