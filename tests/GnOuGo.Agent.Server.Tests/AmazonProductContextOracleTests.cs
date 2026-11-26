@@ -149,18 +149,26 @@ public sealed class AmazonProductContextOracleTests
         Assert.False(Verify(events)["passed"]!.GetValue<bool>());
     }
 
-    [Fact]
-    public void ProductContextHostConfigurationPreservesSavedAttributeRequests()
+    [Theory]
+    [InlineData(AmazonProductContextPolicy.Id)]
+    [InlineData(AmazonFirstProductsPolicy.Id)]
+    public void ProductContextHostConfigurationPreservesSavedAttributeRequests(string policy)
     {
         var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../.."));
         var build = new DirectoryInfo(AppContext.BaseDirectory).Parent!.Name;
         var settings = new[] { "Browser", "Document" }.ToDictionary(name => "GnOuGo." + name + ".Mcp", _ => new GnOuGo.AI.Core.McpServerOptions());
         settings["GnOuGo.Browser.Mcp"].EnvironmentVariables = new() { ["Browser__ObservationAncestorAttributes__0"] = "data-code" };
-        var configured = LiveWorkflowEvaluation.Configuration(settings, "amazon", null, build, root, AmazonProductContextPolicy.Id)["GnOuGo.Browser.Mcp"].EnvironmentVariables!;
+        var configured = LiveWorkflowEvaluation.Configuration(settings, "amazon", null, build, root, policy)["GnOuGo.Browser.Mcp"].EnvironmentVariables!;
         Assert.Equal("data-code", configured["Browser__ObservationAncestorAttributes__0"]);
         Assert.Equal("data-asin", configured["Browser__ObservationAncestorAttributes__1"]);
         Assert.Equal("sponsored-ads.amazon.fr", configured["Browser__AllowedHosts__2"]);
         Assert.False(settings["GnOuGo.Browser.Mcp"].EnvironmentVariables!.ContainsKey("Browser__ObservationAncestorAttributes__1"));
+        if (policy == AmazonFirstProductsPolicy.Id)
+        {
+            var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/run", 10, policy);
+            Assert.Contains("observationSnapshot.pages[].records[].ancestorAttributes", prompt);
+            Assert.Contains("project compact ordered card or detail-field candidates", prompt);
+        }
     }
 
     private static JsonObject Verify(List<JsonObject> events) => LiveWorkflowOracles.VerifyAmazonProductContextSelection(events, 2, Query);

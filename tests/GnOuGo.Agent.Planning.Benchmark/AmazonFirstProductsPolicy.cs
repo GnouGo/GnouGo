@@ -10,6 +10,9 @@ internal static class AmazonFirstProductsPolicy
     internal static bool IsEntry(string href) => AmazonDealsPolicy.IsEntry(href) || href == SeasonalListing;
     internal static bool IsSourceEntry(string href) => AmazonDealsPolicy.IsSourceEntry(href);
     internal const string PlanningFacts = "Use the input query at amazon.fr/s and capture the full rendered source with browser_get_content, format=observation_complete, omitting selector. " +
+        "The configured Browser already captures data-asin in observationSnapshot.pages[].records[].ancestorAttributes. Use that structured source directly. A URL-less read needs a current issued cursor and observation or observation_pages format. " +
+        "Keep the complete observations in workflow data. Before inference, project compact ordered card or detail-field candidates with source references. Resolve exact observed links and cell text from the original records by reference. " +
+        "Process further pages or card groups in order when needed to establish the first ten. Passing the whole Browser result, rendered HTML, or full snapshot to an adaptive runner or a model transform can exceed its context before its first call. " +
         "Keep the original ordered cards, data-asin and semantic occurrence; count sponsored products and repeated occurrences. Stop selection after the first ten products. " +
         "A known card can identify its non-heading review and offer anchors from card membership; retain these records without visiting them. Choose the observed product heading, or a same-card product link when the card has no heading. " +
         "Resolve earlier empty-ASIN sponsored entries in original order using their own observed GETs; a verified store or listing is not a product. A necessary observed /deals read may redirect to the exact /blackfriday listing. " +
