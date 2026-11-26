@@ -20,6 +20,7 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     public int ModelCalls { get; private set; } = initialCalls;
     public long ChargedTokens { get; private set; } = initialTokens;
     public CopilotAdmissionStop? AdmissionStop { get; private set; }
+    internal Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync { get; set; }
     private readonly CancellationTokenSource _providerRejected = new();
     internal CancellationToken ProviderRejected => _providerRejected.Token;
     public CopilotInferenceFailure? ProviderFailure { get; private set; }
@@ -89,6 +90,9 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
             // Multiple completions would multiply the reserved output allowance.
             if (body["n"] is { } count && count.GetValue<int>() != 1)
                 throw new InvalidOperationException("Bounded inference permits one completion per request.");
+            if (ReserveHostAttemptAsync is { } reserve)
+                await reserve(ModelCalls + 1, body["model"]?.GetValue<string>() ?? throw new InvalidDataException("Missing inference model."),
+                    checked((int)inputCeiling), checked((int)outputCeiling), ct);
             ModelCalls++; ChargedTokens = checked(ChargedTokens + inputCeiling + outputCeiling);
             await persistReservation(ModelCalls, ChargedTokens, ct);
             // One model-context update per admitted request, even when its tools finish concurrently.

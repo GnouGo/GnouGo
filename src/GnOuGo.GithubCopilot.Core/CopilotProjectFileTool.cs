@@ -44,6 +44,9 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
         }
     }
     internal static bool IsProjectTool(string name) => Operations.Any(op => name == "project_" + op);
+    internal static string[] ExcludedTools(CopilotRuntimeConfiguration config) =>
+        (config.ExcludedTools ?? []).Concat(NativeFileTools.Where(name =>
+            !(name is "view" or "rg" && config.ExecutionBounds?.Tools.Contains(name) == true))).Distinct(StringComparer.Ordinal).ToArray();
     internal static bool IsWrite(string name) => name is "project_write" or "project_append" or "project_mkdir" or "project_remove" or "project_rename";
     internal static string RequiredString(JsonElement args, string key)
         => args.ValueKind == JsonValueKind.Object && args.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())

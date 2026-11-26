@@ -7,12 +7,14 @@ public sealed record CopilotRunnerConfiguration(
     IReadOnlyDictionary<string, string> Runners,
     IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>> Tools)
 {
+    public IConfiguration? Host { get; init; }
     public static CopilotRunnerConfiguration Read(IConfiguration configuration)
     {
-        var runners = configuration.GetSection("Flow:CopilotRunners").GetChildren()
+        var profiles = configuration.GetSection("Flow:AgentRunners");
+        var runners = (profiles.Exists() ? profiles : configuration.GetSection("Flow:CopilotRunners")).GetChildren()
             .ToDictionary(runner => runner.Key, runner => RequiredValue(runner), StringComparer.Ordinal);
         var tools = new Dictionary<string, IReadOnlyList<CopilotToolBinding>>(StringComparer.Ordinal);
-        var toolSection = configuration.GetSection("Flow:CopilotTools");
+        var toolSection = configuration.GetSection(profiles.Exists() ? "Flow:AgentTools" : "Flow:CopilotTools");
         if (!string.IsNullOrEmpty(toolSection.Value))
             throw new InvalidOperationException($"Declare MCP tool scopes per runner under '{toolSection.Path}'.");
         foreach (var scope in toolSection.GetChildren())
@@ -31,7 +33,7 @@ public sealed record CopilotRunnerConfiguration(
                 throw new InvalidOperationException($"Declare at least one MCP tool at '{scope.Path}'.");
             tools.Add(scope.Key, bindings);
         }
-        return new(runners, tools);
+        return new(runners, tools) { Host = configuration };
     }
 
     private static string RequiredValue(IConfigurationSection section) => !string.IsNullOrWhiteSpace(section.Value)

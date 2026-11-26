@@ -53,6 +53,8 @@ public sealed record AgentTaskContext(string TenantId, string RunId, string Invo
     public string? AgentName { get; init; }
     [JsonIgnore] public Action<AgentTaskProgress>? Progress { get; init; }
     [JsonIgnore] public Action<HumanInputRequest, string>? HumanInput { get; init; }
+    [JsonIgnore] public StepExecutionContext? Execution { get; init; }
+    [JsonIgnore] public AgentTaskResult? LastObservation { get; init; }
 }
 public sealed record AgentTaskProgress(string Kind, string Message);
 public sealed record AgentTaskRunnerContract(string Description, JsonObject InputSchema);

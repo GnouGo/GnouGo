@@ -9,6 +9,29 @@ internal sealed partial class BenchmarkCampaign
     private const string FundingKey = "independent-funding-scope";
     private static string GrantKey(string reference) => "independent-funding-authorization:" + PlanningGraphCompiler.Fingerprint(reference);
 
+    // Called under the same exclusive campaign lease as the live driver.
+    internal async Task<JsonObject> CloseSpendingAsync(string reference, CancellationToken ct)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(reference);
+        if (await LoadAsync(FundingCollection, "spending-closure", ct) is { } existing) return existing;
+        if (await LoadAsync(FundingCollection, "configuration", ct) is null)
+            throw new PlanningConflictException("Cannot close spending for an unknown campaign.");
+        var receipt = new JsonObject
+        {
+            ["campaign"] = Id, ["authorization"] = reference, ["closed_at_utc"] = DateTimeOffset.UtcNow,
+            ["ceiling_eur"] = await CostCeilingAsync(ct), ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct),
+            ["retained_application_reservations_eur"] = await RetainedApplicationReservationsAsync(ct)
+        };
+        await SaveAsync(FundingCollection, "spending-closure", receipt, ct);
+        return receipt;
+    }
+
+    internal async Task RequireOpenSpendingAsync(CancellationToken ct)
+    {
+        if (await LoadAsync(FundingCollection, "spending-closure", ct) is not null)
+            throw AdmissionFailure("campaign_spending_closed");
+    }
+
     // The caller holds both the campaign lease and the authorization-reference lease.
     // This allocates new spending authority; it never clears or reprices an old ledger.
     internal async Task<JsonObject> AuthorizeFreshAllocationAsync(string previousId, decimal amount, string reference,

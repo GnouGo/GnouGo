@@ -27,7 +27,7 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
 
     internal static bool AuthorizesTarget(string url, string? version) => version switch
     {
-        LocalKindVersion => url == LiveWorkflowEvaluation.ReviewUrl,
+        LocalKindVersion or LocalReviewQualification.Version => url == LiveWorkflowEvaluation.ReviewUrl,
         Version or DeliveryVersion => url == HistoricalReviewUrl,
         _ => false
     };

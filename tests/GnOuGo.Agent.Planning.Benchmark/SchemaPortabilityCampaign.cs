@@ -329,6 +329,25 @@ internal static class SchemaPortabilityCampaign
         var leasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation", campaignId + ".lock");
         Directory.CreateDirectory(Path.GetDirectoryName(leasePath)!);
         await using var lease = new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        if (phase == "close-spending")
+        {
+            Console.WriteLine((await campaign.CloseSpendingAsync(RequiredOption(args, "--authorization"), CancellationToken.None)).ToJsonString());
+            return;
+        }
+        if (phase == "authorize-fresh-allocation")
+        {
+            var reference = RequiredOption(args, "--authorization");
+            var grantLeasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation",
+                "funding-authorization-" + PlanningGraphCompiler.Fingerprint(reference) + ".lock");
+            await using var grantLease = new FileStream(grantLeasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            using var proposed = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None);
+            var ready = await proposed.ReadinessAsync(CancellationToken.None); KeyVaultBenchmarkModel.RequireReady(ready);
+            var grant = await campaign.AuthorizeFreshAllocationAsync(RequiredOption(args, "--previous-campaign"),
+                decimal.Parse(RequiredOption(args, "--amount-eur"), System.Globalization.CultureInfo.InvariantCulture), reference,
+                proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None,
+                previousCampaignUnavailable: args.Contains("--previous-campaign-unavailable", StringComparer.Ordinal));
+            Console.WriteLine(grant.ToJsonString()); return;
+        }
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
         if (phase == "retain-uncertain-request")
         {
@@ -353,20 +372,6 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine((await campaign.ExtendBudgetAsync(Amount("--from-eur"), Amount("--to-eur"),
                 Option(args, "--authorization") ?? throw new ArgumentException("Supply the explicit authorization."), CancellationToken.None)).ToJsonString());
             return;
-        }
-        if (phase == "authorize-fresh-allocation")
-        {
-            var reference = RequiredOption(args, "--authorization");
-            var grantLeasePath = Path.Combine(root, ".GnOuGo", "data", "planning-evaluation",
-                "funding-authorization-" + PlanningGraphCompiler.Fingerprint(reference) + ".lock");
-            await using var grantLease = new FileStream(grantLeasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-            using var proposed = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None);
-            var ready = await proposed.ReadinessAsync(CancellationToken.None); KeyVaultBenchmarkModel.RequireReady(ready);
-            var grant = await campaign.AuthorizeFreshAllocationAsync(RequiredOption(args, "--previous-campaign"),
-                decimal.Parse(RequiredOption(args, "--amount-eur"), System.Globalization.CultureInfo.InvariantCulture), reference,
-                proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint, ready["declared_metadata_hash"]!.ToString(), CancellationToken.None,
-                previousCampaignUnavailable: args.Contains("--previous-campaign-unavailable", StringComparer.Ordinal));
-            Console.WriteLine(grant.ToJsonString()); return;
         }
         if (phase is "retain-schema-rejection" or "retain-context-rejection")
         {

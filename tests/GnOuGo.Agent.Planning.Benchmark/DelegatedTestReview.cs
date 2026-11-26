@@ -51,8 +51,12 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal IDisposable BeginCall(McpCallExecutionContext context)
     {
         var call = context.Correlation;
-        if (adaptive is not null && AdaptiveLiveProfile.IsControl(call.ServerName ?? "", call.MethodName ?? ""))
-            return adaptive.Enter(call, ExecutionId);
+        if (call.StepType == "agent.run")
+        {
+            if (adaptive is null) throw new PlanningConflictException("This artifact has no approved agent tools.");
+            adaptive.RequireCall(call, ExecutionId);
+            return new CallRegistration(() => { });
+        }
         if (call.ServerName != "GnOuGo.GithubCopilot.Mcp" || call.MethodName != "code_agent_edit") return new CallRegistration(() => { });
         if (call.TenantId != "benchmark" || call.RunId != ExecutionId || call.StepType != "mcp.call" || call.StepId is null ||
             !_runtimeInvocationSuffixes.Any(s => call.StepId.EndsWith(s, StringComparison.Ordinal)))
@@ -74,7 +78,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     {
         "amazon" => ["search", "observed_product_order", "exact_product_fields", "workbook", "cleanup", "truthful_result"],
         PublishedReviewQualification.Scenario => ["pinned_checkout", "repository_checks", "requested_review", "published_verdict", "inline_comments", "cleanup", "truthful_result"],
-        "code" => ["pinned_checkout", "repository_checks", "requested_review", "local_report", "cleanup", "truthful_result"],
+        "code" or LocalReviewQualification.Scenario => ["pinned_checkout", "repository_checks", "requested_review", "local_report", "cleanup", "truthful_result"],
         "synthetic" => ["exact_outputs", "declared_effects", "cleanup"],
         PlanningBenchmarkCases.ReadGroupProofCase => ["exact_outputs", "reusable_group_calls", "single_seed_read", "unchanged_workspace"],
         _ => throw new PlanningConflictException("The delegated scenario is not authorized.")
@@ -181,9 +185,10 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal static bool AllowsTool(string scenario, string server, string tool) => scenario switch
     {
         "amazon" => server == "GnOuGo.Browser.Mcp" && tool is "browser_get_content" or "browser_close" ||
-            server == "GnOuGo.Document.Mcp" && tool == "document_write",
+            server == "GnOuGo.Document.Mcp" && tool is "document_write" or "document_read",
         PublishedReviewQualification.Scenario => server == "Github" && tool is "pull_request_read" or "pull_request_review_write" or "add_comment_to_pending_review" ||
             server != "GnOuGo.Document.Mcp" && AllowsTool("code", server, tool),
+        LocalReviewQualification.Scenario => server != "GnOuGo.GithubCopilot.Mcp" && AllowsTool("code", server, tool),
         "code" => server == "GnOuGo.Git.Mcp" && tool is "git_clone" or "git_repository_info" or "git_status" or "git_diff" or "git_compare_refs" or "git_log" or "git_branches" or "git_checkout" or "git_fetch" ||
             server == "GnOuGo.GithubCopilot.Mcp" && tool is "code_project_summary" or "code_read_file" or "code_search_text" or "code_agent_edit" ||
             server == "GnOuGo.Cmd.Mcp" && tool == "cmd_run" || server == "GnOuGo.Document.Mcp" && tool == "document_write",
@@ -194,12 +199,6 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
 
     internal void RequireTool(string server, string tool, JsonNode? arguments, bool inspectOnly = false)
     {
-        if (!inspectOnly && adaptive is not null && AdaptiveLiveProfile.IsMetadata(server, tool, arguments)) return;
-        if (!inspectOnly && adaptive is not null && AdaptiveLiveProfile.IsControl(server, tool))
-        {
-            adaptive.Require(tool, arguments);
-            return;
-        }
         if (!AllowsTool(scenario, server, tool)) throw new PlanningConflictException("The operation is outside delegated isolated-test authority.");
         if (inspectOnly) return;
         if (arguments is not JsonObject args) throw new PlanningConflictException("Concrete operation arguments are required.");
@@ -212,7 +211,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             return;
         }
         var relative = authorizedRelativePath ?? "workflows/" + campaign + "/" + run;
-        if (tool == "document_write") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
+        if (tool is "document_write" or "document_read") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
         if (tool == "browser_close") { ClearBrowser(); _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_get_content")
         {
@@ -242,9 +241,9 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
                         throw new PlanningConflictException("A URL-less read requires an exact cursor issued by the current authorized Amazon observation.");
             }
         }
-        if (scenario is "code" or PublishedReviewQualification.Scenario)
+        if (scenario is "code" or PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
         {
-            if (scenario == PublishedReviewQualification.Scenario && reviewTarget is null)
+            if (scenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario && reviewTarget is null)
                 throw new PlanningConflictException("The publication grant requires the captured pull request and commits.");
             if (server == "Github")
             {
@@ -346,7 +345,6 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             request.Context is null && request.Fields is null && request.AllowAbandon &&
             request.Choices is { Count: 2 } choices && choices.SequenceEqual(["approve", "reject"]))
             return true; // The unmodified host-owned gate for this reviewed artifact and single execution.
-        if (request.RunId == ExecutionId && adaptive?.AllowsPermission(request) == true) return false;
         if (request.RunId != ExecutionId || scenario is not ("code" or PublishedReviewQualification.Scenario) || string.IsNullOrWhiteSpace(request.ParentInvocationId) ||
             !_runtimeInvocationSuffixes.Any(s => request.ParentInvocationId.EndsWith(s, StringComparison.Ordinal)) ||
             !request.StepId.StartsWith(request.ParentInvocationId + "/human/", StringComparison.Ordinal) ||

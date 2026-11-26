@@ -18,7 +18,9 @@ internal sealed class CopilotStructuredToolAdapter : CopilotInferenceAdapter
     };
 
     public override Task<CopilotPreparedInference> PrepareAsync(HttpRequestMessage request,
+#pragma warning disable GHCP001 // The pinned SDK exposes request interception through this callback.
         GitHub.Copilot.CopilotRequestContext context)
+#pragma warning restore GHCP001
         => PrepareAsync(request, context.RequestId, context.CancellationToken);
 
     internal async Task<CopilotPreparedInference> PrepareAsync(HttpRequestMessage request, string requestId, CancellationToken ct)

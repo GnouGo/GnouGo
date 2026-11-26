@@ -24,37 +24,13 @@ public sealed class AdaptiveLiveProfileTests
         profile.BindStage(stage, new() { Kind = "agent", Method = task.Runner, FixedInput = new() { ["runner"] = task.Runner } });
         var step = "/workflow/main/step/n_" + PlanningGraphCompiler.Fingerprint(stage.Key)[..16];
         var call = new McpCorrelationContext { TenantId = "benchmark", RunId = "run", StepId = step, StepType = "agent.run",
-            ServerName = AdaptiveLiveProfile.Backend, MethodName = "copilot_task_run" };
-        var context = new AgentTaskContext("benchmark", "run", step, task);
-        var args = new JsonObject { ["contextJson"] = JsonSerializer.Serialize(context, AgentTaskJsonContext.Default.AgentTaskContext),
-            ["toolsJson"] = new JsonObject { [id] = descriptor }.ToJsonString() };
-        var permission = new HumanInputRequest { RunId = "run", ParentInvocationId = step, StepId = step + "/human/dialog",
-            Mode = HumanInputContract.ModeChoice, Prompt = "Allow this Copilot operation?", Context = new JsonObject {
-                ["mcp_server"] = AdaptiveLiveProfile.Backend, ["mcp_method"] = "copilot_task_run", ["requested_capability"] = id },
-            Fields = [new() { Name = "answer", Type = "select", Required = true, Options = ["Allow once", "Refuse"] }] };
-        Assert.False(profile.AllowsPermission(permission));
-        Assert.Throws<PlanningConflictException>(() => profile.Require("copilot_task_run", args));
-        Assert.Throws<PlanningConflictException>(() => profile.Enter(call, "other"));
-        Assert.Throws<PlanningConflictException>(() => profile.Enter(call with { StepType = "mcp.call" }, "run"));
-        using (profile.Enter(call, "run"))
-        {
-            Assert.False(profile.AllowsPermission(permission));
-            profile.Require("copilot_task_run", args);
-            Assert.True(profile.AllowsPermission(permission));
-            permission.Context!["requested_capability"] = "command.execute";
-            Assert.False(profile.AllowsPermission(permission));
-            permission.Context["requested_capability"] = id;
-            permission.RunId = "other";
-            Assert.False(profile.AllowsPermission(permission));
-            permission.RunId = "run";
-            descriptor["method"] = "unapproved";
-            var changed = args.DeepClone();
-            changed["toolsJson"] = new JsonObject { [id] = descriptor.DeepClone() }.ToJsonString();
-            Assert.Throws<PlanningConflictException>(() => profile.Require("copilot_task_run", changed));
-            args["contextJson"] = JsonSerializer.Serialize(context with { Task = task with { Capabilities = ["command.execute"] } }, AgentTaskJsonContext.Default.AgentTaskContext);
-            Assert.Throws<PlanningConflictException>(() => profile.Require("copilot_task_run", args));
-        }
-        Assert.False(profile.AllowsPermission(permission));
-        Assert.Throws<PlanningConflictException>(() => profile.Require("copilot_task_run", args));
+            ServerName = server, MethodName = method, Context = new() { ["agent_capability"] = id } };
+        profile.RequireCall(call, "run");
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call, "other"));
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call with { StepType = "mcp.call" }, "run"));
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call with { TenantId = "other" }, "run"));
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call with { StepId = "other" }, "run"));
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call with { MethodName = "unapproved" }, "run"));
+        Assert.Throws<PlanningConflictException>(() => profile.RequireCall(call with { Context = new() { ["agent_capability"] = "command.execute" } }, "run"));
     }
 }

@@ -1684,7 +1684,7 @@ Produce the final answer strictly from the executed MCP results.
         return null;
     }
 
-    private static bool IsMcpResultErrorEnvelope(JsonNode? content)
+    internal static bool IsMcpResultErrorEnvelope(JsonNode? content)
     {
         if (content is not JsonObject obj)
             return false;

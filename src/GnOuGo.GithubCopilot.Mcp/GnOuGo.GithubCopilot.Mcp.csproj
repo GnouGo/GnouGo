@@ -42,6 +42,7 @@
     <ProjectReference Include="../GnOuGo.AI.Core/GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Auth.Core\GnOuGo.Auth.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj" />
     <ProjectReference Include="..\GnOuGo.GithubCopilot.Core\GnOuGo.GithubCopilot.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.KeyVault.Core\GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Mcp.Core\GnOuGo.Mcp.Core.csproj" />

@@ -25,7 +25,11 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
 {
     private readonly CopilotInferenceBudget _inference = new(maxModelCalls, maxTotalTokens, deadline, persistReservation);
     public IReadOnlySet<string> Tools { get; } = tools;
-    internal bool RequiresSandbox => Tools.Contains("bash") || Tools.Contains("powershell");
+    public Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync
+    {
+        init => _inference.ReserveHostAttemptAsync = value;
+    }
+    internal bool RequiresSandbox => Tools.Contains("bash") || Tools.Contains("powershell") || Tools.Contains("view") || Tools.Contains("rg");
     public DateTimeOffset Deadline { get; } = deadline;
     public int ModelCalls => _inference.ModelCalls;
     /// <summary>Conservative charged token ceiling, not measured model usage.</summary>

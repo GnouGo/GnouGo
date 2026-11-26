@@ -1,5 +1,5 @@
-using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
@@ -8,92 +8,109 @@ namespace GnOuGo.Flow.Copilot.Tests;
 public sealed class CopilotAgentTaskRunnerTests
 {
     [Fact]
-    public void ExplicitEmptyToolScopeCannotEnableProjectPermissions()
+    public void HostSelectsExecutorBeforeAnyModelOrToolDispatch()
     {
-        var transport = new Transport();
-        var engine = new WorkflowEngine { McpClientFactory = transport };
-        Assert.Throws<ArgumentException>(() => engine.WithCopilotRunners(
-            new Dictionary<string, string> { ["observer"] = transport.ServerName },
-            new Dictionary<string, IReadOnlyList<CopilotToolBinding>> { ["observer"] = [] }));
-        Assert.Empty(engine.AgentTaskRunners);
-        Assert.Empty(transport.Calls);
+        var engine = new WorkflowEngine { McpClientFactory = new Transport() };
+        engine.WithCopilotRunners(new Dictionary<string, string> { ["review"] = "code", ["edit"] = "code", ["inspect"] = "business" },
+            new Dictionary<string, IReadOnlyList<CopilotToolBinding>> { ["inspect"] = [new("documents", "read")] });
+        Assert.IsType<CopilotAgentTaskRunner>(engine.AgentTaskRunners["edit"]);
+        Assert.IsType<CopilotAgentTaskRunner>(engine.AgentTaskRunners["review"]);
+        Assert.IsType<BusinessAgentTaskRunner>(engine.AgentTaskRunners["inspect"]);
+        Assert.Throws<ArgumentException>(() => engine.WithCopilotRunners([new("empty", "business")],
+            new Dictionary<string, IReadOnlyList<CopilotToolBinding>> { ["empty"] = [] }));
+        Assert.Throws<ArgumentException>(() => new BusinessAgentTaskRunner(new Transport(), [new("GnOuGo.Cmd.Mcp", "run")]));
     }
 
-    [Fact]
-    public async Task FailedTaskReceiptsRemainTerminalAndCanBeReconciled()
+    [Theory]
+    [InlineData("success", "completed", 1)]
+    [InlineData("fabricate", "completed", 0)]
+    [InlineData("repeat", "failed", 1)]
+    [InlineData("unknown", "failed", 0)]
+    [InlineData("invalid_args", "failed", 0)]
+    [InlineData("partial", "failed", 0)]
+    [InlineData("error", "failed", 1)]
+    [InlineData("interrupted", "needs_reconciliation", 1)]
+    [InlineData("limit", "budget_exhausted", 1)]
+    public async Task BusinessDecisionsUsePinnedContractsAndObservedReceipts(string test, string status, int actions)
     {
-        var runner = new CopilotAgentTaskRunner(new Transport { TaskStatus = "failed" }, "configured-server");
-        Assert.Equal("failed", (await runner.RunAsync(Context(), TestContext.Current.CancellationToken)).Status);
-        Assert.Equal("failed", (await runner.ReconcileAsync(Context(), TestContext.Current.CancellationToken)).Status);
-    }
-    [Fact]
-    public async Task RecoveryInspectsOriginalIdentityWithoutDispatchingAgain()
-    {
-        var transport = new Transport(); var runner = new CopilotAgentTaskRunner(transport, "configured-server");
-        var task = Context();
-        Assert.Empty(await runner.ValidateAsync(task, TestContext.Current.CancellationToken));
-        await runner.RunAsync(task, TestContext.Current.CancellationToken);
-        await runner.ReconcileAsync(task, TestContext.Current.CancellationToken);
-        Assert.Equal(new[] { "copilot_task_validate", "copilot_task_run", "copilot_task_inspect" }, transport.Calls.Select(c => c.Method));
-        Assert.All(transport.Calls, call =>
+        var ct = TestContext.Current.CancellationToken;
+        var transport = new Transport { Outcome = test };
+        var runner = new BusinessAgentTaskRunner(transport, [new("documents", "read")]);
+        var contract = await runner.DescribeAsync(ct);
+        var id = contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]![0]!.GetValue<string>();
+        var model = new Model(test, id);
+        var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
+        var context = new AgentTaskContext("tenant", "run", "invocation", new()
         {
-            var sent = JsonSerializer.Deserialize(call.Input!["contextJson"]!.GetValue<string>(), AgentTaskJsonContext.Default.AgentTaskContext)!;
-            Assert.Equal(task.InvocationId, sent.InvocationId); Assert.Equal(task.TenantId, sent.TenantId); Assert.Equal(task.RunId, sent.RunId);
-        });
+            Runner = "inspect", Objective = "Choose a record after observing the page", Workspace = "approved",
+            Capabilities = [id], Budget = new() { MaxActions = 1, MaxModelCalls = test == "limit" ? 1 : 4 },
+            Verification = [new("record", "mcp.result", id, new() { ["type"] = "object" })],
+            OutputSchema = new() { ["type"] = "object" }
+        }) { Execution = new() { Engine = engine } };
+        Assert.Empty(await runner.ValidateAsync(context, ct));
+        Assert.NotEmpty(await runner.ValidateAsync(context with { Task = context.Task with { Capabilities = ["project.read"] } }, ct));
+        var result = await runner.RunAsync(context, ct);
+        Assert.Equal(status, result.Status);
+        Assert.Equal(actions, transport.Calls);
+        Assert.Equal(actions, result.Usage.Actions);
+        Assert.Equal(model.Calls, result.Usage.ModelCalls);
+        if (result.Status == "completed")
+            Assert.Equal(test == "success", Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
+        if (test == "success")
+        {
+            Assert.Equal(Transport.LargeContent, Assert.Single(result.Evidence).Facts["result"]!.GetValue<string>());
+            Assert.Equal(2, model.Calls);
+            Assert.Contains("next_offset", model.LastPrompt);
+            Assert.DoesNotContain(Transport.LargeContent, model.LastPrompt);
+        }
+        var recovered = await runner.ReconcileAsync(context with { LastObservation = result }, ct);
+        Assert.Same(result, recovered);
+        Assert.Equal(actions, transport.Calls);
     }
-    [Fact]
-    public async Task SelectedRunnerDeclaresExactScopeContractAndRejectsOldProtocol()
+
+    private sealed class Model(string scenario, string tool) : ILLMClient
     {
-        var transport = new Transport(); var runner = new CopilotAgentTaskRunner(transport, "configured-server");
-        var contract = await runner.DescribeAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("Declared scope", contract.Description);
-        transport.Version = 8;
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.DescribeAsync(TestContext.Current.CancellationToken));
+        public int Calls { get; private set; }
+        public string? LastPrompt { get; private set; }
+        public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            Calls++;
+            LastPrompt = request.Prompt;
+            Assert.True(request.DisableTransportRetries);
+            var finish = scenario == "fabricate" || Calls > 1 && scenario != "repeat";
+            return Task.FromResult(new LLMResponse
+            {
+                Json = new JsonObject { ["action"] = finish ? "finish" : scenario == "unknown" ? "shell" : tool,
+                    ["payload"] = finish || scenario == "invalid_args" ? "{}" : """{"page":1}""" },
+                CompletionStatus = scenario == "partial" ? "output_limit" : null,
+                Usage = new JsonObject { ["prompt_tokens"] = 70, ["completion_tokens"] = 10, ["total_tokens"] = 80 }
+            });
+        }
     }
-    [Fact]
-    public async Task FabricatedCompletionIsNotUpgradedToExecutionEvidence()
-    {
-        var runner = new CopilotAgentTaskRunner(new Transport(), "configured-server"); var context = Context();
-        var result = await runner.RunAsync(context, TestContext.Current.CancellationToken);
-        Assert.Empty(result.Evidence);
-        var findings = await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, TestContext.Current.CancellationToken);
-        Assert.False(Assert.Single(findings).Passed);
-    }
-    [Fact]
-    public async Task TransportErrorsRemainErrorsAndDoNotTriggerAutomaticRetries()
-    {
-        var transport = new Transport { Fail = true }; var runner = new CopilotAgentTaskRunner(transport, "configured-server");
-        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RunAsync(Context(), TestContext.Current.CancellationToken));
-        Assert.Single(transport.Calls);
-    }
-    private static AgentTaskContext Context() => new("tenant", "run", "/workflow/main/branch/2/iteration/3/step/code", new()
-    {
-        Runner = "coding", Objective = "Implement and test the change", Workspace = "/project", Capabilities = ["project.read", "project.write", "command.execute"],
-        OutputSchema = new() { ["type"] = "object" }, Verification = [new("tests", "command.exit", "dotnet test", new() { ["type"] = "object" })]
-    });
+
     private sealed class Transport : IMcpClientFactory, IMcpSession
     {
-        public List<(string Method, JsonNode? Input)> Calls { get; } = [];
-        public int Version { get; set; } = 9;
-        public bool Fail { get; set; }
-        public string TaskStatus { get; set; } = "completed";
+        internal static readonly string LargeContent = new('a', 10000);
+        public int Calls { get; private set; }
+        public string? Outcome { get; init; }
+        public string ServerName => "documents";
         public IReadOnlyList<McpServerMetadata> ServerMetadata => [];
-        public string ServerName => "configured-server";
-        public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) { Assert.Equal(ServerName, serverName); return Task.FromResult<IMcpSession>(this); }
-        public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+        public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
         {
-            Calls.Add((toolName, arguments?.DeepClone()));
-            JsonNode? body = toolName switch
-            {
-                "copilot_task_contract" => new JsonObject { ["schemaVersion"] = Version, ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract("Declared scope", AgentTaskContracts.InputSchema), AgentTaskJsonContext.Default.AgentTaskRunnerContract) },
-                "copilot_task_validate" => new JsonObject { ["errors"] = new JsonArray() },
-                _ => new JsonObject { ["schemaVersion"] = Version, ["result"] = JsonSerializer.SerializeToNode(new AgentTaskResult(TaskStatus, new JsonObject(), [], [], new(1, 100, 1), "Everything passed!"), AgentTaskJsonContext.Default.AgentTaskResult) }
-            };
-            return Task.FromResult(new McpCallResult { IsError = Fail, Content = body });
+            Assert.Equal(ServerName, serverName);
+            return Task.FromResult<IMcpSession>(this);
         }
-        public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpToolInfo>>([]);
-        public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
-        public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
+        public Task<McpCallResult> CallToolAsync(string name, JsonNode? args, CancellationToken ct)
+        {
+            Assert.Equal("read", name);
+            Calls++;
+            if (Outcome == "interrupted") throw new IOException("lost receipt");
+            return Task.FromResult(new McpCallResult { IsError = Outcome == "error", Content = JsonValue.Create(LargeContent) });
+        }
+        public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpToolInfo>>(
+            [new() { Name = "read", EffectKind = "read", InputSchema = JsonNode.Parse("""{"type":"object","properties":{"page":{"type":"integer"}},"required":["page"],"additionalProperties":false}""") }]);
+        public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => throw new NotSupportedException();
+        public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => throw new NotSupportedException();
         public Task<McpGetPromptResult> GetPromptAsync(string name, JsonNode? arguments, CancellationToken ct) => throw new NotSupportedException();
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }

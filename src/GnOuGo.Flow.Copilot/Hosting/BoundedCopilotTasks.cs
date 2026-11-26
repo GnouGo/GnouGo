@@ -12,12 +12,21 @@ using GnOuGo.Workspace;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
+internal interface ICopilotTaskTools
+{
+    bool Recovered { get; set; }
+    bool Uncertain { get; }
+    JsonObject Descriptors { get; }
+    List<AgentTaskEvidence> Evidence { get; }
+    List<CopilotHostTool> BuildTools();
+}
+
 /// <summary>Durable task lifecycle around the single managed Copilot session implementation.</summary>
 internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, CopilotMcpConfiguration configuration,
     ICopilotSessionFileSystemFactory fileSystems, IKeyVaultRecordStore records, CodeProgressReporter progress, CodePolicy policy)
 {
     private const string Collection = "copilot-bounded-tasks-v9", Author = "GnOuGo.GithubCopilot.Mcp";
-    private static readonly string[] Capabilities = ["project.read", "project.write", "command.execute"];
+    private static readonly string[] Capabilities = ["project.read", "project.native_read", "project.write", "command.execute"];
     internal string LockDirectory { get; init; } = GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/copilot-tasks-v9/owners");
 
     internal async Task<JsonObject> ContractAsync(CancellationToken ct, bool hostToolsOnly = false)
@@ -34,8 +43,10 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         var readiness = await ReadinessAsync(ct);
         var commands = readiness == CopilotSandboxReadiness.Configured && policy.DescribePolicy().AllowWrites;
         var schema = AgentTaskContracts.InputSchema;
-        schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => c == "project.read" || c == "project.write" && policy.DescribePolicy().AllowWrites || c == "command.execute" && commands).Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
-        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content") : new JsonArray("file.content");
+        schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => c == "project.read" ||
+            c == "project.native_read" && readiness == CopilotSandboxReadiness.Configured ||
+            c == "project.write" && policy.DescribePolicy().AllowWrites || c == "command.execute" && commands).Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
+        schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content", "file.read") : new JsonArray("file.content", "file.read");
         return new()
         {
             ["schemaVersion"] = 9, ["hostToolProtocol"] = 1,
@@ -44,8 +55,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                 (commands ? "Mandatory command isolation policy is configured; session enforcement is checked again before inference. " :
                     "Adaptive commands and command verification are unavailable under current host policy. " +
                     (readiness == CopilotSandboxReadiness.Configured ? "Host policy disables writes. " : new CopilotSandboxRequiredException(readiness).Message + " ")) +
-                "Project file tools obey the host file policy. Commands require a mandatory host sandbox, permit project writes and host-defined sandbox read-only locations, and deny network and credential grants. " +
+                "Project file tools obey the host file policy. With project.read, project.native_read enables sandboxed view and rg on exact absolute project files. Commands require a mandatory host sandbox, permit project writes and host-defined sandbox read-only locations, and deny network and credential grants. " +
                 "command.exit verification subject is the exact shell command; facts: exit_code (integer), working_directory (string), tool_success (boolean). " +
+                "file.read requires an observed successful SDK read of the named relative file; facts include tool and exact arguments. " +
                 "file.content subject is a relative project file; facts: exists (boolean), sha256 (string), changed (boolean). " +
                 "Require changed=true when an edit is required. Return structured JSON matching output_schema. Usage tokens are conservatively charged upper bounds.", schema), AgentTaskJsonContext.Default.AgentTaskRunnerContract)
         };
@@ -69,12 +81,14 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         foreach (var requirement in context.Task.Verification)
         {
             if (requirement.Kind == "mcp.result" && hostTools?.ContainsKey(requirement.Subject) == true) continue;
-            if (requirement.Kind is not ("command.exit" or "file.content")) errors.Add("The required evidence kind is unavailable.");
+            if (requirement.Kind is not ("command.exit" or "file.content" or "file.read")) errors.Add("The required evidence kind is unavailable.");
             if (requirement.Kind == "command.exit" && !context.Task.Capabilities.Contains("command.execute")) errors.Add("Command evidence requires command.execute.");
-            if (requirement.Kind == "file.content" && (!context.Task.Capabilities.Contains("project.read") || Path.IsPathRooted(requirement.Subject) || requirement.Subject.Split('/', '\\').Contains("..")))
+            if (requirement.Kind is "file.content" or "file.read" && (!context.Task.Capabilities.Contains("project.read") || Path.IsPathRooted(requirement.Subject) || requirement.Subject.Split('/', '\\').Contains("..")))
                 errors.Add("File evidence requires a relative path within the approved project and project.read.");
         }
-        if (context.Task.Capabilities.Contains("command.execute"))
+        if (context.Task.Capabilities.Contains("project.native_read") && !context.Task.Capabilities.Contains("project.read"))
+            errors.Add("Native read and search require project.read.");
+        if (context.Task.Capabilities.Contains("command.execute") || context.Task.Capabilities.Contains("project.native_read"))
         {
             var readiness = await ReadinessAsync(ct);
             if (readiness != CopilotSandboxReadiness.Configured)
@@ -129,7 +143,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         return result with { Evidence = evidence, Usage = result.Usage with { Actions = Math.Max(count, result.Usage.Actions ?? 0) } };
     }
 
-    internal async Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct, CopilotTaskToolExchange? exchange = null)
+    internal async Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct, ICopilotTaskTools? exchange = null)
     {
         Directory.CreateDirectory(LockDirectory);
         await using var owner = new FileStream(Path.Combine(LockDirectory, Hash(new JsonArray(context.TenantId, Key(context)).ToJsonString()) + ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
@@ -158,6 +172,15 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds), tools, async (calls, tokens, token) =>
             { record["modelCalls"] = calls; record["chargedTokens"] = tokens; await SaveAsync(context, record, token); }) {
                 ApprovedPrompt = Prompt(context.Task), MaxActions = context.Task.Budget.MaxActions,
+                ReserveHostAttemptAsync = context.Execution?.LLMUsageBudget is { } hostBudget
+                    ? (attempt, model, input, output, token) =>
+                    {
+                        var id = Key(context) + ":sdk:" + attempt.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        var request = new LLMRequest { ClientRequestId = id, Model = model,
+                            Provider = baseConfiguration.ProviderName, MaxTokens = output };
+                        return hostBudget.ReserveJournaledAttemptAsync(id, request, context.Execution.Engine.ModelUsageCostEstimator,
+                            input, output, [], "agent.run.execution", token);
+                    } : null,
                 AdaptiveActions = context.Task.Budget.MaxActions.HasValue ? new CopilotAdaptiveActions(async (id, observation) =>
                 {
                     observation["scope_hash"] = scopeHash;
@@ -172,7 +195,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         {
             ExecutionBounds = bounds, HostTools = hostTools, EnableApproveAll = false, EnableSandboxBypassGrants = false,
             AvailableTools = tools.ToArray(), EnableConfigDiscovery = false, McpServers = null, SkillDirectories = [], DisabledSkills = ["*"],
-            RequestTimeoutSeconds = Math.Max(1, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d)),
+            RequestTimeoutSeconds = Math.Clamp((int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d), 1, 240),
             ManagedSessionTtlSeconds = Math.Max(60, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d) + 60)
         };
         var providerContext = configuration.Context() with { RunId = context.RunId, StepId = context.InvocationId, ExecutionId = context.ExecutionId ?? context.RunId, AgentId = context.AgentId, AgentName = context.AgentName };
@@ -200,9 +223,14 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             var sent = observed = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "interactive")
             {
                 RequestHeaders = configuration.RequestHeaders(),
-                Progress = e => reporter.Report(e.Kind, e.Level, e.Message, fallbackServer: Author, fallbackMethod: "copilot_task_run", fallbackMcpKind: "tool")
+                Progress = e =>
+                {
+                    if (context.Progress is { } report) report(new(e.Kind, e.Message));
+                    else reporter.Report(e.Kind, e.Level, e.Message, fallbackServer: Author, fallbackMethod: "copilot_task_run", fallbackMcpKind: "tool");
+                }
             }, deadline.Token);
             var evidence = CommandEvidence(sent, runtime.WorkingDirectory, context.Task.Verification);
+            evidence.AddRange(ReadEvidence(sent, runtime.WorkingDirectory));
             if (exchange is not null) evidence.AddRange(exchange.Evidence);
             var uncertain = exchange?.Uncertain == true || !sent.Completed || !CessationObserved(sent, tools);
             if (!uncertain && bounds.AdaptiveActions is not null)
@@ -360,6 +388,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     {
         var tools = new HashSet<string>(StringComparer.Ordinal);
         if (capabilities.Contains("project.read")) tools.UnionWith(["project_read", "project_list", "project_stat"]);
+        if (capabilities.Contains("project.native_read")) tools.UnionWith(["view", "rg"]);
         if (capabilities.Contains("project.write")) tools.UnionWith(["project_write", "project_append", "project_mkdir", "project_remove", "project_rename"]);
         if (capabilities.Contains("command.execute")) tools.UnionWith(OperatingSystem.IsWindows() ? ["powershell", "read_powershell", "write_powershell", "stop_powershell"] : new[] { "bash", "read_bash", "write_bash", "stop_bash" });
         return tools;
@@ -373,6 +402,23 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
 
     private static bool CommandCompleted(CopilotToolExecutionObservation tool, IReadOnlyList<CopilotToolExecutionObservation> all)
         => tool.GetVerifiedTerminals(all) is { Count: > 0 };
+
+    internal static IEnumerable<AgentTaskEvidence> ReadEvidence(CopilotSendResult result, string root)
+    {
+        foreach (var call in result.ToolExecutions.Where(t => t.ToolName is "project_read" or "view" or "rg" &&
+            t.ToolSucceeded == true && !t.ConflictingCompletion && t.CompletionObserved && t.StartedSequence < t.CompletedSequence))
+        {
+            JsonObject? arguments;
+            try { arguments = JsonNode.Parse(call.ArgumentsJson ?? "null") as JsonObject; }
+            catch (JsonException) { continue; }
+            if (arguments?["path"] is not JsonValue value || !value.TryGetValue<string>(out var path) || string.IsNullOrWhiteSpace(path)) continue;
+            var full = Path.GetFullPath(path, root);
+            if (!GnOuGoWorkspace.IsPathWithinRoot(full, root)) continue;
+            var relative = Path.GetRelativePath(root, full).Replace('\\', '/');
+            yield return new("read:" + call.ToolCallId, call.ToolName == "rg" ? "file.search" : "file.read", relative,
+                new() { ["tool"] = call.ToolName, ["arguments"] = arguments, ["tool_call_id"] = call.ToolCallId });
+        }
+    }
     private static List<AgentTaskEvidence> CommandEvidence(CopilotSendResult sent, string workingDirectory, IReadOnlyList<AgentVerificationRequirement> requirements)
     {
         var evidence = new List<AgentTaskEvidence>();

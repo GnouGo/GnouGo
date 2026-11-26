@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 
 // Test-host dependencies for the ordinary Server approve/save, typed composer, and SmartFlow execution.
-internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider, IMcpClientFactory, IMcpExecutionHooks,
+internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewProvider, IMcpClientFactory, IMcpExecutionHooks,
     IMcpSourceConfigurationFingerprint, IJournaledBudgetClient
 {
     internal ServerLiveDiagnostics.DelegatedPlanningDiscovery Discovery { private get; set; } = null!;
@@ -51,8 +51,6 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         _executionModel?.CallWithBudgetAsync(request, budget, ct) ?? budget.Scope.CallAsync(PlanningModel, budget.Estimator, request, budget.Stage, ct);
     public IDisposable BeginCall(McpCallExecutionContext context)
     {
-        if (Adaptive is not null && context.Correlation is { ServerName: AdaptiveLiveProfile.Backend, MethodName: "copilot_task_contract", RunId: null })
-            return new AdaptiveLiveProfile.CallScope(() => { });
         if (_execution is null || context.Correlation.TenantId != "benchmark" || _savedId is null ||
             context.Correlation.AgentId != _savedId || context.Correlation.AgentName != _agentName ||
             context.Correlation.RunId is not { Length: > 0 } runId)
@@ -116,7 +114,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         PlanningSession state, DelegatedTestReviewAuthority authority, JsonObject report, string workspace, string output, CancellationToken ct)
     {
         var scenario = report["scenario"]!.ToString();
-        var grant = scenario == "code" ? PublishedReviewQualification.Scenario : scenario;
+        var localReview = report["oracle_version"]?.ToString() == LocalReviewQualification.Version;
+        var grant = localReview ? LocalReviewQualification.Scenario : scenario == "code" ? PublishedReviewQualification.Scenario : scenario;
         var source = report["source"]!.ToString();
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, grant, null, "Release",
             report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null);
@@ -158,7 +157,8 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
             report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
-        if (scenario == "code" || Adaptive is not null)
+        if (localReview) ConfigureReviewExecution(proxy.Endpoint, workspace, relative, report);
+        else if (scenario == "code")
         {
             if (report["local_kind_toolchain"] is JsonObject toolchain && localKind)
                 SlimFaasReviewProfile.ApplyToolchain(toolchain, configurations["GnOuGo.GithubCopilot.Mcp"]);
@@ -234,7 +234,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
             return SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None, releaseRemaining: true);
         } : null);
         foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);
-        if (scenario == "code" || Adaptive is not null) proxy.RequireSdkAdmission(configurations);
+        if (scenario == "code" && !localReview) proxy.RequireSdkAdmission(configurations);
         if (localKind)
         {
             var before = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
@@ -299,7 +299,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
                 report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
             }
             if (localKind) report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
-            report["oracle"] = await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+            report["oracle"] = localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
             report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
             report["result"]!["execution_status"] = journal.Status;
             report["passed"] = report["oracle"]!["passed"]!.DeepClone();
@@ -313,6 +313,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         finally
         {
             proxy.ExecutionEnabled = false;
+            _reviewExecution = null;
             if (localKind && report["kind_cluster_after"] is null)
                 report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None);
             _execution = null;

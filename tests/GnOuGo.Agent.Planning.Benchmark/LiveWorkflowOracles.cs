@@ -76,6 +76,16 @@ internal static partial class LiveWorkflowOracles
                 events.LastOrDefault(e => e["server"]?.ToString() == "GnOuGo.Browser.Mcp" || e["tool"]?.ToString()?.StartsWith("browser_", StringComparison.Ordinal) == true) is not { } closed ||
                 closed["tool"]?.ToString() != "browser_close" || closed["error"]?.GetValue<bool>() != false || closed["result"]?["success"]?.GetValue<bool>() != true))
                 findings.Add("workflow_browser_close_receipt_or_ten_product_contract_missing");
+            if (run["workflow_readback_required"]?.GetValue<bool>() == true)
+            {
+                var path = run["workspace_relative"]!.ToString() + "/products.xlsx";
+                bool WorkbookCall(JsonObject evt, string method) => evt["server"]?.ToString() == "GnOuGo.Document.Mcp" &&
+                    evt["tool"]?.ToString() == method && evt["error"]?.GetValue<bool>() == false &&
+                    evt["result"]?["success"]?.GetValue<bool>() == true && evt["arguments"]?["filePath"]?.ToString() == path;
+                var lastWrite = Array.FindLastIndex(events, evt => WorkbookCall(evt, "document_write"));
+                if (lastWrite < 0 || !events.Skip(lastWrite + 1).Any(evt => WorkbookCall(evt, "document_read")))
+                    findings.Add("independent_workflow_workbook_read_missing");
+            }
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
             var cleanup = hostClosureProbe is null
                 ? await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None)

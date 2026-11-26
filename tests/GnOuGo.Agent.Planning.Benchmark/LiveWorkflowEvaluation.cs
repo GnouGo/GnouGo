@@ -29,7 +29,7 @@ internal static class LiveWorkflowEvaluation
         return AmazonPrompt +
         "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, " + (productLimit == QualificationProductCount ? "exactement" : "au maximum") + " les " + productLimit +
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
-        "/products.xlsx. Fournis une ligne d’en-tête Nom, Description, Prix, puis toutes les lignes produit dans leur ordre. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
+        "/products.xlsx. Après écriture, relis ce même fichier avec document_read dans une étape distincte et vérifie ses valeurs contre les visites réelles. Fournis une ligne d’en-tête Nom, Description, Prix, puis toutes les lignes produit dans leur ordre. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
         (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy)) +
         (browserObservationPolicy == AmazonFirstProductsPolicy.Id ? "\n" + AmazonFirstProductsPolicy.RunPathFacts(relative) : "");
     }
@@ -344,7 +344,7 @@ internal static class LiveWorkflowEvaluation
         AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, scenario);
         string[] names = scenario switch
         {
-            "amazon" when adaptive => ["Browser", "Document", "GithubCopilot"],
+            LocalReviewQualification.Scenario => ["Git", "Document", "Cmd"],
             "amazon" or "observed_workbook" => ["Browser", "Document"],
             _ => ["Git", "Cmd", "GithubCopilot", "Document"]
         };
@@ -358,7 +358,7 @@ internal static class LiveWorkflowEvaluation
             if (!File.Exists(assembly)) throw new InvalidOperationException("Build the current MCP first: " + key);
             clone.Type = "stdio"; clone.Command = "dotnet"; clone.Args = [assembly];
             clone.EnvironmentVariables ??= new();
-            if (name == "Cmd" && scenario == PublishedReviewQualification.Scenario)
+            if (name == "Cmd" && scenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
             {
                 const string scope = "GNOUGO_CMD_ONLY_COMMAND";
                 var cleanup = DelegatedTestReviewAuthority.CleanupCommand;

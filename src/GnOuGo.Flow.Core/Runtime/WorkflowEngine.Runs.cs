@@ -113,7 +113,11 @@ public sealed partial class WorkflowEngine
             if (!AgentTaskRunners.TryGetValue(task.Runner, out var runner))
                 throw new WorkflowRunConflictException("The approved agent adapter is unavailable.");
             var context = new AgentTaskContext(tenantId, runId, invocationId, task)
-            { ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName };
+            {
+                ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName,
+                LastObservation = invocation.Observation?["status"]?.ToString() == "needs_reconciliation"
+                    ? invocation.Observation.Deserialize(AgentTaskJsonContext.Default.AgentTaskResult) : null
+            };
             var observed = invocation.Observation is null || invocation.Observation["status"]?.ToString() == "needs_reconciliation" ? await runner.ReconcileAsync(context, ct) :
                 JsonSerializer.Deserialize(invocation.Observation, AgentTaskJsonContext.Default.AgentTaskResult)!;
             if (observed.Status == "needs_reconciliation")

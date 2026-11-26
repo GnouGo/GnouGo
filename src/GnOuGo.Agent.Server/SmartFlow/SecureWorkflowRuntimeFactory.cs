@@ -22,6 +22,8 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly IReadOnlyDictionary<string, string> _copilotRunners;
     private readonly IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? _copilotTools;
     private readonly LlmDefaultsResolver? _defaults;
+    private readonly IConfiguration? _agentConfiguration;
+    private readonly IAgentTaskRunner? _codeRunner;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -37,7 +39,7 @@ public sealed class SecureWorkflowRuntimeFactory
         LlmTraceCapture? capture = null,
         IReadOnlyDictionary<string, string>? copilotRunners = null,
         LlmDefaultsResolver? defaults = null,
-        IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? copilotTools = null)
+        IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? copilotTools = null, IConfiguration? agentConfiguration = null, IAgentTaskRunner? codeRunner = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -51,6 +53,8 @@ public sealed class SecureWorkflowRuntimeFactory
         _copilotRunners = copilotRunners ?? new Dictionary<string, string>();
         _defaults = defaults;
         _copilotTools = copilotTools;
+        _agentConfiguration = agentConfiguration;
+        _codeRunner = codeRunner;
     }
 
     internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct, GnOuGo.Flow.Core.Planning.PlanningRequest? planning = null)
@@ -60,9 +64,11 @@ public sealed class SecureWorkflowRuntimeFactory
         options = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(options, planning);
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
-        IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
+        var workflowServers = options.McpServers.Where(pair => pair.Key != "GnOuGo.GithubCopilot.Mcp")
+            .ToDictionary(pair => pair.Key, pair => pair.Value, options.McpServers.Comparer);
+        IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (workflowServers.Count > 0
             ? new ConfiguredMcpClientFactory(
-                options.McpServers,
+                workflowServers,
                 _humanInputProvider,
                 options.DefaultProvider,
                 options.DefaultModel)
@@ -77,7 +83,7 @@ public sealed class SecureWorkflowRuntimeFactory
             planning?.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName] is not null
                 ? GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capabilities(options) : _llmCapabilityResolver,
             options,
-            http) { CopilotRunners = _copilotRunners, CopilotTools = _copilotTools };
+            http) { CopilotRunners = _copilotRunners, CopilotTools = _copilotTools, AgentConfiguration = _agentConfiguration, CodeRunner = _codeRunner };
     }
 }
 
@@ -108,7 +114,9 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
     public LLMOptions Options { get; }
     public IReadOnlyDictionary<string, string> CopilotRunners { get; init; } = new Dictionary<string, string>();
     public IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? CopilotTools { get; init; }
-    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners, CopilotTools);
+    public IConfiguration? AgentConfiguration { get; init; }
+    internal IAgentTaskRunner? CodeRunner { get; init; }
+    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners, CopilotTools, AgentConfiguration, CodeRunner);
 
     public async ValueTask DisposeAsync()
     {

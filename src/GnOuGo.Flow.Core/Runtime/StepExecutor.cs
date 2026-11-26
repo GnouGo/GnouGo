@@ -84,6 +84,9 @@ public sealed class StepExecutionContext
     /// <summary>Executes an LLM call through the active provider-neutral usage budget, when configured.</summary>
 
     public async Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, CancellationToken ct)
+        => await CallLLMAsync(client, request, stage, LLMUsageBudget, ct).ConfigureAwait(false);
+
+    internal async Task<LLMResponse> CallLLMAsync(ILLMClient client, LLMRequest request, string stage, LLMUsageBudgetScope? budget, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(request);
@@ -92,7 +95,7 @@ public sealed class StepExecutionContext
                 ["gnougo-flow.step.id"] = Step?.Id, ["gnougo-flow.step.type"] = Step?.Type });
         try
         {
-            var response = await CallModelAsync(client, request, stage, ct).ConfigureAwait(false);
+            var response = await CallModelAsync(client, request, stage, budget, ct).ConfigureAwait(false);
             activity?.SetStatus(ActivityStatusCode.Ok);
             return response;
         }
@@ -108,9 +111,10 @@ public sealed class StepExecutionContext
         ILLMClient client,
         LLMRequest request,
         string stage,
+        LLMUsageBudgetScope? budget,
         CancellationToken ct)
     {
-        if (LLMUsageBudget is null)
+        if (budget is null)
         {
             try
             {
@@ -128,26 +132,26 @@ public sealed class StepExecutionContext
         var callId = Guid.NewGuid().ToString("N");
         try
         {
-            var response = await LLMUsageBudget.CallAsync(
+            var response = await budget.CallAsync(
                 client,
                 Engine.ModelUsageCostEstimator,
                 request,
                 stage,
                 ct).ConfigureAwait(false);
-            EmitLLMBudgetEvent(callId, stage, "recorded", null);
+            EmitLLMBudgetEvent(budget, callId, stage, "recorded", null);
             EmitPlannerStructuredOutputResult(stage, request, response, callCompleted: true);
             return response;
         }
         catch (WorkflowRuntimeException ex) when (
             ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable)
         {
-            EmitLLMBudgetEvent(callId, stage, "rejected", ex.Code);
+            EmitLLMBudgetEvent(budget, callId, stage, "rejected", ex.Code);
             EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
             throw;
         }
         catch
         {
-            EmitLLMBudgetEvent(callId, stage, "call_failed", null);
+            EmitLLMBudgetEvent(budget, callId, stage, "call_failed", null);
             EmitPlannerStructuredOutputResult(stage, request, response: null, callCompleted: false);
             throw;
         }
@@ -189,9 +193,9 @@ public sealed class StepExecutionContext
         });
     }
 
-    private void EmitLLMBudgetEvent(string callId, string stage, string status, string? errorCode)
+    private void EmitLLMBudgetEvent(LLMUsageBudgetScope budget, string callId, string stage, string status, string? errorCode)
     {
-        var snapshot = LLMUsageBudget!.Snapshot;
+        var snapshot = budget.Snapshot;
         AddTelemetryEvent("gnougo-flow.llm_budget.updated", new[]
         {
             new KeyValuePair<string, object?>("gnougo-flow.llm_budget.call_id", callId),

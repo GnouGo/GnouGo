@@ -432,7 +432,7 @@ public static class GnOuGoAgentWebHost
             capture: sp.GetRequiredService<LlmTraceCapture>(),
             copilotRunners: copilot.Runners,
             defaults: sp.GetRequiredService<LlmDefaultsResolver>(),
-            copilotTools: copilot.Tools));
+            copilotTools: copilot.Tools, agentConfiguration: copilot.Host));
         builder.Services.AddSingleton<CollectorTracePersistence>();
         builder.Services.AddSingleton<ILoggerProvider, CollectorLoggerProvider>();
 

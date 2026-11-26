@@ -75,7 +75,9 @@ internal static class ServerLiveDiagnostics
         var amazonQuery = SchemaPortabilityCampaign.Option(args, "--amazon-query");
         if (amazonQuery is not null && (delegatedScenario != "amazon" || string.IsNullOrWhiteSpace(amazonQuery)))
             throw new ArgumentException("Supply a nonempty --amazon-query for a fresh Amazon plan. Retained runs use their captured inputs.");
-        var discoveryScenario = delegatedScenario == "code" ? PublishedReviewQualification.Scenario : delegatedScenario;
+        var localReview = args.Contains("--local-review", StringComparer.Ordinal);
+        if (localReview && delegatedScenario != "code") throw new ArgumentException("Local review requires a fresh code scenario.");
+        var discoveryScenario = localReview ? LocalReviewQualification.Scenario : delegatedScenario == "code" ? PublishedReviewQualification.Scenario : delegatedScenario;
         var browserObservationPolicy = AmazonObservedRedirectPolicy.Capture(args, delegatedScenario ?? "");
         var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
         KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
@@ -119,19 +121,20 @@ internal static class ServerLiveDiagnostics
         var retainedReport = executionOnly ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
         var freshOutcome = delegatedScenario is not null || retainedReport?["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
         var business = freshOutcome ? new ServerBusinessExecution() : null;
-        var localKindCleanup = delegatedScenario == "code" || retainedReport?["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
+        var localKindCleanup = delegatedScenario == "code" && !localReview || retainedReport?["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
         if (retainedReport is not null && business is not null)
         {
-            discoveryScenario = retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : "amazon";
+            localReview = retainedReport["oracle_version"]?.ToString() == LocalReviewQualification.Version;
+            discoveryScenario = localReview ? LocalReviewQualification.Scenario : retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : "amazon";
             browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
         }
-        var adaptive = adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
+        var adaptive = localReview || adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
             ? new AdaptiveLiveProfile(discoveryScenario!) : null;
         if (business is not null) business.Adaptive = adaptive;
-        if (business is not null && discoveryScenario == PublishedReviewQualification.Scenario)
+        if (business is not null && discoveryScenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
             business.Target = await PublishedReviewQualification.CaptureAsync(
                 retainedReport?["inputs"]?["pullRequestUrl"]?.GetValue<string>() ?? SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl,
-                retainedReport?["oracle_version"]?.GetValue<string>() ?? PublishedReviewQualification.LocalKindVersion, CancellationToken.None);
+                retainedReport?["oracle_version"]?.GetValue<string>() ?? (localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion), CancellationToken.None);
         var hostArgs = new[]
         {
             "--DevMode:Enabled=true", "--ApplicationLlmBudget:Mode=limited",
@@ -227,7 +230,8 @@ internal static class ServerLiveDiagnostics
                     return new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
                         sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
                         llmClientOverride: (ILLMClient?)business ?? planningClient,
-                        mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>(), copilotRunners: adaptive?.Runners, copilotTools: adaptive?.Bindings);
+                        mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>(), copilotRunners: adaptive?.Runners, copilotTools: adaptive?.Bindings, agentConfiguration: sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(),
+                        codeRunner: localReview ? business!.ConfigureReviewRunner(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(), model.Provider, model.Model) : null);
                 });
             });
         if (!planning && business is null)
@@ -666,6 +670,7 @@ internal static class ServerLiveDiagnostics
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
                     ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
+                    "code" when localReview => LocalReviewQualification.Prompt(relative, business!.Target!),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 if (adaptive is not null) report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
@@ -678,7 +683,11 @@ internal static class ServerLiveDiagnostics
                     if (scenario != "code") throw new ArgumentException("The local kind toolchain applies to the code review.");
                     report["local_kind_toolchain"] = SlimFaasReviewProfile.CaptureToolchain(bin);
                 }
-                if (scenario == "amazon") report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
+                if (scenario == "amazon")
+                {
+                    report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
+                    report["workflow_readback_required"] = true;
+                }
                 if (scenario is "amazon" or "code") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
                 if (scenario is "amazon" or "code")
                 {
@@ -693,7 +702,7 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedProductPolicy.Id ? LiveWorkflowOracles.AmazonResolvedProductVersion :
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
-                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : PublishedReviewQualification.LocalKindVersion;
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion;
                     report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null), report["source"]!.ToString());
                 }
                 using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
@@ -833,7 +842,7 @@ internal static class ServerLiveDiagnostics
         string campaign, string sessionId, string scenario, string workspace, JsonObject report, ServerBusinessExecution? business)
     {
         var grant = scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" :
-            business?.Target is not null ? PublishedReviewQualification.Scenario : scenario;
+            report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : business?.Target is not null ? PublishedReviewQualification.Scenario : scenario;
         var adaptive = business?.Adaptive;
         if (report["adaptive_runner_profile"]?.ToString() != (adaptive is null ? null : AdaptiveLiveProfile.Version))
             throw new PlanningConflictException("The adaptive runner differs from the profile captured for this review.");
@@ -981,7 +990,7 @@ internal static class ServerLiveDiagnostics
         current = await store.LoadAsync(current.Request.TenantId, current.Request.SessionId, CancellationToken.None)
             ?? throw new PlanningConflictException("The retained session disappeared.");
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
-        var discoveryScenario = PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
+        var discoveryScenario = report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
         var adaptive = report["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version ? new AdaptiveLiveProfile(discoveryScenario) : null;
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null);
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
@@ -1224,14 +1233,14 @@ internal static class ServerLiveDiagnostics
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
         {
             if (serverName != AgentServer || hostLookupFactory is null)
-                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct), adaptive: adaptive);
+                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct));
             var factory = await hostLookupFactory(ct);
             if (factory is not IAsyncDisposable owner) throw new InvalidOperationException("The host lookup transport must have an owned lifetime.");
             try { return new ReadOnlySession(await factory.GetClientAsync(serverName, ct), owner, authorizedAgentCall); }
             catch { await owner.DisposeAsync(); throw; }
         }
         public ValueTask DisposeAsync() => inner is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
-        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null, Func<string, JsonNode?, bool>? allowAgentCall = null, bool adaptive = false) : IMcpSession
+        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null, Func<string, JsonNode?, bool>? allowAgentCall = null) : IMcpSession
         {
             public string ServerName => inner.ServerName;
             public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => ServerName == AgentServer
@@ -1242,7 +1251,7 @@ internal static class ServerLiveDiagnostics
             public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
                 => throw new InvalidOperationException("Delegated planning permits metadata discovery only.");
             public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
-                => adaptive && AdaptiveLiveProfile.IsMetadata(ServerName, toolName, arguments) || ServerName == AgentServer && (toolName == "agent_get_by_name" && arguments is JsonObject { Count: 1 } value &&
+                => ServerName == AgentServer && (toolName == "agent_get_by_name" && arguments is JsonObject { Count: 1 } value &&
                    value["name"] is JsonValue name && name.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text) || allowAgentCall?.Invoke(toolName, arguments) == true)
                     ? inner.CallToolAsync(toolName, arguments, ct)
                     : throw new InvalidOperationException("Business tools require the later artifact-bound delegated execution; only the host agent-name lookup is permitted before planning.");

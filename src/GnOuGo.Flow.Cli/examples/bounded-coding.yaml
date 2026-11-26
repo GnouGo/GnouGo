@@ -1,4 +1,4 @@
-# Configure Flow:CopilotRunners:coding and approve the task's scope in the host.
+# Configure Flow:AgentRunners:coding as code and approve the task's scope in the host.
 # command.execute requires the Copilot host's mandatory sandbox.
 # Use a disposable project containing calculator.py and test_calculator.py.
 version: 1

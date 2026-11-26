@@ -156,7 +156,7 @@ public sealed class CopilotSessionManager : IAsyncDisposable
             configuration.PermissionAllowlist ?? [],
             configuration.AvailableTools ?? [],
             entry.FileSystem is null ? configuration.ExcludedTools ?? []
-                : (configuration.ExcludedTools ?? []).Concat(CopilotProjectFileTool.NativeFileTools).Distinct(StringComparer.Ordinal).ToArray(),
+                : CopilotProjectFileTool.ExcludedTools(configuration),
             configuration.SkillDirectories ?? [],
             configuration.DisabledSkills ?? [],
             configuration.McpServers?.Keys.Order(StringComparer.Ordinal).ToArray() ?? [],

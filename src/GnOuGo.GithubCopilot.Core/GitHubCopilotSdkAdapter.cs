@@ -238,7 +238,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             SystemMessage = BuildSystemMessage(configuration.SystemMessage),
             AvailableTools = configuration.AvailableTools?.ToArray(),
             ExcludedTools = source.FileSystem is null ? configuration.ExcludedTools?.ToArray()
-                : (configuration.ExcludedTools ?? []).Concat(CopilotProjectFileTool.NativeFileTools).Distinct(StringComparer.Ordinal).ToArray(),
+                : CopilotProjectFileTool.ExcludedTools(configuration),
             Tools = request.PermissionMode == CopilotPermissionMode.Deny ? null : BuildTools(source, configuration),
             McpServers = configuration.McpServers?.ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal),
             SkillDirectories = configuration.SkillDirectories?.ToArray(),
@@ -414,6 +414,17 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             if (CopilotProjectFileTool.IsProjectTool(input.ToolName))
             {
                 CopilotProjectFileTool.Validate(input.ToolName, CopilotProjectFileTool.Arguments(input.ToolArgs), policy, state);
+                return null;
+            }
+            if (input.ToolName is "view" or "rg")
+            {
+                var native = CopilotProjectFileTool.Arguments(input.ToolArgs);
+                var nativePath = CopilotProjectFileTool.RequiredString(native, "path");
+                if (native.EnumerateObject().Any(p => p.Name != "path" &&
+                    p.Name != (input.ToolName == "view" ? "view_range" : "pattern")))
+                    throw new UnauthorizedAccessException("Native reads accept a single file with a range or search pattern.");
+                if (input.ToolName == "rg") _ = CopilotProjectFileTool.RequiredString(native, "pattern");
+                policy.ValidateNativeFileRead(nativePath);
                 return null;
             }
             var write = input.ToolName is "edit" or "edit_file" or "create" or "create_file" or "str_replace_editor" or "apply_patch";

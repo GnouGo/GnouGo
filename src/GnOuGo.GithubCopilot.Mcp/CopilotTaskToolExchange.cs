@@ -8,7 +8,7 @@ using GnOuGo.GithubCopilot.Core;
 namespace GnOuGo.GithubCopilot.Mcp;
 
 /// <summary>One managed SDK task and its calling workflow share this short-lived channel. An action is delivered at most once.</summary>
-internal sealed class CopilotTaskToolExchange : IDisposable
+internal sealed class CopilotTaskToolExchange : IDisposable, ICopilotTaskTools
 {
     private sealed record ActionRequest(string Id, string Tool, JsonObject Input, CancellationToken Caller, TaskCompletionSource<JsonObject> Receipt);
     private readonly Channel<ActionRequest> _requests = Channel.CreateBounded<ActionRequest>(1);
@@ -18,10 +18,10 @@ internal sealed class CopilotTaskToolExchange : IDisposable
     private ActionRequest? _claimed;
     private readonly List<AgentTaskEvidence> _evidence = [];
     private bool _uncertain;
-    internal bool Uncertain { get { lock (_gate) return _uncertain || _claimed is not null; } }
-    internal List<AgentTaskEvidence> Evidence { get { lock (_gate) return [.. _evidence]; } }
-    internal bool Recovered { get; set; }
-    internal JsonObject Descriptors { get; }
+    public bool Uncertain { get { lock (_gate) return _uncertain || _claimed is not null; } }
+    public List<AgentTaskEvidence> Evidence { get { lock (_gate) return [.. _evidence]; } }
+    public bool Recovered { get; set; }
+    public JsonObject Descriptors { get; }
 
     internal static JsonObject ParseManifest(AgentTaskContext context, string? toolsJson)
     {
@@ -36,7 +36,7 @@ internal sealed class CopilotTaskToolExchange : IDisposable
 
     internal CopilotTaskToolExchange(JsonObject descriptors) => Descriptors = descriptors;
 
-    internal List<CopilotHostTool> BuildTools() => Descriptors.Select(entry =>
+    public List<CopilotHostTool> BuildTools() => Descriptors.Select(entry =>
     {
         var contract = entry.Value!.AsObject();
         using var schema = JsonDocument.Parse(contract["input_schema"]!.ToJsonString());

@@ -38,7 +38,7 @@ public sealed class AgentRunExecutor : IStepExecutor
                 throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved tool action limit.");
             context = new(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, taskDefinition)
             {
-                ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName,
+                ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName, Execution = ctx,
                 HumanInput = (request, phase) => ctx.AddTelemetryEvent(phase == "Waiting" ? "gnougo-flow.step.waiting_for_human" : "gnougo-flow.step.human_input_resumed",
                     [new("gnougo-flow.human.prompt", request.Prompt), new("gnougo-flow.human.request", HumanInputContract.BuildRequestPayload(request).ToJsonString()),
                      new("gnougo-flow.human.run_id", request.RunId), new("gnougo-flow.human.step_id", request.StepId), new("gnougo-flow.human.phase", phase.ToLowerInvariant())]),

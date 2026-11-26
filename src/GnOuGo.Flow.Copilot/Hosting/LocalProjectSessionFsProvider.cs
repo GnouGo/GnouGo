@@ -38,6 +38,12 @@ internal sealed class LocalProjectSessionFsProvider : ICopilotSessionFileSystem
         if (Directory.Exists(full)) return;
         _ = _policy.ResolveReadableFileFromResolvedRoot(_projectRoot, Path.GetRelativePath(_projectRoot, full));
     }
+    public void ValidateNativeFileRead(string path)
+    {
+        if (!Path.IsPathFullyQualified(path) || !File.Exists(Resolve(path, false)))
+            throw new UnauthorizedAccessException("Native reads require an exact absolute project file.");
+        ValidateRead(path);
+    }
     public void ValidateWrite(string path, string? content = null)
     {
         var full = Resolve(path, false);

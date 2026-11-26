@@ -1,4 +1,4 @@
-﻿namespace GnOuGo.GithubCopilot.Mcp;
+namespace GnOuGo.GithubCopilot.Mcp;
 
 public sealed class CodeServerSettings
 {
@@ -70,5 +70,21 @@ public sealed class CodeCopilotTelemetrySettings
     public string? FilePath { get; set; }
     public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
     public bool CaptureContent { get; set; }
+}
+
+
+public sealed class CopilotLogicalLimits
+{
+    public int Sessions { get; set; } = 3;
+    public int Interactions { get; set; } = 64;
+    public int Seconds { get; set; } = 1800;
+    public int InferenceAttempts { get; set; } = 32;
+    public long ReservedTokens { get; set; } = 2_000_000;
+    internal void Validate()
+    {
+        if (Sessions is < 1 or > 3 || Interactions is < 1 or > 64 || Seconds is < 1 or > 1800 ||
+            InferenceAttempts is < 1 or > 32 || ReservedTokens is < 1 or > 2_000_000)
+            throw new InvalidOperationException("Logical Copilot limits must be positive and cannot exceed the host safety ceilings.");
+    }
 }
 
