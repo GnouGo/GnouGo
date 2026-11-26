@@ -216,6 +216,7 @@ public sealed partial class CodeReviewCompositionTests(ITestOutputHelper output)
         internal Execution(string variant, bool report = false, bool exactRevision = false)
         {
             Directory.CreateDirectory(Source); Repository.Init(Source);
+            File.WriteAllText(Path.Combine(Source, ".gitattributes"), "*.txt text eol=lf\n*.sh text eol=lf\n*.cmd text eol=crlf\n");
             File.WriteAllText(Path.Combine(Source, "readme.txt"), "original source\n");
             foreach (var name in new[] { "install", "lint", "unit", "integration" })
             {
