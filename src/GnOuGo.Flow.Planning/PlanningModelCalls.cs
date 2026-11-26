@@ -20,10 +20,11 @@ internal static partial class PlanningModelCalls
     internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
     internal static bool HasCallCapacity(PlanningSession state, long required = 1) =>
         PlanningApplicationBudget.TrackingOnly(state.Request) || PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingCalls(state) >= required;
-    internal static bool HasRepairCapacity(PlanningSession state) =>
-        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingRepairs(state) > 0;
+    private static bool RepairsAdvisory(PlanningSession state) => PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+        state.Request.Options["diagnostic_progress_policy"]?.ToString() != PlanningTokenThresholds.BoundedRepairs;
+    internal static bool HasRepairCapacity(PlanningSession state) => RepairsAdvisory(state) || RemainingRepairs(state) > 0;
     internal static bool HasDraftRepairCapacity(PlanningSession state, int corrections) =>
-        PlanningTokenThresholds.OptimizationAdvisory(state.Request) || corrections < state.Construction!.Limits.MaxCorrectionsPerDraft;
+        RepairsAdvisory(state) || corrections < state.Construction!.Limits.MaxCorrectionsPerDraft;
     internal static bool IsRepair(PlanningSession state) => state.Diagnostics.Any(d => d.Required &&
         d.Code is not (ErrorCodes.LlmBudgetExceeded or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"));
     internal static int ConstructionOutputLimit(PlanningSession state, string purpose) =>

@@ -380,6 +380,11 @@ internal static class SchemaPortabilityCampaign
             await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
             campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
+        if (phase is "first-product-extraction" or "review-local-report")
+        {
+            await QualificationReports.RunAsync(phase, RequiredOption(args, "--run"), args, campaign, model, CancellationToken.None);
+            return;
+        }
         if (phase is "server-live-probe" or "server-live-plan" or "server-live-inspect" or "server-live-execute" or "server-live-revalidate" or "server-live-mcp-readiness") { await ServerLiveDiagnostics.RunAsync(args, campaign, model, root); return; }
         if (phase == "copilot-probe") { await LiveExecutionReadiness.CopilotAsync(args, campaign, model, root); return; }
         if (phase == "mapping") { await MappingLiveEvaluation.RunAsync(args, campaign, model, root); return; }

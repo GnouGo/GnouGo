@@ -522,7 +522,7 @@ internal static partial class LiveWorkflowOracles
         static bool Part(char character) => char.IsLetterOrDigit(character) || character is ',' or '.';
     }
 
-    private static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString
+    internal static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString
         ? workbook.SharedStringTablePart!.SharedStringTable!.Elements<SharedStringItem>().ElementAt(int.Parse(cell.InnerText, CultureInfo.InvariantCulture)).InnerText : cell.InnerText;
     private static string Normalize(string value) => Regex.Replace(WebUtility.HtmlDecode(Regex.Replace(value, "<[^>]+>", " ", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))), "\\s+", " ").Trim().ToLowerInvariant();
     private static bool PriceObserved(string price, string text) => text.Contains(price, StringComparison.Ordinal) ||

@@ -240,6 +240,8 @@ requests remain non-replayable. Financial/review
 reservations, correctness, permission, actual provider limits and explicit execution
 resource budgets remain enforced; historical token-only authority is unchanged.
 
+A diagnostic host can enable `TypedWorkflowPlanning:DiagnosticBoundRepairs` for new sessions. The captured `bounded-repairs-v1` progress policy enforces the configured session and draft repair allowances and stops repeated strategies. Other diagnostic thresholds keep their existing behavior.
+
 A grounded business finding may authorize typed slots of an exact earlier checkpoint
 whose business review is still pending. Its retained task bytes and ownership must match.
 The current candidate, finding and defect witness survive; evidence reconsideration

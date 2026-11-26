@@ -88,6 +88,7 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SlimFaasReviewProfile.cs" Link="SlimFaasReviewProfile.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveCodeEvidence.cs" Link="LiveCodeEvidence.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/SchemaPortabilityCampaign.cs" Link="SchemaPortabilityCampaign.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/QualificationReports.cs" Link="QualificationReports.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerBusinessExecution.cs" Link="ServerBusinessExecution.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs" Link="ServerLiveDiagnostics.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/ReviewBoundaryQualification.cs" Link="ReviewBoundaryQualification.cs" />

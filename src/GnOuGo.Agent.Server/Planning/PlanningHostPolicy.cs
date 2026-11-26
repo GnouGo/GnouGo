@@ -55,7 +55,8 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
         if (thresholdMode == "diagnostic")
         {
             state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
-            state.Request.Options["diagnostic_progress_policy"] = "advisory-v1";
+            state.Request.Options["diagnostic_progress_policy"] = settings.Value.DiagnosticBoundRepairs
+                ? PlanningTokenThresholds.BoundedRepairs : "advisory-v1";
             var modelMaximum = metadata.MaxOutputTokens!.Value;
             var cap = options.ResolveProvider(state.Request.Options["generator"]!["provider"]!.GetValue<string>())!.RequestPolicy.MaxOutputTokensCap;
             var effective = cap is > 0 ? Math.Min(modelMaximum, cap.Value) : modelMaximum;

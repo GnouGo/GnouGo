@@ -266,6 +266,12 @@ internal sealed record PublishedReviewQualification(string Owner, string Reposit
         return new() { ["passed"] = errors.Count == 0, ["findings"] = errors };
     }
 
+    internal async Task<JsonArray> ChangedFilesAsync(CancellationToken ct)
+    {
+        var pages = (await ReadAsync(Api + "/files?per_page=100", ct, paginate: true)).AsArray();
+        return new JsonArray(pages.SelectMany(p => p!.AsArray()).Select(f => f!.DeepClone()).ToArray());
+    }
+
     private static async Task<JsonNode> ReadAsync(string path, CancellationToken ct, bool paginate = false)
     {
         var start = new ProcessStartInfo("gh") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };

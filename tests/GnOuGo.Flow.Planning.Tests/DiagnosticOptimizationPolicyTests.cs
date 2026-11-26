@@ -8,6 +8,20 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class DiagnosticOptimizationPolicyTests
 {
+    [Fact]
+    public void BoundedDiagnosticRepairsStopAtTheCapturedSessionAndDraftLimits()
+    {
+        var state = DiagnosticSession();
+        state.Request.Options["diagnostic_progress_policy"] = PlanningTokenThresholds.BoundedRepairs;
+        state.ReplanAttempts = state.Request.MaxReplanAttempts;
+        Assert.False(PlanningModelCalls.HasRepairCapacity(state));
+        Assert.False(PlanningModelCalls.HasDraftRepairCapacity(state, state.Construction!.Limits.MaxCorrectionsPerDraft));
+        Assert.False(PlanningOptimizationThresholds.RepeatsAdvisory(state));
+        Assert.True(PlanningModelCalls.HasCallCapacity(state, int.MaxValue));
+        using var correction = new PlanningCorrectionAttempt(state, correcting: true);
+        Assert.Throws<WorkflowRuntimeException>(correction.Reserve);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

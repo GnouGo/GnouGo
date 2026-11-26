@@ -145,6 +145,14 @@ internal static class ServerLiveDiagnostics
             "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
             "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
         };
+        if (SchemaPortabilityCampaign.Option(args, "--server-repair-limit") is { } repairLimit)
+        {
+            if (!planning || !int.TryParse(repairLimit, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var limit) || limit is < 0 or > 10)
+                throw new ArgumentException("Use a repair limit from zero to ten on a fresh Server plan.");
+            hostArgs = [.. hostArgs, "--TypedWorkflowPlanning:DiagnosticBoundRepairs=true",
+                $"--TypedWorkflowPlanning:MaxReplanAttempts={limit}", $"--TypedWorkflowPlanning:LargeMaxReplanAttempts={limit}"];
+        }
         if (business?.Target is not null)
             hostArgs = hostArgs.Append("--Flow:Execution:FinalizationTimeoutSeconds=270").ToArray();
         if (planningAllowance is { } amount)

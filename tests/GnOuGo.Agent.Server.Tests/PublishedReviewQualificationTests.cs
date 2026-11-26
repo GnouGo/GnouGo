@@ -5,6 +5,13 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PublishedReviewQualificationTests
 {
+    [Fact]
+    public void LocalReportAnchorsOnlyAddedHeadLinesAcrossHunks()
+    {
+        var lines = QualificationReports.AddedLines("@@ -3,2 +4,2 @@\n context\n-old\n+new\n@@ -20,0 +23,2 @@ scope\n+second\n+third\n\\ No newline at end of file");
+        Assert.Equal(new Dictionary<int, string> { [5] = "new", [23] = "second", [24] = "third" }, lines);
+    }
+
     [Theory]
     [InlineData(null, false)]
     [InlineData("", false)]
