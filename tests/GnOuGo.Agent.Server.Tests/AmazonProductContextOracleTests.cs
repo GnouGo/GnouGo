@@ -167,7 +167,10 @@ public sealed class AmazonProductContextOracleTests
         {
             var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt("workflows/campaign/run", 10, policy);
             Assert.Contains("observationSnapshot.pages[].records[].ancestorAttributes", prompt);
-            Assert.Contains("project compact ordered card or detail-field candidates", prompt);
+            Assert.Contains("prefixAttribute=data-asin and prefixGroups=10", prompt);
+            Assert.Contains("Bind observationSnapshot.linkPrefix alone", prompt);
+            Assert.Contains("same string pattern in the selected-product href output schema", prompt);
+            Assert.Contains("Project compact detail-field candidates before inference", prompt);
         }
     }
 
