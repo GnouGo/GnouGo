@@ -54,6 +54,7 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         IMappingArtifactStore restarted = Store();
         Assert.Equal(script, (await restarted.ReadAsync("tenant", "mapping-key", Ct))!.Script);
         Assert.Null(await restarted.ReadAsync("other", "mapping-key", Ct));
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var file in Directory.GetFiles(_root, "*.db*"))
             Assert.DoesNotContain(script, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         await restarted.RemoveAsync("tenant", "mapping-key", Ct);
@@ -85,6 +86,7 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         var listed = await restarted.ListAsync("tenant", Ct);
         Assert.Single(listed);
         await using (var rebuilt = Index()) Assert.Equal(1, (await rebuilt.Runs.SingleAsync(Ct)).Revision);
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
         foreach (var file in Directory.GetFiles(_root, "*.db*"))
             Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
     }
