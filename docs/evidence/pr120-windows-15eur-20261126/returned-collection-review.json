@@ -1,0 +1,33 @@
+{
+  "run": "win-amazon-first-ten-20261126-192722",
+  "session": "11e5dd4a1cc040e4a4fd4d3b81c6fc3a",
+  "source": "63a9341e2250f7c585ec4d128f95c5eb49649e52",
+  "terminal_revision": 115,
+  "physical_calls": 43,
+  "counted_repairs": 2,
+  "measured_tariff_eur": "1.7304624145785876993166287015",
+  "final_approval": false,
+  "business_execution": false,
+  "observations": [
+    "Request 23 accepted the search and ordered selection block.",
+    "Request 27 selected a sequence to visit products. Its selection prerequisites explicitly recognized that the products list could be absent.",
+    "The draft placed foreach visits inside the sequence with a requires predicate. A false predicate stops the workflow before the caller can receive the observed status.",
+    "Requests 32, 41 and 43 identified that remaining defect. The completion claim was withdrawn once and the plan added check_detail_results downstream, which could not recover from the earlier stop."
+  ],
+  "local_regression": {
+    "source": "8cf5d9f476c801abcb4eb5aade073ec86a42714a",
+    "naked_loop_missing_collection": "stopped before report",
+    "conditional_loop_missing_collection": "returned source unavailable",
+    "repeated_input_items": 2,
+    "preserved_result_count": 2,
+    "targeted_tests_passed": 129,
+    "provider_calls": 0
+  },
+  "closing_campaign": {
+    "calls": 172,
+    "measured_tariff_eur": "6.9248246013667425968109339411",
+    "reserved_eur": "0",
+    "unknown_attempts": 0,
+    "available_eur": "8.075175398633257403189066059"
+  }
+}
