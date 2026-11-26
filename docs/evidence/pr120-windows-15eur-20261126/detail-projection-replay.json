@@ -1,0 +1,116 @@
+{
+  "run": "win-amazon-first-ten-20261126-180618",
+  "source": "c6ae59113c31a54a1673eee6af0a3210d868d92d",
+  "session": "716b0be3333744c4805a174fec067d0e",
+  "terminal_revision": 91,
+  "terminal_stage": "construction_local_judge",
+  "terminal_diagnostic": "BUSINESS_REVIEW_REQUIRED",
+  "approved": false,
+  "business_executed": false,
+  "physical_calls": 31,
+  "cost_eur": "1.391826879271070615034168565",
+  "finding": "The detail projection sent every source record’s text to inference. The reviewer cited a pending producer, its unchanged scope export and the pending consumer. The repair request allowed only evidence retrieval.",
+  "replay_source": "a11dbcc339544cbd2ad8fa37f0495e6a2d2bd6cf",
+  "previous_editable_paths": null,
+  "retained_review_replay": {
+    "code": "1.0.0+a11dbcc339544cbd2ad8fa37f0495e6a2d2bd6cf",
+    "paths": [
+      "/tasks/project_records/inputs",
+      "/tasks/project_records/objective",
+      "/tasks/project_records/requires",
+      "/tasks/interpret_detail/inputs",
+      "/tasks/interpret_detail/objective",
+      "/tasks/interpret_detail/requires"
+    ],
+    "read_only": [
+      "/tasks/snapshot_available/body"
+    ]
+  },
+  "retained_detail_capture_replay": [
+    {
+      "position": 1,
+      "source_record_count": 570,
+      "compact_record_count": 16,
+      "compact_json_bytes": 5558,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 2,
+      "source_record_count": 558,
+      "compact_record_count": 16,
+      "compact_json_bytes": 5558,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 3,
+      "source_record_count": 651,
+      "compact_record_count": 12,
+      "compact_json_bytes": 3790,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 4,
+      "source_record_count": 668,
+      "compact_record_count": 15,
+      "compact_json_bytes": 4594,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 5,
+      "source_record_count": 607,
+      "compact_record_count": 15,
+      "compact_json_bytes": 5090,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 6,
+      "source_record_count": 661,
+      "compact_record_count": 15,
+      "compact_json_bytes": 4699,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 7,
+      "source_record_count": 684,
+      "compact_record_count": 14,
+      "compact_json_bytes": 4882,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 8,
+      "source_record_count": 637,
+      "compact_record_count": 13,
+      "compact_json_bytes": 4021,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 9,
+      "source_record_count": 713,
+      "compact_record_count": 13,
+      "compact_json_bytes": 4528,
+      "verified_field_references": 3,
+      "truncated": false
+    },
+    {
+      "position": 10,
+      "source_record_count": 673,
+      "compact_record_count": 15,
+      "compact_json_bytes": 5016,
+      "verified_field_references": 3,
+      "truncated": false
+    }
+  ],
+  "source_record_count": 6422,
+  "compact_record_count": 144,
+  "exact_field_references_checked": 30,
+  "maximum_compact_json_bytes": 5558,
+  "replay_provider_calls": 0
+}
