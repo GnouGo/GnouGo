@@ -121,6 +121,13 @@ internal static class SchemaPortabilityCampaign
             KeyVaultBenchmarkModel.RequireReady(readiness);
             if (readiness["structured_output_supported"]?.GetValue<bool>() != true || readiness["medium_reasoning_supported"]?.GetValue<bool>() != true)
                 throw BenchmarkCampaign.AdmissionFailure("required_structured_output_or_reasoning_unavailable");
+            int? Version(string option) => Option(args, option) is { } value
+                ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : null;
+            var gitFrom = Version("--previous-git-token-version");
+            var gitTo = Version("--current-git-token-version");
+            var credentialAmendment = args.Contains("--github-credential-amendment", StringComparer.Ordinal);
+            if ((gitFrom.HasValue || gitTo.HasValue) && !credentialAmendment)
+                throw new PlanningConflictException("Bundled Git token versions require a GitHub credential amendment.");
             var amendment = await campaign.RegisterConfigurationAsync(proposed.CampaignConfiguration(), proposed.ConfigurationFingerprint,
                 readiness["declared_metadata_hash"]!.ToString(), RequiredOption(args, "--expected-configuration"),
                 RequiredOption(args, "--authorization"), apply, CancellationToken.None,
@@ -134,10 +141,11 @@ internal static class SchemaPortabilityCampaign
                 sdkTransportProof: args.Contains("--sdk-transport-amendment", StringComparer.Ordinal)
                     ? await proposed.SdkTransportProofAsync(RequiredOption(args, "--previous-configuration-id"),
                         RequiredOption(args, "--previous-sdk-transport"), CancellationToken.None) : null,
-                githubCredentialProof: args.Contains("--github-credential-amendment", StringComparer.Ordinal)
+                githubCredentialProof: credentialAmendment
                     ? await proposed.GithubCredentialProofAsync(root, RequiredOption(args, "--previous-configuration-id"),
                         int.Parse(RequiredOption(args, "--previous-credential-version"), System.Globalization.CultureInfo.InvariantCulture),
-                        int.Parse(RequiredOption(args, "--current-credential-version"), System.Globalization.CultureInfo.InvariantCulture), CancellationToken.None) : null);
+                        int.Parse(RequiredOption(args, "--current-credential-version"), System.Globalization.CultureInfo.InvariantCulture),
+                        CancellationToken.None, gitFrom, gitTo) : null);
             // Full deployment configuration stays encrypted in the campaign.
             // The exact hash identifies the preview without logging URL secrets.
             if (amendment["material"]?["credential_rotation_proof"] is JsonObject proof)

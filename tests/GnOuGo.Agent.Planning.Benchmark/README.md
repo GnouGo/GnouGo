@@ -571,9 +571,12 @@ record identity, version numbers, field name, registered configuration identity
 and fingerprints. A matching preview can be applied with `--apply` and the exact
 `--expected-amendment`. The funded chain validates the new link on every admission.
 
-A change to another MCP, including the bundled Git server's Git token, makes the
-one-field proof fail. A new version timestamp identifies a write. Establishing
-which value changed requires its own scoped evidence.
+For an authorized rotation of both credentials, also supply
+`--previous-git-token-version` and `--current-git-token-version` for the bundled
+Git MCP. The verifier checks both current values against the loaded fields and
+restores both historical values on the same detached copy. Exact reconstruction
+binds both record identities, field names and version pairs to one immutable
+amendment. Omit the Git version arguments for an API-key-only proof.
 
 New live launches identify both `--model <exact-snapshot>` and
 `--campaign-configuration <registered-id>`. The existing campaign remains the

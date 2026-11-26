@@ -16,6 +16,8 @@ public sealed class BenchmarkCampaignTests
     [Theory]
     [InlineData("rotation")] [InlineData("history")] [InlineData("current")] [InlineData("version")]
     [InlineData("endpoint")] [InlineData("permission")] [InlineData("metadata")] [InlineData("another-record")] [InlineData("git-token")]
+    [InlineData("paired")] [InlineData("paired-wrong-version")] [InlineData("paired-stale")] [InlineData("paired-history")]
+    [InlineData("paired-record")] [InlineData("paired-endpoint")]
     public async Task GithubCredentialRotationRequiresTheExactParentAndPreservesTheExistingGrant(string change)
     {
         var records = new Records();
@@ -34,9 +36,10 @@ public sealed class BenchmarkCampaignTests
             initial.ConfigurationFingerprint, metadataHash, Ct, previousCampaignUnavailable: true);
         var parentId = grant["configuration_id"]!.ToString();
         options.McpServers["Github"].ApiKey = "new-fixture";
-        if (change == "endpoint") options.McpServers["Github"].Url += "/other";
+        bool paired = change.StartsWith("paired", StringComparison.Ordinal);
+        if (change is "endpoint" or "paired-endpoint") options.McpServers["Github"].Url += "/other";
         if (change == "permission") options.McpServers["other"] = new() { Type = "stdio", Command = "other" };
-        if (change == "git-token") options.McpServers["GnOuGo.Git.Mcp"].EnvironmentVariables!["Git__Token"] = "git-fixture-two";
+        if (change == "git-token" || paired) options.McpServers["GnOuGo.Git.Mcp"].EnvironmentVariables!["Git__Token"] = "git-fixture-two";
         if (change == "metadata") options.ModelOverrides["openai/model"].MaxOutputTokens++;
         using var rotated = new KeyVaultBenchmarkModel(campaign, options);
         var recordId = Guid.NewGuid();
@@ -45,18 +48,34 @@ public sealed class BenchmarkCampaignTests
         var before = Version(recordId, 1, change == "history" ? "unrelated" : "old-fixture");
         var after = Version(change == "another-record" ? Guid.NewGuid() : recordId, change == "version" ? 1 : 2,
             change == "current" ? "stale" : "new-fixture");
-        if (change != "rotation")
+        var gitId = Guid.NewGuid();
+        var oldGit = before with { Key = BenchmarkCampaign.GitSecret, Id = gitId, Value = change == "paired-history" ? "other" : "git-fixture-one" };
+        var newGit = oldGit with { Id = change == "paired-record" ? recordId : gitId, Version = change == "paired-wrong-version" ? 1 : 2,
+            Value = change == "paired-stale" ? "other" : "git-fixture-two" };
+        Task<JsonObject> Prove() => rotated.ProveGithubCredentialAsync(parentId, before, after, Ct, paired ? (oldGit, newGit) : null);
+        if (change is not ("rotation" or "paired"))
         {
-            await Assert.ThrowsAsync<PlanningConflictException>(() => rotated.ProveGithubCredentialAsync(parentId, before, after, Ct));
+            await Assert.ThrowsAsync<PlanningConflictException>(Prove);
             return;
         }
-        var proof = await rotated.ProveGithubCredentialAsync(parentId, before, after, Ct);
+        var proof = await Prove();
         Assert.DoesNotContain("fixture", proof.ToJsonString());
         Task<JsonObject> Register(bool apply, string? expected = null) => campaign.RegisterConfigurationAsync(config,
             rotated.ConfigurationFingerprint, metadataHash, configHash, "rotate-github-key", apply, Ct, expected,
             captureCurrentSettings: true, githubCredentialProof: proof);
         var preview = await Register(false);
         var identity = preview["configuration_id"]!.ToString();
+        if (paired)
+        {
+            var binding = proof["git_token_rotation"]!.AsObject();
+            Assert.Equal(gitId.ToString("D"), binding["secret_id"]!.ToString());
+            binding["current_version"] = 3;
+            await Assert.ThrowsAsync<PlanningConflictException>(() => Register(true, identity));
+            binding["current_version"] = 2;
+            binding["field"] = "AnotherField";
+            await Assert.ThrowsAsync<PlanningConflictException>(() => Register(false));
+            binding["field"] = "Git__Token";
+        }
         proof["unexpected_payload"] = "unregistered";
         await Assert.ThrowsAsync<PlanningConflictException>(() => Register(false));
         proof.Remove("unexpected_payload");

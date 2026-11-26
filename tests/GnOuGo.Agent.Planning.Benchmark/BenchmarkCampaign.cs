@@ -164,10 +164,11 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         {
             var parentId = githubCredentialProof["previous_configuration_id"]?.ToString();
             var parent = parentId is { Length: 64 } ? await LoadAsync(FundingCollection, "configuration:" + parentId, ct) : null;
-            if (!captureCurrentSettings || parent is null || !ValidGithubRotation(githubCredentialProof, configuration, hostHash, metadataHash, parent) ||
+            var paired = githubCredentialProof.ContainsKey("git_token_rotation");
+            if (!captureCurrentSettings || parent is null || !ValidGithubRotation(githubCredentialProof, configuration, hostHash, metadataHash, parent, paired) ||
                 !(await CheckConfigurationSelectionAsync(parentId!, configuration, parent["host_configuration_hash"]!.ToString(), ct)).Accepted)
                 throw new PlanningConflictException("The GitHub credential amendment must preserve the verified funded parent and metadata.");
-            material["amendment_scope"] = CredentialRotationScope;
+            material["amendment_scope"] = paired ? PairedCredentialRotationScope : CredentialRotationScope;
             material["credential_rotation_proof"] = githubCredentialProof.DeepClone();
         }
         var identity = PlanningGraphCompiler.Fingerprint(material.ToJsonString());

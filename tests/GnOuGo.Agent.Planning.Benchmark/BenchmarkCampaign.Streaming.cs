@@ -42,7 +42,7 @@ internal sealed partial class BenchmarkCampaign
             var child = await LoadAsync(FundingCollection, "configuration:" + selectedId, ct);
             var kind = child?["amendment_scope"]?.ToString();
             var proof = child?[kind switch { "streaming_transport_only" => "streaming_transport_proof",
-                "sdk_transport_only" => "sdk_transport_proof", CredentialRotationScope => "credential_rotation_proof", _ => "reasoning_capability_proof" }] as JsonObject;
+                "sdk_transport_only" => "sdk_transport_proof", CredentialRotationScope or PairedCredentialRotationScope => "credential_rotation_proof", _ => "reasoning_capability_proof" }] as JsonObject;
             var parentId = proof?["previous_configuration_id"]?.ToString();
             var parent = parentId is { Length: 64 } ? await LoadAsync(FundingCollection, "configuration:" + parentId, ct) : null;
             if (child?["configuration"] is not JsonObject configuration || parent?["configuration"] is not JsonObject previous ||
@@ -71,10 +71,10 @@ internal sealed partial class BenchmarkCampaign
                     child["declared_metadata_hash"]!.ToString(), parent))
                     throw AdmissionFailure("funding_scope_selected_configuration");
             }
-            else if (kind == CredentialRotationScope)
+            else if (kind is CredentialRotationScope or PairedCredentialRotationScope)
             {
                 if (proof is null || !ValidGithubRotation(proof, configuration, child["host_configuration_hash"]!.ToString(),
-                    child["declared_metadata_hash"]!.ToString(), parent))
+                    child["declared_metadata_hash"]!.ToString(), parent, kind == PairedCredentialRotationScope))
                     throw AdmissionFailure("funding_scope_selected_configuration");
             }
             else throw AdmissionFailure("funding_scope_selected_configuration");
