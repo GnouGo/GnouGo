@@ -173,7 +173,28 @@
     "cost_upper_bound_eur": "7.98270690443529949702789209",
     "available_eur": "12.01729309556470050297210791"
   },
+  "after_third_run": {
+    "physical_calls": 291,
+    "known_cost_eur": "9.763257887517146776406035695",
+    "unresolved_transport_eur": "0.0796067672610882487425697302",
+    "retained_application_eur": "0",
+    "cost_upper_bound_eur": "9.842864654778235025148605426",
+    "available_eur": "10.157135345221764974851394574"
+  },
+  "windows_workbook_fixture": {
+    "source": "83c536f9ee7d112ed8af68d012a60adc79d987e0",
+    "before_budget_ms": 120000,
+    "after_budget_ms": 120000,
+    "before_missing_refusal_ms": 122946.3853,
+    "experiment": "8 cases passed using fresh real encrypted databases with WAL and FULL synchronous commits",
+    "successful_execution_ms": {"complete": 72188, "repeated": 71697, "missing": 71223},
+    "checkpoints_per_ten_row_case": 1415
+  },
   "private_receipt_sha256": {
+    "workspace-f06909f2-benchmark-build.log": "7e2a81845cbdd88bfd5047dd2055c9c0c2717a31a3aea8a1334ee196df4223ab",
+    "workspace-f06909f2-policy.log": "8f936896bc751b9aed0418e4975fa9f15811d5f60efecdfb1bf0e8ce59611625",
+    "workspace-admission-regressions.log": "18555749e58909485ce7523685953ed9d99ea65511c55e46d41e2a1ad807dddc",
+    "wal-v10-measurement.log": "66313c191aea532c55e1ea5566e0e9b68c39d6a16eba66bfb672d091cbf23365",
     "win-amazon-first-ten-20261126-090624-closing.json": "bf75e589c57f93512b8988eaa13a432d41078ff0693d30161a6b79718bf46a3e",
     "third-execution-facts.json": "38173c04d11625f9746e804600841cead6659b77f5a7d2b657c17367c5639674",
     "win-amazon-first-ten-20261126-090624-review/review.json": "6e276f97a8551a917cc15d4b529f38a71d83eec098d58027209a1dc4ae2457c4",
