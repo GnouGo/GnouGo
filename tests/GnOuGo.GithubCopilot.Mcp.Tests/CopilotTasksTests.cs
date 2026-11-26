@@ -289,6 +289,7 @@ public sealed class CopilotTasksTests
             Assert.Contains("COPILOT_NEEDS_RECONCILIATION", recovered.Error!.Value.GetRawText());
             Assert.Equal(1234, (await restarted.ReadOperationAsync(id, Ct))!["reservedTokens"]!.GetValue<int>());
             Assert.Contains("decline", (await restarted.AnswersAsync(id, Ct)).ToJsonString());
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             Assert.DoesNotContain("private-objective", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, Ct)));
         }
         finally
