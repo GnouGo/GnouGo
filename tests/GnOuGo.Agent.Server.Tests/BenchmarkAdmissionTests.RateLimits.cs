@@ -153,7 +153,7 @@ public sealed partial class BenchmarkAdmissionTests
         using var local = new HttpClient(new HttpClientHandler { UseProxy = false });
         var endpoint = new Uri(relay.Endpoint);
         var backend = new GnOuGo.AI.Core.McpServerOptions { EnvironmentVariables = new() { ["Code__Copilot__InferenceProxyEndpoint"] = relay.Endpoint } };
-        var servers = new Dictionary<string, GnOuGo.AI.Core.McpServerOptions> { [AdaptiveLiveProfile.Backend] = backend };
+        var servers = new Dictionary<string, GnOuGo.AI.Core.McpServerOptions> { [BenchmarkCampaign.SdkServer] = backend };
         Assert.Throws<GnOuGo.Flow.Core.Planning.PlanningConflictException>(() => relay.RequireSdkAdmission(servers));
         await new CopilotInferenceProxyHandler(local, endpoint).VerifyReadyAsync(Ct);
         relay.RequireSdkAdmission(servers);
