@@ -103,6 +103,8 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
             JsonSerializer.SerializeToNode(Result("needs_reconciliation", message: message), AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None);
 
         var retries = 0;
+        // Journal-aware providers reserve every physical attempt against this same task budget.
+        var journaledTransport = modelClient is IJournaledBudgetClient;
         while (budget.Snapshot.Calls < task.Budget.MaxModelCalls)
         {
             ct.ThrowIfCancellationRequested();
@@ -112,7 +114,7 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
             if (available <= 0) break;
             var request = new LLMRequest { Provider = target.Provider, Model = target.Model, Prompt = prompt,
                 StructuredOutputSchema = schema, StructuredOutputStrict = true, RequireOutputTokenLimit = true,
-                DisableTransportRetries = true, MaxTokens = (int)Math.Min(available, 4096), ClientRequestId = Guid.NewGuid().ToString("N") };
+                DisableTransportRetries = !journaledTransport, MaxTokens = (int)Math.Min(available, 4096), ClientRequestId = Guid.NewGuid().ToString("N") };
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromMinutes(4));
             LLMResponse response;
@@ -124,7 +126,7 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
             }
             catch (LLMClientException ex)
             {
-                if (!ex.Retryable || ex.RetryExhausted || ex.AttemptCount != 1 || ex.StatusCode is not (429 or 503) ||
+                if (journaledTransport || !ex.Retryable || ex.AttemptCount != 1 || ex.StatusCode is not (429 or 503) ||
                     retries >= 2 || budget.Snapshot.Calls >= task.Budget.MaxModelCalls)
                     return Result("failed", message: ex.Message);
                 var delay = TimeSpan.FromMilliseconds(Math.Max(500 << retries, ex.RetryAfterMilliseconds ?? 0));

@@ -27,7 +27,8 @@ public sealed partial class BenchmarkAdmissionTests
         await File.WriteAllTextAsync(Path.Combine(project, file), marker, Ct);
 
         var options = RuntimeOptions();
-        options.ModelOverrides["openai/pinned"].Capabilities = new() { SupportsStructuredOutput = true };
+        options.ModelOverrides["openai/pinned"].Capabilities = new()
+            { SupportsStructuredOutput = true, SupportsReasoningEffort = true, SupportedReasoningEfforts = ["medium"] };
         const string upstream = "http://127.0.0.1:1/v1";
         options.Models["fixture"].Url = upstream;
         using var provider = new GitDocumentProvider(rateLimited);

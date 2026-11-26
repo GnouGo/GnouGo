@@ -19,7 +19,8 @@ public sealed class CompactConstructionContractsTests
         Assert.NotEmpty(step.OperationIds);
         Assert.NotEmpty(step.RequirementIds);
         var schema = PlanningCompactConstruction.DraftSchema(state);
-        Assert.Equal("null", schema["properties"]!["commitments"]!["type"]!.GetValue<string>());
+        Assert.Null(schema["properties"]!["commitments"]);
+        Assert.False(schema["additionalProperties"]!.GetValue<bool>());
     }
 
     [Theory]
