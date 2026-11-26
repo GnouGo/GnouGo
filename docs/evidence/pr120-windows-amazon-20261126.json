@@ -95,10 +95,27 @@
       "workbook": null,
       "independent_readback": null,
       "remaining_eur_at_close": "13.882574302697759487882944674",
-      "reservations_eur_at_close": "0"
+      "reservations_eur_at_close": "0",
+      "offline_repair_replay": {
+        "source": "5c8a92a3721ce8659fbe636925942335577305b4",
+        "accepted_plan_hash": "268f43e565f21a70da7be60113578d5f0db687d07b4dde06f011cd1610f41d40",
+        "accepted_plan_unchanged": true,
+        "read_only_targets": ["/tasks/page_usable/body"],
+        "editable_paths": [
+          "/tasks/page_usable/condition",
+          "/tasks/product_fields/inputs",
+          "/tasks/product_fields/objective",
+          "/tasks/product_fields/requires",
+          "/tasks/write_if_selected/condition"
+        ],
+        "provider_calls": 0
+      }
     }
   ],
   "private_receipt_sha256": {
+    "amazon-offline-repair-422.json": "fc9eb48200ae83359aa5a086b539f6db316b1c58795b2a39ef5921d4b742e392",
+    "amazon-repair-clean-build.log": "32e0ec1430f0e3470ed68ad3bdbd9aa93300385c54cba55e3549c2db1940d4a1",
+    "branch-repair-regression.log": "51b7d08e1187583fddc1771d51a3f287468ead18c9b766cbcdf9a1a961372197",
     "win-amazon-first-ten-20261126-065431-closing.json": "50d0cada1afd24439b132b8f1538b61a82911b5ce6679164d60f1bdd992e14e9",
     "amazon-review-stop.txt": "b1c4e73ad12e9ac573173a9ffd7d70e65db34f9e3259c9fb99b06efe53c08084",
     "final-yaml.log": "42a7ec92a756adfb5c85d8688fae7fc48bcff917f70f600125c380b45d2bfb4c",
