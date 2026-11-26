@@ -274,6 +274,12 @@
     "available_eur": "6.416646090534979423868312679"
   },
   "private_receipt_sha256": {
+    "9a09-planning-aot-publish.log": "77a41afad0b3586088c811c67d9bef7b1fb8221a1aeebae9b80d3901d6d25525",
+    "9a09-planning-aot-run.log": "5d11bf529aa67faeb53ea396e5e1e37fe3bbdf2f6057b85cb2c1306170423cfd",
+    "9a09-amazon-profile.log": "4dbbd4b9912f90ecc92d4ae1a5d24c15d277aba2a5d3e385e1002016299544eb",
+    "abef-workbook-global-facts.json": "043882b7791a4d16c4ff7cb59a2e58b34be8168d354e2a978a58c90c441d0693",
+    "abef-frozen-benchmark-build.log": "ff6f18910bf3e5721db860481baee35701dfa6d63cc546b3d44f5a76b2e88e43",
+    "abef-cold-deployment.json": "5790026a96aee7dc34c28a39d89be73d4606db5b7e13ea32374d57ae07674d5b",
     "win-amazon-first-ten-20261126-105418-closing.json": "1c9ed2382f24e83878db24cd3aeb5f0de8ef86e72d335cdd91f024a30aaf9557",
     "sixth-amazon-progress.json": "d2665ac87091767aa40ab06a8743b59bcc75029f2210df7f9546fa21fe96bc5a",
     "sixth-denied-transport.json": "1bb10e6a8bbbb66d5980bab8d618a7d44eaca853468e9fb5e5b422f1682379ef",
