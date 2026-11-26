@@ -100,7 +100,12 @@ public sealed class BrowserSnapshotReceiptTests
             Assert.Null(await Store().ReadAsync("other-tenant", "empty-run", ct));
             Assert.True((await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed class UnexpectedModel : ILLMClient
@@ -204,7 +209,12 @@ public sealed class BrowserSnapshotReceiptTests
             Assert.Null(await Store().ReadAsync("another-tenant", "action-run", ct));
             Assert.True((await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     [Fact]
@@ -285,6 +295,11 @@ public sealed class BrowserSnapshotReceiptTests
             var browser = await transport.GetClientAsync("browser", ct);
             Assert.True((await browser.CallToolAsync("browser_get_content", new JsonObject(), ct)).IsError);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 }
