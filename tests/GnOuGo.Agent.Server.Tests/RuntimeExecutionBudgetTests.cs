@@ -261,7 +261,7 @@ public sealed class RuntimeExecutionBudgetTests
             Assert.Contains(events, e => e.Type == "error" && e.ErrorCode == ErrorCodes.LlmBudgetExceeded);
             Assert.DoesNotContain(events, e => e.Type == "human_input_request"); Assert.Equal(1, model.Calls);
         }
-        finally { Directory.Delete(directory, true); }
+        finally { BudgetHost.DeleteFixtureDirectory(directory); }
     }
 
     [Fact]
@@ -476,7 +476,7 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
                 });
             return new(app, store, directory);
         }
-        catch { Directory.Delete(directory, true); throw; }
+        catch { DeleteFixtureDirectory(directory); throw; }
     }
     internal async Task<List<SmartFlowEvent>> ExecuteAsync(string runId, CancellationToken ct, JsonObject? inputs = null)
     {
@@ -490,7 +490,16 @@ internal sealed class BudgetHost(WebApplication app, IWorkflowRunStore store, st
         return events;
     }
     public async ValueTask DisposeAsync()
-    { await app.DisposeAsync(); Directory.Delete(directory, true); }
+    {
+        await app.DisposeAsync();
+        DeleteFixtureDirectory(directory);
+    }
+
+    internal static void DeleteFixtureDirectory(string path)
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        Directory.Delete(path, true);
+    }
     private sealed class AgentTransport(IMcpSession agent, IMcpClientFactory other) : IMcpClientFactory
     {
         public IReadOnlyList<McpServerMetadata> ServerMetadata => other.ServerMetadata;
