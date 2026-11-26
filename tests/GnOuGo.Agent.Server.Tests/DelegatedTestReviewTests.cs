@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.GithubCopilot.Mcp;
 using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Agent.Server.Tests;
@@ -110,12 +111,14 @@ public sealed class DelegatedTestReviewTests
             var authorization = original with { WorkspaceRoot = root.FullName, WorkspaceRelativePath = relative };
             var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run",
                 "amazon", root.FullName, "frozen-source", relative);
-            var folder = Path.Combine(root.FullName, relative);
+            var folder = Path.GetFullPath(relative, root.FullName);
+            var policy = new CodePolicy(new CodeServerSettings { DefaultWorkingDirectory = root.FullName }, root.FullName);
             Assert.False(Directory.Exists(folder));
             Assert.Throws<PlanningConflictException>(() => authority.PrepareAdaptiveWorkspace("unreviewed-run"));
             Assert.Throws<PlanningConflictException>(() => authority.PrepareAdaptiveWorkspace("../escape"));
             Assert.Empty(root.EnumerateFileSystemInfos());
             authority.PrepareAdaptiveWorkspace("fresh-server-run");
+            Assert.Equal(folder, policy.ResolveProjectRoot(relative));
             Assert.Empty(Directory.EnumerateFileSystemEntries(folder));
             var retained = Path.Combine(folder, "retained.txt");
             await File.WriteAllTextAsync(retained, "original", Ct);
