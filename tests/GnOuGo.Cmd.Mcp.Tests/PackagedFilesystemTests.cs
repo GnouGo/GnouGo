@@ -48,7 +48,6 @@ public sealed class PackagedFilesystemTests : IDisposable
     {
         var result = await Run("cat_file", new JsonObject { ["path"] = "missing.txt" });
         Assert.False(result.Success);
-        Assert.NotNull(result.ExitCode);
         Assert.NotEqual(0, result.ExitCode);
     }
 
