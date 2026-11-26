@@ -169,6 +169,7 @@ public sealed class AmazonProductContextOracleTests
             Assert.Contains("observationSnapshot.pages[].records[].ancestorAttributes", prompt);
             Assert.Contains("prefixAttribute=data-asin and prefixGroups=10", prompt);
             Assert.Contains("Bind observationSnapshot.linkPrefix alone", prompt);
+            Assert.Contains("observedSourceAccepted=true", prompt);
             Assert.Contains("same string pattern in the selected-product href output schema", prompt);
             Assert.Contains("Project compact detail-field candidates before inference", prompt);
         }

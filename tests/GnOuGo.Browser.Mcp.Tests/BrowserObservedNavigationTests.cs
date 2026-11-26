@@ -35,9 +35,11 @@ public sealed class BrowserObservedNavigationTests
         var settings = site.Settings(); var original = settings.AllowedNavigationUrlPatterns.ToArray();
         await using var host = Host(settings);
         var source = await Read(host, site.Origin + "/search?q=1");
+        Assert.True(source.ObservedSourceAccepted);
         var records = source.ObservationSnapshot!.Pages.SelectMany(p => p.Records).ToArray();
         Assert.Equal(2, records.Count(r => r.Href == site.Entry));
         var first = await Read(host, site.Entry);
+        Assert.Null(first.ObservedSourceAccepted);
         var second = await Read(host, site.Entry);
         Assert.Equal(site.Entry, first.NavigationEvidence!.RequestedUrl);
         Assert.Equal(new[] { 302, 200 }, first.NavigationEvidence.Hops.Select(h => h.StatusCode));
@@ -141,6 +143,7 @@ public sealed class BrowserObservedNavigationTests
             }
         };
         var moved = await Read(host, site.Origin + "/search?q=1");
+        Assert.False(moved.ObservedSourceAccepted);
         Assert.Equal(site.Origin + "/search?q=" + (sameAddress ? "1" : "2"), moved.Url);
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Entry));
         await Assert.ThrowsAnyAsync<InvalidOperationException>(() => Read(host, site.Origin + "/ad/two?opaque=%2F"));

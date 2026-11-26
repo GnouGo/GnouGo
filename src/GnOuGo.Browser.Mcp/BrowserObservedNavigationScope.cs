@@ -69,9 +69,9 @@ internal sealed class BrowserObservedNavigationScope
     private static BrowserServerSettings LiteralPolicy(string url) => new()
         { AllowedNavigationUrlPatterns = [Regex.Escape(url)] };
 
-    internal void Publish(BrowserContentResult result, string? selector, long generation)
+    internal bool Publish(BrowserContentResult result, string? selector, long generation)
     {
-        if (!IsSource(result.Url)) return;
+        if (!IsSource(result.Url)) return false;
         var evidence = result.NavigationEvidence;
         var snapshot = result.ObservationSnapshot;
         if (selector is not null || !result.Success || result.Truncated || result.Format != "observation_complete" ||
@@ -82,7 +82,7 @@ internal sealed class BrowserObservedNavigationScope
             result.Acquisition?.Navigation?.Url != result.Url ||
             snapshot.RecordCount != snapshot.Pages.Sum(p => p.Records.Count) ||
             snapshot.Pages.Any(p => p.Id != snapshot.Id || p.CaptureTruncated || p.NextCursor is not null))
-        { lock (_sync) Trace("withheld", "source_evidence_incomplete", generation, snapshot?.Id); return; }
+        { lock (_sync) Trace("withheld", "source_evidence_incomplete", generation, snapshot?.Id); return false; }
         var entries = new HashSet<string>(StringComparer.Ordinal);
         foreach (var record in snapshot.Pages.SelectMany(p => p.Records))
         {
@@ -97,9 +97,10 @@ internal sealed class BrowserObservedNavigationScope
         }
         lock (_sync)
         {
-            if (_generation != generation) { Trace("withheld", "source_changed_during_acquisition", generation, snapshot.Id); return; }
+            if (_generation != generation) { Trace("withheld", "source_changed_during_acquisition", generation, snapshot.Id); return false; }
             _entries = entries;
             Trace("published", "complete_owned_source", generation, snapshot.Id);
+            return true;
         }
     }
 }

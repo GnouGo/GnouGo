@@ -1091,6 +1091,9 @@ public sealed record BrowserContentResult(
     public BrowserSnapshotAcquisition? Acquisition { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserNavigationEvidence? NavigationEvidence { get; init; }
+    [System.ComponentModel.Description("For a configured source read, true when the complete successful owned GET published its eligible observed links. False when publication was withheld. Later navigation can expire the scope.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ObservedSourceAccepted { get; init; }
 }
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);

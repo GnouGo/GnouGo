@@ -398,7 +398,9 @@ public sealed partial class PlaywrightBrowserHost
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, BrowserServerSettings.ObservationPageCeiling));
                     if (ObservationCheckpoint is { } publishing) await publishing(page, "publish", token).WaitAsync(token);
                     token.ThrowIfCancellationRequested();
-                    result = result with { Acquisition = Acquisition() };
+                    // Include the longer Boolean representation in the size check.
+                    // Only the final publication under the observation lock can set it true.
+                    result = result with { Acquisition = Acquisition(), ObservedSourceAccepted = _observedNavigation.IsSource(result.Url) ? false : null };
                     if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
                     {
                         if (result.ObservationSnapshot!.TextMatches is not null)
@@ -414,7 +416,8 @@ public sealed partial class PlaywrightBrowserHost
                         snapshot.Complete = true;
                         foreach (var pageResult in snapshot.Pages) snapshot.Deliver(pageResult);
                         published = true;
-                        _observedNavigation.Publish(result, selector, navigationAuthorityGeneration);
+                        if (_observedNavigation.Publish(result, selector, navigationAuthorityGeneration))
+                            result = result with { ObservedSourceAccepted = true };
                         Activity.Current?.SetTag("browser.snapshot.attempts", attempt);
                         Activity.Current?.SetTag("browser.snapshot.id", snapshot.Id);
                         Activity.Current?.SetTag("browser.snapshot.pages", pages.Length);
