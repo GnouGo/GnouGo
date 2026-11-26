@@ -99,6 +99,32 @@ public sealed class DelegatedTestReviewTests
         Assert.Throws<PlanningConflictException>(() => Authority(authorization, evidence, receipt).Validate(state));
     }
 
+    [Fact]
+    public async Task ReviewedAdaptiveWorkspaceExistsBeforeTheRunnerInspectsItsScope()
+    {
+        var (_, _, original, evidence, receipt) = await Fixture();
+        var root = Directory.CreateTempSubdirectory("reviewed-run-");
+        try
+        {
+            const string relative = "workflows/campaign/fresh-server-run";
+            var authorization = original with { WorkspaceRoot = root.FullName, WorkspaceRelativePath = relative };
+            var authority = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run",
+                "amazon", root.FullName, "frozen-source", relative);
+            var folder = Path.Combine(root.FullName, relative);
+            Assert.False(Directory.Exists(folder));
+            Assert.Throws<PlanningConflictException>(() => authority.PrepareAdaptiveWorkspace("unreviewed-run"));
+            Assert.Throws<PlanningConflictException>(() => authority.PrepareAdaptiveWorkspace("../escape"));
+            Assert.Empty(root.EnumerateFileSystemInfos());
+            authority.PrepareAdaptiveWorkspace("fresh-server-run");
+            Assert.Empty(Directory.EnumerateFileSystemEntries(folder));
+            var retained = Path.Combine(folder, "retained.txt");
+            await File.WriteAllTextAsync(retained, "original", Ct);
+            authority.PrepareAdaptiveWorkspace("fresh-server-run");
+            Assert.Equal("original", await File.ReadAllTextAsync(retained, Ct));
+        }
+        finally { root.Delete(recursive: true); }
+    }
+
     [Theory]
     [InlineData("close")]
     [InlineData("new_search")]

@@ -149,6 +149,18 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         RequirePath("seed.txt", "seed.txt", exact: true);
     }
 
+    internal void PrepareAdaptiveWorkspace(string businessRun)
+    {
+        var expected = $"workflows/{campaign}/{businessRun}";
+        if (string.IsNullOrEmpty(businessRun) || !businessRun.All(c => char.IsAsciiLetterOrDigit(c) || c == '-') ||
+            authorizedRelativePath != expected || authorization.WorkspaceRelativePath != expected ||
+            authorization.Campaign != campaign || Path.GetFullPath(authorization.WorkspaceRoot) != Path.GetFullPath(root))
+            throw new PlanningConflictException("The adaptive workspace must match the authorized campaign and run.");
+        RequirePath(expected, expected, exact: true);
+        Directory.CreateDirectory(Path.GetFullPath(expected, root));
+        RequirePath(expected, expected, exact: true);
+    }
+
     internal PlanningCommand Command() => new() { Kind = "approve", ExpectedRevision = Receipt.ReviewedRevision,
         ArtifactHash = Receipt.ArtifactHash, ReviewedRequirementIds = [.. Receipt.ReviewedRequirementIds], ApprovalReviewId = Receipt.Id };
 
@@ -413,7 +425,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             throw new PlanningConflictException("The operation destination is outside this isolated test.");
         for (var current = new DirectoryInfo(Path.GetDirectoryName(actual)!); current is not null && current.FullName.StartsWith(Path.GetFullPath(root), StringComparison.Ordinal); current = current.Parent)
             if (current.LinkTarget is not null) throw new PlanningConflictException("A symbolic-link destination cannot establish confinement.");
-        if (File.Exists(actual) && new FileInfo(actual).LinkTarget is not null || Directory.Exists(actual) && new DirectoryInfo(actual).LinkTarget is not null)
+        if (new FileInfo(actual).LinkTarget is not null || new DirectoryInfo(actual).LinkTarget is not null)
             throw new PlanningConflictException("A symbolic-link destination cannot establish confinement.");
     }
 

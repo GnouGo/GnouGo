@@ -153,6 +153,7 @@ internal sealed class ServerBusinessExecution : IPlanningApprovalReviewProvider,
         report["saved_agent_id"] = _savedId;
         report["execution_artifact_hash"] = saved.ApprovedHash;
         report["review_origin"] = "delegated_test_reviewed";
+        if (Adaptive is not null) authority.PrepareAdaptiveWorkspace(report["run"]!.GetValue<string>());
         model.CaptureTokenPolicy(state.Request);
         var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
         await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
