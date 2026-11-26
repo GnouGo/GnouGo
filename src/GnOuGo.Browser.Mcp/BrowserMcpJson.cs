@@ -25,6 +25,7 @@ internal static class BrowserMcpJson
         var pages = properties["observationSnapshot"]!["properties"]!["pages"]!;
         pages["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         pages["items"]!["properties"]!["records"] = records.DeepClone();
+        properties["observationSnapshot"]!["properties"]!["linkPrefix"]!["properties"]!["links"]!["items"]!["properties"]!["href"]!["pattern"] = BrowserNavigationPolicy.HttpUrlPattern;
         properties["observationManifest"]!["properties"]!["pages"]!["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         using var document = JsonDocument.Parse(schema.ToJsonString());
         return document.RootElement.Clone();

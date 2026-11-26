@@ -7,7 +7,7 @@ public sealed record BrowserIndexedLink(int Page, int Offset, int? Ancestor, int
     [property: Description("Observed destination without its query. Descriptive evidence only. Navigate only to a literal original href.")]
     string? Route,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [property: Description("Exact observed href for each link with an empty captured attribute, each heading in a populated group, or its first link when it has no heading. For other links read pages[page].records[offset].href.")]
+    [property: Description("Absolute HTTP(S) href copied verbatim from the browser-resolved DOM link for empty captured attributes, headings in populated groups, or their first link without a heading. Pass the exact value to a permitted GET, preserving all escaping and query bytes. Other schemes and unselected hrefs remain in pages[page].records[offset].")]
     string? Href);
 
 public sealed record BrowserObservationLinkPrefix(string Attribute, bool ReachedEnd,
@@ -58,7 +58,8 @@ public sealed record BrowserObservationLinkPrefix(string Attribute, bool Reached
             }
             var route = Uri.TryCreate(record.Href, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https"
                 ? uri.GetLeftPart(UriPartial.Path) + uri.Fragment : null;
-            descriptors.Add(new(page, offset, ancestor?.Index, record.Occurrence?.Index, heading, route, includeHref ? record.Href : null));
+            var href = includeHref && route is not null && BrowserNavigationPolicy.HasHttpUrlSyntax(record.Href!) ? record.Href : null;
+            descriptors.Add(new(page, offset, ancestor?.Index, record.Occurrence?.Index, heading, route, href));
         }
         return new(attribute, end == links.Count - 1, ancestors.Values.ToArray(), descriptors);
     }

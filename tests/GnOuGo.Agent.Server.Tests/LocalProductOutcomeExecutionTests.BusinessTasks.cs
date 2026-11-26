@@ -201,7 +201,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal("completed", Assert.Single(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "browser_close").Status);
             var closed = await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
-            var file = Path.Combine(workspace, proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text!);
+            var file = Path.GetFullPath(proposal.Plan!.Root.Tasks.Single(t => t.Id == "write").Inputs.Single(i => i.Name == "filePath").Value.Text!, workspace);
             output.WriteLine($"BUSINESS {variant}: success={result.Success}; calls={session.ModelCalls}; repairs={session.ReplanAttempts}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(session.Plan!.Root).Count()}; yamlBytes={Encoding.UTF8.GetByteCount(session.Yaml!)}; inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; journalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; error={result.Error?.Code} {result.Error?.Message}");
             foreach (var invocation in journal.Invocations.Values.Where(i => i.StepType == "mapping.dynamic"))
                 output.WriteLine($"MAPPING {invocation.Status}: inputBytes={Encoding.UTF8.GetByteCount(invocation.ResolvedInput?.ToJsonString() ?? "")}; {invocation.ResolvedInput?["each"]}");

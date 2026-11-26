@@ -349,7 +349,7 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             Assert.True(afterCleanup.IsError);
             Assert.Contains("No active page", afterCleanup.Content!["error_message"]!.ToString(), StringComparison.OrdinalIgnoreCase);
             await browser.CallToolAsync("browser_close", new JsonObject(), ct);
-            var file = Path.Combine(workspace, ProductTransformationFixture.OutputPath);
+            var file = Path.GetFullPath(ProductTransformationFixture.OutputPath, workspace);
             if (!result.Success)
             {
                 Assert.False(File.Exists(file)); Assert.False(File.Exists(Path.Combine(root, "outside.xlsx")));

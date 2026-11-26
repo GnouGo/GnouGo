@@ -350,9 +350,11 @@ For an optional ordered index on a complete capture, supply `prefixAttribute`
 through the requested number of populated ancestor and occurrence pairs. It keeps
 earlier missing and empty attributes, closes over overlapping group members across
 pages, and reports whether it reached the final link. Every entry points to its
-original page and offset. Empty attributed groups retain every exact href.
-Populated groups retain heading hrefs or their first href when they have no
-heading. Other destinations can be read from the original record. The route
+original page and offset. Empty attributed groups retain every exact absolute
+HTTP(S) href. Populated groups retain HTTP(S) heading hrefs or their first
+href when they have no heading. The published href pattern matches the input
+syntax for navigation. Preserve the full string including its query and percent
+escapes. Other destinations can be read from the original record. The route
 field omits the query and serves only as descriptive evidence. The original
 pages and aggregate response allowance apply throughout.
 

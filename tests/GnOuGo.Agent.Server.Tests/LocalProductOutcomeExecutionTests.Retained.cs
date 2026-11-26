@@ -161,7 +161,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var browser = await transport.GetClientAsync("browser", ct);
             var after = await browser.CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(after.IsError); Assert.Contains("No active page", after.Content!["error_message"]!.ToString());
-            var file = Path.Combine(workspace, "workflows/retained-products/products.xlsx");
+            var file = Path.GetFullPath("workflows/retained-products/products.xlsx", workspace);
             output.WriteLine($"RETAINED {variant}: success={result.Success}; planningCalls={session.ModelCalls}; repairs={session.ReplanAttempts}; planningMs={planningMs:F1}; executionMs={executionMs:F1}; yamlBytes={Encoding.UTF8.GetByteCount(session.Yaml!)}; mappingCalls={model.MappingCalls}; unsampledPages={model.PagesOutsideExamples}; interpretationCalls={model.Requests.Count - model.MappingCalls}; requestEstimates=[{string.Join(',', model.Requests.Select(r => KeyVaultBenchmarkModel.ExecutionInputEstimate(JsonSerializer.Serialize(r, PlanningJsonContext.Default.LLMRequest))))}]; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanupSteps={journal.FinalizationStepsStarted}; journalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; error={result.Error?.Code} {result.Error?.Message}");
             if (variant is "unknown-id" or "incomplete" or "denied")
             {

@@ -13,9 +13,9 @@ public sealed class BrowserAncestorAttributeTests
     public async Task CompletePrefixRetainsEarlierLinksNestedGroupsAndExactPagePositions()
     {
         var ct = TestContext.Current.CancellationToken;
-        const string html = "<main><a href='/nav?q=1'>Navigation</a><div data-code=''><a href='/brand?q=2'>Brand</a></div>" +
+        const string html = "<main><a href='/nav?q=1'>Navigation</a><div data-code=''><a href='/brand?q=2'>Brand</a><a href='mailto:fixture@example.invalid'>Mail</a></div>" +
             "<div data-code='same'><a href='/image'>Image</a><div data-code='nested'><a href='/inner?q=3'>Inner</a></div>" +
-            "<h2><a href='/detail?q=4'>Title</a></h2></div><div data-code='same'><a href='/later'>Later</a></div></main>";
+            "<h2><a href='/detail?q=%2F%26'>Title</a></h2></div><div data-code='same'><a href='/later'>Later</a></div></main>";
         await using var site = await LoopbackTestServer.StartAsync(async context =>
         {
             context.Response.ContentType = "text/html";
@@ -29,8 +29,10 @@ public sealed class BrowserAncestorAttributeTests
         var prefix = Assert.IsType<BrowserObservationLinkPrefix>(snapshot.LinkPrefix);
         Assert.False(prefix.ReachedEnd);
         Assert.Equal(["", "same", "nested"], prefix.Ancestors.Select(a => a.Value));
-        Assert.Equal(["/nav", "/brand", "/image", "/inner", "/detail"], prefix.Links.Select(l => new Uri(l.Route!).AbsolutePath));
-        Assert.Equal([null, "?q=2", null, "?q=3", "?q=4"], prefix.Links.Select(l => l.Href is null ? null : new Uri(l.Href).Query));
+        Assert.Equal(["/nav", "/brand", null, "/image", "/inner", "/detail"], prefix.Links.Select(l => l.Route is null ? null : new Uri(l.Route).AbsolutePath));
+        Assert.Equal([null, "?q=2", null, null, "?q=3", "?q=%2F%26"], prefix.Links.Select(l => l.Href is null ? null : new Uri(l.Href).Query));
+        var mail = prefix.Links[2];
+        Assert.Equal("mailto:fixture@example.invalid", snapshot.Pages[mail.Page].Records[mail.Offset].Href);
         Assert.True(prefix.Links[^1].Heading);
         Assert.All(prefix.Links, link =>
         {

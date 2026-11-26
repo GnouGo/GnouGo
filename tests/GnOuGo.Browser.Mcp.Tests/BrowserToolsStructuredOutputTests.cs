@@ -93,6 +93,14 @@ public sealed class BrowserToolsStructuredOutputTests
         }
     }
 
+    [Fact]
+    public void IndexedNavigationHrefDeclaresTheBrowserGetUrlSyntax()
+    {
+        var prefix = PublishedContentProperties()["observationSnapshot"]!["properties"]!["linkPrefix"]!;
+        var href = prefix["properties"]!["links"]!["items"]!["properties"]!["href"]!;
+        Assert.Equal(BrowserNavigationPolicy.HttpUrlPattern, (string?)href["pattern"]);
+    }
+
     private static JsonNode[] PublishedRecordSchemas()
     {
         var properties = PublishedContentProperties();
