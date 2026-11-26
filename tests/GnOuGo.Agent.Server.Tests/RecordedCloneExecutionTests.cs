@@ -89,10 +89,11 @@ public sealed class RecordedCloneExecutionTests
         {
             this.mode = mode;
             Directory.CreateDirectory(Source); Repository.Init(Source);
+            File.WriteAllText(Path.Combine(Source, ".gitattributes"), "README.md text eol=lf\n");
             File.WriteAllText(Path.Combine(Source, "README.md"), "fixture\n");
             using (var repo = new Repository(Source))
             {
-                Commands.Stage(repo, "README.md");
+                Commands.Stage(repo, new[] { ".gitattributes", "README.md" });
                 var signature = new Signature("Fixture", "fixture@example.test", DateTimeOffset.UnixEpoch.AddDays(1));
                 sha = repo.Commit("Local fixture", signature, signature).Sha; branch = repo.Head.FriendlyName;
             }
