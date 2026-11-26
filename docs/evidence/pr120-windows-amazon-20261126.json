@@ -1,0 +1,95 @@
+{
+  "campaign": "pr120-windows-20261125-20",
+  "starting_source": "64317e079a6f96dd110ce328bb2f917f865b5e81",
+  "qualification_source": "36b220210857a67d080f4092d389d72692982301",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-terra",
+  "profile": "amazon-observed-first-products-v12",
+  "verifier": "amazon-business-v16",
+  "comparison": {
+    "parentId": "db68ae1900ecd8e640bdfe4e5c2909ed999459868d50f145771fac291bec6ca8",
+    "github_id": "01a213ac-7c31-7836-849d-a8b4fad1db73",
+    "git_id": "01a213ad-de0f-71f2-ae7e-0867b0601f1e",
+    "from": 1,
+    "to": 2,
+    "current": "b61c0180bc5c45df3a284b229447327e42210c2af9d19a1f77a5613bc4a8ba38",
+    "funded": "adf91b5dcd27b6095bff1a500dd4eec7748b5668df45c9332e7ee4ac24210ed8",
+    "reconstructed": "adf91b5dcd27b6095bff1a500dd4eec7748b5668df45c9332e7ee4ac24210ed8",
+    "github_current_matches": true,
+    "git_current_matches": true,
+    "github_changed": true,
+    "git_changed": true,
+    "github_only_matches": false,
+    "git_only_matches": false,
+    "both_match": true,
+    "campaign_matches": true,
+    "metadata_matches": true,
+    "provider": "OpenAi",
+    "model": "gpt-6.1-terra"
+  },
+  "registration": {
+    "authorization": "user-pr120-verified-github-and-git-rotation-20261126",
+    "configuration_id": "7c68900f09eb67820edd179de842a05ae0c60c4c0c9cc876e40478d6c06bc074",
+    "proof": {
+      "previous_configuration_id": "db68ae1900ecd8e640bdfe4e5c2909ed999459868d50f145771fac291bec6ca8",
+      "previous_host_configuration_hash": "adf91b5dcd27b6095bff1a500dd4eec7748b5668df45c9332e7ee4ac24210ed8",
+      "previous_declared_metadata_hash": "aac8b424fe0e483f48b40654b245bd957659f822c9ac0d81bebe4ce2fcf63de4",
+      "host_configuration_hash": "b61c0180bc5c45df3a284b229447327e42210c2af9d19a1f77a5613bc4a8ba38",
+      "server": "Github",
+      "field": "ApiKey",
+      "vault_key": "LLM--McpServers--Github",
+      "secret_id": "01a213ac-7c31-7836-849d-a8b4fad1db73",
+      "previous_version": 1,
+      "current_version": 2,
+      "git_token_rotation": {
+        "server": "GnOuGo.Git.Mcp",
+        "field": "Git__Token",
+        "vault_key": "LLM--McpServerOverrides--GnOuGo.Git.Mcp--Git--Token",
+        "secret_id": "01a213ad-de0f-71f2-ae7e-0867b0601f1e",
+        "previous_version": 1,
+        "current_version": 2
+      }
+    },
+    "preview_applied": false,
+    "applied": true,
+    "repeat_applied": true,
+    "repeat_id_matches": true,
+    "restart_selection": {
+      "accepted": true,
+      "configuration_exists": true,
+      "material_hash_matches": true,
+      "configuration_matches": true,
+      "host_fingerprint_matches": true,
+      "authorization_binding_matches": true,
+      "failed_checks": []
+    }
+  },
+  "targeted_windows_tests": {
+    "campaign_passed": 259,
+    "flow_integrations_passed": 124,
+    "cmd_mcp_passed": 100,
+    "browser_mcp_passed": 230
+  },
+  "opening_funds": {
+    "ceiling_eur": "20",
+    "physical_calls": 2,
+    "known_cost_eur": "0.0011476909007773205304069502",
+    "reserved_eur": "0",
+    "retained_application_eur": "0",
+    "available_eur": "19.99885230909922267946959305",
+    "predecessor_available_eur": null
+  },
+  "private_receipt_sha256": {
+    "resume-comparison.json": "1212ee912e5ea2f6ff5f7a95b92d12e500b79ca1fd0d8baac16b0b55eb86e62a",
+    "resume-preview.json": "75e68b676e61215ec39ee27b77a9805c8a15c8048ff10e2eae801c1e3ee448e6",
+    "resume-apply.json": "e8dadc669bb91d13e959d1b5ca9aa25f4a46812fff7e487bde39fae896270cbb",
+    "resume-reapply.json": "e8dadc669bb91d13e959d1b5ca9aa25f4a46812fff7e487bde39fae896270cbb",
+    "resume-child-inspect.json": "6b895e910628db75214271f903db1b6c9184f9aef4fa1af1c5acf0d7e0a4885b",
+    "win-amazon-first-ten-20261126-065431-opening.json": "fb07d15c8b1d0309478d8c24a7d3f489bbc38989d65b9e094ef12ca4f64868c1",
+    "resume-committed-build.log": "2106c2a460c27ba969488a7b0ff7388e105bf51afa09aa97b14881573b437427",
+    "resume-campaign.log": "46f2482e6bc5306dfa7b5095e379549d9a4f2a7dd7963ffffbba46d50e3320c1",
+    "resume-Flow.Integrations.log": "049608b63ace38d993c645e6fce046d13625064be0c593fa27a3fc8a0a5fd5df",
+    "resume-Cmd.Mcp.log": "58474b13f34ad1454f5bb3c6818421e8b353b67ce589c51201f6cb5b233f5c59",
+    "resume-pre-browser-suite.log": "a8d7ee2d93b02e9afff8840d13dc75b9f41294a8731c92cab3f958f1ed754dcc"
+  }
+}
