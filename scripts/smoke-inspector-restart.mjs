@@ -1,7 +1,7 @@
 // Actual Agent.Server restarted with its original journals and an empty controlled telemetry store.
 import assert from 'node:assert/strict';
 import { readFile, writeFile } from 'node:fs/promises';
-const { chromium, request } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+import { chromium, request } from './smoke-playwright.mjs';
 const [url, token, session, output] = process.argv.slice(2);
 const browser = await chromium.launch({ headless: true });
 try {

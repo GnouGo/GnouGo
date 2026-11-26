@@ -177,7 +177,7 @@ public sealed class PlanningSessionLifecycleTests
         Assert.Equal("OTHER", (await fixture.Store.LoadAsync("two", "same", Ct))!.Request.Prompt);
         restored.SchemaVersion = 5;
         await Assert.ThrowsAsync<InvalidOperationException>(() => fixture.Store.TrySaveAsync(restored, 1, Ct));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
     }
     [Fact]

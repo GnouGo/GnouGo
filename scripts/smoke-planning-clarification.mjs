@@ -1,7 +1,7 @@
 // Invoked by PlanningClarificationBrowserTests against a disposable host and deterministic model.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-const { chromium } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+import { chromium } from './smoke-playwright.mjs';
 const [url, encodedCases] = process.argv.slice(2);
 const cases = JSON.parse(encodedCases);
 const output = process.env.GNOUGO_CLARIFICATION_BROWSER_OUTPUT || 'artifacts/planning-clarification/browser';

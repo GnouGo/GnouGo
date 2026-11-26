@@ -60,7 +60,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         Assert.Equal("Responses (background)", call.Attributes["gnougo.llm.protocol"]);
         Assert.False(call.Attributes.ContainsKey("gen_ai.usage.input_tokens"));
         Assert.DoesNotContain("PRIVATE_INPUT", string.Join(";", call.Attributes.Values));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_INPUT", bytes);
@@ -120,7 +120,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
         var cut = Render<TracePipeline>(p => p.Add(c => c.Trace, trace));
         Assert.Contains("HTTP 400", cut.Markup); Assert.Contains("InvalidRequest", cut.Markup);
         Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", cut.Markup + record.Value + string.Join(";", call.Attributes.Values));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_PROVIDER_BODY", bytes); Assert.DoesNotContain("PRIVATE_REQUEST", bytes);

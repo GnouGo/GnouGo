@@ -62,7 +62,7 @@ public sealed class PlanningPhaseJournalTests
             "tenant", planning.SessionId, restored, new Estimator(), planning.Generation, planning: planning).CallAsync(original, Ct));
         Assert.Equal(changed, JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest));
         Assert.Equal(1, client.Calls);
-        foreach (var path in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var path in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_PHASE_INTENT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, Ct)));
     }
 

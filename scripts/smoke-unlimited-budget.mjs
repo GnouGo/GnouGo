@@ -1,7 +1,7 @@
 // Controlled HTTP provider, actual Agent.Server and protected Blazor settings. No paid inference.
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-const { chromium, request } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+import { chromium, request } from './smoke-playwright.mjs';
 const [url, token, output] = process.argv.slice(2);
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });

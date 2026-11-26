@@ -145,7 +145,7 @@ public sealed partial class PlanningTraceUiTests : BunitContext
         Services.GetRequiredService<NavigationManager>().NavigateTo("/planning/repair");
         var cut = Render<PlanningPage>(p => p.Add(c => c.SessionId, "repair"));
         cut.WaitForAssertion(() => { Assert.Contains("Tasks open for revision", cut.Markup); Assert.Contains("Blocked by action:", cut.Markup); Assert.Contains("Selected: formal", cut.Markup); });
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_PREREQUISITE_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         await DisposeComponentsAsync();
     }

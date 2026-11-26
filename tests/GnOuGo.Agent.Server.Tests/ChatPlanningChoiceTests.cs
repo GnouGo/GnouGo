@@ -90,7 +90,7 @@ public sealed class ChatPlanningChoiceTests
         Assert.Equal(PlanningStatus.Generating, state.Status); Assert.Equal(0, model.Reviews);
         var stored = await fixture.Records.GetAsync("flow-planning-sessions-v11", "planning-tests", state.Request.SessionId, "test", Ct);
         Assert.Contains("PRIVATE_DECISION_CONTEXT", stored!.Value);
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_DECISION_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         state = await ContinueAsync(planner, state, owned.Runtime);
         Assert.Equal(7, model.Calls); Assert.Equal(1, model.Reviews); Assert.Null(state.ApprovedHash);
@@ -194,7 +194,7 @@ public sealed class ChatPlanningChoiceTests
         var reopened = Service(fixture, designer, model);
         var pending = Assert.Single(await reopened.ListAsync("early-chat", Ct)); Assert.Single(pending.Questions); Assert.Empty(pending.Choices);
         Assert.Empty(await reopened.ListAsync("unrelated", Ct));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_INPUT_CONTEXT", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         var builder = WebApplication.CreateSlimBuilder();
         builder.Configuration.Sources.Clear(); builder.WebHost.ConfigureKestrel(o => o.Listen(System.Net.IPAddress.Loopback, 0)); builder.Logging.ClearProviders();
@@ -216,7 +216,7 @@ public sealed class ChatPlanningChoiceTests
         Assert.Equal(action == "cancel" ? 1 : 7, model.Calls); Assert.Equal(action == "cancel" ? 0 : 1, model.Reviews); Assert.Null(result.ApprovedHash);
         var replay = await http.PostAsJsonAsync(endpoint, command, ChatJsonContext.Default.PlanningCommandDto, Ct);
         Assert.Equal(System.Net.HttpStatusCode.Conflict, replay.StatusCode);
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain("PRIVATE_CUSTOM_ANSWER", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
     }
 

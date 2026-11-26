@@ -72,7 +72,7 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("continuation_0", restored!.Construction!.Compact!.ResumingStepId);
         Assert.Equal("number", Assert.Single(restored.Construction.Compact.SuspendedSteps!).Prerequisite.ExpectedType.Kind);
         Assert.Null(await fixture.Store.LoadAsync("another", "continuation", Ct));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
             Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         state.Construction.Compact.SuspendedSteps = null; state.Construction.Compact.ResumingStepId = null;
         var withoutContinuation = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
@@ -93,7 +93,7 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("PRIVATE_RETAINED_WORK", restored.Plan!.Root.Outputs[0].Value.Text);
         Assert.Equal("PRIVATE_RETAINED_WORK", restored.Request.Baseline!.Root.Outputs[0].Value.Text);
         Assert.Null(await fixture.Store.LoadAsync("other", "targeted", Ct));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_RETAINED_WORK", bytes); Assert.DoesNotContain("/root/outputs/private_edit_scope", bytes);
@@ -119,7 +119,7 @@ public sealed class PlanningPersistenceTests
         var key = (await db.Calls.SingleAsync(Ct)).PayloadKey;
         var encryptedRequest = await fixture.Records.GetAsync(PlanningModelJournal.RequestCollection, "tenant", key, EfPlanningSessionStore.Author, Ct);
         Assert.Contains(request.Prompt, encryptedRequest!.Value);
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_MODEL_REQUEST", bytes);
@@ -237,6 +237,11 @@ public sealed class PlanningPersistenceTests
         public string Root { get; } = root;
         public IKeyVaultRecordStore Records { get; } = KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(root, "vault.db"), root);
         public EfPlanningSessionStore Store => new(this, Records);
+        public string[] GetPhysicalFiles()
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            return Directory.GetFiles(Root, "*", SearchOption.AllDirectories);
+        }
         public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source=" + Path.Combine(Root, "planning.db") + ";Pooling=False").Options);
         public static async Task<StoreFixture> CreateAsync(string? retainedDirectory = null)
         {

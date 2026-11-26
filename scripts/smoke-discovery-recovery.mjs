@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-const { chromium, request } = await import(process.env.PLAYWRIGHT_MODULE_PATH);
+import { chromium, request } from './smoke-playwright.mjs';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
 const { url, launch, session, otherSession, output, resumeReleasePath } = JSON.parse(input);
 await mkdir(output, { recursive: true });
