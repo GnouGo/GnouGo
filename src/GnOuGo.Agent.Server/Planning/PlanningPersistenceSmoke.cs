@@ -81,8 +81,8 @@ internal static class PlanningPersistenceSmoke
         foreach (var file in Directory.EnumerateFiles(directory, "*.db*"))
         {
             using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
-            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
-            var contents = await reader.ReadToEndAsync();
+            using var databaseReader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
+            var contents = await databaseReader.ReadToEndAsync();
             Check(new[] { "Private original, binding and business review evidence", "Private current judge evidence", description, mappingScript }
                 .All(secret => !contents.Contains(secret, StringComparison.Ordinal)), "encrypted sensitive data");
         }
