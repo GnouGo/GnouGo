@@ -202,8 +202,36 @@
       "execution_status": "not_started",
       "workbook": null,
       "independent_readback": null
+    },
+    {
+      "run": "win-amazon-first-ten-20261126-105418",
+      "source": "9c382c47d74f9e91dae25cfe95fe32d0d3971332",
+      "session_id": "b3e254ef14a847cf9e26d28f1844af55",
+      "revision": 206,
+      "accepted_checkpoints": 3,
+      "repairs": 15,
+      "physical_calls": 89,
+      "cost_eur": "3.8783379058070416095107453132",
+      "stop": "LLM_BUDGET_EXCEEDED",
+      "denied_request": 90,
+      "denied_http_attempts": 0,
+      "required_total_eur": "20.5832373113854595336076819",
+      "retention_preview": "44a3f417b850058beb094506e58b976ea671d842697c2560b74c957fd2790f81",
+      "retention_applied": false,
+      "business_product_visits": 0,
+      "execution_status": "not_started",
+      "workbook": null,
+      "independent_readback": null
     }
   ],
+  "after_sixth_run": {
+    "physical_calls": 517,
+    "known_cost_eur": "19.016707818930041152263374629",
+    "unresolved_transport_eur": "0.0796067672610882487425697302",
+    "retained_application_eur": "0",
+    "cost_upper_bound_eur": "19.09631458619112940100594436",
+    "available_eur": "0.90368541380887059899405564"
+  },
   "after_fifth_run": {
     "physical_calls": 428,
     "known_cost_eur": "15.138369913122999542752629274",
@@ -246,6 +274,14 @@
     "available_eur": "6.416646090534979423868312679"
   },
   "private_receipt_sha256": {
+    "win-amazon-first-ten-20261126-105418-closing.json": "1c9ed2382f24e83878db24cd3aeb5f0de8ef86e72d335cdd91f024a30aaf9557",
+    "sixth-amazon-progress.json": "d2665ac87091767aa40ab06a8743b59bcc75029f2210df7f9546fa21fe96bc5a",
+    "sixth-denied-transport.json": "1bb10e6a8bbbb66d5980bab8d618a7d44eaca853468e9fb5e5b422f1682379ef",
+    "sixth-unstarted-preview.json": "3b20e2e4160c986f17ad29297819c5047afb9298f01b0fe7a277e827f9363329",
+    "abef-path-fixtures.log": "80193dd7b949168417a089552debfe34d6513d09401a68a27091115f0d45a1b0",
+    "prefix-url-contract-tests.log": "d0f532e05d0ad26051c643a906a8201dad5a9cb9ba9c62d9b0ed5bdbd2be2c0c",
+    "prefix-url-published-smoke.json": "f26481b8e9a0dab286f43b47e3b2a7ed3e574236fb18d2313db005433511c820",
+    "prefix-published-smoke.json": "2333c06b31fff3dcc5445531a3093d5708e08ab02bd3031628db84ced4b3bd65",
     "fourth-native-prefix.json": "a02d930516ccd88018f01a21d3c0cbf45a493223478229e3a0c9cf6191e84321",
     "win-amazon-first-ten-20261126-102440-closing.json": "fef15b946bd29c39d389aa1c7f2dc8f58cf5dc91cbc30f1d2f3f40497357c052",
     "fifth-amazon-progress.json": "897799721c02b11415d46ae358c00674a6e09884ca91b745341dc703b7b13347",
