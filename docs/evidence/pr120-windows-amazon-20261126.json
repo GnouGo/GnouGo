@@ -110,8 +110,37 @@
         ],
         "provider_calls": 0
       }
+    },
+    {
+      "run": "win-amazon-first-ten-20261126-083404",
+      "session_id": "eb1eed16708c475e9beaa79e47352736",
+      "source": "5c8a92a3721ce8659fbe636925942335577305b4",
+      "revision": 124,
+      "status": "cancelled",
+      "phase": "construction_implementation",
+      "observed_failure": "TASK_OPERATION_UNKNOWN",
+      "sampled_draft_calls": [33, 38, 42, 47, 51],
+      "issued_and_returned_ids": ["cap_490d9e16075cbdca5954ec27", "cap_bdb7ba9ab04b18783883fa86"],
+      "accepted_checkpoints": 0,
+      "physical_calls": 56,
+      "settled_physical_calls": 55,
+      "known_cost_eur": "1.7856744398719707361682670326",
+      "unresolved_request_number": 56,
+      "reservation_eur": "0.0796067672610882487425697302",
+      "execution_started": false,
+      "workbook": null,
+      "independent_readback": null,
+      "retention_preview_evidence_hash": "d923127ec2c45664e918bedf219251baef16c485833bfcd47edb36eb8182e2f4"
     }
   ],
+  "after_second_run": {
+    "physical_calls": 245,
+    "known_cost_eur": "7.9031001371742112482853223591",
+    "unresolved_transport_eur": "0.0796067672610882487425697302",
+    "retained_application_eur": "0",
+    "cost_upper_bound_eur": "7.98270690443529949702789209",
+    "available_eur": "12.01729309556470050297210791"
+  },
   "private_receipt_sha256": {
     "amazon-offline-repair-422.json": "fc9eb48200ae83359aa5a086b539f6db316b1c58795b2a39ef5921d4b742e392",
     "amazon-repair-clean-build.log": "32e0ec1430f0e3470ed68ad3bdbd9aa93300385c54cba55e3549c2db1940d4a1",

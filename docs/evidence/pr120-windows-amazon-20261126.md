@@ -28,3 +28,13 @@ Run `win-amazon-first-ten-20261126-065431` used `36b220210857a67d080f4092d389d72
 The run accounted for €6.1162780064014631915866483763. Including the two earlier calls, the campaign held 189 measured HTTP attempts, €6.1174256973022405121170553265 in tariff estimates, zero unresolved attempts and zero reservations. The closing balance available for another qualified trial was €13.882574302697759487882944674.
 
 At `5c8a92a3721ce8659fbe636925942335577305b4`, the planner can repair a cited pending conditional's predicate when its unchanged branch is supporting evidence. The branch itself remains read-only. The Amazon profile also distinguishes missing fields on an observed product from a failed detail visit. The 25 targeted business-review regressions passed.
+
+## Second Server session
+
+Run `win-amazon-first-ten-20261126-083404` started on that repaired source with session `eb1eed16708c475e9beaa79e47352736`. The opening audit confirmed the previous closing balance. A prior launch attempt at 08:25 UTC encountered the exclusive campaign lock while the first Server was exporting its receipts and made zero calls.
+
+The model bound the search and Browser cleanup operations to the exact identifiers issued in its response schemas. On calls 33, 38, 42, 47 and 51, the validator rejected those identifiers when checking a suspended consumer's input. It checked the candidate's interface against an empty admitted catalog even though discovery had resolved both operations. The session was stopped at revision 124 after 56 physical attempts and zero accepted checkpoints. It produced no business visits or workbook.
+
+The cancelled request had no persisted provider outcome. The campaign retained its €0.0796067672610882487425697302 reservation. Across both runs and the two earlier calls, the audit found 245 physical attempts, €7.9031001371742112482853223591 in known tariff estimates and €12.01729309556470050297210791 available. The existing cancelled-planning retention preview binds the incident to evidence hash `d923127ec2c45664e918bedf219251baef16c485833bfcd47edb36eb8182e2f4`.
+
+At `c1d12ac4edaba1036e6afa32e20bdc9bb0ab15cd`, the validator resolves the candidate's uniquely identified operations on a private copy before checking the consumer binding. All 38 suspended-consumer and continuation regressions passed, including rejection of ambiguous versions.
