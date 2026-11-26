@@ -342,7 +342,12 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
             }
             else Assert.Equal(variant == "empty" ? ["/search"] : variant == "missing" ? ["/search", "/missing"] : new[] { "/search", "/one", "/two" }, observedVisits);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed class PagedModel(ILLMClient next, bool compact = false, bool flattened = false, bool lookup = false) : ILLMClient

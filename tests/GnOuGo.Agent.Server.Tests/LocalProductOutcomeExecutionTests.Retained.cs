@@ -225,7 +225,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(recovered.Success, recovered.Error?.Message); Assert.True(JsonNode.DeepEquals(result.Outputs, recovered.Outputs));
             Assert.Equal(before, model.Requests.Count); Assert.Equal(beforeVisits, visits.Count);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private static string ProductName(int i) => i is 0 or 1 ? "Same observed name" : "Observed item " + i;

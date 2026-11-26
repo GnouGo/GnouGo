@@ -352,7 +352,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             output.WriteLine($"V10 ORACLE {variant}: exactCells=true; visits={visits.Count(p => p.StartsWith("/entry/", StringComparison.Ordinal))}; pages={mappings.Sum(m => m.ResolvedInput!["sources"]!["pages"]!.AsArray().Count)}; offered={model.Offered.Count}; " +
                 $"decisionBytes={model.DecisionBytes}; inferenceForTypedCopies=0; cleanup=true; committedRecovery=true; oracle={oracle.ToJsonString()}");
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private static string V10Name(int i) => "=Observed lamp " + i % 3;

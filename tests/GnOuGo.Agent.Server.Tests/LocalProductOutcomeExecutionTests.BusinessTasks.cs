@@ -259,7 +259,12 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.True(recovered.Success, recovered.Error?.Message); Assert.True(JsonNode.DeepEquals(result.Outputs, recovered.Outputs));
             Assert.Equal(calls, model.Requests.Count); Assert.Equal(pagesVisited, visits.Count);
         }
-        finally { await site.StopAsync(ct); Directory.Delete(root, true); }
+        finally
+        {
+            await site.StopAsync(ct);
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed class BusinessModel(string variant, string origin) : ILLMClient, ILLMCapabilityResolver
