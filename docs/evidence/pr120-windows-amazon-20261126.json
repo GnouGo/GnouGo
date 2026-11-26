@@ -163,6 +163,28 @@
       "finalization_completed": true,
       "workbook": null,
       "independent_readback": null
+    },
+    {
+      "run": "win-amazon-first-ten-20261126-093548",
+      "source": "f06909f2dab10f82e813cf178532552d2575bb12",
+      "session_id": "7f6d0f5aafff4bc9997d131ff7c5fa1d",
+      "execution_id": "241de12f04d2582899a5e7ed026fee48",
+      "revised_artifact": {"revision":204,"hash":"d16dcd09d8fafe3663b0e1fe5318ccea7f31aa753293807b1e2d2a94a6731683"},
+      "approved_artifact": {"revision":213,"hash":"80edc51b1153c19a149b5e634604e79ae153cf92655fef5328224ea865ce2c97","requirements":3,"tasks":16},
+      "physical_calls": 86,
+      "cost_eur": "3.7404892546867855509830818477",
+      "execution_started": true,
+      "execution_status": "needs_reconciliation",
+      "adaptive_input_characters": 1702335,
+      "adaptive_actions": 0,
+      "adaptive_provider_calls": 0,
+      "search_records": 1618,
+      "search_pages": 74,
+      "business_product_visits": 0,
+      "finalization_completed": false,
+      "oracle_probe_closed_browser": true,
+      "workbook": null,
+      "independent_readback": null
     }
   ],
   "after_second_run": {
@@ -190,7 +212,21 @@
     "successful_execution_ms": {"complete": 72188, "repeated": 71697, "missing": 71223},
     "checkpoints_per_ten_row_case": 1415
   },
+  "after_fourth_run": {
+    "physical_calls": 377,
+    "known_cost_eur": "13.50374714220393232738911759",
+    "unresolved_transport_eur": "0.0796067672610882487425697302",
+    "retained_application_eur": "0",
+    "cost_upper_bound_eur": "13.583353909465020576131687321",
+    "available_eur": "6.416646090534979423868312679"
+  },
   "private_receipt_sha256": {
+    "win-amazon-first-ten-20261126-093548-closing.json": "59dbf80504633af3937add31ab0bed054742c118cf678d83d2651ec5acd75bd1",
+    "fourth-original-adaptive.json": "b166e9b51f149e8b3a83b68e4f51cb90e466ba0e3ec6b517e6d5f202d8d15854",
+    "fourth-execution-facts.json": "e813790b944f2a512250c6645b47da06135d21f8332b6b2e75b48ebe998a35e9",
+    "fourth-scoped-source-revision.json": "381201258d57d17df4f403500b0afd520b4f7abf18b7cebedec81802a0ea66b3",
+    "third-recorded-search-attributes.json": "bfcd637c020076552a2d69987bbcf3bc29d431abff88842c6317cb9f67001046",
+    "win-amazon-first-ten-20261126-093548-review/review.json": "26f43fea394daecf3ef9ff06ae111c8c2264fcc68690347421102096828e7761",
     "workspace-f06909f2-benchmark-build.log": "7e2a81845cbdd88bfd5047dd2055c9c0c2717a31a3aea8a1334ee196df4223ab",
     "workspace-f06909f2-policy.log": "8f936896bc751b9aed0418e4975fa9f15811d5f60efecdfb1bf0e8ce59611625",
     "workspace-admission-regressions.log": "18555749e58909485ce7523685953ed9d99ea65511c55e46d41e2a1ad807dddc",
