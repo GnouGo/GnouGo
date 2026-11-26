@@ -9,13 +9,30 @@ internal static class AmazonFirstProductsPolicy
     internal static bool Allows(string href) => AmazonDealsPolicy.Allows(href) || href == SeasonalListing;
     internal static bool IsEntry(string href) => AmazonDealsPolicy.IsEntry(href) || href == SeasonalListing;
     internal static bool IsSourceEntry(string href) => AmazonDealsPolicy.IsSourceEntry(href);
+    internal static void ConfigureDetailText(IDictionary<string, string> environment)
+    {
+        const string key = "Browser__ObservationTextSelectorPrefixes__";
+        string[] prefixes = ["#title", "#productTitle", "#productDescription", "#productFactsDesktopExpander", "#feature-bullets",
+            "#apex-pricetopay", "#corePrice", "#newAccordionRow_0", "#captcha", "#challenge", "#error"];
+        var configured = environment.Where(pair => pair.Key.StartsWith(key, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var saved = configured.Select(pair => pair.Value).ToHashSet(StringComparer.Ordinal);
+        var occupied = configured.Select(pair => pair.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var prefix in prefixes.Where(prefix => !saved.Contains(prefix)))
+        {
+            if (occupied.Count >= 16) throw new InvalidOperationException("The combined detail selector configuration exceeds the Browser limit.");
+            var slot = Enumerable.Range(0, 16).Select(index => key + index).First(slot => !occupied.Contains(slot));
+            environment.Add(slot, prefix);
+            occupied.Add(slot);
+        }
+    }
     internal const string PlanningFacts = "Use the input query at amazon.fr/s and capture the full rendered source with browser_get_content, format=observation_complete, omitting selector. " +
         "The configured Browser already captures data-asin in observationSnapshot.pages[].records[].ancestorAttributes. Use that structured source directly. A URL-less read needs a current issued cursor and observation or observation_pages format. " +
         "On the initial search set prefixAttribute=data-asin and prefixGroups=10. Bind observationSnapshot.linkPrefix alone to the ordered selection stage. Browser constructs this view across all pages through ten distinct populated groups and retains earlier empty groups. " +
         "Its ancestors table and links in original order expose group identity, heading membership, descriptive routes and literal hrefs for empty groups and primary links. Only a literal href can authorize a GET. Page/offset reconnects any link to its exact original record. " +
         "A present prefix href already satisfies the Browser absolute HTTP(S) navigation syntax. Carry that same string pattern in the selected-product href output schema and copy the observed value verbatim into the detail GET. Preserve encoded query parameters; transforming or decoding a signed link can change its destination. " +
         "One bounded adaptive selection can scan that prefix sequentially, resolving only necessary empty groups with their observed hrefs and stopping as soon as ten products are established. Return ordered source positions for separate business visits. A populated attribute still requires product evidence. " +
-        "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. Project compact detail-field candidates before inference. Passing the whole Browser result, rendered HTML, or full snapshot to a runner can exceed its context before its first call. " +
+        "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. Set the runner workspace to the exact parent directory of the requested workbook, including its run name. " +
+        "Each observation_complete detail visit already provides compact detail-field candidates in observationSnapshot.textMatches.records, in page order with exact text, selector and source reference. Bind this compact view to the field extraction together with visit status, page identity and any observed error. Guard absent or truncated views and preserve source uncertainty. Passing every record's text, the whole Browser result, rendered HTML or full snapshot to inference can exceed its context. " +
         "Keep the original ordered cards, data-asin and semantic occurrence; count sponsored products and repeated occurrences. Stop selection after the first ten products. " +
         "A known card can identify its non-heading review and offer anchors from card membership; retain these records without visiting them. Choose the observed product heading, or a same-card product link when the card has no heading. " +
         "Resolve earlier empty-ASIN sponsored entries in original order using their own observed GETs; a verified store or listing is not a product. A necessary observed /deals read may redirect to the exact /blackfriday listing. " +

@@ -13,6 +13,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
     private bool _sourceAuthorityAcquisition;
     private readonly ILogger<PlaywrightBrowserHost> _logger;
     private readonly string[] _observationAncestorAttributes;
+    private readonly string[] _observationTextSelectorPrefixes;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IPlaywright? _playwright;
@@ -34,6 +35,10 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or ':' or '.' or '-'))))
             throw new ArgumentException("Observation ancestor attributes require at most eight valid names of at most 64 characters.");
         _observationAncestorAttributes = names.Select(name => name.ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToArray();
+        var prefixes = _settings.ObservationTextSelectorPrefixes;
+        if (prefixes.Count > 16 || prefixes.Any(prefix => string.IsNullOrWhiteSpace(prefix) || prefix.Length > 128))
+            throw new ArgumentException("Configure up to sixteen nonempty observation text selector prefixes of at most 128 characters.");
+        _observationTextSelectorPrefixes = prefixes.Distinct(StringComparer.Ordinal).ToArray();
     }
 
     public Task<BrowserContentResult> GetContentAsync(

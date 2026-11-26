@@ -64,10 +64,9 @@ public sealed partial class HybridWorkflowPlanner
         {
             if (target == candidate.Extension.Scope || target.StartsWith("output:", StringComparison.Ordinal) &&
                 candidate.Extension.Outputs.Any(output => "output:" + output.Name == target)) continue;
-            // A reviewed branch can be evidence for a finding about its pending
-            // owner. The owner must independently qualify for repair below.
-            if (local && accepted.Scopes.SingleOrDefault(scope => scope.Path == target) is { Owner: not null } branch &&
-                targets.Contains(branch.Owner.Id, StringComparer.Ordinal))
+            // Check the relationship after all cited tasks have independently
+            // qualified. A scope can explain an export without being editable.
+            if (local && accepted.Scopes.SingleOrDefault(scope => scope.Path == target) is { Owner: not null } branch)
             {
                 citedScopes.Add(branch);
                 continue;
@@ -109,7 +108,10 @@ public sealed partial class HybridWorkflowPlanner
         }
         foreach (var branch in citedScopes)
         {
-            if (!tasks.Contains(branch.Owner!.Id, StringComparer.Ordinal) ||
+            var exportsCitedProducer = branch.Source.Outputs.SelectMany(output => TaskPlanCompiler.Values(output.Value))
+                .Any(value => value is { Kind: "output", Source: { } source } && tasks.Contains(source, StringComparer.Ordinal) &&
+                    accepted.Tasks[source].Scope.Path == branch.Path);
+            if (!(tasks.Contains(branch.Owner!.Id, StringComparer.Ordinal) || exportsCitedProducer) ||
                 current.Scopes.SingleOrDefault(scope => scope.Path == branch.Path) is not { } proposed ||
                 !JsonNode.DeepEquals(PlanningConstruction.Node(branch.Source, PlanningJsonContext.Default.TaskScope),
                     PlanningConstruction.Node(proposed.Source, PlanningJsonContext.Default.TaskScope))) return;

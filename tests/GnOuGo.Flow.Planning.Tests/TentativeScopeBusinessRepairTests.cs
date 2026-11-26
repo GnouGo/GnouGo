@@ -112,9 +112,11 @@ public sealed class TentativeScopeBusinessRepairTests
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task CitedBranchOfPendingConditionalRemainsReadOnlyDuringPredicateRepair(bool citeOwner)
+    [InlineData("choose")]
+    [InlineData("project")]
+    [InlineData("unexported")]
+    [InlineData(null)]
+    public async Task CitedBranchIsReadOnlyEvidenceForItsPendingOwnerOrExportedProducer(string? cited)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         var construction = state.Construction!;
@@ -126,7 +128,12 @@ public sealed class TentativeScopeBusinessRepairTests
         {
             Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root",
             Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose the result for this number.",
-                Condition = new() { Kind = "boolean", Boolean = true }, Body = Branch(2), Otherwise = Branch(0) }]
+                Condition = new() { Kind = "boolean", Boolean = true }, Body = new()
+                {
+                    Tasks = [new() { Id = "project", Kind = "value", Objective = "Compute the candidate value.", Outputs = Branch(2).Outputs },
+                        new() { Id = "unexported", Kind = "value", Objective = "Compute a separate value.", Outputs = Branch(3).Outputs }],
+                    Outputs = [new("result", new() { Kind = "output", Source = "project", Port = "result" })]
+                }, Otherwise = Branch(0) }]
         });
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         construction = state.Construction!;
@@ -141,19 +148,20 @@ public sealed class TentativeScopeBusinessRepairTests
         runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject
         {
             ["verdict"] = "needs_change", ["reason"] = "The constant predicate always selects the same branch.",
-            ["obligations"] = new JsonArray("work"), ["targets"] = citeOwner ? new JsonArray(branch, "choose", "deliver") : new JsonArray(branch, "deliver")
+            ["obligations"] = new JsonArray("work"), ["targets"] = cited is null ? new JsonArray(branch, "deliver") : new JsonArray(branch, cited, "deliver")
         } } };
         var accepted = PlanningConstruction.Hash(state.Plan);
         state = await BusinessReviewProtocolTests.Advance(state, runtime);
         Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
         var candidate = state.Construction!.Candidate!;
-        if (!citeOwner)
+        if (cited is null or "unexported")
         {
             Assert.Null(candidate.AuthorizedPaths);
             Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED");
             return;
         }
-        Assert.Equal(new[] { "/tasks/choose/condition", "/tasks/deliver/outputs/result" }, candidate.AuthorizedPaths!.Order());
+        var repair = cited == "choose" ? "/tasks/choose/condition" : "/tasks/project/outputs/result";
+        Assert.Equal(new[] { repair, "/tasks/deliver/outputs/result" }.Order(), candidate.AuthorizedPaths!.Order());
         Assert.Equal(branch, Assert.Single(candidate.Reviews.Last()["readOnlyTargets"]!.AsArray())!.ToString());
     }
 

@@ -385,6 +385,8 @@ internal static class LiveWorkflowEvaluation
                     k.StartsWith("Browser__ObservedNavigationSourceUrlPatterns", StringComparison.OrdinalIgnoreCase) ||
                     k.StartsWith("Browser__ObservedNavigationEntryUrlPatterns", StringComparison.OrdinalIgnoreCase)))
                     throw new InvalidOperationException("Explicit saved Browser navigation restrictions require a reviewed intersection.");
+                if (browserObservationPolicy == AmazonFirstProductsPolicy.Id)
+                    AmazonFirstProductsPolicy.ConfigureDetailText(clone.EnvironmentVariables);
                 clone.EnvironmentVariables["Browser__AllowedHosts__0"] = "www.amazon.fr";
                 clone.EnvironmentVariables["Browser__AllowedHosts__1"] = "amazon.fr";
                 if (browserObservationPolicy is AmazonSponsoredHostPolicy.Id or AmazonProductContextPolicy.Id or AmazonResolvedStorePolicy.Id or AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id)

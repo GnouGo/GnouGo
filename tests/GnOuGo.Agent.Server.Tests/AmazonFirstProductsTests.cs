@@ -11,6 +11,24 @@ public sealed class AmazonFirstProductsTests
     private static JsonObject Verify(List<JsonObject> events, int count) => LiveWorkflowOracles.VerifyAmazonFirstProducts(events, count, Query);
     private static JsonArray Records(JsonObject source) => source["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
 
+    [Fact]
+    public void DetailTextProfileAddsMissingPrefixesAndKeepsExistingConfiguration()
+    {
+        const string key = "Browser__ObservationTextSelectorPrefixes__";
+        var environment = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            { [key + "0"] = "#user-selector", [key + "4"] = "#productDescription", ["Unrelated"] = "keep" };
+        AmazonFirstProductsPolicy.ConfigureDetailText(environment);
+        var captured = environment.OrderBy(pair => pair.Key).ToArray();
+        AmazonFirstProductsPolicy.ConfigureDetailText(environment);
+        Assert.Equal(captured, environment.OrderBy(pair => pair.Key));
+        Assert.Equal("#user-selector", environment[key + "0"]);
+        Assert.Equal("#productDescription", environment[key + "4"]);
+        Assert.Equal("keep", environment["Unrelated"]);
+        Assert.Contains("#title", environment.Values);
+        Assert.Contains("#apex-pricetopay", environment.Values);
+        Assert.Contains("observationSnapshot.textMatches.records", AmazonFirstProductsPolicy.PlanningFacts, StringComparison.Ordinal);
+    }
+
     private static JsonObject Link(string href, string asin, int ordinal, bool heading = false)
         => new() { ["kind"] = "link", ["tag"] = "a", ["selector"] = "#link-" + ordinal + (heading ? "-title" : "-aux"),
             ["href"] = href, ["heading"] = heading ? "h2" : null,

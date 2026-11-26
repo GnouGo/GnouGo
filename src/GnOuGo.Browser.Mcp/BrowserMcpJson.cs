@@ -26,6 +26,7 @@ internal static class BrowserMcpJson
         pages["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         pages["items"]!["properties"]!["records"] = records.DeepClone();
         properties["observationSnapshot"]!["properties"]!["linkPrefix"]!["properties"]!["links"]!["items"]!["properties"]!["href"]!["pattern"] = BrowserNavigationPolicy.HttpUrlPattern;
+        properties["observationSnapshot"]!["properties"]!["textMatches"]!["properties"]!["records"]!["maxItems"] = BrowserObservationTextMatches.MaxRecords;
         properties["observationManifest"]!["properties"]!["pages"]!["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         using var document = JsonDocument.Parse(schema.ToJsonString());
         return document.RootElement.Clone();
@@ -40,6 +41,7 @@ internal static class BrowserMcpJson
 }
 
 [JsonSerializable(typeof(BrowserContentResult))]
+[JsonSerializable(typeof(BrowserTextMatch))]
 [JsonSerializable(typeof(BrowserObservationCapture))]
 [JsonSerializable(typeof(BrowserActionResult))]
 [JsonSerializable(typeof(BrowserKeyActionResult))]

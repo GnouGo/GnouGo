@@ -46,6 +46,9 @@ public sealed record BrowserObservationSnapshot(string Id,
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [Description("Optional source-ordered link prefix across the original pages. Bind only this property for compact decisions. Full pages retain all exact observations.")]
     public BrowserObservationLinkPrefix? LinkPrefix { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Compact source-ordered headings and text whose original record selectors begin with a host-configured prefix. Each entry retains its original page, offset and exact text. Truncated marks an incomplete view. Full observations remain in pages.")]
+    public BrowserObservationTextMatches? TextMatches { get; init; }
 }
 public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
 public sealed record BrowserSnapshotNavigation(long Generation, string Url, string? Title, string? Method, int? StatusCode);
@@ -387,7 +390,8 @@ public sealed partial class PlaywrightBrowserHost
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false)
                         {
-                            LinkPrefix = prefixAttribute is null ? null : BrowserObservationLinkPrefix.Create(pages, prefixAttribute, prefixGroups!.Value)
+                            LinkPrefix = prefixAttribute is null ? null : BrowserObservationLinkPrefix.Create(pages, prefixAttribute, prefixGroups!.Value),
+                            TextMatches = _observationTextSelectorPrefixes.Length == 0 ? null : BrowserObservationTextMatches.Create(pages, _observationTextSelectorPrefixes)
                         },
                         Acquisition = Acquisition(), NavigationEvidence = NavigationEvidenceFor(page)
                     };
@@ -396,7 +400,12 @@ public sealed partial class PlaywrightBrowserHost
                     token.ThrowIfCancellationRequested();
                     result = result with { Acquisition = Acquisition() };
                     if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
-                        throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "The complete snapshot exceeds the aggregate page allowance. Narrow the requested observation explicitly.", result.Acquisition);
+                    {
+                        if (result.ObservationSnapshot!.TextMatches is not null)
+                            result = result with { ObservationSnapshot = result.ObservationSnapshot with { TextMatches = null } };
+                        if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
+                            throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "The complete snapshot exceeds the aggregate page allowance. Narrow the requested observation explicitly.", result.Acquisition);
+                    }
                     token.ThrowIfCancellationRequested();
                     lock (_observationLock)
                     {

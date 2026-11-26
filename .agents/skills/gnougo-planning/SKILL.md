@@ -70,6 +70,8 @@ Use request-bound short evidence IDs only for navigation. Keep original field pa
 
 Compound drafts can bind their selected operations inside a control. In diagnostic optimization mode, include the last one or two optional input branches of a small selected contract directly in the draft grammar. In every draft, request larger omitted branches through that draft's evidence IDs while preserving the selected control and imports.
 
+A local business finding may cite an unchanged control scope that exports its independently cited, repairable producer. Keep the scope as read-only evidence and offer the producer's existing functional repair paths. Validate both the original export binding and the producer's lexical scope.
+
 For an operation task cited by a retained business defect, expose its original editable input schemas during correction, including absent optional arguments. Do not require another discovery call to make the diagnosed repair representable. Distinguish offered inputs from actual bindings; unrelated operations keep ordinary compaction. Derive bound arguments from the current candidate across root, control and reusable-group bodies, including repaired values. Schema visibility grants no additional edit, contract or execution authority.
 
 ## Validation and business review

@@ -18,6 +18,7 @@ public sealed class BrowserServerSettings
     public int MaxObservationRecords { get; set; } = ObservationRecordsPerPageCeiling;
     public int MaxObservationPages { get; set; } = ObservationPageCeiling;
     public List<string> ObservationAncestorAttributes { get; set; } = [];
+    public List<string> ObservationTextSelectorPrefixes { get; set; } = [];
     public int ScreenshotQuality { get; set; } = 90;
     public int SlowMoMs { get; set; }
     public int HoldOpenMs { get; set; }

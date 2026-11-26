@@ -412,6 +412,8 @@ attribute is requested by default. Names are bounded to 64 characters; values ov
 record/page/byte limits apply. This metadata records source DOM facts and performs
 no business classification or URL construction.
 
+`Browser:ObservationTextSelectorPrefixes` accepts up to 16 case-sensitive prefixes of the selector strings recorded by Browser. With this option, a complete snapshot can include `textMatches`. Its ordered heading and text entries carry the original text, selector, reference, page and offset. The view stops at 64 entries or 16 KiB of serialized entries and marks any omitted match with `truncated`. When the complete response only fits without the extra view, the original pages are returned alone. Creating this view reads the captured records without another page request.
+
 The published record contract permits a null dictionary value for a requested
 attribute with no matching ancestor, alongside a strictly typed context object.
 The object's `value`, `tag`, `role` and `index` remain required; an observed empty
