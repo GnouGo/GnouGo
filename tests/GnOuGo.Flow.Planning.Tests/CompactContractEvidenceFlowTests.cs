@@ -10,6 +10,40 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactContractEvidenceFlowTests
 {
     [Theory]
+    [InlineData("conditional", true)]
+    [InlineData("sequence", true)]
+    [InlineData("conditional", false)]
+    public async Task CompoundDraftBindsSmallSelectedContractsAndCanRetrieveLargerOnes(string kind, bool small)
+    {
+        var (state, _) = await Ready();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        state.Construction!.Compact!.CurrentStep!.Kind = kind;
+        var capability = state.Discovery.Resolved[0];
+        capability.InputSchema = JsonNode.Parse("""
+            {"type":"object","properties":{"payload":{"type":"object"},"bounds":{"type":"object",
+            "properties":{"limit":{"type":"integer","minimum":1}}}},"required":["bounds"]}
+            """)!.AsObject();
+        if (!small) capability.InputSchema["properties"]!["payload"]!["description"] = new string('x', 4096);
+        var request = PlanningConstruction.DraftRequest(state, repair: false);
+        var view = Assert.Single(Context(request)["operations"]!.AsArray())!;
+        var modelSchema = request.StructuredOutputSchema!.ToJsonString();
+        if (small)
+        {
+            Assert.Empty(view["omittedOptionalInputs"]!.AsArray());
+            Assert.True(JsonNode.DeepEquals(capability.InputSchema, view["inputSchema"]));
+            Assert.Contains("\"payload\"", modelSchema, StringComparison.Ordinal);
+            Assert.Contains("\"limit\"", modelSchema, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.Contains("omittedOptionalInputs", PlanningCompactConstruction.DraftSemantics(state, state.Construction.Compact.CurrentStep), StringComparison.Ordinal);
+            foreach (var row in view["omittedOptionalInputs"]!.AsArray())
+                Assert.Contains(row!["evidence"]!.ToString(), modelSchema, StringComparison.Ordinal);
+            Assert.Equal(2, view["omittedOptionalInputCount"]!.GetValue<int>());
+        }
+    }
+
+    [Theory]
     [InlineData(true, "/runner")]
     [InlineData(false, "/target")]
     public async Task DraftExplainsRequiredInputsSuppliedByTheCatalog(bool runner, string ownedPath)

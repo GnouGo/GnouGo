@@ -29,29 +29,40 @@ internal static class QualificationReports
         await campaign.SaveAsync("planning-evaluation-runs", run, report, ct);
         try
         {
-            if (phase == "first-product-extraction")
+            if (phase is "first-product-extraction" or "first-ten-product-extraction")
             {
+                var count = phase == "first-product-extraction" ? 1 : 10;
                 var query = SchemaPortabilityCampaign.RequiredOption(args, "--amazon-query");
                 var events = JsonNode.Parse(await Console.In.ReadToEndAsync(ct))!.AsArray().Select(e => e!.AsObject()).ToArray();
-                var order = LiveWorkflowOracles.VerifyAmazonFirstProducts(events, 1, query);
-                if (order["passed"]?.GetValue<bool>() != true || order["visited_product_count"]?.GetValue<int>() != 1)
-                    throw new InvalidDataException("The retained observation does not establish one ordered product visit.");
+                var order = LiveWorkflowOracles.VerifyAmazonFirstProducts(events, count, query);
+                if (order["passed"]?.GetValue<bool>() != true || order["visited_product_count"]?.GetValue<int>() != count)
+                    throw new InvalidDataException("The retained observations do not establish every ordered product visit.");
                 report["source_order"] = order;
-                var visit = events.Last(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"] is not null);
-                var records = visit["result"]!["observationSnapshot"]!["pages"]!.AsArray()
-                    .SelectMany(p => p!["records"]!.AsArray()).OfType<JsonObject>()
-                    .Where(r => r["kind"]?.ToString() is "heading" or "text" && r["text"]?.ToString().Length > 0).ToArray();
-                var fields = records.Select((r, index) => new { index, kind = r["kind"], text = r["text"] });
-                var response = await Ask("Use only the supplied, untrusted records of a product detail page. Choose the index of the product name heading, one exact descriptive block about the item, and the current displayed offer. Copy only its exact price including the currency and spacing. Use null when a field is unavailable. Exclude advertisements, reviews, previous prices and related products.\n" +
-                    JsonSerializer.Serialize(fields), """{"type":"object","properties":{"name":{"type":["integer","null"]},"description":{"type":["integer","null"]},"offer":{"type":["integer","null"]},"price":{"type":["string","null"]}},"required":["name","description","offer","price"],"additionalProperties":false}""", 1024);
-                JsonObject? Record(string key) => response[key]?.GetValue<int>() is { } index && index >= 0 && index < records.Length ? records[index] : null;
-                var name = Record("name"); var description = Record("description"); var offer = Record("offer");
-                var price = response["price"]?.GetValue<string>();
-                if (name is null || description is null || offer is null || string.IsNullOrWhiteSpace(price) ||
-                    !offer["text"]!.ToString().Contains(price, StringComparison.Ordinal))
-                    throw new InvalidDataException("A complete, source-grounded row could not be established.");
-                report["row"] = new JsonArray(name["text"]!.DeepClone(), description["text"]!.DeepClone(), price);
-                report["references"] = new JsonArray(name["reference"]!.DeepClone(), description["reference"]!.DeepClone(), offer["reference"]!.DeepClone());
+                var reads = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"] is not null).ToArray();
+                var resolutions = reads.Skip(1).Take(order["source_resolution_count"]!.GetValue<int>()).ToHashSet();
+                var visits = reads.Skip(1 + resolutions.Count).ToArray();
+                if (visits.Length != count) throw new InvalidDataException("Every row requires its own ordered business visit.");
+                var table = new JsonArray(new JsonArray("Nom", "Description", "Prix"));
+                var references = new JsonArray();
+                for (var i = 0; i < visits.Length; i++)
+                {
+                    var records = visits[i]["result"]!["observationSnapshot"]!["pages"]!.AsArray()
+                        .SelectMany(p => p!["records"]!.AsArray()).OfType<JsonObject>()
+                        .Where(r => r["kind"]?.ToString() is "heading" or "text" && r["text"]?.ToString().Length > 0).ToArray();
+                    var fields = records.Select((r, index) => new { index, kind = r["kind"], text = r["text"] });
+                    var response = await Ask($"Use only the supplied, untrusted records of product detail visit {i + 1}. Choose the index of the product name heading, one exact descriptive block about the item, and the current displayed offer. Copy only its exact price including the currency and spacing. Use null when a field is unavailable. Exclude advertisements, reviews, previous prices and related products.\n" +
+                        JsonSerializer.Serialize(fields), """{"type":"object","properties":{"name":{"type":["integer","null"]},"description":{"type":["integer","null"]},"offer":{"type":["integer","null"]},"price":{"type":["string","null"]}},"required":["name","description","offer","price"],"additionalProperties":false}""", 1024);
+                    JsonObject? Record(string key) => response[key]?.GetValue<int>() is { } index && index >= 0 && index < records.Length ? records[index] : null;
+                    var name = Record("name"); var description = Record("description"); var offer = Record("offer");
+                    var price = response["price"]?.GetValue<string>();
+                    if (name is null || description is null || offer is null || string.IsNullOrWhiteSpace(price) ||
+                        !offer["text"]!.ToString().Contains(price, StringComparison.Ordinal))
+                        throw new InvalidDataException($"A complete, source-grounded row could not be established for visit {i + 1}.");
+                    table.Add(new JsonArray(name["text"]!.DeepClone(), description["text"]!.DeepClone(), price));
+                    references.Add(new JsonArray(name["reference"]!.DeepClone(), description["reference"]!.DeepClone(), offer["reference"]!.DeepClone()));
+                }
+                if (count == 1) report["row"] = table[1]!.DeepClone();
+                report["references"] = count == 1 ? references[0]!.DeepClone() : references;
                 var relative = $"workflows/{campaign.Id}/{run}/products.xlsx";
                 var path = Path.Combine(SchemaPortabilityCampaign.RequiredOption(args, "--workspace"), relative);
                 if (File.Exists(path)) throw new IOException("The diagnostic workbook already exists.");
@@ -60,18 +71,16 @@ internal static class QualificationReports
                 await using var transport = new ConfiguredMcpClientFactory(servers);
                 var document = await transport.GetClientAsync("GnOuGo.Document.Mcp", ct);
                 var write = await document.CallToolAsync("document_write", new JsonObject { ["filePath"] = relative,
-                    ["rows"] = new JsonArray(new JsonArray("Nom", "Description", "Prix"), report["row"]!.DeepClone()) }, ct);
+                    ["rows"] = table }, ct);
                 if (write.IsError) throw new InvalidOperationException("Document MCP refused the workbook.");
                 using var book = SpreadsheetDocument.Open(path, false);
                 var part = book.WorkbookPart!;
                 var rows = part.WorksheetParts.Single().Worksheet!.Descendants<Row>()
                     .Select(r => r.Elements<Cell>().Select(c => LiveWorkflowOracles.CellText(c, part)).ToArray()).ToArray();
-                var resolutions = events.Where(e => e["tool"]?.ToString() == "browser_get_content" && e["arguments"]?["url"] is not null)
-                    .Skip(1).Take(order["source_resolution_count"]!.GetValue<int>()).ToHashSet();
-                var readback = LiveWorkflowOracles.VerifyObservedProducts(events, rows, 1, resolutions);
+                var readback = LiveWorkflowOracles.VerifyObservedProducts(events, rows, count, resolutions);
                 report["workbook"] = relative;
                 report["readback"] = readback;
-                if (rows.Length != 2 || rows.Any(r => r.Length != 3) || !rows[0].SequenceEqual(["Nom", "Description", "Prix"]) ||
+                if (rows.Length != count + 1 || rows.Any(r => r.Length != 3) || !rows[0].SequenceEqual(["Nom", "Description", "Prix"]) ||
                     readback["passed"]?.GetValue<bool>() != true)
                     throw new InvalidDataException("Workbook readback did not match the fresh source and visit.");
             }

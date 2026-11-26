@@ -17,6 +17,7 @@ internal static partial class PlanningCompactConstruction
     private const int CompactContractDescriptorPageSize = 4;
     private const int SourceDirectoryPageSize = 2;
     private const int ContractDescriptionPageSize = 2048;
+    private const int CompactCompoundInputBytes = 2048;
 
     // Keep canonical directory bytes and their issued continuation addresses intact.
     // Composition describes one provider's implementation, never an invocation grant.
@@ -564,7 +565,7 @@ internal static partial class PlanningCompactConstruction
             ["outputDirectory"] = "port-page:" + identity + ":/output:" + (operation.Outputs.Count > ContractDirectoryPageSize ? ContractDirectoryPageSize : 0).ToString(CultureInfo.InvariantCulture),
             ["outputSchemaDirectory"] = "schema-page:" + identity + ":/output:0",
             ["artifacts"] = TaskOperations.ArtifactPorts(capability),
-            ["view"] = "Required and explicitly selected input branches with complete coupled constraints and referenced definitions. Other optional branches and output schemas are addressable originals; this view is not an executable contract."
+            ["view"] = "Editable input branches retain their original constraints. For a needed omittedOptionalInputs pointer, submit its evidence ID in this draft's evidenceRequests to expand the binding grammar. Output schemas are also retrievable."
         };
         var outputViews = selected.Where(p => p.StartsWith("/output", StringComparison.Ordinal)).ToArray();
         if (outputViews.Length > 0)
@@ -670,7 +671,20 @@ internal static partial class PlanningCompactConstruction
         // separate discovery call before that original argument is representable.
         var repairInputs = RepairingOperationInputs(state, operation.Id);
         var mandatory = operation.Inputs.Where(p => p.Required || bound.Contains(p.Name) || repairInputs).Select(p => PortPointer("/input", p.Path)).ToHashSet(StringComparer.Ordinal);
-        return ProjectInputSchema(capability.InputSchema, selected, omitted, mandatory);
+        var projected = ProjectInputSchema(capability.InputSchema, selected, omitted, mandatory);
+        var step = State(state).CurrentStep!;
+        // Compound fragments select their operations before drafting their nested
+        // calls. Finish a small input directory in place when just one or two
+        // branches remain. Keep larger contracts addressable at the same cursor.
+        if (omitted.Count is 1 or 2 && step.Kind != "operation" && SupportsBusinessFragment(step.Kind) &&
+            step.OperationIds.Contains(operation.Id, StringComparer.Ordinal) && PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
+            Encoding.UTF8.GetByteCount(capability.InputSchema.ToJsonString()) <= CompactCompoundInputBytes)
+        {
+            var complete = selected.Concat(omitted).ToHashSet(StringComparer.Ordinal);
+            omitted.Clear();
+            return ProjectInputSchema(capability.InputSchema, complete, omitted, mandatory);
+        }
+        return projected;
     }
 
     private static HashSet<string> BoundInputNames(PlanningSession state, string operation)

@@ -326,8 +326,8 @@ internal static partial class PlanningCompactConstruction
             hints.Add("For independent extraction, each.input names the bound source collection. Declare the sole array output name once in resultType.fields; the host binds each.output to that field. Extract related fields together in one mapping over all items. Preserve order, repetitions and nested arrays. Mapping examples are bounded and the runtime checks every item. Use foreach for per-item actions and a separate comparison for cross-item decisions.");
         if (step.Kind == "transform")
             hints.Add("transform resultType is an object of named output ports; output.port selects that field's type, not the whole result object. extract preserves observed facts; interpret uses its objective as the runtime LLM instruction, inputs as data and resultType as the output contract, without a separate expression. Neither executes external effects.");
-        if (step.Kind == "operation")
-            hints.Add("editableInputs is only the inspected subset. Retrieve the exact schema branches needed for this business action together. " +
+        if (step.OperationIds.Count > 0)
+            hints.Add("For a needed operation input absent from editableInputs, use this draft's evidenceRequests with the evidence IDs beside its omittedOptionalInputs pointers. This keeps the selected operation, imports and enclosing control while expanding the binding grammar. " +
                 EvidenceBatchGuidance(state) + (PlanningTokenThresholds.Advisory(state.Request)
                     ? " Project input targets only produce host warnings; actual provider limits still apply."
                     : " The complete follow-up must fit its captured input ceiling.") +
