@@ -1,0 +1,33 @@
+{
+  "run": "win-amazon-first-ten-20261126-183427",
+  "session": "572121e38ac74e7a8f35b85deb08e326",
+  "source": "a11dbcc339544cbd2ad8fa37f0495e6a2d2bd6cf",
+  "terminal_revision": 102,
+  "terminal_diagnostic": "REPLAN_NO_PROGRESS",
+  "approved": false,
+  "business_executed": false,
+  "physical_calls": 37,
+  "cost_eur": "1.394564920273348519362186789",
+  "retained_workspace": "workflows/pr120-win-amazon-review-20261126-15/win-amazon-first-ten-20261126-183427",
+  "selection_review": "ok",
+  "detail_review": "ok",
+  "document_reselection_requests": [
+    32,
+    37
+  ],
+  "finding": "The selected adaptive step supplied its run directory. The later workbook draft requested another runner setup while binding the document write. The two tools resolve their own path arguments.",
+  "published_browser_smoke": {
+    "passed": true,
+    "source": "a11dbcc339544cbd2ad8fa37f0495e6a2d2bd6cf",
+    "publishedDllSha256": "06aa74fe4958f933e02042a61a2a257f70fa58a082511ad9da22c113bf671d09",
+    "compactTextAndReferenceVerified": true,
+    "wireSchemaVerified": true,
+    "orderedPositions": 4,
+    "hrefPatternMatchesNavigation": true,
+    "signedQueryBytesPreserved": true,
+    "closeSucceeded": true,
+    "providerCalls": 0
+  },
+  "path_binding_regression_source": "200e5248f44dfcea0938b22793971a28b9ba5b8b",
+  "focused_profile_tests_passed": 19
+}
