@@ -58,11 +58,20 @@ public sealed partial class HybridWorkflowPlanner
         var accepted = new TaskPlanSymbols(state.Plan ?? new()); var current = new TaskPlanSymbols(candidate.Plan);
         var paths = new List<string>(); var tasks = new List<string>();
         var readOnlyTargets = new List<string>();
+        var citedScopes = new List<TaskPlanSymbols.Scope>();
         var tentativeScope = false;
         foreach (var target in targets.Where(target => !candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
         {
             if (target == candidate.Extension.Scope || target.StartsWith("output:", StringComparison.Ordinal) &&
                 candidate.Extension.Outputs.Any(output => "output:" + output.Name == target)) continue;
+            // A reviewed branch can be evidence for a finding about its pending
+            // owner. The owner must independently qualify for repair below.
+            if (local && accepted.Scopes.SingleOrDefault(scope => scope.Path == target) is { Owner: not null } branch &&
+                targets.Contains(branch.Owner.Id, StringComparer.Ordinal))
+            {
+                citedScopes.Add(branch);
+                continue;
+            }
             if (current.Scopes.Any(scope => scope.Path == target) && accepted.Scopes.All(scope => scope.Path != target))
             {
                 var exports = current.Values.Keys.Where(path => path.StartsWith(target + "/outputs/", StringComparison.Ordinal)).ToArray();
@@ -98,6 +107,14 @@ public sealed partial class HybridWorkflowPlanner
             if (offered.Count == 0) return;
             paths.AddRange(offered); tasks.Add(target);
         }
+        foreach (var branch in citedScopes)
+        {
+            if (!tasks.Contains(branch.Owner!.Id, StringComparer.Ordinal) ||
+                current.Scopes.SingleOrDefault(scope => scope.Path == branch.Path) is not { } proposed ||
+                !JsonNode.DeepEquals(PlanningConstruction.Node(branch.Source, PlanningJsonContext.Default.TaskScope),
+                    PlanningConstruction.Node(proposed.Source, PlanningJsonContext.Default.TaskScope))) return;
+            readOnlyTargets.Add(branch.Path);
+        }
         if (tentativeScope || local && readOnlyTargets.Count > 0)
             foreach (var target in targets.Where(target => candidate.TaskIds.Contains(target, StringComparer.Ordinal)))
             {
@@ -128,7 +145,8 @@ public sealed partial class HybridWorkflowPlanner
             "operation" or "call" when offerMissingGuard && task.Requires is null => ["/tasks/" + task.Id + "/inputs", "/tasks/" + task.Id + "/requires"],
             "operation" or "call" => ["/tasks/" + task.Id + "/inputs"],
             _ => symbols.Values.Keys.Where(path => path.StartsWith("/tasks/" + task.Id + "/outputs/", StringComparison.Ordinal) ||
-                task.Kind == "foreach" && path == "/tasks/" + task.Id + "/items")
+                task.Kind == "foreach" && path == "/tasks/" + task.Id + "/items" ||
+                task.Kind == "conditional" && path == "/tasks/" + task.Id + "/condition")
         };
     }
 

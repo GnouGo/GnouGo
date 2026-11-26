@@ -14,6 +14,7 @@ internal static class AmazonFirstProductsPolicy
         "A known card can identify its non-heading review and offer anchors from card membership; retain these records without visiting them. Choose the observed product heading, or a same-card product link when the card has no heading. " +
         "Resolve earlier empty-ASIN sponsored entries in original order using their own observed GETs; a verified store or listing is not a product. A necessary observed /deals read may redirect to the exact /blackfriday listing. " +
         "Do not invent URLs, skip ambiguous earlier products, or count a source proof as a business visit. Visit each selected product separately in original order and extract Nom, Description and Prix from that detail page. " +
+        "Distinguish an observed product with an unavailable field from an HTTP 200 challenge or error page. Carry any failed visit and its observed reason through the workbook decision and returned result. " +
         "Write the actual XLSX, return it and close Browser on completion or failure. " + AmazonObservedRedirectPolicy.AcquisitionGuarantees;
 }
 

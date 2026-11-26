@@ -114,6 +114,52 @@ public sealed class TentativeScopeBusinessRepairTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task CitedBranchOfPendingConditionalRemainsReadOnlyDuringPredicateRepair(bool citeOwner)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "conditional";
+        step.CloseRequirementIds.Clear();
+        TaskScope Branch(int value) => new() { Outputs = [new("result", new() { Kind = "number", Number = value })] };
+        construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["work"], ContinueInScope = "/root",
+            Tasks = [new() { Id = "choose", Kind = "conditional", Objective = "Choose the result for this number.",
+                Condition = new() { Kind = "boolean", Boolean = true }, Body = Branch(2), Otherwise = Branch(0) }]
+        });
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        construction = state.Construction!;
+        Assert.True(Assert.Single(construction.Checkpoints).Fragment["businessReviewPending"]!.GetValue<bool>());
+        construction.Compact!.CurrentStep = new() { BlockId = construction.Compact.CurrentBlockId, Id = "deliver", Kind = "value",
+            Objective = "Return the chosen value.", RequirementIds = ["work"], InputTaskIds = ["choose"],
+            BaseHash = PlanningConstruction.Hash(state.Plan), DiscoveryComplete = true };
+        construction.Candidate = PlanningConstruction.Apply(state, new() { Scope = "/root", RequirementIds = ["work"],
+            CompleteBlock = true, Tasks = [new() { Id = "deliver", Kind = "value", Objective = "Return the result.",
+                Outputs = [new("result", new() { Kind = "output", Source = "choose", Port = "result" })] }] });
+        const string branch = "/tasks/choose/body";
+        runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject
+        {
+            ["verdict"] = "needs_change", ["reason"] = "The constant predicate always selects the same branch.",
+            ["obligations"] = new JsonArray("work"), ["targets"] = citeOwner ? new JsonArray(branch, "choose", "deliver") : new JsonArray(branch, "deliver")
+        } } };
+        var accepted = PlanningConstruction.Hash(state.Plan);
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Equal(accepted, PlanningConstruction.Hash(state.Plan));
+        var candidate = state.Construction!.Candidate!;
+        if (!citeOwner)
+        {
+            Assert.Null(candidate.AuthorizedPaths);
+            Assert.Contains(state.Diagnostics, diagnostic => diagnostic.Code == "BUSINESS_REVIEW_REQUIRED");
+            return;
+        }
+        Assert.Equal(new[] { "/tasks/choose/condition", "/tasks/deliver/outputs/result" }, candidate.AuthorizedPaths!.Order());
+        Assert.Equal(branch, Assert.Single(candidate.Reviews.Last()["readOnlyTargets"]!.AsArray())!.ToString());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task AcceptedScopesAndMissingExportsDoNotGainAutomaticEditAuthority(bool accepted)
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
