@@ -12,6 +12,7 @@ namespace GnOuGo.GithubCopilot.Mcp;
 [McpServerToolType]
 internal sealed partial class CopilotTools
 {
+    private const string ProjectRootDescription = "Required workspace-relative path to an existing project root outside the reserved .GnOuGo internal directory. Pass a documented workspace.directory artifact output or a caller-provided existing directory.";
     private const string ManagementOnlyMetadataJson = """{"management":{"version":1,"visibility":"management_only"}}""";
     private const string ManagedSessionCreateMetadataJson = """{"artifacts":{"version":1,"produces":[{"kind":"session.handle","pointer":"/handle","mode":"materialize"}],"consumes":[{"kind":"workspace.directory","pointer":"/projectRoot","required":true}]}}""";
     private const string SessionHandleConsumerMetadataJson = """{"artifacts":{"version":1,"consumes":[{"kind":"session.handle","pointer":"/handle","required":true}]}}""";
@@ -131,7 +132,7 @@ internal sealed partial class CopilotTools
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = ManagedSessionCreateMetadataJson)]
     public Task<CopilotSessionDescriptor> CreateSessionAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description(ProjectRootDescription)] string projectRoot,
         [Description("Permission mode. interactive is the safe choice for work that may need user approval; auto_approve_allowlist permits only explicitly listed read-only operations; deny rejects tool execution; approve_all is host-policy gated and generated workflows must not select it unless unattended execution was explicitly requested and availability is established.")] CopilotManagedPermissionModeInput permissionMode = CopilotManagedPermissionModeInput.Interactive,
         [Description("Optional configured KeyVault-backed LLM provider name, for example OpenAi.")] string? provider = null,
         [Description("Optional model override. Provider configuration may select its own model.")] string? model = null,
@@ -195,7 +196,7 @@ internal sealed partial class CopilotTools
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> OneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description(ProjectRootDescription)] string projectRoot,
         string prompt,
         [Description("Non-interactive permission mode. deny is the safe default; auto_approve_allowlist permits only entries supplied in permissionAllowlist; approve_all is host-policy gated and must not be selected by generated workflows without explicit unattended intent and established availability.")] CopilotOneShotPermissionModeInput permissionMode = CopilotOneShotPermissionModeInput.Deny,
         string? provider = null,
@@ -213,7 +214,7 @@ internal sealed partial class CopilotTools
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CompleteOneShotMetadataJson)]
     public Task<CopilotSendResult> InteractiveOneShotAsync(
         RequestContext<CallToolRequestParams> requestContext,
-        [Description(ReviewProjectRootDescription)] string projectRoot,
+        [Description(ProjectRootDescription)] string projectRoot,
         string prompt,
         string? provider = null,
         string? model = null,

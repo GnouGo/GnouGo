@@ -1,3 +1,5 @@
+using GnOuGo.Flow.Copilot;
+using Microsoft.Extensions.Configuration;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using GnOuGo.AI.Core;
@@ -55,41 +57,13 @@ public sealed class LivePullRequestReviewTests
         var fixtureGit = CreateFixtureGitService(workspaceRoot, gitToken!);
         ConfiguredMcpClientFactory? mcpFactory = null;
         IMcpSession? github = null;
-        IMcpSession? copilot = null;
         string? fixtureProjectRoot = null;
         int? pullNumber = null;
         bool branchPushed = false;
 
         try
         {
-            mcpFactory = CreateMcpFactory(repositoryRoot, workspaceRoot, keyVaultPath, githubOptions, gitToken!);
-            using (ConfiguredMcpClientFactory.PushCorrelationContext(new McpCorrelationContext
-            {
-                TenantId = tenantId,
-                CorrelationId = runId,
-                RunId = runId,
-                StepId = "provider-preflight",
-                StepType = "e2e",
-                Context = new JsonObject
-                {
-                    ["repository"] = $"{owner}/{repository}"
-                }
-            }))
-            {
-                copilot = await mcpFactory.GetClientAsync("copilot", ct);
-                await RequireToolsAsync(copilot, ["copilot_one_shot", "copilot_review"], ct);
-                var providerPreflight = await CallAsync(copilot, "copilot_one_shot", new JsonObject
-                {
-                    ["projectRoot"] = ".",
-                    ["prompt"] = "Reply with READY and no other text.",
-                    ["permissionMode"] = "deny",
-                    ["provider"] = "OpenAi",
-                    ["tenantId"] = tenantId
-                }, ct);
-                Assert.Contains("READY", RequireString(providerPreflight, "content"), StringComparison.OrdinalIgnoreCase);
-                AssertSafe(providerPreflight, sensitiveValues);
-            }
-
+            mcpFactory = CreateMcpFactory(repositoryRoot, workspaceRoot, githubOptions, gitToken!);
             var fixtureClone = fixtureGit.Clone(remoteUrl, fixtureCloneRelative, historyDepth: 0, fetchAllBranches: false);
             fixtureProjectRoot = fixtureClone.ProjectRootRelative;
             var baseBranch = Assert.IsType<string>(fixtureClone.ResolvedBranch);
@@ -180,17 +154,29 @@ public sealed class LivePullRequestReviewTests
             Assert.Contains(comparedFiles, file => string.Equals(RequireString(file, "path"), fixtureRelativePath, StringComparison.Ordinal));
             Assert.DoesNotContain(comparedFiles, file => RequireBool(file, "truncated"));
 
-            var reviewResult = await CallAsync(copilot, "copilot_review", new JsonObject
+            var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["projectRoot"] = reviewProjectRoot,
-                ["baseSha"] = baseSha,
-                ["headSha"] = headSha,
-                ["filesJson"] = new JsonArray(comparedFiles.Select(static file => file.DeepClone()).ToArray()).ToJsonString(),
-                ["reviewInstructions"] = "Report only demonstrable correctness defects introduced by the supplied fixture diff. Prefer a small number of high-confidence findings.",
-                ["provider"] = "OpenAi",
-                ["maxBatchCharacters"] = 60_000,
-                ["tenantId"] = tenantId
-            }, ct);
+                ["KeyVault:DatabasePath"] = keyVaultPath, ["Code:DefaultWorkingDirectory"] = workspaceRoot,
+                ["Code:AllowWrites"] = "false", ["Code:Copilot:UseLoggedInUser"] = "false", ["Code:Copilot:Provider"] = "OpenAi"
+            }).Build();
+            var runner = new CopilotAgentTaskRunner(configuration);
+            var task = new AgentTaskDefinition
+            {
+                Objective = "Read the changed files and review the exact diff. Return base, head, findings (severity, category, confidence, path, side, startLine, endLine, evidence, explanation), reviewed_files and limitations.",
+                Runner = "coding", Workspace = reviewProjectRoot, Capabilities = ["project.read"],
+                Budget = new() { MaxActions = 8, MaxModelCalls = 8, MaxTotalTokens = 128000, MaxElapsedMilliseconds = 240000 },
+                Inputs = new() { ["review"] = new JsonObject { ["base"] = baseSha, ["head"] = headSha,
+                    ["files"] = new JsonArray(comparedFiles.Select(file => file.DeepClone()).ToArray()) } },
+                OutputSchema = JsonNode.Parse("""{"type":"object","required":["base","head","findings","reviewed_files","limitations"],"properties":{"base":{"type":"string"},"head":{"type":"string"},"findings":{"type":"array"},"reviewed_files":{"type":"array"},"limitations":{"type":"array"}}}""")!.AsObject(),
+                Verification = [new("read", "file.read", fixtureRelativePath, new() { ["type"] = "object" }),
+                    new("anchors", "review.diff", headSha, new() { ["type"] = "object" })]
+            };
+            var context = new AgentTaskContext(tenantId, runId, "live-pr-review", task);
+            Assert.Empty(await runner.ValidateAsync(context, ct));
+            var result = await runner.RunAsync(context, ct);
+            Assert.Equal("completed", result.Status);
+            Assert.All(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct), item => Assert.True(item.Passed));
+            var reviewResult = Assert.IsType<JsonObject>(result.Output);
             AssertSafe(reviewResult, sensitiveValues);
 
             var findings = RequireArray(reviewResult, "findings")
@@ -225,7 +211,6 @@ public sealed class LivePullRequestReviewTests
     private static ConfiguredMcpClientFactory CreateMcpFactory(
         string repositoryRoot,
         string workspaceRoot,
-        string keyVaultPath,
         McpServerOptions github,
         string gitToken)
     {
@@ -248,21 +233,6 @@ public sealed class LivePullRequestReviewTests
                     ["OpenTelemetry__Enabled"] = "false"
                 }
             },
-            ["copilot"] = new()
-            {
-                Type = "stdio",
-                Command = dotnet,
-                Args = [FindMcpAssembly(repositoryRoot, "GnOuGo.GithubCopilot.Mcp")],
-                CallTimeoutSeconds = 1_800,
-                EnvironmentVariables = new Dictionary<string, string?>
-                {
-                    ["KeyVault__DatabasePath"] = keyVaultPath,
-                    ["Code__DefaultWorkingDirectory"] = workspaceRoot,
-                    ["Code__AllowWrites"] = "false",
-                    ["Code__Copilot__UseLoggedInUser"] = "false",
-                    ["OpenTelemetry__Enabled"] = "false"
-                }
-            }
         });
     }
 
