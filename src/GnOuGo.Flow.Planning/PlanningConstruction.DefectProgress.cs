@@ -203,12 +203,19 @@ internal static partial class PlanningConstruction
                 !JsonNode.DeepEquals(cited["obligations"], concern["obligations"]) ||
                 !DefectRead(prior, action, out var before, out _) || !DefectRead(current, action, out var after, out _) ||
                 before is not JsonObject original || after is not JsonObject revised) continue;
+            if (ConditionalSelectionChanged(original, revised) && original["id"]?.ToString() is { } owner &&
+                (scope["id"]?.ToString() == "/tasks/" + owner + "/body" || scope["id"]?.ToString() == "/tasks/" + owner + "/otherwise")) return true;
             if (members.Any(id => JsonNode.DeepEquals(id, original["id"])) &&
                 JsonNode.DeepEquals(original["scope"], scope["id"]) && JsonNode.DeepEquals(revised["scope"], scope["id"]) &&
                 !JsonNode.DeepEquals(original["requires"], revised["requires"])) return true;
         }
         return false;
     }
+
+    private static bool ConditionalSelectionChanged(JsonObject before, JsonObject after) =>
+        before["kind"]?.ToString() == "conditional" && after["kind"]?.ToString() == "conditional" &&
+        before["condition"] is not null && after["condition"] is not null &&
+        !JsonNode.DeepEquals(before["condition"], after["condition"]);
 
     private static JsonObject? ExactSnapshot(JsonNode? snapshot, JsonObject? context, string? pointer)
     {
@@ -244,6 +251,7 @@ internal static partial class PlanningConstruction
         var changed = actions.OfType<JsonObject>().Where(action => action["id"]?.ToString() is { } id && id != consumer && symbols.Tasks.TryGetValue(id, out var task) &&
             originals.OfType<JsonObject>().SingleOrDefault(before => before["id"]?.ToString() == id) is { } before &&
             (new[] { "arguments", "outputs", "instruction" }.Any(key => !JsonNode.DeepEquals(before[key], action[key])) ||
+                cited.Contains(id) && ConditionalSelectionChanged(before, action) ||
                 cited.Contains(id) && before["requires"] is null && task.Task.Requires is { } guard &&
                 TaskPlanCompiler.Values(guard).Any(value => value.Kind == "output")))
             .Select(action => action["id"]!.ToString()).ToArray();

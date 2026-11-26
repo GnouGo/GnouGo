@@ -186,6 +186,7 @@ public sealed class TentativeScopeBusinessRepairTests
         Assert.Equal("and", combined.Predicate);
         Assert.True(TaskPlanRevisions.Same(priorGuard, combined.Items[0]));
         Assert.Equal("not_equal", combined.Items[1].Predicate);
+        Assert.Empty(state.Construction.Candidate.Diagnostics);
 
         const string fallback = "/tasks/choose/otherwise";
         runtime.Respond = (_, _) => new() { Json = new JsonObject { ["decision"] = new JsonObject
