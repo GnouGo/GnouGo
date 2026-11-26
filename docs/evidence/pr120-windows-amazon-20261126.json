@@ -137,7 +137,10 @@
       "execution_started": false,
       "workbook": null,
       "independent_readback": null,
-      "retention_preview_evidence_hash": "d923127ec2c45664e918bedf219251baef16c485833bfcd47edb36eb8182e2f4"
+      "retention_preview_evidence_hash": "d923127ec2c45664e918bedf219251baef16c485833bfcd47edb36eb8182e2f4",
+      "retention_applied_with_user_authorization": true,
+      "request_replay_forbidden": true,
+      "run_continuation_forbidden": true
     }
   ],
   "after_second_run": {
@@ -149,6 +152,7 @@
     "available_eur": "12.01729309556470050297210791"
   },
   "private_receipt_sha256": {
+    "second-cancelled-retention-apply.json": "07428e885e48da7e49cacbccd0d35062900113e02ada8b89febb3b979edb5576",
     "continuation-wire-before.jsonl": "71bb621646b8daa567a412a99199fdfd72aabed56bfdfe17cca2796b1ae2f8f5",
     "continuation-wire-after.jsonl": "4def967a22123cea2884e080a5b7291ea19fffb8daf089b8ca886dffe62ccdbf",
     "second-continuation-fix.log": "7e3ac16d43c5699b0913685761911141124de862de8ddda378c8ba234e095350",
