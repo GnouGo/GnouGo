@@ -58,7 +58,7 @@ The default catalog contains exactly 18 commands:
 | Purpose | Commands |
 |---|---|
 | Workspace navigation | `print_working_directory`, `list_root`, `list_relative_path`, `tree` |
-| File inspection | `cat_file`, `head_file`, `tail_file`, `wc`, `find_files`, `grep_recursive` |
+| File inspection | `cat_file` preserves the contents and final newline of UTF-8 text. `head_file`, `tail_file`, `wc`, `find_files`, `grep_recursive` |
 | Creation and deletion | `create_directory`, `delete_directory`, `write_file`, `delete_file` |
 | Copy and move | `copy_file`, `copy_directory`, `move_file`, `move_directory` |
 

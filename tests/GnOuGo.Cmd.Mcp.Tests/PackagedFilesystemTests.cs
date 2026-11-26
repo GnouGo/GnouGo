@@ -43,6 +43,17 @@ public sealed class PackagedFilesystemTests : IDisposable
         Assert.Equal(0, result.ExitCode); Assert.NotNull(result.StartedAtUtc); Assert.False(result.TimedOut);
     }
 
+    [Theory]
+    [InlineData("seed é\n")]
+    [InlineData("東京 without a final newline")]
+    public async Task CatFilePreservesUtf8TextAndExactLineEndings(string content)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "seed.txt"), content, TestContext.Current.CancellationToken);
+        var result = await Run("cat_file", new JsonObject { ["path"] = "seed.txt" });
+        Success(result);
+        Assert.Equal(content, result.Stdout);
+    }
+
     [Fact]
     public void PackagedCatalogAndDiscoveryContainOnlyTheEighteenFilesystemCommands()
     {
