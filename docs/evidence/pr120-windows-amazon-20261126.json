@@ -70,6 +70,126 @@
     "cmd_mcp_passed": 100,
     "browser_mcp_passed": 230
   },
+  "final_windows_validation": {
+    "source": "9a098a30743a8dab214b119fb97f7554bdc09f59",
+    "configuration": "Release",
+    "platform": "win-x64",
+    "solution": "GnOuGo.Agent.sln",
+    "assemblies": 33,
+    "counts": {
+      "passed": 10012,
+      "failed": 0,
+      "skipped": 9,
+      "total": 10021
+    },
+    "affected_assemblies": {
+      "gnougo.agent.server.tests.dll": {
+        "passed": 2768,
+        "skipped": 4
+      },
+      "gnougo.browser.mcp.tests.dll": {
+        "passed": 232,
+        "skipped": 0
+      },
+      "gnougo.cmd.mcp.tests.dll": {
+        "passed": 103,
+        "skipped": 0
+      },
+      "gnougo.flow.integrations.tests.dll": {
+        "passed": 124,
+        "skipped": 0
+      },
+      "gnougo.flow.planning.tests.dll": {
+        "passed": 3326,
+        "skipped": 0
+      }
+    },
+    "local_loopback_sdk": {
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0,
+      "total": 4
+    },
+    "cmd_suite_with_published_win_x64_executable": {
+      "passed": 103,
+      "failed": 0,
+      "skipped": 0,
+      "total": 103
+    },
+    "cold_admission": {
+      "source": "9a098a30743a8dab214b119fb97f7554bdc09f59",
+      "configuration": "7c68900f09eb67820edd179de842a05ae0c60c4c0c9cc876e40478d6c06bc074",
+      "checks": {
+        "accepted": true,
+        "configuration_exists": true,
+        "material_hash_matches": true,
+        "configuration_matches": true,
+        "host_fingerprint_matches": true,
+        "authorization_binding_matches": true,
+        "failed_checks": []
+      },
+      "host": true,
+      "modelMetadata": true,
+      "provider": "OpenAi",
+      "model": "gpt-6.1-terra",
+      "differences": []
+    },
+    "local_product_workflows": {
+      "fixture_cases": 218,
+      "passed": 218,
+      "v10": {
+        "complete": {
+          "duration": "00:01:40.6120000",
+          "outcome": "Passed"
+        },
+        "repeated": {
+          "duration": "00:01:24.9800000",
+          "outcome": "Passed"
+        },
+        "incomplete": {
+          "duration": "00:00:11.9820000",
+          "outcome": "Passed"
+        },
+        "missing": {
+          "duration": "00:01:27.6680000",
+          "outcome": "Passed"
+        },
+        "empty": {
+          "duration": "00:00:16.3700000",
+          "outcome": "Passed"
+        },
+        "denied": {
+          "duration": "00:01:35.2930000",
+          "outcome": "Passed"
+        },
+        "unoffered": {
+          "duration": "00:00:12.4480000",
+          "outcome": "Passed"
+        },
+        "one": {
+          "duration": "00:00:21.6330000",
+          "outcome": "Passed"
+        }
+      }
+    },
+    "planner_native_aot_smoke_passed": true,
+    "planner_release_pack_succeeded": true,
+    "retained_run_prefix": {
+      "run": "win-amazon-first-ten-20261126-093548",
+      "rawCharacters": 1702290,
+      "indexCharacters": 33728,
+      "originalPages": 74,
+      "originalRecords": 1618,
+      "verifiedCoordinates": 140,
+      "populatedGroups": 10,
+      "emptyGroups": 2,
+      "primaryHrefs": 15,
+      "hrefsWithQuery": 15,
+      "hrefsWithPercentEscapes": 7,
+      "sourceEqualsNavigationValue": true,
+      "ReachedEnd": false
+    }
+  },
   "opening_funds": {
     "ceiling_eur": "20",
     "physical_calls": 2,
@@ -274,6 +394,19 @@
     "available_eur": "6.416646090534979423868312679"
   },
   "private_receipt_sha256": {
+    "9a09-closing-amazon-audit.json": "1c9ed2382f24e83878db24cd3aeb5f0de8ef86e72d335cdd91f024a30aaf9557",
+    "9a09-frozen-benchmark-build.log": "bcd80a797f71fa8e3cd905b51586f40c9bd434268b24e414da9eab8570e3fb11",
+    "9a09-cold-deployment.json": "871adde5d0579403795df8c188766ac2eb964556ed1dcb526f98c6b9cd30ea71",
+    "9a09-windows-workbook-outcomes.json": "b55e8c4532018ba98906d54efdb7332bff67bd0e5edc7bd76ac11428134c3933",
+    "9a09-windows-complete-counts.json": "0d4d0c1f020ae14926490bdd807b19800ac7976fa25d2e4f263e9d068b1aa24b",
+    "final-9a098a30-solution.log": "585fdf6807613af5a51576de83d1db000805ca2baa6838c3ed8d0196e6623286",
+    "9a09-cmd-aot-counts.json": "3d39da6a36073b8a07fb145d8934f7bf92b72f3b2a875374942c1b77b9287963",
+    "9a09-cmd-aot-suite.log": "52ca3aae414e89d9c3b6ffb560619e0bcf26d82252c2a72d6702177544e46a83",
+    "9a09-cmd-aot-publish.log": "74774087cd19a3a04df9cec15d349806bde49e22a192d18e0e149859f86f79a8",
+    "9a09-local-sdk-counts.json": "07119d22f7b913c828a6ac70029ea74b48efd286baf2958b2fb50f4610a52faa",
+    "9a09-retained-source-prefix.json": "03bd7022240fddea4b15be2bb47efd83b8a80ac2ffe9d54f176de53ba775828c",
+    "9a09-local-sdk.log": "7c709a72f51dfe04776a7b273e3e87d06a6d6060ea148f5f87c698528d1cb95c",
+    "abef-windows-complete-counts.json": "a81cb1f8be398959b6bbdbb0a2db038d91714c883f0cfe3d2afcad8ab06fbecf",
     "9a09-planning-aot-publish.log": "77a41afad0b3586088c811c67d9bef7b1fb8221a1aeebae9b80d3901d6d25525",
     "9a09-planning-aot-run.log": "5d11bf529aa67faeb53ea396e5e1e37fe3bbdf2f6057b85cb2c1306170423cfd",
     "9a09-amazon-profile.log": "4dbbd4b9912f90ecc92d4ae1a5d24c15d277aba2a5d3e385e1002016299544eb",
