@@ -29,7 +29,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
     private static readonly string[] Capabilities = ["project.read", "project.native_read", "project.write", "command.execute"];
     internal string LockDirectory { get; init; } = GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/copilot-tasks-v9/owners");
 
-    internal async Task<JsonObject> ContractAsync(CancellationToken ct, bool hostToolsOnly = false)
+    internal async Task<JsonObject> ContractAsync(CancellationToken ct, bool hostToolsOnly = false, bool inspectRuntime = true)
     {
         if (hostToolsOnly)
         {
@@ -40,11 +40,14 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                 ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract(
                     "Adaptive work using the calling workflow's approved MCP tools.", host), AgentTaskJsonContext.Default.AgentTaskRunnerContract) };
         }
-        var readiness = await ReadinessAsync(ct);
-        var commands = readiness == CopilotSandboxReadiness.Configured && policy.DescribePolicy().AllowWrites;
+        // Planning can discover the conditional code contract without starting an SDK process.
+        // The selected invocation always verifies the live mandatory sandbox before dispatch.
+        var readiness = inspectRuntime ? await ReadinessAsync(ct) : (CopilotSandboxReadiness?)null;
+        var sandboxCapabilities = readiness is null or CopilotSandboxReadiness.Configured;
+        var commands = sandboxCapabilities && policy.DescribePolicy().AllowWrites;
         var schema = AgentTaskContracts.InputSchema;
         schema["properties"]!["capabilities"]!["items"]!["enum"] = new JsonArray(Capabilities.Where(c => c == "project.read" ||
-            c == "project.native_read" && readiness == CopilotSandboxReadiness.Configured ||
+            c == "project.native_read" && sandboxCapabilities ||
             c == "project.write" && policy.DescribePolicy().AllowWrites || c == "command.execute" && commands).Select(c => (JsonNode?)JsonValue.Create(c)).ToArray());
         schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"] = commands ? new JsonArray("command.exit", "file.content", "file.read", CodeReviewEvidence.Kind) : new JsonArray("file.content", "file.read", CodeReviewEvidence.Kind);
         return new()
@@ -52,9 +55,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             ["schemaVersion"] = 9, ["hostToolProtocol"] = 1,
             ["contract"] = JsonSerializer.SerializeToNode(new AgentTaskRunnerContract(
                 "Adaptive project work through managed Copilot; available capabilities and evidence kinds are declared in this schema. " +
-                (commands ? "Mandatory command isolation policy is configured; session enforcement is checked again before inference. " :
+                (readiness is null ? "Native reads and commands require a mandatory managed sandbox, checked when the code task is selected. " : commands ? "Mandatory command isolation policy is configured; session enforcement is checked again before inference. " :
                     "Adaptive commands and command verification are unavailable under current host policy. " +
-                    (readiness == CopilotSandboxReadiness.Configured ? "Host policy disables writes. " : new CopilotSandboxRequiredException(readiness).Message + " ")) +
+                    (readiness == CopilotSandboxReadiness.Configured ? "Host policy disables writes. " : new CopilotSandboxRequiredException(readiness.Value).Message + " ")) +
                 "Project file tools obey the host file policy. With project.read, project.native_read enables sandboxed view and rg on exact absolute project files. Commands require a mandatory host sandbox, permit project writes and host-defined sandbox read-only locations, and deny network and credential grants. " +
                 "command.exit verification subject is the exact shell command; facts: exit_code (integer), working_directory (string), tool_success (boolean). " +
                 "review.diff uses a pinned head SHA subject, inputs.review {base,head,files} from Git, and output {base,head,findings,reviewed_files,limitations}. Supply exact per-file patches and require observed changed-file reads. " +

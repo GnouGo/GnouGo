@@ -11,6 +11,17 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
 public sealed partial class BoundedCopilotTasksTests
 {
+    [Fact]
+    public async Task DiscoveryDescribesConditionalToolsWithoutStartingTheSdk()
+    {
+        await using var fixture = new Fixture();
+        var contract = await fixture.Tasks.ContractAsync(TestContext.Current.CancellationToken, inspectRuntime: false);
+        Assert.Contains("project.native_read", contract.ToJsonString(), StringComparison.Ordinal);
+        Assert.Equal(0, fixture.Host.PolicyReads);
+        Assert.Equal(0, fixture.Host.SessionsCreated);
+        Assert.Equal(0, fixture.Host.Sends);
+    }
+
     [Theory]
     [InlineData(true, true, "completed")]
     [InlineData(false, true, "failed")]

@@ -18,7 +18,7 @@ public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfig
 
     public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => InvokeAsync(null, async service =>
     {
-        var response = await service.ContractAsync(ct);
+        var response = await service.ContractAsync(ct, inspectRuntime: false);
         return response["contract"].Deserialize(AgentTaskJsonContext.Default.AgentTaskRunnerContract)
             ?? throw new InvalidDataException("Missing code task contract.");
     }, ct);
@@ -27,12 +27,12 @@ public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfig
         InvokeAsync(context, service => service.ValidateAsync(context, ct), ct);
 
     public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) =>
-        InvokeAsync(context, service => service.RunAsync(context, ct), ct);
+        InvokeAsync(context, service => service.RunAsync(context, ct), ct, verifyProxy: true);
 
     public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) =>
         InvokeAsync(context, service => service.InspectAsync(context, ct), ct);
 
-    private async Task<T> InvokeAsync<T>(AgentTaskContext? context, Func<BoundedCopilotTasks, Task<T>> operation, CancellationToken ct)
+    private async Task<T> InvokeAsync<T>(AgentTaskContext? context, Func<BoundedCopilotTasks, Task<T>> operation, CancellationToken ct, bool verifyProxy = false)
     {
         ct.ThrowIfCancellationRequested();
         var database = configuration["KeyVault:DatabasePath"];
@@ -58,7 +58,7 @@ public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfig
             "agent.run", null, null, null) { TenantId = context?.TenantId, ExecutionId = context?.ExecutionId,
             AgentId = context?.AgentId, AgentName = context?.AgentName };
         using var owner = provider.GetRequiredService<CodeMcpTraceContextAccessor>().Push(trace);
-        if (settings["Code:Copilot:InferenceProxyEndpoint"] is { Length: > 0 })
+        if (verifyProxy && settings["Code:Copilot:InferenceProxyEndpoint"] is { Length: > 0 })
         {
             using var ready = CancellationTokenSource.CreateLinkedTokenSource(ct);
             ready.CancelAfter(TimeSpan.FromSeconds(10));
