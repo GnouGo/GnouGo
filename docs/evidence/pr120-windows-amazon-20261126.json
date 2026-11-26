@@ -185,8 +185,33 @@
       "oracle_probe_closed_browser": true,
       "workbook": null,
       "independent_readback": null
+    },
+    {
+      "run": "win-amazon-first-ten-20261126-102440",
+      "source": "2768f5470bf94c5e5e04acde5599d66b9d3d154d",
+      "session_id": "55a5a6e96551418eb56fd41cd7a2d1b7",
+      "physical_calls": 51,
+      "cost_eur": "1.6346227709190672153635116599",
+      "revision": 126,
+      "accepted_checkpoints": 3,
+      "repairs": 8,
+      "stop": "MODEL_OUTPUT_LIMIT",
+      "discovery_output_tokens_allocated": 4096,
+      "discovery_output_tokens_reported": 4096,
+      "business_product_visits": 0,
+      "execution_status": "not_started",
+      "workbook": null,
+      "independent_readback": null
     }
   ],
+  "after_fifth_run": {
+    "physical_calls": 428,
+    "known_cost_eur": "15.138369913122999542752629274",
+    "unresolved_transport_eur": "0.0796067672610882487425697302",
+    "retained_application_eur": "0",
+    "cost_upper_bound_eur": "15.217976680384087791495199005",
+    "available_eur": "4.782023319615912208504800995"
+  },
   "after_second_run": {
     "physical_calls": 245,
     "known_cost_eur": "7.9031001371742112482853223591",
@@ -221,6 +246,9 @@
     "available_eur": "6.416646090534979423868312679"
   },
   "private_receipt_sha256": {
+    "fourth-native-prefix.json": "a02d930516ccd88018f01a21d3c0cbf45a493223478229e3a0c9cf6191e84321",
+    "win-amazon-first-ten-20261126-102440-closing.json": "fef15b946bd29c39d389aa1c7f2dc8f58cf5dc91cbc30f1d2f3f40497357c052",
+    "fifth-amazon-progress.json": "897799721c02b11415d46ae358c00674a6e09884ca91b745341dc703b7b13347",
     "win-amazon-first-ten-20261126-093548-closing.json": "59dbf80504633af3937add31ab0bed054742c118cf678d83d2651ec5acd75bd1",
     "fourth-original-adaptive.json": "b166e9b51f149e8b3a83b68e4f51cb90e466ba0e3ec6b517e6d5f202d8d15854",
     "fourth-execution-facts.json": "e813790b944f2a512250c6645b47da06135d21f8332b6b2e75b48ebe998a35e9",
