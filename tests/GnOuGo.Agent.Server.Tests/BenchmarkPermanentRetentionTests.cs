@@ -807,10 +807,15 @@ public sealed partial class BenchmarkPermanentRetentionTests
             var restored = new KeyVaultRecordStore(path);
             await Assert.ThrowsAsync<InvalidOperationException>(() => new BenchmarkCampaign(restored, "retention").RequireRunNotRetainedAsync(InterruptedSession, Ct));
             Assert.Null(await restored.GetAsync(Closures, "other-tenant", "retention:" + InterruptedRequest, BenchmarkCampaign.Author, Ct));
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             foreach (var file in Directory.EnumerateFiles(root))
                 Assert.DoesNotContain(secret, System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private static async Task<BenchmarkCampaign> SeedAsync(IKeyVaultRecordStore records, bool corpus = false,
