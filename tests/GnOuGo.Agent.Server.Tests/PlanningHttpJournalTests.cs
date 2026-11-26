@@ -146,7 +146,7 @@ public sealed class PlanningHttpJournalTests
         Assert.Equal(Serialize(usage), Serialize(await host.UsageAsync()));
         Assert.Equal(exact, Serialize(request)); Assert.Equal(3, host.Handler.Bodies.Count);
         await host.CloseAsync();
-        foreach (var path in Directory.GetFiles(host.Fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var path in host.Fixture.GetPhysicalFiles())
         {
             var contents = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, Ct));
             Assert.DoesNotContain("secret intent", contents); Assert.DoesNotContain("secret result", contents);

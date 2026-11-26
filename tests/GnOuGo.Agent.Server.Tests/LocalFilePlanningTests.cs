@@ -17,8 +17,10 @@ public sealed class LocalFilePlanningTests
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-file-plan-").FullName;
-        var executable = Path.Combine(AppContext.BaseDirectory, "tools", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp");
-        if (!File.Exists(executable)) executable = Path.Combine(AppContext.BaseDirectory, "GnOuGo.Cmd.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+        var tool = "GnOuGo.Cmd.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : "");
+        var executable = Path.Combine(AppContext.BaseDirectory, "tools", "GnOuGo.Cmd.Mcp", tool);
+        if (!File.Exists(executable)) executable = Path.Combine(AppContext.BaseDirectory, tool);
+        Assert.True(File.Exists(executable), executable);
         await using var files = new LocalExecutionCases(root, executable);
         var actual = new WorkflowPlanningRuntime(new() { McpClientFactory = files.Factory }, (_, _) => Task.CompletedTask);
         var catalog = await actual.DiscoverAsync(new(), ct);

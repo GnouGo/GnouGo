@@ -181,7 +181,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             Assert.Equal("completed", Assert.Single(journal.Invocations.Values, i => i.StepType == "mcp.call" && i.ResolvedInput?["method"]?.ToString() == "browser_close").Status);
             var closed = await (await transport.GetClientAsync("browser", ct)).CallToolAsync("browser_get_content", new JsonObject(), ct);
             Assert.True(closed.IsError); Assert.Contains("No active page", closed.Content!["error_message"]!.ToString());
-            var path = Path.Combine(workspace, writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text!);
+            var path = Path.GetFullPath(writerTask.Inputs.Single(i => i.Name == "filePath").Value.Text!, workspace);
             output.WriteLine($"{profile} RUNTIME {variant}: success={result.Success}; elapsedMs={timer.ElapsedMilliseconds}; tasks={RetainedTasks(proposal.Plan.Root).Count()}; YAML={Encoding.UTF8.GetByteCount(session.Yaml!)}; " +
                 $"inference={model.Requests.Count}; mappings={model.MappingCalls}; invocations={journal.Invocations.Count}; steps={journal.StepsStarted}; cleanup={journal.FinalizationStepsStarted}; allocatedBytes={allocated}; " +
                 $"logicalJournalBytes={Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(journal, WorkflowRunJsonContext.Default.WorkflowRun))}; physicalBytes={Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length)}; error={result.Error?.Code} {result.Error?.Message}");
