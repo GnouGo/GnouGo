@@ -41,7 +41,12 @@ public sealed record BrowserObservationManifest(string Id, [property: Descriptio
 public sealed record BrowserObservationSnapshot(string Id,
     [property: Description("Ordered record chunks of one snapshot. Related records for the same DOM group, occurrence or captured ancestor can span pages. Collect related records across all pages before interpreting an occurrence, preserving source order.")]
     IReadOnlyList<BrowserObservation> Pages, int RecordCount,
-    bool CaptureTruncated, bool ManifestTruncated);
+    bool CaptureTruncated, bool ManifestTruncated)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Optional source-ordered link prefix across the original pages. Bind only this property for compact decisions. Full pages retain all exact observations.")]
+    public BrowserObservationLinkPrefix? LinkPrefix { get; init; }
+}
 public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
 public sealed record BrowserSnapshotNavigation(long Generation, string Url, string? Title, string? Method, int? StatusCode);
 public sealed record BrowserNavigationResponse(string Url, string Method, int StatusCode);
@@ -199,7 +204,7 @@ public sealed partial class PlaywrightBrowserHost
     }
 
     private async Task<BrowserContentResult> AcquireCompleteObservationAsync(string? url, string waitUntil, int? timeoutMs,
-        string? selector, int? characters, int? records, CancellationToken ct, long navigationAuthorityGeneration)
+        string? selector, int? characters, int? records, CancellationToken ct, long navigationAuthorityGeneration, string? prefixAttribute, int? prefixGroups)
     {
         var invalidations = new List<BrowserSnapshotInvalidation>();
         var attempt = 0;
@@ -380,7 +385,10 @@ public sealed partial class PlaywrightBrowserHost
                     var result = manifestResult with
                     {
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
-                        ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false),
+                        ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false)
+                        {
+                            LinkPrefix = prefixAttribute is null ? null : BrowserObservationLinkPrefix.Create(pages, prefixAttribute, prefixGroups!.Value)
+                        },
                         Acquisition = Acquisition(), NavigationEvidence = NavigationEvidenceFor(page)
                     };
                     var aggregateLimit = checked(ObservationLimit(characters) * Math.Min(_settings.MaxObservationPages, BrowserServerSettings.ObservationPageCeiling));

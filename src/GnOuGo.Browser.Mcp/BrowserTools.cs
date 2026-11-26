@@ -11,6 +11,11 @@ namespace GnOuGo.Browser.Mcp;
 [McpServerToolType]
 public sealed class BrowserTools
 {
+    public Task<BrowserContentResult> GetContentAsync(string? url, string waitUntil, int? timeoutMs, string? selector,
+        string format, int? maxCharacters, bool includeScriptContent, string? cursor, int? maxRecords, CancellationToken cancellationToken)
+        => GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cursor, maxRecords,
+            cancellationToken, null, null);
+
     private readonly PlaywrightBrowserHost _browserHost;
     private readonly ILogger<BrowserTools> _logger;
 
@@ -43,11 +48,13 @@ public sealed class BrowserTools
         [Description("Include <script> elements and inline script content in HTML responses. Defaults to false because scripts are usually noisy and very large.")] bool includeScriptContent = false,
         [Description("Opaque cursor from observation.nextCursor or observationManifest.pages. Either observation format reads its original layout. Omit URL/selector and frozen paged limits. Navigation or interaction invalidates it.")] string? cursor = null,
         [Range(1, 200), Description("Maximum observation records per page, capped by host policy; default 200.")] int? maxRecords = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        [Description("For observation_complete, optionally index the link prefix for one already host-configured ancestor attribute. Supply prefixGroups as well. The complete original pages remain available.")] string? prefixAttribute = null,
+        [Range(1, 100), Description("Stop the optional index after this many distinct populated ancestor/semantic occurrence groups, including earlier empty or missing groups and all overlapping group members. Counts structural groups, independent of business meaning.")] int? prefixGroups = null)
     {
         try
         {
-            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken, cursor, maxRecords);
+            return await _browserHost.GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken, cursor, maxRecords, prefixAttribute, prefixGroups);
         }
         catch (Exception ex)
         {

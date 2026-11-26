@@ -51,6 +51,11 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             includeScriptContent: false,
             cancellationToken: cancellationToken);
 
+    public Task<BrowserContentResult> GetContentAsync(string? url, string waitUntil, int? timeoutMs, string? selector,
+        string format, int? maxCharacters, bool includeScriptContent, CancellationToken cancellationToken, string? cursor, int? maxRecords)
+        => GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken,
+            cursor, maxRecords, null, null);
+
     public async Task<BrowserContentResult> GetContentAsync(
         string? url,
         string waitUntil,
@@ -59,7 +64,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         string format,
         int? maxCharacters,
         bool includeScriptContent,
-        CancellationToken cancellationToken, string? cursor = null, int? maxRecords = null)
+        CancellationToken cancellationToken, string? cursor = null, int? maxRecords = null, string? prefixAttribute = null, int? prefixGroups = null)
     {
         await _gate.WaitAsync(cancellationToken);
         try
@@ -67,6 +72,10 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             _observedNavigation.BeginRead(url);
             var navigationAuthorityGeneration = _observedNavigation.Generation;
             var contentFormat = NormalizeFormat(format);
+            if ((prefixAttribute is not null || prefixGroups.HasValue) &&
+                (contentFormat != "observation_complete" || cursor is not null || prefixGroups is not (>= 1 and <= 100) ||
+                 !_observationAncestorAttributes.Contains(prefixAttribute, StringComparer.Ordinal)))
+                throw new ArgumentException("A link prefix requires observation_complete, a configured ancestor attribute and 1–100 groups.");
             lock (_observationLock) _sourceAuthorityAcquisition = contentFormat == "observation_complete" && _observedNavigation.IsSource(url);
             if (cursor is not null)
             {
@@ -75,7 +84,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
             }
             if (contentFormat == "observation_complete")
-                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken, navigationAuthorityGeneration);
+                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken, navigationAuthorityGeneration, prefixAttribute, prefixGroups);
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             if (limit <= 0)

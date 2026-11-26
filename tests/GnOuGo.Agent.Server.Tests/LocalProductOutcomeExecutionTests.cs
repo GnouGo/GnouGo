@@ -22,6 +22,13 @@ using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
+// These full browser/workbook executions measure a finite wall-clock budget and
+// perform durable encrypted checkpoints. Other Server collections can otherwise
+// consume the same disk and CPU during that measured interval.
+[CollectionDefinition(DisableParallelization = true)]
+public sealed class LocalProductExecutionCollection;
+
+[Collection<LocalProductExecutionCollection>]
 public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 {
     private static EncryptedWorkflowRunStore CreateCompositionStore(string root, string prefix = "")

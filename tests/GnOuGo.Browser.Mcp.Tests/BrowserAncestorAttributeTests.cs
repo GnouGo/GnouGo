@@ -9,6 +9,40 @@ namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserAncestorAttributeTests
 {
+    [Fact]
+    public async Task CompletePrefixRetainsEarlierLinksNestedGroupsAndExactPagePositions()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        const string html = "<main><a href='/nav?q=1'>Navigation</a><div data-code=''><a href='/brand?q=2'>Brand</a></div>" +
+            "<div data-code='same'><a href='/image'>Image</a><div data-code='nested'><a href='/inner?q=3'>Inner</a></div>" +
+            "<h2><a href='/detail?q=4'>Title</a></h2></div><div data-code='same'><a href='/later'>Later</a></div></main>";
+        await using var site = await LoopbackTestServer.StartAsync(async context =>
+        {
+            context.Response.ContentType = "text/html";
+            await context.Response.Body.WriteAsync(Encoding.UTF8.GetBytes(html), ct);
+        }, ct);
+        var settings = new BrowserServerSettings { AllowedHosts = ["127.0.0.1"], ObservationAncestorAttributes = ["data-code"] };
+        await using var host = new PlaywrightBrowserHost(Options.Create(settings), NullLogger<PlaywrightBrowserHost>.Instance);
+        var result = await host.GetContentAsync(site.Origin, "domcontentloaded", null, "main", "observation_complete", null, false,
+            ct, maxRecords: 1, prefixAttribute: "data-code", prefixGroups: 1);
+        var snapshot = Assert.IsType<BrowserObservationSnapshot>(result.ObservationSnapshot);
+        var prefix = Assert.IsType<BrowserObservationLinkPrefix>(snapshot.LinkPrefix);
+        Assert.False(prefix.ReachedEnd);
+        Assert.Equal(["", "same", "nested"], prefix.Ancestors.Select(a => a.Value));
+        Assert.Equal(["/nav", "/brand", "/image", "/inner", "/detail"], prefix.Links.Select(l => new Uri(l.Route!).AbsolutePath));
+        Assert.Equal([null, "?q=2", null, "?q=3", "?q=4"], prefix.Links.Select(l => l.Href is null ? null : new Uri(l.Href).Query));
+        Assert.True(prefix.Links[^1].Heading);
+        Assert.All(prefix.Links, link =>
+        {
+            var original = snapshot.Pages[link.Page].Records[link.Offset];
+            Assert.Equal(original.AncestorAttributes!["data-code"]?.Index, link.Ancestor);
+            if (link.Href is not null) Assert.Equal(original.Href, link.Href);
+        });
+        Assert.Contains(snapshot.Pages.SelectMany(p => p.Records), r => r.Href?.EndsWith("/later", StringComparison.Ordinal) == true);
+        await Assert.ThrowsAsync<ArgumentException>(() => host.GetContentAsync(site.Origin, "load", null, null, "observation_complete",
+            null, false, ct, prefixAttribute: "data-private", prefixGroups: 1));
+    }
+
     [Theory]
     [InlineData("[\"data-code\",\"data-code\",\"data-code\",\"data-code\",\"data-code\",\"data-code\",\"data-code\",\"data-code\",\"data-code\"]")]
     [InlineData("[\"invalid name\"]")]

@@ -344,6 +344,18 @@ invalid for continuation.
 Page boundaries are frozen at capture time. The existing per-response character
 and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
 lower the hard 100-page ceiling. The manifest itself obeys the response allowance.
+For an optional ordered index on a complete capture, supply `prefixAttribute`
+(a host-configured observation ancestor attribute) and `prefixGroups` (1–100).
+`observationSnapshot.linkPrefix` includes links from the beginning of the document
+through the requested number of populated ancestor and occurrence pairs. It keeps
+earlier missing and empty attributes, closes over overlapping group members across
+pages, and reports whether it reached the final link. Every entry points to its
+original page and offset. Empty attributed groups retain every exact href.
+Populated groups retain heading hrefs or their first href when they have no
+heading. Other destinations can be read from the original record. The route
+field omits the query and serves only as descriptive evidence. The original
+pages and aggregate response allowance apply throughout.
+
 The output schema publishes `maxItems` for both manifests and complete snapshots
 (100 pages) and for each returned page (200 records). Size planning for the full
 collection must account for both dimensions. Request or host settings can reduce
