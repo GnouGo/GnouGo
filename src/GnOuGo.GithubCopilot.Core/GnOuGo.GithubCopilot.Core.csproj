@@ -53,7 +53,7 @@
           Condition="'$(CopilotCliBinaryPath)' == '' and Exists('$(_CopilotRuntimeBundleCompleteMarker)')">
     <ItemGroup>
       <ContentWithTargetPath Update="$(_CopilotCliBinaryPath);$(_CopilotRuntimeNodePath);@(_CopilotRuntimeRootAsset);@(_CopilotRuntimePrebuildAsset)"
-          CopyToOutputDirectory="IfDifferent" CopyToPublishDirectory="IfDifferent" />
+          CopyToOutputDirectory="IfDifferent" CopyToPublishDirectory="IfDifferent" ExcludeFromSingleFile="true" />
     </ItemGroup>
   </Target>
 </Project>

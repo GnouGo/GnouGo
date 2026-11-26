@@ -6,7 +6,7 @@ namespace GnOuGo.Flow.Planning;
 internal static partial class PlanningCompactConstruction
 {
     internal const string ValueSemantics = "Bind typed results at the consumer. Use field, object, array, array_length (actual element count), at_index (array and zero-based index), lookup (keyed records and IDs), flatten, json, declared arithmetic, predicates or string_operation concat and uri_component. Objectives alone compute nothing.";
-    internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Any reference repair must still pass validation. Explain the reconstruction defect in rollbackReason and retrieve exact originals as needed.";
+    internal const string RollbackSemantics = "Rollback reconstructs every invalidated task in its original scope, phase and order; it cannot discard accepted work. Preserve original objectives, effects, literal arguments, assertions, decisions and iteration limits. Repair references only. Changing condition or requires needs an explicit scoped revision. Cite the defect in rollbackReason and retrieve exact originals.";
     internal const string RecursiveTaskBudgetSemantics = "maxTasksPerDraft is one total for all new tasks in this fragment. Count control tasks and every task in tasks and always, including nested body, otherwise, branches and group bodies. Array maxItems do not grant separate allowances.";
 
     internal static string RecursiveTaskBudgetGuidance(PlanningSession state) => PlanningTokenThresholds.OptimizationAdvisory(state.Request)
@@ -340,7 +340,7 @@ internal static partial class PlanningCompactConstruction
         if (controls.Contains("foreach") || scope?.Owner?.Kind == "foreach")
             hints.Add("Each foreach body output becomes an array on the enclosing task, preserving input order and repetitions; array-valued outputs remain nested. Export an ordered array of fields per item for a matrix consumer. Prepend a required header by flattening [single-row matrix, collected matrix] one level. Within the body, item and index refer to the current iteration. Bind a positionally corresponding array element with at_index(array,index).");
         if (controls.Contains("conditional") || scope?.Owner?.Kind == "conditional")
-            hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path.");
+            hints.Add("conditional chooses body or otherwise; both alternatives must export matching names, types, nullability and requiredness. Guard nullable values on the consuming path. Put expected business failures in an alternative; requires aborts execution.");
         if (controls.Contains("parallel") || scope?.Owner?.Kind == "parallel")
             hints.Add("Parallel sibling branches are independent and their exported names must be distinct; maxConcurrency limits simultaneous branches.");
         if (step.Kind == "group" || scope is { Parent: null } && step.Scope != "/root")

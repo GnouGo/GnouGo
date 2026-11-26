@@ -80,9 +80,11 @@ internal static class PlanningPersistenceSmoke
             restoredRun.Invocations["/workflow/main/step/work"].Output?["value"]?.ToString() == "exact", "runtime format-9 receipt recovery");
         foreach (var file in Directory.EnumerateFiles(directory, "*.db*"))
         {
-            var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file));
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
+            var contents = await reader.ReadToEndAsync();
             Check(new[] { "Private original, binding and business review evidence", "Private current judge evidence", description, mappingScript }
-                .All(secret => !bytes.Contains(secret, StringComparison.Ordinal)), "encrypted sensitive data");
+                .All(secret => !contents.Contains(secret, StringComparison.Ordinal)), "encrypted sensitive data");
         }
         Console.WriteLine("Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged.");
     }
