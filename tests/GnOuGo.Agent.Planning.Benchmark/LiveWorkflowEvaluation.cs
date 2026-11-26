@@ -30,7 +30,8 @@ internal static class LiveWorkflowEvaluation
         "\nContraintes de cette évaluation autorisée: utilise Amazon.fr, " + (productLimit == QualificationProductCount ? "exactement" : "au maximum") + " les " + productLimit +
         " premiers produits; une seule entrée publique nommée query, de type texte (string), obligatoire et sans valeur par défaut. Sauvegarde le classeur à " + relative +
         "/products.xlsx. Fournis une ligne d’en-tête Nom, Description, Prix, puis toutes les lignes produit dans leur ordre. Ferme le navigateur même en cas d’échec. Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti." +
-        (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy));
+        (browserObservationPolicy is null ? "" : "\n" + AmazonObservedRedirectPolicy.Facts(browserObservationPolicy)) +
+        (browserObservationPolicy == AmazonFirstProductsPolicy.Id ? "\n" + AmazonFirstProductsPolicy.RunPathFacts(relative) : "");
     }
 
     internal const int QualificationProductCount = 10;

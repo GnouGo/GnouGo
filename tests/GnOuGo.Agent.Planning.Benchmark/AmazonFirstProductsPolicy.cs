@@ -31,7 +31,7 @@ internal static class AmazonFirstProductsPolicy
         "Its ancestors table and links in original order expose group identity, heading membership, descriptive routes and literal hrefs for empty groups and primary links. Only a literal href can authorize a GET. Page/offset reconnects any link to its exact original record. " +
         "A present prefix href already satisfies the Browser absolute HTTP(S) navigation syntax. Carry that same string pattern in the selected-product href output schema and copy the observed value verbatim into the detail GET. Preserve encoded query parameters; transforming or decoding a signed link can change its destination. " +
         "One bounded adaptive selection can scan that prefix sequentially, resolving only necessary empty groups with their observed hrefs and stopping as soon as ten products are established. Return ordered source positions for separate business visits. A populated attribute still requires product evidence. " +
-        "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. Set the runner workspace to the exact parent directory of the requested workbook, including its run name. " +
+        "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. " +
         "Each observation_complete detail visit already provides compact detail-field candidates in observationSnapshot.textMatches.records, in page order with exact text, selector and source reference. Bind this compact view to the field extraction together with visit status, page identity and any observed error. Guard absent or truncated views and preserve source uncertainty. Passing every record's text, the whole Browser result, rendered HTML or full snapshot to inference can exceed its context. " +
         "Keep the original ordered cards, data-asin and semantic occurrence; count sponsored products and repeated occurrences. Stop selection after the first ten products. " +
         "A known card can identify its non-heading review and offer anchors from card membership; retain these records without visiting them. Choose the observed product heading, or a same-card product link when the card has no heading. " +
@@ -39,6 +39,18 @@ internal static class AmazonFirstProductsPolicy
         "Do not invent URLs, skip ambiguous earlier products, or count a source proof as a business visit. Visit each selected product separately in original order and extract Nom, Description and Prix from that detail page. " +
         "Distinguish an observed product with an unavailable field from an HTTP 200 challenge or error page. Carry any failed visit and its observed reason through the workbook decision and returned result. " +
         "Write the actual XLSX, return it and close Browser on completion or failure. " + AmazonObservedRedirectPolicy.AcquisitionGuarantees;
+
+    internal static string RunPathFacts(string directory)
+    {
+        var arguments = new JsonObject
+        {
+            ["agent.run"] = new JsonObject { ["workspace"] = directory },
+            ["document_write"] = new JsonObject { ["filePath"] = directory + "/products.xlsx" }
+        };
+        return "Host path arguments by operation: " + arguments.ToJsonString() +
+            ". The adaptive selection supplies workspace inside its own agent.run call. This completes the runner's directory setup for that call. " +
+            "Workbook delivery uses a direct document_write call with filePath and rows. Document MCP resolves the entire supplied filePath from its own workspace root and creates the parent directories during that write.";
+    }
 }
 
 internal static partial class LiveWorkflowOracles

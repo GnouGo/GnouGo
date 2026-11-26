@@ -12,6 +12,17 @@ public sealed class AmazonFirstProductsTests
     private static JsonArray Records(JsonObject source) => source["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
 
     [Fact]
+    public void FreshPromptAssociatesEachPathWithTheOperationThatConsumesIt()
+    {
+        const string directory = "workflows/campaign/run-123";
+        var prompt = LiveWorkflowEvaluation.AmazonEvaluationPrompt(directory, 10, AmazonFirstProductsPolicy.Id);
+        Assert.Contains("\"agent.run\":{\"workspace\":\"" + directory + "\"}", prompt, StringComparison.Ordinal);
+        Assert.Contains("\"document_write\":{\"filePath\":\"" + directory + "/products.xlsx\"}", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Set the runner workspace", prompt, StringComparison.Ordinal);
+        Assert.DoesNotContain("Host path arguments by operation", LiveWorkflowEvaluation.AmazonEvaluationPrompt(directory, 3), StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void DetailTextProfileAddsMissingPrefixesAndKeepsExistingConfiguration()
     {
         const string key = "Browser__ObservationTextSelectorPrefixes__";
