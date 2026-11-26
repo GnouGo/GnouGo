@@ -212,6 +212,7 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/binding", "The fragment must produce this output or complete its enclosing producer; existing outputs remain selectable through resumeStep.");
         var probe = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
         probe.Plan = candidate.Plan; probe.Construction!.OpenScopes = candidate.OpenScopes;
+        PlanningConstruction.AdmitResolvedOperations(probe, candidate.Plan);
         var consumer = CloneStep(item!.Consumer); consumer.Inputs = [association.Binding];
         var interfaces = ImportedInterfaces(probe, consumer);
         if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType, state.Request)))

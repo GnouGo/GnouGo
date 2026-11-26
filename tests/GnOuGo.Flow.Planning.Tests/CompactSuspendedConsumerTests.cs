@@ -451,6 +451,45 @@ public sealed class CompactSuspendedConsumerTests
         };
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ContinuationAssociationChecksFreshlyResolvedOperationsOnItsProbe(bool ambiguous)
+    {
+        var (state, _) = await TentativeProducer();
+        const string id = "observed_number";
+        PlanningCapability Contract(string version) => new()
+        {
+            Id = id, Version = version, Kind = "tool", StepType = "mcp.call", Server = "source", Method = "read",
+            EffectKind = "read", InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject() },
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"number":{"type":"number"}},"required":["number"]}""")!.AsObject()
+        };
+        state.Discovery.Resolved.Add(Contract("v1"));
+        if (ambiguous) state.Discovery.Resolved.Add(Contract("v2"));
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        var compact = state.Construction!.Compact!;
+        compact.CurrentStep!.Kind = "operation";
+        compact.CurrentStep.OperationIds = [id];
+        var candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", CompleteBlock = false, RequirementIds = ["req"],
+            Tasks = [new() { Id = "read_number", Kind = "operation", Objective = "Read the observed number.", Operation = id }],
+            ContinuationBinding = new() { ContinuationId = compact.SuspendedSteps![0].Id, Binding = Output("read_number") }
+        });
+        var catalogue = JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog);
+        if (ambiguous)
+        {
+            var error = Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateContinuationBinding(state, candidate));
+            Assert.Contains(error.Diagnostics, d => d.Code == "TASK_OPERATION_UNKNOWN" && d.Location == "/tasks/read_number/operation");
+        }
+        else
+        {
+            PlanningCompactConstruction.ValidateContinuationBinding(state, candidate);
+            Assert.Equal("read_number", compact.CurrentStep.ContinuationBinding!.Binding.Source);
+        }
+        Assert.Equal(catalogue, JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog));
+    }
+
     private static async Task<PlanningSession> AssociatedProducer()
     {
         var (state, runtime) = await TentativeProducer();
