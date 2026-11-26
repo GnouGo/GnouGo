@@ -1,5 +1,6 @@
 using System.Text;
 using GnOuGo.GithubCopilot.Core;
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -218,6 +219,6 @@ internal sealed class LocalProjectSessionFsProvider : ICopilotSessionFileSystem
         if (Encoding.UTF8.GetByteCount(content) > _settings.MaxFileSizeBytes) throw new InvalidOperationException("File content exceeds the configured size limit.");
     }
     private void EnsureWritesAllowed() { if (!_settings.AllowWrites) throw new InvalidOperationException("Copilot file edits are disabled by policy. Set Code:AllowWrites=true to enable writes."); }
-    private void Track(string path) => _modifiedFiles.Add(Path.GetRelativePath(_projectRoot, path));
+    private void Track(string path) => _modifiedFiles.Add(GnOuGoWorkspace.NormalizePortablePath(Path.GetRelativePath(_projectRoot, path)));
     public ValueTask DisposeAsync() { lock (_gate) _disposed = true; return ValueTask.CompletedTask; }
 }

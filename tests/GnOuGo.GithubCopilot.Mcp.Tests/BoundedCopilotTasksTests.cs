@@ -92,6 +92,7 @@ public sealed partial class BoundedCopilotTasksTests
         fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", "{}", "fixture", [])
         { ToolExecutions = [Command("before", 1, 1), new("edit", null, "project_write", "{}", true, true, false, [], null) { StartedSequence = 3, CompletedSequence = 4 }, Command("after", 5, 0)] });
         var result = await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.True(result.Status == "completed", result.Failure?.Message ?? result.Status);
         var evidence = Assert.Single(result.Evidence);
         Assert.Equal(2, evidence.Facts["attempts"]!.AsArray().Count);
         Assert.Equal(1L, evidence.Facts["attempts"]![0]!["exit_code"]!.GetValue<long>());

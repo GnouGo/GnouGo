@@ -1,4 +1,6 @@
 using GnOuGo.Flow.Integrations;
+using System.Collections.Concurrent;
+using SdkExecutionScope = GnOuGo.GithubCopilot.Mcp.Tests.CopilotAttachmentTests.Fixture.SdkExecutionScope;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO.Pipelines;
@@ -118,6 +120,7 @@ public sealed class CopilotListContractTests
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string root = Directory.CreateTempSubdirectory("copilot-list-contract-").FullName;
+        private readonly ConcurrentDictionary<string, SdkExecutionScope> owners = new(StringComparer.Ordinal);
         internal CopilotTestHost Host = null!;
         internal readonly Dictionary<string, JsonNode> Schemas = [];
         private KeyVaultCopilotTaskStore tasks = null!;
@@ -147,6 +150,8 @@ public sealed class CopilotListContractTests
             serverOptions.Filters.Request.CallToolFilters.Add(next => async (request, ct) =>
             {
                 using var scope = f.Host.Trace.Push(CodeMcpTraceContext.FromMcpMeta(request.Params.Meta));
+                if (f.tasks.CurrentTaskId is { } id)
+                    f.owners.TryAdd(id, request.Services!.GetRequiredService<SdkExecutionScope>());
                 return await next(request, ct);
             });
             foreach (var target in new object[] { copilot, code })
@@ -154,6 +159,7 @@ public sealed class CopilotListContractTests
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
             var incoming = new Pipe(); var outgoing = new Pipe();
             var registrations = new ServiceCollection(); registrations.AddLogging();
+            registrations.AddScoped(_ => new SdkExecutionScope());
             registrations.AddMcpServer().WithCopilotTasks(f.tasks, f.Host.Trace);
             f.services = registrations.BuildServiceProvider();
             foreach (var configure in f.services.GetServices<IConfigureOptions<McpServerOptions>>()) configure.Configure(serverOptions);
@@ -170,8 +176,11 @@ public sealed class CopilotListContractTests
 
         public async ValueTask DisposeAsync()
         {
+            await Task.WhenAll(owners.Values.Select(owner => owner.Completion.Task)).WaitAsync(Ct);
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
         }
     }
 }

@@ -237,7 +237,11 @@ public sealed class CopilotCompletionReceiptTests
             await owner.SetCompletedAsync(id, result, Ct);
             Assert.Equal(result.GetRawText(), (await reader.GetTaskAsync(id, Ct))!.Result!.Value.GetRawText());
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed class FailingStore(IKeyVaultRecordStore inner) : IKeyVaultRecordStore

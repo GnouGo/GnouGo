@@ -177,7 +177,7 @@ public sealed class CopilotAttachmentTests
 
         // The Tasks SDK disposes its execution scope after terminal task-store
         // bookkeeping. A partial logical checkpoint is an earlier boundary.
-        private sealed class SdkExecutionScope : IAsyncDisposable
+        internal sealed class SdkExecutionScope : IAsyncDisposable
         {
             internal TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
             public ValueTask DisposeAsync() { Completion.TrySetResult(); return ValueTask.CompletedTask; }
@@ -238,7 +238,9 @@ public sealed class CopilotAttachmentTests
             TeardownWaitingForOwners.TrySetResult();
             await Task.WhenAll(owners.Values.Select(owner => owner.Completion.Task)).WaitAsync(Ct);
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(Root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(Root, true);
         }
     }
 }
