@@ -1,0 +1,37 @@
+{
+  "run": "win-amazon-first-ten-20261126-185810",
+  "session": "4d1c6774c23b4b9eb415b50ea5c8e0a8",
+  "tested_source": "200e5248f44dfcea0938b22793971a28b9ba5b8b",
+  "terminal_revision": 67,
+  "final_artifact_approved": false,
+  "workflow_executed": false,
+  "repairs_counted": 2,
+  "physical_calls": 25,
+  "measured_tariff_eur": "1.4412004555808656036446469247",
+  "requests": {
+    "16": "The local review required the search eligibility predicate to check the observed HTTP outcome.",
+    "22": "The repair replaced the original capture and prefix checks with status and error checks.",
+    "23": "The local review requested both sets of conditions and cited the unchanged fallback branch.",
+    "24": "Only evidence retrieval was issued.",
+    "25": "The finding was upheld. No final plan was available for approval."
+  },
+  "offline_replay": {
+    "original_read_only_targets": null,
+    "patched_read_only_targets": ["/tasks/eligible_search/otherwise"],
+    "unchanged_editable_paths": [
+      "/tasks/eligible_search/condition",
+      "/tasks/adaptive_selection/inputs",
+      "/tasks/adaptive_selection/requires"
+    ],
+    "replay_source": "82f4db375e8518ab34dc0994dc257d52ef4865b3",
+    "provider_calls": 0
+  },
+  "closing_campaign": {
+    "ceiling_eur": "15",
+    "physical_calls": 129,
+    "measured_tariff_eur": "5.1943621867881548974943052396",
+    "reservation_eur": "0",
+    "unknown_attempts": 0,
+    "available_eur": "9.805637813211845102505694760"
+  }
+}
