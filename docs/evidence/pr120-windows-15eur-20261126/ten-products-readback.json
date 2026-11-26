@@ -1,0 +1,256 @@
+{
+  "run": "win-ten-extraction-20261126-180519",
+  "source": "c6ae59113c31a54a1673eee6af0a3210d868d92d",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-terra",
+  "campaign": "pr120-win-amazon-review-20261126-15",
+  "capture": "amazon-ten-20261126-175800",
+  "profile": "amazon-observed-first-products-v12",
+  "order_verifier": "amazon-business-v16",
+  "source_resolutions": 4,
+  "business_visits": 10,
+  "source_rows": [
+    {
+      "position": 1,
+      "identity": "B0H3KRKGNN",
+      "source_records": [
+        "fbc713bd108e4120b77cd5270c050695:record:86",
+        "fbc713bd108e4120b77cd5270c050695:record:127",
+        "fbc713bd108e4120b77cd5270c050695:record:90"
+      ],
+      "price": "39,99 €"
+    },
+    {
+      "position": 2,
+      "identity": "B0H3KVGKL2",
+      "source_records": [
+        "55a6823e405f403b9ff1b0e6ceb98c80:record:85",
+        "55a6823e405f403b9ff1b0e6ceb98c80:record:126",
+        "55a6823e405f403b9ff1b0e6ceb98c80:record:89"
+      ],
+      "price": "39,99 €"
+    },
+    {
+      "position": 3,
+      "identity": "B01N6U3XDA",
+      "source_records": [
+        "ba6b09863b79472ea04f617d02fcd7f7:record:88",
+        "ba6b09863b79472ea04f617d02fcd7f7:record:311",
+        "ba6b09863b79472ea04f617d02fcd7f7:record:141"
+      ],
+      "price": "70,00€"
+    },
+    {
+      "position": 4,
+      "identity": "B083FLPMVB",
+      "source_records": [
+        "54dbf04c212746dbb31b95c2167ec286:record:87",
+        "54dbf04c212746dbb31b95c2167ec286:record:314",
+        "54dbf04c212746dbb31b95c2167ec286:record:140"
+      ],
+      "price": "55,00€"
+    },
+    {
+      "position": 5,
+      "identity": "B0G94FD72L",
+      "source_records": [
+        "d046004401fa44ffb422f63270fb7e23:record:88",
+        "d046004401fa44ffb422f63270fb7e23:record:266",
+        "d046004401fa44ffb422f63270fb7e23:record:166"
+      ],
+      "price": "59,50€"
+    },
+    {
+      "position": 6,
+      "identity": "B09C61Z1NT",
+      "source_records": [
+        "ce57cdafb37046b4a01f9e0c6345afc8:record:87",
+        "ce57cdafb37046b4a01f9e0c6345afc8:record:319",
+        "ce57cdafb37046b4a01f9e0c6345afc8:record:142"
+      ],
+      "price": "76,90€"
+    },
+    {
+      "position": 7,
+      "identity": "B07DJBSSHD",
+      "source_records": [
+        "1e5249a55fae41c286f871793770566c:record:88",
+        "1e5249a55fae41c286f871793770566c:record:314",
+        "1e5249a55fae41c286f871793770566c:record:148"
+      ],
+      "price": "74,95€"
+    },
+    {
+      "position": 8,
+      "identity": "B081KR6N22",
+      "source_records": [
+        "4f1ffd6d503a4abbab80b49276e29c73:record:87",
+        "4f1ffd6d503a4abbab80b49276e29c73:record:320",
+        "4f1ffd6d503a4abbab80b49276e29c73:record:93"
+      ],
+      "price": "61,04 €"
+    },
+    {
+      "position": 9,
+      "identity": "B07JH35QRH",
+      "source_records": [
+        "aeb2904193cc440994c3f86ceba956ed:record:92",
+        "aeb2904193cc440994c3f86ceba956ed:record:352",
+        "aeb2904193cc440994c3f86ceba956ed:record:100"
+      ],
+      "price": "37,03 €"
+    },
+    {
+      "position": 10,
+      "identity": "B005DXB4HC",
+      "source_records": [
+        "6dbf3aba9b1b4716ac14ba7bc35d4a6c:record:87",
+        "6dbf3aba9b1b4716ac14ba7bc35d4a6c:record:324",
+        "6dbf3aba9b1b4716ac14ba7bc35d4a6c:record:147"
+      ],
+      "price": "59,00€"
+    }
+  ],
+  "document_readback": {
+    "version": "observed-products-v2",
+    "passed": true,
+    "visit_count": 10,
+    "visits": [
+      {
+        "event_index": 5,
+        "redirected": true
+      },
+      {
+        "event_index": 6,
+        "redirected": true
+      },
+      {
+        "event_index": 7,
+        "redirected": true
+      },
+      {
+        "event_index": 8,
+        "redirected": true
+      },
+      {
+        "event_index": 9,
+        "redirected": true
+      },
+      {
+        "event_index": 10,
+        "redirected": true
+      },
+      {
+        "event_index": 11,
+        "redirected": true
+      },
+      {
+        "event_index": 12,
+        "redirected": true
+      },
+      {
+        "event_index": 13,
+        "redirected": true
+      },
+      {
+        "event_index": 14,
+        "redirected": true
+      }
+    ],
+    "rows": [
+      {
+        "row": 1,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 2,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 3,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 4,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 5,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 6,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 7,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 8,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 9,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      },
+      {
+        "row": 10,
+        "name_exact": true,
+        "description_block_exact": true,
+        "price_exact": true,
+        "description_in_combined_observation": true
+      }
+    ],
+    "findings": []
+  },
+  "independent_zip_xml_readback": {
+    "sheets": 1,
+    "columns": [
+      "Nom",
+      "Description",
+      "Prix"
+    ],
+    "data_rows": 10,
+    "matched_source_records": 30
+  },
+  "workbook_sha256": "15880ff8edf55eecb6c7454aef4b0bda866a763bb6edbb966bd7caba788db552",
+  "source_capture_sha256": "9d727beae5a0acf70a28ce6277ebca5ec9571e03115c1b7dbd7e1029687754a5",
+  "browser_closed": true,
+  "followup_read_rejected": true,
+  "generated_server_plan": false,
+  "capture_source_sha": "69bd9a69fddb0b9da13a1da16732d31a08510cfb",
+  "capture_binary_sha256": {
+    "benchmark_assembly_sha256": "dc112d7ea72252e3e178f1a9835c756778b027bbe1ccea6bdbb4021ffae1d03c",
+    "browser_assembly_sha256": "16a340df3687f7bb85305430270a2794c9f563218cb72d2ccfaeb1a92ecc93d9"
+  },
+  "physical_calls": 10,
+  "metered_tariff_eur": "0.1395535307517084282460136675"
+}

@@ -1,0 +1,41 @@
+{
+  "run": "win-amazon-first-ten-20261126-174501",
+  "source": "69bd9a69fddb0b9da13a1da16732d31a08510cfb",
+  "session": "bca3f227c775411c81567b6eefe68e5e",
+  "terminal_revision": 67,
+  "terminal_diagnostic": "REPLAN_NO_PROGRESS",
+  "physical_calls": 24,
+  "counted_repairs": 5,
+  "approved": false,
+  "business_executed": false,
+  "reproduced_draft_requests": [
+    20,
+    23
+  ],
+  "previous_grammar": {
+    "inputs": false,
+    "budget.max_actions": false,
+    "both_evidence_ids_offered": true
+  },
+  "local_replay_source": "c6ae59113c31a54a1673eee6af0a3210d868d92d",
+  "no_network_replay": [
+    {
+      "step": "step_5",
+      "kind": "conditional",
+      "inputs_exposed": true,
+      "max_actions_exposed": true,
+      "remaining_omitted": 0
+    },
+    {
+      "step": "step_6",
+      "kind": "sequence",
+      "inputs_exposed": true,
+      "max_actions_exposed": true,
+      "remaining_omitted": 0
+    }
+  ],
+  "targeted_contract_tests": {
+    "passed": 40,
+    "failed": 0
+  }
+}
