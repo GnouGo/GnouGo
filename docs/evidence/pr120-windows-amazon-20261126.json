@@ -79,7 +79,31 @@
     "available_eur": "19.99885230909922267946959305",
     "predecessor_available_eur": null
   },
+  "server_runs": [
+    {
+      "run": "win-amazon-first-ten-20261126-065431",
+      "session_id": "8f21494bbd464380af84458cc55f79f9",
+      "source": "36b220210857a67d080f4092d389d72692982301",
+      "revision": 422,
+      "status": "stopped",
+      "phase": "construction_local_judge",
+      "diagnostic": "BUSINESS_REVIEW_REQUIRED",
+      "calls": 187,
+      "repairs": 34,
+      "cost_eur": "6.1162780064014631915866483763",
+      "execution_started": false,
+      "workbook": null,
+      "independent_readback": null,
+      "remaining_eur_at_close": "13.882574302697759487882944674",
+      "reservations_eur_at_close": "0"
+    }
+  ],
   "private_receipt_sha256": {
+    "win-amazon-first-ten-20261126-065431-closing.json": "50d0cada1afd24439b132b8f1538b61a82911b5ce6679164d60f1bdd992e14e9",
+    "amazon-review-stop.txt": "b1c4e73ad12e9ac573173a9ffd7d70e65db34f9e3259c9fb99b06efe53c08084",
+    "final-yaml.log": "42a7ec92a756adfb5c85d8688fae7fc48bcff917f70f600125c380b45d2bfb4c",
+    "final-exact-stdio.log": "6d9efb49d0cdcf5a403ae6f812462143598239c49af916122c22e7c7f5226b03",
+    "check-browser-serial.log": "1b23b54aa67707cc2a5c616b489ed689890b81fa3a0ff3bbe25a8085d5cbca65",
     "resume-comparison.json": "1212ee912e5ea2f6ff5f7a95b92d12e500b79ca1fd0d8baac16b0b55eb86e62a",
     "resume-preview.json": "75e68b676e61215ec39ee27b77a9805c8a15c8048ff10e2eae801c1e3ee448e6",
     "resume-apply.json": "e8dadc669bb91d13e959d1b5ca9aa25f4a46812fff7e487bde39fae896270cbb",
