@@ -141,6 +141,28 @@
       "retention_applied_with_user_authorization": true,
       "request_replay_forbidden": true,
       "run_continuation_forbidden": true
+    },
+    {
+      "run": "win-amazon-first-ten-20261126-090624",
+      "source": "489f76749baac013d34640bf11b6fd99df554697",
+      "session_id": "4a46e3c172a54e209caf56ba0be9fa2c",
+      "execution_id": "abe23baa022788e2a8b08ec0181ff6ce",
+      "reviewed_revision": 126,
+      "artifact_hash": "2f33298fe25dda5cfb3a8518fe6142c0daa5ac02298da1178542093cc499b162",
+      "review_evidence_hash": "be8530eb6b368d8ce0a6ae0eeb89d994519584707da74ddc64666596da480376",
+      "reviewed_requirements": 5,
+      "reviewed_tasks": 11,
+      "physical_calls": 46,
+      "repairs": 3,
+      "cost_eur": "1.8601577503429355281207133061",
+      "execution_started": true,
+      "execution_status": "failed",
+      "observed_failure": "AGENT_WORKSPACE_UNAVAILABLE",
+      "fresh_search_complete": true,
+      "business_product_visits": 0,
+      "finalization_completed": true,
+      "workbook": null,
+      "independent_readback": null
     }
   ],
   "after_second_run": {
@@ -152,6 +174,9 @@
     "available_eur": "12.01729309556470050297210791"
   },
   "private_receipt_sha256": {
+    "win-amazon-first-ten-20261126-090624-closing.json": "bf75e589c57f93512b8988eaa13a432d41078ff0693d30161a6b79718bf46a3e",
+    "third-execution-facts.json": "38173c04d11625f9746e804600841cead6659b77f5a7d2b657c17367c5639674",
+    "win-amazon-first-ten-20261126-090624-review/review.json": "6e276f97a8551a917cc15d4b529f38a71d83eec098d58027209a1dc4ae2457c4",
     "second-cancelled-retention-apply.json": "07428e885e48da7e49cacbccd0d35062900113e02ada8b89febb3b979edb5576",
     "continuation-wire-before.jsonl": "71bb621646b8daa567a412a99199fdfd72aabed56bfdfe17cca2796b1ae2f8f5",
     "continuation-wire-after.jsonl": "4def967a22123cea2884e080a5b7291ea19fffb8daf089b8ca886dffe62ccdbf",
