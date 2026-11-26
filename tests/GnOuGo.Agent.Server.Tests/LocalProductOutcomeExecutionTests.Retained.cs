@@ -130,8 +130,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
                 ["document"] = Server("Document", new() { ["Document__DefaultWorkingDirectory"] = workspace, ["OpenTelemetry__Enabled"] = "false" })
             });
             var model = new RetainedModel(variant);
-            var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
-                new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
+            var store = CreateCompositionStore(root);
             var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, RunStore = store,
                 HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             engine.Limits.TenantId = "local"; engine.Limits.RunId = "retained-" + variant;

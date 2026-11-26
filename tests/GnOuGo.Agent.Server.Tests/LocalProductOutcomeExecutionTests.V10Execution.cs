@@ -124,7 +124,7 @@ public sealed partial class LocalProductOutcomeExecutionTests
             var events = new List<JsonObject>();
             var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, e => { events.Add(e); return Task.CompletedTask; });
             var model = new V10Model(variant, site.Urls.Single(), designer, approval);
-            var store = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "vault.db")), Path.Combine(root, "index.db"), Path.Combine(root, "owners"));
+            var store = CreateCompositionStore(root);
             var runMetrics = Environment.GetEnvironmentVariable("GNOU_GO_V13_METRICS") is { Length: > 0 } ? new RunMetrics(store) : null;
             var engine = new WorkflowEngine { McpClientFactory = observed, LLMClient = model, RunStore = (IWorkflowRunStore?)runMetrics ?? store,
                 LlmDefaults = new() { Model = "deterministic" },

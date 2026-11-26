@@ -10,17 +10,48 @@ using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Persistence;
 using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper output)
 {
+    private static EncryptedWorkflowRunStore CreateCompositionStore(string root, string prefix = "")
+    {
+        var vault = Path.Combine(root, prefix + "vault.db");
+        var index = Path.Combine(root, prefix + "index.db");
+        if (OperatingSystem.IsWindows())
+        {
+            // Each full workbook can commit over 1,400 checkpoints. Reuse a WAL
+            // instead of creating and deleting a rollback file for every transaction.
+            foreach (var path in new[] { vault, index })
+            {
+                var options = new SqliteConnectionStringBuilder { DataSource = path, Pooling = false };
+                using (var setup = new SqliteConnection(options.ToString()))
+                {
+                    setup.Open();
+                    using var mode = setup.CreateCommand();
+                    mode.CommandText = "PRAGMA journal_mode=WAL";
+                    Assert.Equal("wal", mode.ExecuteScalar());
+                }
+                using var reopened = new SqliteConnection(options.ToString());
+                reopened.Open();
+                using var durability = reopened.CreateCommand();
+                durability.CommandText = "PRAGMA synchronous";
+                Assert.InRange(Assert.IsType<long>(durability.ExecuteScalar()), 2L, 3L);
+            }
+        }
+        return new(new KeyVaultRecordStore(vault), index, Path.Combine(root, prefix + "owners"));
+    }
+
     private static JsonObject CaptureIsolatedProductContracts()
     {
         var root = Directory.CreateTempSubdirectory("gnougo-product-contracts-");
@@ -109,9 +140,7 @@ public sealed partial class LocalProductOutcomeExecutionTests(ITestOutputHelper 
                 LLMClient = compact ? compactModel : variant.StartsWith("pages", StringComparison.Ordinal) ? new PagedModel(model) : variant is "extract" or "observation" or "each" or "each-parallel" ? extractionModel : model, HumanInputProvider = new PlanningCorpus.Human(true), LlmDefaults = new() { Model = "deterministic" } };
             if (compact)
             {
-                engine.RunStore = new GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore(
-                    new GnOuGo.KeyVault.Core.Services.KeyVaultRecordStore(Path.Combine(root, "execution-vault.db")),
-                    Path.Combine(root, "execution-index.db"), Path.Combine(root, "execution-owners"));
+                engine.RunStore = CreateCompositionStore(root, "execution-");
                 engine.Limits.TenantId = "local"; engine.Limits.RunId = "product-fixture";
             }
             var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
