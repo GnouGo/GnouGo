@@ -14,4 +14,6 @@ The published Browser on `feed56b5` exposes the source publication decision in `
 
 The first five Server sessions on this grant stopped during planning. The third reached local acceptance of the selection and detail-visit blocks. The fifth reached local acceptance of the selection block, then retained a loop that could stop before reporting a returned failure. None of the five reached final approval or business execution. [Compound drafts](compound-draft-replay.json) · [Detail projection](detail-projection-replay.json) · [Document path](runner-document-paths.json) · [Repeated branch review](repeated-branch-review.json) · [Returned collection](returned-collection-review.json)
 
+The sixth Server session stopped when two different failures would have returned the same empty result. On the saved terminal state, an explicit revision reopened exactly four existing exports while preserving the accepted plan, requirements and repair counters. The replay made zero model calls. The benchmark now supports two bounded opportunities for an operator to submit such a revision. [Sixth session and offline replay](scoped-revision-review.json)
+
 The €15 grant is shared across both scenarios. The financial ledger uses measured tokens and captured tariffs. The predecessor campaign retains its own balance and records. [Authorization and request 90 closure](funding.json)
