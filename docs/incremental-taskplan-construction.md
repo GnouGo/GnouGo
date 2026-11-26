@@ -59,6 +59,13 @@ to add a check. The host keeps the original condition as the first operand,
 rejects repeated checks and validates the resulting plan. Previously issued
 version 12 repairs retain their original schema and authority.
 
+When a producer returns a status with an optional collection, choose the control
+before committing the loop. A downstream report can preserve the observed status
+by placing the loop in the eligible branch of a conditional and exporting the
+status on the other branch. An assertion on the loop itself stops the workflow
+when the collection is absent. Raised operation failures retain their normal
+cleanup behavior.
+
 The planner constructs one authoritative semantic TaskPlan in bounded fragments.
 The compiler lowers it through PlanningGraph and JavaScript to YAML v15. Construction
 metadata is a non-executable journal, never another workflow or scheduler.

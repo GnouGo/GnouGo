@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 
@@ -7,6 +9,39 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class FailureObligationGuidanceTests
 {
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ReturnedCollectionFailureReachesTheReportOnlyWhenTheLoopIsRouted(bool route)
+    {
+        static TaskValue Input(string name) => new() { Kind = "input", Source = name };
+        static TaskValue Output(string id, string port) => new() { Kind = "output", Source = id, Port = port };
+        var available = new TaskValue { Kind = "predicate", Predicate = "not_equal", Items = [Input("records"), new() { Kind = "null" }] };
+        var loop = new PlanTask { Id = "visit", Kind = "foreach", Objective = "Visit the observed records in order.",
+            Items = Input("records"), Requires = available, Body = new() { Outputs = [new("record", new() { Kind = "item" })] } };
+        var report = new List<TaskOutput> { new("observedStatus", Input("status")),
+            new("count", new() { Kind = "array_length", Items = [Output("visit", "record")] }) };
+        var plan = new TaskPlan { Inputs = [new() { Name = "records", Type = new() { Kind = "array", Nullable = true, Items = new() { Kind = "number" } } },
+            new() { Name = "status", Type = new() { Kind = "string" } }] };
+        plan.Root = route ? new() { Tasks = [new() { Id = "eligible", Kind = "conditional", Objective = "Preserve a returned failure.",
+            Condition = available, Body = new() { Tasks = [loop], Outputs = report },
+            Otherwise = new() { Outputs = [new("observedStatus", Input("status")), new("count", new() { Kind = "number", Number = 0 })] } }],
+            Outputs = [new("observedStatus", Output("eligible", "observedStatus")), new("count", Output("eligible", "count"))] }
+            : new() { Tasks = [loop], Outputs = report };
+        var catalog = await new TestRuntime().DiscoverAsync(PlannerFixture.Session().Request, PlannerFixture.Ct);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var workflow = document.Workflows[document.Entrypoint!];
+        var engine = new WorkflowEngine();
+        var missing = await engine.ExecuteAsync(workflow, new JsonObject { ["records"] = null, ["status"] = "source unavailable" }, PlannerFixture.Ct);
+        Assert.Equal(route, missing.Success);
+        if (route) Assert.Equal("source unavailable", missing.Outputs!["observedStatus"]!.ToString());
+        var present = await engine.ExecuteAsync(workflow, new JsonObject { ["records"] = new JsonArray(2, 2), ["status"] = "complete" }, PlannerFixture.Ct);
+        Assert.True(present.Success, present.Error?.Message);
+        Assert.Equal(2, present.Outputs!["count"]!.GetValue<int>());
+    }
+
     [Theory]
     [InlineData("select")]
     [InlineData("implementation")]

@@ -283,7 +283,9 @@ public sealed class CompactDeferredBindingTests
             TaskValue guard = new() { Kind = "predicate", Predicate = "not_equal", Items = [Export(), new()] };
             if (readFields)
             {
-                Assert.Contains("Combine checks on the same observation in one requires", request.StructuredOutputSchema!["description"]!.ToString(), StringComparison.Ordinal);
+                var guidance = request.StructuredOutputSchema!["description"]!.ToString();
+                Assert.Contains("When failure must stop, combine the mandatory checks in one consumer requires", guidance, StringComparison.Ordinal);
+                Assert.Contains("a foreach over a nullable collection, inside its true body", guidance, StringComparison.Ordinal);
                 static TaskValue And(TaskValue left, TaskValue right) => new() { Kind = "predicate", Predicate = "and", Items = [left, right] };
                 guard = And(guard, And(Field("ready"), And(Field("complete"), Field("retained"))));
             }
