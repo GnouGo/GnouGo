@@ -122,6 +122,13 @@
       "sampled_draft_calls": [33, 38, 42, 47, 51],
       "issued_and_returned_ids": ["cap_490d9e16075cbdca5954ec27", "cap_bdb7ba9ab04b18783883fa86"],
       "accepted_checkpoints": 0,
+      "offline_binding_replay": {
+        "source": "c1d12ac4edaba1036e6afa32e20bdc9bb0ab15cd",
+        "before": "TASK_OPERATION_UNKNOWN on both exact operations for all five sampled responses",
+        "typed_binding_validated": [38],
+        "incompatible_binding_rejected": [33, 42, 47, 51],
+        "provider_calls": 0
+      },
       "physical_calls": 56,
       "settled_physical_calls": 55,
       "known_cost_eur": "1.7856744398719707361682670326",
@@ -142,6 +149,11 @@
     "available_eur": "12.01729309556470050297210791"
   },
   "private_receipt_sha256": {
+    "continuation-wire-before.jsonl": "71bb621646b8daa567a412a99199fdfd72aabed56bfdfe17cca2796b1ae2f8f5",
+    "continuation-wire-after.jsonl": "4def967a22123cea2884e080a5b7291ea19fffb8daf089b8ca886dffe62ccdbf",
+    "second-continuation-fix.log": "7e3ac16d43c5699b0913685761911141124de862de8ddda378c8ba234e095350",
+    "second-cancelled-retention-preview.json": "68be9f6b82759198c3abdb7715307b71c2ab35af5f33989b72cd4161c909339c",
+    "win-amazon-first-ten-20261126-083404-closing.json": "0d2c161ab2ddf00258ef7ac5ce002123268f2495eca0c015c9736cf1066f781b",
     "amazon-offline-repair-422.json": "fc9eb48200ae83359aa5a086b539f6db316b1c58795b2a39ef5921d4b742e392",
     "amazon-repair-clean-build.log": "32e0ec1430f0e3470ed68ad3bdbd9aa93300385c54cba55e3549c2db1940d4a1",
     "branch-repair-regression.log": "51b7d08e1187583fddc1771d51a3f287468ead18c9b766cbcdf9a1a961372197",

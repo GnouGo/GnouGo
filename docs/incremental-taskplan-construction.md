@@ -102,6 +102,11 @@ old issued request with the new schema.
 
 ## Build from accepted work
 
+When a draft binds a newly discovered operation's result to a suspended consumer,
+the interface check uses the uniquely resolved operation contract on a private
+copy of the candidate. Ambiguous versions fail validation. The consumer must
+still receive a value of its requested type.
+
 Retain the complete original request and answers, source coverage, typed public
 interfaces and original MCP contracts. Source indexing never replaces authoritative
 text. Resolve neighboring naming/type clauses before asking for missing business facts.
@@ -588,6 +593,10 @@ warn without truncating mandatory context. Actual provider capabilities and inco
 responses remain separate enforced boundaries; no in-session allocation escalation occurs.
 
 ## Verdicts and repairs
+
+A local finding can cite a pending conditional and its unchanged branch together.
+The predicate is an editable binding on the cited conditional. The branch provides
+read-only evidence. A branch citation alone grants no editing authority.
 
 The private response has one required decision: `ok`, `needs_change` or `needs_context`.
 Strict branches exclude empty/all-null actions. Findings cite an original obligation,
