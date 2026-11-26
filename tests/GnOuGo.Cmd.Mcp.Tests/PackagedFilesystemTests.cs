@@ -43,6 +43,15 @@ public sealed class PackagedFilesystemTests : IDisposable
         Assert.Equal(0, result.ExitCode); Assert.NotNull(result.StartedAtUtc); Assert.False(result.TimedOut);
     }
 
+    [Fact]
+    public async Task MissingFileReadReportsFailure()
+    {
+        var result = await Run("cat_file", new JsonObject { ["path"] = "missing.txt" });
+        Assert.False(result.Success);
+        Assert.NotNull(result.ExitCode);
+        Assert.NotEqual(0, result.ExitCode);
+    }
+
     [Theory]
     [InlineData("seed é\n")]
     [InlineData("東京 without a final newline")]
