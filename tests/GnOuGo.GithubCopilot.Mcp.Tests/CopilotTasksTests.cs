@@ -291,6 +291,10 @@ public sealed class CopilotTasksTests
             Assert.Contains("decline", (await restarted.AnswersAsync(id, Ct)).ToJsonString());
             Assert.DoesNotContain("private-objective", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, Ct)));
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 }

@@ -87,7 +87,8 @@ public sealed partial class BoundedCopilotTasksTests
         await using var fixture = new Fixture();
         var context = fixture.Context with { Task = fixture.Context.Task with { Capabilities = ["command.execute", "project.read", "project.write"],
             Verification = [new("tests", "command.exit", "dotnet test", new() { ["type"] = "object", ["required"] = new JsonArray("exit_code"), ["properties"] = new JsonObject { ["exit_code"] = new JsonObject { ["const"] = 0 } } })] } };
-        static CopilotToolExecutionObservation Command(string id, long start, long exit) => new(id, null, "bash", "{\"command\":\"dotnet test\"}", true, true, false, [new("/project", exit, "observed")], null)
+        CopilotToolExecutionObservation Command(string id, long start, long exit) => new(id, null,
+            OperatingSystem.IsWindows() ? "powershell" : "bash", "{\"command\":\"dotnet test\"}", true, true, false, [new(fixture.Root, exit, "observed")], null)
         { StartedSequence = start, CompletedSequence = start + 1 };
         fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", "{}", "fixture", [])
         { ToolExecutions = [Command("before", 1, 1), new("edit", null, "project_write", "{}", true, true, false, [], null) { StartedSequence = 3, CompletedSequence = 4 }, Command("after", 5, 0)] });

@@ -136,8 +136,8 @@ public sealed partial class PlanningGraphCompiler
             ["outputs"] = main["outputs"]?.DeepClone() ?? new JsonObject()
         };
         var stream = new YamlStream(new YamlDocument(ToYaml(root, checkedControls)));
-        using var writer = new StringWriter(CultureInfo.InvariantCulture) { NewLine = "\n" };
-        stream.Save(writer, assignAnchors: false);
+        using var writer = new StringWriter(CultureInfo.InvariantCulture);
+        stream.Save(new Emitter(writer, EmitterSettings.Default.WithNewLine("\n")), assignAnchors: false);
         var yaml = writer.ToString();
         new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         return yaml;

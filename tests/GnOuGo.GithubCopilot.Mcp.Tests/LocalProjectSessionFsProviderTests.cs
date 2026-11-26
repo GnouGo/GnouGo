@@ -21,7 +21,7 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         await provider.WriteFileForTestAsync("src/NewFile.cs", "class NewFile { }\n", TestContext.Current.CancellationToken);
 
         Assert.Equal("class NewFile { }\n", File.ReadAllText(Path.Combine(_root, "src", "NewFile.cs")));
-        Assert.Contains("src" + Path.DirectorySeparatorChar + "NewFile.cs", provider.ModifiedFiles);
+        Assert.Contains("src/NewFile.cs", provider.ModifiedFiles);
     }
 
     [Fact]
@@ -154,8 +154,8 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
         await provider.RenameAsync("new", "moved", ct);
         Assert.True(await provider.ExistsAsync("moved/nested/File.cs", ct));
         await provider.RemoveAsync("moved", true, false, ct);
-        Assert.Contains(Path.Combine("new", "nested", "File.cs"), provider.ModifiedFiles);
-        Assert.Contains(Path.Combine("moved", "nested", "File.cs"), provider.ModifiedFiles);
+        Assert.Contains("new/nested/File.cs", provider.ModifiedFiles);
+        Assert.Contains("moved/nested/File.cs", provider.ModifiedFiles);
     }
 
     [Fact]
