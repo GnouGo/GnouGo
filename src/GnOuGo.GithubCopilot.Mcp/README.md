@@ -197,6 +197,8 @@ The older `code_suggest_change` tool remains suggestion-only and does not write 
 
 Both `code_suggest_change` and `code_agent_edit` emit progress milestones as structured JSONL stderr messages while the call is running, and include the same events in the final `progressEvents` array.
 
+File modification receipts use project-relative paths with `/` separators on every host, including Windows.
+
 `progressEvents` is the official GnOuGo contract. Application milestones and native `GitHub.Copilot.SDK` session events are both normalized to this schema before they leave this MCP server. `GnOuGo.Flow.Core`, Agent Server, and the UI must consume this contract instead of coupling directly to SDK-specific event classes or payload shapes. When the SDK exposes useful complete events, Core maps them to stable operational `kind` values; when it does not, the explicit GnOuGo milestones still provide progress.
 
 Each item contains:

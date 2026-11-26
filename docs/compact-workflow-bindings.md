@@ -10,6 +10,8 @@ An identity `map` can reuse a source already validated as an array when result i
 
 See [v15 evidence](evidence/exact-descriptions-v15-2026-10-12/) for complete generated YAML, actual before/after JavaScript, allocation/trace measurements and retained structures. Description-selection guidance is measured separately from lowering: whole descriptive features may be selected without a heading, but execution still copies one observed block verbatim through strict lookup.
 
+Newly compiled workflow YAML uses LF line endings on Windows and Unix. The compiler sets the YAML emitter's line break explicitly so an identical graph and profile produce the same artifact bytes across hosts.
+
 ## v14: readable checked lexical values
 
 The historical `compact-bindings-v14` profile preserves omitted/v1–v13 profiles, approvals and public compiler overloads. No expression metadata or runtime permission was added.
