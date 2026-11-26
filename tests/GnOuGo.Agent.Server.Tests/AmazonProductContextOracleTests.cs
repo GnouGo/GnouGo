@@ -171,7 +171,8 @@ public sealed class AmazonProductContextOracleTests
             Assert.Contains("Bind observationSnapshot.linkPrefix alone", prompt);
             Assert.Contains("observedSourceAccepted=true", prompt);
             Assert.Contains("same string pattern in the selected-product href output schema", prompt);
-            Assert.Contains("Project compact detail-field candidates before inference", prompt);
+            Assert.Contains("observationSnapshot.textMatches.records", prompt);
+            Assert.Contains("Bind this compact view to the field extraction together with visit status, page identity and any observed error", prompt);
         }
     }
 
