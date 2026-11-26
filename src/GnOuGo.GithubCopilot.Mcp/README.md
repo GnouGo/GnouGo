@@ -261,12 +261,14 @@ runs both legacy and managed MCP entry points with a real model, bounded allow-o
 elicitation, failing/passing Python tests, SDK command receipts, reconnect, and refusal.
 It supports the published Native AOT binary and performs no remote publication.
 
-## Bounded Flow tasks (schema 9)
+## Bounded code tasks for external clients (schema 9)
 
-`GnOuGo.Flow.Copilot` uses `copilot_task_contract`, `copilot_task_validate`,
-`copilot_task_run` and `copilot_task_inspect`. These adapter operations are hidden
-from general workflow capability discovery; planners select the registered
-`agent.run` contract instead. Each task uses the existing managed session lifecycle.
+External MCP clients can discover, validate, run and inspect bounded code tasks through
+`copilot_task_contract`, `copilot_task_validate`, `copilot_task_run` and
+`copilot_task_inspect`. These methods delegate to the managed SDK code task service.
+The normal GNouGo Server calls that service directly for code. Its native business
+runner dispatches approved tools through the workflow's MCP factory and records each receipt.
+The planner selects the public `agent.run` contract for either profile.
 
 A task can set a positive `budget.max_actions`. The host charges each admitted
 SDK tool invocation before dispatch, including concurrent invocations and ones

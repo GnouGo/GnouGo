@@ -14,6 +14,8 @@ internal static class LocalReviewQualification
         $"Create a reusable local review workflow with two required string inputs, pullRequestUrl and reviewText. " +
         $"The approved target is {LiveWorkflowEvaluation.ReviewUrl}, base {target.Base}, head {target.Head}. Verify the URL. " +
         $"Clone https://github.com/{target.Owner}/{target.Repository}.git at that head into {relative}/repository and compare the two revisions with Git. " +
+        "Keep the Git comparison available to its consumer. Bind its ordered changed paths, patches and the original reviewText to the review task. " +
+        "If a nested scope collects comparison pages, declare those pages as a scope output before it closes. " +
         "Use one bounded, read-only coding agent to explore changed source files, using the exact reviewText and verified diff. " +
         "Require file.read evidence from real project reads. Verify any findings on changed lines. Empty findings are permitted. " +
         "Return a structured local report with base, head, reviewed_files (observed repository-relative paths), limitations (array), " +

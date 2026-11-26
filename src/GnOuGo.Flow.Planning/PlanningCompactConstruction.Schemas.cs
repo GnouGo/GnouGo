@@ -169,12 +169,8 @@ internal static partial class PlanningCompactConstruction
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("boundaryTransitions"));
         }
         var publicOutputs = step.OutputNames.ToArray();
-        var commitments = step.OperationIds.Count == 0 || step.RequirementIds.Count == 0 ? PlanningSchemas.Type("null") :
-            PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),
-                ("operation", PlanningSchemas.Enum(step.OperationIds.ToArray())),
-                ("result", publicOutputs.Length == 0 ? PlanningSchemas.Type("null") : PlanningSchemas.Nullable(PlanningSchemas.Object(
-                    ("port", PlanningSchemas.String()), ("output", PlanningSchemas.Enum(publicOutputs)))))), 0, PlanningOptimizationThresholds.Maximum(state, 32)));
-        if (step.OperationIds.Count > 0 && step.RequirementIds.Count > 0)
+        var commitments = PlanningSchemas.Type("null");
+        if (step.OperationIds.Count > 0 && step.RequirementIds.Count > 0 && (step.Kind == "operation" || publicOutputs.Length > 0))
         {
             var alternatives = SelectedContracts(state).Select(TaskOperations.Describe).Select(operation =>
                 PlanningSchemas.Object(("requirementId", PlanningSchemas.Enum(step.RequirementIds.ToArray())),

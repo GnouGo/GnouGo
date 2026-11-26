@@ -1,0 +1,127 @@
+{
+  "source": "517f21d890f6b2d8eae08bfb15a71dcfbd46cb2a",
+  "run": "routing30-amazon-20261126-231527",
+  "session_id": "73810d322abe4fc2bbadea191bb2c99c",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-amazon-20261126-231527",
+  "planning_passed": null,
+  "passed": null,
+  "result": {
+    "status": "stopped",
+    "calls": 18,
+    "repairs": 3,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_discovery": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "known_input_tokens": 136387,
+      "known_output_tokens": 1983,
+      "cost_eur": "0.3197107061503416856492027336"
+    },
+    "replan": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 54506,
+      "known_output_tokens": 1700,
+      "cost_eur": "0.1319043280182232346241457858"
+    },
+    "construction_implementation": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 24315,
+      "known_output_tokens": 2104,
+      "cost_eur": "0.0649726651480637813211845103"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 2781,
+      "known_output_tokens": 644,
+      "cost_eur": "0.0092687927107061503416856492"
+    },
+    "construction_draft": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 78961,
+      "known_output_tokens": 1687,
+      "cost_eur": "0.1875512528473804100227790433"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 2337,
+      "known_output_tokens": 1675,
+      "cost_eur": "0.0129544419134396355353075171"
+    }
+  },
+  "logical_planning_calls": 18,
+  "campaign_delta": {
+    "calls": 18,
+    "known_input_tokens": 299287,
+    "known_output_tokens": 9793,
+    "known_cost_eur": "0.7263621867881548974943052393",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "0.7263621867881548974943052393"
+  },
+  "campaign_after": {
+    "calls": 78,
+    "session_calls": 0,
+    "known_input_tokens": 1226126,
+    "known_output_tokens": 45977,
+    "known_cost_eur": "3.0024601366742596810933940777",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "3.0024601366742596810933940777",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage \u00d7 captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "26.99753986332574031890660592",
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_COMMITMENT_INVALID",
+      "location": "/commitments"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0
+}

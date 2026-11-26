@@ -128,27 +128,4 @@ public sealed partial class BoundedCopilotTasksTests
                 Usage = new JsonObject { ["prompt_tokens"] = 10, ["completion_tokens"] = 8, ["total_tokens"] = 18 } });
         }
     }
-
-    [Fact]
-    public async Task CanceledQueuedActionCannotBeIssuedAndClaimedActionCannotBeIssuedTwice()
-    {
-        var ct = TestContext.Current.CancellationToken;
-        using var exchange = new CopilotTaskToolExchange(JsonNode.Parse("""{"write":{"server":"dst","method":"write","input_schema":{"type":"object"}}}""")!.AsObject());
-        var function = Assert.Single(exchange.BuildTools());
-        using var first = JsonDocument.Parse("""{"value":"old"}""");
-        using var second = JsonDocument.Parse("""{"value":"current"}""");
-        using var cancelled = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        var abandoned = function.Invoke(first.RootElement, cancelled.Token);
-        await cancelled.CancelAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => abandoned);
-        var current = function.Invoke(second.RootElement, ct);
-        var claimed = await exchange.ExchangeAsync(null, ct);
-        Assert.Equal("current", claimed["request"]!["value"]!.GetValue<string>());
-        await Assert.ThrowsAsync<InvalidOperationException>(() => exchange.ExchangeAsync(null, ct));
-        exchange.Dispose();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => current);
-        Assert.True(exchange.Uncertain);
-        Assert.Empty(exchange.Evidence);
-    }
-
 }

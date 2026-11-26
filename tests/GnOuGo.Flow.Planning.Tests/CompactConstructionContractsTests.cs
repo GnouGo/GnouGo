@@ -9,6 +9,19 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class CompactConstructionContractsTests
 {
+    [Fact]
+    public void IntermediateControlDerivesCommitmentsFromContributedOperations()
+    {
+        var state = State();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "conditional";
+        Assert.Empty(step.OutputNames);
+        Assert.NotEmpty(step.OperationIds);
+        Assert.NotEmpty(step.RequirementIds);
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        Assert.Equal("null", schema["properties"]!["commitments"]!["type"]!.GetValue<string>());
+    }
+
     [Theory]
     [InlineData("current")]
     [InlineData("version")]

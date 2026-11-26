@@ -1,0 +1,127 @@
+{
+  "source": "f983c046df72eea56c07371df913b05e260093fa",
+  "run": "routing30-amazon-20261126-221855",
+  "session_id": "845d7b9b176d4c6e8fa9d3647282fc60",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-amazon-20261126-221855",
+  "planning_passed": false,
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 39,
+    "repairs": 4,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_draft": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "known_input_tokens": 302223,
+      "known_output_tokens": 9348,
+      "cost_eur": "0.7310227790432801822323462414"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 8591,
+      "known_output_tokens": 1915,
+      "cost_eur": "0.0282938496583143507972665148"
+    },
+    "construction_discovery": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "known_input_tokens": 121377,
+      "known_output_tokens": 2449,
+      "cost_eur": "0.2876423690205011389521640092"
+    },
+    "construction_implementation": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "known_input_tokens": 56478,
+      "known_output_tokens": 4410,
+      "cost_eur": "0.1487425968109339407744874715"
+    },
+    "replan": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "known_input_tokens": 120109,
+      "known_output_tokens": 5072,
+      "cost_eur": "0.2967038724373576309794988611"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 28971,
+      "known_output_tokens": 2494,
+      "cost_eur": "0.0773553530751708428246013668"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 2308,
+      "known_output_tokens": 1587,
+      "cost_eur": "0.0124874715261958997722095672"
+    }
+  },
+  "logical_planning_calls": 39,
+  "campaign_delta": {
+    "calls": 39,
+    "known_input_tokens": 640057,
+    "known_output_tokens": 27275,
+    "known_cost_eur": "1.582248291571753986332574032",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "1.582248291571753986332574032"
+  },
+  "campaign_after": {
+    "calls": 39,
+    "session_calls": 0,
+    "known_input_tokens": 640057,
+    "known_output_tokens": 27275,
+    "known_cost_eur": "1.582248291571753986332574032",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "1.582248291571753986332574032",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "28.41775170842824601366742597",
+  "diagnostics": [
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/delivery"
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/write/requires"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "visit_receipts": 0,
+  "workbook": null,
+  "independent_readback": null,
+  "outcome": "At revision 107 rollback changed the retained delivery condition and write precondition. Execution never started.",
+  "correction": "The qualification contract places workbook write and readback inside the branch that tests ten eligible rows and successful visits. The general planner guidance distinguishes an expected business outcome from an aborting precondition."
+}
