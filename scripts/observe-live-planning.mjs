@@ -1,10 +1,10 @@
 // Observe planning and submit typed inputs to a saved workflow on the local Agent.Server. Bootstrap arrives on stdin, never argv/logs.
 import assert from 'node:assert/strict';
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { isAbsolute } from 'node:path';
 import { pathToFileURL } from 'node:url';
 let input = ''; for await (const chunk of process.stdin) input += chunk;
-const { launch, url, session, output, mode, agent, inputs, awaitPlanningClarification } = JSON.parse(input);
+const { launch, url, session, output, mode, agent, inputs, awaitPlanningClarification, awaitScopedRevision } = JSON.parse(input);
 const modulePath = process.env.PLAYWRIGHT_MODULE_PATH;
 const { chromium } = await import(isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath);
 await mkdir(output, { recursive: true });
@@ -90,6 +90,16 @@ try {
       await page.screenshot({ path: `${output}/live-active-phase.png`, fullPage: true }); active = true;
     }
     const awaitingAnswer = awaitPlanningClarification === true && state.status === 'clarification' && state.questions?.length > 0;
+    if (awaitScopedRevision === true && state.status === 'stopped') {
+      const terminal = await readFile(`${output}/observer-terminal-revision.txt`, 'utf8').catch(error => {
+        if (error.code !== 'ENOENT') throw error;
+        return '';
+      });
+      if (terminal.trim() !== String(state.revision)) {
+        await page.waitForTimeout(1000);
+        continue;
+      }
+    }
     if (!awaitingAnswer && ['final_review', 'clarification', 'stopped', 'failed', 'cancelled'].includes(state.status)) break;
     await page.waitForTimeout(2000);
   }

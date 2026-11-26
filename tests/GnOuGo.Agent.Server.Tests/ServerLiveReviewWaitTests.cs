@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
@@ -16,6 +17,37 @@ public sealed class ServerLiveReviewWaitTests
         string[] args = ["--schema-portability", mode, "--await-planning-clarification"];
         Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.RequiresInteraction(includeReview ? [.. args, "--await-delegated-review"] : args));
         Assert.True(ServerLiveDiagnostics.RequiresInteraction(["--schema-portability", "server-live-plan", "--await-delegated-review", "--await-planning-clarification"]));
+        Assert.Throws<ArgumentException>(() => ServerLiveDiagnostics.RequiresInteraction(["--schema-portability", mode, "--await-scoped-revision"]));
+        Assert.True(ServerLiveDiagnostics.RequiresInteraction(["--schema-portability", "server-live-plan", "--await-delegated-review", "--await-scoped-revision"]));
+    }
+
+    [Fact]
+    public async Task StoppedBusinessReviewWaitsOnlyForAnExplicitNewRevision()
+    {
+        var state = await CurrentPlanningFixture.LiteralAsync("benchmark", "stopped-revision", null, TestContext.Current.CancellationToken);
+        state.Status = PlanningStatus.Stopped;
+        state.ReplanAttempts = 1;
+        state.Request.MaxReplanAttempts = 2;
+        state.Diagnostics = [new("BUSINESS_REVIEW_REQUIRED", "/construction/candidate", "The fallback loses the observed status.")];
+        var candidate = state.Construction!.Candidate = new() { Hash = "current", Reviews = [new JsonObject
+            { ["outcome"] = "needs_change", ["candidateHash"] = "current", ["defectWitness"] = new JsonObject() }] };
+        Assert.True(ServerLiveReviewWait.CanOfferScopedRevision(state));
+        var snapshot = Serialize(state);
+        using var expired = new CancellationTokenSource();
+        expired.Cancel();
+        Assert.False(await ServerLiveReviewWait.AwaitNewRevisionAsync(state, () => throw new InvalidOperationException(), expired.Token));
+        var latest = Clone(state);
+        latest.Revision++; latest.Status = PlanningStatus.Generating;
+        Assert.True(await ServerLiveReviewWait.AwaitNewRevisionAsync(state, () => Task.FromResult<PlanningSession?>(latest), TestContext.Current.CancellationToken));
+        Assert.Equal(snapshot, Serialize(state));
+        candidate.Hash = "newer";
+        Assert.False(ServerLiveReviewWait.CanOfferScopedRevision(state));
+        candidate.Hash = "current";
+        state.ReplanAttempts = 2;
+        Assert.False(ServerLiveReviewWait.CanOfferScopedRevision(state));
+        state.ReplanAttempts = 1;
+        state.Diagnostics = [new("LLM_BUDGET_EXCEEDED", "/budget", "Budget exhausted.")];
+        Assert.False(ServerLiveReviewWait.CanOfferScopedRevision(state));
     }
 
     [Fact]

@@ -43,6 +43,8 @@ internal static class ServerLiveDiagnostics
         var interactivePlan = args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
         if (args.Contains("--await-planning-clarification", StringComparer.Ordinal) && !interactivePlan)
             throw new ArgumentException("Waiting for planning answers requires a fresh server-live-plan with --await-delegated-review.");
+        if (args.Contains("--await-scoped-revision", StringComparer.Ordinal) && !interactivePlan)
+            throw new ArgumentException("Waiting for a scoped revision requires a fresh server-live-plan with --await-delegated-review.");
         return interactivePlan || args.ElementAtOrDefault(1) == "server-live-execute";
     }
 
@@ -710,7 +712,9 @@ internal static class ServerLiveDiagnostics
                 report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
                 Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
                 var awaitPlanningClarification = args.Contains("--await-planning-clarification", StringComparer.Ordinal);
-                using var observer = StartObserver(app, root, url, id, run, awaitPlanningClarification: awaitPlanningClarification);
+                var awaitScopedRevision = args.Contains("--await-scoped-revision", StringComparer.Ordinal);
+                using var observer = StartObserver(app, root, url, id, run, awaitPlanningClarification: awaitPlanningClarification, awaitScopedRevision: awaitScopedRevision);
+                var remainingRevisionWindows = awaitScopedRevision ? 2 : 0;
                 long revision = -1;
                 var reportedWarnings = 0;
                 while (true)
@@ -744,6 +748,18 @@ internal static class ServerLiveDiagnostics
                     }
                     if (!awaitingAnswer && (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)))
                     {
+                        if (remainingRevisionWindows > 0 && ServerLiveReviewWait.CanOfferScopedRevision(state))
+                        {
+                            remainingRevisionWindows--;
+                            using var window = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                            Console.WriteLine(new JsonObject { ["awaiting_scoped_revision"] = id, ["revision"] = state.Revision,
+                                ["deadline_utc"] = DateTimeOffset.UtcNow.AddMinutes(3), ["remaining_windows"] = remainingRevisionWindows }.ToJsonString());
+                            if (await ServerLiveReviewWait.AwaitNewRevisionAsync(state,
+                                () => app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None), window.Token)) continue;
+                        }
+                        if (awaitScopedRevision && state.Status == PlanningStatus.Stopped)
+                            await File.WriteAllTextAsync(Path.Combine(root, "artifacts/live-server-20261106", run, "observer-terminal-revision.txt"),
+                                state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture));
                         var planningPassed = state.Status == PlanningStatus.FinalReview;
                         report["planning_passed"] = planningPassed;
                         report["passed"] = planningPassed && business is null;
@@ -1161,7 +1177,7 @@ internal static class ServerLiveDiagnostics
     private static JsonObject AssemblyEvidence(System.Reflection.Assembly assembly) => new() {
         ["path"] = assembly.Location, ["sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))) };
 
-    internal static Process StartObserver(WebApplication app, string root, string url, string? id, string run, string? agent = null, JsonObject? inputs = null, bool awaitPlanningClarification = false)
+    internal static Process StartObserver(WebApplication app, string root, string url, string? id, string run, string? agent = null, JsonObject? inputs = null, bool awaitPlanningClarification = false, bool awaitScopedRevision = false)
     {
         var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(AppContext.BaseDirectory, "tools/GnOuGo.Browser.Mcp/.playwright/package/index.mjs");
         if (!File.Exists(module)) throw new PlanningConflictException("The staged Playwright module is missing; build bundled browser tools before live qualification.", "frontend_not_ready");
@@ -1176,7 +1192,7 @@ internal static class ServerLiveDiagnostics
         // Drain both pipes; authority-bearing browser input is never logged, including on child failure.
         _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stdout.log" : id is null ? "readiness.stdout.log" : "observer.stdout.log"), Redact(await process.StandardOutput.ReadToEndAsync())));
         _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stderr.log" : id is null ? "readiness.stderr.log" : "observer.stderr.log"), Redact(await process.StandardError.ReadToEndAsync())));
-        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, agent, inputs, awaitPlanningClarification, mode = agent is not null ? "execute" : id is null ? "readiness" : "observe" }));
+        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, agent, inputs, awaitPlanningClarification, awaitScopedRevision, mode = agent is not null ? "execute" : id is null ? "readiness" : "observe" }));
         process.StandardInput.Close(); return process;
     }
     private sealed class CampaignClient(KeyVaultBenchmarkModel model, IPlanningSessionStore sessions,

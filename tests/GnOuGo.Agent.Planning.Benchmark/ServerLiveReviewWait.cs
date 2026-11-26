@@ -2,6 +2,30 @@ using GnOuGo.Flow.Core.Planning;
 
 internal static class ServerLiveReviewWait
 {
+    internal static bool CanOfferScopedRevision(PlanningSession state) =>
+        state.Status == PlanningStatus.Stopped && state.Plan is not null && state.PendingCall is null &&
+        state.ApprovedHash is null && state.Construction?.Candidate is { } candidate &&
+        state.ReplanAttempts < state.Request.MaxReplanAttempts &&
+        state.Diagnostics.Count > 0 && state.Diagnostics.All(d => d.Code is "BUSINESS_REVIEW_REQUIRED" or "CONSTRUCTION_BUSINESS_REVIEW") &&
+        candidate.Reviews.LastOrDefault(review => review["outcome"]?.ToString() == "needs_change") is { } review &&
+        review["defectWitness"] is System.Text.Json.Nodes.JsonObject && review["candidateHash"]?.ToString() == candidate.Hash;
+
+    internal static async Task<bool> AwaitNewRevisionAsync(PlanningSession stopped, Func<Task<PlanningSession?>> load, CancellationToken ct)
+    {
+        if (!CanOfferScopedRevision(stopped)) throw new PlanningConflictException("An unapproved stopped business review is required.");
+        while (!ct.IsCancellationRequested)
+        {
+            var latest = await load() ?? throw new PlanningConflictException("The stopped session disappeared.");
+            if (latest.Request.SessionId != stopped.Request.SessionId || latest.Request.TenantId != stopped.Request.TenantId)
+                throw new PlanningConflictException("The revision belongs to a different session.");
+            if (latest.Revision < stopped.Revision) throw new PlanningConflictException("The observed revision predates the stopped review.");
+            if (latest.Revision > stopped.Revision) return true;
+            try { await Task.Delay(1000, ct); }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+        }
+        return false;
+    }
+
     internal static async Task<bool> WaitAsync(PlanningSession reviewed,
         Func<Task<PlanningSession?>> load, Func<bool> reviewStarted, Func<bool> reviewReady,
         Func<Task> requireNotCancelled, CancellationToken ct)

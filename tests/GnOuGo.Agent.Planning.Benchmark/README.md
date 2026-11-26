@@ -699,6 +699,13 @@ With `--await-planning-clarification`, a fresh `server-live-plan --await-delegat
 keeps its Server and observer running when the planner has questions. The run
 prints the session, revision and number of pending questions. An operator
 can answer through the ordinary planning page or its revision-checked command.
+Add `--await-scoped-revision` to an interactive run to keep the host available
+after a stopped business review. It offers up to two three-minute windows
+when the current candidate has a concrete finding and repair capacity remains.
+An operator can submit the normal `revise` command for exact editable paths
+with the accepted requirements preserved. The wait consumes no model call.
+A planning answer records intent. An explicit scoped revision records the
+editable bindings and retains the session's existing accounting.
 The monitor resumes the same session after the operator answers. Execution
 still requires a separate review of the resulting artifact.
 
