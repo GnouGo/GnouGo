@@ -1091,7 +1091,7 @@ public sealed record BrowserContentResult(
     public BrowserSnapshotAcquisition? Acquisition { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserNavigationEvidence? NavigationEvidence { get; init; }
-    [System.ComponentModel.Description("For a configured source read, true when the complete successful owned GET published its eligible observed links. False when publication was withheld. Later navigation can expire the scope.")]
+    [System.ComponentModel.Description("For a configured source, true confirms publication of the complete observationSnapshot from the successful owned GET. With prefixAttribute and prefixGroups supplied, that snapshot contains linkPrefix even if its links array is empty. False means publication was withheld. Later navigation can expire the scope.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public bool? ObservedSourceAccepted { get; init; }
 }

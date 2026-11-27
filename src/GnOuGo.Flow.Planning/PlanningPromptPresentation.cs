@@ -332,7 +332,7 @@ public static class PlanningPromptPresentation
         if (sharedCheckpointSteps)
             context["checkpointStepPresentation"] = "sameStepAsItem refers to the full step at that zero-based item in this checkpoint page. Replace only its baseHash with the displayed baseHash.";
         if (sharedRepairSnapshots)
-            context["repairSnapshotPresentation"] = "beforePresentedAt points to this finding's identical current snapshot. The comparison and its original evidence pointers remain on the finding.";
+            context["repairSnapshotPresentation"] = "beforePresentedAt points to the identical current snapshot. obligationsPresentedAt points to the identical ordered obligations on an earlier finding. Original evidence pointers identify the observations.";
         if (sharedReselection)
             context["reselectionEvidencePresentation"] = "unchangedEvidence lists archived items whose full value appears under the same address in this request's evidence.";
         if (sharedReviewSnapshots)
@@ -559,9 +559,21 @@ public static class PlanningPromptPresentation
     {
         if (context["repair"] is not JsonObject || context["defectProgress"] is not JsonArray findings) return false;
         var shared = false;
+        var obligations = new Dictionary<string, int>(StringComparer.Ordinal);
         for (var i = 0; i < findings.Count; i++)
         {
-            if (findings[i] is not JsonObject finding || finding.ContainsKey("beforePresentedAt") ||
+            if (findings[i] is not JsonObject finding) continue;
+            if (finding["obligations"] is JsonArray originals && !finding.ContainsKey("obligationsPresentedAt"))
+            {
+                var exact = originals.ToJsonString();
+                if (exact.Length > 320 && !obligations.TryAdd(exact, i))
+                {
+                    finding.Remove("obligations");
+                    finding["obligationsPresentedAt"] = $"/defectProgress/{obligations[exact]}/obligations";
+                    shared = true;
+                }
+            }
+            if (finding.ContainsKey("beforePresentedAt") ||
                 finding["before"] is not JsonObject snapshot || snapshot["value"] is null ||
                 !JsonNode.DeepEquals(snapshot, finding["current"]) || snapshot.ToJsonString().Length <= 320) continue;
             finding.Remove("before");

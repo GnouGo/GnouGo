@@ -436,4 +436,5 @@ internal static class GitMcpJson
 [JsonSerializable(typeof(GitConflictsResult))]
 [JsonSerializable(typeof(GitMergeResult))]
 [JsonSerializable(typeof(GitPushResult))]
+[JsonSerializable(typeof(int?))]
 internal sealed partial class GitMcpJsonContext : JsonSerializerContext;

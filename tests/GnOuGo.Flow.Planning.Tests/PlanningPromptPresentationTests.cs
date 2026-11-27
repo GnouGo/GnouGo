@@ -57,6 +57,26 @@ public sealed class PlanningPromptPresentationTests
     }
 
     [Fact]
+    public void RepairFindingsShareOnlyIdenticalOrderedObligations()
+    {
+        var originals = new JsonArray(new string('x', 600), "deliver");
+        var findings = new JsonArray(new JsonObject { ["obligations"] = originals.DeepClone() },
+            new JsonObject { ["obligations"] = originals.DeepClone() },
+            new JsonObject { ["obligations"] = new JsonArray("deliver", new string('x', 600)) });
+        var context = new JsonObject { ["repair"] = new JsonObject(), ["defectProgress"] = findings };
+        var original = "Repair.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(original);
+        Assert.True(compact.Length < original.Length);
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+        var shown = JsonNode.Parse(compact.Split('\n').Last())!["defectProgress"]!.AsArray();
+        Assert.Equal("/defectProgress/0/obligations", shown[1]!["obligationsPresentedAt"]!.ToString());
+        Assert.Null(shown[1]!["obligations"]);
+        shown[1]!.AsObject().Remove("obligationsPresentedAt");
+        shown[1]!["obligations"] = shown[0]!["obligations"]!.DeepClone();
+        Assert.True(JsonNode.DeepEquals(findings, shown));
+    }
+
+    [Fact]
     public void GlobalReconsiderationSharesOnlyUnchangedSnapshotsAlreadyShownInTheReview()
     {
         var action = new JsonObject { ["id"] = "measure", ["instruction"] = new string('x', 500) };

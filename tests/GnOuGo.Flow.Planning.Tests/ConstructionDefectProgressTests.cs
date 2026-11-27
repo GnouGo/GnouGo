@@ -158,17 +158,29 @@ public sealed class ConstructionDefectProgressTests
 
     [Theory]
     [InlineData("guard", "composition_changed")]
+    [InlineData("exported_instruction", "composition_changed")]
+    [InlineData("unreferenced_instruction", "unchanged")]
+    [InlineData("uncited_instruction", "unchanged")]
     [InlineData("uncited", "unchanged")]
     [InlineData("other_finding", "unchanged")]
     [InlineData("cleanup", "unchanged")]
     [InlineData("objective", "unchanged")]
     [InlineData("missing_context", "unchanged")]
-    public async Task ScopeReachabilityTracksTheGuardOfItsJointlyCitedTask(string change, string expected)
+    public async Task ScopeTracksTheGuardOrExportedResultOfItsJointlyCitedTask(string change, string expected)
     {
         var (state, _) = await BusinessReviewProtocolTests.Ready();
         var candidate = state.Construction!.Candidate!;
         var task = candidate.Plan.Root.Tasks.Single();
         task.Requires = new() { Kind = "boolean", Boolean = false };
+        var changeInstruction = change.EndsWith("_instruction", StringComparison.Ordinal);
+        if (changeInstruction)
+        {
+            task.Kind = "transform";
+            task.Mode = "interpret";
+            candidate.Plan.Root.Outputs = [new("result", change == "unreferenced_instruction"
+                ? new() { Kind = "string", Text = "fixed" }
+                : new() { Kind = "output", Source = task.Id, Port = "result" })];
+        }
         if (change == "cleanup")
         {
             candidate.Plan.Root.Tasks.Remove(task);
@@ -177,7 +189,7 @@ public sealed class ConstructionDefectProgressTests
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
         var context = PlanningBusinessProjection.Build(state, false);
         var findings = new JsonArray();
-        var targets = change == "uncited" ? new[] { "/scopes/0" } : new[] { "/scopes/0", "/actions/0" };
+        var targets = change is "uncited" or "uncited_instruction" ? new[] { "/scopes/0" } : new[] { "/scopes/0", "/actions/0" };
         foreach (var target in targets)
             findings.Add(new JsonObject { ["kind"] = "business_fulfillment", ["location"] = target,
                 ["evidence"] = new JsonArray("/requirements/0", target), ["uncertainty"] = "",
@@ -187,7 +199,8 @@ public sealed class ConstructionDefectProgressTests
         Assert.NotNull(witness);
         candidate.Reviews.Add(new() { ["outcome"] = "needs_change", ["defectWitness"] = witness,
             ["context"] = change == "missing_context" ? null : context });
-        if (change == "objective") task.Objective = "Return a result.";
+        if (changeInstruction) task.Objective = "Report the precise observed cause of failure.";
+        else if (change == "objective") task.Objective = "Return a result.";
         else task.Requires = null;
         candidate.Hash = PlanningConstruction.Hash(candidate.Plan);
 

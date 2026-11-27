@@ -149,7 +149,7 @@ internal static partial class PlanningConstruction
     {
         if (prior is null || concern["selector"] is not JsonArray selector) return false;
         if (selector.Count == 2 && selector[0]?.ToString() == "scopes")
-            return ScopeMemberGuardChanged(witness, concern, selector, prior, current);
+            return ScopeBehaviorChanged(witness, concern, selector, prior, current);
         if (selector.FirstOrDefault()?.ToString() != "actions" ||
             selector.ElementAtOrDefault(1) is not JsonObject subject || subject["value"]?.ToString() is not { } task) return false;
         // A replacement for a withdrawn claim may add a new consumer. Its
@@ -190,7 +190,7 @@ internal static partial class PlanningConstruction
         };
     }
 
-    private static bool ScopeMemberGuardChanged(JsonObject witness, JsonObject concern, JsonArray selector, JsonObject prior, JsonObject current)
+    private static bool ScopeBehaviorChanged(JsonObject witness, JsonObject concern, JsonArray selector, JsonObject prior, JsonObject current)
     {
         // Scope projections list task identities. A member's assertion can stop
         // normal execution without changing that list or the scope's exports.
@@ -203,6 +203,13 @@ internal static partial class PlanningConstruction
                 !JsonNode.DeepEquals(cited["obligations"], concern["obligations"]) ||
                 !DefectRead(prior, action, out var before, out _) || !DefectRead(current, action, out var after, out _) ||
                 before is not JsonObject original || after is not JsonObject revised) continue;
+            // An unchanged binding can now return a different value. Require the exact
+            // producer cited alongside the scope and an executable change to that producer.
+            if ((!JsonNode.DeepEquals(original["arguments"], revised["arguments"]) ||
+                 !JsonNode.DeepEquals(original["instruction"], revised["instruction"])) &&
+                scope["outputs"] is JsonArray exports && exports.OfType<JsonObject>().Any(output =>
+                    output["value"] is JsonObject value && value["kind"]?.ToString() == "output" &&
+                    JsonNode.DeepEquals(value["source"], original["id"]))) return true;
             if (ConditionalSelectionChanged(original, revised) && original["id"]?.ToString() is { } owner &&
                 (scope["id"]?.ToString() == "/tasks/" + owner + "/body" || scope["id"]?.ToString() == "/tasks/" + owner + "/otherwise")) return true;
             if (members.Any(id => JsonNode.DeepEquals(id, original["id"])) &&
