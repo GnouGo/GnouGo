@@ -117,6 +117,12 @@ bindings remain distinct. Evidence-address mapping rewrites only the pointer's
 evidence-key segment, preserving literal strings and canonical recovery. Different
 arguments or locations do not share. No plan, interface or repair authority changes.
 
+A checkpoint fragment can list the same declaration both as a changed task and
+inside a changed control body. The prompt keeps the full control body and links
+each byte-identical flat row to its nested declaration using a JSON pointer
+relative to that fragment. Each occurrence keeps its original position. The
+durable checkpoint and its hash retain the full original fragment.
+
 A retrieved task directory page can point to the complete ordered array already
 displayed in scope evidence. This requires identical serialized items, including
 all arguments and their order. The page retains its own offset, total and continuation.

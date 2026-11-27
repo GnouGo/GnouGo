@@ -11,6 +11,19 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed partial class BoundedCopilotTasksTests
 {
     [Theory]
+    [InlineData(15_100, 16)]
+    [InlineData(600_000, 600)]
+    public async Task SdkWaitUsesTheApprovedTaskDuration(int milliseconds, int expectedSeconds)
+    {
+        await using var fixture = new Fixture();
+        var task = fixture.Context.Task;
+        var context = fixture.Context with { Task = task with { Budget = task.Budget with { MaxElapsedMilliseconds = milliseconds } } };
+        await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Host.Sends);
+        Assert.Equal(expectedSeconds, fixture.Host.Configuration!.Request.Configuration.RequestTimeoutSeconds);
+    }
+
+    [Theory]
     [InlineData(CopilotSandboxReadiness.Configured)]
     [InlineData(CopilotSandboxReadiness.NotConfigured)]
     [InlineData(CopilotSandboxReadiness.Invalid)]

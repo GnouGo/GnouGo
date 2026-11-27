@@ -228,7 +228,7 @@ public static class PlanningPromptPresentation
     /// <summary>Make caller-interface wire keys explicit without duplicating the recursive response schema.</summary>
     public static string PresentIntentDeclarationFields(string prompt)
     {
-        const string presentation = "\nEach input includes the keys name, type, required, default; each public output includes name, type, required. Each type includes kind and nullable. String types also include enum; arrays include items, minItems, maxItems; objects include fields. Literal defaults include kind and the matching text, number, boolean, items or members field; members include name and value. Each clarification includes id, question, alternatives, recommended; alternatives include id and description.\n";
+        const string presentation = "\nEach input includes the keys name, type, required, default; each top-level public output includes name, type, required. Members of an object type use the input shape even inside outputs, with default set to null when absent. Each type includes kind and nullable. String types also include enum; arrays include items, minItems, maxItems; objects include fields. Literal defaults include kind and the matching text, number, boolean, items or members field; members include name and value. Each clarification includes id, question, alternatives, recommended; alternatives include id and description.\n";
         var contextOffset = prompt.LastIndexOf("\n{", StringComparison.Ordinal);
         return contextOffset < 0 ? prompt + presentation : prompt.Insert(contextOffset, presentation);
     }
@@ -261,6 +261,7 @@ public static class PlanningPromptPresentation
         var sharedReviewSnapshots = ShareUnchangedReviewSnapshots(context);
         var sharedRepairSnapshots = ShareUnchangedRepairSnapshots(context);
         var sharedCheckpointSteps = ShareCheckpointSteps(context);
+        var sharedCheckpointTasks = ShareCheckpointDeclarations(context);
         var sharedPrefix = false;
         var operations = context["operations"] as JsonArray ?? [];
         var evidence = context["evidence"] as JsonObject ?? [];
@@ -328,7 +329,9 @@ public static class PlanningPromptPresentation
                 if (presented.StartsWith("/evidence/", StringComparison.Ordinal) && schema.ToJsonString().Length <= presented.Length + (shared ? 24 : 320)) continue;
                 row.Remove("schema"); row["schemaPresentedAt"] = presented; shared = true;
             }
-        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !sharedRepairSnapshots && !sharedCheckpointSteps && !composedFields && !sharedReselection) return prompt;
+        if (!shared && !sharedTasks && !sharedTaskPages && !sharedAncestors && !sharedPrefix && !sharedSiblings && !sharedResults && !sharedReviewContracts && !sharedReviewSnapshots && !sharedRepairSnapshots && !sharedCheckpointSteps && !sharedCheckpointTasks && !composedFields && !sharedReselection) return prompt;
+        if (sharedCheckpointTasks)
+            context["checkpointTaskPresentation"] = "Each declarationAt is a JSON pointer relative to the same checkpoint fragment. It holds the complete byte-identical task at that list position. Each occurrence retains its own scope and bindings.";
         if (sharedCheckpointSteps)
             context["checkpointStepPresentation"] = "sameStepAsItem refers to the full step at that zero-based item in this checkpoint page. Replace only its baseHash with the displayed baseHash.";
         if (sharedRepairSnapshots)
@@ -529,6 +532,64 @@ public static class PlanningPromptPresentation
             else originals.Add(key, $"/interfaces/{index}/schema");
         }
         return changed;
+    }
+
+    private static bool ShareCheckpointDeclarations(JsonObject context)
+    {
+        if (context["evidence"] is not JsonObject evidence) return false;
+        var changed = false;
+        foreach (var (address, page) in evidence)
+        {
+            if ((!address.StartsWith("page:checkpoint:", StringComparison.Ordinal) && !address.StartsWith("page:checkpoints:", StringComparison.Ordinal)) ||
+                page is not JsonObject || page["items"] is not JsonArray items) continue;
+            foreach (var item in items.OfType<JsonObject>())
+                if (item["fragment"] is JsonObject fragment && fragment["tasks"] is JsonArray { Count: > 1 } tasks)
+                    changed |= ShareInFragment(tasks);
+        }
+        return changed;
+
+        static bool ShareInFragment(JsonArray tasks)
+        {
+            var rows = tasks.Select((node, index) => (Task: node as JsonObject, Index: index))
+                .Where(row => row.Task?["id"] is JsonValue && row.Task["kind"] is JsonValue && !row.Task.ContainsKey("declarationAt"))
+                .Select(row => (Task: row.Task!, row.Index, Json: row.Task!.ToJsonString())).ToArray();
+            // An enclosing declaration is always larger than its descendants.
+            // Index only full retained rows, so links cannot form chains.
+            var flatIds = rows.Select(row => Text(row.Task["id"])).ToHashSet(StringComparer.Ordinal);
+            var origins = new Dictionary<string, string>(StringComparer.Ordinal);
+            var shared = false;
+            foreach (var (task, index, json) in rows.OrderByDescending(row => row.Json.Length))
+            {
+                if (origins.TryGetValue(json, out var pointer) && json.Length > pointer.Length + 320)
+                {
+                    tasks[index] = new JsonObject { ["id"] = task["id"]!.DeepClone(), ["kind"] = task["kind"]!.DeepClone(), ["declarationAt"] = pointer };
+                    shared = true;
+                }
+                else IndexChildren(task, "/tasks/" + index.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            return shared;
+
+            void IndexChildren(JsonObject task, string path)
+            {
+                if (task["body"] is JsonObject body) IndexScope(body, path + "/body");
+                if (task["otherwise"] is JsonObject otherwise) IndexScope(otherwise, path + "/otherwise");
+                if (task["branches"] is JsonArray branches)
+                    for (var i = 0; i < branches.Count; i++)
+                        if (branches[i] is JsonObject branch) IndexScope(branch, path + "/branches/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            void IndexScope(JsonObject scope, string path)
+            {
+                foreach (var phase in new[] { "tasks", "always" })
+                    if (scope[phase] is JsonArray children)
+                        for (var i = 0; i < children.Count; i++)
+                        {
+                            if (children[i] is not JsonObject child || child["kind"] is not JsonValue) continue;
+                            var location = path + "/" + phase + "/" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            if (flatIds.Contains(Text(child["id"]))) origins.TryAdd(child.ToJsonString(), location);
+                            IndexChildren(child, location);
+                        }
+            }
+        }
     }
 
     private static bool ShareCheckpointSteps(JsonObject context)

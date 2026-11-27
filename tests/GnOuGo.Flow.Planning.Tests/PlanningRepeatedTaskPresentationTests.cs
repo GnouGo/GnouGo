@@ -151,6 +151,43 @@ public sealed class PlanningRepeatedTaskPresentationTests
         Assert.Equal(0, state.ModelCalls);
     }
 
+    [Theory]
+    [InlineData("page:checkpoint:0")]
+    [InlineData("page:checkpoints:0")]
+    public void CheckpointKeepsExactNestedDeclarationsAtTheirOriginalLocations(string address)
+    {
+        var leaf = new JsonObject { ["id"] = "inspect", ["kind"] = "operation", ["objective"] = new string('x', 820) };
+        var different = leaf.DeepClone().AsObject();
+        different["objective"] = "different target";
+        var loop = new JsonObject { ["id"] = "visit", ["kind"] = "foreach", ["body"] = new JsonObject { ["always"] = new JsonArray(leaf.DeepClone()) } };
+        var guard = new JsonObject { ["id"] = "guard", ["kind"] = "if", ["otherwise"] = new JsonObject { ["tasks"] = new JsonArray(loop.DeepClone()) } };
+        var original = new JsonObject { ["tasks"] = new JsonArray(leaf.DeepClone(), guard, different, loop) };
+        var page = new JsonObject { ["items"] = new JsonArray(new JsonObject { ["sequence"] = 1, ["hash"] = "original", ["fragment"] = original.DeepClone() }) };
+        var context = new JsonObject { ["evidence"] = new JsonObject { [address] = page } };
+        var request = PlanningModelCalls.PrepareRequest(PlannerFixture.Session(), "construction_implementation", "Choose.\n" + context.ToJsonString(),
+            new JsonObject { ["type"] = "object", ["properties"] = new JsonObject() }, null, null, out var map);
+        var call = new PlanningModelCall { Id = request.ClientRequestId!, Purpose = "construction_implementation", Request = request, EvidenceAddresses = map };
+        PlanningModelCalls.ValidateEvidenceAddresses(call);
+        foreach (var prompt in new[] { request.Prompt, PlanningModelCalls.CanonicalEvidenceRequest(call).Prompt })
+        {
+            var evidence = Read(prompt)["evidence"]!.AsObject().Single().Value!;
+            var row = evidence["items"]![0]!;
+            Assert.Equal("original", row["hash"]!.ToString());
+            var fragment = row["fragment"]!;
+            var tasks = fragment["tasks"]!.AsArray();
+            foreach (var index in new[] { 0, 3 })
+            {
+                var link = tasks[index]!;
+                Assert.Equal(original["tasks"]![index]!["id"]!.ToString(), link["id"]!.ToString());
+                var full = PlanningSchemaReferences.Read(fragment, link["declarationAt"]!.ToString());
+                Assert.True(JsonNode.DeepEquals(original["tasks"]![index], full));
+            }
+            Assert.True(JsonNode.DeepEquals(guard, tasks[1]));
+            Assert.True(JsonNode.DeepEquals(different, tasks[2]));
+            Assert.Equal(prompt, PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt));
+        }
+    }
+
     private static JsonObject Read(string prompt) => JsonNode.Parse(prompt[(prompt.LastIndexOf('\n') + 1)..])!.AsObject();
 
     private static JsonObject Context(string phase = "tasks")

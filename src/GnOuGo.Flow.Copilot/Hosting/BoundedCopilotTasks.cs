@@ -202,7 +202,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         {
             ExecutionBounds = bounds, HostTools = inputReader is null ? [] : [inputReader], EnableApproveAll = false, EnableSandboxBypassGrants = false,
             AvailableTools = tools.ToArray(), EnableConfigDiscovery = false, McpServers = null, SkillDirectories = [], DisabledSkills = ["*"],
-            RequestTimeoutSeconds = Math.Clamp((int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d), 1, 240),
+            RequestTimeoutSeconds = Math.Max(1, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d)),
             ManagedSessionTtlSeconds = Math.Max(60, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d) + 60)
         };
         var providerContext = configuration.Context() with { RunId = context.RunId, StepId = context.InvocationId, ExecutionId = context.ExecutionId ?? context.RunId, AgentId = context.AgentId, AgentName = context.AgentName };

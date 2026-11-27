@@ -274,7 +274,15 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
                     if (journal.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Cancelled or WorkflowRunStatus.NeedsReconciliation or WorkflowRunStatus.Failed) break;
                     if (localReview)
                         foreach (var dialog in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is not null))
-                            await AnswerLocalReviewDialogAsync(runs, id, dialog, authority, human, ct);
+                        {
+                            if (authority.FinishedLocalReview(id, dialog.ParentInvocationId)) continue;
+                            try { await AnswerLocalReviewDialogAsync(runs, id, dialog, authority, human, ct); }
+                            catch (PlanningConflictException) when (authority.FinishedLocalReview(id, dialog.ParentInvocationId))
+                            {
+                                // The SDK ended while this snapshot or one-time answer was pending.
+                                // Leave the dialogue unanswered and read the parent's terminal journal.
+                            }
+                        }
                     foreach (var wait in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is null))
                     {
                         if (wait.ResolvedInput is not JsonObject input || input["fields"] is not null || input["context"] is not null)

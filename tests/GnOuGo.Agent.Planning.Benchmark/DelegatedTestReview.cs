@@ -42,6 +42,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     private List<string> _runtimeInvocationSuffixes = [];
     private readonly Dictionary<string, McpCorrelationContext> _activeCalls = new(StringComparer.Ordinal);
     private AgentTaskContext? _activeReview;
+    private string? _finishedLocalReviewInvocation;
     private readonly Dictionary<string, string> _browserCursors = new(StringComparer.Ordinal);
     private string? _browserUrl;
     private string? _browserSnapshot;
@@ -80,8 +81,15 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             task.Task.Workspace.Replace('\\', '/') != authorizedRelativePath + "/repository" ||
             Interlocked.CompareExchange(ref _activeReview, task, null) is not null)
             throw new PlanningConflictException("The local review permission owner differs from the approved execution.");
-        return new CallRegistration(() => Interlocked.CompareExchange(ref _activeReview, null, task));
+        return new CallRegistration(() =>
+        {
+            Volatile.Write(ref _finishedLocalReviewInvocation, task.InvocationId);
+            Interlocked.CompareExchange(ref _activeReview, null, task);
+        });
     }
+
+    internal bool FinishedLocalReview(string runId, string? invocationId) =>
+        runId == _boundExecutionId && invocationId is not null && invocationId == Volatile.Read(ref _finishedLocalReviewInvocation);
     internal string AuthorizationHash => PlanningGraphCompiler.Fingerprint(
         JsonSerializer.Serialize(authorization, DelegatedTestJsonContext.Default.DelegatedTestAuthorization));
     internal PlanningApprovalReview Receipt => document.Receipt;

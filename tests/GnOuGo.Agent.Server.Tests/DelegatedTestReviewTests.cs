@@ -64,6 +64,29 @@ public sealed class DelegatedTestReviewTests
     }
 
     [Fact]
+    public async Task RetiredReadPermissionMatchesOnlyItsCompletedSdkInvocation()
+    {
+        var (_, _, authorization, evidence, receipt) = await Fixture();
+        const string relative = "workflows/campaign/test-run";
+        var profile = new AdaptiveLiveProfile(LocalReviewQualification.Scenario);
+        var task = new AgentTaskDefinition { Runner = "coding", Objective = "Read the changed file", Workspace = relative + "/repository",
+            Capabilities = ["project.read"], OutputSchema = new() { ["type"] = "object" }, Budget = new() { MaxActions = 3 },
+            Verification = [new("changed", "file.read", "changed.cs", new() { ["type"] = "object" })] };
+        var stage = new PlanningNode { Key = "review", Type = "agent.run",
+            Input = PlanningJsonTransport.Literal(JsonSerializer.SerializeToNode(task, AgentTaskJsonContext.Default.AgentTaskDefinition)) };
+        profile.BindStage(stage, new() { Kind = "agent", Method = task.Runner, FixedInput = new() { ["runner"] = task.Runner } });
+        var owner = new DelegatedTestReviewAuthority(authorization, new(receipt, evidence), "campaign", "test-run",
+            LocalReviewQualification.Scenario, Path.GetTempPath(), "source", relative, adaptive: profile);
+        var step = "/workflow/main/step/n_" + PlanningGraphCompiler.Fingerprint(stage.Key)[..16];
+        owner.BindServerRun("execution");
+        using (owner.BeginLocalReview(new("benchmark", "execution", step, task)))
+            Assert.False(owner.FinishedLocalReview("execution", step));
+        Assert.True(owner.FinishedLocalReview("execution", step));
+        Assert.False(owner.FinishedLocalReview("other-execution", step));
+        Assert.False(owner.FinishedLocalReview("execution", "other-step"));
+    }
+
+    [Fact]
     public async Task PublishedCloneChecksTheCapturedTargetBeforeCallingGit()
     {
         var (_, _, authorization, evidence, receipt) = await Fixture();
