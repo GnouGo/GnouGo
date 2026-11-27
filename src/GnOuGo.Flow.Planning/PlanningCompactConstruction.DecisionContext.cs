@@ -13,7 +13,7 @@ internal static partial class PlanningCompactConstruction
         if (purpose is not (ImplementationPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
         if (purpose is not ImplementationPurpose && state.Construction?.Compact?.CurrentStep?.OutputNames is { Count: > 0 })
-            instructions += "\nOn workflow completion the runtime returns bound root outputs to the caller. Bind a declared return directly. A separately requested delivery to another destination requires its own effect.";
+            instructions += "\nOn workflow completion the runtime returns bound root outputs to the caller. Bind a declared return directly. A separately requested delivery to another destination requires its own effect. A public object declaring its fields is closed. For a structured producer returned directly, match that extra-field policy at every declared object, including array items.";
         if (context["operationCompositions"] is not null || (context["operations"] as JsonArray ?? []).Any(op => op?["composition"] is not null))
             instructions += "\nA complete_operation performs its listed same-provider phases. Bind it once for that result and reuse its outputs. Schedule lower-level operations only for independent work or an explicitly required session lifecycle.";
         if ((context["operations"] as JsonArray ?? []).Any(op => op?["artifacts"]?["produces"] is JsonArray { Count: > 0 }))

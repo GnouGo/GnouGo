@@ -307,7 +307,7 @@ public sealed partial class HybridWorkflowPlanner
         var candidate = PlanningConstruction.Clone(draft.Plan);
         foreach (var choice in candidate.Choices.Where(c => c.Selected is null)) choice.Selected = choice.Recommended;
         draft.Diagnostics = TaskPlanCompiler.ValidateConstruction(candidate, state.Catalog!, state.Request,
-            draft.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics.Concat(extensionFindings).Distinct().ToList();
+            draft.OpenScopes.ToHashSet(StringComparer.Ordinal), declaredOutputs: state.Requirements?.Outputs).Diagnostics.Concat(extensionFindings).Distinct().ToList();
         draft.Diagnostics.AddRange(PlanningConstruction.RebuildFindings(state, candidate, draft.Extension.Complete));
         if (draft.Extension.Complete)
         {

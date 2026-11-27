@@ -35,6 +35,27 @@ public sealed class CompactConstructionClosureTests
             PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics, d => d.Code == "CONSTRUCTION_STEP_INVALID");
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void BoundPublicOutputChecksNestedFieldsBeforeFinalReview(bool allowsExtraFields)
+    {
+        var state = State();
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        var resultSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}},"required":["message"]}""")!.AsObject();
+        resultSchema["properties"]!["message"]!["additionalProperties"] = allowsExtraFields;
+        state.Catalog.Capabilities.Add(new() { Id = "read", StepType = "mcp.call", InputSchema = new() { ["type"] = "object" }, OutputSchema = resultSchema });
+        var plan = new TaskPlan { Root = new() { Tasks = [new() { Id = "read", Kind = "operation", Operation = "read", Objective = "Read the message." }],
+            Outputs = [new("message", new() { Kind = "output", Source = "read", Port = "message" })] } };
+        List<TaskInput> declared = [new() { Name = "message", Type = new() { Kind = "object", Fields = [new() { Name = "text", Required = true, Type = new() { Kind = "string" } }] } },
+            new() { Name = "later", Required = true, Type = new() { Kind = "number" } }];
+        var findings = TaskPlanCompiler.ValidateConstruction(plan, state.Catalog, state.Request, new HashSet<string> { "/root" }, declaredOutputs: declared).Diagnostics;
+        if (allowsExtraFields)
+            Assert.Contains(findings, d => d.Code == "REQUIREMENTS_OUTPUTS_CHANGED" && d.Location == "/root/outputs/message/value");
+        else Assert.Empty(findings);
+        Assert.DoesNotContain(findings, d => d.Location.Contains("later", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void ReadyLeafRetainsOneDraftCompletion()
     {

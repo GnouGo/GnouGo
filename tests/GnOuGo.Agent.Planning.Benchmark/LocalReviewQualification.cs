@@ -78,7 +78,7 @@ internal static class LocalReviewQualification
         "verifies the reported coverage and changed-line anchors against actual SDK file reads and Git patches. Explore other relevant files as needed. " +
         "Empty findings are permitted. " +
         "The public report object has required string base and head, string arrays reviewed_files (observed repository-relative paths) and limitations, " +
-        "and a findings array of objects. Each finding requires strings path, side, severity, category, explanation and evidence, integer startLine and endLine, and numeric confidence from 0 to 1. " +
+        "and a findings array of objects. Set additionalProperties to false on both the report and each finding in the agent output schema. Each finding requires strings path, side, severity, category, explanation and evidence, integer startLine and endLine, and numeric confidence from 0 to 1. " +
         $"On agent success, write its verified output as JSON to {relative}/review.json with document_write. Return that same object as report after the write succeeds. Clean the fixed disposable destination in the always block even when cloning leaves a partial directory. Bind cleanup to that destination independently of clone success. All feedback stays local.";
 
     internal static bool PassedCheck(JsonObject e, string relative) =>

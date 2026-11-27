@@ -1,0 +1,43 @@
+{
+  "session": "78d4578065d9433996d354c5bf66b46e",
+  "all_claims_present": true,
+  "proposes_review": false,
+  "findings": [
+    {
+      "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+      "path": "/outputs/report",
+      "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision."
+    }
+  ],
+  "source": "bc574d6730f351dbbeed77a1a7d923000692ecfd",
+  "reference_run": "routing30-code-20261127-024452",
+  "workflow_execution": false,
+  "workflow_model_calls": 0,
+  "reviewed_first_checkpoint": {
+    "sequence": 1,
+    "tasks": [
+      "check",
+      "cleanup",
+      "clone",
+      "comparison",
+      "destination",
+      "result",
+      "review",
+      "write"
+    ],
+    "local_judge_outcome": "ok",
+    "complete_business_block": true
+  },
+  "incompatible_schema_coordinates": [
+    "/additionalProperties",
+    "/properties/findings/items/additionalProperties"
+  ],
+  "captured_producer": {
+    "root_extra_fields": "permitted",
+    "finding_extra_fields": "permitted"
+  },
+  "accepted_interface": {
+    "root_extra_fields": "forbidden",
+    "finding_extra_fields": "forbidden"
+  }
+}

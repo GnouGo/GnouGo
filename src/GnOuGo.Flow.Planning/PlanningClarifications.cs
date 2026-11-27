@@ -140,6 +140,9 @@ internal static class PlanningClarifications
         ? [new("REQUIREMENTS_INPUTS_CHANGED", "/inputs", "Preserve the accepted caller inputs, types, requiredness and defaults. Additional or changed inputs require an explicit user revision.")]
         : [];
 
+    internal static bool OutputFits(PlanningRequest request, JsonObject schema, TaskInput declaration) =>
+        PlanningContractCompatibility.Fits(schema, TaskPlanCompiler.TypeSchema(declaration.Type, request));
+
     internal static List<PlanningDiagnostic> OutputFindings(PlanningSession state, PlanningGraph graph)
     {
         if (state.Requirements?.Outputs is not { } accepted) return [];
@@ -151,7 +154,7 @@ internal static class PlanningClarifications
         {
             var produced = actual.SingleOrDefault(o => o.Name == output.Name);
             if (produced is null && !output.Required) continue;
-            if (produced is null || !PlanningContractCompatibility.Fits(PlanningGraphCompiler.ToJsonSchema(produced.Schema, state.Catalog!), TaskPlanCompiler.TypeSchema(output.Type, state.Request)))
+            if (produced is null || !OutputFits(state.Request, PlanningGraphCompiler.ToJsonSchema(produced.Schema, state.Catalog!), output))
                 findings.Add(new("REQUIREMENTS_OUTPUTS_CHANGED", "/outputs/" + output.Name, "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision."));
         }
         return findings;

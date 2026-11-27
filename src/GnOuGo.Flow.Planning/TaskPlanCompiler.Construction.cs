@@ -13,7 +13,7 @@ public sealed partial class TaskPlanCompiler
     // interfaces are deferred, and their container results remain unavailable.
     internal static TaskConstructionValidation ValidateConstruction(TaskPlan plan, PlanningCatalog catalog, PlanningRequest request,
         IReadOnlySet<string> openScopes, IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedInterfaces = null,
-        IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedBindings = null)
+        IReadOnlyDictionary<string, IReadOnlyList<TaskValue>>? requestedBindings = null, IReadOnlyList<TaskInput>? declaredOutputs = null)
     {
         var compiler = new TaskPlanCompiler
         {
@@ -78,6 +78,11 @@ public sealed partial class TaskPlanCompiler
 
         findings.AddRange(compiler.Preflight(inspect: (path, scope) =>
         {
+            if (path == "/root/outputs" && declaredOutputs is not null)
+                foreach (var declaration in declaredOutputs)
+                    if (scope.Exports.TryGetValue(declaration.Name, out var bound) && !PlanningClarifications.OutputFits(request, bound.Schema, declaration))
+                        findings.Add(new("REQUIREMENTS_OUTPUTS_CHANGED", path + "/" + declaration.Name + "/value",
+                            "The bound value must fit the declared public output, including nested field types, required fields and the extra-field policy. Set a compatible producer schema or project the declared fields."));
             if (requestedBindings?.TryGetValue(path, out var bindings) == true)
                 Capture(path, scope, bindings);
         }, inspectFrontier: (path, scope) =>
