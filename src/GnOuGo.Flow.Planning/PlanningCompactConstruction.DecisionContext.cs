@@ -133,6 +133,12 @@ internal static partial class PlanningCompactConstruction
         while (measurement.EstimatedInputTokens > phase.TargetInputTokens)
         {
             (string Identity, JsonObject Page, LLMRequest Request, PlanningRequestMeasurement Measurement)? best = null;
+            if (measurement.EstimatedInputTokens > limit && page.ContainsKey("bindByName"))
+            {
+                // The exact ID selection remains available in the ordinary directory.
+                var probe = page.DeepClone().AsObject(); probe.Remove("bindByName");
+                Consider("bindByName", probe);
+            }
             if (page.ContainsKey("scopeContext"))
             {
                 // Empty-scope details are redundant with the scope directory.
