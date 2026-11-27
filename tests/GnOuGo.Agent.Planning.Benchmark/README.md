@@ -244,7 +244,8 @@ See the [recorded operation](../../docs/evidence/compact-taskplan-20261029-suppl
 An existing independent allocation may receive an explicitly authorized supplement
 through `--schema-portability extend-budget --from-eur <fixed-old-ceiling>
 --to-eur <fixed-new-ceiling> --authorization <stable-one-use-reference>`.
-Inspect the existing history first. The campaign lease and exact reference make
+Inspect the existing history and the financial audit's `spendingClosed` flag first.
+A closed campaign rejects new increases. The campaign lease and exact reference make
 an identical repeat idempotent; a conflicting reference or ceiling is rejected.
 Admission verifies a continuous authorization history rooted in the unchanged
 original allocation. `allowance_eur` still identifies the original grant;

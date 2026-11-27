@@ -277,6 +277,7 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         }
         if (expected != await CostCeilingAsync(ct) || ceiling <= expected)
             throw new InvalidOperationException("The budget extension must identify the current ceiling and explicitly increase it.");
+        await RequireOpenSpendingAsync(ct);
         saved["history"]!.AsArray().Add(new JsonObject { ["previous_ceiling_eur"] = expected, ["ceiling_eur"] = ceiling,
             ["authorization"] = authorization, ["authorized_at"] = DateTimeOffset.UtcNow.ToString("O"),
             ["accounting_before"] = await BenchmarkHttpJournal.AccountingAsync(this, ct: ct) });

@@ -1520,6 +1520,10 @@ public sealed class BenchmarkCampaignTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => restarted.ExtendBudgetAsync(100m, 100m, "No increase", Ct));
         await Assert.ThrowsAsync<ArgumentException>(() => restarted.ExtendBudgetAsync(100m, 150m, " ", Ct));
         Assert.True(JsonNode.DeepEquals(authorization, await restarted.LoadAsync("planning-evaluation-configuration", "spending-authorization", Ct)));
+        await restarted.CloseSpendingAsync("Close this test campaign", Ct);
+        var refusal = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() => restarted.ExtendBudgetAsync(100m, 140m, "Later supplement", Ct));
+        Assert.Equal("campaign_spending_closed", refusal.Details!["reason"]!.ToString());
+        Assert.Equal(100m, await restarted.CostCeilingAsync(Ct));
     }
 
     [Fact]

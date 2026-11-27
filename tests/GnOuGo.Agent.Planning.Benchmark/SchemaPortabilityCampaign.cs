@@ -14,7 +14,9 @@ internal static class SchemaPortabilityCampaign
     internal static async Task WriteFinancialAuditAsync(BenchmarkCampaign campaign, TextWriter output, CancellationToken ct)
     {
         var authorization = await campaign.LoadAsync("planning-evaluation-configuration", "spending-authorization", ct);
+        var closure = await campaign.LoadAsync("planning-evaluation-configuration", "spending-closure", ct);
         var audit = new JsonObject { ["campaign"] = campaign.Id, ["ceilingEur"] = await campaign.CostCeilingAsync(ct),
+            ["spendingClosed"] = closure is not null,
             ["ceilingSource"] = authorization is null ? "code_default_50_eur" : "persisted_spending_authorizations",
             ["ceilingHistory"] = new JsonArray((authorization?["history"]?.AsArray() ?? []).Select(entry => (JsonNode)new JsonObject {
                 ["previousCeilingEur"] = entry?["previous_ceiling_eur"]?.DeepClone(), ["ceilingEur"] = entry?["ceiling_eur"]?.DeepClone(),
