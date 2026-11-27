@@ -12,7 +12,8 @@ internal static class CopilotListContract
     {
         "copilot_session_create" => ["permissionAllowlist", "availableTools", "excludedTools", "skillDirectories", "disabledSkills"],
         "copilot_one_shot" or "copilot_interactive_one_shot" => ["permissionAllowlist"],
-        "code_suggest_change" or "code_agent_edit" => ["contextFiles"],
+        "code_suggest_change" => ["contextFiles"],
+        "code_agent_edit" => ["contextFiles", "expectedFiles", "verificationCommands"],
         _ => []
     };
 

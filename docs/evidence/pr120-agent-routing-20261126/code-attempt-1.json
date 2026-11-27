@@ -5,8 +5,8 @@
   "scenario": "code",
   "oracle_version": "local-sdk-review-v1",
   "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261126-230734",
-  "planning_passed": false,
-  "passed": false,
+  "planning_passed": null,
+  "passed": null,
   "result": {
     "status": "stopped",
     "calls": 21,
@@ -98,7 +98,7 @@
       "potentialOverlappingRequests": []
     },
     "providerInvoicedCost": null,
-    "basis": "Measured usage \u00d7 captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
   },
   "campaign_available_eur": "27.72390205011389521640091116",
   "diagnostics": [
@@ -109,10 +109,21 @@
   ],
   "workflow_execution_started": false,
   "workflow_tool_receipts": 0,
-  "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
-  "head": "00af9df84dfba79c3330beed31e118523f4f094d",
-  "observed_changed_file_reads": 0,
-  "local_report": null,
-  "publication_operations": 0,
-  "outcome": "The comparison sequence closed without exporting its pages. A repeated rollback of the same region stopped construction at revision 60. The SDK did not run."
+  "started_utc": "2026-11-26T23:08:19.9155345+00:00",
+  "finished_utc": "2026-11-26T23:14:07.7527919+00:00",
+  "wall_seconds": 347.837,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/rollbackTask",
+      "message": "This rollback region was already attempted without progress."
+    }
+  ]
 }

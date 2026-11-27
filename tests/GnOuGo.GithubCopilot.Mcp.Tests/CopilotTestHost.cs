@@ -1,3 +1,4 @@
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.GithubCopilot.Core;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
     public int DisposedSessions { get; private set; }
     public CodeMcpTraceContextAccessor Trace { get; } = new();
     public CopilotCodeService Service { get; }
+    public BoundedCopilotTasks Bounded { get; }
     public CopilotSessionManager Manager { get; }
     public Func<CopilotSdkSessionConfiguration, string, CopilotSendRequest, CancellationToken, Task<CopilotSendResult>>? OnSend { get; set; }
     public int Sends { get; private set; }
@@ -34,7 +36,11 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
         var manager = new CopilotSessionManager(this, humanInputProvider: Human,
             fileSystems: new LocalProjectSessionFsFactory(policy, options, NullLoggerFactory.Instance));
         Manager = manager;
-        Service = new(manager, new(policy, options, trace), policy, options, trace, reporter);
+        var configuration = new CopilotMcpConfiguration(policy, options, trace);
+        Bounded = new(manager, configuration, new LocalProjectSessionFsFactory(policy, options, NullLoggerFactory.Instance),
+            KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(root, "test-bounded.db"), root), reporter, policy)
+            { LockDirectory = Path.Combine(root, "test-bounded-locks") };
+        Service = new(manager, configuration, policy, options, trace, reporter, Bounded);
     }
     public ICopilotSdkClient Create(CopilotRuntimeConfiguration configuration) => new Client(this);
     private sealed class Client(CopilotTestHost owner) : ICopilotSdkClient
@@ -64,7 +70,7 @@ internal sealed class CopilotTestHost : ICopilotSdkClientFactory
             if (owner.OnSend is not null) return await owner.OnSend(owner.Configuration!, handle, request, ct);
             if (owner.AgentEditCalled) await owner.Configuration!.FileSystem!.WriteFileAsync("src/Program.cs", "// edited\n", null, ct);
             request.Progress?.Invoke(new("completed", "info", "fake suggestion completed", DateTimeOffset.UtcNow));
-            return new(handle, SessionId, owner.AgentEditCalled ? "fake edit summary" : "fake suggestion", "fake-model", []);
+            return new(handle, SessionId, owner.Configuration?.Request.Configuration.ExecutionBounds is not null ? """{"summary":"fake edit summary"}""" : owner.AgentEditCalled ? "fake edit summary" : "fake suggestion", "fake-model", []);
         }
         public Task<IReadOnlyList<CopilotHistoryEvent>> GetHistoryAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<CopilotHistoryEvent>>([]);
         public Task AbortAsync(CancellationToken ct) => Task.CompletedTask;

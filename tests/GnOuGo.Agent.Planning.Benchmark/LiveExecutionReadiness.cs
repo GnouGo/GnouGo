@@ -99,7 +99,7 @@ internal static class LiveExecutionReadiness
             "Do not modify files or repeat the command. " +
             "If denied or unsuccessful, return a truthful final failure. All evidence stays local.";
         var request = new JsonObject { ["projectRoot"] = Path.GetRelativePath(root, directory), ["task"] = objective,
-            ["provider"] = model.Provider, ["contextFiles"] = new JsonArray("probe.py") };
+            ["provider"] = model.Provider, ["contextFiles"] = new JsonArray("probe.py"), ["verificationCommands"] = new JsonArray("python3 probe.py") };
         var yaml = "version: 1\nworkflows:\n  main:\n    steps:\n      - id: review\n        type: mcp.call\n        input:\n          server: GnOuGo.GithubCopilot.Mcp\n          method: code_agent_edit\n          request: " + request.ToJsonString() + "\n";
         state["artifact_hash"] = GnOuGo.Flow.Planning.PlanningGraphCompiler.Fingerprint(yaml);
         state["execution_started"] = DateTimeOffset.UtcNow.ToString("O"); await campaign.SaveAsync(collection, label, state);

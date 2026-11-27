@@ -162,7 +162,7 @@ public sealed class LiveControlledEditingTests(ITestOutputHelper output)
                     result = await Call(client, "copilot_session_send", new() { ["handle"] = handle, ["prompt"] = prompt, ["tenantId"] = "copilot-live-smoke" }, ct);
                 }
                 else
-                    result = await Call(client, "code_agent_edit", new() { ["projectRoot"] = relative, ["task"] = prompt, ["provider"] = provider, ["tenantId"] = "copilot-live-smoke" }, ct);
+                    result = await Call(client, "code_agent_edit", new() { ["projectRoot"] = relative, ["task"] = prompt, ["provider"] = provider, ["expectedFiles"] = new JsonArray("calculator.py"), ["verificationCommands"] = new JsonArray("python3 -m unittest -v"), ["tenantId"] = "copilot-live-smoke" }, ct);
                 Assert.Contains("return a + b", await File.ReadAllTextAsync(fixture, ct));
                 var executions = result["toolExecutions"]!.AsArray().OfType<JsonObject>().ToArray();
                 var commands = executions.Where(e => e["argumentsJson"]?.GetValue<string>().Contains("python3 -m unittest -v", StringComparison.Ordinal) == true).ToArray();

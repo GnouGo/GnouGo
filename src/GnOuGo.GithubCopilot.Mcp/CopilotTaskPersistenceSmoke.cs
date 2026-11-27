@@ -40,8 +40,13 @@ internal static class CopilotTaskPersistenceSmoke
             throw new InvalidOperationException("Published task recovery failed.");
         using (trace.Push(CodeMcpTraceContext.FromMcpMeta(new() { ["gnougo"] = new JsonObject { ["tenantId"] = "different-tenant" } })))
             if (await recovered.GetTaskAsync(completedId, ct) is not null) throw new InvalidOperationException("Task tenant isolation failed.");
-        if (System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, ct)).Contains("private-task-smoke", StringComparison.Ordinal))
-            throw new InvalidOperationException("Task encryption failed.");
+        foreach (var database in Directory.EnumerateFiles(root, "vault.db*"))
+        {
+            using var stream = new FileStream(database, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+            using var reader = new StreamReader(stream, System.Text.Encoding.UTF8, detectEncodingFromByteOrderMarks: false);
+            if ((await reader.ReadToEndAsync(ct)).Contains("private-task-smoke", StringComparison.Ordinal))
+                throw new InvalidOperationException("Task encryption failed.");
+        }
         using var wireRequest = new HttpRequestMessage(HttpMethod.Post, "https://provider.example/v1/chat/completions")
         { Content = new StringContent("""{"model":"configured","reasoning_effort":"high","messages":[{"role":"user","content":"controlled smoke"}],"tools":[{"type":"function","function":{"name":"probe","parameters":{"type":"object"}}}]}""") };
         using var prepared = await new CopilotStructuredToolAdapter().PrepareAsync(wireRequest, "published-smoke", ct);

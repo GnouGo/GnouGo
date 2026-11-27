@@ -19,6 +19,7 @@ public sealed class CopilotAgentTaskRunnerTests
         Assert.Throws<ArgumentException>(() => engine.WithCopilotRunners([new("empty", "business")],
             new Dictionary<string, IReadOnlyList<CopilotToolBinding>> { ["empty"] = [] }));
         Assert.Throws<ArgumentException>(() => new BusinessAgentTaskRunner(new Transport(), [new("GnOuGo.Cmd.Mcp", "run")]));
+        Assert.Throws<ArgumentException>(() => new BusinessAgentTaskRunner(new Transport(), [new("gnougo.githubcopilot.mcp", "code_agent_edit")]));
     }
 
     [Theory]

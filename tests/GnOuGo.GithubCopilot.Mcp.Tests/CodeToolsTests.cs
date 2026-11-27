@@ -105,21 +105,27 @@ public sealed class CodeToolsTests : IDisposable
 		var assistant = new CopilotTestHost(settings, _root);
 		var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
 
-		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test" } }));
+		using var tenant = assistant.Trace.Push(CodeMcpTraceContext.FromMcpMeta(new System.Text.Json.Nodes.JsonObject { ["gnougo"] = new System.Text.Json.Nodes.JsonObject { ["tenantId"] = "test", ["runId"] = "edit-run", ["stepId"] = "edit-step" } }));
 
-		var result = await tools.AgentEditAsync(".", "Implement the change.", ["src/Program.cs"], provider: "CustomCopilot", cancellationToken: TestContext.Current.CancellationToken);
+		var result = await tools.AgentEditAsync(".", "Implement the change.", ["src/Program.cs"], provider: "CustomCopilot", expectedFiles: ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
 
 		var edit = Assert.IsType<CodeAgentEditResult>(result);
 		Assert.Equal("Implement the change.", edit.Task);
 		Assert.Equal("fake edit summary", edit.Summary);
 		Assert.Contains("fake edit summary", edit.Output);
-		Assert.Contains(edit.ProgressEvents, e => e.Kind == "file_modified" && e.File == "src/Program.cs");
+		Assert.Contains("src/Program.cs", edit.ModifiedFiles);
 		Assert.Equal(_root, assistant.ProjectRoot);
 		Assert.Equal("CustomCopilot", assistant.ProviderName);
 		Assert.True(assistant.AgentEditCalled);
 		Assert.Single(edit.ContextFiles);
-		Assert.Contains("Hello", assistant.LastRequest!.Prompt);
+		Assert.Contains("src/Program.cs", assistant.LastRequest!.Prompt);
 		Assert.Equal(0, assistant.DeleteCount);
+        Assert.True(edit.Success);
+        var recovered = await tools.AgentEditAsync(".", "Implement the change.", ["src/Program.cs"],
+            provider: "CustomCopilot", expectedFiles: ["src/Program.cs"], cancellationToken: TestContext.Current.CancellationToken);
+        Assert.True(recovered.Success);
+        Assert.Equal(edit.ModifiedFiles, recovered.ModifiedFiles);
+        Assert.Equal(1, assistant.Sends);
         Assert.Equal(1, assistant.DisposedSessions);
         Assert.Throws<ObjectDisposedException>(() => assistant.Configuration!.FileSystem!.ValidateRead("src/Program.cs"));
 	}
@@ -148,7 +154,7 @@ public sealed class CodeToolsTests : IDisposable
         assistant.OnSend = (_, handle, request, _) =>
         {
             return Task.FromResult(new GnOuGo.GithubCopilot.Core.CopilotSendResult(handle, "bounded-task",
-                unavailable ? "Command tool unavailable; no command ran." : "Read-only review completed.", "fake-model", [])
+                unavailable ? "Command tool unavailable; no command ran." : """{"summary":"Read-only review completed."}""", "fake-model", [])
                 { Completed = !unavailable });
         };
         var tools = new CodeTools(CreateService(settings), assistant.Service, NullLogger<CodeTools>.Instance, assistant.Human);
@@ -167,8 +173,8 @@ public sealed class CodeToolsTests : IDisposable
         Assert.Empty(result.ToolExecutions);
         Assert.Equal(original, File.ReadAllText(Path.Combine(_root, "src", "Program.cs")));
         Assert.True(assistant.AgentEditCalled);
-        Assert.Equal(1, assistant.Sends); Assert.Equal(1, assistant.DisposedSessions);
-        if (unavailable) Assert.Equal("COPILOT_TURN_FAILED", result.ErrorCode);
+        Assert.Equal(1, assistant.Sends); Assert.Equal(unavailable ? 0 : 1, assistant.DisposedSessions);
+        if (unavailable) Assert.False(result.Success);
         var description = Assert.IsType<System.ComponentModel.DescriptionAttribute>(Attribute.GetCustomAttribute(
             typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!, typeof(System.ComponentModel.DescriptionAttribute))).Description;
         Assert.Contains("coding task", description, StringComparison.Ordinal);

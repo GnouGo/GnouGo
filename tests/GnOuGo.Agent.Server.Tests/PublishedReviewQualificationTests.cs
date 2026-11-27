@@ -6,6 +6,17 @@ namespace GnOuGo.Agent.Server.Tests;
 public sealed class PublishedReviewQualificationTests
 {
     [Fact]
+    public void LocalReviewPinsAnObservedReadAndUsesOneCompleteComparisonWhenAvailable()
+    {
+        var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, new string('a', 40), new string('b', 40));
+        var prompt = LocalReviewQualification.Prompt("workflows/review", target, 8, "src/changed.ts");
+        Assert.Contains("8 changed paths", prompt);
+        Assert.Contains("file.read with subject src/changed.ts", prompt);
+        Assert.Contains("review.diff with subject " + target.Head, prompt);
+        Assert.Contains("bind its files output directly", prompt);
+    }
+
+    [Fact]
     public void LocalReportAnchorsOnlyAddedHeadLinesAcrossHunks()
     {
         var lines = QualificationReports.AddedLines("@@ -3,2 +4,2 @@\n context\n-old\n+new\n@@ -20,0 +23,2 @@ scope\n+second\n+third\n\\ No newline at end of file");

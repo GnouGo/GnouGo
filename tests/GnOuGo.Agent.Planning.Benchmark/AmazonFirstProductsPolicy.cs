@@ -32,7 +32,7 @@ internal static class AmazonFirstProductsPolicy
         "Its ancestors table and links in original order expose group identity, heading membership, descriptive routes and literal hrefs for empty groups and primary links. Only a literal href can authorize a GET. Page/offset reconnects any link to its exact original record. " +
         "A present prefix href already satisfies the Browser absolute HTTP(S) navigation syntax. Carry that same string pattern in the selected-product href output schema and copy the observed value verbatim into the detail GET. Preserve encoded query parameters; transforming or decoding a signed link can change its destination. " +
         "One bounded adaptive selection can scan that prefix sequentially, resolving only necessary empty groups with their observed hrefs and stopping as soon as ten products are established. Return ordered source positions for separate business visits. A populated attribute still requires product evidence. " +
-        "At the boundary between selection and visits, a returned selection status can lack a products list. Put the visit loop inside the conditional branch that has that list. Its alternative carries the actual status and reason to the workbook decision. A genuine returned empty list and a missing list are distinct outcomes. " +
+        "Give the selection a single owner. Require status, ordered products array and reason in every structured selection result. Carry only actually observed products on partial or empty outcomes. A missing array is invalid. Feed the same result to the eligibility decision. On complete status with ten entries, iterate its products once in a sequential loop for the detail visits. Preserve the observed reason on other outcomes. " +
         "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. " +
         "Each observation_complete detail visit already provides compact detail-field candidates in observationSnapshot.textMatches.records, in page order with exact text, selector and source reference. Bind this compact view to the field extraction together with visit status, page identity and any observed error. Guard absent or truncated views and preserve source uncertainty. Passing every record's text, the whole Browser result, rendered HTML or full snapshot to inference can exceed its context. " +
         "Keep the original ordered cards, data-asin and semantic occurrence; count sponsored products and repeated occurrences. Stop selection after the first ten products. " +
@@ -50,7 +50,7 @@ internal static class AmazonFirstProductsPolicy
             ["document_write"] = new JsonObject { ["filePath"] = directory + "/products.xlsx" }
         };
         return "Host path arguments by operation: " + arguments.ToJsonString() +
-            ". The adaptive selection supplies workspace inside its own agent.run call. This completes the runner's directory setup for that call. " +
+            ". The adaptive selection supplies workspace inside its own agent.run call. Before workflow execution the host deterministically prepares that confined directory. " +
             "Workbook delivery uses a direct document_write call with filePath and rows. Document MCP resolves the entire supplied filePath from its own workspace root and creates the parent directories during that write.";
     }
 }

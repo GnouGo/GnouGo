@@ -10,14 +10,28 @@ internal static class LocalReviewQualification
 {
     internal const string Scenario = "code-local", Version = "local-sdk-review-v1";
 
-    internal static string Prompt(string relative, PublishedReviewQualification target) =>
+    internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, CancellationToken ct)
+    {
+        await target.CheckCurrentAsync(ct);
+        var files = await target.ChangedFilesAsync(ct);
+        await target.CheckCurrentAsync(ct);
+        var readSubject = files.OfType<JsonObject>().FirstOrDefault(file => file["status"]?.ToString() != "removed" &&
+            file["patch"] is JsonValue && !string.IsNullOrWhiteSpace(file["filename"]?.ToString()))?["filename"]?.GetValue<string>()
+            ?? throw new InvalidOperationException("The pinned change has no readable changed file for the local review.");
+        report["review_read_subject"] = readSubject;
+        return Prompt(relative, target, files.Count, readSubject);
+    }
+
+    internal static string Prompt(string relative, PublishedReviewQualification target, int changedFiles, string readSubject) =>
         $"Create a reusable local review workflow with two required string inputs, pullRequestUrl and reviewText. " +
         $"The approved target is {LiveWorkflowEvaluation.ReviewUrl}, base {target.Base}, head {target.Head}. Verify the URL. " +
         $"Clone https://github.com/{target.Owner}/{target.Repository}.git at that head into {relative}/repository and compare the two revisions with Git. " +
-        "Keep the Git comparison available to its consumer. Bind its ordered changed paths, patches and the original reviewText to the review task. " +
-        "If a nested scope collects comparison pages, declare those pages as a scope output before it closes. " +
-        "Use one bounded, read-only coding agent to explore changed source files, using the exact reviewText and verified diff. " +
-        "Require file.read evidence from real project reads. Verify any findings on changed lines. Empty findings are permitted. " +
+        $"This pinned PR has {changedFiles} changed paths. Request that page size from git_compare_refs. When totalFiles matches and hasMore is false, " +
+        "bind its files output directly to inputs.review.files. If pages are required, include each page once and preserve Git ordering. " +
+        $"Use one bounded read-only code agent in the literal workspace {relative}/repository. Bind reviewText and the Git comparison as data inputs. " +
+        $"Keep the verification list static: file.read with subject {readSubject} requires observed tool and arguments, and review.diff with subject {target.Head} " +
+        "verifies the reported coverage and changed-line anchors against actual SDK file reads and Git patches. Explore other relevant files as needed. " +
+        "Empty findings are permitted. " +
         "Return a structured local report with base, head, reviewed_files (observed repository-relative paths), limitations (array), " +
         "and findings (array of path, startLine, endLine, side, severity, category, confidence, explanation and evidence). " +
         $"Write that JSON report to {relative}/review.json with an explicit tool. Remove the disposable clone in cleanup. All feedback stays local.";
@@ -42,6 +56,8 @@ internal static class LocalReviewQualification
         var observed = receipts.SelectMany(r => r["evidence"]!.AsArray()).Where(e => e?["kind"]?.ToString() == "file.read")
             .Select(e => e!["subject"]!.ToString()).Where(files.ContainsKey).ToHashSet(StringComparer.Ordinal);
         if (observed.Count == 0) failures.Add("no_observed_changed_file_reads");
+        if (run["review_read_subject"] is JsonValue required && !observed.Contains(required.GetValue<string>()))
+            failures.Add("missing_required_changed_file_read");
         var reportPath = Path.Combine(folder, "review.json");
         if (!events.Any(e => e["tool"]?.ToString() == "document_write") || !File.Exists(reportPath))
             failures.Add("missing_workflow_report");

@@ -81,6 +81,12 @@ public sealed class CopilotListContractTests
                 Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse(json), fixture.Schemas[tool]["properties"]![parameter]!));
             }
             var result = await fixture.Call(tool, args, "fixture-tenant");
+            if (tool == "code_agent_edit" && json is null or "null" or "[]")
+            {
+                Assert.True(result.IsError);
+                Assert.Equal(0, fixture.Host.Sends);
+                continue;
+            }
             Assert.False(result.IsError == true, string.Join(";", result.Content.OfType<TextContentBlock>().Select(t => t.Text)));
             Assert.Equal("fixture-tenant", fixture.Host.Configuration!.Request.Context.TenantId);
             var configuration = fixture.Host.Configuration.Request.Configuration;
@@ -104,8 +110,9 @@ public sealed class CopilotListContractTests
                 else Assert.Equal(json == "[]" ? [] : new[] { "readme.md", "README.md" }, actual);
             }
         }
-        Assert.Equal(4, fixture.Host.SessionsCreated);
-        Assert.Equal(tool == "copilot_session_create" ? 0 : 4, fixture.Host.Sends);
+        var admitted = tool == "code_agent_edit" ? 1 : 4;
+        Assert.Equal(admitted, fixture.Host.SessionsCreated);
+        Assert.Equal(tool == "copilot_session_create" ? 0 : admitted, fixture.Host.Sends);
     }
 
     private static void AssertInvalid(CallToolResult result, string location)
@@ -136,13 +143,13 @@ public sealed class CopilotListContractTests
             var settings = new CodeServerSettings { DefaultWorkingDirectory = f.root, AllowedWorkingRoots = [f.root], AllowWrites = true, Copilot = new() { Model = "mock" } };
             var policy = new CodePolicy(settings, f.root); var options = Options.Create(settings);
             f.Host = new(settings, f.root, policy);
-            f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
+            f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", f.Host.Configuration?.Request.Configuration.ExecutionBounds is null ? "mock result" : """{"summary":"mock result"}""", "mock", []));
             f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.root, "vault.db"), f.root), f.Host.Trace, Path.Combine(f.root, "leases"));
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
             var copilot = new CopilotTools(f.Host.Manager, policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var service = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options,
-                f.Host.Trace, new(f.Host.Trace), logical);
+                f.Host.Trace, new(f.Host.Trace), f.Host.Bounded, f.tasks);
             var code = new CodeTools(new(policy, options), service, NullLogger<CodeTools>.Instance, f.Host.Human);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "lists-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions); CopilotListContract.Configure(serverOptions);

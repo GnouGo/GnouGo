@@ -18,7 +18,8 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
     public BusinessAgentTaskRunner(IMcpClientFactory transport, IReadOnlyList<AgentMcpToolBinding> bindings)
     {
         ArgumentNullException.ThrowIfNull(transport);
-        if (bindings.Count == 0 || bindings.Any(b => b.Server is "GnOuGo.Cmd.Mcp" or "GnOuGo.GithubCopilot.Mcp"))
+        if (bindings.Count == 0 || bindings.Any(b => string.Equals(b.Server, "GnOuGo.Cmd.Mcp", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(b.Server, "GnOuGo.GithubCopilot.Mcp", StringComparison.OrdinalIgnoreCase)))
             throw new ArgumentException("A business runner requires an explicit business tool scope.", nameof(bindings));
         _transport = transport;
         _bindings = bindings.Distinct().ToArray();

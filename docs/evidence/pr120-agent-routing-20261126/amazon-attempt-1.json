@@ -5,8 +5,8 @@
   "scenario": "amazon",
   "oracle_version": "amazon-business-v16",
   "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-amazon-20261126-221855",
-  "planning_passed": false,
-  "passed": false,
+  "planning_passed": null,
+  "passed": null,
   "result": {
     "status": "stopped",
     "calls": 39,
@@ -119,9 +119,21 @@
   ],
   "workflow_execution_started": false,
   "workflow_tool_receipts": 0,
-  "visit_receipts": 0,
-  "workbook": null,
-  "independent_readback": null,
-  "outcome": "At revision 107 rollback changed the retained delivery condition and write precondition. Execution never started.",
-  "correction": "The qualification contract places workbook write and readback inside the branch that tests ten eligible rows and successful visits. The general planner guidance distinguishes an expected business outcome from an aborting precondition."
+  "started_utc": "2026-11-26T22:19:24.4021277+00:00",
+  "finished_utc": "2026-11-26T22:39:50.469465+00:00",
+  "wall_seconds": 1226.067,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "required_diagnostics": [
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/delivery",
+      "message": "Rollback preserves original objectives, effects, literal arguments, ordered assertions, decisions and iteration limits. Their change requires an explicit implementation or intent revision."
+    },
+    {
+      "code": "REVISION_SCOPE_CHANGED",
+      "location": "/tasks/write/requires",
+      "message": "Restore the original requires expression {\"kind\":\"predicate\",\"items\":[{\"kind\":\"predicate\",\"items\":[{\"kind\":\"output\",\"source\":\"delivery_decision\",\"port\":\"eligible\"},{\"kind\":\"boolean\",\"boolean\":true}],\"predicate\":\"equal\"},{\"kind\":\"predicate\",\"items\":[{\"kind\":\"array_length\",\"text\":null,\"number\":null,\"boolean\":null,\"source\":null,\"port\":null,\"members\":[],\"items\":[{\"kind\":\"output\",\"source\":\"visit_guard\",\"port\":\"fields\"}],\"predicate\":null},{\"kind\":\"number\",\"number\":10}],\"predicate\":\"equal\"}],\"predicate\":\"and\"}"
+    }
+  ]
 }

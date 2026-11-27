@@ -64,7 +64,7 @@ public sealed class SecureWorkflowRuntimeFactory
         options = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(options, planning);
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
-        var workflowServers = options.McpServers.Where(pair => pair.Key != "GnOuGo.GithubCopilot.Mcp")
+        var workflowServers = options.McpServers.Where(pair => !string.Equals(pair.Key, "GnOuGo.GithubCopilot.Mcp", StringComparison.OrdinalIgnoreCase))
             .ToDictionary(pair => pair.Key, pair => pair.Value, options.McpServers.Comparer);
         IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (workflowServers.Count > 0
             ? new ConfiguredMcpClientFactory(

@@ -349,6 +349,8 @@ dotnet test tests/GnOuGo.Flow.Copilot.Tests
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
 
+External `code_agent_edit` calls use the same bounded SDK execution and encrypted receipts as workflow code tasks. Supply repository-relative `expectedFiles` for verified changes, `contextFiles` for existing inputs or `verificationCommands` for exact permitted commands with observed exit codes. The host checks the transport tenant, file policy and command sandbox. An uncertain session requires reconciliation of its original invocation.
+
 ## Long interactive operations
 
 `copilot_interactive_one_shot` and `code_agent_edit` require the negotiated MCP Tasks extension, pinned

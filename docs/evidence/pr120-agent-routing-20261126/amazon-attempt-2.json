@@ -113,7 +113,7 @@
       "potentialOverlappingRequests": []
     },
     "providerInvoicedCost": null,
-    "basis": "Measured usage \u00d7 captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
   },
   "campaign_available_eur": "26.99753986332574031890660592",
   "diagnostics": [
@@ -123,5 +123,17 @@
     }
   ],
   "workflow_execution_started": false,
-  "workflow_tool_receipts": 0
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-26T23:16:08.2433717+00:00",
+  "finished_utc": "2026-11-26T23:22:01.0897362+00:00",
+  "wall_seconds": 352.846,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "required_diagnostics": [
+    {
+      "code": "CONSTRUCTION_COMMITMENT_INVALID",
+      "location": "/commitments",
+      "message": "Bind only this step's original requirements and selected exact operations."
+    }
+  ]
 }

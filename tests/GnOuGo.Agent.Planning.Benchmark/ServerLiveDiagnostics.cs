@@ -670,7 +670,7 @@ internal static class ServerLiveDiagnostics
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
                     ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
-                    "code" when localReview => LocalReviewQualification.Prompt(relative, business!.Target!),
+                    "code" when localReview => await LocalReviewQualification.PromptAsync(relative, business!.Target!, report, CancellationToken.None),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 if (adaptive is not null) report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;

@@ -210,7 +210,7 @@ public sealed class CopilotAttachmentTests
             });
             foreach (var method in typeof(CopilotTools).GetMethods().Where(m => Methods.Contains(m.GetCustomAttribute<McpServerToolAttribute>()?.Name)))
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
-            var codeService = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options, f.Host.Trace, new(f.Host.Trace), logical);
+            var codeService = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options, f.Host.Trace, new(f.Host.Trace), f.Host.Bounded, f.tasks);
             var code = new CodeTools(new(policy, options), codeService, Microsoft.Extensions.Logging.Abstractions.NullLogger<CodeTools>.Instance, f.Host.Human);
             serverOptions.ToolCollection.Add(McpServerTool.Create(typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!, code,
                 new() { SerializerOptions = CodeMcpJson.SerializerOptions }));

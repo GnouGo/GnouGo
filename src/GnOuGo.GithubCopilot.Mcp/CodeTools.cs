@@ -70,21 +70,24 @@ internal sealed class CodeTools
             return await _assistantClient.SuggestChangeAsync(task, resolvedRoot, files, provider, cancellationToken);
         });
 
-    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs one bounded GitHub Copilot SDK coding task inside an existing project root. Requested work may include inspection, review, checks or edits; actual tools and command availability depend on the SDK and current host permission/sandbox policy. Bind summary for returned text and commandResults for observed commands and exits. Select toolExecutions only when full SDK events or output excerpts are required. The whole response also echoes the task and progress stream. A completed session does not prove commands or checks succeeded. Interactive execution uses one bounded MCP task; its exact terminal result is saved before session disposal. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
+    [McpServerTool(Name = "code_agent_edit", UseStructuredContent = true, OutputSchemaType = typeof(CodeAgentEditResult)), Description("Runs one bounded GitHub Copilot SDK coding task inside an existing project root. Requested work may include inspection, review, checks or edits; actual tools and command availability depend on the SDK and current host permission/sandbox policy. Bind summary for returned text and commandResults for observed commands and exits. Select toolExecutions only when full SDK events or output excerpts are required. The whole response also echoes the task and progress stream. A completed session does not prove commands or checks succeeded. The same bounded managed SDK executor handles this external call and workflow code tasks. Supply concrete expectedFiles, contextFiles, or verificationCommands. Requires Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
     [McpMeta(McpArtifactContractMetadata.MetaPropertyName, JsonValue = CopilotTools.CompleteOneShotMetadataJson)]
     public async Task<CodeAgentEditResult> AgentEditAsync(
         [Description(RequiredProjectRootDescription)] string projectRoot,
         [Description("One independently verifiable objective within the project scope and host permissions. Include known commands and prior observations. " + CopilotCodeService.BoundedWorkGuidance)] string task,
         [Description("Optional array of nonblank file paths relative to the existing projectRoot, for example [\"src/App.cs\"].")] IReadOnlyList<string>? contextFiles = null,
         [Description("Optional configured LLM provider name. When provided, Code:Copilot:Providers:<name> configures a custom Copilot provider for this call.")] string? provider = null,
+        [Description("Repository-relative files whose contents must actually change.")] IReadOnlyList<string>? expectedFiles = null,
+        [Description("Exact permitted shell commands whose terminal exit codes must be observed.")] IReadOnlyList<string>? verificationCommands = null,
         RequestContext<CallToolRequestParams>? requestContext = null,
         CancellationToken cancellationToken = default)
         => await ExecuteAsync("code_agent_edit", async () =>
         {
             using var humanScope = requestContext is null ? null : _humanInput.Push(requestContext.Server, cancellationToken);
-            var files = _projectService.ReadContextFiles(projectRoot, CopilotListContract.Normalize(contextFiles, nameof(contextFiles), StringComparer.OrdinalIgnoreCase) ?? []);
-            var resolvedRoot = _projectService.GetSummary(projectRoot).RootPath;
-            return await _assistantClient.AgentEditAsync(task, resolvedRoot, files, provider, cancellationToken, requestContext?.Server);
+            var files = (CopilotListContract.Normalize(contextFiles, nameof(contextFiles), StringComparer.OrdinalIgnoreCase) ?? []).Take(8).ToArray();
+            return await _assistantClient.AgentEditAsync(task, projectRoot, files, provider,
+                CopilotListContract.Normalize(expectedFiles, nameof(expectedFiles), StringComparer.Ordinal) ?? [],
+                CopilotListContract.Normalize(verificationCommands, nameof(verificationCommands), StringComparer.Ordinal) ?? [], cancellationToken);
         });
 
     [McpServerTool(Name = "code_write_file", UseStructuredContent = true, OutputSchemaType = typeof(CodeWriteResult)), Description("Writes one allowlisted text/code file inside an existing project root. Disabled unless Code:AllowWrites=true." + RequiredProjectRootToolSuffix)]
