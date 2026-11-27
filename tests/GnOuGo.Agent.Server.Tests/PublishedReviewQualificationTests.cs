@@ -38,6 +38,7 @@ public sealed class PublishedReviewQualificationTests
         var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, new string('a', 40), new string('b', 40));
         var prompt = LocalReviewQualification.Prompt("workflows/review", target, 8, "src/changed.ts");
         Assert.Contains("8 changed paths", prompt);
+        Assert.Contains("historyDepth=0", prompt);
         Assert.Contains("public object output named report", prompt);
         Assert.Contains("check_annotation_cleanup", prompt);
         Assert.Contains("expectedCompleteFileCount=8", prompt);

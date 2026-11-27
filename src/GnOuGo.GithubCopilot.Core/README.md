@@ -2,6 +2,12 @@
 
 ## Command completion and bounded output reads
 
+After a native tool returns an observation, the last affordable inference can
+return a final answer using that history. The host sets optional tool selection
+to `none` when another request of the same size would exceed the approved token
+budget or the current call is the last allowed. Explicitly required tools keep
+their selection policy. Physical retries use the previously admitted request.
+
 Native asynchronous shell calls can finish through a later polling callback.
 Execution observations correlate those exits within the same SDK session and
 unambiguous shell/command instance. Resolved terminals identify their original

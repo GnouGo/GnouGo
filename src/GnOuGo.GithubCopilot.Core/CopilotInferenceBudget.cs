@@ -71,17 +71,17 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
             var wire = body.ToJsonString(WireJson);
             var inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
             var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
-            // If another turn of this size would not fit, use this one to report the observed results.
-            if ((ModelCalls + 1 == maxModelCalls || remaining - outputCeiling <= inputCeiling) &&
-                prepared?.TryRequireFinalResponse(body) == true)
+            var retry = request.Options.TryGetValue(CopilotInferenceProxyHandler.RepeatedReservation, out var repeated) && repeated;
+            // Once tools have returned, keep the last affordable turn available for the answer.
+            if (!retry && (ModelCalls + 1 == maxModelCalls || remaining - outputCeiling <= inputCeiling) &&
+                (prepared?.TryRequireFinalResponse(body) ?? RequireNativeFinalResponse(body, path)))
             {
                 wire = body.ToJsonString(WireJson);
                 inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
                 remaining = maxTotalTokens - ChargedTokens - inputCeiling;
             }
             // An additional physical send must fit the exact already-journaled wire request.
-            if (request.Options.TryGetValue(CopilotInferenceProxyHandler.RepeatedReservation, out var repeated) && repeated &&
-                outputCeiling > remaining) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
+            if (retry && outputCeiling > remaining) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             if (outputCeiling > remaining)
             {
@@ -122,6 +122,20 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
         AdmissionStop ??= new(kind, maxModelCalls, maxTotalTokens, Deadline, ModelCalls, ChargedTokens, inputCeiling);
         _stopped = true;
         return new InvalidOperationException("The approved Copilot inference allowance cannot admit this request.");
+    }
+
+    private static bool RequireNativeFinalResponse(JsonObject body, string path)
+    {
+        if (body["tools"] is not JsonArray { Count: > 0 } ||
+            body["tool_choice"] is { } choice && choice.ToString() != "auto") return false;
+
+        var hasToolResult = path.EndsWith("/responses", StringComparison.Ordinal)
+            ? body["input"] is JsonArray input && input.Any(item => item is JsonObject result && result["type"]?.ToString() == "function_call_output")
+            : body["messages"] is JsonArray messages && messages.Any(item => item is JsonObject message && message["role"]?.ToString() == "tool");
+        if (!hasToolResult) return false;
+
+        body["tool_choice"] = "none";
+        return true;
     }
 
     private static bool TextOnly(JsonNode? node)

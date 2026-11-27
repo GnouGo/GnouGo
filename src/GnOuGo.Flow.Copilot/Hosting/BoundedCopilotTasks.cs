@@ -438,6 +438,9 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         "Complete only the approved objective below, within its declared capabilities and workspace. " +
         "Run each required verification command exactly as written and wait for its structured exit status. " +
         "Do not leave background work running. Do not request scope expansion. Return only JSON matching output_schema; completion claims do not establish evidence.\n" +
+        (task.Verification.Any(r => r.Kind == CodeReviewEvidence.Kind)
+            ? "For review.diff, reviewed_files must match the changed paths you successfully read. Use other reads as context. Once you have enough evidence, return findings anchored to the supplied changes and describe any coverage limits.\n"
+            : "") +
         (task.Budget.MaxActions.HasValue ? "Observe the current workspace, choose the next scoped action and verify its result. Reuse verified observations. Refresh changed inputs and inspect uncertain effects before repeating work.\n" : "") +
         JsonSerializer.Serialize(inputPage is null ? task : task with { Inputs = new() }, AgentTaskJsonContext.Default.AgentTaskDefinition) +
         (inputPage is null ? "" : "\nApproved inputs are paged. Use read_task_input with next_offset for further data.\n" + inputPage.ToJsonString());

@@ -86,7 +86,7 @@ internal static class LocalReviewQualification
     internal static string Prompt(string relative, PublishedReviewQualification target, int changedFiles, string readSubject) =>
         $"Declare two required public string inputs named pullRequestUrl and reviewText and one required public object output named report. Bind report to the verified structured report after its successful file write. " +
         $"The approved target is {LiveWorkflowEvaluation.ReviewUrl}, base {target.Base}, head {target.Head}. Verify the URL. " +
-        $"Clone https://github.com/{target.Owner}/{target.Repository}.git at that head into {relative}/repository and compare the two revisions with Git. " +
+        $"Clone https://github.com/{target.Owner}/{target.Repository}.git at that head into {relative}/repository with full ancestry (historyDepth=0) so Git can compare the two pinned revisions locally. " +
         $"This pinned PR has {changedFiles} changed paths. " +
         (changedFiles <= 100
             ? $"Use one git_compare_refs with pageSize={changedFiles} and expectedCompleteFileCount={changedFiles}. On success bind its files output directly to inputs.review.files. A mismatch fails the comparison. "

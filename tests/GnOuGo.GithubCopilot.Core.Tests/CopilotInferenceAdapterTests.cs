@@ -49,6 +49,47 @@ public sealed class CopilotInferenceAdapterTests
     }
 
     [Theory]
+    [InlineData(false, null, true, false, 2, 50_000, "none")]
+    [InlineData(true, "auto", true, false, 3, 10_000, "none")]
+    [InlineData(false, "auto", true, false, 3, 50_000, "auto")]
+    [InlineData(true, "auto", false, false, 2, 50_000, "auto")]
+    [InlineData(false, "required", true, false, 2, 50_000, "required")]
+    [InlineData(false, "auto", true, true, 2, 50_000, "auto")]
+    public async Task LastAffordableNativeTurnPreservesObservedResultsAndOptionalToolPolicy(
+        bool responses, string? choice, bool observed, bool retry, int calls, long tokens, string expected)
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var history = responses ? new JsonArray(new JsonObject { ["type"] = "message", ["role"] = "user", ["content"] = "Inspect the file." })
+            : new JsonArray(new JsonObject { ["role"] = "user", ["content"] = "Inspect the file." });
+        if (observed)
+            history.Add(responses
+                ? new JsonObject { ["type"] = "function_call_output", ["call_id"] = "read-1", ["output"] = "observed file" }
+                : new JsonObject { ["role"] = "tool", ["tool_call_id"] = "read-1", ["content"] = "observed file" });
+        var body = new JsonObject
+        {
+            [responses ? "input" : "messages"] = history,
+            ["tools"] = JsonNode.Parse(responses
+                ? """[{"type":"function","name":"project_read"}]"""
+                : """[{"type":"function","function":{"name":"project_read"}}]"""),
+            [responses ? "max_output_tokens" : "max_completion_tokens"] = 512
+        };
+        if (choice is not null) body["tool_choice"] = choice;
+        var budget = new CopilotInferenceBudget(calls, tokens, DateTimeOffset.UtcNow.AddMinutes(1),
+            (_, _, _) => Task.CompletedTask, initialCalls: 1, initialTokens: 1000);
+        using var request = new HttpRequestMessage(HttpMethod.Post,
+            responses ? "https://provider.example/v1/responses" : "https://provider.example/v1/chat/completions")
+            { Content = new StringContent(body.ToJsonString()) };
+        if (retry) request.Options.Set(CopilotInferenceProxyHandler.RepeatedReservation, true);
+
+        await budget.ReserveAsync(request, ct);
+
+        var wire = await request.Content.ReadAsStringAsync(ct);
+        body["tool_choice"] = expected;
+        Assert.True(JsonNode.DeepEquals(body, JsonNode.Parse(wire)));
+        Assert.Equal(1000 + 4096L + Encoding.UTF8.GetByteCount(wire) + 512, budget.ChargedTokens);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task ActualAdaptedPayloadIsReservedBeforeTheExistingPolicyProxy(bool tooLarge)
