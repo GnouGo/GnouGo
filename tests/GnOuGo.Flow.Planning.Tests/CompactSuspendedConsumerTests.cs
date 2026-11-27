@@ -451,6 +451,43 @@ public sealed class CompactSuspendedConsumerTests
         };
     }
 
+    [Fact]
+    public async Task ClosedPrerequisiteNamesTheExtraRequiredFieldAndAcceptsAnExactPort()
+    {
+        var (state, _) = await TentativeProducer();
+        var compact = state.Construction!.Compact!;
+        var waiting = Assert.Single(compact.SuspendedSteps!);
+        waiting.Prerequisite.ExpectedType = new() { Kind = "object", Fields = [new() { Name = "count", Required = true, Type = new() { Kind = "integer" } }] };
+        var contract = new PlanningCapability { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call", Server = "source",
+            Method = "read", EffectKind = "read", InputSchema = new() { ["type"] = "object", ["properties"] = new JsonObject() },
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"url":{"type":"string"},"view":{"type":"object","properties":{"count":{"type":"integer"}},"required":["count"],"additionalProperties":false}},"required":["url","view"]}""")!.AsObject() };
+        state.Discovery.Resolved.Add(contract);
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        compact.CurrentStep!.Kind = "operation";
+        compact.CurrentStep.OperationIds = ["read"];
+        var view = Assert.Single(PlanningCompactConstruction.ContractViews(state))!;
+        Assert.Equal(waiting.Id, view["wholeResultMismatch"]!["continuationId"]!.ToString());
+        Assert.Equal("url", view["wholeResultMismatch"]!["requiredFieldOutsideExpectedType"]!.ToString());
+        var extension = new PlanningConstructionExtension { Scope = "/root", CompleteBlock = false, RequirementIds = ["req"],
+            Tasks = [new() { Id = "receive", Kind = "operation", Objective = "Read the source and its count.", Operation = "read" }],
+            ContinuationBinding = new() { ContinuationId = waiting.Id, Binding = new() { Kind = "output", Source = "receive" } } };
+        var candidate = PlanningConstruction.Apply(state, extension);
+        var error = Assert.Single(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateContinuationBinding(state, candidate)).Diagnostics);
+        Assert.Equal("CONSTRUCTION_CONTINUATION_INVALID", error.Code);
+        Assert.Equal("/extension/continuationBinding/binding", error.Location);
+        Assert.Contains("requires \"url\"", error.Message, StringComparison.Ordinal);
+        Assert.Equal("waiting", waiting.Status);
+        Assert.Null(compact.CurrentStep.ContinuationBinding);
+
+        extension.ContinuationBinding.Binding.Port = "view";
+        PlanningCompactConstruction.ValidateContinuationBinding(state, PlanningConstruction.Apply(state, extension));
+        Assert.Equal("view", compact.CurrentStep.ContinuationBinding!.Binding.Port);
+        Assert.Empty(state.Catalog.Capabilities);
+        waiting.Prerequisite.ExpectedType = new() { Kind = "integer" };
+        Assert.Null(Assert.Single(PlanningCompactConstruction.ContractViews(state))!["wholeResultMismatch"]);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

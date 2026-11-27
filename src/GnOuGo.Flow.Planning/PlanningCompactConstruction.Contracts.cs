@@ -315,13 +315,19 @@ internal static partial class PlanningCompactConstruction
         "page:operations:" + PlanningGraphCompiler.Fingerprint(page.ToJsonString()) + ":" + page["offset"]!.GetValue<int>().ToString(CultureInfo.InvariantCulture);
 
     internal static JsonArray ContractViews(PlanningSession state, bool useCandidate = false)
-        => new(SelectedContracts(state).Select(capability =>
+    {
+        var continuation = EligibleContinuationAssociations(state).LastOrDefault();
+        return new(SelectedContracts(state).Select(capability =>
         {
             var view = ContractView(state, capability, useCandidate);
+            if (continuation is not null && RequiredFieldOutsidePrerequisite(capability.OutputSchema, continuation.Prerequisite.ExpectedType) is { } extra)
+                view["wholeResultMismatch"] = new JsonObject { ["continuationId"] = continuation.Id,
+                    ["requiredFieldOutsideExpectedType"] = extra.DeepClone() };
             if (capability.Composition is { } composition)
                 view["composition"] = JsonSerializer.SerializeToNode(composition, PlanningJsonContext.Default.McpCapabilityComposition);
             return (JsonNode)view;
         }).ToArray());
+    }
 
     internal static JsonArray RepairContractEvidence(PlanningSession authority, PlanningRepairContext.Selection selected)
     {

@@ -133,8 +133,8 @@ internal static partial class PlanningCompactConstruction
             PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/producerCheckpoint", "The owning checkpoint must retain this producer's current accepted content and completed boundary.");
         var imported = CloneStep(item!.Consumer); imported.Inputs = [binding];
         var interfaces = ImportedInterfaces(state, imported);
-        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType, state.Request)))
-            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/resumeStep/binding", "The accepted binding does not satisfy the retained prerequisite type.");
+        ValidatePrerequisiteInterface(interfaces[0]!["schema"]!.AsObject(), item.Prerequisite.ExpectedType,
+            state.Request, "/resumeStep/binding", "The accepted binding does not satisfy the retained prerequisite type.");
         var resumed = CloneStep(item.Consumer);
         if (!resumed.Inputs.Any(value => JsonNode.DeepEquals(PlanningConstruction.Node(value, PlanningJsonContext.Default.TaskValue),
                 PlanningConstruction.Node(binding, PlanningJsonContext.Default.TaskValue)))) resumed.Inputs.Add(binding);
@@ -215,12 +215,28 @@ internal static partial class PlanningCompactConstruction
         PlanningConstruction.AdmitResolvedOperations(probe, candidate.Plan);
         var consumer = CloneStep(item!.Consumer); consumer.Inputs = [association.Binding];
         var interfaces = ImportedInterfaces(probe, consumer);
-        if (!PlanningContractCompatibility.Fits(interfaces[0]!["schema"]!.AsObject(), TaskPlanCompiler.TypeSchema(item.Prerequisite.ExpectedType, state.Request)))
-            PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", "/extension/continuationBinding/binding", "The proposed producer must provide the prerequisite's exact accessible typed interface.");
+        ValidatePrerequisiteInterface(interfaces[0]!["schema"]!.AsObject(), item.Prerequisite.ExpectedType,
+            state.Request, "/extension/continuationBinding/binding", "The proposed producer must provide the prerequisite's exact accessible typed interface.");
         compact.CurrentStep.ContinuationBinding = JsonSerializer.Deserialize(
             JsonSerializer.Serialize(association, PlanningJsonContext.Default.PlanningConstructionContinuationBinding),
             PlanningJsonContext.Default.PlanningConstructionContinuationBinding);
     }
+
+    private static void ValidatePrerequisiteInterface(JsonObject actual, TaskType expectedType, PlanningRequest request, string location, string message)
+    {
+        var expected = TaskPlanCompiler.TypeSchema(expectedType, request);
+        if (PlanningContractCompatibility.Fits(actual, expected)) return;
+        if (RequiredFieldOutsidePrerequisite(actual, expectedType) is { } extra)
+            message += " The bound object requires " + extra.ToJsonString() + ", which the prerequisite's closed object omits. " +
+                "Preserve the original producer. Bind a compatible field or construct the requested typed view if the original requirement permits it.";
+        PlanningConstruction.Fail("CONSTRUCTION_CONTINUATION_INVALID", location, message);
+    }
+
+    private static JsonValue? RequiredFieldOutsidePrerequisite(JsonObject actual, TaskType expected) =>
+        expected.Kind == "object" && actual["type"]?.ToString() == "object" && actual["required"] is JsonArray required
+            ? required.OfType<JsonValue>().FirstOrDefault(value => value.TryGetValue<string>(out var name) &&
+                name.Length <= 128 && !expected.Fields.Any(field => field.Name == name))
+            : null;
 
     private static bool CheckpointProducerCurrent(PlanningSession state, PlanningConstructionCheckpoint checkpoint, string id)
     {

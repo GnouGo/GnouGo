@@ -213,7 +213,7 @@ internal static partial class PlanningCompactConstruction
         // back only the semantics needed by this selected kind and scope.
         projected["description"] = DraftSemantics(state, step);
         if (eligible.Length > 0 && State(state).SuspendedSteps?.LastOrDefault(Active) is { Status: "waiting" })
-            projected["description"] += " When this fragment produces the retained consumer's prerequisite, continuationBinding identifies that consumer and the exact output or field binding. This is a proposed semantic association, validated and reviewed with the fragment; compatible types alone do not establish its meaning. Otherwise use null.";
+            projected["description"] += " Associate the retained prerequisite with its exact producer output or field in continuationBinding. Review confirms its meaning. wholeResultMismatch names a required field outside that consumer's type. For partial work, keep the producer, use a null binding and continue in scope.";
         if (eligible.Length > 0 && ResumedConsumerParent(state) is not null)
             projected["description"] += " This resumed business consumer may supply its immediate waiting parent's prerequisite. continuationBinding may name that offered parent and this fragment's exact new output; keep dischargedContinuationIds empty. Both business consumers and their original obligations remain retained. The child must pass ordinary acceptance before the parent can resume.";
         if (hasBoundaryTransitions)

@@ -176,6 +176,10 @@ Ordinary sessions retain the recursive eight-task allowance. Fresh trusted diagn
 sessions remove optimization-only task/operation/graph schema bounds and validate full
 10- and 25-task contributions, including populated bodies, exports and cleanup.
 Partial acceptance cannot close requirements or complete a suspended consumer.
+When a selected operation requires a field outside a prerequisite's closed
+object, the draft shows that field before the model proposes a binding.
+The binding validator also identifies it on rejection. The original result
+stays available for an explicit compatible field binding or typed projection.
 An empty-only opening requires a retained evidenced unresolved prerequisite for its
 current responsibility. A productive finished block receives local review before
 continuing, unless eligible finalization includes it in the global review.
