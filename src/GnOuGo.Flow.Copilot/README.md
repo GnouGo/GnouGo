@@ -2,7 +2,7 @@
 
 The workflow engine calls an explicitly selected operation directly. It composes known operations with conditions, loops and validated mappings. For example, once an ordered list of product URLs is known, a loop can visit each URL, write the extracted rows with the document tool and reopen the workbook for verification. A TaskPlan interpret transform compiles to a bounded `llm.call` when the inputs provide everything needed for a semantic decision.
 
-Use `agent.run` when an observation determines the next action. The plan identifies the decision in the objective and binds the inputs, workspace, capabilities, budget, output schema and verification requirements. The approved runner name resolves to a host-configured profile. Discovery describes available capabilities. At execution the adapter checks the approved subset before dispatch. A failed invocation returns to workflow error handling.
+Use `agent.run` when an observation determines the next action. The plan identifies the decision in the objective and binds the inputs, workspace, capabilities, budget, output schema and verification requirements. The approved runner name resolves to a host-configured profile. Generic discovery describes conditional capabilities without starting the SDK. A host selecting a code-only workflow can inspect the managed runtime policy before advertising its capabilities to the planner. At execution the adapter checks the approved subset before dispatch. A failed invocation returns to workflow error handling.
 
 ```json
 {

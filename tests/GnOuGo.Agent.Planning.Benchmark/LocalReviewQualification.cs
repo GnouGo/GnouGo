@@ -175,7 +175,7 @@ internal sealed partial class ServerBusinessExecution
             return new(configuration, new ConfigurationBuilder().AddInMemoryCollection(policy).Build());
         }
 
-        public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => Adapter(null).DescribeAsync(ct);
+        public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => Adapter(null).DescribeAsync(inspectRuntime: true, ct);
         public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct) =>
             Adapter(owner._reviewExecution).ValidateAsync(context, ct);
         public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) =>

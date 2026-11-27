@@ -16,9 +16,11 @@ public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfig
     public bool SupportsActionLimit => true;
     public string Description => "Explore, review or edit an approved project with a bounded Copilot SDK session.";
 
-    public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => InvokeAsync(null, async service =>
+    public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => DescribeAsync(inspectRuntime: false, ct);
+
+    public Task<AgentTaskRunnerContract> DescribeAsync(bool inspectRuntime, CancellationToken ct) => InvokeAsync(null, async service =>
     {
-        var response = await service.ContractAsync(ct, inspectRuntime: false);
+        var response = await service.ContractAsync(ct, inspectRuntime);
         return response["contract"].Deserialize(AgentTaskJsonContext.Default.AgentTaskRunnerContract)
             ?? throw new InvalidDataException("Missing code task contract.");
     }, ct);

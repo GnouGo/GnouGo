@@ -7,23 +7,11 @@ financial evidence and committed reports remain unchanged historical data.
 
 ## Adaptive live qualification
 
-Add `--adaptive-mcp-tools` to a fresh Amazon or published-review
-`server-live-plan` session to expose the `observe` Copilot runner. The capture
-records `host-mcp-observations-v1`, the selected binaries and their source.
-The Amazon profile exposes the existing guarded browser read. The review profile
-exposes the existing Git comparison and Copilot file read. The generated task
-declares the selected contract IDs, action limit and verification conditions.
-At artifact approval, the Server checks the captured profile version and passes
-the same runner scope to execution. Each physical read uses the same argument
-guard and event recorder as an explicit call. Clone, test execution, publication, XLSX output and cleanup use their
-existing guarded contracts. Both profiles route Copilot inference through the
-campaign admission proxy. Original sessions retain their captured profile.
+A fresh `server-live-plan` session with `--adaptive-mcp-tools` records the selected binaries, their source and the `workflow-agent-observations-v2` profile. In the Amazon scenario, known browser operations, ordered visits, workbook creation and readback are explicit workflow steps. The native business runner can use the guarded browser read when its next action depends on an observation.
 
-When the SDK requests permission to call a host tool, the MCP includes the
-selected capability ID in the permission request. The live reviewer receives
-the existing one-use dialog only while that exact run and invocation are active
-and the capability belongs to the reviewed manifest. The reviewer can grant
-one use or refuse it. The host records the request, answer and tool receipt.
+The read-only local review uses the shared managed Copilot SDK runner. Its code-only catalog inspects the actual host sandbox policy before planning. Confined project reads are available on this host. Native reads require mandatory managed isolation. The workflow verifies the pinned checkout and runs the approved unit check before the SDK explores the changes. Its public report and the independently reopened local file must agree. Publication requires a separate scenario and authorization.
+
+The Server binds the reviewed stage, allowed tools, workspace and limits to its invocation. It records the actual calls and results. An SDK permission request uses the workflow's one-use human-input channel. Business model calls and SDK inference use the campaign's respective admission paths.
 
 ## Responsibilities
 

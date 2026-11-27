@@ -36,8 +36,16 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
         properties["capabilities"]!["items"]!["enum"] = new JsonArray(tools.Select(t => (JsonNode?)JsonValue.Create(t.Id)).ToArray());
         properties["budget"]!["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("max_actions"));
         properties["verification"]!["items"]!["properties"]!["kind"]!["enum"] = new JsonArray("mcp.result");
-        return new(Description + " Verify mcp.result by exact capability ID with facts {request,result}. Tools: " +
-            Manifest(tools).ToJsonString(), schema);
+        var directory = new JsonObject();
+        foreach (var tool in tools)
+            directory[tool.Id] = new JsonObject
+            {
+                ["server"] = tool.Binding.Server, ["method"] = tool.Binding.Method,
+                ["description"] = tool.Descriptor["description"]?.DeepClone(), ["effect"] = tool.Descriptor["effect"]?.DeepClone()
+            };
+        return new(Description + " Verify mcp.result by exact capability ID with facts {request,result}. " +
+            "Inspect the named MCP operation for field contracts. The agent receives its complete pinned schema at execution. Tools: " +
+            directory.ToJsonString(), schema);
     }
 
     private async Task<List<AgentMcpToolContract>> DiscoverAsync(CancellationToken ct)

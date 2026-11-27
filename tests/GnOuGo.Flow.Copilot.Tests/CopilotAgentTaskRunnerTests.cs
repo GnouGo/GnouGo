@@ -42,6 +42,9 @@ public sealed class CopilotAgentTaskRunnerTests
         var runner = new BusinessAgentTaskRunner(transport, [new("documents", "read")]);
         var contract = await runner.DescribeAsync(ct);
         var id = contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]![0]!.GetValue<string>();
+        Assert.Contains(id, contract.Description);
+        Assert.Contains("documents", contract.Description);
+        Assert.DoesNotContain("input_schema", contract.Description);
         var model = new Model(test, id);
         var engine = new WorkflowEngine { McpClientFactory = transport, LLMClient = model, LlmDefaults = new() { Model = "fixture" } };
         var context = new AgentTaskContext("tenant", "run", "invocation", new()
@@ -86,6 +89,8 @@ public sealed class CopilotAgentTaskRunnerTests
         {
             Calls++;
             LastPrompt = request.Prompt;
+            Assert.Contains("input_schema", request.Prompt);
+            Assert.Contains("additionalProperties", request.Prompt);
             Assert.True(request.DisableTransportRetries);
             if (scenario is "retry" or "late_retry" && Calls == 1)
                 throw new LLMClientException(LLMClientFailureKind.RateLimited, "Rate limited", true, 429, null, 1, false,

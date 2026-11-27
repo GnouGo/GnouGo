@@ -20,7 +20,10 @@ public sealed partial class BoundedCopilotTasksTests
         await using var fixture = new Fixture(); fixture.Host.Readiness = readiness;
         var contract = await fixture.Tasks.ContractAsync(TestContext.Current.CancellationToken);
         var schema = contract["contract"]!["input_schema"]!;
-        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.execute"));
+        var capabilities = schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+        Assert.Contains("project.read", capabilities);
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, capabilities.Contains("project.native_read"));
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, capabilities.Contains("command.execute"));
         Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.exit"));
         Assert.Equal(0, fixture.Host.SessionsCreated); Assert.Equal(0, fixture.Host.Sends); Assert.Equal(1, fixture.Host.PolicyReads);
         fixture.Host.Readiness = CopilotSandboxReadiness.NotConfigured;
