@@ -73,6 +73,9 @@ public sealed class CompactContractEvidenceFlowTests
         Assert.DoesNotContain(view["editableInputs"]!.AsArray(), entry => entry!["name"]!.ToString() == key);
         Assert.Equal(ownedPath, Assert.Single(Assert.IsType<JsonArray>(view["catalogSuppliedInputPaths"]))!.ToString());
         Assert.DoesNotContain("HOST-OWNED-VALUE", request.Prompt, StringComparison.Ordinal);
+        var original = PlanningCompactConstruction.LoadContractEvidence(state, "schema:read@v1:/input/properties/" + key, false)!;
+        Assert.Equal(ownedPath, Assert.Single(original["catalogSuppliedInputPaths"]!.AsArray())!.ToString());
+        Assert.DoesNotContain("HOST-OWNED-VALUE", original.ToJsonString(), StringComparison.Ordinal);
     }
 
     [Theory]

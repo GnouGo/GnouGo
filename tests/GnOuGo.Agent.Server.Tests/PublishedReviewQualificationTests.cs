@@ -69,7 +69,7 @@ public sealed class PublishedReviewQualificationTests
         Assert.Matches(pattern, path);
         Assert.DoesNotMatch(pattern, path.Replace("cleanup.py", "other.py", StringComparison.Ordinal));
         var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, new string('a', 40), new string('b', 40));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => LocalReviewQualification.PromptAsync(new string('x', limit), target, new(), default));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LocalReviewQualification.PromptAsync(new string('x', limit), target, new(), TestContext.Current.CancellationToken));
     }
 
     [Fact]

@@ -101,6 +101,9 @@ global review, artifact approval and execution checks still run in order. A chan
 producer can reopen review of a branch that directly returns its result when the
 same finding cites both. Repeated, identical obligations share one location in the
 repair prompt. Each finding retains its evidence and independent outcome.
+After a rollback, a block can regain its reviewed status when a later accepted
+contribution replaces each withdrawn task and a fresh review covers those tasks
+on the exact current plan.
 
 ## Durable runs
 

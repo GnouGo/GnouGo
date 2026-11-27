@@ -245,11 +245,23 @@ internal static partial class PlanningCompactConstruction
             connected == tasks.Length ? "structurally_reachable" : "partially_reachable";
     }
 
-    internal static JsonObject? BusinessBlockReview(PlanningSession state, PlanningConstructionBlock block) =>
-        block.CompletionCheckpoint is { } sequence && state.Construction!.Checkpoints.SingleOrDefault(checkpoint =>
-            checkpoint.Sequence == sequence && checkpoint.Step?.BlockId == block.Id) is { } completion &&
-        state.Construction.Checkpoints.Where(checkpoint => checkpoint.Step?.BlockId == block.Id).All(checkpoint => checkpoint.InvalidatedTaskIds.Count == 0)
-            ? HybridWorkflowPlanner.ReviewedCheckpoint(state, completion) : null;
+    internal static JsonObject? BusinessBlockReview(PlanningSession state, PlanningConstructionBlock block)
+    {
+        if (block.CompletionCheckpoint is not { } sequence) return null;
+        var history = state.Construction!.Checkpoints.Where(checkpoint => checkpoint.Step?.BlockId == block.Id).ToArray();
+        var completion = history.SingleOrDefault(checkpoint => checkpoint.Sequence == sequence);
+        if (completion is null || HybridWorkflowPlanner.ReviewedCheckpoint(state, completion) is not { } review) return null;
+        var withdrawn = history.Where(checkpoint => checkpoint.InvalidatedTaskIds.Count != 0).ToArray();
+        if (withdrawn.Length == 0) return review;
+
+        // A later review of the exact rebuilt plan can supersede withdrawn work.
+        // Each affected task must have a new accepted contribution in this block.
+        if (completion.PlanHash != PlanningConstruction.Hash(state.Plan) || review["reviewedTaskIds"] is not JsonArray reviewed) return null;
+        var reviewedIds = reviewed.Select(id => id!.ToString()).ToHashSet(StringComparer.Ordinal);
+        return withdrawn.All(old => old.InvalidatedTaskIds.All(id => reviewedIds.Contains(id) &&
+            history.Any(next => next.Sequence > old.Sequence && next.Sequence <= sequence &&
+                next.InvalidatedTaskIds.Count == 0 && next.TaskIds.Contains(id, StringComparer.Ordinal)))) ? review : null;
+    }
 
     internal static JsonObject SelectionSchema(PlanningSession state)
     {

@@ -277,6 +277,31 @@ public sealed class BusinessSelectionArchitectureTests
         Assert.Equal("business_completion_reviewed", after.Single(result => result!["id"]!.ToString() == "result:" + compact.Blocks![1].Id)!["reviewStatus"]!.ToString());
     }
 
+    [Theory]
+    [InlineData("rebuilt", true)]
+    [InlineData("unreplaced", false)]
+    [InlineData("later_invalidation", false)]
+    [InlineData("changed_plan", false)]
+    [InlineData("missing_review", false)]
+    public async Task RebuiltBlockRequiresANewerContributionAndReviewOfTheExactPlan(string change, bool eligible)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        runtime.Respond = (_, _) => new() { Json = BusinessReviewProtocolTests.Report("ok") };
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        var construction = state.Construction!;
+        var completion = Assert.Single(construction.Checkpoints);
+        var block = Assert.Single(construction.Compact!.Blocks!);
+        var task = Assert.Single(completion.TaskIds);
+        completion.Sequence = 2;
+        block.CompletionCheckpoint = completion.Sequence;
+        construction.Checkpoints.Insert(0, new() { Sequence = change == "later_invalidation" ? 3 : 1,
+            Step = new() { BlockId = block.Id }, TaskIds = [task],
+            InvalidatedTaskIds = change == "unreplaced" ? [task, "other"] : [task] });
+        if (change == "changed_plan") state.Plan!.Root.Tasks.Single().Objective += " Changed after review.";
+        if (change == "missing_review") completion.Reviews.Clear();
+        Assert.Equal(eligible, PlanningCompactConstruction.BusinessBlockReview(state, block) is not null);
+    }
+
     [Fact]
     public async Task LaterImplementationCursorCanContinueInItsOwnPreexistingScope()
     {

@@ -535,9 +535,17 @@ internal static partial class PlanningCompactConstruction
         var identity = ContractIdentity(operation.Id, operation.Version);
         var view = useCandidate ? CandidateContractView(state, capability, operation, identity) :
             DraftContractView(state, capability, operation, identity);
+        return WithCatalogBindings(view, capability);
+    }
+
+    private static JsonObject WithCatalogBindings(JsonObject view, PlanningCapability capability)
+    {
         var suppliedPaths = PlanningCapabilityArguments.SuppliedInputPaths(capability);
         if (suppliedPaths.Length > 0)
+        {
             view["catalogSuppliedInputPaths"] = new JsonArray(suppliedPaths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+            view["catalogInputOwnership"] = "The host supplies these request paths at execution, including required fields. Author only the remaining editable inputs.";
+        }
         return view;
     }
 
@@ -959,13 +967,16 @@ internal static partial class PlanningCompactConstruction
             }
             return (JsonNode)view;
         }).ToArray());
-        return new JsonObject
+        var selected = new JsonObject
         {
             ["id"] = operation.Id, ["version"] = operation.Version, ["hash"] = ContractHash(capability), ["pointer"] = pointer,
             ["schema"] = entry.Schema!.DeepClone(), ["ancestors"] = ancestorViews, ["referenceClosure"] = closure,
             ["view"] = "Exact selected original and ancestor constraints with required sibling branches; independent optional sibling descendants are explicitly omitted and addressable. References remain relative to the retained original root. Not a replacement contract."
         };
-
+        // A step may retrieve this row independently of its operation directory.
+        // Required fields from the original schema include catalog-owned bindings.
+        return pointer == "/input" || pointer.StartsWith("/input/", StringComparison.Ordinal)
+            ? WithCatalogBindings(selected, capability) : selected;
     }
 
     private static JsonObject SchemaDirectory(PlanningCapability capability, string pointer, int offset)

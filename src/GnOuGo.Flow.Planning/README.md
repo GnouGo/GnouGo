@@ -292,7 +292,8 @@ Selected contract views identify inputs that the catalog supplies at execution
 using JSON Pointers in `catalogSuppliedInputPaths`. The empty pointer covers the
 whole request. These inputs can appear in the original schema's required list.
 The compiler supplies them, and the draft binds the remaining editable fields.
-The directory exposes paths without printing the bound values.
+Independently retrieved input schema evidence also carries these paths, including
+when its operation directory is absent from a later step. Both views omit the bound values.
 Host-fixed draft facts come from the frozen step, with unavailable branches omitted from
 the model grammar and complete semantic validation retained.
 Scoped revision associates its affected requirements without completing open work.
