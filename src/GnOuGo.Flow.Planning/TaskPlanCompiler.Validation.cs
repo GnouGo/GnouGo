@@ -554,12 +554,13 @@ public sealed partial class TaskPlanCompiler
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
         {
             var producer = FlattenedGroupDiagnostic(schema);
+            var sameSlot = producer?.Location == _location;
             throw new InvalidTask(code, _location, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
                 "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract." +
                 (instanceFindings.FirstOrDefault() is { } finding ? " Instance " +
                     (finding.InstancePointer.Length == 0 ? "/" : finding.InstancePointer) + ": " + finding.Message : "") +
-                (producer is null ? "" : " The incompatible flattened group is at " + producer.Location + ".") +
-                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""), producer: producer);
+                (producer is null ? "" : sameSlot ? " " + producer.Message : " The incompatible flattened group is at " + producer.Location + ".") +
+                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""), producer: sameSlot ? null : producer);
         }
     }
 
