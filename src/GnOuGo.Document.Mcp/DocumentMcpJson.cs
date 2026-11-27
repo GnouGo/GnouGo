@@ -11,6 +11,7 @@ internal static class DocumentMcpJson
     internal static JsonElement WriteInputSchema(JsonElement original)
     {
         var schema = JsonNode.Parse(original.GetRawText())!.AsObject();
+        DescribeNullableCells(schema["properties"]!["rows"]!);
         schema["oneOf"] = JsonNode.Parse("""
             [{"required":["content"],"properties":{"content":{"type":"string"},"rows":{"type":"null"}}},
              {"required":["rows"],"properties":{"rows":{"type":"array"},"content":{"type":"null"}}}]
@@ -18,6 +19,18 @@ internal static class DocumentMcpJson
         using var document = JsonDocument.Parse(schema.ToJsonString());
         return document.RootElement.Clone();
     }
+
+    internal static JsonElement ReadOutputSchema(JsonElement original)
+    {
+        var schema = JsonNode.Parse(original.GetRawText())!.AsObject();
+        DescribeNullableCells(schema["properties"]!["sections"]!["items"]!["properties"]!["rows"]!);
+        using var document = JsonDocument.Parse(schema.ToJsonString());
+        return document.RootElement.Clone();
+    }
+
+    // The SDK omits nullable annotations on elements of jagged arrays.
+    private static void DescribeNullableCells(JsonNode rows) =>
+        rows["items"]!["items"]!["type"] = new JsonArray("string", "null");
 
     // The CLR result also represents host failures. MCP exposes those as isError
     // content, so its successful structured output can state the actual guarantees.

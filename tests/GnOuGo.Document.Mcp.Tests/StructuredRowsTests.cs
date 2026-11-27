@@ -125,7 +125,9 @@ public sealed class StructuredRowsTests : IDisposable
         Assert.Contains(_root, tool.Description);
         Assert.DoesNotContain("Call this first", Assert.Single(tools, t => t.Name == "document_get_policy").Description);
         Assert.True(tool.JsonSchema.TryGetProperty("oneOf", out var alternatives)); Assert.Equal(2, alternatives.GetArrayLength());
-        Assert.True(tool.JsonSchema.GetProperty("properties").TryGetProperty("rows", out _));
+        var writeRows = tool.JsonSchema.GetProperty("properties").GetProperty("rows");
+        Assert.Equal(new[] { "string", "null" }, writeRows.GetProperty("items").GetProperty("items")
+            .GetProperty("type").EnumerateArray().Select(type => type.GetString()).ToArray());
         var result = await client.CallToolAsync("document_write", new Dictionary<string, object?> { ["filePath"] = "observed.xlsx", ["rows"] = Values }, cancellationToken: ct);
         Assert.NotEqual(true, result.IsError);
         var path = result.StructuredContent!.Value.GetProperty("filePathAbsolute").GetString()!;
@@ -133,6 +135,10 @@ public sealed class StructuredRowsTests : IDisposable
             Assert.Equal(Values[1][1], workbook.WorkbookPart!.WorksheetParts.Single().Worksheet!.Descendants<Row>().ElementAt(1).Elements<Cell>().ElementAt(1).CellValue!.Text);
         var reader = Assert.Single(tools, t => t.Name == "document_read");
         Assert.Contains("format=cells", reader.Description);
+        var readRows = reader.ProtocolTool.OutputSchema!.Value.GetProperty("properties").GetProperty("sections")
+            .GetProperty("items").GetProperty("properties").GetProperty("rows");
+        Assert.Equal(new[] { "string", "null" }, readRows.GetProperty("items").GetProperty("items")
+            .GetProperty("type").EnumerateArray().Select(type => type.GetString()).ToArray());
         var read = await client.CallToolAsync("document_read", new Dictionary<string, object?>
             { ["filePath"] = "observed.xlsx", ["format"] = "cells" }, cancellationToken: ct);
         Assert.NotEqual(true, read.IsError);

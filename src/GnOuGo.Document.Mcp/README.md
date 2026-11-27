@@ -28,7 +28,8 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 For exact workbook readback, call `document_read` with `format="cells"`.
 Each worksheet section has an ordered `rows` matrix of stored cell values.
 Strings retain whitespace and line breaks. Empty strings stay empty, absent
-cells are null, and omitted worksheet rows appear as empty arrays. Numeric
+cells are null, and omitted worksheet rows appear as empty arrays. The read
+and write tool schemas both accept a string or null at each cell position. Numeric
 and formula cells expose their stored value, including any cached formula
 result. Formulas run only in spreadsheet software. The reader returns an
 error if a worksheet exceeds 500 rows or the workbook exceeds 100,000 cell
