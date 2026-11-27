@@ -1,0 +1,10 @@
+{
+  "source": "5e9be843bda47b6ff6a497b39e3621d46c0be6d3",
+  "target": "GnOuGo.Document.Mcp win-x64 Native AOT",
+  "publish_exit": 0,
+  "publish_seconds": 369.219,
+  "warnings": 2,
+  "exe_sha256": "a1530cafe92b3d6c6e9519a6d8e69edce1f11cfe35d053d0a40313a461c15c5c",
+  "stdio_exit": 0,
+  "stdio_receipt_sha256": "be8f940c41483e8c524cb61e098819f7c76abd59514cec6f939fde24437186e9"
+}

@@ -1,0 +1,504 @@
+{
+  "source": "dcca1f50667db5f574a36e166caf44229a1c7c34",
+  "run": "improve40-code-20261127-094828",
+  "session": "bb751ef9dcea43e3a88488f37417d4dd",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T09:50:10.0069974+00:00",
+  "finished_utc": "2026-11-27T10:12:07.0216826+00:00",
+  "wall_seconds": 1317.014685,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1814,
+      "output_tokens": 1319,
+      "measured_eur": "0.0101412300683371298405466970",
+      "duration_ms": "157960.2051"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 6953,
+      "output_tokens": 1150,
+      "measured_eur": "0.0210774487471526195899772210",
+      "duration_ms": "55085.6361"
+    },
+    "construction_implementation": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 39292,
+      "output_tokens": 1230,
+      "measured_eur": "0.0951070615034168564920273349",
+      "duration_ms": "95263.6191"
+    },
+    "construction_discovery": {
+      "logical_calls": 14,
+      "physical_attempts": 14,
+      "input_tokens": 134170,
+      "output_tokens": 2108,
+      "measured_eur": "0.3152300683371298405466970386",
+      "duration_ms": "211999.9189"
+    },
+    "construction_draft": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 77379,
+      "output_tokens": 3393,
+      "measured_eur": "0.1917198177676537585421412300",
+      "duration_ms": "104758.5819"
+    },
+    "construction_local_judge": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 19622,
+      "output_tokens": 417,
+      "measured_eur": "0.0465968109339407744874715263",
+      "duration_ms": "60828.8152"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 7833,
+      "output_tokens": 154,
+      "measured_eur": "0.0185444191343963553530751708",
+      "duration_ms": "19928.2863"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "final_review",
+  "replans": 1,
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "calls": 32,
+    "repairs": 1,
+    "execution_status": "needs_reconciliation",
+    "execution_correct": false
+  },
+  "executed": true,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "0e4a6b17f7da600bf8620215cf4548f5725b846b232de513fb8b2ba6685ec334",
+    "server": "bf19e4632a48641f2d9e78e13cf3dd550e31c91844b120b46716f29d60b27577",
+    "GnOuGo.Git.Mcp": "a64f149aa1f3a7346efd353f03728d14c0db316bb686675539a0d1cf553882c0",
+    "GnOuGo.Document.Mcp": "aaaab30e120fe93e8bc40124e32b1f9c6e3cf7a472dea27e3111adfffec6d5ef",
+    "GnOuGo.Cmd.Mcp": "b44b2841a995493f72dbd7636c1aa2fcb4e71ce3977bc6a364b066970d67f7f9"
+  },
+  "campaign_opening_measured_eur": "28.401097949886104783599089073",
+  "campaign_closing": {
+    "calls": 776,
+    "known_input_tokens": 12022110,
+    "known_output_tokens": 399382,
+    "known_cost_eur": "29.204724373576309794988610731",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "29.442063781321184510250569729"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "bb751ef9dcea43e3a88488f37417d4dd",
+      "httpAttempts": 32,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.6984168564920273348519362186",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    },
+    {
+      "sessionId": "bb751ef9dcea43e3a88488f37417d4dd-copilot",
+      "httpAttempts": 4,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.1052095671981776765375854214",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "execution_started_utc": "2026-11-27T10:05:44.4731627+00:00",
+  "execution_run_id": "8cc68208669125a12cff7218730f4026",
+  "execution_artifact_hash": "b4f42c47523865734da10aa71d3285e1cc3924e32598eba337fd66206d6b2b3c",
+  "execution": {
+    "status": "needs_reconciliation",
+    "parent_status": "needs_reconciliation",
+    "finalization_completed": false,
+    "journal_revision": 49
+  },
+  "oracle": {
+    "passed": false,
+    "source": "The observer exited on a late permission response before it persisted its oracle. Independent readback established the terminal run status, incomplete SDK receipt, lack of report and retained checkout."
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_clone",
+      "started": "2026-11-27T10:05:55.2231474+00:00",
+      "error": false,
+      "latency_ms": 103298,
+      "success": true
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_compare_refs",
+      "started": "2026-11-27T10:07:41.5440803+00:00",
+      "error": false,
+      "latency_ms": 813,
+      "success": true,
+      "baseSha": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+      "headSha": "00af9df84dfba79c3330beed31e118523f4f094d",
+      "totalFiles": 8
+    },
+    {
+      "server": "GnOuGo.Cmd.Mcp",
+      "tool": "cmd_run",
+      "started": "2026-11-27T10:07:44.5172745+00:00",
+      "error": false,
+      "latency_ms": 4947,
+      "success": true,
+      "commandName": "check_annotation_cleanup",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "....\r\n----------------------------------------------------------------------\r\nRan 4 tests in 0.171s\r\n\r\nOK\r\n"
+    }
+  ],
+  "target": {
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "observed_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "observed_head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "required_read": ".bin/test-annotation-policy-cleanup.py"
+  },
+  "sdk": [
+    {
+      "status": "needs_reconciliation",
+      "usage": {
+        "model_calls": 4,
+        "total_tokens": 230747,
+        "elapsed_milliseconds": "243429.7374",
+        "metering": "reserved_upper_bound",
+        "actions": 21
+      },
+      "failure": null,
+      "verification": []
+    }
+  ],
+  "execution_to_final_report_seconds": 382.54852,
+  "receipt_sha256": {
+    "form-invocation": "84bb26b9b6a505f293638fc213d582e06b7b37c7147bc4b4064d298ccb4979ae",
+    "scoped_review": "b16530164746ed73a79060bfa66d794b4c64baa8fa37c2966d8c5eedb41a6f71",
+    "auth": "76b2ae2d9b35a62338c25189634a2840efb3baaa039f6fcc75df34d5dfbc3caa",
+    "durable_sdk": "02d01ca2e59d197625533c90ac0d08f34c7f378c065d719d8ba3ff091e9a5046"
+  },
+  "report_planning_finished_utc": "2026-11-27T10:03:10.0828869+00:00",
+  "finish_basis": "Terminal timestamp from independently reloaded encrypted workflow journal.",
+  "observer_error": "The SDK completed its 240-second wait without a final answer while a read decision was pending. The test observer rejected the late answer and exited before writing its terminal verdict.",
+  "sdk_send_completed": false,
+  "sdk_tool_observations": [
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 4096,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 1,
+      "completion_sequence": 2,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 8192,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 3,
+      "completion_sequence": 20,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 12288,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 4,
+      "completion_sequence": 22,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 16384,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 5,
+      "completion_sequence": 24,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 20480,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 6,
+      "completion_sequence": 23,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 24576,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 7,
+      "completion_sequence": 19,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 28672,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 8,
+      "completion_sequence": 14,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 32768,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 9,
+      "completion_sequence": 16,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 36864,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 10,
+      "completion_sequence": 15,
+      "error": "denied"
+    },
+    {
+      "tool": "project_read",
+      "path": ".bin\\test-annotation-policy-cleanup.py",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 11,
+      "completion_sequence": 17,
+      "error": "denied"
+    },
+    {
+      "tool": "project_read",
+      "path": ".bin\\test-annotation-policy.py",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 12,
+      "completion_sequence": 21,
+      "error": "denied"
+    },
+    {
+      "tool": "project_list",
+      "path": ".",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 13,
+      "completion_sequence": 18,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 24576,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 25,
+      "completion_sequence": 30,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 28672,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 26,
+      "completion_sequence": 31,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 32768,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 27,
+      "completion_sequence": 32,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 36864,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 28,
+      "completion_sequence": 33,
+      "error": "denied"
+    },
+    {
+      "tool": "project_read",
+      "path": ".bin/test-annotation-policy-cleanup.py",
+      "input_offset": null,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 29,
+      "completion_sequence": 34,
+      "error": null
+    },
+    {
+      "tool": "project_read",
+      "path": ".bin/test-annotation-policy.py",
+      "input_offset": null,
+      "success": true,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 35,
+      "completion_sequence": 48,
+      "error": null
+    },
+    {
+      "tool": "project_read",
+      "path": "demo/slimfaas-annotation-policy.yml",
+      "input_offset": null,
+      "success": null,
+      "completion_observed": false,
+      "conflicting": false,
+      "start_sequence": 36,
+      "completion_sequence": null,
+      "error": null
+    },
+    {
+      "tool": "project_read",
+      "path": "docs/annotation-policy.md",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 37,
+      "completion_sequence": 45,
+      "error": "denied"
+    },
+    {
+      "tool": "project_read",
+      "path": ".github/workflows/main.yml",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 38,
+      "completion_sequence": 46,
+      "error": "denied"
+    },
+    {
+      "tool": "project_list",
+      "path": ".",
+      "input_offset": null,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 39,
+      "completion_sequence": 44,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 24577,
+      "success": null,
+      "completion_observed": false,
+      "conflicting": false,
+      "start_sequence": 40,
+      "completion_sequence": null,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 28673,
+      "success": null,
+      "completion_observed": false,
+      "conflicting": false,
+      "start_sequence": 41,
+      "completion_sequence": null,
+      "error": null
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 32769,
+      "success": false,
+      "completion_observed": true,
+      "conflicting": false,
+      "start_sequence": 42,
+      "completion_sequence": 47,
+      "error": "denied"
+    },
+    {
+      "tool": "read_task_input",
+      "path": null,
+      "input_offset": 36865,
+      "success": null,
+      "completion_observed": false,
+      "conflicting": false,
+      "start_sequence": 43,
+      "completion_sequence": null,
+      "error": null
+    }
+  ],
+  "independent_artifacts": {
+    "checkout_exists": true,
+    "review_json_exists": false,
+    "checked_report_file": "review.json"
+  },
+  "dialog_counts": {
+    "completed": 7,
+    "waiting_for_human": 4
+  },
+  "phase_policy_sha256": "0c486a8df95dbe9ff579ff141c5f1dc18faa46cd24045d6c3fd4d2efdc31ce7c"
+}
