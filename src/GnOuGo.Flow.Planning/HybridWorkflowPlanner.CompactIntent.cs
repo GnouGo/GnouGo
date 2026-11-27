@@ -75,7 +75,8 @@ public sealed partial class HybridWorkflowPlanner
         if (next.Construction!.Candidate is { } candidate && compact.Sources.All(s => s.Indexed))
         {
             candidate.BusinessReviewed = false;
-            await ValidateConstructionCandidateAsync(next, runtime, ct);
+            if (source.Kind != "answer_page" || !PlanningCompactConstruction.ReopenClosureForAnswer(next))
+                await ValidateConstructionCandidateAsync(next, runtime, ct);
         }
         state.Requirements = next.Requirements;
         state.Construction = next.Construction;

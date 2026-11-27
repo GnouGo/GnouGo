@@ -1,0 +1,242 @@
+{
+  "source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+  "run": "routing30-amazon-20261127-034551",
+  "session_id": "81c83cd17de8440ab879cde086af58a4",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-amazon-20261127-034551",
+  "planning_passed": false,
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 74,
+    "repairs": 8,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "replan": {
+      "logical_calls": 17,
+      "physical_attempts": 17,
+      "known_input_tokens": 668423,
+      "known_output_tokens": 3707,
+      "cost_eur": "1.539492027334851936218678816"
+    },
+    "construction_discovery": {
+      "logical_calls": 20,
+      "physical_attempts": 20,
+      "known_input_tokens": 324937,
+      "known_output_tokens": 6715,
+      "cost_eur": "0.7707676537585421412300683372"
+    },
+    "construction_implementation": {
+      "logical_calls": 16,
+      "physical_attempts": 16,
+      "known_input_tokens": 294935,
+      "known_output_tokens": 12150,
+      "cost_eur": "0.7271867881548974943052391798"
+    },
+    "construction_draft": {
+      "logical_calls": 16,
+      "physical_attempts": 16,
+      "known_input_tokens": 363841,
+      "known_output_tokens": 9856,
+      "cost_eur": "0.8736970387243735763097949886"
+    },
+    "construction_intent": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 4473,
+      "known_output_tokens": 2936,
+      "cost_eur": "0.0235649202733485193621867881"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 8950,
+      "known_output_tokens": 643,
+      "cost_eur": "0.0233166287015945330296127563"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 5443,
+      "known_output_tokens": 1607,
+      "cost_eur": "0.0197198177676537585421412301"
+    }
+  },
+  "logical_planning_calls": 74,
+  "campaign_delta": {
+    "calls": 74,
+    "known_input_tokens": 1671002,
+    "known_output_tokens": 37614,
+    "known_cost_eur": "3.977744874715261958997722130",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "3.977744874715261958997722130"
+  },
+  "campaign_after": {
+    "calls": 665,
+    "session_calls": 0,
+    "known_input_tokens": 10554016,
+    "known_output_tokens": 342671,
+    "known_cost_eur": "25.602182232346241457858770131",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "25.602182232346241457858770131",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "030a9f7c7d624adf8892cd297db8a477",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5017380410022779043280182232",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "17eb38fe03644268b532ba9abefdaca3",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7238792710706150341685649203",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "22776588c0bc4545a1ba6588c3d8149b",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9240706150341685649202733485",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "58590fa82d5d4ec0a064637eb54b8aac",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0884601366742596810933940776",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "78d4578065d9433996d354c5bf66b46e",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1799157175398633257403189068",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "81c83cd17de8440ab879cde086af58a4",
+        "httpAttempts": 74,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.9777448747152619589977220957",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8e8df1d69bd463ba4180929d5c945d9",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7150842824601366742596810934",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "abbd18f3dca04c229c59c7a3881b668e",
+        "httpAttempts": 44,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6792801822323462414578587702",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "abc2f0ec71334594bdd4c18a3f884b62",
+        "httpAttempts": 54,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.0151640091116173120728929383",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "af1c60e1d68742e9b15eae865c9760ed",
+        "httpAttempts": 32,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8671981776765375854214123006",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "db68062abe534f9aa3bfcbe06cdea2fa",
+        "httpAttempts": 67,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.3950637813211845102505694767",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e0d3f70a3ba3465ca8d5fd3c6f972bfa",
+        "httpAttempts": 79,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.5321230068337129840546697044",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "4.397817767653758542141229869",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-27T03:47:13.8104358+00:00",
+  "finished_utc": "2026-11-27T04:10:59.2048668+00:00",
+  "wall_seconds": 1425.394,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "required_diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: 81c83cd17de8440ab879cde086af58a4:74:cae6178c463f71c7ffcc718665c1927f49fe763b65c3a1c80026bf0448a11e39:92e8a7b6783d20e658e34717af1513f76b40e8677eaf5cb8e259cbb77262e7a5; prior request: 81c83cd17de8440ab879cde086af58a4:71:d5f4bf37837e78557583b60e465f51f4da1321f1838b8cde24df7b4b53999afd:519231a4a73bc926834c7ad622314af9d37e2190e1b83e9ed92c9d525b2bae85. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal."
+    }
+  ]
+}

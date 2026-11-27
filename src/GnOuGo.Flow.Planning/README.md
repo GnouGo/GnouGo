@@ -391,6 +391,15 @@ TaskPlan `string_operation` values use `text: concat` with two to sixteen string
 
 ### Required conditions and finalization
 
+When an operator answer adds a requirement during final review of an unchanged
+plan, construction retains the completed tasks and their checkpoints. It archives
+the superseded closure and its review, then selects work for the new requirement.
+The resulting plan goes through global review again.
+
+When one rejected draft contains an exact copy of an earlier rejection, the
+evidence view links to the earlier record. Reading that link exposes its original
+observations. Different snapshots remain in the view.
+
 A task may declare `requires` as a boolean TaskValue. Omission preserves historical behavior. New strict provider responses use `requires: null` for omission; persisted TaskPlans omit the absent field. The compiler checks the condition with the existing `set` output schema before task inputs, inference or effects. False fails rather than skipping the task; normal finalization still applies. Keep both conditional exports explicit: require completeness before a publishing sequence instead of inventing an output for an incomplete branch.
 
 A conditional may return an artifact port in one branch and a literal null

@@ -1426,7 +1426,9 @@ reviewed agent, a typed chat submission and a completed Server run journal.
 The benchmark stores the planning session ID and execution ID separately.
 
 With `--amazon-first-products`, the prefix selection retains ordered product
-occurrences, exact links and a reason. A complete prefix goes directly to
+occurrences, exact links, their original link positions and a reason. Each visit
+uses the Browser URL at the selected position after checking equality with the
+selected href. A complete prefix goes directly to
 the sequential visit loop. An earlier ambiguous group can enter one bounded
 navigation task. An incomplete selection carries the observed shortfall.
 

@@ -5,6 +5,24 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningCompactConstruction
 {
+    private static JsonObject RejectedStepEvidence(PlanningCompactConstructionState compact, int index)
+    {
+        var row = compact.RejectedSteps[index].DeepClone().AsObject();
+        if (row["evidence"] is not JsonObject snapshots || row.ContainsKey("directoryPages")) return row;
+        var pages = new JsonArray();
+        foreach (var (address, snapshot) in snapshots.ToArray())
+        {
+            if (!address.StartsWith("rejected:", StringComparison.Ordinal) ||
+                !int.TryParse(address.AsSpan("rejected:".Length), System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var prior) || prior >= index ||
+                !JsonNode.DeepEquals(snapshot, compact.RejectedSteps[prior])) continue;
+            snapshots.Remove(address);
+            pages.Add((JsonNode)new JsonObject { ["address"] = address, ["content"] = "Earlier rejected step with its original evidence." });
+        }
+        if (pages.Count > 0) row["directoryPages"] = pages;
+        return row;
+    }
+
     private static JsonObject? MatchingRejectedStep(PlanningSession state)
     {
         var compact = State(state);

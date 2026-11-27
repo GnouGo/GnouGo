@@ -75,6 +75,21 @@ internal static partial class PlanningConstruction
             if (!next.Reviews.Any(review => JsonNode.DeepEquals(review, retained))) next.Reviews.Add(retained.DeepClone().AsObject());
     }
 
+    internal static void RestoreSupersededClosureFindings(PlanningSession state, PlanningConstructionCandidate candidate)
+    {
+        var earlier = new List<JsonObject>();
+        foreach (var archived in state.Construction!.Compact?.RejectedSteps ?? [])
+        {
+            if (archived["additionalRequirements"] is not JsonArray { Count: > 0 } ||
+                archived["reviews"] is not JsonArray reviews) continue;
+            foreach (var review in reviews.OfType<JsonObject>())
+                if ((review["defectWitness"] is JsonObject || review["resolvedWitnesses"] is JsonArray) &&
+                    !earlier.Concat(candidate.Reviews).Any(item => JsonNode.DeepEquals(item, review)))
+                    earlier.Add(review.DeepClone().AsObject());
+        }
+        candidate.Reviews.InsertRange(0, earlier);
+    }
+
     internal static List<JsonObject> ReplacementDefectReviews(PlanningSession state)
     {
         if (state.Construction?.Compact is not { CurrentStep: { } step } compact) return [];

@@ -6,6 +6,27 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class ReselectionFeedbackTests
 {
+    [Fact]
+    public void ArchivedRejectionLinksOnlyToIdenticalEarlierEvidence()
+    {
+        var (state, _) = FocusedDiscoveryTests.Ready(new("source", 1));
+        var history = state.Construction!.Compact!.RejectedSteps;
+        history.Add(new() { ["reason"] = "The original operation lacked the required output." });
+        var different = new JsonObject { ["reason"] = "A different historical observation." };
+        history.Add(new() { ["evidence"] = new JsonObject { ["rejected:0"] = different.DeepClone() } });
+        history.Add(new() { ["evidence"] = new JsonObject { ["rejected:0"] = history[0].DeepClone(),
+            ["rejected:1"] = different.DeepClone(), ["rejected:3"] = history[0].DeepClone() } });
+        var original = history[2].DeepClone();
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "rejected:2", out var view));
+        Assert.Null(view!["evidence"]!["rejected:0"]);
+        Assert.True(JsonNode.DeepEquals(different, view["evidence"]!["rejected:1"]));
+        Assert.True(JsonNode.DeepEquals(history[0], view["evidence"]!["rejected:3"]));
+        Assert.Equal("rejected:0", Assert.Single(PlanningCompactConstruction.NavigationEvidence([view])));
+        Assert.True(PlanningCompactConstruction.LoadEvidence(state, "rejected:0", out var earlier));
+        Assert.True(JsonNode.DeepEquals(earlier, original["evidence"]!["rejected:0"]));
+        Assert.True(JsonNode.DeepEquals(original, history[2]));
+    }
+
     [Theory]
     [InlineData("foreach", "CONSTRUCTION_TENTATIVE_SELECTION", true)]
     [InlineData("sequence", "CONSTRUCTION_TENTATIVE_SELECTION", true)]

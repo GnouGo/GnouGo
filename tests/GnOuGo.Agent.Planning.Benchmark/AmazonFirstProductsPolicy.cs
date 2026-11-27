@@ -38,8 +38,9 @@ internal static class AmazonFirstProductsPolicy
         "Branch on that status. Keep the bounded navigation agent inside the needs_navigation branch. The complete branch uses the observed list directly. " +
         "Stop selecting at ten. A short prefix requires further original groups in order or an explicit observed shortfall. " +
         "Use the same selection schema after resolution, with status, ordered products and reason. Retain only observed entries on partial or empty outcomes. " +
-        "Copy verbatim each signed absolute href. Keep the same string pattern in the selected-product href output schema. " +
-        "On complete status and ten entries, visit the ten exact hrefs with one sequential loop. Source resolutions are separate from product visits. " +
+        "Keep each selected product's exact signed href and its zero-based sourceIndex in the original linkPrefix.links array in both selection branches. " +
+        "Preserve the Browser href pattern in the agent output schema. " +
+        "On complete status and ten entries, use one sequential loop. Read the original link at each sourceIndex with at_index, require its href to equal the selected href, and pass the Browser's original href field to the visit. Source resolutions are separate from product visits. " +
         "Each observation_complete detail GET exposes observationSnapshot.textMatches.records in original page order with text, selector and source reference. " +
         "Bind this compact view to the field extraction together with visit status, page identity and any observed error. Reject challenges, errors and incomplete evidence. " +
         "Preserve unavailable fields explicitly. On ten eligible rows from successful detail visits, write and independently reopen the workbook. Otherwise return the observed failure. " +

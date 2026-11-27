@@ -298,6 +298,7 @@ public sealed partial class HybridWorkflowPlanner
         PlanningInspection.Record(state, "technical_validation", "active", "Validate the complete candidate against types, exact bindings and contracts.", state.RequestMeasurements?.LastOrDefault()?.RequestId);
         ct.ThrowIfCancellationRequested();
         var draft = state.Construction!.Candidate!;
+        if (draft.Extension.Complete) PlanningConstruction.RestoreSupersededClosureFindings(state, draft);
         var pendingRevision = draft.AuthorizedPaths is { Count: > 0 } authorized && draft.Hash == draft.BaseHash &&
             draft.Hash == PlanningConstruction.Hash(draft.Plan) && draft.BaseHash == PlanningConstruction.Hash(state.Plan)
             ? draft.Diagnostics.Where(d => d.Required && d.Code == "JUDGE_SCOPED_REVIEW" &&

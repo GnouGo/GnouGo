@@ -1,0 +1,20 @@
+{
+  "source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+  "product_version": "1.0.0+de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+  "binary": "artifacts/agent-routing/server-win-x64/tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.exe",
+  "sha256": "20a1aa671b7e76513b215e505dfebe2b100fee46bef04b56703d38d993914080",
+  "transport": "stdio",
+  "methods": [
+    "initialize",
+    "tools/list"
+  ],
+  "comparison_count_field": {
+    "description": "Known number of changed files. When supplied the call succeeds only for one complete first page containing exactly this many files. Existing patch truncation indicators still apply.",
+    "type": [
+      "integer",
+      "null"
+    ],
+    "default": null
+  },
+  "workflow_or_model_calls": 0
+}

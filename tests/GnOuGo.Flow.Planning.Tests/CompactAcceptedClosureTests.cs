@@ -34,6 +34,46 @@ public sealed class CompactAcceptedClosureTests
         PlanningArtifactApproval.Verify(state);
     }
 
+    [Theory]
+    [InlineData("answer", true)]
+    [InlineData("original", false)]
+    [InlineData("explicit_revision", false)]
+    [InlineData("modified_candidate", false)]
+    public async Task NewAnswerWorkCanSupersedeOnlyAnUnchangedFinalClosure(string context, bool reopened)
+    {
+        var state = Assert.IsType<PlanningSession>(PlanningCompactConstruction.PrepareReviewedClosure(await State()));
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        var candidate = construction.Candidate!;
+        var hash = PlanningConstruction.Hash(state.Plan);
+        candidate.AuthorizedPaths = ["/tasks/producer/outputs/number/value"];
+        state.Requirements!.Outcomes.Add(new("later", "Verify the cleanup result."));
+        construction.Requirements.Add(new() { Id = "later", Status = "remaining" });
+        compact.RequirementSources["later"] = [context == "original" ? "prompt:0:clause:1" : "answer:1:cleanup:0:clause:0"];
+        if (context == "explicit_revision") state.EditablePaths = candidate.AuthorizedPaths.ToList();
+        if (context == "modified_candidate") candidate.Plan.Root.Tasks[0].Objective = "Changed tentative work.";
+        var witness = new JsonObject { ["purpose"] = PlanningConstruction.GlobalPurpose, ["defectWitness"] = new JsonObject { ["version"] = 1 } };
+        candidate.Reviews.Add(witness);
+        var reviews = candidate.Reviews.Count;
+        Assert.Equal(reopened, PlanningCompactConstruction.ReopenClosureForAnswer(state));
+        Assert.Equal(hash, PlanningConstruction.Hash(state.Plan));
+        Assert.Single(construction.Checkpoints);
+        if (reopened)
+        {
+            Assert.Null(construction.Candidate);
+            Assert.Null(compact.CurrentStep);
+            Assert.Null(compact.ReplacementScope);
+            Assert.Equal(reviews, Assert.Single(compact.RejectedSteps)["reviews"]!.AsArray().Count);
+            Assert.False(PlanningCompactConstruction.CompletionOnly(state));
+            Assert.Contains("/root", construction.OpenScopes);
+            var final = new PlanningConstructionCandidate();
+            PlanningConstruction.RestoreSupersededClosureFindings(state, final);
+            PlanningConstruction.RestoreSupersededClosureFindings(state, final);
+            Assert.True(JsonNode.DeepEquals(witness, Assert.Single(final.Reviews)));
+        }
+        else Assert.Same(candidate, construction.Candidate);
+    }
+
     [Fact]
     public async Task NestedTechnicalClosureDoesNotClaimGlobalBusinessCompletion()
     {

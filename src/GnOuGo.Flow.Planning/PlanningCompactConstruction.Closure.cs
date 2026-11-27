@@ -37,6 +37,32 @@ internal static partial class PlanningCompactConstruction
         (state.Requirements?.Outputs ?? []).Where(output => output.Required).All(output => plan.Root.Outputs.Any(binding => binding.Name == output.Name)) &&
         state.Construction.RebuildTasks.All(task => new TaskPlanSymbols(plan).Tasks.ContainsKey(task.Id));
 
+    // A user answer may introduce a new obligation while the unchanged graph is
+    // under final review. An input patch to that old closure cannot add its work.
+    internal static bool ReopenClosureForAnswer(PlanningSession state)
+    {
+        var construction = state.Construction!;
+        var compact = State(state);
+        if (state.EditablePaths is not null || state.PendingCall is not null || state.ApprovedHash is not null ||
+            compact.CurrentBlockId is not null || compact.ReplacementScope is not null ||
+            compact.CurrentStep is not { Kind: "close", Scope: "/root", BlockId: null } step ||
+            construction.Candidate is not { BusinessReviewed: false, Extension.Complete: true } candidate ||
+            !construction.OpenScopes.Contains("/root", StringComparer.Ordinal) ||
+            candidate.BaseHash != step.BaseHash || candidate.Hash != step.BaseHash ||
+            candidate.Hash != PlanningConstruction.Hash(state.Plan) || candidate.Hash != PlanningConstruction.Hash(candidate.Plan) ||
+            !candidate.Reviews.Any(review => review["purpose"]?.ToString() == "construction_transition" &&
+                review["outcome"]?.ToString() is ("selected_closure" or "prepared_closure") && review["baseline"]?.ToString() == step.BaseHash))
+            return false;
+        var added = construction.Requirements.Where(requirement => requirement.Status == "remaining" &&
+            !step.RequirementIds.Contains(requirement.Id, StringComparer.Ordinal) &&
+            compact.RequirementSources.TryGetValue(requirement.Id, out var sources) &&
+            sources.Any(id => id.StartsWith("answer:", StringComparison.Ordinal))).Select(requirement => requirement.Id).ToArray();
+        if (added.Length == 0) return false;
+        ArchiveTentativeStep(state, step, "The accepted answer added work after this final closure was selected: " + string.Join(", ", added));
+        compact.RejectedSteps[^1]["additionalRequirements"] = new JsonArray(added.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray());
+        return true;
+    }
+
     private static int OpenDescendants(PlanningSession state, TaskPlanSymbols symbols, string path) =>
         state.Construction!.OpenScopes.Count(open =>
         {

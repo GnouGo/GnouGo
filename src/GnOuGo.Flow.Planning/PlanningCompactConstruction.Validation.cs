@@ -19,6 +19,13 @@ internal static partial class PlanningCompactConstruction
         if (step is null || construction.Candidate?.AuthorizedPaths is not null && !HybridWorkflowPlanner.CanWithdrawRejectedClaim(state) || state.EditablePaths is not null ||
             state.PendingCall is not null || string.IsNullOrWhiteSpace(reason) || !state.Diagnostics.Any(d => d.Required))
             PlanningConstruction.Fail("CONSTRUCTION_RESELECTION_INVALID", "/reselectStep", "Reselection requires a diagnosed tentative step and cannot expand explicit correction authority.");
+        ArchiveTentativeStep(state, step!, reason);
+        compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
+    }
+
+    private static void ArchiveTentativeStep(PlanningSession state, PlanningConstructionStep step, string reason)
+    {
+        var construction = state.Construction!; var compact = State(state);
         compact.RejectedSteps.Add(new JsonObject { ["step"] = JsonSerializer.SerializeToNode(step, PlanningJsonContext.Default.PlanningConstructionStep),
             ["candidateHash"] = construction.Candidate?.Hash, ["reason"] = reason,
             ["extension"] = construction.Candidate is { } candidate ? PlanningConstruction.Node(candidate.Extension, PlanningJsonContext.Default.PlanningConstructionExtension) : null,
@@ -26,7 +33,6 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = ArchiveReselectionEvidence(state, step!),
             ["reviews"] = new JsonArray((construction.Candidate?.Reviews ?? PlanningConstruction.ReplacementDefectReviews(state))
                 .Select(r => r.DeepClone()).ToArray()) });
-        compact.ReplacementScope = step!.Scope; compact.ReplacementRequirements = step.RequirementIds.ToList();
         construction.DraftCorrections = Math.Max(construction.DraftCorrections, construction.Candidate?.Corrections ?? 0);
         construction.Candidate = null;
         compact.CurrentStep = null; compact.PendingCommitments.Clear();
@@ -411,7 +417,7 @@ internal static partial class PlanningCompactConstruction
         { value = RequirementNodes(state, [address[12..]]); if (value.AsArray().Count == 0) value = null; return true; }
         var parts = address.Split(':');
         if (parts is ["rejected", var rejected] && int.TryParse(rejected, out var rejectedIndex) && rejectedIndex >= 0 && rejectedIndex < compact.RejectedSteps.Count)
-        { value = compact.RejectedSteps[rejectedIndex].DeepClone(); return true; }
+        { value = RejectedStepEvidence(compact, rejectedIndex); return true; }
         if (parts is ["page", "sources", var sourceOffset] && int.TryParse(sourceOffset, out var sourceIndex) && sourceIndex >= 0)
         { value = SourceDescriptors(state, sourceIndex); return true; }
         if (parts is ["page", "requirements", var requirementOffset] && int.TryParse(requirementOffset, out var next) && next >= 0 && next < state.Requirements!.Outcomes.Count)

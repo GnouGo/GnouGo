@@ -1,0 +1,20 @@
+{
+  "source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+  "packages": [
+    {
+      "name": "GnOuGo.Flow.Core",
+      "file": "artifacts/agent-routing/packages/GnOuGo.Flow.Core.1.0.0.nupkg",
+      "sha256": "c9abee0ae674c9e6912fa2856d792f15a1e6397a4abb7c5267d5b5e215f243f0"
+    },
+    {
+      "name": "GnOuGo.GithubCopilot.Core",
+      "file": "artifacts/agent-routing/packages/GnOuGo.GithubCopilot.Core.1.0.0.nupkg",
+      "sha256": "f44672036ad3d3d277909a0300089a0d81ee506f9e03bcc5ba57bcf10afbbf89"
+    },
+    {
+      "name": "GnOuGo.Flow.Copilot",
+      "file": "artifacts/agent-routing/packages/GnOuGo.Flow.Copilot.1.0.0.nupkg",
+      "sha256": "ed80706caa35671fc554c11922ad4218253d4087ab00e7bf800e4e117d5f468e"
+    }
+  ]
+}
