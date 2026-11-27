@@ -14,80 +14,80 @@
   },
   "closing": {
     "ceiling_eur": 70,
-    "measured_eur": "48.142774487471526195899772705",
+    "measured_eur": "49.089328018223234624145786383",
     "physical_reservation_eur": "0.475031890660592255125284738",
     "separate_application_reservation_eur": "0.0463553530751708428246013667",
-    "available_eur": "21.3358382687927107061503411903",
-    "physical_attempts": 1333,
-    "input_tokens": 19767400,
-    "output_tokens": 683639
+    "available_eur": "20.3892847380410022779043275123",
+    "physical_attempts": 1355,
+    "input_tokens": 20165365,
+    "output_tokens": 692425
   },
-  "incremental_measured_eur": "11.194794988610478359908883974",
-  "incremental_physical_attempts": 358,
-  "incremental_input_tokens": 4568005,
-  "incremental_output_tokens": 173255,
+  "incremental_measured_eur": "12.141348519362186788154897652",
+  "incremental_physical_attempts": 380,
+  "incremental_input_tokens": 4965970,
+  "incremental_output_tokens": 182041,
   "by_phase": {
     "construction_discovery": {
-      "logical_calls": 116,
-      "physical_attempts": 116,
-      "input_tokens": 1422125,
-      "output_tokens": 27451,
-      "duration_ms": "1800112.9934",
-      "measured_eur": "3.3645261958997722095671981784"
+      "logical_calls": 123,
+      "physical_attempts": 123,
+      "input_tokens": 1494276,
+      "output_tokens": 28799,
+      "duration_ms": "1882228.0359",
+      "measured_eur": "3.5350205011389521640091116180"
     },
     "construction_draft": {
-      "logical_calls": 99,
-      "physical_attempts": 99,
-      "input_tokens": 1831940,
-      "output_tokens": 66528,
-      "duration_ms": "2058886.7520",
-      "measured_eur": "4.4760728929384965831435079725"
+      "logical_calls": 101,
+      "physical_attempts": 101,
+      "input_tokens": 1865175,
+      "output_tokens": 69353,
+      "duration_ms": "2110321.2296",
+      "measured_eur": "4.5646492027334851936218678814"
     },
     "construction_implementation": {
-      "logical_calls": 71,
-      "physical_attempts": 71,
-      "input_tokens": 659239,
-      "output_tokens": 36435,
-      "duration_ms": "1362377.8326",
-      "measured_eur": "1.6676742596810933940774487474"
+      "logical_calls": 73,
+      "physical_attempts": 73,
+      "input_tokens": 668105,
+      "output_tokens": 36851,
+      "duration_ms": "1384787.4639",
+      "measured_eur": "1.6897653758542141230068337132"
     },
     "construction_intent": {
-      "logical_calls": 10,
-      "physical_attempts": 10,
-      "input_tokens": 21920,
-      "output_tokens": 18053,
-      "duration_ms": "2084521.5081",
-      "measured_eur": "0.1321776765375854214123006834"
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "input_tokens": 23809,
+      "output_tokens": 19437,
+      "duration_ms": "2249810.1014",
+      "measured_eur": "0.1427858769931662870159453303"
     },
     "construction_select": {
-      "logical_calls": 24,
-      "physical_attempts": 24,
-      "input_tokens": 66033,
-      "output_tokens": 12815,
-      "duration_ms": "456776.7121",
-      "measured_eur": "0.2087995444191343963553530753"
+      "logical_calls": 25,
+      "physical_attempts": 25,
+      "input_tokens": 68131,
+      "output_tokens": 13566,
+      "duration_ms": "474315.9578",
+      "measured_eur": "0.2170000000000000000000000001"
     },
     "construction_local_judge": {
-      "logical_calls": 16,
-      "physical_attempts": 16,
-      "input_tokens": 173009,
-      "output_tokens": 5195,
-      "duration_ms": "257023.2054",
-      "measured_eur": "0.4177653758542141230068337130"
+      "logical_calls": 17,
+      "physical_attempts": 17,
+      "input_tokens": 182756,
+      "output_tokens": 5389,
+      "duration_ms": "268906.8874",
+      "measured_eur": "0.4408519362186788154897494305"
     },
     "construction_global_judge": {
-      "logical_calls": 4,
-      "physical_attempts": 4,
-      "input_tokens": 49614,
-      "output_tokens": 1607,
-      "duration_ms": "63774.7573",
-      "measured_eur": "0.1203371298405466970387243736"
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 57346,
+      "output_tokens": 1729,
+      "duration_ms": "74987.9486",
+      "measured_eur": "0.1385056947608200455580865604"
     },
     "business_inference": {
-      "physical_attempts": 6,
-      "measured_eur": "0.2844897494305239179954442172",
-      "input_tokens": 122667,
-      "output_tokens": 1112
+      "physical_attempts": 13,
+      "measured_eur": "0.8898177676537585421412301049",
+      "input_tokens": 384914,
+      "output_tokens": 2858
     },
     "replan": {
       "logical_calls": 10,
@@ -226,6 +226,18 @@
       "planning_eur": "1.2572186788154897494305239181",
       "business_calls": 0,
       "business_eur": 0
+    },
+    {
+      "receipt": "server-code-8.json",
+      "source": "7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+      "run": "improve40-code-20261127-224019",
+      "elapsed_seconds": "692.689523",
+      "planning_calls": 15,
+      "planning_input": 135718,
+      "planning_output": 7040,
+      "planning_eur": "0.3412255125284738041002277903",
+      "business_calls": 7,
+      "business_eur": "0.6053280182232346241457858877"
     }
   ]
 }

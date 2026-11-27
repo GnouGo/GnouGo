@@ -44,6 +44,8 @@ internal sealed class LocalProjectSessionFsProvider : ICopilotSessionFileSystem
             throw new UnauthorizedAccessException("Native reads require an exact absolute project file.");
         ValidateRead(path);
     }
+    public bool IsReadableNativeDirectory(string path) =>
+        Path.IsPathFullyQualified(path) && Directory.Exists(Resolve(path, true));
     public void ValidateWrite(string path, string? content = null)
     {
         var full = Resolve(path, false);

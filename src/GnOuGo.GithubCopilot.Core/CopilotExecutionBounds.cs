@@ -26,6 +26,9 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     private readonly CopilotInferenceBudget _inference = new(maxModelCalls, maxTotalTokens, deadline, persistReservation);
     public IReadOnlySet<string> Tools { get; } = tools;
     public IReadOnlyList<string>? SessionTools { get; internal set; }
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _directoryViews = new(StringComparer.Ordinal);
+    internal void RecordDirectoryView(string toolCallId) => _directoryViews.TryAdd(toolCallId, 0);
+    public bool WasDirectoryView(string toolCallId) => _directoryViews.ContainsKey(toolCallId);
     public Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync
     {
         init => _inference.ReserveHostAttemptAsync = value;

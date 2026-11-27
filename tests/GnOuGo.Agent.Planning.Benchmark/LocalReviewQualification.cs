@@ -76,7 +76,7 @@ internal static class LocalReviewQualification
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(source))) == expected;
     }
 
-    internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, bool allowWrites, CancellationToken ct)
+    internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, CancellationToken ct, bool allowWrites = true)
     {
         if ((relative + "/repository/" + UnitScript).Length > MaxUnitPathLength)
             throw new InvalidOperationException("The fixed upstream test path exceeds the configured Cmd alias limit.");
@@ -108,6 +108,7 @@ internal static class LocalReviewQualification
         "Empty findings are permitted. " +
         "The public report object has required string base and head, string arrays reviewed_files (observed repository-relative paths) and limitations, " +
         "and a findings array of objects. Set additionalProperties to false on both the report and each finding in the agent output schema. Each finding requires strings path, side, severity, category, explanation and evidence, integer startLine and endLine, and numeric confidence from 0 to 1. " +
+        "Declare the accepted string enums in the finding schema. " + ReviewValidation.FindingFieldContract + " " +
         $"On agent success, write its verified output as JSON to {relative}/review.json with document_write. Return that same object as report after the write succeeds. " +
         "In the always block, delete the fixed disposable destination even after a partial clone. Then assert the cleanup command's success field in that same block so a cleanup failure fails the run. All feedback stays local.";
 

@@ -33,7 +33,11 @@ internal static class CodeReviewEvidence
             facts["head"] = head;
             return result with { Evidence = [.. result.Evidence, new("review:" + head, Kind, head, facts)] };
         }
-        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException or NullReferenceException)
+        catch (JsonException ex)
+        {
+            return Failed($"The structured review could not be read at {ex.Path ?? "$"}. {ReviewValidation.FindingFieldContract}");
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or NullReferenceException)
         { return Failed("The provided comparison or structured review is invalid."); }
 
         AgentTaskResult Failed(string reason) => result with { Status = "failed", Output = null, Message = reason };

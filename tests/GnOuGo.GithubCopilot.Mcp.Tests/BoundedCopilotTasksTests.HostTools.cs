@@ -12,6 +12,20 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed partial class BoundedCopilotTasksTests
 {
     [Fact]
+    public void NativeDirectoryListingDoesNotSatisfyAFileRead()
+    {
+        var bounds = new CopilotExecutionBounds(1, 1000, DateTimeOffset.UtcNow.AddMinutes(1),
+            new HashSet<string> { "view" }, (_, _, _) => Task.CompletedTask);
+        var directory = new CopilotToolExecutionObservation("dir", null, "view", """{"path":"src"}""", true, true, false, [], null)
+            { StartedSequence = 1, CompletedSequence = 2 };
+        var file = directory with { ToolCallId = "file", ArgumentsJson = """{"path":"src/sample.cs"}""" };
+        bounds.RecordDirectoryView(directory.ToolCallId);
+        var sent = new CopilotSendResult("handle", "session", "", null, []) { ToolExecutions = [directory, file] };
+        var read = Assert.Single(BoundedCopilotTasks.ReadEvidence(sent, Path.GetTempPath(), bounds));
+        Assert.Equal("src/sample.cs", read.Subject);
+    }
+
+    [Fact]
     public async Task ConcurrentSdkDialogsRegisterInOrderAndReceiveIndependentAnswers()
     {
         var ct = TestContext.Current.CancellationToken;
@@ -106,6 +120,12 @@ public sealed partial class BoundedCopilotTasksTests
         var verified = CodeReviewEvidence.Verify(task, result);
         Assert.Equal(status, verified.Status);
         Assert.Equal(status == "completed", verified.Evidence.Any(e => e.Kind == "review.diff" && e.Subject == head));
+        if (!pinned || !read) return;
+        output["findings"] = new JsonArray(new JsonObject { ["severity"] = "P1" });
+        var malformed = CodeReviewEvidence.Verify(task, result);
+        Assert.Equal("failed", malformed.Status);
+        Assert.Contains("severity", malformed.Message);
+        Assert.Contains(ReviewValidation.FindingFieldContract, malformed.Message);
     }
 
     [Fact]

@@ -14,6 +14,18 @@ public sealed class LocalProjectSessionFsProviderTests : IDisposable
     }
 
     [Fact]
+    public async Task NativeDirectoryViewsRequireAnExactProjectDirectory()
+    {
+        await using var provider = CreateProvider(false);
+        Assert.True(provider.IsReadableNativeDirectory(_root));
+        Assert.True(provider.IsReadableNativeDirectory(Path.Combine(_root, "src")));
+        Assert.False(provider.IsReadableNativeDirectory("src"));
+        Assert.False(provider.IsReadableNativeDirectory(Path.Combine(_root, "src", "Existing.cs")));
+        Assert.Throws<UnauthorizedAccessException>(() => provider.IsReadableNativeDirectory(Path.GetDirectoryName(_root)!));
+        Assert.Throws<UnauthorizedAccessException>(() => provider.ValidateNativeFileRead(_root));
+    }
+
+    [Fact]
     public async Task WriteFileForTestAsync_WritesAllowedFileAndTracksModification()
     {
         var provider = CreateProvider(allowWrites: true);

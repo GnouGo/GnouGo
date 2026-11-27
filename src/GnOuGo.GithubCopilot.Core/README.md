@@ -90,7 +90,7 @@ clears the owned transient store; SDK disk deletion is used only for native stor
 
 Controlled sessions expose Core's `project_read`, `project_write`, `project_append`,
 `project_list`, `project_stat`, `project_mkdir`, `project_remove`, and `project_rename`
-functions. Bounded tasks can also expose native `view` and `apply_patch` through
+functions. Bounded tasks can also expose native `view` for files and directories, and `apply_patch` for edits, through
 the registered filesystem. The host validates every declared patch destination.
 Tool allowlists are still applied; hosts using an explicit allowlist
 must name the required `project_*` functions. Deny-mode suggestions receive no file tools.

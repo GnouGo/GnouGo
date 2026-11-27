@@ -432,7 +432,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                     p.Name != (input.ToolName == "view" ? "view_range" : "pattern")))
                     throw new UnauthorizedAccessException("Native reads accept a single file with a range or search pattern.");
                 if (input.ToolName == "rg") _ = CopilotProjectFileTool.RequiredString(native, "pattern");
-                policy.ValidateNativeFileRead(nativePath);
+                if (input.ToolName == "view" && bounds?.Tools.Contains("view") == true && state is not null &&
+                    input.ToolCallId is { Length: > 0 } id && policy.IsReadableNativeDirectory(nativePath))
+                    bounds.RecordDirectoryView(id);
+                else policy.ValidateNativeFileRead(nativePath);
                 return null;
             }
             var write = input.ToolName is "edit" or "edit_file" or "create" or "create_file" or "str_replace_editor" or "apply_patch";

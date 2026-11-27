@@ -7,6 +7,9 @@ namespace GnOuGo.GithubCopilot.Core;
 
 public static partial class ReviewValidation
 {
+    public static string FindingFieldContract { get; } =
+        $"Use one of {string.Join(", ", Enum.GetNames<ReviewSeverity>())} for severity and one of {string.Join(", ", Enum.GetNames<ReviewDiffSide>())} for side.";
+
     public static ObservedReview ValidateObserved(IReadOnlyDictionary<string, ReviewFilePatch> files,
         IEnumerable<string> readPaths, IReadOnlyList<string> reportedPaths, IReadOnlyList<string> limitations,
         IReadOnlyList<ReviewFindingCandidate> candidates)
