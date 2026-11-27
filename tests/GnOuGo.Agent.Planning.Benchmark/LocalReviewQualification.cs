@@ -15,6 +15,7 @@ internal static class LocalReviewQualification
     internal const string UnitCheck = "check_annotation_cleanup";
     internal const string UnitScript = ".bin/test-annotation-policy-cleanup.py";
     internal const string PolicyScript = ".bin/test-annotation-policy.py";
+    internal const int MaxUnitPathLength = 240;
 
     internal static void ConfigureCommands(IDictionary<string, string?> environment)
     {
@@ -34,6 +35,8 @@ internal static class LocalReviewQualification
         environment[prefix + "Script"] = OperatingSystem.IsWindows()
             ? "python.exe -I -B -S {{path}}; exit $LASTEXITCODE" : "exec python3 -I -B -S {{path}}";
         environment[prefix + "Parameters__path__Required"] = "true";
+        environment[prefix + "Parameters__path__MaxLength"] = MaxUnitPathLength.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        environment[prefix + "Parameters__path__Pattern"] = @"^workflows/(?:[A-Za-z0-9_-][A-Za-z0-9_.-]*/)+repository/\.bin/test-annotation-policy-cleanup\.py$";
         environment[prefix + "Parameters__path__IsWorkspacePath"] = "true";
         environment[prefix + "Parameters__path__MustExist"] = "true";
         environment[prefix + "Parameters__path__PathKind"] = "File";
@@ -49,6 +52,8 @@ internal static class LocalReviewQualification
 
     internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, CancellationToken ct)
     {
+        if ((relative + "/repository/" + UnitScript).Length > MaxUnitPathLength)
+            throw new InvalidOperationException("The fixed upstream test path exceeds the configured Cmd alias limit.");
         await target.CheckCurrentAsync(ct);
         var files = await target.ChangedFilesAsync(ct);
         await target.CheckCurrentAsync(ct);

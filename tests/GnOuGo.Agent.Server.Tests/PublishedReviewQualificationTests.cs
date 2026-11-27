@@ -56,6 +56,23 @@ public sealed class PublishedReviewQualificationTests
     }
 
     [Fact]
+    public async Task LocalUnitCheckUsesTheEntireConfinedCampaignPath()
+    {
+        var environment = new Dictionary<string, string?>();
+        LocalReviewQualification.ConfigureCommands(environment);
+        var path = "workflows/pr120-agent-routing-20261126-30/routing30-code-20261127-013140/repository/" + LocalReviewQualification.UnitScript;
+        var limit = int.Parse(environment[$"Cmd__AllowedCommands__{LocalReviewQualification.UnitCheck}__Parameters__path__MaxLength"]!,
+            System.Globalization.CultureInfo.InvariantCulture);
+        Assert.Equal(122, path.Length);
+        Assert.InRange(path.Length, 1, limit);
+        var pattern = environment[$"Cmd__AllowedCommands__{LocalReviewQualification.UnitCheck}__Parameters__path__Pattern"]!;
+        Assert.Matches(pattern, path);
+        Assert.DoesNotMatch(pattern, path.Replace("cleanup.py", "other.py", StringComparison.Ordinal));
+        var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, new string('a', 40), new string('b', 40));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => LocalReviewQualification.PromptAsync(new string('x', limit), target, new(), default));
+    }
+
+    [Fact]
     public void LocalReviewRequiresTheObservedPinnedCommandAndExitStatus()
     {
         const string root = "workflows/review";
