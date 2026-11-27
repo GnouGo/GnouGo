@@ -465,6 +465,72 @@ public sealed class CompactConstructionClosureTests
 
     private static PlanTask Container(string id) => new() { Id = id, Kind = "sequence", Objective = "Preserve the selected scope boundary.", Body = new() };
 
+    [Theory]
+    [InlineData("/tasks/decision/body")]
+    [InlineData("/tasks/decision/otherwise")]
+    [InlineData("/groups/nested/body")]
+    public void EmptyContinuationEntersTheChosenAcceptedBodyOnce(string path)
+    {
+        var state = PlannerFixture.Clone(ContinuedControl());
+        var construction = state.Construction!;
+        var original = PlanningConstruction.Hash(state.Plan);
+        var checkpoint = JsonSerializer.Serialize(construction.Checkpoints, PlanningJsonContext.Default.Options);
+        var proposal = new PlanningConstructionResponse { BaseHash = original,
+            Extension = new() { CompleteBlock = false, ContinueInScope = path, RequirementIds = ["req"] } };
+        construction.EvidenceRequests.Add("already-read");
+        construction.DraftCorrections = 2;
+
+        Assert.True(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, proposal));
+        Assert.Equal(path, construction.Compact!.CurrentStep!.Scope);
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+        Assert.Equal(checkpoint, JsonSerializer.Serialize(construction.Checkpoints, PlanningJsonContext.Default.Options));
+        Assert.Null(construction.Candidate);
+        Assert.Equal("remaining", Assert.Single(construction.Requirements).Status);
+        Assert.Equal(2, construction.DraftCorrections);
+        Assert.Contains("already-read", construction.EvidenceRequests);
+        Assert.False(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, proposal));
+        proposal.Extension.Scope = path;
+        proposal.Extension.ContinueInScope = "/root";
+        Assert.False(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, proposal));
+    }
+
+    [Fact]
+    public void EmptyContinuationCannotClaimWorkOrEnterAnotherCheckpointsControl()
+    {
+        var state = ContinuedControl();
+        var request = new PlanningConstructionResponse { Extension = new() { CompleteBlock = false,
+            ContinueInScope = "/tasks/older/body", RequirementIds = ["req"] } };
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.False(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, request));
+        request.Extension.ContinueInScope = "/tasks/decision/body";
+        request.Extension.CompleteBlock = true;
+        Assert.False(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, request));
+        request.Extension.CompleteBlock = false;
+        request.Extension.RequirementIds = ["elsewhere"];
+        Assert.False(PlanningCompactConstruction.TryEnterAcceptedChildScope(state, request));
+        Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
+    }
+
+    private static PlanningSession ContinuedControl()
+    {
+        var state = State();
+        state.Plan = new() { Root = new() { Tasks = [Container("older"), new()
+        {
+            Id = "decision", Kind = "conditional", Objective = "Use the observed decision.",
+            Condition = new() { Kind = "boolean", Boolean = true }, Body = new(), Otherwise = new()
+        }] }, Groups = [new() { Id = "nested", Body = new() }] };
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "conditional";
+        step.CloseRequirementIds.Clear();
+        step.OutputNames.Clear();
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.OpenScopes = ["/root", "/tasks/older/body", "/tasks/decision/body", "/tasks/decision/otherwise", "/groups/nested/body"];
+        construction.Checkpoints.Add(new() { Step = step, PlanHash = step.BaseHash, TaskIds = ["decision"],
+            Fragment = new() { ["continueInScope"] = "/root", ["groups"] = new JsonArray("nested") } });
+        return state;
+    }
+
     private static PlanningSession State()
     {
         var state = new PlanningSession

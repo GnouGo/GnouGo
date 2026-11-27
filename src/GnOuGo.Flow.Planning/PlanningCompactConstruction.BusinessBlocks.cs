@@ -152,6 +152,40 @@ internal static partial class PlanningCompactConstruction
         return [];
     }
 
+    private static PlanningConstructionCheckpoint? ContinuedCheckpoint(PlanningSession state, PlanningConstructionStep step)
+    {
+        var checkpoint = state.Construction!.Checkpoints.LastOrDefault();
+        return checkpoint?.Step is { } prior && prior.Id == step.Id && prior.BlockId == step.BlockId && prior.Scope == step.Scope &&
+            checkpoint.Fragment["continueInScope"]?.ToString() == step.Scope && checkpoint.PlanHash == step.BaseHash ? checkpoint : null;
+    }
+
+    internal static bool TryEnterAcceptedChildScope(PlanningSession state, PlanningConstructionResponse proposal)
+    {
+        if (proposal is not { Requirements: null, Commitments: null or { Count: 0 }, RollbackReason: null,
+                Extension: { Complete: false, CompleteBlock: false, ContinueInScope: { } path,
+                    Tasks.Count: 0, Always.Count: 0, Groups.Count: 0, Choices.Count: 0, Outputs.Count: 0, CloseScopes.Count: 0,
+                    BoundaryTransitions: null or { Count: 0 }, ContinuationBinding: null } extension } ||
+            state.EditablePaths is not null || state.Plan is null ||
+            state.Construction is not { Candidate: null, Compact: { ReplacementScope: null, CurrentStep: { } step } } construction ||
+            !SupportsBusinessFragment(step.Kind) || extension.Scope != step.Scope || path == step.Scope ||
+            !construction.OpenScopes.Contains(path, StringComparer.Ordinal) ||
+            extension.RequirementIds.Count != step.RequirementIds.Count || !step.RequirementIds.ToHashSet(StringComparer.Ordinal).SetEquals(extension.RequirementIds) ||
+            ContinuedCheckpoint(state, step) is not { InvalidatedTaskIds.Count: 0 } checkpoint) return false;
+
+        var target = new TaskPlanSymbols(state.Plan).Scopes.SingleOrDefault(scope => scope.Path == path);
+        var controlBody = target is { Parent: { } parent, Owner: { } owner } && parent.Path == step.Scope &&
+            checkpoint.TaskIds.Contains(owner.Id, StringComparer.Ordinal);
+        var groupBody = step.Scope == "/root" && target is { Parent: null, Owner: null } &&
+            checkpoint.Fragment["groups"] is JsonArray groups && groups.Any(id => path == "/groups/" + id + "/body");
+        if (!controlBody && !groupBody) return false;
+
+        // The checkpoint still names the parent as its continuation. Moving down
+        // once consumes that opportunity without recording fictitious plan work.
+        ContinueAcceptedBlock(state, path);
+        RetainPrerequisiteEvidence(state, preserveConsumedHistory: true, continuedScope: path);
+        return true;
+    }
+
     private static void ContinueAcceptedBlock(PlanningSession state, string path)
     {
         var step = CloneStep(State(state).CurrentStep!);

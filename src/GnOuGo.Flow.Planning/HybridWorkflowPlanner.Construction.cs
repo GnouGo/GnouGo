@@ -249,6 +249,7 @@ public sealed partial class HybridWorkflowPlanner
             PlanningConstruction.Fail("REQUIREMENTS_INVALID", "/requirements", "The first extension requires explicit caller inputs and business outputs.");
         if (PlanningCommitments.Validate(state, requirements!, final: true) is { Count: > 0 } invalid)
             throw new PlanningResponseException(invalid);
+        if (!repair && PlanningCompactConstruction.TryEnterAcceptedChildScope(state, proposal)) return;
         // Stage the complete transition on a clone. Invalid envelopes must not
         // replace commitments or continuation claims of a retained candidate.
         var admission = JsonSerializer.Deserialize(JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession),

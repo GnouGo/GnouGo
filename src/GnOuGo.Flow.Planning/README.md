@@ -141,6 +141,10 @@ and response contain no implementation kinds, scopes, MCP identifiers or typed b
 prerequisite work reuse accepted producers and exact retained contracts before querying
 missing capabilities. Required `completeBlock` separates a contribution from requested
 business completion, while `continueInScope` controls technical continuation only.
+When a fragment opens a control or group, the planner can name its next body in that
+fragment. If it first stays in the parent, an empty continuation can enter an open
+body created by that same checkpoint. The move preserves the accepted plan,
+requirements, operation selection, budget counters and evidence history.
 Null technical continuation does not complete a block. Successful local or mandatory
 global business review establishes completion across all relevant block contributions.
 
