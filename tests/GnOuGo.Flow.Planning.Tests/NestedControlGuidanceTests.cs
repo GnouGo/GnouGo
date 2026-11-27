@@ -17,6 +17,7 @@ public sealed class NestedControlGuidanceTests
         step.Kind = kind;
         step.CloseRequirementIds.Clear();
         var schema = PlanningCompactConstruction.DraftSchema(state);
+        Assert.Contains("and(a,and(b,c))", PlanningConstruction.DraftRequest(state, false).Prompt, StringComparison.Ordinal);
         Assert.Contains(Objects(schema), node => node["properties"]?["kind"]?["enum"] is JsonArray values && values.Any(value => value?.ToString() == "foreach"));
         var guidance = schema["description"]!.ToString();
         Assert.Contains(PlanningCompactConstruction.ValueSemantics, guidance, StringComparison.Ordinal);
@@ -39,6 +40,7 @@ public sealed class NestedControlGuidanceTests
         step.Kind = kind;
         step.CloseRequirementIds.Clear();
         var guidance = PlanningCompactConstruction.DraftSchema(state)["description"]!.ToString();
+        Assert.DoesNotContain("and(a,and(b,c))", PlanningConstruction.DraftRequest(state, false).Prompt, StringComparison.Ordinal);
         Assert.DoesNotContain("Each foreach body output", guidance, StringComparison.Ordinal);
         Assert.DoesNotContain("Parallel sibling branches", guidance, StringComparison.Ordinal);
     }

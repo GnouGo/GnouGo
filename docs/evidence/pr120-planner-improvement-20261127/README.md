@@ -2,7 +2,7 @@
 
 The baseline ended at `f4140fcc` with 665 physical attempts in 15 planning sessions and no business execution. Drafting, discovery and block implementation accounted for 506 calls. The new qualification uses the same SlimFaas revisions and Amazon selection rules. It starts in the normal Server, records actual provider exchanges and opens the generated workflow through the authenticated form.
 
-**SlimFaas passed the normal Server workflow. Amazon stopped in planning across eight sessions.** The code review produced a verified local report on `afe16fbd`. The latest Amazon attempt on `bf2666cf` made zero visits and produced no XLSX. The open campaign has €32.768326 available after reservations. [Review verification](slimfaas-review-verification.json) · [Latest Amazon run](server-amazon-8.json) · [Funding](funding.json)
+**SlimFaas passed the normal Server workflow on `afe16fbd`. Amazon reached workbook planning on `970fdba9`.** The tenth Amazon session assembled the search, selection, deterministic visits and browser cleanup. Its workbook draft stalled before execution. The campaign had €31.152112 available after this session. [Review verification](slimfaas-review-verification.json) · [Amazon phase measurements](server-amazon-10.json) · [Funding](funding.json)
 
 ## Recorded normal Server runs
 
@@ -23,6 +23,14 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [Amazon 6](server-amazon-6.json) | 25 / 25 | 291,732 / 12,124 | €0.719772 | — | 8m 20s | The Server interpreted entry into an open branch as an empty plan edit. Execution never started. |
 | [Amazon 7](server-amazon-7.json) | 12 / 12 | 157,252 / 9,976 | €0.403654 | — | 7m 37s | The provider stalled in the second draft. No search, visits or workbook. |
 | [Amazon 8](server-amazon-8.json) | 15 / 15 | 162,348 / 9,414 | €0.412702 | — | 6m 59s | The whole Browser result exceeded the declared prerequisite. A repeated binding stopped planning. No workflow or workbook. |
+| [Amazon 9](server-amazon-9.json) | 13 / 13 | 180,467 / 7,354 | €0.444590 | — | 12m 40s | The coordinator rejected two public exports from an accepted task in the same block. Execution never started. |
+| [Amazon 10](server-amazon-10.json) | 36 / 36 | 466,421 / 23,961 | €1.171624 | — | 20m 55s | The Server accepted the deterministic visit loop. Workbook delivery planning stalled. Zero searches, visits and XLSX files. |
+
+The eighth session's six-field prerequisite came from its retained implementation decision. A deterministic value task can now project the evidenced fields, preserve their original paths and reconnect the suspended consumer. Both captured drafts resumed their original consumer. The complete archived Amazon and SlimFaas candidates also compiled through final review. [Continuation, complete-plan replays and binary hashes](continuation-object-view.json)
+
+In session nine the rejected exports came from the same accepted assessment. Replaying the actual response on `970fdba9` committed both exports at checkpoint five and retained the open business obligations. An independent encrypted-journal readback also verified the workflow-definition cache, which reduced allocations from 193.0 MB to 8.7 MB across forty checkpoints of a 512 KB definition. [Export replay, Windows tests and binary hashes](same-block-exports-and-journal.json)
+
+The seventh and tenth provider responses stopped at the same point in a binary conjunction. After the second comparison's operand array, the provider emitted 17,494 and 59,557 whitespace characters respectively. Neither original draft explained how to nest a third condition. Both regenerated draft prompts now include the existing binary rule. An offline check against both sets of schemas accepted the nested guard and rejected a flat third operand. No repaired response was submitted. [Exact request and response evidence](stalled-binary-guards.json)
 
 ## Planner changes
 

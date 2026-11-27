@@ -574,6 +574,8 @@ For a new root invocation, a result commitment identifies both its producer port
 
 Structured responses that hit the provider output ceiling after at least 4,096 trailing JSON whitespace characters outside a string report `MODEL_OUTPUT_STALLED`. A measurement records the original token usage. Neither form of incomplete response authorizes a retry.
 
+Drafts with child task scopes explain how to express three or more conditions using the binary `and` and `or` predicates. A nonnullable Boolean output can serve directly as a guard.
+
 When a suspended consumer cites an exact MCP contract and a fragment binds its new operation's whole result, the coordinator can assemble a closed object view. Each requested field must exist at the same path and the projected source schema must satisfy the consumer type. The coordinator adds a value task and validates its connection to the original consumer at the owning checkpoint. Optional fields retain their presence or absence. Nulls, array order, repeated values and constraints on copied fields survive the projection. Cleanup continues to use its original scope. The resumed business block still requires its ordinary review.
 
 An unfinished block can export an already accepted task result in a separate draft. The coordinator validates each proposed boundary binding against the current plan, declared public outputs and waiting consumers. The accepted transition applies those exports at the next checkpoint. The block and its obligations remain open for review.

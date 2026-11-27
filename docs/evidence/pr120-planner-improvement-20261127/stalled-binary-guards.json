@@ -1,0 +1,37 @@
+{
+  "captures": {
+    "7": {
+      "run": "improve40-amazon-20261127-143825",
+      "exchange_sha256": "99caddfeb1c8b389bdf0495cba8920286c603c95522a0fd2b98daf89e2bd14f7",
+      "raw_response_sha256": "2e9ee6f31409021ca65a3eb803e5a22f26106988bf334978a4dbad4746d62d2f",
+      "useful_prefix_characters": 786,
+      "trailing_structural_whitespace": 17494,
+      "input_tokens": 24996,
+      "output_tokens": 4096,
+      "reasoning_tokens": 405,
+      "stop_position": "after the items array of the second equality in a binary conjunction",
+      "original_draft_explained_pairing": false,
+      "new_draft_explains_pairing": true,
+      "binary_guard_valid_in_both": true,
+      "nested_third_operand_valid_in_both": true,
+      "flat_third_operand_rejected_in_both": true
+    },
+    "10": {
+      "run": "improve40-amazon-20261127-182713",
+      "exchange_sha256": "25fbc6c7b4525954bd26c913540549cfd19a69e446c7ebcc26f591ffc7c6cb35",
+      "raw_response_sha256": "811a2e0924aae6220023243430e250e1a1fa1deaa8b81865e9759fc4f31023b7",
+      "useful_prefix_characters": 620,
+      "trailing_structural_whitespace": 59557,
+      "input_tokens": 15786,
+      "output_tokens": 4096,
+      "reasoning_tokens": 39,
+      "stop_position": "after the items array of the second equality in a binary conjunction",
+      "original_draft_explained_pairing": false,
+      "new_draft_explains_pairing": true,
+      "binary_guard_valid_in_both": true,
+      "nested_third_operand_valid_in_both": true,
+      "flat_third_operand_rejected_in_both": true
+    }
+  },
+  "interpretation": "Both original responses are incomplete. Closing the isolated guard tests whether the captured prefix is a legal grammar prefix. The provider did not emit the closing tokens. Its reason for stalling is not observable. The pairing instruction was absent from both original prompts and present in both regenerated drafts. No case rewrites the response or dispatches a model call."
+}

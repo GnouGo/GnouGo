@@ -1,0 +1,130 @@
+{
+  "source": "970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+  "run": "improve40-amazon-20261127-182713",
+  "session": "2cc0cd6e15b34d73abe6967c7fed5366",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T18:29:23.3628302+00:00",
+  "finished_utc": "2026-11-27T18:50:17.8688557+00:00",
+  "wall_seconds": 1254.506025,
+  "phases": {
+    "construction_discovery": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "input_tokens": 156710,
+      "output_tokens": 3041,
+      "measured_eur": "0.3708246013667425968109339408",
+      "duration_ms": "259178.2242"
+    },
+    "construction_draft": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "input_tokens": 190392,
+      "output_tokens": 11778,
+      "measured_eur": "0.4873530751708428246013667426",
+      "duration_ms": "340912.6025"
+    },
+    "construction_implementation": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 81668,
+      "output_tokens": 4601,
+      "measured_eur": "0.2069931662870159453302961276",
+      "duration_ms": "179357.4924"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 26385,
+      "output_tokens": 599,
+      "measured_eur": "0.0628314350797266514806378132",
+      "duration_ms": "38444.2094"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 8988,
+      "output_tokens": 1825,
+      "measured_eur": "0.0287881548974943052391799544",
+      "duration_ms": "82173.6607"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2278,
+      "output_tokens": 2117,
+      "measured_eur": "0.0148337129840546697038724374",
+      "duration_ms": "268601.4941"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "1.171624145785876993166287016",
+  "input_tokens": 466421,
+  "output_tokens": 23961,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "MODEL_OUTPUT_STALLED",
+      "path": "/phases/construction_draft",
+      "message": "The incomplete structured response ended with 59557 whitespace characters outside a JSON string. Inspect the issued decision and its schema before another request."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "assessment",
+      "close_browser",
+      "search"
+    ],
+    [
+      "check_prefix",
+      "missing_prefix",
+      "prefix_decision",
+      "rejection_reason",
+      "select_prefix"
+    ],
+    [
+      "navigation_agent",
+      "resolve_selection"
+    ],
+    [
+      "detail",
+      "extract_detail",
+      "href_check",
+      "matches_check",
+      "observation_check",
+      "source_check",
+      "text_check",
+      "visit_selection",
+      "visits"
+    ],
+    []
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 36,
+    "repairs": 1,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "37.392569476082004555808656391",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "32.3237357630979498861047832443",
+    "physical_attempts": 988,
+    "input_tokens": 15379862,
+    "output_tokens": 517738
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "38.56419362186788154897494342",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "31.1521116173120728929384962153",
+    "physical_attempts": 1024,
+    "input_tokens": 15846283,
+    "output_tokens": 541699
+  }
+}
