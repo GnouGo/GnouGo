@@ -256,9 +256,8 @@ internal static partial class PlanningCompactConstruction
         // Deferred exports are reviewed at the end of a fragment.
         // A continuing cursor can still contribute tasks and close child scopes.
         var continuing = extension.DeepClone().AsObject();
-        var fields = continuing["properties"]!.AsObject();
-        if (fields.ContainsKey("boundaryTransitions")) fields["boundaryTransitions"] = PlanningSchemas.Nullable(EmptyArray());
-        if (fields.ContainsKey("continuationBinding")) fields["continuationBinding"] = PlanningSchemas.Type("null");
+        RemoveDraftField(continuing, "boundaryTransitions");
+        RemoveDraftField(continuing, "continuationBinding");
         original["continueInScope"] = PlanningSchemas.Type("null");
         alternatives.Insert(alternatives.IndexOf(extension) + 1, continuing);
     }
@@ -267,26 +266,26 @@ internal static partial class PlanningCompactConstruction
     {
         // These are envelope facts already fixed by the retained step, or DTO
         // defaults. Literal values and semantic choices keep their full grammar.
-        Remove(extension, "scope");
+        RemoveDraftField(extension, "scope");
         foreach (var name in new[] { "requirements", "commitments", "discoveryRequests", "rollbackTask", "rollbackReason", "reselectStep" })
-            if (schema["properties"]![name]?["type"]?.ToString() == "null") Remove(schema, name);
+            if (schema["properties"]![name]?["type"]?.ToString() == "null") RemoveDraftField(schema, name);
         foreach (var name in new[] { "tasks", "always", "outputs", "groups", "choices", "closeScopes", "requirementIds", "continuationBinding", "boundaryTransitions" })
         {
             var field = extension["properties"]![name];
             if (field?["type"]?.ToString() == "null" ||
                 field?["type"]?.ToString() == "array" && field["maxItems"]?.GetValue<int>() == 0)
-                Remove(extension, name);
+                RemoveDraftField(extension, name);
         }
         if (extension["properties"]!["complete"]?["enum"] is JsonArray { Count: 1 } values &&
-            values[0]?.GetValue<bool>() == false) Remove(extension, "complete");
+            values[0]?.GetValue<bool>() == false) RemoveDraftField(extension, "complete");
+    }
 
-        static void Remove(JsonObject owner, string name)
-        {
-            owner["properties"]!.AsObject().Remove(name);
-            var required = owner["required"]!.AsArray();
-            for (var i = required.Count - 1; i >= 0; i--)
-                if (required[i]?.ToString() == name) required.RemoveAt(i);
-        }
+    private static void RemoveDraftField(JsonObject owner, string name)
+    {
+        if (!owner["properties"]!.AsObject().Remove(name)) return;
+        var required = owner["required"]!.AsArray();
+        for (var i = required.Count - 1; i >= 0; i--)
+            if (required[i]?.ToString() == name) required.RemoveAt(i);
     }
 
     private const string SelectedExpectationsSemantics = "Technical setup, handle and result-shape assumptions in selected expectedOutputs are provisional, not additional original obligations. Resolve them against exact contracts and reselect unsupported mechanisms. Preserve original business results and cleanup, and concrete task objectives and literals.";

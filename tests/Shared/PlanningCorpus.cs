@@ -121,7 +121,7 @@ public static class PlanningCorpus
         if (value is null) return false;
         JsonNode? Resolve(JsonNode? node) => node?["$ref"] is { } link ? Resolve(root["$defs"]![link.ToString().Split('/')[^1]]) : node;
         var properties = schema["properties"] as JsonObject;
-        foreach (var discriminator in new[] { "kind", "scope" })
+        foreach (var discriminator in new[] { "kind", "scope", "continueInScope" })
             if (properties?[discriminator] is JsonObject domain && value[discriminator] is { } supplied && !Matches(supplied, domain, root)) return false;
         if (value is JsonObject task && task["kind"]?.ToString() == "transform" && properties?.ContainsKey("mode") == true &&
             properties.ContainsKey("each") != (task["each"] is not null)) return false;

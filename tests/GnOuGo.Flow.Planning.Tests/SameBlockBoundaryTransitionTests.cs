@@ -1,10 +1,34 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class SameBlockBoundaryTransitionTests
 {
+    [Fact]
+    public void ContinuingDraftCannotDeclareDeferredExportsOrBindAWaitingConsumer()
+    {
+        var extension = PlanningSchemas.Object(("continueInScope", PlanningSchemas.Nullable(PlanningSchemas.String())),
+            ("boundaryTransitions", PlanningSchemas.Nullable(PlanningSchemas.Array(PlanningSchemas.String()))),
+            ("continuationBinding", PlanningSchemas.Nullable(PlanningSchemas.String())));
+        var schema = PlanningSchemas.Object(("extension", PlanningSchemas.Nullable(extension)));
+        PlanningCompactConstruction.ProjectIssuedBlockContinuation(schema);
+
+        var cursor = new JsonObject { ["continueInScope"] = "/root" };
+        var response = new JsonObject { ["extension"] = cursor };
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        cursor["boundaryTransitions"] = new JsonArray();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+        cursor.Remove("boundaryTransitions");
+        cursor["continuationBinding"] = "producer";
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+
+        cursor["continueInScope"] = null;
+        cursor["boundaryTransitions"] = new JsonArray("result");
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response, schema));
+    }
+
     [Theory]
     [InlineData("current")]
     [InlineData("foreign_producer")]
