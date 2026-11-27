@@ -12,6 +12,8 @@ internal static partial class PlanningCompactConstruction
     {
         if (purpose is not (ImplementationPurpose or DiscoveryPurpose or PlanningConstruction.DraftPurpose or "replan"))
             return Request(instructions, context, schema, purpose);
+        if (purpose == DiscoveryPurpose && DiscoveryNameMenu(state, out _) is { } names)
+            context["bindByName"] = names;
         if (purpose is not ImplementationPurpose && state.Construction?.Compact?.CurrentStep?.OutputNames is { Count: > 0 })
             instructions += "\nOn workflow completion the runtime returns bound root outputs to the caller. Bind a declared return directly. A separately requested delivery to another destination requires its own effect. A public object declaring its fields is closed. For a structured producer returned directly, match that extra-field policy at every declared object, including array items.";
         if (context["operationCompositions"] is not null || (context["operations"] as JsonArray ?? []).Any(op => op?["composition"] is not null))

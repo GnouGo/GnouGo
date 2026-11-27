@@ -865,8 +865,9 @@ public sealed partial class CompactDiscoveryProtocolTests
     {
         var (state, _) = await Ready();
         AddOperations(state, 8);
-        var context = PlanningCompactConstruction.DiscoveryContext(state);
-        var issued = "Choose\n" + context.ToJsonString();
+        LLMRequest Request() => PlanningCompactConstruction.Request(state, PlanningCompactConstruction.DiscoveryGuidance(state),
+            PlanningCompactConstruction.DiscoveryContext(state), PlanningCompactConstruction.DiscoverySchema(state), PlanningCompactConstruction.DiscoveryPurpose);
+        var issued = Request().Prompt;
         Assert.Equal(new[] { "operation_1", "operation_7" },
             PlanningCompactConstruction.ResolveDiscoveryNames(state, issued, ["read_1", "read_7"]));
         Assert.Empty(state.Discovery.Resolved);
@@ -874,7 +875,7 @@ public sealed partial class CompactDiscoveryProtocolTests
         var first = page.Capabilities[0];
         page.Capabilities.Add(first with { Id = "other", Operation = new() { Id = "other", Version = first.Version } });
         Assert.Throws<PlanningConflictException>(() => PlanningCompactConstruction.ResolveDiscoveryNames(state, issued, ["read_1"]));
-        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["bindByName"]!["entries"]![first.Name]);
+        Assert.Null(Context(Request())["bindByName"]!["entries"]![first.Name]);
     }
 
     [Theory]

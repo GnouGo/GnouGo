@@ -38,7 +38,7 @@ internal static partial class PlanningCompactConstruction
         Resolve the current implementation cursor within its selected scope and obligations. Inspect descriptions, constraints and continuations before claiming absence.
         Choose one action, others null. Bind the anchor, optional closed groupId and only operations this workflow must invoke (inspected IDs on any page). Reuse accepted work, returned acknowledgements and host or operation checks. Include required producers and cleanup. Draft helpers later. closeScopes:[] keeps scopes open, [scope] closes its offered boundary, otherwise null.
         {ContainerBoundaryGuidance} value json_encode serializes supplied runtime values as JSON text without an encoder MCP. extract preserves observations. Eligible interpret derives typed data from inputs with the runtime LLM. External facts and actions require authorized operations. {SelectedExpectationsSemantics}
-        Bind IDs or offered bindByName entries together. The host resolves exact contracts before drafting. Inspect unclear behavior. Bind caller inputs, setup and permissions.
+        The host verifies contracts before drafting. Ground setup, handles and permissions. Bind caller inputs at runtime. Obtain missing data via executable prerequisites. Clarify missing business facts.
         discoveryRequests pages by source/cursor with query:null, operationIds:null. With cursor:null, offered operationIds inspect contracts without binding. The host follows continuations. Read offered earlier descriptions via evidenceRequests. {EvidenceBatchGuidance(state)} Metadata grants no execution authority.
         """ + (CanClaimCurrentBlockCompletion(state)
             ? "\nA close binding with closeScopes:[] claims completion of this business block's accepted contributions for ordinary review. It adds no work and closes no workflow scope or original requirement. When accepted contributions fulfill the fixed goal and criteria, select this review claim; do not add a report or helper solely to obtain review. Ordinary review can reject a premature claim."
@@ -468,6 +468,8 @@ internal static partial class PlanningCompactConstruction
     internal static LLMRequest Request(string instructions, JsonObject context, JsonObject schema, string purpose)
     {
         schema["title"] = purpose;
+        if (context["bindByName"] is not null)
+            instructions += "\nSelect exact names from bindByName.entries together in binding.operationIds when their behavior matches.";
         return new() { Prompt = instructions + "\n" + PlanningJsonTransport.Prompt(context),
             StructuredOutputSchema = PlanningContractValidation.ProjectStructuredOutputSchema(schema) };
     }
@@ -848,7 +850,6 @@ internal static partial class PlanningCompactConstruction
             ["evidence"] = evidence?.DeepClone(),
             ["diagnostics"] = PlanningJsonTransport.Diagnostics(state.Diagnostics)
         };
-        if (DiscoveryNameMenu(state, out _) is { } menu) context["bindByName"] = menu;
         if (upcoming.Length > 1)
         {
             var pages = new JsonArray(upcoming.Select(entry => (JsonNode)new JsonObject
