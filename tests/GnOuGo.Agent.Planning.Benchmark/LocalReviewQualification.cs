@@ -79,7 +79,8 @@ internal static class LocalReviewQualification
         "Empty findings are permitted. " +
         "The public report object has required string base and head, string arrays reviewed_files (observed repository-relative paths) and limitations, " +
         "and a findings array of objects. Set additionalProperties to false on both the report and each finding in the agent output schema. Each finding requires strings path, side, severity, category, explanation and evidence, integer startLine and endLine, and numeric confidence from 0 to 1. " +
-        $"On agent success, write its verified output as JSON to {relative}/review.json with document_write. Return that same object as report after the write succeeds. Clean the fixed disposable destination in the always block even when cloning leaves a partial directory. Bind cleanup to that destination independently of clone success. All feedback stays local.";
+        $"On agent success, write its verified output as JSON to {relative}/review.json with document_write. Return that same object as report after the write succeeds. " +
+        "In the always block, delete the fixed disposable destination even after a partial clone. Then assert the cleanup command's success field in that same block so a cleanup failure fails the run. All feedback stays local.";
 
     internal static bool PassedCheck(JsonObject e, string relative) =>
         e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
@@ -140,7 +141,11 @@ internal static class LocalReviewQualification
             catch (Exception ex) when (ex is JsonException or InvalidOperationException or NullReferenceException or FormatException)
             { failures.Add("invalid_report_structure"); }
         }
-        if (Directory.Exists(Path.Combine(folder, "repository"))) failures.Add("checkout_cleanup_missing");
+        if (!events.Any(e => e["tool"]?.ToString() == "cmd_run" && e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" &&
+                e["arguments"]?["commandName"]?.ToString() == DelegatedTestReviewAuthority.CleanupCommand &&
+                e["arguments"]?["parameters"]?["path"]?.ToString() == run["workspace_relative"]!.ToString() + "/repository" &&
+                e["result"]?["success"]?.GetValue<bool>() == true) || Directory.Exists(Path.Combine(folder, "repository")))
+            failures.Add("checkout_cleanup_missing");
         return new() { ["passed"] = failures.Count == 0, ["changed_files"] = files.Count,
             ["observed_files"] = JsonSerializer.SerializeToNode(observed.Order(StringComparer.Ordinal)),
             ["findings"] = JsonSerializer.SerializeToNode(failures) };

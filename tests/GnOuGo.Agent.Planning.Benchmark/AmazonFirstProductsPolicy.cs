@@ -34,9 +34,10 @@ internal static class AmazonFirstProductsPolicy
         "Select the first ten actual product occurrences, including sponsored cards and repeated ASINs. Use the heading or a same-card product link when no heading exists. " +
         "Keep auxiliary reviews and offers associated with their cards. A populated ASIN alone does not establish a product. " +
         "Resolve only earlier ambiguous empty-ASIN groups using their exact observed hrefs in order. A necessary observed /deals GET may redirect to /blackfriday. Exclude stores and listings. " +
-        "Use one bounded agent only where observations determine further GETs. A complete unambiguous list needs no extra navigation. " +
+        "The prefix decision returns one status, ordered evidence and a reason. Use complete for ten established products, needs_navigation for an unresolved earlier group, or incomplete for an observed shortfall or failure. " +
+        "Branch on that status. Keep the bounded navigation agent inside the needs_navigation branch. The complete branch uses the observed list directly. " +
         "Stop selecting at ten. A short prefix requires further original groups in order or an explicit observed shortfall. " +
-        "Return a single selection with status, ordered products and reason. Retain only observed entries on partial or empty outcomes. " +
+        "Use the same selection schema after resolution, with status, ordered products and reason. Retain only observed entries on partial or empty outcomes. " +
         "Copy verbatim each signed absolute href. Keep the same string pattern in the selected-product href output schema. " +
         "On complete status and ten entries, visit the ten exact hrefs with one sequential loop. Source resolutions are separate from product visits. " +
         "Each observation_complete detail GET exposes observationSnapshot.textMatches.records in original page order with text, selector and source reference. " +

@@ -1425,6 +1425,17 @@ settings. Each attempt needs a new run name. A business pass requires a saved
 reviewed agent, a typed chat submission and a completed Server run journal.
 The benchmark stores the planning session ID and execution ID separately.
 
+With `--amazon-first-products`, the prefix selection retains ordered product
+occurrences, exact links and a reason. A complete prefix goes directly to
+the sequential visit loop. An earlier ambiguous group can enter one bounded
+navigation task. An incomplete selection carries the observed shortfall.
+
+With `--case code --local-review`, the approved report stays in the run
+workspace. The workflow checks the pinned comparison and cleanup unit tests,
+then uses the shared read-only code runner. Its report must match the written
+JSON. The verifier requires both a successful cleanup receipt for this
+checkout and its physical absence.
+
 Amazon requires ten ordered product visits, ten verified workbook rows under
 the headers `Nom`, `Description` and `Prix`, a workflow close receipt and an
 independent browser closure probe. The GitHub check supplies `pullRequestUrl`
