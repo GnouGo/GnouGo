@@ -261,6 +261,24 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             }
             else if (tool == "cmd_run")
             {
+                if (scenario == LocalReviewQualification.Scenario && args["commandName"]?.ToString() == LocalReviewQualification.UnitCheck)
+                {
+                    if (args["parameters"] is not JsonObject values || values.Count != 1)
+                        throw new PlanningConflictException("The pinned unit check accepts only its script path.");
+                    var checkout = relative + "/repository/";
+                    var test = checkout + LocalReviewQualification.UnitScript;
+                    var policy = checkout + LocalReviewQualification.PolicyScript;
+                    RequirePath(values["path"]?.ToString(), test, exact: true);
+                    RequirePath(policy, policy, exact: true);
+                    // The fixture imports this sibling using Python's source loader. A precompiled
+                    // module or changed source must never enter the executable check.
+                    var cache = Path.Combine(root, checkout, ".bin", "__pycache__");
+                    if (Path.Exists(cache) || new DirectoryInfo(cache).LinkTarget is not null ||
+                        !LocalReviewQualification.MatchesPinnedPython(Path.Combine(root, test), "c79bef01e9c0a1d7c508edb332aa6bbecffd7d8f487079b8b1c7fec70c0ac938") ||
+                        !LocalReviewQualification.MatchesPinnedPython(Path.Combine(root, policy), "ce0c5a4a137eb4ce08ef70dc75abc7487096db3ad86f45bc130c988afafdc9c8"))
+                        throw new PlanningConflictException("The review check requires the inspected test and policy sources.");
+                    return;
+                }
                 if (args["commandName"]?.ToString() != CleanupCommand) throw new PlanningConflictException("Only confined clone cleanup is delegated to Cmd.");
                 RequirePath(args["parameters"]?["path"]?.ToString(), relative + "/repository", exact: true);
             }

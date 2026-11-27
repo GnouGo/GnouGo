@@ -1,0 +1,9 @@
+{
+  "source": "94ab0dc9fbe648bc5038ce702e70fbf38f8743d1",
+  "product_version": "1.0.0+94ab0dc9fbe648bc5038ce702e70fbf38f8743d1",
+  "published_exe": "artifacts/agent-routing/copilot-mcp-win-x64/GnOuGo.GithubCopilot.Mcp.exe",
+  "publication": "win-x64 Native AOT",
+  "sha256": "034c6d3373d5d5c867e6a1a5962b7158cbb3a61c3dc27e6a0ea788da90b2958a",
+  "exit": 0,
+  "output": "{\"encrypted_task_recovery\":true,\"tenant_isolation\":true,\"unknown_completion_stopped\":true,\"controlled_structured_wire_roundtrip\":true,\"model_calls\":0}"
+}

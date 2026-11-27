@@ -11,6 +11,13 @@ public sealed class PublishedReviewQualificationTests
         var target = new PublishedReviewQualification("SlimPlanet", "SlimFaas", 519, new string('a', 40), new string('b', 40));
         var prompt = LocalReviewQualification.Prompt("workflows/review", target, 8, "src/changed.ts");
         Assert.Contains("8 changed paths", prompt);
+        Assert.Contains("public object output named report", prompt);
+        Assert.Contains("check_annotation_cleanup", prompt);
+        Assert.Contains("expectedCompleteFileCount=8", prompt);
+        Assert.Contains("always block", prompt);
+        var paged = LocalReviewQualification.Prompt("workflows/review", target, 101, "src/changed.ts");
+        Assert.Contains("complete ordered page directory", paged);
+        Assert.DoesNotContain("expectedCompleteFileCount", paged);
         Assert.Contains("file.read with subject src/changed.ts", prompt);
         Assert.Contains("review.diff with subject " + target.Head, prompt);
         Assert.Contains("bind its files output directly", prompt);
@@ -46,6 +53,24 @@ public sealed class PublishedReviewQualificationTests
         answer["run"] = "execution";
         answer["agent"] = "other";
         Assert.NotNull(PublishedReviewQualification.ReturnedReportFinding(run));
+    }
+
+    [Fact]
+    public void LocalReviewRequiresTheObservedPinnedCommandAndExitStatus()
+    {
+        const string root = "workflows/review";
+        var record = new JsonObject { ["server"] = "GnOuGo.Cmd.Mcp", ["tool"] = "cmd_run",
+            ["arguments"] = new JsonObject { ["commandName"] = LocalReviewQualification.UnitCheck,
+                ["parameters"] = new JsonObject { ["path"] = root + "/repository/" + LocalReviewQualification.UnitScript } },
+            ["result"] = new JsonObject { ["commandName"] = LocalReviewQualification.UnitCheck,
+                ["stderr"] = "Ran 4 tests in 0.015s\n\nOK\n", ["exitCode"] = 0, ["success"] = true, ["timedOut"] = false } };
+        Assert.True(LocalReviewQualification.PassedCheck(record, root));
+        Assert.False(LocalReviewQualification.PassedCheck(record, root + "-other"));
+        record["result"]!["exitCode"] = 1;
+        Assert.False(LocalReviewQualification.PassedCheck(record, root));
+        record["result"]!["exitCode"] = 0;
+        record["result"]!["stderr"] = "OK";
+        Assert.False(LocalReviewQualification.PassedCheck(record, root));
     }
 
     [Fact]

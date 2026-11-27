@@ -1,0 +1,7 @@
+{
+  "binary": "artifacts/agent-routing/cli-win-x64/GnOuGo.Flow.Cli.exe",
+  "product_version": "1.0.0+f983c046df72eea56c07371df913b05e260093fa",
+  "sha256": "0f90245ee475bc26e47ab8959d29aeb302f7575453b255fcf6257ad40998ed6d",
+  "exit": 0,
+  "output": "input (template.render) - Succeeded [74,8ms]\r\n  V check_priority (switch) - Succeeded [218,7ms]\r\n  V think_format (emit) - Succeeded [67,6ms]\r\n  V format_output (template.render) - Succeeded [76,6ms]\r\n  V parallel_notifications (parallel) - Succeeded [287,9ms]\r\n\r\nOutputs:\r\n{\r\n  \"result\": \"Triage Result:\\nClassification: Category: urgent\\nMessage: urgent published smoke\\n\",\r\n  \"classification\": \"Category: urgent\"\r\n}\r\n"
+}

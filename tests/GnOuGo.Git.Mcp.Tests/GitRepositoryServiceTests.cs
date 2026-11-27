@@ -546,6 +546,16 @@ public sealed class GitRepositoryServiceTests : IDisposable
         foreach (var file in files) File.WriteAllText(Path.Combine(_root, file), file);
         service.Stage(".", files);
         var head = service.Commit(".", "five changes", "Test User", "test@example.local");
+        var followup = WriteCommit(service, "single.txt", "one", "one additional path");
+        var complete = tools.GitCompareRefs(".", head.Sha, followup.Sha, pageSize: 1, expectedCompleteFileCount: 1);
+        Assert.True(complete.Success);
+        Assert.Equal("single.txt", Assert.Single(complete.Files).Path);
+        Assert.True(tools.GitCompareRefs(".", basis.Sha, basis.Sha, expectedCompleteFileCount: 0).Success);
+        var incomplete = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 8, expectedCompleteFileCount: 5);
+        Assert.False(incomplete.Success);
+        Assert.Empty(incomplete.Files);
+        Assert.False(tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 2, expectedCompleteFileCount: 2).Success);
+        Assert.False(tools.GitCompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2, expectedCompleteFileCount: 1).Success);
         var first = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 8, requirePageDirectory: true);
         Assert.True(first.Success);
         Assert.Equal(2, first.PageSize);

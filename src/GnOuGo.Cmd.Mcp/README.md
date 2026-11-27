@@ -1,5 +1,7 @@
 ﻿# GnOuGo.Cmd.Mcp
 
+Set `GNOUGO_CMD_COMMAND_SUBSET` to a comma-separated list to expose selected configured aliases in a child process. Every alias must also satisfy any existing `GNOUGO_CMD_ONLY_COMMAND` restriction. An unavailable alias prevents startup.
+
 `GnOuGo.Cmd.Mcp` is a **stdio** MCP server for everyday workspace file and directory operations **via a strict allowlist**.
 
 ## MCP protocol compatibility

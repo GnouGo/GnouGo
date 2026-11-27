@@ -93,6 +93,8 @@ and commands. It verifies `file.read`, `file.content`, `command.exit` and
 reservations carry the label `reserved_upper_bound`. Details are in the
 [adapter README](../src/GnOuGo.Flow.Copilot/README.md).
 
+The read-only SlimFaas qualification checks the pinned complete Git comparison, runs the upstream annotation cleanup unit tests through a named Cmd operation, and passes the evidence to the shared code runner. Its independent verifier compares the public report to the written JSON and reconciles coverage with recorded SDK reads.
+
 When reviewed, reachable contributions cover every outstanding requirement and the
 existing technical checks pass, the host requests global review directly. The
 global review, artifact approval and execution checks still run in order.

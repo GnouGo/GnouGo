@@ -1,0 +1,15 @@
+{
+  "scope": "direct deterministic check probe; independent of live Server scenarios",
+  "target": "SlimPlanet/SlimFaas#519",
+  "head": "00af9df84dfba79c3330beed31e118523f4f094d",
+  "files_sha256": {
+    "test-annotation-policy-cleanup.py": "c79bef01e9c0a1d7c508edb332aa6bbecffd7d8f487079b8b1c7fec70c0ac938",
+    "test-annotation-policy.py": "ce0c5a4a137eb4ce08ef70dc75abc7487096db3ad86f45bc130c988afafdc9c8"
+  },
+  "alias": "check_annotation_cleanup",
+  "exit_code": 0,
+  "success": true,
+  "stderr": "....\r\n----------------------------------------------------------------------\r\nRan 4 tests in 0.064s\r\n\r\nOK\r\n",
+  "stdout": "",
+  "duration_ms": 1541.9202
+}

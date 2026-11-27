@@ -38,6 +38,17 @@ try
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
         });
     }
+    if (Environment.GetEnvironmentVariable("GNOUGO_CMD_COMMAND_SUBSET") is { } subset)
+    {
+        builder.Services.PostConfigure<CmdServerSettings>(settings =>
+        {
+            var aliases = subset.Split(',', StringSplitOptions.TrimEntries).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (!aliases.IsSubsetOf(settings.AllowedCommands.Keys))
+                throw new InvalidOperationException("A required command alias is outside the configured allowlist.");
+            settings.AllowedCommands = settings.AllowedCommands.Where(command => aliases.Contains(command.Key))
+                .ToDictionary(command => command.Key, command => command.Value, StringComparer.OrdinalIgnoreCase);
+        });
+    }
     builder.Services.AddSingleton<CommandPolicy>();
     builder.Services.AddSingleton<CommandExecutionHost>();
     builder.Services.AddTransient<CmdTools>();
