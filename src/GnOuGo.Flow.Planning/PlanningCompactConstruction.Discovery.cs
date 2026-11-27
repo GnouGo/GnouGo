@@ -165,7 +165,8 @@ internal static partial class PlanningCompactConstruction
         var step = State(state).CurrentStep!;
         var candidates = DescriptorCandidates(state, PlanningDiscoveryFocus.VisiblePages(state)
             .Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)).ToArray();
-        var retained = (state.Catalog!.Capabilities).Concat(state.Discovery.Resolved)
+        if (candidates.Length == 0) return null;
+        var retained = (state.Catalog?.Capabilities ?? []).Concat(state.Discovery.Resolved)
             .ToLookup(contract => TaskOperations.Describe(contract).Id, StringComparer.Ordinal);
         var unique = candidates.GroupBy(candidate => candidate.Name, StringComparer.Ordinal)
             .Where(group => group.Count() == 1).Select(group => group.First())
