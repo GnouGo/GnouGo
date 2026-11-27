@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Copilot;
+using GnOuGo.Agent.Server.SmartFlow;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.GithubCopilot.Core;
@@ -16,6 +17,24 @@ internal static class LocalReviewQualification
     internal const string UnitScript = ".bin/test-annotation-policy-cleanup.py";
     internal const string PolicyScript = ".bin/test-annotation-policy.py";
     internal const int MaxUnitPathLength = 240;
+
+    internal static bool OwnsReadDialog(AgentTaskContext active, HumanInputRequest request)
+    {
+        var context = request.Context;
+        if (request.RunId != active.RunId || request.ParentInvocationId != active.InvocationId ||
+            !request.StepId.StartsWith(active.InvocationId + "/human/", StringComparison.Ordinal) ||
+            !Guid.TryParseExact(request.StepId[(active.InvocationId.Length + "/human/".Length)..], "N", out _) ||
+            context?["tenant_id"]?.ToString() != active.TenantId || context["runner"]?.ToString() != active.Task.Runner ||
+            context["kind"]?.ToString() != "permission" || request.Mode != HumanInputContract.ModeChoice ||
+            request.Fields is not null || !request.AllowAbandon || request.Choices is not { } choices ||
+            !choices.Contains("Allow once", StringComparer.Ordinal) || !choices.Contains("Refuse", StringComparer.Ordinal))
+            return false;
+        if (context["host_tool"] is not null)
+            return context["host_tool"]!.ToString() == "read_task_input" && context["project_tool"] is null && context["project_path"] is null;
+        return active.Task.Capabilities.Contains("project.read", StringComparer.Ordinal) &&
+            context["project_tool"]?.ToString() is "project_read" or "project_list" or "project_stat" &&
+            context["project_path"]?.GetValue<string>() is { Length: > 0 } path && !path.Any(char.IsControl);
+    }
 
     internal static void ConfigureCommands(IDictionary<string, string?> environment)
     {
@@ -74,6 +93,7 @@ internal static class LocalReviewQualification
             : "Use the complete ordered page directory from git_compare_refs and include each page exactly once. Bind its complete ordered files to inputs.review.files. ") +
         $"Run the known {UnitCheck} command directly via cmd_run with parameters.path={relative}/repository/{UnitScript}. Require success and pass its result to the review. " +
         $"Use one bounded read-only code agent in the literal workspace {relative}/repository. Bind reviewText and the Git comparison as data inputs. " +
+        "Set its finite budget to 12 model calls, 600000 total tokens, 40 actions and 600000 milliseconds. SDK token reservations include each request's maximum output. " +
         $"Keep the verification list static: file.read with subject {readSubject} requires observed tool and arguments, and review.diff with subject {target.Head} " +
         "verifies the reported coverage and changed-line anchors against actual SDK file reads and Git patches. Explore other relevant files as needed. " +
         "Empty findings are permitted. " +
@@ -154,6 +174,33 @@ internal static class LocalReviewQualification
 
 internal sealed partial class ServerBusinessExecution
 {
+    private static async Task AnswerLocalReviewDialogAsync(WorkflowRunService runs, string id, WorkflowInvocation dialog,
+        DelegatedTestReviewAuthority authority, IHumanInputProvider human, CancellationToken ct)
+    {
+        if (dialog.ResolvedInput is not JsonObject input || input["fields"] is not null)
+            throw new PlanningConflictException("The SDK permission dialog must carry a concrete choice.");
+        var request = new HumanInputRequest
+        {
+            RunId = id, StepId = dialog.Id, ParentInvocationId = dialog.ParentInvocationId,
+            Prompt = input["prompt"]?.GetValue<string>() ?? "", Mode = input["mode"]?.GetValue<string>() ?? "",
+            Choices = input["choices"]?.AsArray().Select(c => c!.GetValue<string>()).ToList(), Context = input["context"]?.DeepClone(),
+            AllowAbandon = input["allow_abandon"]?.GetValue<bool>() ?? false, TimeoutMs = input["timeout_ms"]?.GetValue<int>() ?? 0
+        };
+        if (!JsonNode.DeepEquals(input, HumanInputContract.BuildRequestPayload(request)) || authority.RequireRuntimeRequest(request))
+            throw new PlanningConflictException("The SDK permission does not match its recorded request.");
+        var answer = await human.RequestInputAsync(request, ct);
+        for (var attempt = 0; ; attempt++)
+        {
+            var latest = await runs.ReadAsync(id, ct);
+            if (latest is null || !latest.Invocations.TryGetValue(dialog.Id, out var pending) || pending.Status != "waiting_for_human" ||
+                pending.ParentInvocationId != dialog.ParentInvocationId || !JsonNode.DeepEquals(pending.ResolvedInput, input) ||
+                authority.RequireRuntimeRequest(request))
+                throw new PlanningConflictException("The approved read is no longer the active dialog.");
+            try { await runs.CommandAsync(id, "answer", new(latest.Revision, dialog.Id, Response: answer), ct); return; }
+            catch (WorkflowRunConflictException) when (attempt < 3) { }
+        }
+    }
+
     private sealed record ReviewExecution(string Endpoint, string Workspace, string Relative, JsonObject Report);
     private ReviewExecution? _reviewExecution;
 
@@ -199,6 +246,7 @@ internal sealed partial class ServerBusinessExecution
                 throw new PlanningConflictException("The SDK requires a verified base and head before exploration.");
             if (execution.Report["events"] is not JsonArray events || !events.OfType<JsonObject>().Any(e => LocalReviewQualification.PassedCheck(e, execution.Relative)))
                 throw new PlanningConflictException("The SDK review requires the observed pinned unit check before exploration.");
+            using var permissionOwner = owner._authority!.BeginLocalReview(context);
             var result = await Adapter(execution).RunAsync(context, ct);
             var receipts = execution.Report["code_agent_receipts"] as JsonArray ?? new JsonArray();
             if (receipts.Parent is null) execution.Report["code_agent_receipts"] = receipts;

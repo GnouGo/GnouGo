@@ -604,7 +604,11 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             {
                 RequestedHostTool = !sandboxBypass && source.Request.Configuration.ExecutionBounds is not null &&
                     request is PermissionRequestCustomTool tool && source.Request.Configuration.HostTools.Any(t => t.Name == tool.ToolName)
-                    ? tool.ToolName : null
+                    ? tool.ToolName : null,
+                ProjectRead = !sandboxBypass && source.Request.Configuration.ExecutionBounds is { } bounds &&
+                    request is PermissionRequestCustomTool { ToolName: "project_read" or "project_list" or "project_stat" } read &&
+                    bounds.Tools.Contains(read.ToolName)
+                    ? new(read.ToolName, CopilotProjectFileTool.RequiredString(CopilotProjectFileTool.Arguments(read.Args), "path")) : null
             },
             CancellationToken.None);
 

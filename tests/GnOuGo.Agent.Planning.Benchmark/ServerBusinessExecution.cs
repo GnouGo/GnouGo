@@ -272,6 +272,9 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
                         !MatchesSubmittedInputs(report["inputs"], journal.Inputs))
                         throw new PlanningConflictException("The journal does not match the approved workflow and submitted form inputs.");
                     if (journal.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Cancelled or WorkflowRunStatus.NeedsReconciliation or WorkflowRunStatus.Failed) break;
+                    if (localReview)
+                        foreach (var dialog in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is not null))
+                            await AnswerLocalReviewDialogAsync(runs, id, dialog, authority, human, ct);
                     foreach (var wait in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is null))
                     {
                         if (wait.ResolvedInput is not JsonObject input || input["fields"] is not null || input["context"] is not null)

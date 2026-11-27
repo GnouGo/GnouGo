@@ -102,7 +102,10 @@ public sealed record CopilotHumanInputRequest(
     JsonElement? RequestedSchema = null)
 {
     public string? RequestedHostTool { get; init; }
+    public CopilotProjectReadPermission? ProjectRead { get; init; }
 }
+
+public sealed record CopilotProjectReadPermission(string Tool, string Path);
 
 public sealed record CopilotHumanInputResponse(
     bool Accepted,

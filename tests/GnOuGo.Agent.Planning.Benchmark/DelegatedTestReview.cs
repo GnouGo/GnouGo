@@ -41,6 +41,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     private string? _confirmationStep;
     private List<string> _runtimeInvocationSuffixes = [];
     private readonly Dictionary<string, McpCorrelationContext> _activeCalls = new(StringComparer.Ordinal);
+    private AgentTaskContext? _activeReview;
     private readonly Dictionary<string, string> _browserCursors = new(StringComparer.Ordinal);
     private string? _browserUrl;
     private string? _browserSnapshot;
@@ -70,6 +71,16 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     {
         private Action? _release = release;
         public void Dispose() => Interlocked.Exchange(ref _release, null)?.Invoke();
+    }
+
+    internal IDisposable BeginLocalReview(AgentTaskContext task)
+    {
+        if (scenario != LocalReviewQualification.Scenario || task.TenantId != "benchmark" || task.RunId != _boundExecutionId ||
+            task.Task.Runner != "coding" || adaptive?.Approves(task) != true ||
+            task.Task.Workspace.Replace('\\', '/') != authorizedRelativePath + "/repository" ||
+            Interlocked.CompareExchange(ref _activeReview, task, null) is not null)
+            throw new PlanningConflictException("The local review permission owner differs from the approved execution.");
+        return new CallRegistration(() => Interlocked.CompareExchange(ref _activeReview, null, task));
     }
     internal string AuthorizationHash => PlanningGraphCompiler.Fingerprint(
         JsonSerializer.Serialize(authorization, DelegatedTestJsonContext.Default.DelegatedTestAuthorization));
@@ -358,6 +369,18 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
 
     internal bool RequireRuntimeRequest(HumanInputRequest request)
     {
+        if (scenario == LocalReviewQualification.Scenario && request.ParentInvocationId is not null)
+        {
+            var active = Volatile.Read(ref _activeReview);
+            if (active is null || !LocalReviewQualification.OwnsReadDialog(active, request))
+                throw new PlanningConflictException("Only a concrete read from the active approved SDK review may request a decision.");
+            if (request.Context!["project_path"]?.GetValue<string>() is { } path)
+            {
+                var checkout = Path.GetFullPath(active.Task.Workspace, root);
+                RequirePath(Path.GetFullPath(path, checkout), checkout, exact: false);
+            }
+            return false;
+        }
         if (_confirmationStep is not null && request.RunId == ExecutionId && request.StepId == _confirmationStep &&
             request.ParentInvocationId is null && request.Mode == HumanInputContract.ModeConfirm && request.Prompt == _confirmationPrompt &&
             request.Context is null && request.Fields is null && request.AllowAbandon &&

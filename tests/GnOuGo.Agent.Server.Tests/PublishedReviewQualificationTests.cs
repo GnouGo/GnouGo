@@ -1,10 +1,37 @@
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 
 namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PublishedReviewQualificationTests
 {
+    [Theory]
+    [InlineData("project_read", true)]
+    [InlineData("project_list", true)]
+    [InlineData("project_stat", true)]
+    [InlineData("project_write", false)]
+    [InlineData("read_task_input", true)]
+    [InlineData("unreviewed_host_tool", false)]
+    public void LocalReviewDialogsMatchTheActiveInvocationAndTypedRead(string tool, bool accepted)
+    {
+        var owner = new AgentTaskContext("tenant", "run", "step", new() { Runner = "coding", Capabilities = ["project.read"] });
+        var details = new JsonObject { ["tenant_id"] = "tenant", ["runner"] = "coding", ["kind"] = "permission" };
+        if (tool.StartsWith("project_", StringComparison.Ordinal))
+        {
+            details["project_tool"] = tool;
+            details["project_path"] = "src/reviewed.cs";
+        }
+        else details["host_tool"] = tool;
+        var request = new HumanInputRequest { RunId = owner.RunId, ParentInvocationId = owner.InvocationId,
+            StepId = "step/human/" + Guid.NewGuid().ToString("N"), Context = details, Mode = HumanInputContract.ModeChoice,
+            Choices = ["Allow once", "Refuse"], AllowAbandon = true };
+        Assert.Equal(accepted, LocalReviewQualification.OwnsReadDialog(owner, request));
+        Assert.False(LocalReviewQualification.OwnsReadDialog(owner with { InvocationId = "other" }, request));
+        details["kind"] = "question";
+        Assert.False(LocalReviewQualification.OwnsReadDialog(owner, request));
+    }
+
     [Fact]
     public void LocalReviewPinsAnObservedReadAndUsesOneCompleteComparisonWhenAvailable()
     {

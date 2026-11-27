@@ -15,13 +15,20 @@ internal sealed class WorkflowCopilotHumanInput(AgentTaskContext owner, IHumanIn
             throw new UnauthorizedAccessException("The SDK dialog belongs to a different invocation.");
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct, lifetime);
         var schema = input.RequestedSchema is { } json ? JsonNode.Parse(json.GetRawText())?.AsObject() : null;
+        var context = new JsonObject { ["tenant_id"] = owner.TenantId, ["runner"] = owner.Task.Runner, ["kind"] = input.Kind };
+        if (input.ProjectRead is { } read)
+        {
+            context["project_tool"] = read.Tool;
+            context["project_path"] = read.Path;
+        }
+        if (input.RequestedHostTool is { } hostTool) context["host_tool"] = hostTool;
         var request = new HumanInputRequest
         {
             RunId = owner.RunId, StepId = owner.InvocationId + "/human/" + Guid.NewGuid().ToString("N"),
             ParentInvocationId = owner.InvocationId, Prompt = string.IsNullOrWhiteSpace(input.Details) ? input.Prompt : input.Prompt + "\n" + input.Details,
             Mode = schema is not null ? HumanInputContract.ModeForm : input.AllowFreeform ? HumanInputContract.ModeText : HumanInputContract.ModeChoice,
             Choices = input.Choices.ToList(), AllowAbandon = true,
-            Context = new JsonObject { ["tenant_id"] = owner.TenantId, ["runner"] = owner.Task.Runner, ["kind"] = input.Kind },
+            Context = context,
             TimeoutMs = owner.Task.Budget.MaxElapsedMilliseconds
         };
         if (schema?["properties"] is JsonObject properties)

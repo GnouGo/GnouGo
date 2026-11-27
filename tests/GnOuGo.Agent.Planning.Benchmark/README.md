@@ -1444,7 +1444,12 @@ the sequential visit loop. An earlier ambiguous group can enter one bounded
 navigation task. An incomplete selection carries the observed shortfall.
 
 With `--case code --local-review`, the approved report stays in the run
-workspace. The workflow checks the pinned comparison and cleanup unit tests,
+workspace. The direct SDK sends each concrete project read or approved input-page
+request through the Server's ordinary human-input journal. The reviewer can allow
+that operation once or refuse it. A read must belong to the active approved task
+and stay inside the pinned checkout.
+
+The workflow checks the pinned comparison and cleanup unit tests,
 then uses the shared read-only code runner. Its report must match the written
 JSON. The verifier requires both a successful cleanup receipt for this
 checkout and its physical absence.
