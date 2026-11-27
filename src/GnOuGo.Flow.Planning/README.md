@@ -70,6 +70,8 @@ Fresh issued prompts share repeated contract schema branches already visible for
 the exact same operation id/version/hash and original schema pointer. An evidence
 row's `schemaPresentedAt` points within that same context to a byte-identical schema;
 its original identity, pointer, ancestor constraints and reference closure remain.
+A selected input or output can also point to its exact field inside a parent
+already shown among that operation's selected inputs or outputs.
 Requirements, diagnostics, response grammar and executable contracts are unchanged.
 This is a presentation link with no binding or execution authority. Preparation
 measures and binds the final shared presentation before dispatch; saved pending

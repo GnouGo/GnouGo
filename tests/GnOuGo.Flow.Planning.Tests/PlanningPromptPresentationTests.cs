@@ -404,6 +404,45 @@ public sealed class PlanningPromptPresentationTests
         Assert.True(shown.ToJsonString().Length < context.ToJsonString().Length - 1000);
     }
 
+    [Theory]
+    [InlineData("same", true)]
+    [InlineData("different_version", false)]
+    [InlineData("different_schema", false)]
+    [InlineData("different_pointer", false)]
+    [InlineData("already_linked", false)]
+    public void SelectedDescendantUsesItsVisibleParentAtTheExactOriginalCoordinate(string variant, bool reused)
+    {
+        var field = new JsonObject { ["type"] = "string", ["description"] = new string('x', 1400) };
+        var parent = new JsonObject { ["type"] = "object", ["properties"] = new JsonObject { ["part/~"] = field.DeepClone() } };
+        var child = new JsonObject { ["pointer"] = "/output/properties/data/properties/part~1~0", ["schema"] = field.DeepClone(),
+            ["referenceClosure"] = new JsonObject { ["owned"] = true }, ["ancestors"] = new JsonArray("original constraints") };
+        if (variant == "different_version") child["version"] = "v2";
+        if (variant == "different_schema") child["schema"]!["minLength"] = 9;
+        if (variant == "different_pointer") child["pointer"] = "/output/properties/other";
+        var selected = new JsonArray(new JsonObject { ["pointer"] = "/output/properties/data", ["schema"] = parent }, child);
+        var operation = new JsonObject { ["id"] = "read", ["version"] = "v1", ["hash"] = new string('a', 64), ["selectedOutputs"] = selected };
+        var context = new JsonObject { ["operations"] = new JsonArray(operation) };
+        if (variant == "already_linked")
+        {
+            context["schemaPresentation"] = "A saved context with a reference to this child.";
+            context["evidence"] = new JsonObject { ["original"] = new JsonObject
+                { ["schemaPresentedAt"] = "/operations/0/selectedOutputs/1/schema" } };
+        }
+        var input = "Draft.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(input);
+        if (!reused) { Assert.Equal(input, compact); return; }
+        var shown = JsonNode.Parse(compact[(compact.LastIndexOf('\n') + 1)..])!;
+        var saved = shown["operations"]![0]!["selectedOutputs"]![1]!.AsObject();
+        var pointer = saved["schemaPresentedAt"]!.GetValue<string>();
+        Assert.Equal("/operations/0/selectedOutputs/0/schema/properties/part~1~0", pointer);
+        var original = PlanningSchemaReferences.Read(shown, pointer);
+        Assert.Equal(field.ToJsonString(), original!.ToJsonString());
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+        saved.Remove("schemaPresentedAt");
+        saved["schema"] = original.DeepClone();
+        Assert.True(JsonNode.DeepEquals(child, saved));
+    }
+
     [Fact]
     public void ImportedArgumentsReuseTheirExactRequiredSiblingSchemaAtItsOriginalCoordinate()
     {

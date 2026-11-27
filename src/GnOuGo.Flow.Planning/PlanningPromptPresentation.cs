@@ -277,6 +277,7 @@ public static class PlanningPromptPresentation
                 var metadata = name + "SharedSchemaMetadata";
                 sharedPrefix |= ShareSelectedAncestorPrefix(operation, selected, metadata);
                 var prefix = $"/operations/{i}/{metadata}/";
+                var selectedPath = $"/operations/{i}/{name}/";
                 foreach (var field in new[] { "ancestors", "ancestorPrefix" })
                 {
                     if (operation[metadata]?[field] is not JsonArray ancestors) continue;
@@ -295,13 +296,15 @@ public static class PlanningPromptPresentation
                         row["hash"] is { } digest && Text(digest) != hash) continue;
                     var exact = schema.ToJsonString();
                     if (schemas.TryGetValue((id, version, hash, pointer, exact), out var presented) &&
-                        presented.StartsWith(prefix, StringComparison.Ordinal) && exact.Length > presented.Length + (shared ? 24 : 320))
+                        (presented.StartsWith(prefix, StringComparison.Ordinal) ||
+                         context["schemaPresentation"] is null && presented.StartsWith(selectedPath, StringComparison.Ordinal)) &&
+                        exact.Length > presented.Length + (shared ? 24 : 320))
                     {
                         row.Remove("schema");
                         row["schemaPresentedAt"] = presented;
                         shared = true;
                     }
-                    else Add(id, version, hash, schema, pointer, $"/operations/{i}/{name}/{j}/schema");
+                    else Add(id, version, hash, schema, pointer, $"{selectedPath}{j}/schema");
                 }
             }
         }
