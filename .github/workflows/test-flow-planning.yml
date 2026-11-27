@@ -31,12 +31,18 @@ on:
       - 'pnpm-workspace.yaml'
       - 'docs/workflow-planning-v9.md'
   workflow_dispatch:
+    inputs:
+      windows_server_filter:
+        description: VSTest filter for a Windows Server qualification
+        type: string
+        required: false
 
 permissions:
   contents: read
 
 jobs:
   validate:
+    if: github.event_name != 'workflow_dispatch' || inputs.windows_server_filter == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -101,3 +107,36 @@ jobs:
         run: |
           dotnet publish src/GnOuGo.Git.Mcp -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/git-contract-smoke
           GNOU_GO_GIT_MCP_TEST_EXECUTABLE="$PWD/artifacts/git-contract-smoke/GnOuGo.Git.Mcp" dotnet test tests/GnOuGo.Git.Mcp.Tests --no-build --filter FullyQualifiedName~ActualStdioDiscoveryPublishesTheSameDotNetAndJavaScriptContract
+
+  windows-server:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_server_filter != ''
+    runs-on: windows-2025
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: '11.0.100'
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.14.0
+          run_install: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: ./.github/actions/ensure-otlp-protos
+      - run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - run: pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build
+      - name: Run selected Server cases
+        env:
+          SERVER_TEST_FILTER: ${{ inputs.windows_server_filter }}
+        run: dotnet test tests/GnOuGo.Agent.Server.Tests -c Release -m:1 -warnaserror -p:SkipClientBuild=true --filter $env:SERVER_TEST_FILTER --results-directory artifacts/windows-server --logger 'trx;LogFileName=server.trx'
+      - name: Retain Windows results
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-server-results
+          path: artifacts/windows-server/*.trx
+          if-no-files-found: warn
