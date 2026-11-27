@@ -67,8 +67,18 @@ internal static partial class PlanningCompactConstruction
             step.BaseHash != PlanningConstruction.Hash(state.Plan) || CurrentBlock(state) is not { CompletionCheckpoint: null } block ||
             step.BlockId != block.Id) return false;
         var accepted = BusinessBlockCheckpoints(state).SelectMany(checkpoint => checkpoint.TaskIds).ToHashSet(StringComparer.Ordinal);
-        return claims.All(claim => !claim.CloseScope && claim.Outputs.Count > 0 && claim.Outputs.All(output =>
-            output.Value is { Kind: "output", Source: { } source } && accepted.Contains(source)));
+        if (!claims.All(claim => !claim.CloseScope && claim.Outputs.Count > 0 && claim.Outputs.All(output =>
+                output.Value is { Kind: "output", Source: { } source } && accepted.Contains(source)))) return false;
+        if (State(state).SuspendedSteps?.Any(Active) != true) return true;
+        var probe = CloneTransitionState(state);
+        foreach (var claim in OrderedBoundaryClaims(state.Plan!, claims))
+        {
+            State(probe).CurrentStep = BoundaryStep(probe, claim);
+            var projected = PlanningConstruction.Apply(probe, BoundaryExtension(claim));
+            if (!BoundaryPreservesConsumers(state, projected, claim)) return false;
+            probe.Plan = projected.Plan;
+        }
+        return true;
     }
 
     private static void ValidateBoundaryTransition(PlanningSession state, PlanningConstructionCandidate candidate)
@@ -101,9 +111,6 @@ internal static partial class PlanningCompactConstruction
         {
             probe.Construction.Compact!.CurrentStep = BoundaryStep(probe, claim);
             var projected = PlanningConstruction.Apply(probe, BoundaryExtension(claim));
-            if (candidate.TaskIds.Count == 0 && !BoundaryPreservesConsumers(state, projected, claim))
-                PlanningConstruction.Fail("CONSTRUCTION_TRANSITION_INVALID", "/extension/boundaryTransitions",
-                    "Standalone boundary exports must preserve the exact interfaces of all waiting consumers.");
             var validation = TaskPlanCompiler.ValidateConstruction(projected.Plan, probe.Catalog!, probe.Request,
                 projected.OpenScopes.ToHashSet(StringComparer.Ordinal), declaredOutputs: probe.Requirements?.Outputs);
             if (validation.Diagnostics.Count != 0) throw new PlanningResponseException(validation.Diagnostics.ToList());

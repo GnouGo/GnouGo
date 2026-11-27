@@ -129,14 +129,25 @@ jobs:
       - uses: ./.github/actions/ensure-otlp-protos
       - run: pnpm install --frozen-lockfile --strict-peer-dependencies
       - run: pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build
+      - name: Build Windows Server tests
+        run: dotnet build tests/GnOuGo.Agent.Server.Tests -c Release -m:1 -warnaserror -p:SkipClientBuild=true
+      - name: Record tested assemblies
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-server | Out-Null
+          Get-ChildItem tests/GnOuGo.Agent.Server.Tests/bin/Release/net11.0/GnOuGo*.dll |
+            ForEach-Object {
+              [pscustomobject]@{ name = $_.Name; version = $_.VersionInfo.ProductVersion; sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash }
+            } | ConvertTo-Json | Set-Content artifacts/windows-server/assemblies.json
       - name: Run selected Server cases
         env:
           SERVER_TEST_FILTER: ${{ inputs.windows_server_filter }}
-        run: dotnet test tests/GnOuGo.Agent.Server.Tests -c Release -m:1 -warnaserror -p:SkipClientBuild=true --filter $env:SERVER_TEST_FILTER --results-directory artifacts/windows-server --logger 'trx;LogFileName=server.trx'
+        run: dotnet vstest tests/GnOuGo.Agent.Server.Tests/bin/Release/net11.0/GnOuGo.Agent.Server.Tests.dll "--TestCaseFilter:$env:SERVER_TEST_FILTER" --ResultsDirectory:artifacts/windows-server '--Logger:trx;LogFileName=server.trx'
       - name: Retain Windows results
         if: always()
         uses: actions/upload-artifact@v7.0.1
         with:
           name: windows-server-results
-          path: artifacts/windows-server/*.trx
+          path: |
+            artifacts/windows-server/*.trx
+            artifacts/windows-server/assemblies.json
           if-no-files-found: warn
