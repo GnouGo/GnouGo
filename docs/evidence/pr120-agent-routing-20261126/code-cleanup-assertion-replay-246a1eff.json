@@ -1,0 +1,13 @@
+{
+  "reference_session": "af1c60e1d68742e9b15eae865c9760ed",
+  "candidate_revision": 102,
+  "preserved_normal_tasks": 8,
+  "cleanup_receipt_assertion": "cleanup.success",
+  "construction_required_diagnostics": 0,
+  "compiler_required_diagnostics": 0,
+  "source_of_extra_task": "Isolated deterministic variation of captured candidate",
+  "operator_approved": false,
+  "model_calls": 0,
+  "workflow_executed": false,
+  "source": "246a1eff8e99ffc36662dc6981de170cfcc6d10b"
+}

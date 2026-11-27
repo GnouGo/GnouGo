@@ -1,0 +1,12 @@
+{
+  "reference_session": "af1c60e1d68742e9b15eae865c9760ed",
+  "new_obligation": "req_7",
+  "checkpoints_retained": 5,
+  "unchanged_task_graph": true,
+  "superseded_final_closure_archived": true,
+  "review_findings_retained": 1,
+  "premature_final_closure_permitted": false,
+  "model_calls": 0,
+  "workflow_executed": false,
+  "source": "246a1eff8e99ffc36662dc6981de170cfcc6d10b"
+}

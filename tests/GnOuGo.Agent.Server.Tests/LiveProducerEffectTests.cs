@@ -10,7 +10,7 @@ public sealed class LiveProducerEffectTests
     [InlineData("Git", "git_compare_refs", "read")]
     [InlineData("Cmd", "cmd_run", "execute")]
     [InlineData("GithubCopilot", "copilot_interactive_one_shot", "execute")]
-    [InlineData("GithubCopilot", "copilot_review", "read")]
+    [InlineData("GithubCopilot", "code_agent_edit", "execute")]
     public async Task RealDiscoveryTransportsEffectsWithoutLosingArtifactMetadata(string component, string operation, string effect)
     {
         var workspace = Directory.CreateTempSubdirectory("gnougo-effect-discovery-").FullName;
@@ -31,6 +31,11 @@ public sealed class LiveProducerEffectTests
             var session = await transport.GetClientAsync(server, TestContext.Current.CancellationToken);
             var tools = await session.ListToolsAsync(TestContext.Current.CancellationToken);
             var tool = Assert.Single(tools, t => t.Name == operation);
+            if (component == "GithubCopilot")
+            {
+                Assert.Equal("management_only", tool.Meta!["gnougo"]!["management"]!["visibility"]!.GetValue<string>());
+                Assert.DoesNotContain(tools, t => t.Name == "copilot_review");
+            }
             Assert.Equal(effect, tool.EffectKind);
             Assert.Equal(1, tool.Meta!["gnougo"]!["effect"]!["version"]!.GetValue<int>());
             if (component != "Cmd") Assert.NotNull(tool.ArtifactContract);

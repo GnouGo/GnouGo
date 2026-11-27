@@ -170,7 +170,11 @@ public sealed class AmazonProductContextOracleTests
             Assert.Contains("prefixAttribute=data-asin and prefixGroups=10", prompt);
             Assert.Contains("Bind observationSnapshot.linkPrefix alone", prompt);
             Assert.Contains("observedSourceAccepted=true", prompt);
-            Assert.Contains("same string pattern in the selected-product href output schema", prompt);
+            Assert.Contains("Use the same selection schema after resolution", prompt);
+            Assert.Contains("Preserve the Browser href pattern in the agent output schema", prompt);
+            Assert.Contains("zero-based sourceIndex in the original linkPrefix.links array in both selection branches", prompt);
+            Assert.Contains("Read the original link at each sourceIndex with at_index", prompt);
+            Assert.Contains("require its href to equal the selected href", prompt);
             Assert.Contains("observationSnapshot.textMatches.records", prompt);
             Assert.Contains("Bind this compact view to the field extraction together with visit status, page identity and any observed error", prompt);
         }

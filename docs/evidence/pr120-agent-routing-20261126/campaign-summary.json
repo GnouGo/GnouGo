@@ -1,0 +1,151 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "configuration_id": "a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6",
+  "provider_model": "gpt-6.1-terra",
+  "scenarios": {
+    "amazon": {
+      "fresh_server_sessions": 7,
+      "planning_calls": 304,
+      "execution_model_calls": 0,
+      "runtime_verification_model_calls": 0,
+      "workflow_tool_receipts": 0,
+      "input_tokens": 5734568,
+      "output_tokens": 171951,
+      "measured_usage_tariff_eur": "13.84617312072892938496583152",
+      "summed_session_wall_seconds": "5433.123",
+      "planning_phases": {
+        "construction_draft": {
+          "logical_calls": 92,
+          "physical_attempts": 92,
+          "input_tokens": 2248860,
+          "output_tokens": 54326
+        },
+        "construction_select": {
+          "logical_calls": 10,
+          "physical_attempts": 10,
+          "input_tokens": 26732,
+          "output_tokens": 6625
+        },
+        "construction_discovery": {
+          "logical_calls": 80,
+          "physical_attempts": 80,
+          "input_tokens": 1263600,
+          "output_tokens": 25940
+        },
+        "construction_implementation": {
+          "logical_calls": 75,
+          "physical_attempts": 75,
+          "input_tokens": 926272,
+          "output_tokens": 50585
+        },
+        "replan": {
+          "logical_calls": 33,
+          "physical_attempts": 33,
+          "input_tokens": 1155409,
+          "output_tokens": 16230
+        },
+        "construction_local_judge": {
+          "logical_calls": 6,
+          "physical_attempts": 6,
+          "input_tokens": 95470,
+          "output_tokens": 4691
+        },
+        "construction_intent": {
+          "logical_calls": 8,
+          "physical_attempts": 8,
+          "input_tokens": 18225,
+          "output_tokens": 13554
+        }
+      },
+      "workflow_executed": false,
+      "last_session_id": "81c83cd17de8440ab879cde086af58a4",
+      "last_session_source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+      "last_session_receipt": "amazon-attempt-7.json",
+      "last_attempt_cost_eur": "3.977744874715261958997722130"
+    },
+    "code": {
+      "fresh_server_sessions": 8,
+      "planning_calls": 361,
+      "execution_model_calls": 0,
+      "runtime_verification_model_calls": 0,
+      "workflow_tool_receipts": 0,
+      "input_tokens": 4819448,
+      "output_tokens": 170720,
+      "measured_usage_tariff_eur": "11.75600911161731207289293861",
+      "summed_session_wall_seconds": "6273.228",
+      "planning_phases": {
+        "construction_implementation": {
+          "logical_calls": 75,
+          "physical_attempts": 75,
+          "input_tokens": 887644,
+          "output_tokens": 40799
+        },
+        "construction_draft": {
+          "logical_calls": 102,
+          "physical_attempts": 102,
+          "input_tokens": 2093473,
+          "output_tokens": 44956
+        },
+        "construction_discovery": {
+          "logical_calls": 82,
+          "physical_attempts": 82,
+          "input_tokens": 1077051,
+          "output_tokens": 26870
+        },
+        "construction_intent": {
+          "logical_calls": 14,
+          "physical_attempts": 14,
+          "input_tokens": 27529,
+          "output_tokens": 17089
+        },
+        "construction_select": {
+          "logical_calls": 39,
+          "physical_attempts": 39,
+          "input_tokens": 100566,
+          "output_tokens": 21081
+        },
+        "construction_local_judge": {
+          "logical_calls": 27,
+          "physical_attempts": 27,
+          "input_tokens": 222824,
+          "output_tokens": 12913
+        },
+        "replan": {
+          "logical_calls": 20,
+          "physical_attempts": 20,
+          "input_tokens": 393705,
+          "output_tokens": 6108
+        },
+        "construction_global_judge": {
+          "logical_calls": 2,
+          "physical_attempts": 2,
+          "input_tokens": 16656,
+          "output_tokens": 904
+        }
+      },
+      "workflow_executed": false,
+      "last_session_id": "af1c60e1d68742e9b15eae865c9760ed",
+      "last_session_source": "c9030d3f9825c8d58566c18d770024f5c115b994",
+      "last_session_receipt": "code-attempt-8.json",
+      "last_attempt_cost_eur": "0.867198177676537585421412318"
+    }
+  },
+  "known_input_tokens": 10554016,
+  "known_output_tokens": 342671,
+  "known_physical_attempts": 665,
+  "spending_ceiling_eur": "30",
+  "measured_usage_tariff_eur": "25.602182232346241457858770131",
+  "provider_invoice_cost_eur": null,
+  "reserved_cost_eur": "0",
+  "retained_application_reservations_eur": "0",
+  "unknown_attempts": 0,
+  "available_eur": "4.397817767653758542141229869",
+  "paid_calls_stopped": true,
+  "last_pair_planning_only_eur": "4.844943052391799544419134448",
+  "last_pair_planning_only_shortfall_eur": "0.447125284738041002277904579",
+  "forecast_basis": "The last settled planning session for each scenario is the spending reference. Neither reached business execution. Actual cost for future sessions is unknown.",
+  "normal_server_workbook_created": false,
+  "normal_server_workbook_independently_verified": false,
+  "normal_server_local_sdk_review_created": false,
+  "third_party_post_created": false
+}

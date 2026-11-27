@@ -1,0 +1,9 @@
+{
+  "source": "246a1eff8e99ffc36662dc6981de170cfcc6d10b",
+  "product_version": "1.0.0+246a1eff8e99ffc36662dc6981de170cfcc6d10b",
+  "published_exe": "artifacts/agent-routing/server-win-x64/tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.exe",
+  "publication": "bundled win-x64 executable",
+  "sha256": "3eb04330099f3bfc4397a74b05fd6a3a4b61bf0be3b31343e93e523b1b3dcef0",
+  "exit": 0,
+  "output": "{\"encrypted_task_recovery\":true,\"tenant_isolation\":true,\"unknown_completion_stopped\":true,\"controlled_structured_wire_roundtrip\":true,\"model_calls\":0}"
+}

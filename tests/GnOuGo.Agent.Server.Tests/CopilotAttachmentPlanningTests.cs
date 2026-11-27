@@ -135,7 +135,8 @@ public sealed class CopilotAttachmentPlanningTests
     internal static JsonObject Capture(bool renamed, string copilotMethod = "copilot_one_shot")
     {
         var result = new JsonObject();
-        var copilot = typeof(GnOuGo.GithubCopilot.Mcp.CodePolicy).Assembly;
+        // Capture the external client contracts from their publishing assembly.
+        var copilot = typeof(GnOuGo.GithubCopilot.Mcp.CopilotAttachmentInput).Assembly;
         CaptureTools(typeof(GitTools), "GnOuGo.Git.Mcp.GitMcpJson", "git_clone", "prepare", "producer");
         CaptureTools(copilot.GetType("GnOuGo.GithubCopilot.Mcp.CopilotTools")!, "GnOuGo.GithubCopilot.Mcp.CodeMcpJson", copilotMethod, "summarize", "consumer");
         return result;

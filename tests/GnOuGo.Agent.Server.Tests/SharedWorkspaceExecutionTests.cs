@@ -57,7 +57,7 @@ public sealed class SharedWorkspaceExecutionTests
         clone.Inputs[clone.Inputs.FindIndex(i => i.Name == "remoteUrl")] = new("remoteUrl", new() { Kind = "string", Text = source });
         plan.Root.Tasks.Single(t => t.Id == "validate_project").DependsOn = ["clone_once"];
         var catalog = saved.Catalog!;
-        catalog.Capabilities = catalog.Capabilities.Select(c => current.Replace(c) ?? c).ToList();
+        current.Update(catalog);
         var compilation = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(compilation.Diagnostics); Assert.Empty(PlanningGraphValidation.Validate(compilation.Graph!, catalog));
         var reviewed = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = saved.Requirements }, catalog, saved.Request);
