@@ -1,0 +1,256 @@
+{
+  "validation_source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "baseline_planner_sha256": "c3cc23040192001c17b7e27d47b8254a4665276a4db11ffa3811298f9e014680",
+  "planner_sha256": "79d28a3d3f3785d10bb97b31f25236b598c71413e935397ec104445e40800596",
+  "new_physical_attempts": 0,
+  "scope": "Logical prompt UTF-8 bytes from captured normal Server exchanges, replayed on both production presentation implementations. Each new pointer was dereferenced in its own prompt and the entire earlier context was reconstructed. Response schemas, provider token counts and live savings are outside this experiment.",
+  "sessions": {
+    "improve40-amazon-20261127-143825": {
+      "captured_source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+      "session": "98c43977638348839b6cbdd6d0f9f785",
+      "by_phase": {
+        "construction_intent": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 7896,
+          "after_bytes": 7896,
+          "verified_pointers": 0
+        },
+        "construction_select": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 10056,
+          "after_bytes": 10056,
+          "verified_pointers": 0
+        },
+        "construction_implementation": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 16299,
+          "after_bytes": 16299,
+          "verified_pointers": 0
+        },
+        "construction_discovery": {
+          "requests": 7,
+          "changed": 0,
+          "before_bytes": 350345,
+          "after_bytes": 350345,
+          "verified_pointers": 0
+        },
+        "construction_draft": {
+          "requests": 2,
+          "changed": 2,
+          "before_bytes": 144371,
+          "after_bytes": 136479,
+          "verified_pointers": 4
+        }
+      },
+      "changed": [
+        {
+          "call": 11,
+          "exchange_sha256": "0a62e12c750e710d69d798bc641e11b1a6a93ede21c7413bde70fc89cac08fa2",
+          "before_bytes": 69823,
+          "after_bytes": 65877,
+          "verified_pointers": 2
+        },
+        {
+          "call": 12,
+          "exchange_sha256": "99caddfeb1c8b389bdf0495cba8920286c603c95522a0fd2b98daf89e2bd14f7",
+          "before_bytes": 74548,
+          "after_bytes": 70602,
+          "verified_pointers": 2
+        }
+      ]
+    },
+    "improve40-amazon-20261127-140108": {
+      "captured_source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+      "session": "fb25b53f4def4db2867cb78d32caa228",
+      "by_phase": {
+        "construction_intent": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 7896,
+          "after_bytes": 7896,
+          "verified_pointers": 0
+        },
+        "construction_select": {
+          "requests": 2,
+          "changed": 0,
+          "before_bytes": 22318,
+          "after_bytes": 22318,
+          "verified_pointers": 0
+        },
+        "construction_implementation": {
+          "requests": 5,
+          "changed": 0,
+          "before_bytes": 128981,
+          "after_bytes": 128981,
+          "verified_pointers": 0
+        },
+        "construction_discovery": {
+          "requests": 9,
+          "changed": 0,
+          "before_bytes": 355490,
+          "after_bytes": 355490,
+          "verified_pointers": 0
+        },
+        "construction_draft": {
+          "requests": 7,
+          "changed": 3,
+          "before_bytes": 422138,
+          "after_bytes": 410300,
+          "verified_pointers": 6
+        },
+        "construction_local_judge": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 24248,
+          "after_bytes": 24248,
+          "verified_pointers": 0
+        }
+      },
+      "changed": [
+        {
+          "call": 9,
+          "exchange_sha256": "f2c3b60a323c842de397ca8333cb7c78f604a7eb6791122ee40e4aaf6c40083a",
+          "before_bytes": 57462,
+          "after_bytes": 53516,
+          "verified_pointers": 2
+        },
+        {
+          "call": 10,
+          "exchange_sha256": "6c80032536a19de52564a6d9abc3ab510af76587ad5852bf65c6ec05bbc7f8cb",
+          "before_bytes": 60301,
+          "after_bytes": 56355,
+          "verified_pointers": 2
+        },
+        {
+          "call": 11,
+          "exchange_sha256": "372535e40f595e5e911954b64da8ecc37f30f0d4c9484bee9a47db2dfc5c4799",
+          "before_bytes": 63209,
+          "after_bytes": 59263,
+          "verified_pointers": 2
+        }
+      ]
+    },
+    "improve40-amazon-20261127-125435": {
+      "captured_source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+      "session": "559d246045e9443492efab791ee8270b",
+      "by_phase": {
+        "construction_intent": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 7809,
+          "after_bytes": 7809,
+          "verified_pointers": 0
+        },
+        "construction_select": {
+          "requests": 2,
+          "changed": 0,
+          "before_bytes": 23502,
+          "after_bytes": 23502,
+          "verified_pointers": 0
+        },
+        "construction_implementation": {
+          "requests": 7,
+          "changed": 0,
+          "before_bytes": 335295,
+          "after_bytes": 335295,
+          "verified_pointers": 0
+        },
+        "construction_discovery": {
+          "requests": 13,
+          "changed": 0,
+          "before_bytes": 668210,
+          "after_bytes": 668210,
+          "verified_pointers": 0
+        },
+        "construction_draft": {
+          "requests": 12,
+          "changed": 0,
+          "before_bytes": 841561,
+          "after_bytes": 841561,
+          "verified_pointers": 0
+        },
+        "construction_local_judge": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 44777,
+          "after_bytes": 44777,
+          "verified_pointers": 0
+        },
+        "replan": {
+          "requests": 10,
+          "changed": 0,
+          "before_bytes": 1452828,
+          "after_bytes": 1452828,
+          "verified_pointers": 0
+        }
+      },
+      "changed": []
+    },
+    "improve40-code-20261127-113943": {
+      "captured_source": "afe16fbded350949d0bc5f294de6edae1f306582",
+      "session": "03e6319d48964dda932253dd7fee0a14",
+      "by_phase": {
+        "construction_intent": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 5162,
+          "after_bytes": 5162,
+          "verified_pointers": 0
+        },
+        "construction_select": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 7433,
+          "after_bytes": 7433,
+          "verified_pointers": 0
+        },
+        "construction_implementation": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 14164,
+          "after_bytes": 14164,
+          "verified_pointers": 0
+        },
+        "construction_discovery": {
+          "requests": 6,
+          "changed": 0,
+          "before_bytes": 229729,
+          "after_bytes": 229729,
+          "verified_pointers": 0
+        },
+        "construction_draft": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 48250,
+          "after_bytes": 48250,
+          "verified_pointers": 0
+        },
+        "construction_local_judge": {
+          "requests": 2,
+          "changed": 0,
+          "before_bytes": 93416,
+          "after_bytes": 93416,
+          "verified_pointers": 0
+        },
+        "replan": {
+          "requests": 3,
+          "changed": 0,
+          "before_bytes": 284122,
+          "after_bytes": 284122,
+          "verified_pointers": 0
+        },
+        "construction_global_judge": {
+          "requests": 1,
+          "changed": 0,
+          "before_bytes": 31005,
+          "after_bytes": 31005,
+          "verified_pointers": 0
+        }
+      },
+      "changed": []
+    }
+  }
+}

@@ -1,0 +1,128 @@
+{
+  "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "run": "improve40-amazon-20261127-152507",
+  "session": "305fa4b27cf042b8b26433eb1d15c3c3",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T15:26:19.8511968+00:00",
+  "finished_utc": "2026-11-27T15:33:18.6340352+00:00",
+  "wall_seconds": 418.782839,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2277,
+      "output_tokens": 2152,
+      "measured_eur": "0.0149908883826879271070615034",
+      "duration_ms": "160024.5897"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2634,
+      "output_tokens": 639,
+      "measured_eur": "0.0089111617312072892938496583",
+      "duration_ms": "22859.299"
+    },
+    "construction_implementation": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 17627,
+      "output_tokens": 2317,
+      "measured_eur": "0.0507084282460136674259681094",
+      "duration_ms": "57916.4752"
+    },
+    "construction_discovery": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 61289,
+      "output_tokens": 3325,
+      "measured_eur": "0.1547585421412300683371298406",
+      "duration_ms": "105989.4201"
+    },
+    "construction_draft": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 60409,
+      "output_tokens": 607,
+      "measured_eur": "0.1403712984054669703872437357",
+      "duration_ms": "37869.0891"
+    },
+    "replan": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 18112,
+      "output_tokens": 374,
+      "measured_eur": "0.0429612756264236902050113895",
+      "duration_ms": "12095.2517"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 3,
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_CONTINUATION_INVALID",
+      "location": "/extension/continuationBinding/binding"
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 15,
+    "repairs": 3,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "3a5ecbca218625a5790a1151388a311e994f23008b24357f83508f87d80c412b",
+    "server": "7f225ee39cbbf0b0c8b3668f6839eaff167c849980f2882700ff15ba12187e70",
+    "GnOuGo.Browser.Mcp": "b055372d15f3ea764fd34e380d6f7789ff71316bf6adde9f19aa1f238833c0d2",
+    "GnOuGo.Document.Mcp": "3fb1d447c85c706ffdf84be2274c2b3b8e60e2b88e3422e6880b9c0bace17543"
+  },
+  "campaign_opening_measured_eur": "36.535277904328018223234624492",
+  "campaign_closing": {
+    "calls": 975,
+    "known_input_tokens": 15199395,
+    "known_output_tokens": 510384,
+    "known_cost_eur": "36.947979498861047835990888731",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "37.185318906605922551252847729"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "305fa4b27cf042b8b26433eb1d15c3c3",
+      "httpAttempts": 15,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.4127015945330296127562642369",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "observed_business": {
+    "workflow_started": false,
+    "fresh_searches": 0,
+    "product_visits": 0,
+    "workbook_exists": false
+  },
+  "terminal_cause": "CONSTRUCTION_CONTINUATION_INVALID followed by REPLAN_NO_PROGRESS",
+  "binding_replay": "suspended-prerequisite-interface-replay.json"
+}

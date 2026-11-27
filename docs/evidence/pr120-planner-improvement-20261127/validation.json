@@ -393,5 +393,125 @@
     "failed": 0,
     "skipped": 0,
     "total": 3372
+  },
+  {
+    "source": "321aca2f0c3327eaa8a932816b1dc87fd9455eb6",
+    "product_source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+    "group": "committed provider-recovery and Amazon first-products verifier tests",
+    "passed": 19,
+    "total": 19,
+    "failed": 0,
+    "skipped": 0,
+    "receipt": "improve40-321aca2f-agent-server-tests.xml",
+    "receipt_sha256": "bfbef72e03d33570e9c66739cd99a77bc834a917f1116acc11df944b6d85fd15",
+    "test_assembly_sha256": "78e760af53b5fcc992b700c5cc3176211c30b30c52a6d9f01df8217ac8499ea8"
+  },
+  {
+    "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+    "group": "Amazon first-products qualification tests",
+    "receipt": "improve40-bf2666cf-agent-server-tests.xml",
+    "receipt_sha256": "095fdbd2704b5ac47d9563ecaf939c00d91c447733d671e0129f6cca1ee9bca9",
+    "passed": 17,
+    "total": 17,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T15:09:49.2619641+00:00",
+    "end_utc": "2026-11-27T15:09:52.1270579+00:00"
+  },
+  {
+    "group": "Server output-limit receipts, model recovery and planning budgets",
+    "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+    "receipt": "improve40-bf2666cf-receipts-and-budget.xml",
+    "receipt_sha256": "31b8be7f1dfd14d02b34dfabe05810a3b309afcea81e187980873db5da729f01",
+    "passed": 17,
+    "total": 17,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T15:11:55.5281282+00:00",
+    "end_utc": "2026-11-27T15:12:46.5411391+00:00",
+    "test_classes": [
+      "PlanningOutputLimitRecoveryTests",
+      "PlanningModelRecoveryTests",
+      "WorkflowPlanningBudgetSettingsTests"
+    ]
+  },
+  {
+    "group": "Amazon source resolution, identity, signed visit order and workbook proof fixtures",
+    "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+    "receipt": "improve40-bf2666cf-amazon-source-and-visits.xml",
+    "receipt_sha256": "9ce8beb8e84210e33660dbc2d2a0e0d21018bfbacfd9306edf8afd231e9069eb",
+    "passed": 208,
+    "total": 208,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T15:14:18.8244057+00:00",
+    "end_utc": "2026-11-27T15:14:36.0299807+00:00",
+    "test_classes": [
+      "AmazonAaxWorkflowTests",
+      "AmazonCardReviewWorkflowTests",
+      "AmazonResolvedProductWorkflowTests",
+      "AmazonReviewProofWorkflowTests",
+      "AmazonResolvedStoreWorkflowTests",
+      "AmazonStoreListWorkflowTests"
+    ]
+  },
+  {
+    "group": "complete planner suite after directly guarded sequence and selected contract sharing",
+    "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+    "receipt": "improve40-bf2666cf-planning-suite.trx",
+    "receipt_sha256": "ce5f18564e21d9f80696c4ece84152b942d2a90ea19124fc69caa9a7944934ab",
+    "start_utc": "2026-11-27T16:08:03.1356884+01:00",
+    "end_utc": "2026-11-27T16:25:05.6352215+01:00",
+    "passed": 3384,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3384
+  },
+  {
+    "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+    "group": "Amazon first-products qualification tests",
+    "receipt": "improve40-8be47eea-agent-server-tests.xml",
+    "receipt_sha256": "bd5344826928147fe851c39957775163e965db5f03f44bac826e3b5848471872",
+    "passed": 17,
+    "total": 17,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T15:50:01.6422689+00:00",
+    "end_utc": "2026-11-27T15:50:06.2825224+00:00"
+  },
+  {
+    "group": "Server receipt recovery, budgets and Amazon source, visit and workbook proof fixtures",
+    "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+    "receipt": "improve40-8be47eea-amazon-and-recovery.xml",
+    "receipt_sha256": "ce80d9412fe50b291c0950e8a84faf9de3c35a8cf32055dd2db8cbafe995668b",
+    "passed": 225,
+    "total": 225,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T15:50:46.3727782+00:00",
+    "end_utc": "2026-11-27T15:52:00.6794046+00:00",
+    "test_classes": [
+      "PlanningOutputLimitRecoveryTests",
+      "PlanningModelRecoveryTests",
+      "WorkflowPlanningBudgetSettingsTests",
+      "AmazonAaxWorkflowTests",
+      "AmazonCardReviewWorkflowTests",
+      "AmazonResolvedProductWorkflowTests",
+      "AmazonReviewProofWorkflowTests",
+      "AmazonResolvedStoreWorkflowTests",
+      "AmazonStoreListWorkflowTests"
+    ]
+  },
+  {
+    "group": "complete planner suite with prerequisite result diagnostics before drafting",
+    "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+    "receipt": "improve40-8be47eea-planning-suite.trx",
+    "receipt_sha256": "f5ce66a42648e998cdc43d47a533d2dcbfa03c03cd4b34f809dc1c7f0c82d22e",
+    "start_utc": "2026-11-27T16:46:25.5588783+01:00",
+    "end_utc": "2026-11-27T17:05:24.7617108+01:00",
+    "passed": 3385,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3385
   }
 ]

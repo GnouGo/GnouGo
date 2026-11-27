@@ -1,0 +1,29 @@
+{
+  "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "run": "improve40-amazon-20261127-152507",
+  "session": "305fa4b27cf042b8b26433eb1d15c3c3",
+  "started_utc": "2026-11-27T15:26:19.8511968+00:00",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "binary_sha256": {
+    "GnOuGo.Flow.Planning.dll": "79d28a3d3f3785d10bb97b31f25236b598c71413e935397ec104445e40800596",
+    "GnOuGo.Flow.Core.dll": "a1196ef7a245ecfd18eaf7ca78ffc3d239ec5b2811c997b015475e7294fff451",
+    "GnOuGo.Agent.Server.dll": "7f225ee39cbbf0b0c8b3668f6839eaff167c849980f2882700ff15ba12187e70",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "3a5ecbca218625a5790a1151388a311e994f23008b24357f83508f87d80c412b"
+  },
+  "campaign_configuration": "a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6",
+  "opening_audit_sha256": "5a9b4005814fd69ddda2fa6f7a1c1a4b5e664048483bb09b1a1ddeb31483fbd6",
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": 3.5,
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "status_at_open": "Generating a fresh plan in the normal Server."
+}

@@ -1,0 +1,116 @@
+{
+  "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+  "run": "improve40-amazon-20261127-143825",
+  "session": "98c43977638348839b6cbdd6d0f9f785",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T14:40:12.0186402+00:00",
+  "finished_utc": "2026-11-27T14:47:49.158678+00:00",
+  "wall_seconds": 457.140038,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2278,
+      "output_tokens": 1624,
+      "measured_eur": "0.0125876993166287015945330296",
+      "duration_ms": "223329.0177"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2470,
+      "output_tokens": 682,
+      "measured_eur": "0.0087334851936218678815489749",
+      "duration_ms": "17299.6175"
+    },
+    "construction_implementation": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 4444,
+      "output_tokens": 384,
+      "measured_eur": "0.0118724373576309794988610478",
+      "duration_ms": "13112.3053"
+    },
+    "construction_discovery": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 99086,
+      "output_tokens": 2471,
+      "measured_eur": "0.2369658314350797266514806378",
+      "duration_ms": "99851.8782"
+    },
+    "construction_draft": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 48974,
+      "output_tokens": 4815,
+      "measured_eur": "0.1334943052391799544419134396",
+      "duration_ms": "72046.0520"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 0,
+  "diagnostics": [
+    {
+      "code": "MODEL_OUTPUT_STALLED",
+      "location": "/phases/construction_draft"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 12,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "19d5f6e0a7ec3049e92ce500ad84f757b005bbee7c3e2190b16b442cfeaf4586",
+    "server": "adc12c767680f30446c5f1ba3576a8161b6748bba203878a33265a9aab850add",
+    "GnOuGo.Browser.Mcp": "cc299251f5a06ef333d802a29f4408d84d585a49e7d11c84633d14887939d202",
+    "GnOuGo.Document.Mcp": "5191886304dac7eb6abc522e0f9f706eb6f20418e688b5d89ede8f11247700e7"
+  },
+  "campaign_opening_measured_eur": "36.131624145785876993166287357",
+  "campaign_closing": {
+    "calls": 960,
+    "known_input_tokens": 15037047,
+    "known_output_tokens": 500970,
+    "known_cost_eur": "36.535277904328018223234624492",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "36.77261731207289293849658349"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "98c43977638348839b6cbdd6d0f9f785",
+      "httpAttempts": 12,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.4036537585421412300683371297",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "observed_business": {
+    "workflow_started": false,
+    "fresh_searches": 0,
+    "product_visits": 0,
+    "workbook_exists": false
+  },
+  "terminal_cause": "MODEL_OUTPUT_STALLED",
+  "captured_response_replay": "continued-sequence-guard-replay.json"
+}
