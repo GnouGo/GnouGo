@@ -159,11 +159,16 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         };
         await SaveAsync(context, record, ct);
         var tools = Tools(context.Task.Capabilities);
+        var inputJson = context.Task.Inputs.ToJsonString();
+        var paged = inputJson.Length > AgentTaskContracts.ObservationPageSize;
+        var inputReader = paged ? InputReader(inputJson) : null;
+        if (inputReader is not null) tools.Add(inputReader.Name);
+        var prompt = Prompt(context.Task, paged ? AgentTaskContracts.ReadObservationPage("task-inputs", "inputs", inputJson, 0) : null);
         var baseConfiguration = configuration.Build(context.Task.Workspace, provider);
         var bounds = new CopilotExecutionBounds(context.Task.Budget.MaxModelCalls, context.Task.Budget.MaxTotalTokens,
             started.AddMilliseconds(context.Task.Budget.MaxElapsedMilliseconds), tools, async (calls, tokens, token) =>
             { record["modelCalls"] = calls; record["chargedTokens"] = tokens; await SaveAsync(context, record, token); }) {
-                ApprovedPrompt = Prompt(context.Task), MaxActions = context.Task.Budget.MaxActions,
+                ApprovedPrompt = prompt, MaxActions = context.Task.Budget.MaxActions,
                 ReserveHostAttemptAsync = context.Execution?.LLMUsageBudget is { } hostBudget
                     ? (attempt, model, input, output, token) =>
                     {
@@ -183,18 +188,19 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
                         await settlement.SettleJournaledAttemptAsync(id, request, context.Execution.Engine.ModelUsageCostEstimator,
                             usage, "agent.run.execution", token);
                     } : null,
-                AdaptiveActions = context.Task.Budget.MaxActions.HasValue ? new CopilotAdaptiveActions(async (id, observation) =>
+                AdaptiveActions = context.Task.Budget.MaxActions.HasValue || paged ? new CopilotAdaptiveActions(async (id, observation) =>
                 {
                     observation["scope_hash"] = scopeHash;
                     await records.UpsertAsync(Collection + "-actions", context.TenantId, Key(context) + ":" + id,
                         observation.ToJsonString(), Author, CancellationToken.None);
-                }, context.Task.Verification.Where(v => v.Kind == "command.exit").Select(v => v.Subject).ToHashSet(StringComparer.Ordinal)) : null,
+                }, context.Task.Verification.Where(v => v.Kind == "command.exit").Select(v => v.Subject).ToHashSet(StringComparer.Ordinal))
+                { ObservationTools = inputReader is null ? new HashSet<string>() : new HashSet<string> { inputReader.Name } } : null,
                 DeniedPaths = [Path.Combine(baseConfiguration.WorkingDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder),
                     GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, GnOuGoWorkspace.WorkspaceDataSubfolder)]
             };
         var runtime = baseConfiguration with
         {
-            ExecutionBounds = bounds, HostTools = [], EnableApproveAll = false, EnableSandboxBypassGrants = false,
+            ExecutionBounds = bounds, HostTools = inputReader is null ? [] : [inputReader], EnableApproveAll = false, EnableSandboxBypassGrants = false,
             AvailableTools = tools.ToArray(), EnableConfigDiscovery = false, McpServers = null, SkillDirectories = [], DisabledSkills = ["*"],
             RequestTimeoutSeconds = Math.Clamp((int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d), 1, 240),
             ManagedSessionTtlSeconds = Math.Max(60, (int)Math.Ceiling(context.Task.Budget.MaxElapsedMilliseconds / 1000d) + 60)
@@ -221,7 +227,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             await SaveAsync(context, record, deadline.Token);
             dispatched = true;
             var reporter = progress.Capture();
-            var sent = observed = await sessions.SendAsync(new(providerContext, handle, Prompt(context.Task), AgentMode: "interactive")
+            var sent = observed = await sessions.SendAsync(new(providerContext, handle, prompt, AgentMode: "interactive")
             {
                 RequestHeaders = configuration.RequestHeaders(),
                 Progress = e =>
@@ -271,7 +277,7 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             // Timeout leaves the prepared/dispatched record unresolved. Never save a completion while
             // a reservation writer or a managed file operation can still change the invocation.
             await bounds.StopAsync(stop.Token);
-            if (bounds.MaxActions is not null) record["actions"] = bounds.Actions;
+            if (bounds.AdaptiveActions is not null) record["actions"] = bounds.Actions;
             if (observed is not null)
                 record["executionObservations"] = JsonSerializer.SerializeToNode(observed, CopilotCoreJsonContext.Default.CopilotSendResult);
             if (bounds.AdmissionStop is not null)
@@ -413,12 +419,28 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
         { return null; }
     }
 
-    private static string Prompt(AgentTaskDefinition task) =>
+    private static CopilotHostTool InputReader(string inputJson)
+    {
+        using var schema = JsonDocument.Parse("""{"type":"object","properties":{"offset":{"type":"integer","minimum":0}},"required":["offset"],"additionalProperties":false}""");
+        return new("read_task_input", "Read the next page of this invocation's approved input JSON using next_offset.",
+            schema.RootElement.Clone(), (args, ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                if (args.ValueKind != JsonValueKind.Object || args.EnumerateObject().Count() != 1 ||
+                    !args.TryGetProperty("offset", out var offset) || offset.ValueKind != JsonValueKind.Number ||
+                    !offset.TryGetInt32(out var index) || AgentTaskContracts.ReadObservationPage("task-inputs", "inputs", inputJson, index) is not { } page)
+                    throw new ArgumentException("Invalid task input offset.");
+                return Task.FromResult(JsonSerializer.SerializeToElement(page, CopilotCoreJsonContext.Default.JsonObject));
+            });
+    }
+
+    private static string Prompt(AgentTaskDefinition task, JsonObject? inputPage) =>
         "Complete only the approved objective below, within its declared capabilities and workspace. " +
         "Run each required verification command exactly as written and wait for its structured exit status. " +
         "Do not leave background work running. Do not request scope expansion. Return only JSON matching output_schema; completion claims do not establish evidence.\n" +
         (task.Budget.MaxActions.HasValue ? "Observe the current workspace, choose the next scoped action and verify its result. Reuse verified observations. Refresh changed inputs and inspect uncertain effects before repeating work.\n" : "") +
-        JsonSerializer.Serialize(task, AgentTaskJsonContext.Default.AgentTaskDefinition);
+        JsonSerializer.Serialize(inputPage is null ? task : task with { Inputs = new() }, AgentTaskJsonContext.Default.AgentTaskDefinition) +
+        (inputPage is null ? "" : "\nApproved inputs are paged. Use read_task_input with next_offset for further data.\n" + inputPage.ToJsonString());
 
     private static bool CommandCompleted(CopilotToolExecutionObservation tool, IReadOnlyList<CopilotToolExecutionObservation> all)
         => tool.GetVerifiedTerminals(all) is { Count: > 0 };

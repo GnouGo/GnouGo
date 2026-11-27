@@ -14,15 +14,18 @@ execution engine or review-manifest protocol.
   semantic revisions and deterministic compilation. Its only GnOuGo dependency is Core.
 - **Flow.Integrations** supplies AI and MCP transports and encrypted planning
   sessions through injected interfaces.
-- **Flow.Copilot** implements the agent runner over injected MCP transport. Its only
-  GnOuGo dependency is Core. The MCP host uses the existing managed Copilot APIs.
+- **Flow.Core** also supplies the native business runner. It uses the configured
+  workflow model and the explicitly granted MCP methods.
+- **Flow.Copilot** implements code review and editing through the managed Copilot
+  SDK. The separately published Copilot MCP service shares its bounded task service.
 - **Flow.Persistence** stores authoritative execution payloads through KeyVault's
   encrypted record API and rebuildable tenant indexes through EF Core and SQLite.
 - **Agent.Server**, **Flow.Server** and **Flow.Cli** compose these packages.
 
-Ordinary MCP workflows require no Copilot adapter. Git MCP remains available for
-structured repository preparation and exact revision comparison; adaptive editing,
-testing and routine commands belong inside an approved agent task.
+Keep known operations in the workflow, including checkout, exact revision comparisons,
+known checks, file writes and independent readback. Compose them with conditions
+and loops. Use a bounded `llm.call` to interpret supplied data. Use `agent.run`
+when an observation determines which action to take next.
 
 ## Planning, review and approval
 
@@ -69,7 +72,8 @@ runtime confirmations bind the exact invocation; broader grants are not inferred
 
 `agent.run` accepts `runner`, `objective`, `inputs`, `output_schema`, `workspace`,
 `capabilities`, `budget` and `verification`. Budget fields are
-`max_elapsed_milliseconds`, `max_model_calls` and `max_total_tokens`. A verification
+`max_elapsed_milliseconds`, `max_model_calls`, `max_total_tokens` and the action
+limit `max_actions` required by the native business runner. A verification
 requirement supplies `id`, `kind`, `subject` and `facts_schema`.
 
 The runner enforces the approved scope and returns separate status, structured
@@ -77,11 +81,21 @@ output, artifacts, observed evidence, usage and verification findings. Core chec
 the output contract and every required finding before downstream execution. A
 completed assistant turn or a claim that tests passed does not establish success.
 
-The Copilot adapter declares `project.read`, `project.write`, `command.execute`,
-`command.exit` and `file.content` outside Core. Commands require the host's mandatory
-sandbox; interactive permission refusals remain effective. Unsupported inference
-transports fail closed. Conservative non-refundable reservations are reported as
-`reserved_upper_bound`, not as measured token use. See the [adapter README](../src/GnOuGo.Flow.Copilot/README.md).
+The host binds each runner to a profile and validates requested capabilities before
+execution. The native runner can call only approved, version-pinned business tools.
+Both runners page large incoming JSON inputs. The SDK's task-local input reader
+can read only that invocation's supplied data. Input pages carry no verification
+authority. The native runner also pages tool results while retaining complete receipts.
+
+The code adapter exposes approved project reads, sandboxed native search, edits
+and commands. It verifies `file.read`, `file.content`, `command.exit` and
+`review.diff` against recorded actions and workspace evidence. Conservative usage
+reservations carry the label `reserved_upper_bound`. Details are in the
+[adapter README](../src/GnOuGo.Flow.Copilot/README.md).
+
+When reviewed, reachable contributions cover every outstanding requirement and the
+existing technical checks pass, the host requests global review directly. The
+global review, artifact approval and execution checks still run in order.
 
 ## Durable runs
 

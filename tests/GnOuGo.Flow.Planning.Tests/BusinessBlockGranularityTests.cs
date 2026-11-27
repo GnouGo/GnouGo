@@ -1,4 +1,3 @@
-using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning.Tests;
@@ -23,7 +22,7 @@ public sealed class BusinessBlockGranularityTests
     }
 
     [Fact]
-    public async Task ReviewedContributionCanRequestFinalReviewWithoutAnotherBusinessBlock()
+    public async Task ReviewedContributionGoesDirectlyToGlobalReviewWhenAllObligationsAreCovered()
     {
         var (state, runtime) = await BusinessReviewProtocolTests.Ready();
         state.Requirements!.Outcomes.RemoveAll(requirement => requirement.Id != "work");
@@ -44,13 +43,8 @@ public sealed class BusinessBlockGranularityTests
         runtime.Respond = (_, purpose) =>
         {
             purposes.Add(purpose);
-            return purpose switch
-            {
-                PlanningCompactConstruction.SelectPurpose => new() { Json = new JsonObject
-                    { ["action"] = new JsonObject { ["kind"] = "completion", ["completionRequirementIds"] = new JsonArray("work") } } },
-                PlanningConstruction.GlobalPurpose => new() { Json = BusinessReviewProtocolTests.Report("ok") },
-                _ => throw new InvalidOperationException("Finalizing accepted work needs no implementation or draft call.")
-            };
+            Assert.Equal(PlanningConstruction.GlobalPurpose, purpose);
+            return new() { Json = BusinessReviewProtocolTests.Report("ok") };
         };
         for (var transition = 0; transition < 6 && state.Status != PlanningStatus.FinalReview; transition++)
         {
@@ -59,7 +53,7 @@ public sealed class BusinessBlockGranularityTests
             Assert.Equal(baseline, PlanningConstruction.Hash(state.Plan));
             Assert.Equal(blocks, state.Construction!.Compact!.Blocks!.Count);
         }
-        Assert.Equal(new[] { PlanningCompactConstruction.SelectPurpose, PlanningConstruction.GlobalPurpose }, purposes);
+        Assert.Equal(new[] { PlanningConstruction.GlobalPurpose }, purposes);
         Assert.Equal(PlanningStatus.FinalReview, state.Status);
         Assert.True(HybridWorkflowPlanner.ConstructionArtifactReviewValid(state));
         PlanningArtifactApproval.Verify(state);

@@ -259,6 +259,8 @@ internal static partial class PlanningCompactConstruction
                 yield return new("boundary", "exact_reviewed_boundary_claim", checkpoint.Sequence, boundary);
         if (PrepareReviewedClosure(state) is { } closure)
             yield return new("closure", "all_original_obligations_claimed", null, closure);
+        else if (TrySelectReviewedCompletion(resumed))
+            yield return new("closure", "reviewed_contributions_ready_for_global_review", null, resumed);
     }
 
     internal static JsonObject SelectionDecision(PlanningSession state, JsonObject? continuation = null)

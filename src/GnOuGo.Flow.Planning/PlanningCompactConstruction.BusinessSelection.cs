@@ -315,6 +315,25 @@ internal static partial class PlanningCompactConstruction
         if (offered.Length == 0 || requirements.Count != offered.Length || requirements.Distinct(StringComparer.Ordinal).Count() != requirements.Count ||
             requirements.Except(offered, StringComparer.Ordinal).Any())
             PlanningConstruction.Fail("CONSTRUCTION_COMPLETION_INVALID", "/completionRequirementIds", "Claim only the offered original obligations for final review of accepted contributions.");
+        SetCompletionStep(state, requirements);
+    }
+
+    private static bool TrySelectReviewedCompletion(PlanningSession state)
+    {
+        var blocks = State(state).Blocks;
+        if (blocks is not { Count: > 0 } || blocks.Any(block => BusinessBlockReview(state, block) is null)) return false;
+        var offered = FinalReviewRequirementIds(state, out var assessment);
+        if (offered.Length == 0 || assessment is null ||
+            blocks.Any(block => BusinessConnectionStatus(state, block, assessment.ReachableTaskIds) != "structurally_reachable") ||
+            offered.Except(blocks.SelectMany(block => block.RequirementIds), StringComparer.Ordinal).Any()) return false;
+
+        // The final candidate still passes ordinary validation and independent global review.
+        SetCompletionStep(state, offered);
+        return true;
+    }
+
+    private static void SetCompletionStep(PlanningSession state, IReadOnlyList<string> requirements)
+    {
         var compact = State(state);
         compact.CurrentStep = new()
         {

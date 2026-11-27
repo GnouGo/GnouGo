@@ -8,6 +8,17 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>Shared task contract used by planning, adapters and execution.</summary>
 public static class AgentTaskContracts
 {
+    public const int ObservationPageSize = 4096;
+
+    public static JsonObject? ReadObservationPage(string id, string subject, string text, int offset)
+    {
+        if (offset < 0 || offset >= text.Length || char.IsLowSurrogate(text[offset])) return null;
+        var end = offset + Math.Min(ObservationPageSize, text.Length - offset);
+        if (end < text.Length && char.IsLowSurrogate(text[end])) end--;
+        return new() { ["id"] = id, ["tool"] = subject, ["offset"] = offset, ["length"] = text.Length,
+            ["next_offset"] = end < text.Length ? end : null, ["text"] = text[offset..end] };
+    }
+
     public static string McpToolId(JsonObject descriptor)
     {
         using var stream = new MemoryStream();

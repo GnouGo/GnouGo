@@ -12,6 +12,27 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed partial class BoundedCopilotTasksTests
 {
     [Fact]
+    public async Task LargeApprovedInputsArePagedInsideTheOriginalSdkInvocation()
+    {
+        await using var fixture = new Fixture();
+        var ct = TestContext.Current.CancellationToken;
+        var data = new string('x', 5000) + "verified-input-tail";
+        var task = fixture.Context.Task with { Inputs = new() { ["data"] = data } };
+        await fixture.Tasks.RunAsync(fixture.Context with { Task = task }, ct);
+        var config = fixture.Host.Configuration!.Request.Configuration;
+        Assert.DoesNotContain("verified-input-tail", config.ExecutionBounds!.ApprovedPrompt);
+        Assert.Contains("next_offset", config.ExecutionBounds.ApprovedPrompt);
+        var reader = Assert.Single(config.HostTools);
+        Assert.Contains(reader.Name, config.AvailableTools!);
+        using var address = JsonDocument.Parse("""{"offset":4096}""");
+        var page = await reader.Invoke(address.RootElement, ct);
+        Assert.Contains("verified-input-tail", page.GetProperty("text").GetString());
+        Assert.Equal(JsonValueKind.Null, page.GetProperty("next_offset").ValueKind);
+        using var invalid = JsonDocument.Parse("""{"offset":-1}""");
+        await Assert.ThrowsAsync<ArgumentException>(() => reader.Invoke(invalid.RootElement, ct));
+    }
+
+    [Fact]
     public async Task DiscoveryDescribesConditionalToolsWithoutStartingTheSdk()
     {
         await using var fixture = new Fixture();

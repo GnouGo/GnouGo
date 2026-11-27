@@ -24,6 +24,7 @@ public sealed class CopilotAgentTaskRunnerTests
 
     [Theory]
     [InlineData("success", "completed", 1)]
+    [InlineData("paged_inputs", "completed", 1)]
     [InlineData("retry", "completed", 1)]
     [InlineData("late_retry", "budget_exhausted", 0)]
     [InlineData("fabricate", "completed", 0)]
@@ -46,6 +47,7 @@ public sealed class CopilotAgentTaskRunnerTests
         var context = new AgentTaskContext("tenant", "run", "invocation", new()
         {
             Runner = "inspect", Objective = "Choose a record after observing the page", Workspace = "approved",
+            Inputs = test == "paged_inputs" ? new() { ["data"] = new string('x', 5000) + "exact-tail-marker" } : new(),
             Capabilities = [id], Budget = new() { MaxActions = 1, MaxModelCalls = test == "limit" ? 1 : 4 },
             Verification = [new("record", "mcp.result", id, new() { ["type"] = "object" })],
             OutputSchema = new() { ["type"] = "object" }
@@ -58,7 +60,12 @@ public sealed class CopilotAgentTaskRunnerTests
         Assert.Equal(actions, result.Usage.Actions);
         Assert.Equal(model.Calls, result.Usage.ModelCalls);
         if (result.Status == "completed")
-            Assert.Equal(test is "success" or "retry", Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
+            Assert.Equal(test is "success" or "retry" or "paged_inputs", Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, ct)).Passed);
+        if (test == "paged_inputs")
+        {
+            Assert.Equal(3, model.Calls);
+            Assert.Equal("mcp.result", Assert.Single(result.Evidence).Kind);
+        }
         if (test == "success")
         {
             Assert.Equal(Transport.LargeContent, Assert.Single(result.Evidence).Facts["result"]!.GetValue<string>());
@@ -83,7 +90,17 @@ public sealed class CopilotAgentTaskRunnerTests
             if (scenario is "retry" or "late_retry" && Calls == 1)
                 throw new LLMClientException(LLMClientFailureKind.RateLimited, "Rate limited", true, 429, null, 1, false,
                     scenario == "late_retry" ? 300000 : 1);
-            var finish = scenario == "fabricate" || Calls > (scenario == "retry" ? 2 : 1) && scenario != "repeat";
+            if (scenario == "paged_inputs" && Calls == 1)
+            {
+                Assert.Contains("task-inputs", request.Prompt);
+                Assert.DoesNotContain("exact-tail-marker", request.Prompt);
+                return Task.FromResult(new LLMResponse { Json = new JsonObject { ["action"] = "read_page",
+                    ["payload"] = """{"id":"task-inputs","offset":4096}""" },
+                    Usage = new JsonObject { ["prompt_tokens"] = 70, ["completion_tokens"] = 10, ["total_tokens"] = 80 } });
+            }
+            if (scenario == "paged_inputs" && Calls == 2)
+                Assert.Contains("exact-tail-marker", request.Prompt);
+            var finish = scenario == "fabricate" || Calls > (scenario is "retry" or "paged_inputs" ? 2 : 1) && scenario != "repeat";
             return Task.FromResult(new LLMResponse
             {
                 Json = new JsonObject { ["action"] = finish ? "finish" : scenario == "unknown" ? "shell" : tool,
