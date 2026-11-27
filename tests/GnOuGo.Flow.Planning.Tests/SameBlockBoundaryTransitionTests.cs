@@ -5,6 +5,55 @@ namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class SameBlockBoundaryTransitionTests
 {
+    [Theory]
+    [InlineData("current")]
+    [InlineData("foreign_producer")]
+    [InlineData("undeclared_output")]
+    public async Task StandaloneExportUsesAnAcceptedResultAndKeepsTheBusinessBlockOpen(string variant)
+    {
+        var (state, runtime) = await BusinessReviewProtocolTests.Ready();
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        var step = compact.CurrentStep!;
+        var initial = construction.Candidate!.Extension;
+        var producer = Assert.Single(initial.Tasks);
+        var port = Assert.Single(producer.Outputs).Name;
+        state.Requirements!.Outputs = [new() { Name = "doubled", Type = new() { Kind = "number" } }];
+        step.CloseRequirementIds.Clear();
+        initial.CompleteBlock = false;
+        construction.Candidate = PlanningConstruction.Apply(state, initial);
+        state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        construction = state.Construction!;
+        compact = construction.Compact!;
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        compact.CurrentStep = step;
+        var source = variant == "foreign_producer" ? "outside" : producer.Id;
+        var name = variant == "undeclared_output" ? "other" : "doubled";
+        var export = new PlanningConstructionExtension { CompleteBlock = false, RequirementIds = ["work"],
+            BoundaryTransitions = [new() { Scope = "/root", RequirementIds = ["work"], Outputs =
+                [new(name, new() { Kind = "output", Source = source, Port = port })] }] };
+        if (variant == "foreign_producer")
+        {
+            Assert.Throws<PlanningResponseException>(() => PlanningConstruction.Apply(state, export));
+            return;
+        }
+        construction.Candidate = PlanningConstruction.Apply(state, export);
+        if (variant == "undeclared_output")
+        {
+            Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, construction.Candidate));
+            return;
+        }
+        PlanningCompactConstruction.ValidateExtension(state, construction.Candidate);
+        for (var i = 0; i < 3; i++) state = await BusinessReviewProtocolTests.Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        var result = Assert.Single(state.Plan!.Root.Outputs);
+        Assert.Equal(("doubled", producer.Id, port), (result.Name, result.Value.Source, result.Value.Port));
+        Assert.Equal(step.BlockId, state.Construction!.Compact!.CurrentBlockId);
+        Assert.DoesNotContain(state.Construction.Requirements, requirement => requirement.Status == "closed");
+        Assert.Empty(runtime.Calls);
+    }
+
     [Fact]
     public async Task ExactAcceptedExportsCloseNestedBoundariesWithoutCompletingBusinessBlock()
     {

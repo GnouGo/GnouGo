@@ -22,6 +22,7 @@ public sealed partial class EncryptedWorkflowRunStore
         private readonly HashSet<string> _written = new(StringComparer.Ordinal);
         private readonly Dictionary<(WorkflowInvocation Invocation, bool After), JsonNode> _snapshots = new();
         private JsonNode? _lastCapture;
+        private (string? Text, JsonNode? Reference) _workflowYaml;
         private readonly Dictionary<JsonValue, string> _frozenScalars = new(ReferenceEqualityComparer.Instance);
         private int _eventPrefixCount = head["eventCount"]?.GetValue<int>() ?? 0;
         public JsonObject Head { get; private set; } = head;
@@ -167,7 +168,7 @@ public sealed partial class EncryptedWorkflowRunStore
             var header = new WorkflowRun
             {
                 SchemaVersion = run.SchemaVersion, TenantId = run.TenantId, RunId = run.RunId, Revision = run.Revision,
-                WorkflowName = run.WorkflowName, WorkflowYaml = run.WorkflowYaml, DefinitionHash = run.DefinitionHash,
+                WorkflowName = run.WorkflowName, DefinitionHash = run.DefinitionHash,
                 Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
                 ApplicationLlmBudgetMode = run.ApplicationLlmBudgetMode, ApplicationLlmBudgetOrigin = run.ApplicationLlmBudgetOrigin,
                 ApplicationLlmBudgetVersion = run.ApplicationLlmBudgetVersion,
@@ -180,6 +181,7 @@ public sealed partial class EncryptedWorkflowRunStore
             foreach (var pair in headerNode)
                 headerFields.Add((JsonNode)new JsonArray(pair.Key, pair.Key switch
                 {
+                    "workflowYaml" => await EncodeWorkflowYamlAsync(run.WorkflowYaml, ct),
                     "inputs" => await EncodeAsync(run.Inputs, ct),
                     "result" => await EncodeResultAsync(run.Result, ct),
                     _ => await EncodeAsync(pair.Value, ct)
@@ -210,6 +212,15 @@ public sealed partial class EncryptedWorkflowRunStore
             await records.UpsertAsync(Collection, tenant, runId, next.ToJsonString(), Author, ct);
             Head = next; _eventPrefixCount = run.Events.Count;
             // Cache verified immutable block definitions, never expanded snapshots.
+        }
+
+        private async Task<JsonNode> EncodeWorkflowYamlAsync(string yaml, CancellationToken ct)
+        {
+            // The text is immutable and often several hundred KB. Keep the
+            // encoded reference local to this journal and compare the exact value.
+            if (_workflowYaml.Reference is null || _workflowYaml.Text != yaml)
+                _workflowYaml = (yaml, await EncodeAsync(JsonValue.Create(yaml), ct));
+            return _workflowYaml.Reference.DeepClone();
         }
 
         private async Task<JsonNode> EncodeInvocationAsync(WorkflowInvocation invocation, CancellationToken ct)

@@ -27,6 +27,8 @@ Schema-8 data is never migrated or deleted automatically. Regenerate and approve
 
 `CreateWorkspace(databasePath, indexPath, logger, ownerPath)` accepts explicit host paths; omitted paths use workspace helpers. Run `scripts/verify-flow-v9-published.py` against published CLI/server binaries to check encryption, native EF queries, index rebuilding, restart and tenant/revision boundaries.
 
+Each owned journal caches the encoded reference for its current workflow YAML. A checkpoint reuses that reference for identical text and encodes the new value when the definition changes.
+
 Canonical block bodies are serialized once for hashing and reused verbatim inside
 the tenant/run envelope. Lease-local scalar comparison caches contain only verified
 immutable block values; live workflow values are compared again on every capture.

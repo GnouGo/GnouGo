@@ -21,6 +21,25 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     private static string Json(WorkflowRun run) => JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun);
 
     [Fact]
+    public async Task CheckpointsRetainTheExactCurrentWorkflowDefinition()
+    {
+        var run = NewRun();
+        run.WorkflowYaml = new string('a', 500_000);
+        var store = Store();
+        await store.CreateAsync(run, Ct);
+        await using var owner = await store.AcquireAsync(run.TenantId, run.RunId, 0, Ct);
+        await owner.SaveAsync([], Ct);
+        foreach (var text in new[] { run.WorkflowYaml, new string('b', 500_000), "" })
+        {
+            owner.Run.WorkflowYaml = text;
+            await owner.SaveAsync([], Ct);
+            var retained = await Store().ReadAsync(run.TenantId, run.RunId, Ct);
+            Assert.Equal(text, retained!.WorkflowYaml);
+            Assert.Equal(owner.Run.Revision, retained.Revision);
+        }
+    }
+
+    [Fact]
     public async Task CachedScalarTextNeverEquatesDifferentJsonKinds()
     {
         var store = Store(); await store.CreateAsync(NewRun(), Ct);
