@@ -1,0 +1,69 @@
+{
+  "source": "b52f32acbbd487082995422363f2c44d64abcf40",
+  "effective_model": "gpt-6.1-terra",
+  "browser": {
+    "checked_at": "2026-11-27T21:52:09.099585+00:00",
+    "browser_mcp_sha256": "6e0d612d99a69ddea2a453e7a01769a41f0dacc1cdd99d20884cd73080ba043f",
+    "workspace_writable": true,
+    "url": "https://www.amazon.fr/s?k=chaussure%20geox%20homme%2045",
+    "capture_sha256": "152d823ec8d1ec99fe63a0ed95ed7337d8a453abd8063b14057876c696c36446",
+    "links_in_prefix": 142,
+    "closed": true,
+    "status": 200,
+    "final_url": "https://www.amazon.fr/s?k=chaussure+geox+homme+45",
+    "acquisition_ms": 11230,
+    "product_visits": 0
+  },
+  "copilot": {
+    "runtime": "1.0.112",
+    "protocol": 3,
+    "sdk": "1.0.34.0",
+    "managed_policy_read_error": false,
+    "sandbox_enabled": null,
+    "sandbox_fail_if_unavailable": null,
+    "tools": [
+      "powershell",
+      "read_powershell",
+      "stop_powershell",
+      "list_powershell",
+      "glob",
+      "grep",
+      "create",
+      "edit",
+      "skill",
+      "view",
+      "web_fetch",
+      "task",
+      "read_agent",
+      "list_agents",
+      "write_agent"
+    ],
+    "inference_calls": 0,
+    "session_enforcement_required": false,
+    "session_enforcement_blocked": false,
+    "ensure_enforcement_returned": true,
+    "session_metadata_tools": [],
+    "scope": "Client RPC inventory and session metadata before inference. No SDK tool was invoked by a model."
+  },
+  "a15_replay": {
+    "raw": [
+      {
+        "code": "TASK_BRANCH_OUTPUTS",
+        "path": "/tasks/deliveryGate/body/outputs/outcome",
+        "message": "Declare the matching business output explicitly in this alternative."
+      },
+      {
+        "code": "TASK_INPUT_TYPE",
+        "path": "/tasks/detailGet/inputs/url",
+        "message": "Produced opaque; expected [\"string\",\"null\"] pattern \"^[Hh][Tt][Tt][Pp][Ss]?://[^/?#\\\\s]\\u002B[^\\\\s]*$\". The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission."
+      }
+    ],
+    "observed": [
+      {
+        "code": "TASK_BRANCH_OUTPUTS",
+        "path": "/tasks/deliveryGate/body/outputs/outcome",
+        "message": "Declare the matching business output explicitly in this alternative."
+      }
+    ]
+  }
+}

@@ -14,6 +14,20 @@ public sealed class BenchmarkCampaignTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
+    [InlineData("24.409364", "6")]
+    [InlineData("4.01", "1.01")]
+    [InlineData("0", "0")]
+    public void ExecutionReserveSharesOnlyTheAvailableBalance(string available, string expected)
+    {
+        var culture = System.Globalization.CultureInfo.InvariantCulture;
+        var profile = new JsonObject { ["execution_verification_reserve_eur"] = 6m, ["execution_verification_reserve_fraction"] = 0.25m };
+        var balance = decimal.Parse(available, culture);
+        Assert.Equal(decimal.Parse(expected, culture), ServerLiveDiagnostics.ExecutionReserve(profile, balance));
+        profile.Remove("execution_verification_reserve_fraction");
+        Assert.Equal(6m, ServerLiveDiagnostics.ExecutionReserve(profile, balance));
+    }
+
+    [Theory]
     [InlineData("rotation")] [InlineData("history")] [InlineData("current")] [InlineData("version")]
     [InlineData("endpoint")] [InlineData("permission")] [InlineData("metadata")] [InlineData("another-record")] [InlineData("git-token")]
     [InlineData("paired")] [InlineData("paired-wrong-version")] [InlineData("paired-stale")] [InlineData("paired-history")]
@@ -2547,7 +2561,7 @@ public sealed class BenchmarkCampaignTests
             Assert.False(audit["original_result"]!["execution_correct"]!.GetValue<bool>());
         }
     }
-    private sealed class Records : IKeyVaultRecordStore, IKeyVaultRecordReader
+    internal sealed class Records : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
         internal int Writes;
         internal string? FailCollection;

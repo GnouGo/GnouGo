@@ -93,7 +93,7 @@ internal static class LocalReviewQualification
             : "Use the complete ordered page directory from git_compare_refs and include each page exactly once. Bind its complete ordered files to inputs.review.files. ") +
         $"Run the known {UnitCheck} command directly via cmd_run with parameters.path={relative}/repository/{UnitScript}. Require success and pass its result to the review. " +
         $"Use one bounded read-only code agent in the literal workspace {relative}/repository. Bind reviewText and the Git comparison as data inputs. " +
-        "Set its finite budget to 12 model calls, 600000 total tokens, 40 actions and 600000 milliseconds. SDK token reservations include each request's maximum output. " +
+        "Set its finite budget to 16 model calls, 1800000 total tokens, 80 actions and 1200000 milliseconds. SDK token reservations include each request's maximum output. " +
         $"Keep the verification list static: file.read with subject {readSubject} requires observed tool and arguments, and review.diff with subject {target.Head} " +
         "verifies the reported coverage and changed-line anchors against actual SDK file reads and Git patches. Explore other relevant files as needed. " +
         "Empty findings are permitted. " +

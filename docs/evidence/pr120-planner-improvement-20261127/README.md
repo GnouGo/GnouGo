@@ -2,7 +2,7 @@
 
 The baseline ended at `f4140fcc` with 665 physical attempts in 15 planning sessions and no business execution. Drafting, discovery and block implementation accounted for 506 calls. The new qualification uses the same SlimFaas revisions and Amazon selection rules. It starts in the normal Server, records actual provider exchanges and opens the generated workflow through the authenticated form.
 
-**Amazon session fourteen accepted the search, source resolution and ordered visit loop.** The protected review allowance stopped construction before the workbook block. The Server recorded zero searches and visits. The last fully verified SlimFaas review ran on `afe16fbd`. Its seventh session read all eight changed files and stopped before verified SDK closure. The available balance after Amazon 14 was €24.409364. [Latest Amazon](server-amazon-14.json) · [Verified review](slimfaas-review-verification.json) · [Latest SDK run](server-code-7.json) · [Funding](funding.json)
+**Amazon session fifteen stopped during planning.** A replay verified that binding the Browser URL to the original observed link clears the URL type error. An independent live Browser preflight then returned HTTP 200 for the exact search and closed successfully. The remaining campaign balance was €22.830749. The last completed SlimFaas review ran on `afe16fbd`. [Amazon planning](server-amazon-15.json) · [Browser and SDK preflight](browser-and-sdk-preflight.json) · [Verified review](slimfaas-review-verification.json) · [Funding](funding.json)
 
 ## Recorded normal Server runs
 
@@ -31,6 +31,7 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [Amazon 13](server-amazon-13.json) | 47 / 47 | 575,702 / 21,943 | €1.411362 | — | 14m 32s | The Server accepted the visit loop, matrix, workbook writer and independent reader. The required public final outcome remained unbound. Execution never started. |
 | [SlimFaas 7](server-code-7.json) | 34 / 34 | 302,799 / 9,639 | €0.733661 | €0.247424 | 16m 20s | Four upstream tests passed. All eight changed files were read. The SDK returned candidate text. Session closure, the local report and workflow cleanup remained unresolved. |
 | [Amazon 14](server-amazon-14.json) | 46 / 46 | 690,715 / 22,497 | €1.675875 | — | 15m 38s | The Server accepted the search, adaptive resolution and ordered detail loop. The workbook and public delivery remained open at the review allowance. Zero product visits or XLSX. |
+| [Amazon 15](server-amazon-15.json) | 47 / 47 | 644,716 / 24,148 | €1.578615 | — | 14m 27s | The proposed visit used the agent’s untyped copy of the URL after validating it against the original link. Planning stopped before execution. |
 
 The fourteenth run’s first proposed search, assessment and cleanup fragment used a noncanonical child scope. Its archive accepted that wire response and rejected its cursor during application. In an isolated copy, replacing only the cursor with the compiler address committed the full fragment. The revised issued schema rejects the original spelling and the canonical replay still commits. The fresh session subsequently recovered on a different plan. [Original and revised issued schema, Windows cases and binary hashes](issued-scope-coordinate.json) · [Frozen prevalidation before the live run](revalidated-eb5fe347.json)
 

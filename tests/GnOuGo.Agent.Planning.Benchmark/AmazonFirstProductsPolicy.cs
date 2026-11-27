@@ -41,12 +41,12 @@ internal static class AmazonFirstProductsPolicy
         "Use the same selection schema after resolution, with status, ordered products and reason. Retain only observed entries on partial or empty outcomes. " +
         "Keep each selected product's exact signed href and its zero-based sourceIndex in the original linkPrefix.links array in both selection branches. " +
         "Preserve the Browser href pattern in the agent output schema. " +
-        "On complete status and ten entries, use one sequential loop. In each iteration first test that sourceIndex is in range. Read the original link at each sourceIndex with at_index and require its href to equal the selected href in a conditional. Visit its original href on a match. The other branch returns an ineligible row and the observed discrepancy. Source resolutions are separate from product visits. " +
+        "On complete status and ten entries, use one sequential loop. In each iteration first test that sourceIndex is in range. Read the original link at each sourceIndex with at_index and require its href to equal the selected href in a conditional. On a match bind browser_get_content.url directly to the original link's href at that index. The selected href is the comparison operand. The other branch returns an ineligible row and the observed discrepancy. Source resolutions are separate from product visits. " +
         "Each observation_complete detail GET exposes observationSnapshot.textMatches.records in original page order with text, selector and source reference. " +
         "Bind this compact view to the field extraction together with visit status, page identity and any observed error. Pass textMatches.records as a distinct input. Reject challenges, errors and incomplete evidence. " +
         "Extract named fields and preserve unavailable values explicitly. Form each row from name, description and price in that order. Check ten true visit eligibilities before writing. " +
         "The expected matrix starts with a batch containing the single header row, followed by the batch of ten ordered visit rows. " +
-        "Independently reopen the same workbook with document_read format=cells and compare the worksheet's rows with that full matrix. Bind the final outcome after readback or the observed failure branch. " +
+        "Independently reopen the same workbook with document_read format=cells and compare the worksheet's rows with that full matrix. Return the required public string finalOutcome at the root. After successful readback include the verified workbook path. On failure return the observed reason. " +
         "Close Browser in the enclosing workflow's cleanup. A URL-less page read requires a current issued cursor and observation or observation_pages format. " +
         AmazonObservedRedirectPolicy.AcquisitionGuarantees;
 

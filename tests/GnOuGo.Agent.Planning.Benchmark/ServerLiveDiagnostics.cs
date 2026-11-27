@@ -30,6 +30,15 @@ using Microsoft.EntityFrameworkCore;
 // No credentials or bootstrap links are exported. The campaign lease is held by the caller.
 internal static class ServerLiveDiagnostics
 {
+    internal static decimal ExecutionReserve(JsonObject envelope, decimal available)
+    {
+        var maximum = envelope["execution_verification_reserve_eur"]!.GetValue<decimal>();
+        if (envelope["execution_verification_reserve_fraction"] is not { } fraction) return maximum;
+        var share = fraction.GetValue<decimal>();
+        if (share is <= 0 or >= 1) throw new ArgumentOutOfRangeException(nameof(envelope), "The execution share must be between zero and one.");
+        return Math.Min(maximum, decimal.Round(available * share, 2, MidpointRounding.ToPositiveInfinity));
+    }
+
     internal static bool IsBudgetOverrun(IEnumerable<PlanningDiagnostic> diagnostics, PlanningRequestMeasurement? measurement = null)
     {
         var required = diagnostics.Where(d => d.Required).ToArray();
@@ -111,7 +120,6 @@ internal static class ServerLiveDiagnostics
             if (limits is not { MaxCalls: >= 1 and <= 1000, MaxTotalTokens: > 0, MaxElapsed: not null, MaxEstimatedCost.Currency: "EUR" } ||
                 planningEnvelope["execution_verification_reserve_eur"]?.GetValue<decimal>() is not > 0)
                 throw new ArgumentException("The planning envelope requires calls, tokens, elapsed time, EUR cost and a positive execution/verification reserve.");
-            model.ExecutionVerificationReserveEur = planningEnvelope["execution_verification_reserve_eur"]!.GetValue<decimal>();
         }
         if (planning && planningAllowance is { } ceiling)
         {
@@ -119,8 +127,11 @@ internal static class ServerLiveDiagnostics
             var exposure = LLMUsageBudgetScope.SumCostConservatively(accounting["cost_upper_bound_eur"]!.GetValue<decimal>(), model.RetainedExternalReservationsEur);
             planningAllowance = LLMUsageBudgetScope.AvailableCostAllowance(ceiling, exposure);
             if (planningEnvelope is not null)
+            {
+                model.ExecutionVerificationReserveEur = ExecutionReserve(planningEnvelope, planningAllowance.Value);
                 planningAllowance = Math.Min(PlanningBudgetOptions.Parse(planningEnvelope)!.MaxEstimatedCost!.Amount,
                     LLMUsageBudgetScope.AvailableCostAllowance(planningAllowance.Value, model.ExecutionVerificationReserveEur));
+            }
             if (planningAllowance == 0)
             {
                 Console.Error.WriteLine("Warning: the campaign has no remaining funds for a fresh Server reservation.");
@@ -296,6 +307,7 @@ internal static class ServerLiveDiagnostics
         {
             report["planning_envelope"] = planningEnvelope.DeepClone();
             report["effective_planning_allowance_eur"] = planningAllowance;
+            report["effective_execution_verification_reserve_eur"] = model.ExecutionVerificationReserveEur;
         }
         if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (sdkWireApi is not null) report["sdk_wire_api"] = sdkWireApi;

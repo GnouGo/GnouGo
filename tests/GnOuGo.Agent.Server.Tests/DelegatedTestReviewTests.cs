@@ -731,14 +731,37 @@ public sealed class DelegatedTestReviewTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => PlanningArtifactApproval.VerifyAsync(approved, null, Ct));
     }
 
-    private static async Task<(DelegatedTestReviewAuthority, PlanningSession)> RuntimeFixture()
+    [Fact]
+    public async Task SignedDecisionSurvivesReopeningOnlyForTheExactReviewedArtifact()
+    {
+        var (authority, state) = await RuntimeFixture(reuseReviewedAuthority: true);
+        var records = new BenchmarkCampaignTests.Records();
+        var campaign = new BenchmarkCampaign(records, "campaign");
+        var request = new HumanInputRequest { RunId = "test-run", Mode = HumanInputContract.ModeConfirm,
+            StepId = "/workflow/main/step/n_" + PlanningGraphCompiler.Fingerprint(PlanningConfirmationGuards.Confirm)[..16],
+            Prompt = state.Graph!.Summary, AllowAbandon = true, Choices = ["approve", "reject"] };
+        var first = await new DelegatedTestReviewAuthority.Input(campaign, "test-run", authority).RequestInputAsync(request, Ct);
+        Assert.True(first!["response"]!.GetValue<bool>());
+        var reopened = new DelegatedTestReviewAuthority.Input(new BenchmarkCampaign(records, "campaign"), "test-run", authority);
+        var writes = records.Writes;
+        Assert.True(JsonNode.DeepEquals(first, await reopened.RequestInputAsync(request, Ct)));
+        Assert.Equal(writes, records.Writes);
+        var hash = PlanningGraphCompiler.Fingerprint(HumanInputContract.BuildRequestPayload(request).ToJsonString());
+        var key = "test-run:delegated-dialog:" + hash;
+        var saved = (await campaign.LoadAsync("planning-evaluation-dialogs", key, Ct))!;
+        saved["artifact_hash"] = "different-artifact";
+        await campaign.SaveAsync("planning-evaluation-dialogs", key, saved, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => reopened.RequestInputAsync(request, Ct));
+    }
+
+    private static async Task<(DelegatedTestReviewAuthority, PlanningSession)> RuntimeFixture(bool? reuseReviewedAuthority = null)
     {
         var (state, _, authorization, evidence, receipt) = await Fixture();
         state.Catalog!.Capabilities.Add(new() { Id = "review-capability", Server = "GnOuGo.GithubCopilot.Mcp", Method = "code_agent_edit" });
         var main = state.Graph!.Workflows.Single(w => w.Key == state.Graph.Entrypoint);
         main.Steps.Add(new() { Key = "review", Type = "mcp.call", CapabilityId = "review-capability" });
         main.Steps.Add(new() { Key = PlanningConfirmationGuards.Confirm, Type = "human.input", InternalRole = "confirmation" });
-        authorization = authorization with { Scenario = "code" };
+        authorization = authorization with { Scenario = "code", ReuseReviewedAuthority = reuseReviewedAuthority };
         evidence.Requirements[0] = evidence.Requirements[0] with { Obligations = [.. DelegatedTestReviewAuthority.Obligations("code")] };
         receipt = receipt with { ArtifactHash = state.ComputeArtifactHash()!, EvidenceHash = EvidenceHash(evidence),
             AuthorizationHash = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(authorization, DelegatedTestJsonContext.Default.DelegatedTestAuthorization)) };

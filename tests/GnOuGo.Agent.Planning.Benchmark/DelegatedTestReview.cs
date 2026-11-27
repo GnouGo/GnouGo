@@ -11,7 +11,8 @@ using GnOuGo.Planning.Examples;
 internal sealed record DelegatedTestAuthorization(string Id, string UserAuthorization, string Reviewer,
     string Campaign, string Run, string Scenario, string WorkspaceRoot, string SourceRevision,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? WorkspaceRelativePath = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BrowserObservationPolicy = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? BrowserObservationPolicy = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? ReuseReviewedAuthority = null);
 internal sealed record DelegatedRequirementReview(string Id, string RequirementHash, List<string> Obligations, string Assessment,
     string UnverifiedAspects = "Business completeness and successful execution remain unverified.");
 internal sealed record DelegatedTaskReview(string Id, string TaskHash, string Evidence, string Assessment);
@@ -29,6 +30,8 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     DelegatedTestReviewDocument document, string campaign, string run, string scenario, string root, string source, string? authorizedRelativePath = null, string? browserObservationPolicy = null, PublishedReviewQualification? reviewTarget = null, AdaptiveLiveProfile? adaptive = null)
 {
     internal const string CleanupCommand = "delete_directory";
+    private bool ReusesDecision(bool artifactGate) =>
+        authorization.ReuseReviewedAuthority == true && (artifactGate || scenario == LocalReviewQualification.Scenario);
     private string? _boundExecutionId;
     private string ExecutionId => _boundExecutionId ?? run;
     internal void BindServerRun(string executionId)
@@ -430,9 +433,28 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             var record = new JsonObject { ["origin"] = "delegated_test", ["reviewer"] = authority.Receipt.Reviewer,
                 ["authorization_hash"] = authority.AuthorizationHash, ["artifact_hash"] = authority.Receipt.ArtifactHash,
                 ["request_hash"] = hash, ["request"] = payload };
-            if (await campaign.LoadAsync("planning-evaluation-dialogs", key, ct) is not null)
-                throw new PlanningConflictException("A delegated runtime response cannot be replayed after interruption.");
+            var reuse = authority.ReusesDecision(artifactGate);
+            if (await campaign.LoadAsync("planning-evaluation-dialogs", key, ct) is { } previous)
+            {
+                var identity = previous.DeepClone().AsObject();
+                identity.Remove("answer");
+                if (!reuse || !JsonNode.DeepEquals(identity, record))
+                    throw new PlanningConflictException("The recorded dialog does not have reusable authority for this request.");
+                if (previous["answer"] is { } saved)
+                {
+                    ValidateRuntimeAnswer(saved, artifactGate);
+                    return saved.DeepClone();
+                }
+            }
             await campaign.SaveAsync("planning-evaluation-dialogs", key, record, ct);
+            if (reuse)
+            {
+                var approved = new JsonObject { ["response"] = artifactGate ? JsonValue.Create(true) : JsonValue.Create("Allow once") };
+                ValidateRuntimeAnswer(approved, artifactGate);
+                record["answer"] = approved.DeepClone();
+                await campaign.SaveAsync("planning-evaluation-dialogs", key, record, CancellationToken.None);
+                return approved;
+            }
             Console.WriteLine(artifactGate
                 ? "Delegated isolated-test reviewer: confirm this exact reviewed artifact for one execution; respond with a Boolean response."
                 : "Delegated isolated-test reviewer: inspect this exact operation and its destination; only Allow once or Refuse is accepted.");
