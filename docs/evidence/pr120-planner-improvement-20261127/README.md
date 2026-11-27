@@ -15,8 +15,9 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [SlimFaas 3](server-code-3.json) | 32 / 32 | 287,063 / 9,771 | €0.698417 | €0.105210 | 21m 57s | Two observed changed-file reads. The SDK wait interrupted execution. |
 | [SlimFaas 4](server-code-4.json) | 13 / 13 | 117,771 / 7,085 | €0.300549 | €0.255221 | 24m 00s | Eight changed files read. The SDK token budget stopped the workflow before delivery. |
 | [Amazon 3](server-amazon-3.json) | 41 / 41 | 692,595 / 20,496 | €1.671041 | — | 27m 43s | The operator stopped at the request for lossless XLSX readback. |
-| [SlimFaas 5](server-code-5.json) | 16 / 16 | 231,961 / 12,507 | €0.585364 | €0.291021 | 20m 25s | Passed. Eight observed changed files, verified local JSON, four upstream tests and confirmed cleanup. |
-| [Amazon 4](server-amazon-4.json) | 22 / 22 | 297,027 / 13,205 | €0.736759 | — | 13m 36s | The Server stopped on a nullable source flag before business execution. |
+| [SlimFaas 5](server-code-5.json) | 16 / 16 | 231,961 / 12,507 | €0.585364 | €0.291021 | 20m 25s | Passed. Four upstream tests, eight changed-file reads, local report and verified cleanup. |
+| [Amazon 4](server-amazon-4.json) | 22 / 22 | 297,027 / 13,205 | €0.736759 | — | 13m 36s | Three repairs retained a nullable flag in the search guard. The Server stopped in planning. |
+| [Amazon 5](server-amazon-5.json) | 46 / 46 | 989,801 / 24,694 | €2.367173 | — | 24m 00s | Planning stopped at the review allowance. No search, product visits or workbook. |
 
 ## Planner changes
 
@@ -95,4 +96,24 @@ The Windows x64 self-contained Server at `8a0f10c0` passed its published plannin
 
 The complete planner suite at `8a0f10c0` passed all 3,363 tests in 19 minutes 33 seconds. [Validation receipts](validation.json)
 
-After Amazon session four, the campaign ledger contains €33.044679 in measured usage, €0.237339 in reserved provider usage and €0.046355 in retained application reservations. The available balance before session five was €36.671626. [Audited campaign balance](funding.json)
+After Amazon session four, the campaign ledger contained €33.044679 in measured usage, €0.237339 in reserved provider usage and €0.046355 in retained application reservations. The available balance before session five was €36.671626. [Session four closing audit](server-amazon-4.json)
+
+The fifth Amazon session planned a fresh search, preserved the observed product index and href, and used an explicit affirmative check for the nullable Browser flag. Planning stopped after 46 calls, 989,801 input tokens and 24,694 output tokens, costing €2.367173 over 24 minutes. The Server reserved its final two planning calls for review. By then, nine consecutive responses had requested evidence about an invalid matrix whose producer was outside the issued repair slots. Those nine calls consumed 354,479 input tokens, 1,996 output tokens and €0.816563, 34.5% of the session’s measured cost. [Per-call receipts](matrix-repair-evidence-cost.json)
+
+Execution never started. The original ten products, ten visits, three fields, XLSX and independent readback remain required. [Phase measurements and business outcome](server-amazon-5.json)
+
+The captured index contract combined two integer branches with different constraints. The planner now uses its existing schema compatibility check to prove a numeric operand across those branches. The workbook producer separately flattened the three header values into scalars. The compiler identifies the upstream output when a literal row matches the expected matrix element. Inline expressions retain their one existing repair slot. Replaying the original candidate removed the incorrect numeric diagnosis, located the workbook error at its producer, and cleared the remaining diagnosis after batching the literal header as one row. This replay used no new provider calls. [Captured candidate and repair locations](matrix-and-index-replay.json)
+
+A second replay generated and verified the typed repair request on both planner versions. The corrected version issued a replacement slot on the matrix producer. Applying that single edit through the production patch handler preserved the accepted workflow and cleared all findings on the captured tentative plan. [Original and corrected repair authority](matrix-repair-authority.json)
+
+Across the 46 captured requests, eight repeated imported output schemas could reference the identical visible contract, with its original operation identity, version and hash. An independent replay dereferenced all eight pointers and reconstructed the original contexts. The total fell from 3,416,526 to 3,373,982 UTF-8 bytes, a reduction of 42,544 bytes (1.25%). These measurements describe captured request bytes. [Per-phase context measurements and assembly hashes](imported-output-schema-replay.json)
+
+At `6818ed90`, both original corrected candidates again reached final review with zero diagnostics. Their compiled YAML matched the earlier artifacts byte for byte. All 17 first-products verifier tests passed against these assemblies. [Frozen binaries and full replays](revalidated-6818ed90.json) · [Verifier receipts](validation.json)
+
+The published Windows x64 Server at `6818ed90` passed its planning persistence and exact receipt-recovery smoke in 636 seconds. The publish emitted 7 dependency warnings. [Published executable and warning breakdown](windows-published-6818ed90.json)
+
+The complete planner suite passed all 3,368 tests in 18 minutes 53 seconds against the frozen `6818ed90` planner. The retained inline composition and tentative repair regression tests passed as part of the full run. [Full-suite and focused receipts](validation.json)
+
+The cold audit after session five recorded €35.411852 measured, €0.237339 reserved for unknown SDK usage and €0.046355 held for the closed pre-dispatch request. The available balance was €34.304453 against the €70 ceiling. [Reconciled funding](funding.json)
+
+Session six then opened in the normal Server on those same frozen binaries with the unchanged query, ten-visit rule and independent workbook verifier. [Session opening and binary provenance](server-amazon-6-opening.json)

@@ -301,5 +301,53 @@
     "total": 2783,
     "start_utc": "2026-11-27T09:00:50.5547643+01:00",
     "end_utc": "2026-11-27T13:52:21.4310749+01:00"
+  },
+  {
+    "source": "5388ca631903f164cba0b8e74212ac1f0a534445",
+    "group": "Amazon first-products qualification tests",
+    "receipt": "improve40-5388ca63-agent-server-tests.xml",
+    "receipt_sha256": "2c2820594d6551ccc8ba9672e604d665d7e7060dc06c626c4ebd7623a16950cf",
+    "passed": 17,
+    "failed": 0,
+    "total": 17,
+    "skipped": 0,
+    "start_utc": "2026-11-27T13:33:29.0947462+00:00",
+    "end_utc": "2026-11-27T13:33:32.0461688+00:00"
+  },
+  {
+    "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+    "group": "Amazon first-products qualification tests",
+    "receipt": "improve40-6818ed90-agent-server-tests.xml",
+    "receipt_sha256": "dcf86a45d2778ebfed6445240975d23703cd51ac8bb2ca6760a159c0abd3ae9a",
+    "passed": 17,
+    "failed": 0,
+    "total": 17,
+    "skipped": 0,
+    "start_utc": "2026-11-27T13:41:54.8824499+00:00",
+    "end_utc": "2026-11-27T13:41:57.3637778+00:00"
+  },
+  {
+    "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+    "group": "inline and upstream matrix repair compatibility, including retained composition",
+    "receipt": "improve40-6818ed90-matrix-compatibility.trx",
+    "receipt_sha256": "220519b3965b8ad20d96885638cb52229e97c0e19776b77aa8e5adb80169a6da",
+    "passed": 41,
+    "total": 41,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T13:43:05.949692+00:00",
+    "end_utc": "2026-11-27T13:43:44.034679+00:00"
+  },
+  {
+    "group": "complete planner suite after numeric union and matrix producer repair",
+    "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+    "receipt": "improve40-6818ed90-fixed-planning-suite.trx",
+    "receipt_sha256": "46d8eaa75f593e6df00ab003e1f59af1f91e3c2dff532335e88e5ba332ef99c7",
+    "start_utc": "2026-11-27T13:41:55.298333+00:00",
+    "end_utc": "2026-11-27T14:01:05.121750+00:00",
+    "passed": 3368,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3368
   }
 ]

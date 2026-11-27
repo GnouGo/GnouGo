@@ -1,0 +1,54 @@
+{
+  "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+  "run": "improve40-amazon-20261127-125435",
+  "new_physical_attempts": 0,
+  "original": {
+    "planner_sha256": "6e86b2644081cdbfbf90e025222734005b8077ad5f2915db6ddd0f2bcb2b9da8",
+    "candidate_hash": "22d0dcc954a415fed4f11d59930dd559b8923c9206bc3b19f973b2be142593a7",
+    "accepted_unchanged": true,
+    "slots": [
+      {
+        "location": "/tasks/index_check/condition",
+        "actions": [
+          "replace"
+        ]
+      },
+      {
+        "location": "/tasks/write_workbook/inputs/rows",
+        "actions": [
+          "replace",
+          "remove"
+        ]
+      }
+    ]
+  },
+  "corrected": {
+    "planner_sha256": "301cf54645022f9bf5388ccda39fc8292977a8715285ad644d05309940d4dc8d",
+    "candidate_hash": "22d0dcc954a415fed4f11d59930dd559b8923c9206bc3b19f973b2be142593a7",
+    "accepted_unchanged": true,
+    "slots": [
+      {
+        "location": "/tasks/matrix/outputs/rows",
+        "actions": [
+          "replace"
+        ]
+      },
+      {
+        "location": "/tasks/write_workbook/inputs/rows",
+        "actions": [
+          "replace",
+          "remove"
+        ]
+      }
+    ]
+  },
+  "validation": "The production repair builder generated and verified a fresh typed request for the original captured candidate on each frozen planner. Both preserved the accepted workflow. Only task-owned slots were issued.",
+  "applied_single_edit": {
+    "candidate_hash": "22d0dcc954a415fed4f11d59930dd559b8923c9206bc3b19f973b2be142593a7",
+    "slot": "/tasks/matrix/outputs/rows",
+    "findings": 0,
+    "wire_patch_sha256": "a5a0030007f678df9adefb439bced144e96270c1d14bd9710478b6932b0bd9b1",
+    "canonical_plan_sha256": "a41ab1fcfd0f0f7472d86fad6bf70f0773f06fd41311c189a93aa345ce72df9d"
+  },
+  "repaired_plan_matches_independently_corrected_plan": true
+}
