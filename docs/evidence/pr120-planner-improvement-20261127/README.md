@@ -35,6 +35,8 @@ The seventh and tenth provider responses stopped at the same point in a binary c
 
 The eleventh draft emitted the compound guard, selection and both outcome branches, then chose to continue in the root scope. Its next property could only be null or an empty array. The provider emitted an opening bracket and 37,776 whitespace characters. The continuing branch now omits those deferred fields. An offline diagnostic using the recorded task data passed the issued schema, candidate validation and checkpoint acceptance. The full provider response remained incomplete. [Captured prefix, diagnostic scope and tested binaries](continuing-cursor.json)
 
+A hosted Windows Server 2025 runner passed all 33 historical failures on `284bf783`. The TRX matched all 33 original case names and theory arguments. All cases ran with their original assertions and time limits. [Case outcomes, durations and assembly hashes](hosted-windows-33.json) · [Windows qualification](https://github.com/GnouGo/GnouGo/actions/runs/46052030316)
+
 ## Planner changes
 
 The host now assembles a binding when accepted producers agree on the same explicit reference. It resolves a declared normal-root public output from its original operation and port and follows whole-object forwarding through value tasks to propagate the public output schema into an agent task. Conflicting bindings and ambiguous commitments stay open for review. The builder retains accepted blocks and applies edits only to the diagnosed scope.
