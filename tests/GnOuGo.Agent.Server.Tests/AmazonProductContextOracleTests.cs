@@ -177,6 +177,9 @@ public sealed class AmazonProductContextOracleTests
             Assert.Contains("require its href to equal the selected href", prompt);
             Assert.Contains("observationSnapshot.textMatches.records", prompt);
             Assert.Contains("Bind this compact view to the field extraction together with visit status, page identity and any observed error", prompt);
+            Assert.Contains("The other branch returns an ineligible row and the observed discrepancy", prompt);
+            Assert.Contains("Form each row from name, description and price in that order", prompt);
+            Assert.Contains("Check ten true visit eligibilities before writing", prompt);
         }
     }
 

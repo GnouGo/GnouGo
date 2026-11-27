@@ -1,5 +1,7 @@
 # Bounded workflow agent qualification
 
+The follow-up includes a normal Server execution of the pinned checkout and tests, captured SDK and Amazon failures, phase measurements and reconciled funding. [27 November planner qualification](../pr120-planner-improvement-20261127/README.md)
+
 The Windows Server executable was published from `246a1eff8e99ffc36662dc6981de170cfcc6d10b`. Both fresh Server qualifications stopped during planning. The captured sessions produced no business tool receipts, workbook, independent readback or local SDK review.
 
 ## Fresh Windows Server sessions

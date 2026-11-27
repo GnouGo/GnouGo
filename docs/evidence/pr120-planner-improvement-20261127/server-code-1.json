@@ -1,0 +1,225 @@
+{
+  "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+  "run": "improve40-code-20261127-074729",
+  "session": "8c5e1a5e96a5488f88838719d7d4edc9",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T07:49:30.3360583+00:00",
+  "finished_utc": "2026-11-27T08:03:45.7456109+00:00",
+  "wall_seconds": 855.409552,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1781,
+      "output_tokens": 1616,
+      "measured_eur": "0.0114191343963553530751708428",
+      "duration_ms": "105033.2117"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 4647,
+      "output_tokens": 1345,
+      "measured_eur": "0.0167129840546697038724373576",
+      "duration_ms": "31380.0158"
+    },
+    "construction_implementation": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 21419,
+      "output_tokens": 1894,
+      "measured_eur": "0.0574191343963553530751708428",
+      "duration_ms": "52264.5926"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 142136,
+      "output_tokens": 3555,
+      "measured_eur": "0.3399681093394077448747152619",
+      "duration_ms": "118553.4805"
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 103064,
+      "output_tokens": 3850,
+      "measured_eur": "0.2523097949886104783599088838",
+      "duration_ms": "94051.1823"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 14096,
+      "output_tokens": 476,
+      "measured_eur": "0.0342779043280182232346241457",
+      "duration_ms": "23380.9413"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 8481,
+      "output_tokens": 781,
+      "measured_eur": "0.0228769931662870159453302961",
+      "duration_ms": "21556.2278"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "final_review",
+  "replans": 1,
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "calls": 25,
+    "repairs": 1,
+    "execution_status": "needs_reconciliation",
+    "execution_correct": false
+  },
+  "executed": true,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "2a9c4f189cb5ecded7b77785ceb873ffb1cfc7f85866b5482593c9b3b6186b34",
+    "server": "f60d8e5ffcedb118a5b9dc4ead588ff0b28f2b2c6dbb102c62b721480c6799d9",
+    "GnOuGo.Git.Mcp": "4f4b379651953f385283454e103d827769ee519384947f71ba4bee0420ece642",
+    "GnOuGo.Document.Mcp": "cca3a4c9f22fcce122677ed3833d8ae956475bac7b82281b69124749951bd7ec",
+    "GnOuGo.Cmd.Mcp": "168bb1a2174195baf21ac1d441e8e4f6d83722338b0b88eb3fbe9386d38f4bd4"
+  },
+  "campaign_opening_measured_eur": "25.602182232346241457858770131",
+  "campaign_closing": {
+    "calls": 691,
+    "known_input_tokens": 10849640,
+    "known_output_tokens": 356188,
+    "known_cost_eur": "26.337166287015945330296127774",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "26.574505694760820045558086772"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "8c5e1a5e96a5488f88838719d7d4edc9",
+      "httpAttempts": 25,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.7349840546697038724373576307",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    },
+    {
+      "sessionId": "8c5e1a5e96a5488f88838719d7d4edc9-copilot",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "measuredUsageTariffEstimateEur": 0,
+      "unresolvedReservationEur": "0.2373394077448747152619589977",
+      "zeroAttemptRequests": []
+    }
+  ],
+  "execution_started_utc": "2026-11-27T08:01:25.1683565+00:00",
+  "execution_run_id": "7077dd0556f7e9f51a9006503a655705",
+  "execution_artifact_hash": "f91d09b2f886ddd9d6723c744b7ff6d79841634db70a1718f5797e0d0c392b68",
+  "execution": {
+    "success": false,
+    "status": "needs_reconciliation",
+    "finalization_completed": false,
+    "outputs": null
+  },
+  "oracle": {
+    "passed": false,
+    "changed_files": 8,
+    "observed_files": [],
+    "findings": [
+      "workflow_execution_failed",
+      "incomplete_sdk_execution",
+      "no_observed_changed_file_reads",
+      "missing_required_changed_file_read",
+      "missing_workflow_report",
+      "checkout_cleanup_missing"
+    ]
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_clone",
+      "started": "2026-11-27T08:01:30.8706018+00:00",
+      "error": false,
+      "latency_ms": 60664,
+      "success": true
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_compare_refs",
+      "started": "2026-11-27T08:02:37.8860806+00:00",
+      "error": false,
+      "latency_ms": 1180,
+      "success": true,
+      "baseSha": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+      "headSha": "00af9df84dfba79c3330beed31e118523f4f094d",
+      "totalFiles": 8
+    },
+    {
+      "server": "GnOuGo.Cmd.Mcp",
+      "tool": "cmd_run",
+      "started": "2026-11-27T08:02:44.1369186+00:00",
+      "error": false,
+      "latency_ms": 10531,
+      "success": true,
+      "commandName": "check_annotation_cleanup",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "....\r\n----------------------------------------------------------------------\r\nRan 4 tests in 0.121s\r\n\r\nOK\r\n"
+    }
+  ],
+  "target": {
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "observed_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "observed_head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "required_read": ".bin/test-annotation-policy-cleanup.py"
+  },
+  "sdk": [
+    {
+      "status": "needs_reconciliation",
+      "usage": {
+        "model_calls": 1,
+        "total_tokens": 40151,
+        "elapsed_milliseconds": "25740.0208",
+        "metering": "reserved_upper_bound",
+        "actions": 0
+      },
+      "failure": {
+        "code": "AGENT_PROVIDER_FAILURE",
+        "type": "provider",
+        "message": "Provider InvalidRequest, HTTP 400, phase provider_rejection, attempts 1, requested delay  ms, retry from , physical request SHA-256 c2f5a746fcad2804668dee5eb756c088c1f9c9720fff802a39162f590914254e.",
+        "retryable": false,
+        "details": {
+          "status": 400,
+          "classification": "InvalidRequest",
+          "phase": "provider_rejection",
+          "attempts": 1,
+          "requestedDelayMilliseconds": null,
+          "notBeforeUtc": null,
+          "physicalRequestHash": "c2f5a746fcad2804668dee5eb756c088c1f9c9720fff802a39162f590914254e",
+          "providerRequestHash": "0dccf06764b3a8ebc2474d467025b394946209d466fe8a86c96e1f7f4da33f0c"
+        }
+      },
+      "verification": []
+    }
+  ],
+  "execution_to_final_report_seconds": 140.577254,
+  "receipt_sha256": {
+    "form-invocation": "9af8f58e3e33f65fa8e69c6da5cb46f947837a15c7c40dacc056e133c960c3ea",
+    "scoped_review": "f47af4db4ad032e47851c7f6a4b5b7274c6f315973d5fb5c70362aa88d57ce23",
+    "auth": "5c8a064babd61a7c6b85950abc8e4689007fc2639eadab90da4a0a63db617ef7"
+  }
+}

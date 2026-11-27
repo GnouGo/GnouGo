@@ -1,0 +1,96 @@
+{
+  "tested_source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+  "basis": "Existing logical request contexts, serialized through the same System.Text.Json DOM before and after CompactAuthoringNavigation. Context bytes only. The recorded provider body classifier uses the original incomplete text. No new model calls or token measurements.",
+  "context_projection": [
+    {
+      "session": "routing30-amazon-20261127-034551",
+      "phase": "replan",
+      "requests": 17,
+      "reduced_requests": 17,
+      "before_context_bytes": 2292305,
+      "after_context_bytes": 2286695
+    },
+    {
+      "session": "routing30-amazon-20261127-034551",
+      "phase": "construction_discovery",
+      "requests": 20,
+      "reduced_requests": 13,
+      "before_context_bytes": 1033336,
+      "after_context_bytes": 1029706
+    },
+    {
+      "session": "routing30-amazon-20261127-034551",
+      "phase": "construction_implementation",
+      "requests": 16,
+      "reduced_requests": 8,
+      "before_context_bytes": 944996,
+      "after_context_bytes": 942356
+    },
+    {
+      "session": "routing30-amazon-20261127-034551",
+      "phase": "construction_draft",
+      "requests": 16,
+      "reduced_requests": 12,
+      "before_context_bytes": 931519,
+      "after_context_bytes": 927394
+    },
+    {
+      "session": "routing30-code-20261127-032434",
+      "phase": "construction_discovery",
+      "requests": 12,
+      "reduced_requests": 6,
+      "before_context_bytes": 407748,
+      "after_context_bytes": 403788
+    },
+    {
+      "session": "routing30-code-20261127-032434",
+      "phase": "replan",
+      "requests": 5,
+      "reduced_requests": 3,
+      "before_context_bytes": 201322,
+      "after_context_bytes": 200827
+    },
+    {
+      "session": "routing30-code-20261127-032434",
+      "phase": "construction_draft",
+      "requests": 5,
+      "reduced_requests": 4,
+      "before_context_bytes": 173235,
+      "after_context_bytes": 170265
+    },
+    {
+      "session": "routing30-code-20261127-032434",
+      "phase": "construction_implementation",
+      "requests": 3,
+      "reduced_requests": 2,
+      "before_context_bytes": 52979,
+      "after_context_bytes": 51494
+    }
+  ],
+  "incomplete_responses": [
+    {
+      "session": "routing30-amazon-20261127-000209",
+      "request": "e0d3f70a3ba3465ca8d5fd3c6f972bfa:79:ee19f9163bb48a118a21418d8ae6b6ab1fb793a9f0fc85711a3098be63226a0a:5397eee6e4c22a7ac66fac422798d8bcd7bd723c000a4f4cfe3bf45954b9c658",
+      "original_characters": 35277,
+      "structural_whitespace": 34695,
+      "body_sha256": "8a48f0f1695e23c8d0f43493b2c68431bec2b6f8e6279721f8aec89ee587e2d5",
+      "diagnosis": "MODEL_OUTPUT_STALLED"
+    },
+    {
+      "session": "routing30-amazon-20261127-015828",
+      "request": "22776588c0bc4545a1ba6588c3d8149b:21:0c2f2d05e40a7b39441f9b4d9cfdb0d3c64b0b11d49906f4e29628406ef8ad4c:582c8394319a694b7f10b5d26135a443038897f3fd027e49652b0eb729d88f4f",
+      "original_characters": 14416,
+      "structural_whitespace": 13601,
+      "body_sha256": "135345df0ee379b89e85548866bbbb6a41dbdd930787f9edc671f7a53f3c28e2",
+      "diagnosis": "MODEL_OUTPUT_STALLED"
+    },
+    {
+      "session": "routing30-amazon-20261127-030106",
+      "request": "abc2f0ec71334594bdd4c18a3f884b62:54:d9f406cc4b8786861143178c83f82c42d356a5559453bdec86717b8ac56da27f:aa7f38ff056c1d4810ffa766fe98279b7939fc6d9550fd77d7d7e59156a2185d",
+      "original_characters": 34245,
+      "structural_whitespace": 33708,
+      "body_sha256": "f78660bb37392105558b1cf109927d4c7ac8ab47452355dc91848eaae14b1483",
+      "diagnosis": "MODEL_OUTPUT_STALLED"
+    }
+  ]
+}

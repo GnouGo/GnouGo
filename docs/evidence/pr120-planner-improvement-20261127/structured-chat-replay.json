@@ -1,0 +1,12 @@
+{
+  "output_characters": 15641,
+  "meaningful_prefix_characters": 645,
+  "structural_padding_characters": 14996,
+  "finish_reason": "length",
+  "planner_diagnosis": "MODEL_OUTPUT_STALLED",
+  "provider_dispatches": 0,
+  "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+  "original_run": "improve40-code-20261127-083614",
+  "assembled_body_sha256": "94ec26f5e8739c6f767abea782d64fc586395504e17d5f130f93f73ea26dfc32",
+  "ai_core_sha256": "445a0f3d16260c31fd1c8df568cb8b45b0fd75426eec2340951e4a6b4a53c070"
+}

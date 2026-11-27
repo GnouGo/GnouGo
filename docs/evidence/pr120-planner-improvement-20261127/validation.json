@@ -1,0 +1,73 @@
+[
+  {
+    "group": "targeted planner",
+    "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+    "receipt": "improve40-fce11263-focused.trx",
+    "receipt_sha256": "a7581b779039cf00454841190c3f45c0967d2ced2433125a3c78d6a2c5945942",
+    "passed": 11,
+    "failed": 0,
+    "skipped": 0,
+    "total": 11,
+    "start_utc": "2026-11-27T08:43:20.7198972+01:00",
+    "end_utc": "2026-11-27T08:43:29.4011903+01:00"
+  },
+  {
+    "group": "complete planner tests",
+    "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+    "receipt": "improve40-fce11263-planning-suite.trx",
+    "receipt_sha256": "a8c90fb7b810c011463dc0d6b23d96cd7d11735266499dcf06c8fff4a19fdf6e",
+    "passed": 3360,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3360,
+    "start_utc": "2026-11-27T08:43:49.5494154+01:00",
+    "end_utc": "2026-11-27T08:57:03.9770750+01:00"
+  },
+  {
+    "group": "targeted Server tests",
+    "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+    "receipt": "improve40-fce11263-server.trx",
+    "receipt_sha256": "10f2a88885f19def065655636629ef584db9a131e3520ae1c74f4925f2f87be9",
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3,
+    "start_utc": "2026-11-27T08:43:20.9404588+01:00",
+    "end_utc": "2026-11-27T08:43:26.5387717+01:00"
+  },
+  {
+    "group": "retained reservation accounting",
+    "source": "3cf04d86231d4ae4ceced6bad98f453fba9f0c7f",
+    "receipt": "improve40-3cf04d86-retention-xunit.xml",
+    "receipt_sha256": "bde1b49c56b21336ee48e7ed045a77cd75d2cc6688a68e26273cd9c80627f4ed",
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "total": 7,
+    "seconds": 14.494
+  },
+  {
+    "group": "complete AI Core tests",
+    "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+    "receipt": "improve40-fdbba759-ai-suite.trx",
+    "receipt_sha256": "271195928443b47d9cf15825cd911a81588b37a17553a9955b0a4c32613a8030",
+    "passed": 410,
+    "failed": 0,
+    "skipped": 0,
+    "total": 410,
+    "start_utc": "2026-11-27T09:56:49.5137808+01:00",
+    "end_utc": "2026-11-27T09:57:15.1656301+01:00"
+  },
+  {
+    "group": "structured Chat response preservation",
+    "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+    "receipt": "improve40-fdbba759-chat-wire.trx",
+    "receipt_sha256": "15503b5778569dec12e3801ad5f7baf67d82a1a98ee76968ea1ed9ed22bc933b",
+    "passed": 4,
+    "failed": 0,
+    "skipped": 0,
+    "total": 4,
+    "start_utc": "2026-11-27T09:47:10.1556614+01:00",
+    "end_utc": "2026-11-27T09:47:27.0059171+01:00"
+  }
+]

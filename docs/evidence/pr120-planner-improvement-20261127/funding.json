@@ -1,0 +1,49 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "deployment_configuration": "a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6",
+  "model": "gpt-6.1-terra",
+  "extension_authorization": "user-pr120-planner-improvement-20261127-eur30",
+  "ceiling_history": [
+    {
+      "previousCeilingEur": 0,
+      "ceilingEur": 30,
+      "authorizedAtUtc": "2026-11-26T21:14:10.0115061+00:00",
+      "authorizationHash": "1faefe58c7a40bbad5ffd33bea34326c7bd841c080b66695c939b0302693bf3d"
+    },
+    {
+      "previousCeilingEur": 30,
+      "ceilingEur": 70,
+      "authorizedAtUtc": "2026-11-27T07:10:24.9896186+00:00",
+      "authorizationHash": "ec9eabe4f337f0580d65edde654fdb31316c6d44e87f0d2d3f07ce61aa17fb5e"
+    }
+  ],
+  "closed": false,
+  "opening": {
+    "physical_attempts": 665,
+    "known_input_tokens": 10554016,
+    "known_output_tokens": 342671,
+    "measured_eur": "25.602182232346241457858770131",
+    "physical_reservations_eur": "0",
+    "unknown_usage_attempts": 0,
+    "application_reservations_eur": "0",
+    "available_eur": "44.39781776765375854214122987",
+    "ceiling_eur": "70"
+  },
+  "ending": {
+    "physical_attempts": 738,
+    "known_input_tokens": 11681212,
+    "known_output_tokens": 389061,
+    "measured_eur": "28.381170842824601366742597045",
+    "physical_reservations_eur": "0.2373394077448747152619589977",
+    "unknown_usage_attempts": 1,
+    "application_reservations_eur": "0.0463553530751708428246013667",
+    "available_eur": "41.33513439635535307517084259",
+    "ceiling_eur": "70"
+  },
+  "new_measured_eur": "2.778988610478359908883826914",
+  "new_physical_attempts": 73,
+  "opening_audit_sha256": "64aba8331ed035a0b8f5453460ca7bc2b8870b1256e4b4668936338bde4ab739",
+  "ending_audit_sha256": "5fcdb0fa95753dea6ee51d119858e7bb42816874e1b337e3b68df27c119714d9",
+  "ending_audit_after": "improve40-amazon-20261127-085127",
+  "basis": "Encrypted physical-attempt ledger and retained separate Server reservations. Unknown usage stays reserved in full. The funding ledger records one extension."
+}

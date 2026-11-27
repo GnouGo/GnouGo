@@ -1,0 +1,148 @@
+{
+  "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+  "run": "improve40-amazon-20261127-085127",
+  "session": "cdf8d192adfc4b31b97d0536cd9f9fc2",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T08:53:13.3416912+00:00",
+  "finished_utc": "2026-11-27T09:23:22.5876927+00:00",
+  "wall_seconds": 1809.246001,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 6965,
+      "output_tokens": 3862,
+      "measured_eur": "0.0334601366742596810933940774",
+      "duration_ms": "195811.8233"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 5483,
+      "output_tokens": 1651,
+      "measured_eur": "0.0200113895216400911161731208",
+      "duration_ms": "64332.4692"
+    },
+    "construction_implementation": {
+      "logical_calls": 15,
+      "physical_attempts": 15,
+      "input_tokens": 334816,
+      "output_tokens": 8528,
+      "measured_eur": "0.8015307517084282460136674262",
+      "duration_ms": "417917.6981"
+    },
+    "construction_discovery": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "input_tokens": 117054,
+      "output_tokens": 3119,
+      "measured_eur": "0.2808473804100227790432801822",
+      "duration_ms": "172252.7460"
+    },
+    "construction_draft": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 239921,
+      "output_tokens": 8047,
+      "measured_eur": "0.5831776765375854214123006832",
+      "duration_ms": "304627.6113"
+    },
+    "construction_local_judge": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 67263,
+      "output_tokens": 2775,
+      "measured_eur": "0.1658610478359908883826879272",
+      "duration_ms": "110516.0637"
+    },
+    "replan": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 58290,
+      "output_tokens": 795,
+      "measured_eur": "0.1364009111617312072892938496",
+      "duration_ms": "65245.7202"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 5,
+  "diagnostics": [
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/construction/candidate"
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/construction/candidate"
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/tasks/extract_product"
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/tasks/delivery"
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/tasks/write_workbook"
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "location": "/tasks/verify_workbook"
+    },
+    {
+      "code": "CONSTRUCTION_REVIEW_ALLOWANCE",
+      "location": "/"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 46,
+    "repairs": 5,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "6b7fd167189ed869f7367852ddf76961439532d8e6d70d422a5452583214c236",
+    "server": "845b8e8c726348c3b9c0ddcbdccce86f8b4cfb5268f48ce3b40787670ef166b6",
+    "GnOuGo.Browser.Mcp": "8c6e3b3b70cd7cb2576fe9d12c74c86e96fc1f40870118ea36a9b75bea11bc30",
+    "GnOuGo.Document.Mcp": "f8acaeeb234b3905ccbf440ecbbe7beab57170481668f53e5eeba7f3aa63cd5a"
+  },
+  "campaign_opening_measured_eur": "26.359881548974943052391799756",
+  "campaign_closing": {
+    "calls": 738,
+    "known_input_tokens": 11681212,
+    "known_output_tokens": 389061,
+    "known_cost_eur": "28.381170842824601366742597045",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "28.618510250569476082004556043"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "cdf8d192adfc4b31b97d0536cd9f9fc2",
+      "httpAttempts": 46,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "2.0212892938496583143507972666",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ]
+}
