@@ -5,6 +5,7 @@ using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Models;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Planning.Examples;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
@@ -12,7 +13,7 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 internal sealed partial class BenchmarkCampaign
 {
     private sealed record ServerRetentionScope(EfPlanningSessionStore Store, IDbContextFactory<PlanningDbContext> Contexts,
-        FileStream Lease, string Session) : IAsyncDisposable
+        FileStream Lease, string Session, string Directory) : IAsyncDisposable
     {
         public ValueTask DisposeAsync() => Lease.DisposeAsync();
     }
@@ -32,7 +33,7 @@ internal sealed partial class BenchmarkCampaign
         var store = new EfPlanningSessionStore(contexts, Records);
         var lease = await store.TryAcquireLeaseAsync("benchmark", session, ct)
             ?? throw new InvalidOperationException("The Server session still has an active owner; retention cannot race it.");
-        return new(store, contexts, lease, session);
+        return new(store, contexts, lease, session, Path.GetDirectoryName(database)!);
     }
 
     private async Task<JsonObject> InspectInterruptedServerAsync(JsonObject run, string collection, string runKey, string requestId,
@@ -42,16 +43,22 @@ internal sealed partial class BenchmarkCampaign
         var pending = state.PendingCall;
         var cancelled = retentionKind is CancelledPlanningRetention or CancelledBeforeCampaignRetention;
         var refused = retentionKind == RefusedBeforeCampaignRetention;
-        var expectedStatus = refused ? PlanningStatus.Stopped : cancelled ? PlanningStatus.Cancelled : PlanningStatus.Generating;
-        if (refused && (!state.Diagnostics.Any(d => d.Required && d.Code is (ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
-                && d.BudgetFailure?.DispatchStatus == "not_started") ||
-            run["session"]?["revision"]?.GetValue<int>() != state.Revision ||
-            run["session"]?["pendingCall"]?["id"]?.ToString() != requestId ||
-            !JsonNode.DeepEquals(run["session"]?["diagnostics"], JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic))))
-            throw new InvalidOperationException("A refused reservation requires the exact stopped Server diagnosis before model dispatch.");
+        var storageFailure = retentionKind == StorageFailureBeforeCampaignRetention;
+        var expectedStatus = refused || storageFailure ? PlanningStatus.Stopped : cancelled ? PlanningStatus.Cancelled : PlanningStatus.Generating;
+        if (refused || storageFailure)
+        {
+            var matches = storageFailure
+                ? state.Diagnostics is [{ Required: true, Code: "MODEL_DISPATCH_UNVERIFIABLE" }]
+                : state.Diagnostics.Any(d => d.Required && d.Code is (ErrorCodes.LlmBudgetUnverifiable or ErrorCodes.LlmBudgetExceeded)
+                    && d.BudgetFailure?.DispatchStatus == "not_started");
+            if (!matches || run["session"]?["revision"]?.GetValue<int>() != state.Revision ||
+                run["session"]?["pendingCall"]?["id"]?.ToString() != requestId ||
+                !JsonNode.DeepEquals(run["session"]?["diagnostics"], JsonSerializer.SerializeToNode(state.Diagnostics, PlanningJsonContext.Default.ListPlanningDiagnostic)))
+                throw new InvalidOperationException("The retained request requires the exact stopped Server diagnosis.");
+        }
         if (state.SchemaVersion != 11 || state.Request.TenantId != "benchmark" || state.Request.SessionId != scope.Session ||
             state.Status != expectedStatus ||
-            (cancelled || refused) && run["result"]?["status"]?.ToString() != expectedStatus ||
+            (cancelled || refused || storageFailure) && run["result"]?["status"]?.ToString() != expectedStatus ||
             state.Construction is null || pending is null || pending.Id != requestId ||
             pending.Request.ClientRequestId != requestId || !requestId.StartsWith(scope.Session + ":", StringComparison.Ordinal) ||
             pending.Purpose is not ("construction_intent" or "construction_select" or "construction_implementation" or "construction_discovery" or
@@ -86,7 +93,7 @@ internal sealed partial class BenchmarkCampaign
         if (await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null ||
             await ServerRecord("agent-planning-model-receipts-v11", key) is not null || journal?["usage"] is not null || serverHttp?["transport"] is not null)
             throw new InvalidOperationException("Received evidence or a physical transport record requires exact recovery/reconciliation.");
-        if (retentionKind is CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention)
+        if (retentionKind is CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or StorageFailureBeforeCampaignRetention)
             return await InspectBeforeCampaignServerAsync(run, collection, runKey, requestId, scope, state, pending,
                 serverRequest, serverHttp, budget, request, journal, failure, policy, retry, retentionKind, ct);
         var exactRequest = JsonSerializer.SerializeToNode(pending.Request, PlanningJsonContext.Default.LLMRequest);
@@ -197,17 +204,58 @@ internal sealed partial class BenchmarkCampaign
             ["session_id"] = scope.Session, ["revision"] = state.Revision, ["request_id"] = requestId, ["phase"] = pending.Purpose, ["source"] = run["source"]!.DeepClone(),
             ["run_hash"] = Hash(run), ["request_hash"] = Hash(serverRequest!), ["session_policy_hash"] = Hash(policy),
             ["campaign_retry_policy_hash"] = Hash(retry), ["configuration_hash"] = Hash(configuration), ["retention_kind"] = retentionKind,
-            ["source_evidence"] = "server_session_and_frozen_configuration", ["outcome_evidence"] = retentionKind == RefusedBeforeCampaignRetention
-                ? "admission_refused_with_server_reservation_before_campaign_envelope" : "cancelled_with_server_reservation_before_campaign_envelope",
+            ["source_evidence"] = "server_session_and_frozen_configuration", ["outcome_evidence"] = BeforeCampaignOutcome(retentionKind),
             ["dispatch_certainty"] = "unknown", ["campaign_envelope_absent"] = true,
             ["server_session_hash"] = Hash(JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!.AsObject()),
             ["server_http_hash"] = Hash(serverHttp), ["server_budget_hash"] = Hash(budget),
             ["retained_application_reservation_eur"] = hold["reservedEstimatedCost"]!.DeepClone(), ["application_reservation_in_campaign_http"] = false,
             ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
+        if (retentionKind == StorageFailureBeforeCampaignRetention)
+            evidence["storage_failure_span_hash"] = await StorageFailureSpanHashAsync(scope, requestId, ct);
         if (siblings.Count > 0) evidence["accounted_sibling_reservations"] = siblings;
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
+    }
+
+    private static string? BeforeCampaignOutcome(string? kind) => kind switch
+    {
+        RefusedBeforeCampaignRetention => "admission_refused_with_server_reservation_before_campaign_envelope",
+        CancelledBeforeCampaignRetention => "cancelled_with_server_reservation_before_campaign_envelope",
+        StorageFailureBeforeCampaignRetention => "storage_failure_with_server_reservation_before_campaign_envelope",
+        _ => null
+    };
+
+    private static async Task<string> StorageFailureSpanHashAsync(ServerRetentionScope scope, string request, CancellationToken ct)
+    {
+        var path = Path.Combine(scope.Directory, "telemetry.db");
+        var options = new Microsoft.Data.Sqlite.SqliteConnectionStringBuilder
+        {
+            DataSource = path, Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly, Pooling = false
+        };
+        await using var connection = new Microsoft.Data.Sqlite.SqliteConnection(options.ToString());
+        await connection.OpenAsync(ct);
+        await using var command = connection.CreateCommand();
+        // Match the entire logical dispatch inventory before accepting its single failed observation.
+        command.CommandText = """
+            SELECT hex(trace_id), hex(span_id), start_unix_ns, end_unix_ns, status_code, attributes_json
+            FROM span_records WHERE name = 'gen_ai.generate'
+                AND json_extract(attributes_json, '$."gnougo.llm.request_id"') = $request
+            LIMIT 2
+            """;
+        command.Parameters.AddWithValue("$request", request);
+        await using var reader = await command.ExecuteReaderAsync(ct);
+        if (!await reader.ReadAsync(ct)) throw new InvalidOperationException("The original model dispatch trace is missing.");
+        var attributes = JsonNode.Parse(reader.GetString(5));
+        if (reader.GetString(0).Length != 32 || reader.GetString(1).Length != 16 ||
+            reader.GetInt64(2) <= 0 || reader.GetInt64(3) < reader.GetInt64(2) || reader.GetInt32(4) != 2 ||
+            attributes?["tenant.id"]?.ToString() != "benchmark" || attributes["gnougo.planning.session_id"]?.ToString() != scope.Session ||
+            attributes["gnougo.llm.status"]?.ToString() != "failed" || attributes["error.type"]?.ToString() != nameof(KeyVaultAccessException))
+            throw new InvalidOperationException("The owned model trace does not prove a storage failure.");
+        var hash = Hash(new JsonObject { ["trace"] = reader.GetString(0), ["span"] = reader.GetString(1),
+            ["start"] = reader.GetInt64(2), ["end"] = reader.GetInt64(3), ["attributes"] = attributes });
+        if (await reader.ReadAsync(ct)) throw new InvalidOperationException("The model dispatch trace is ambiguous.");
+        return hash;
     }
 
     private async Task<JsonArray> InspectAccountedSiblingReservationsAsync(string session, string pendingId, JsonObject budget, CancellationToken ct)
@@ -261,8 +309,9 @@ internal sealed partial class BenchmarkCampaign
     private static bool ValidBeforeCampaignServerEvidence(JsonObject evidence)
         => evidence["run_collection"]?.ToString() == "planning-evaluation-runs" &&
             evidence["source_evidence"]?.ToString() == "server_session_and_frozen_configuration" &&
-            evidence["outcome_evidence"]?.ToString() == (evidence["retention_kind"]?.ToString() == RefusedBeforeCampaignRetention
-                ? "admission_refused_with_server_reservation_before_campaign_envelope" : "cancelled_with_server_reservation_before_campaign_envelope") &&
+            evidence["outcome_evidence"]?.ToString() == BeforeCampaignOutcome(evidence["retention_kind"]?.ToString()) &&
+            (evidence["retention_kind"]?.ToString() != StorageFailureBeforeCampaignRetention ||
+                evidence["storage_failure_span_hash"]?.ToString() is { Length: 64 } span && span.All(Uri.IsHexDigit)) &&
             evidence["campaign_envelope_absent"]?.GetValue<bool>() == true &&
             new[] { "server_session_hash", "server_http_hash", "server_budget_hash", "request_hash", "configuration_hash", "session_policy_hash", "campaign_retry_policy_hash" }
                 .All(k => evidence[k]?.ToString() is { Length: 64 } hash && hash.All(Uri.IsHexDigit)) &&
@@ -338,7 +387,7 @@ internal sealed partial class BenchmarkCampaign
                 continue;
             }
             if (evidence["source_evidence"]?.ToString() != "server_session_and_frozen_configuration" ||
-                evidence["retention_kind"]?.ToString() is not (InterruptedProcessRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention) ||
+                evidence["retention_kind"]?.ToString() is not (InterruptedProcessRetention or CancelledPlanningRetention or CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or StorageFailureBeforeCampaignRetention) ||
                 evidence["retention_kind"]?.ToString() == CancelledPlanningRetention && !evidence.ContainsKey("retained_application_reservation_eur")) continue;
             ValidatePermanentClosure(closure, request);
             var budget = await Records.GetAsync("agent-planning-budgets-v11", "benchmark", evidence["session_id"]!.ToString(), Author, ct);

@@ -1028,6 +1028,16 @@ owned Server lease and exact evidence hash; it creates no request or response an
 releases no reservation. The whole application hold remains external to campaign
 HTTP accounting, and replay and continuation are permanently forbidden.
 
+A stopped tool-free request can be inspected with
+`--retention-kind storage-failure-before-campaign-envelope` when one original
+Server model span records a KeyVault access failure for the same tenant, session
+and request. Inspection checks the pending request, reserved call index, transport
+policy, immutable deployment, application budget, absent campaign records and
+both receipt locations. Duplicate, missing or conflicting spans fail inspection.
+Applying the inspected evidence hash requires explicit operator authorization.
+It closes the request as inconclusive and keeps its full application reservation
+in subsequent financial admission.
+
 If application reservations cannot be verified, `financial-audit` still prints
 the verified physical HTTP ledger and ceiling. The JSON sets
 `retainedApplicationReservationsEur` to null and includes the typed
