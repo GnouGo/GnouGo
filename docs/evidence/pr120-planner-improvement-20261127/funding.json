@@ -30,20 +30,20 @@
     "ceiling_eur": "70"
   },
   "ending": {
-    "physical_attempts": 1355,
-    "known_input_tokens": 20165365,
-    "known_output_tokens": 692425,
-    "measured_eur": "49.089328018223234624145786383",
+    "physical_attempts": 1414,
+    "known_input_tokens": 21093825,
+    "known_output_tokens": 724419,
+    "measured_eur": "51.350029612756264236902050643",
     "physical_reservations_eur": "0.475031890660592255125284738",
     "unknown_usage_attempts": 2,
     "application_reservations_eur": "0.0463553530751708428246013667",
-    "available_eur": "20.3892847380410022779043275123",
+    "available_eur": "18.1285831435079726651480632523",
     "ceiling_eur": "70"
   },
-  "new_measured_eur": "23.48714578587699316628701625",
-  "new_physical_attempts": 690,
+  "new_measured_eur": "25.747847380410022779043280512",
+  "new_physical_attempts": 749,
   "opening_audit_sha256": "64aba8331ed035a0b8f5453460ca7bc2b8870b1256e4b4668936338bde4ab739",
-  "ending_audit_sha256": "d3885c3defe0722a1fb5963bffc9eaeaa54c9b2e5f1249796307bc0dc13331f3",
-  "ending_audit_after": "improve40-code-20261127-224019",
+  "ending_audit_sha256": "2e2954d92a62345ae0fb453c0f52e37700b7ffb8f195c804f3b6c1ac711889f9",
+  "ending_audit_after": "improve40-amazon-20261127-230314",
   "basis": "Encrypted physical-attempt ledger and retained separate Server reservations. Unknown usage stays reserved in full. The funding ledger records one extension."
 }

@@ -170,8 +170,10 @@ public sealed partial class PlanningGraphCompiler
         var lowered = LowerSteps(body.Steps, scope);
         if (lowered.Any(n => n?["type"]?.ToString() != "set")) throw new InvalidOperationException("Pure branch contains an execution boundary.");
         var program = new StringBuilder("(() => {"); var contracts = new JsonObject(); var addresses = new Dictionary<string, string>(StringComparer.Ordinal);
+        var usedNames = BindingNames();
         var arguments = nameSuffix is null ? prefix + "Inputs" : "observedInputs_" + nameSuffix;
         if (scope.SimplifiedLocals) arguments = FunctionalName(prefix + " inputs");
+        arguments = ReserveLexicalName(arguments, usedNames);
         var inputProperties = new JsonObject();
         foreach (var port in body.Inputs) inputProperties.Add(port.Name, ToJsonSchema(port.Schema, parent.Catalog));
         var inputSchema = new JsonObject { ["type"] = "object", ["properties"] = inputProperties,
@@ -183,25 +185,27 @@ public sealed partial class PlanningGraphCompiler
             contracts.Add(name, new JsonObject { ["source"] = name, ["order"] = order++, ["origin"] = origin, ["schema"] = schema?.DeepClone() ?? new JsonObject { ["type"] = "object" } });
         }
         var argsExpression = ReadableStep(new JsonObject { ["input"] = ToExpression(PlanningGraphValidation.Member(call.Input, "args")!, parent) }, parent);
-        Declare(arguments, RebaseLexicalProgram(ExpressionSegments.Read(argsExpression["input"]!.GetValue<string>()).Single().Expression, argsExpression["expression_contracts"]?[""] as JsonObject, arguments, addresses, contracts, nameSuffix), inputSchema, call.Key + "/inputs");
+        Declare(arguments, RebaseLexicalProgram(ExpressionSegments.Read(argsExpression["input"]!.GetValue<string>()).Single().Expression, argsExpression["expression_contracts"]?[""] as JsonObject, arguments, addresses, contracts, usedNames, nameSuffix), inputSchema, call.Key + "/inputs");
         addresses["data.inputs"] = arguments;
         var serial = 0;
         foreach (var step in lowered.Cast<JsonObject>())
         {
             var name = nameSuffix is null ? prefix + "Value" + (++serial).ToString(System.Globalization.CultureInfo.InvariantCulture) : "projectedValues_" + nameSuffix + "_" + (++serial).ToString(System.Globalization.CultureInfo.InvariantCulture);
             if (scope.SimplifiedLocals) name = FunctionalName(prefix + " result " + serial.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            name = ReserveLexicalName(name, usedNames);
             var original = nodes.Single(n => scope.NodeIds[n.Key] == step["id"]!.GetValue<string>());
             var expression = step["input"] is JsonValue value && value.TryGetValue<string>(out var text)
                 ? ExpressionSegments.Read(text).Single().Expression : ToExpression(original.Input, scope)[2..^1];
-            var embedded = RebaseLexicalProgram(expression, step["expression_contracts"]?[""] as JsonObject, name, addresses, contracts, nameSuffix);
+            var embedded = RebaseLexicalProgram(expression, step["expression_contracts"]?[""] as JsonObject, name, addresses, contracts, usedNames, nameSuffix);
             Declare(name, embedded, step["output_schema"], original.Key);
             addresses["data.steps." + step["id"]!.GetValue<string>()] = name;
         }
         var output = body.Outputs[0];
         var returned = ReadableStep(new JsonObject { ["input"] = ToExpression(output.Value, scope) }, scope);
         var resultName = nameSuffix is null ? prefix + "Result" : FunctionalName(output.Name) + "_" + nameSuffix;
+        resultName = ReserveLexicalName(resultName, usedNames);
         Declare(resultName, RebaseLexicalProgram(ExpressionSegments.Read(returned["input"]!.GetValue<string>()).Single().Expression,
-            returned["expression_contracts"]?[""] as JsonObject, resultName, addresses, contracts, nameSuffix), ToJsonSchema(output.Schema, scope.Catalog), body.Key + "/outputs/" + output.Name);
+            returned["expression_contracts"]?[""] as JsonObject, resultName, addresses, contracts, usedNames, nameSuffix), ToJsonSchema(output.Schema, scope.Catalog), body.Key + "/outputs/" + output.Name);
         var directOutput = parent.LexicalCallOutputs.Contains(call.Key);
         program.Append(directOutput ? "return { " : "return { outputs: { ").Append(JsonValue.Create(output.Name)!.ToJsonString())
             .Append(": ").Append(resultName).Append(directOutput ? " }; })()" : " } }; })()");
@@ -209,20 +213,19 @@ public sealed partial class PlanningGraphCompiler
             ["output_schema"] = new JsonObject { ["type"] = "object" } };
     }
 
-    private static string RebaseLexicalProgram(string program, JsonObject? checks, string prefix,
-        Dictionary<string, string> addresses, JsonObject destination, string? suffix = null)
+    private static string ReserveLexicalName(string stem, HashSet<string> used)
     {
-        var names = checks?.ToDictionary(p => p.Key, p => prefix + char.ToUpperInvariant(p.Key[0]) + p.Key[1..], StringComparer.Ordinal) ?? new();
-        if (suffix is not null)
-        {
-            var used = BindingNames(); used.UnionWith(destination.Select(p => p.Key)); used.Add(prefix);
-            foreach (var key in names.Keys.ToArray())
-            {
-                var stem = FunctionalName(key) + "_" + suffix; var name = stem; var index = 2;
-                while (!used.Add(name)) name = stem + "_" + (index++).ToString(System.Globalization.CultureInfo.InvariantCulture);
-                names[key] = name;
-            }
-        }
+        var name = stem;
+        var index = 2;
+        while (!used.Add(name)) name = stem + "_" + (index++).ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return name;
+    }
+
+    private static string RebaseLexicalProgram(string program, JsonObject? checks, string prefix,
+        Dictionary<string, string> addresses, JsonObject destination, HashSet<string> usedNames, string? suffix)
+    {
+        var names = checks?.ToDictionary(p => p.Key, p => ReserveLexicalName(
+            suffix is null ? prefix + char.ToUpperInvariant(p.Key[0]) + p.Key[1..] : FunctionalName(p.Key) + "_" + suffix, usedNames), StringComparer.Ordinal) ?? new();
         if (checks is not null)
             foreach (var (name, entry) in checks)
             {
