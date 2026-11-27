@@ -52,11 +52,11 @@ public sealed class DocumentTools
     [McpServerTool(Name = "document_read", UseStructuredContent = true, OutputSchemaType = typeof(DocumentReadResult)), Description(
         "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
         "and returns its text content. For Office/PDF formats, extracts text and optionally " +
-        "formats it as markdown. Returns structured sections (pages, sheets, slides). " +
+        "formats it as markdown. Returns structured sections (pages, sheets, slides). For exact XLSX readback use format=cells. Each worksheet's sections[].rows contains its ordered array of cell arrays. " +
         "Use a relative path only from the workspace root.")]
     public DocumentReadResult Read(
         [Description("Relative file path only inside the workspace root, for example 'docs/report.pdf'.")] string filePath,
-        [Description("Output format: 'markdown' (default) or 'plain'.")] string? format = null)
+        [Description("Output format: 'markdown' (default), 'plain', or 'cells' for exact XLSX worksheet values and positions.")] string? format = null)
     {
         try
         {

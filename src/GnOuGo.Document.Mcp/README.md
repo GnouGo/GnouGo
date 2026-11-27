@@ -21,9 +21,18 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 |--------|------|-------|
 | PDF    | ✅ (text extraction via PdfPig) | ✅ (plain text or auto-detected Markdown) |
 | DOCX   | ✅ (paragraphs, tables, headings) | ✅ (plain text or auto-detected Markdown) |
-| XLSX   | ✅ (sheets → markdown tables) | ✅ (ordered rows or legacy delimited text) |
+| XLSX   | ✅ (worksheet cells, markdown tables or plain text) | ✅ (ordered rows or legacy delimited text) |
 | PPTX   | ✅ (slides → markdown) | ❌ |
 | TXT, MD, CSV, JSON, XML, YAML | ✅ | ✅ |
+
+For exact workbook readback, call `document_read` with `format="cells"`.
+Each worksheet section has an ordered `rows` matrix of stored cell values.
+Strings retain whitespace and line breaks. Empty strings stay empty, absent
+cells are null, and omitted worksheet rows appear as empty arrays. Numeric
+and formula cells expose their stored value, including any cached formula
+result. Formulas run only in spreadsheet software. The reader returns an
+error if a worksheet exceeds 500 rows or the workbook exceeds 100,000 cell
+positions. The markdown and plain formats continue to return section text.
 
 ## MCP Tools
 
@@ -31,7 +40,7 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 |------|-------------|
 | `document_get_policy` | Returns active policy (roots, extensions, limits) |
 | `document_list` | Lists allowed files in a directory |
-| `document_read` | Reads a document, returns structured sections (markdown or plain) |
+| `document_read` | Reads document sections as markdown or plain text, or returns ordered XLSX cells |
 | `document_write` | Writes or appends content to a file, creating missing parent directories inside allowed roots (generates DOCX/XLSX for Office formats) |
 
 `document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. Use those values when selecting a target. Read policy separately when the workflow needs additional or refreshed settings. For XLSX, pass ordered arrays of exact strings or null cells to `rows`, with any requested header as the first row.
