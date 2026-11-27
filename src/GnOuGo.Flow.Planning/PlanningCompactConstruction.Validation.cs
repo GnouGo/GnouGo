@@ -99,7 +99,7 @@ internal static partial class PlanningCompactConstruction
              candidate.Extension.Complete != selectedClosure.Contains("/root", StringComparer.Ordinal)))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/closeScopes", "Preserve the explicitly selected requirement-only or scope closure and its completion claim.");
         var symbols = new TaskPlanSymbols(candidate.Plan);
-        var kinds = BusinessFragmentKinds(state, out var controlExports);
+        var kinds = BusinessFragmentKinds(state, out var controlExports, out var sequenceGuardSources);
         var topLevel = candidate.Extension.Tasks.Concat(candidate.Extension.Always).Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
         if (candidate.Extension.Groups.Count > 0 && (step.Kind != "group" || BlockAnchorConstructed(state)) ||
             candidate.Extension.Choices.Count > 0 && step.Kind != "choice")
@@ -109,6 +109,12 @@ internal static partial class PlanningCompactConstruction
             symbols.Tasks[id].Task.Operation is { } operation && !step.OperationIds.Contains(operation, StringComparer.Ordinal) ||
             symbols.Tasks[id].Task.Kind == "call" && symbols.Tasks[id].Task.Group != step.GroupId))
             PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/extension/tasks", "The extension exceeds the issued task-kind or operation selection.");
+        if (sequenceGuardSources.Count > 0)
+            foreach (var task in candidate.Extension.Tasks.Concat(candidate.Extension.Always).Where(task => task.Kind == "conditional"))
+                if (candidate.Extension.Always.Contains(task) || task.Condition is null || !TaskPlanCompiler.Values(task.Condition)
+                        .Any(value => value is { Kind: "output", Source: { } id } && sequenceGuardSources.Contains(id)))
+                    PlanningConstruction.Fail("CONSTRUCTION_STEP_INVALID", "/tasks/" + task.Id + "/condition",
+                        "A conditional continuing this sequence must guard ordinary work using an output of its preceding accepted fragment.");
         if (controlExports.Count > 0)
         {
             // A projection can discard fields required to check the original rows.

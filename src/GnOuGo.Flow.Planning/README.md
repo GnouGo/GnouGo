@@ -145,6 +145,9 @@ When a fragment opens a control or group, the planner can name its next body in 
 fragment. If it first stays in the parent, an empty continuation can enter an open
 body created by that same checkpoint. The move preserves the accepted plan,
 requirements, operation selection, budget counters and evidence history.
+A sequence can continue with a conditional in the current scope when its
+condition consumes an output of the preceding accepted fragment. The data
+dependency orders execution. Explicit sequences can still own exports and cleanup.
 Null technical continuation does not complete a block. Successful local or mandatory
 global business review establishes completion across all relevant block contributions.
 

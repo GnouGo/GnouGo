@@ -22,14 +22,17 @@ internal static partial class PlanningCompactConstruction
             : checkpoint.TaskIds.Any(id => symbols.Tasks.TryGetValue(id, out var task) && task.Task.Kind == step.Kind));
     }
 
-    internal static HashSet<string> BusinessFragmentKinds(PlanningSession state) => BusinessFragmentKinds(state, out _);
+    internal static HashSet<string> BusinessFragmentKinds(PlanningSession state) => BusinessFragmentKinds(state, out _, out _);
 
-    private static HashSet<string> BusinessFragmentKinds(PlanningSession state, out HashSet<(string Id, string Port)> controlExports)
+    private static HashSet<string> BusinessFragmentKinds(PlanningSession state, out HashSet<(string Id, string Port)> controlExports,
+        out HashSet<string> sequenceGuardSources)
     {
         var step = State(state).CurrentStep!;
         var kinds = new HashSet<string>(StringComparer.Ordinal);
         controlExports = [];
-        if (!BlockAnchorConstructed(state) && step.Kind is not (null or "group" or "close" or "choice")) kinds.Add(step.Kind!);
+        sequenceGuardSources = [];
+        var anchorConstructed = BlockAnchorConstructed(state);
+        if (!anchorConstructed && step.Kind is not (null or "group" or "close" or "choice")) kinds.Add(step.Kind!);
         if (SupportsBusinessFragment(step.Kind))
         {
             kinds.Add("value"); kinds.Add("transform");
@@ -58,6 +61,14 @@ internal static partial class PlanningCompactConstruction
                         }
                     if (anchorHasExports) kinds.UnionWith(NestedControlKinds.Where(kind => kind != step.Kind));
                     else controlExports.Clear();
+                    if (!anchorConstructed && step.Kind == "sequence" &&
+                        ContinuedCheckpoint(state, step) is { InvalidatedTaskIds.Count: 0 } prior &&
+                        symbols.Scopes.FirstOrDefault(site => site.Path == step.Scope) is { } scopeSite)
+                    {
+                        sequenceGuardSources.UnionWith(scopeSite.Source.Tasks.Where(task => prior.TaskIds.Contains(task.Id) &&
+                            task.Kind is "operation" or "transform" or "value" or "call").Select(task => task.Id));
+                        if (sequenceGuardSources.Count > 0) kinds.Add("conditional");
+                    }
                 }
             }
         }

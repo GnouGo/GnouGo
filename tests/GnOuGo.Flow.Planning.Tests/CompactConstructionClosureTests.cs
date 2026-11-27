@@ -511,6 +511,71 @@ public sealed class CompactConstructionClosureTests
         Assert.Equal(before, JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession));
     }
 
+    [Theory]
+    [InlineData("origin", true)]
+    [InlineData("older", false)]
+    [InlineData("cleanup", false)]
+    [InlineData("literal", false)]
+    public void DirectSequenceGuardConsumesAnOrdinaryOutputFromItsPrecedingFragment(string source, bool accepted)
+    {
+        var state = ContinuedSequence();
+        var kinds = PlanningCompactConstruction.BusinessFragmentKinds(state);
+        Assert.Contains("conditional", kinds);
+        Assert.Contains("sequence", kinds);
+        Assert.DoesNotContain("foreach", kinds);
+        Assert.DoesNotContain("parallel", kinds);
+        var guard = new PlanTask { Id = "gate", Kind = "conditional", Objective = "Check the observed result.",
+            Condition = source == "literal" ? new() { Kind = "boolean", Boolean = true } : new() { Kind = "output", Source = source, Port = "ready" },
+            Body = new() { Tasks = [new() { Id = "use_ready", Kind = "value", Objective = "Use the checked result.",
+                Outputs = [new("ready", new() { Kind = "output", Source = "origin", Port = "ready" })] }] }, Otherwise = new() };
+        var extension = new PlanningConstructionExtension { Tasks = [guard], RequirementIds = ["req"], ContinueInScope = "/root", CompleteBlock = false };
+        var schema = PlanningCompactConstruction.DraftSchema(state);
+        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(Response(state, extension, schema), schema));
+        var candidate = PlanningConstruction.Apply(state, extension);
+        if (accepted)
+        {
+            PlanningCompactConstruction.ValidateExtension(state, candidate);
+            Assert.Empty(TaskPlanCompiler.ValidateConstruction(candidate.Plan, state.Catalog!, state.Request,
+                candidate.OpenScopes.ToHashSet(StringComparer.Ordinal)).Diagnostics);
+            extension.Always = extension.Tasks;
+            extension.Tasks = [];
+            candidate = PlanningConstruction.Apply(state, extension);
+        }
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics,
+            diagnostic => diagnostic.Code == "CONSTRUCTION_STEP_INVALID" && diagnostic.Location == "/tasks/gate/condition");
+    }
+
+    [Theory]
+    [InlineData("stale")]
+    [InlineData("invalidated")]
+    [InlineData("cleanup_only")]
+    public void ASequenceWithoutAnEligiblePrecedingFragmentKeepsItsExistingGrammar(string cause)
+    {
+        var state = ContinuedSequence();
+        var checkpoint = Assert.Single(state.Construction!.Checkpoints);
+        if (cause == "stale") checkpoint.PlanHash = "previous";
+        else if (cause == "invalidated") checkpoint.InvalidatedTaskIds.Add("origin");
+        else checkpoint.TaskIds = ["cleanup"];
+        Assert.DoesNotContain("conditional", PlanningCompactConstruction.BusinessFragmentKinds(state));
+    }
+
+    private static PlanningSession ContinuedSequence()
+    {
+        var state = State();
+        static PlanTask Producer(string id) => new() { Id = id, Kind = "value", Objective = "Report readiness.",
+            Outputs = [new("ready", new() { Kind = "boolean", Boolean = true })] };
+        state.Plan = new() { Root = new() { Tasks = [Producer("older"), Producer("origin")], Always = [Producer("cleanup")] } };
+        var construction = state.Construction!;
+        var step = construction.Compact!.CurrentStep!;
+        step.Kind = "sequence";
+        step.CloseRequirementIds.Clear();
+        step.OutputNames.Clear();
+        step.BaseHash = PlanningConstruction.Hash(state.Plan);
+        construction.Checkpoints.Add(new() { Step = step, PlanHash = step.BaseHash, TaskIds = ["origin", "cleanup"],
+            Fragment = new() { ["continueInScope"] = "/root" } });
+        return state;
+    }
+
     private static PlanningSession ContinuedControl()
     {
         var state = State();

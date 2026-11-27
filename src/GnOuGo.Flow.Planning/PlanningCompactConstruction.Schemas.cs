@@ -293,7 +293,7 @@ internal static partial class PlanningCompactConstruction
     internal static string DraftSemantics(PlanningSession state, PlanningConstructionStep step)
     {
         var scope = new TaskPlanSymbols(state.Plan ?? new TaskPlan()).Scopes.SingleOrDefault(s => s.Path == step.Scope);
-        var kinds = BusinessFragmentKinds(state, out var controlExports);
+        var kinds = BusinessFragmentKinds(state, out var controlExports, out var sequenceGuardSources);
         // The issued fragment can compose nested controls even when its selected
         // anchor is a different control or a reusable group. Its semantics must
         // cover those reachable shapes, just like its strict grammar does.
@@ -305,6 +305,8 @@ internal static partial class PlanningCompactConstruction
         var hints = new List<string> { ReusableGroupSemantics, SelectedExpectationsSemantics };
         if (controlExports.Count > 0)
             hints.Add("At this same scope a different control may bind an exported port of the accepted control in its condition, inputs or body. Continue this block with that binding.");
+        if (sequenceGuardSources.Count > 0)
+            hints.Add("Place a conditional directly in this scope when its condition reads an output of the preceding accepted fragment. That dependency orders the work. A separate sequence can supply its own export or cleanup boundary.");
         if (SupportsBusinessFragment(step.Kind))
             hints.Add("Contribute related typed tasks within one maxTasksPerDraft. Complete new control/group bodies close automatically, including empty optional branches. A prerequisite opened with evidence stays open. continueInScope retains its original or block-owned scope and ancestors; null finishes only this cursor. completeBlock explicitly claims the business objective, results and criteria across accepted fragments. Keep it false for prerequisites and partial work, even after closing a technical scope. Completion requires null continueInScope. Continuation preserves requirements and pending consumers. Close existing boundaries explicitly; unfinished containers expose no usable result.");
         if (SupportsBusinessFragment(step.Kind) && step.Scope == "/root" && step.OutputNames.Count == 0 &&
