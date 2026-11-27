@@ -150,6 +150,7 @@ public sealed partial class TaskPlanCompiler
             {
                 findings.Add(ex.Diagnostic);
                 if (ex.Operand is { } operand) rejectedOperands[ex.Diagnostic] = operand;
+                if (ex.Producer is { } producer) findings.Add(producer);
             }
             catch (UnavailableValue) { /* A diagnosed prerequisite has no usable contract. */ }
             finally { _location = saved; }
@@ -551,11 +552,35 @@ public sealed partial class TaskPlanCompiler
         if (literal
             ? instanceFindings.Count > 0
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
-            Fail(code, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
+        {
+            var producer = FlattenedGroupDiagnostic(schema);
+            throw new InvalidTask(code, _location, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
                 "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract." +
                 (instanceFindings.FirstOrDefault() is { } finding ? " Instance " +
                     (finding.InstancePointer.Length == 0 ? "/" : finding.InstancePointer) + ": " + finding.Message : "") +
-                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""));
+                (producer is null ? "" : " The incompatible flattened group is at " + producer.Location + ".") +
+                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""), producer: producer);
+        }
+    }
+
+    private PlanningDiagnostic? FlattenedGroupDiagnostic(JsonObject expected)
+    {
+        if (expected["items"] is not JsonObject item || PlanningContractShapes.WithoutNull(item) is not { } nonNullItem ||
+            !PlanningContractCompatibility.Fits(nonNullItem, PlanningSchemas.Type("array")) ||
+            !_symbols.Values.TryGetValue(_location, out var site)) return null;
+        if (site.Value is { Kind: "output", Source: { } source, Port: { } port } &&
+            _symbols.Tasks.TryGetValue(source, out var producer) && producer.Task.Kind == "value" &&
+            _symbols.Values.TryGetValue("/tasks/" + source + "/outputs/" + port, out var origin)) site = origin;
+        if (site.Value is not { Kind: "flatten", Items: [{ Kind: "array" } groups] }) return null;
+        for (var i = 0; i < groups.Items.Count; i++)
+        {
+            var group = groups.Items[i];
+            if (group.Kind != "array" || !Literal(group) || !group.Items.Any(v => v.Kind is "string" or "number" or "boolean")) continue;
+            var row = PlanningGraphValidation.Literal(Value(group, new Scope(new(), null)).Value);
+            if (PlanningContractValidation.ValidateInstance(row, item).Count == 0)
+                return new("TASK_FLATTEN_GROUP_SHAPE", site.Path, $"Flatten emits scalar elements from group {i}. The complete group satisfies the array element contract at {_location}. To retain that row, wrap it in a one-element batch before flatten.");
+        }
+        return null;
     }
 
     private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +

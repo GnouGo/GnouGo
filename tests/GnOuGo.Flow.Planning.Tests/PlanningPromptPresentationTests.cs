@@ -6,6 +6,31 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class PlanningPromptPresentationTests
 {
     [Fact]
+    public void EvidenceSharesOnlyTheExactImportedOutputSchemaAndKeepsItsReferenceClosure()
+    {
+        var schema = new JsonObject { ["type"] = "object", ["description"] = new string('x', 1500) };
+        var closure = new JsonObject { ["properties"] = new JsonObject { ["detail"] = new JsonObject { ["type"] = "string" } } };
+        var hash = new string('a', 64);
+        JsonObject Page(string revision, string pointer) => new() { ["id"] = "read", ["version"] = revision, ["hash"] = hash,
+            ["pointer"] = pointer, ["schema"] = schema.DeepClone(), ["referenceClosure"] = closure.DeepClone() };
+        var contract = new JsonObject { ["id"] = "read", ["version"] = "v1", ["hash"] = hash, ["selectedOutputs"] = new JsonArray(Page("v1", "/output/detail")) };
+        var context = new JsonObject { ["interfaces"] = new JsonArray(new JsonObject { ["producers"] = new JsonArray(new JsonObject { ["contract"] = contract }) }),
+            ["evidence"] = new JsonObject { ["same"] = Page("v1", "/output/detail"), ["otherVersion"] = Page("v2", "/output/detail"), ["otherPort"] = Page("v1", "/output/else") } };
+        var prompt = "Repair.\n" + context.ToJsonString();
+        var compact = PlanningPromptPresentation.ShareDuplicateContractSchemas(prompt);
+        Assert.True(compact.Length < prompt.Length);
+        var shown = JsonNode.Parse(compact[(compact.LastIndexOf('\n') + 1)..])!;
+        var same = shown["evidence"]!["same"]!;
+        Assert.Equal("/interfaces/0/producers/0/contract/selectedOutputs/0/schema", same["schemaPresentedAt"]?.ToString());
+        Assert.Null(same["schema"]);
+        Assert.True(JsonNode.DeepEquals(schema, shown["interfaces"]![0]!["producers"]![0]!["contract"]!["selectedOutputs"]![0]!["schema"]));
+        Assert.True(JsonNode.DeepEquals(closure, same["referenceClosure"]));
+        Assert.True(JsonNode.DeepEquals(context["evidence"]!["otherVersion"], shown["evidence"]!["otherVersion"]));
+        Assert.True(JsonNode.DeepEquals(context["evidence"]!["otherPort"], shown["evidence"]!["otherPort"]));
+        Assert.Equal(compact, PlanningPromptPresentation.ShareDuplicateContractSchemas(compact));
+    }
+
+    [Fact]
     public void CheckpointPageSharesRepeatedSelectionsAndPreservesEachBaseAndFragment()
     {
         JsonObject Row(string baseline, string objective) => new()

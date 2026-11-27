@@ -17,6 +17,9 @@ For an affirmative prerequisite on a nullable Boolean, `equal(flag, true)`
 accepts only an observed true value. A type diagnostic identifies the rejected
 operand and its contract. When that operand comes from a conditional export,
 the diagnostic also shows the relevant alternative contracts.
+An ordering predicate accepts a union when every alternative supplies a number.
+For example, an integer output from one branch and a nonnegative integer from
+another can both supply the same bounds check.
 When a conditional exports a record on one branch and null on the other,
 `and(not_equal(record, null), record.more)` can read the declared Boolean
 field. The right operand and the selected branch inherit the non-null check.

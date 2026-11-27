@@ -54,6 +54,38 @@ public sealed class TaskPreconditionTests
     }
 
     [Theory]
+    [InlineData("integer", true)]
+    [InlineData("string", false)]
+    [InlineData("null", false)]
+    public async Task OrderingChecksEveryAlternativeOfTheProducerContract(string alternative, bool valid)
+    {
+        var first = new JsonObject { ["type"] = "number", ["minimum"] = 0 };
+        var contract = new JsonObject { ["anyOf"] = new JsonArray(first, new JsonObject { ["type"] = alternative }) };
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("source", new() { Tools = [new() { Name = "read", EffectKind = "none",
+            InputSchema = new JsonObject { ["type"] = "object" }, OutputSchema = new JsonObject { ["type"] = "object",
+                ["properties"] = new JsonObject { ["measured"] = contract }, ["required"] = new JsonArray("measured") } }],
+            ToolHandlers = new() { ["read"] = _ => new() { Content = new JsonObject { ["measured"] = 2 } } } });
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var catalog = await TaskPlanCompilerTests.Catalog(new(engine, (_, _) => Task.CompletedTask));
+        var plan = Plan(new() { Kind = "predicate", Predicate = "greater", Items = [
+            new() { Kind = "output", Source = "observe", Port = "measured" }, new() { Kind = "number", Number = 0 }] });
+        plan.Root.Tasks.Insert(0, new() { Id = "observe", Objective = "Read the observed value", Operation = catalog.Capabilities.Single(c => c.Method == "read").Id });
+
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        if (!valid)
+        {
+            Assert.Contains(compiled.Diagnostics, d => d.Code is "TASK_PREDICATE_TYPE" or "TASK_NULLABLE_VALUE");
+            return;
+        }
+        Assert.Empty(compiled.Diagnostics);
+        Assert.Empty(PlanningExecutableValidation.Validate(compiled.Graph!, catalog));
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var run = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["complete"] = true }, PlannerFixture.Ct);
+        Assert.True(run.Success, run.Error?.Message);
+    }
+
+    [Theory]
     [InlineData("and", false, false)]
     [InlineData("or", true, true)]
     public async Task PreconditionChecksShortCircuitBeforeMissingOptionalFields(string predicate, bool left, bool success)

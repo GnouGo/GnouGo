@@ -306,6 +306,20 @@ public static class PlanningPromptPresentation
             }
         }
         var sharedAncestors = ShareEvidenceAncestors(evidence, ancestorLocations);
+        if (evidence.Count > 0)
+            foreach (var (contract, path) in ImportedContracts(context))
+            {
+                if (!Identity(contract, out var id, out var version, out var hash) || contract["selectedOutputs"] is not JsonArray outputs) continue;
+                for (var i = 0; i < outputs.Count; i++)
+                {
+                    if (outputs[i] is not JsonObject row || Text(row["pointer"]) is not { Length: > 0 } pointer ||
+                        row["schema"] is not JsonObject schema || row.ContainsKey("schemaPresentedAt") ||
+                        new[] { "id", "version", "hash" }.Any(key => row.ContainsKey(key) && !JsonNode.DeepEquals(row[key], contract[key]))) continue;
+                    var origin = $"{path}/selectedOutputs/{i}/schema";
+                    var exact = schema.ToJsonString();
+                    if (exact.Length > origin.Length + 320) schemas.TryAdd((id, version, hash, pointer, exact), origin);
+                }
+            }
         foreach (var (address, value) in evidence)
         {
             if (value is not JsonObject row || row["ancestors"] is not JsonArray ancestors ||
@@ -415,17 +429,23 @@ public static class PlanningPromptPresentation
 
     private static bool ShareImportedArgumentSiblings(JsonObject context)
     {
-        if (context["interfaces"] is not JsonArray interfaces) return false;
         var changed = false;
+        foreach (var (contract, path) in ImportedContracts(context))
+            if (Identity(contract, out _, out _, out _) && contract["selectedInputs"] is JsonArray selected)
+                changed |= ShareSelectedArgumentSiblings(contract, selected, path + "/selectedInputs");
+        return changed;
+    }
+
+    private static IEnumerable<(JsonObject Contract, string Path)> ImportedContracts(JsonObject context)
+    {
+        if (context["interfaces"] is not JsonArray interfaces) yield break;
         for (var i = 0; i < interfaces.Count; i++)
         {
             if (interfaces[i] is not JsonObject row || row["producers"] is not JsonArray producers) continue;
             for (var j = 0; j < producers.Count; j++)
-                if (producers[j] is JsonObject producer && producer["contract"] is JsonObject contract &&
-                    Identity(contract, out _, out _, out _) && contract["selectedInputs"] is JsonArray selected)
-                    changed |= ShareSelectedArgumentSiblings(contract, selected, $"/interfaces/{i}/producers/{j}/contract/selectedInputs");
+                if (producers[j] is JsonObject producer && producer["contract"] is JsonObject contract)
+                    yield return (contract, $"/interfaces/{i}/producers/{j}/contract");
         }
-        return changed;
     }
 
     private static bool ShareSelectedArgumentSiblings(JsonObject contract, JsonArray selected, string path)

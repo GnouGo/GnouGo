@@ -126,7 +126,7 @@ internal static class PlanningValues
             var schema = resolve(operand) ?? throw new InvalidOperationException("The predicate operand has no established contract.");
             if (value.Text is "and" or "or" or "not" && schema["type"]?.ToString() != "boolean")
                 throw new InvalidOperationException("Logical predicates require boolean operands.");
-            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && schema["type"]?.ToString() is not ("number" or "integer"))
+            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && !PlanningContractCompatibility.Fits(schema, PlanningSchemas.Type("number")))
                 throw new InvalidOperationException("Ordering predicates require numeric operands.");
         }
         return new() { ["type"] = "boolean" };

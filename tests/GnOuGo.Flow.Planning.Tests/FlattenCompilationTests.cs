@@ -23,6 +23,37 @@ public sealed class FlattenCompilationTests
         await new WorkflowPlanningRuntime(engine ?? new(), (_, _) => Task.CompletedTask).DiscoverAsync(
             new() { Policy = new() { RequireExternalConfirmation = false } }, PlannerFixture.Ct);
 
+    [Fact]
+    public async Task MatrixConsumerLocatesTheScalarBatchInItsProducer()
+    {
+        var catalog = await Catalog();
+        var cell = new TaskType { Kind = "string" };
+        var plan = Plan(cell);
+        var literalRow = new TaskValue { Kind = "array", Items = [new() { Kind = "string", Text = "Heading" }] };
+        var groups = new TaskValue { Kind = "array", Items = [literalRow, new() { Kind = "input", Source = "batches" }] };
+        plan.Root.Tasks[0].Outputs[0] = new("rows", Flatten(groups));
+        plan.Groups.Add(new() { Id = "consume", Inputs = [new() { Name = "table", Type = ArrayOf(ArrayOf(cell)) }],
+            Body = new() { Outputs = [new("table", new() { Kind = "input", Source = "table" })] } });
+        plan.Root.Tasks.Add(new() { Id = "save", Kind = "call", Group = "consume", Objective = "Consume an ordered matrix",
+            Inputs = [new("table", ProductTransformationPlan.Ref("combine", "rows"))] });
+
+        var diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics;
+        var mismatch = Assert.Single(diagnostics, d => d.Code == "TASK_GROUP_INPUT_TYPE");
+        Assert.Contains("/tasks/combine/outputs/rows", mismatch.Message);
+        var producer = Assert.Single(diagnostics, d => d.Code == "TASK_FLATTEN_GROUP_SHAPE");
+        Assert.Equal("/tasks/combine/outputs/rows", producer.Location);
+        Assert.Contains("scalar elements from group 0", producer.Message);
+        Assert.Contains(producer.Location, TaskPlanRevisions.Scope(plan, diagnostics));
+        var heading = literalRow.Items[0];
+        literalRow.Items[0] = new() { Kind = "number", Number = 42 };
+        var incompatibleRow = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Contains(incompatibleRow.Diagnostics, d => d.Code == "TASK_GROUP_INPUT_TYPE");
+        Assert.DoesNotContain(incompatibleRow.Diagnostics, d => d.Code == "TASK_FLATTEN_GROUP_SHAPE");
+        literalRow.Items[0] = heading;
+        groups.Items[0] = new() { Kind = "array", Items = [literalRow] };
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
+    }
+
     [Theory]
     [InlineData("[[],[\"a\",null,\"a\"],[],[\"b\"]]", "[\"a\",null,\"a\",\"b\"]", false)]
     [InlineData("[]", "[]", false)]

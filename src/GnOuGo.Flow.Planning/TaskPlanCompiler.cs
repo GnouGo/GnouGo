@@ -80,10 +80,11 @@ public sealed partial class TaskPlanCompiler
         public string? PredicateBranch { get; set; }
         public bool Cleanup { get; set; }
     }
-    private sealed class InvalidTask(string code, string location, string message, TaskValue? operand = null) : Exception(message)
+    private sealed class InvalidTask(string code, string location, string message, TaskValue? operand = null, PlanningDiagnostic? producer = null) : Exception(message)
     {
         public PlanningDiagnostic Diagnostic { get; } = new(code, location, message);
         public TaskValue? Operand { get; } = operand;
+        public PlanningDiagnostic? Producer { get; } = producer;
     }
     private TaskPlan _plan = null!;
     private TaskPlanSymbols _symbols = null!;
@@ -974,7 +975,7 @@ public sealed partial class TaskPlanCompiler
         if (op is null) Fail("TASK_PREDICATE_INVALID", "Unknown typed predicate.");
         if (value.Predicate is "and" or "or" or "not")
             for (var i = 0; i < operands.Length; i++) RequireBoolean(operands[i], value.Items[i]);
-        else if (ordering && operands.Any(b => b.Schema["type"]?.ToString() is not ("number" or "integer")))
+        else if (ordering && operands.Any(b => !PlanningContractCompatibility.Fits(b.Schema, PlanningSchemas.Type("number"))))
             Fail("TASK_PREDICATE_TYPE", "Ordering predicates require numeric operands.");
         return new(PlanningValues.Predicate(value.Predicate!, operands.Select(o => o.Value).ToArray()), new() { ["type"] = "boolean" });
     }
