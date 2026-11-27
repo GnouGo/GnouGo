@@ -189,15 +189,30 @@ internal sealed partial class ServerBusinessExecution
         if (!JsonNode.DeepEquals(input, HumanInputContract.BuildRequestPayload(request)) || authority.RequireRuntimeRequest(request))
             throw new PlanningConflictException("The SDK permission does not match its recorded request.");
         var answer = await human.RequestInputAsync(request, ct);
-        for (var attempt = 0; ; attempt++)
+        await RecordReviewedChoiceAsync(dialog, token => runs.ReadAsync(id, token),
+            (revision, token) => runs.CommandAsync(id, "answer", new(revision, dialog.Id, Response: answer), token),
+            () => !authority.RequireRuntimeRequest(request), ct);
+    }
+
+    internal static async Task RecordReviewedChoiceAsync(WorkflowInvocation dialog, Func<CancellationToken, Task<WorkflowRun?>> read,
+        Func<long, CancellationToken, Task> record, Func<bool> authorized, CancellationToken ct)
+    {
+        var latest = await read(ct);
+        while (true)
         {
-            var latest = await runs.ReadAsync(id, ct);
-            if (latest is null || !latest.Invocations.TryGetValue(dialog.Id, out var pending) || pending.Status != "waiting_for_human" ||
-                pending.ParentInvocationId != dialog.ParentInvocationId || !JsonNode.DeepEquals(pending.ResolvedInput, input) ||
-                authority.RequireRuntimeRequest(request))
+            ct.ThrowIfCancellationRequested();
+            if (latest is null || latest.CancelRequested || !latest.Invocations.TryGetValue(dialog.Id, out var pending) ||
+                pending.Status != "waiting_for_human" || pending.ParentInvocationId != dialog.ParentInvocationId ||
+                !JsonNode.DeepEquals(pending.ResolvedInput, dialog.ResolvedInput) || !authorized())
                 throw new PlanningConflictException("The approved read is no longer the active dialog.");
-            try { await runs.CommandAsync(id, "answer", new(latest.Revision, dialog.Id, Response: answer), ct); return; }
-            catch (WorkflowRunConflictException) when (attempt < 3) { }
+            var revision = latest.Revision;
+            try { await record(revision, ct); return; }
+            catch (WorkflowRunConflictException)
+            {
+                // Other SDK tools can register parallel dialogs while this answer is being committed.
+                latest = await read(ct);
+                if (latest is null || latest.Revision <= revision) throw;
+            }
         }
     }
 

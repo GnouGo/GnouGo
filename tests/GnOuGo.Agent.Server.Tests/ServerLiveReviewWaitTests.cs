@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
 using GnOuGo.Planning.Examples;
 
@@ -8,6 +9,48 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class ServerLiveReviewWaitTests
 {
+    [Theory]
+    [InlineData("other_dialogs")]
+    [InlineData("unchanged_revision")]
+    [InlineData("changed_input")]
+    [InlineData("cancelled")]
+    [InlineData("revoked")]
+    public async Task OneTimeAnswerSurvivesOnlyUnrelatedJournalUpdates(string scenario)
+    {
+        var dialog = new WorkflowInvocation { Id = "read", ParentInvocationId = "review", Status = "waiting_for_human",
+            ResolvedInput = new JsonObject { ["path"] = "requested.txt" } };
+        var run = new WorkflowRun { Revision = 10 };
+        run.Invocations[dialog.Id] = dialog;
+        var attempts = 0;
+        Task Record(long revision, CancellationToken token)
+        {
+            Assert.Equal(run.Revision, revision);
+            if (++attempts == 12) return Task.CompletedTask;
+            if (scenario != "unchanged_revision") run.Revision++;
+            if (scenario == "changed_input") run.Invocations[dialog.Id] = new()
+            {
+                Id = dialog.Id, ParentInvocationId = dialog.ParentInvocationId, Status = dialog.Status,
+                ResolvedInput = new JsonObject { ["path"] = "different.txt" }
+            };
+            run.CancelRequested = scenario == "cancelled";
+            throw new WorkflowRunConflictException("Concurrent journal write.");
+        }
+
+        var operation = ServerBusinessExecution.RecordReviewedChoiceAsync(dialog, _ => Task.FromResult<WorkflowRun?>(run),
+            Record, () => scenario != "revoked" || attempts == 0, TestContext.Current.CancellationToken);
+        if (scenario == "other_dialogs")
+        {
+            await operation;
+            Assert.Equal(12, attempts);
+        }
+        else
+        {
+            if (scenario == "unchanged_revision") await Assert.ThrowsAsync<WorkflowRunConflictException>(() => operation);
+            else await Assert.ThrowsAsync<PlanningConflictException>(() => operation);
+            Assert.Equal(1, attempts);
+        }
+    }
+
     [Theory]
     [InlineData("server-live-plan", false)]
     [InlineData("server-live-execute", true)]

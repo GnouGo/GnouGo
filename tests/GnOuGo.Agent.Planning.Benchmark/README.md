@@ -463,6 +463,10 @@ Planning and execution are separate. Review the concrete artifact using the froz
 benchmark-only authorization manifest and artifact-bound receipt. Record
 `delegated_test_reviewed`, never `human_reviewed`. Runtime confirmations bind the
 approved artifact and exact invocation and permit individual Allow once only.
+When parallel SDK requests advance the journal during a one-time permission
+answer, the host rereads the newer revision and checks the same dialog, parent,
+payload and authority before submitting that answer again. Cancellation or a
+conflict on the same revision ends the attempt.
 Compilation and Judges cannot grant effect permission. Missing details, ambiguous
 correlation, duplicate execution or broader grants stop execution.
 

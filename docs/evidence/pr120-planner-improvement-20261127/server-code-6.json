@@ -1,0 +1,191 @@
+{
+  "source": "f554478910e14f3482c1384deac1f306b6700fab",
+  "run": "improve40-code-20261127-191616",
+  "session": "d25f256484f74907a92cf2f187c47e23",
+  "scenario": "code",
+  "oracle": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T19:18:27.423508+00:00",
+  "phases": {
+    "construction_draft": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 82820,
+      "output_tokens": 3541,
+      "measured_eur": "0.2047881548974943052391799543",
+      "duration_ms": "142491.9455"
+    },
+    "construction_discovery": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "input_tokens": 119373,
+      "output_tokens": 1591,
+      "measured_eur": "0.2791685649202733485193621869",
+      "duration_ms": "186336.0311"
+    },
+    "construction_implementation": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 54877,
+      "output_tokens": 1606,
+      "measured_eur": "0.1323211845102505694760820046",
+      "duration_ms": "150139.9100"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 4402,
+      "output_tokens": 815,
+      "measured_eur": "0.0137403189066059225512528474",
+      "duration_ms": "36372.0340"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1844,
+      "output_tokens": 1278,
+      "measured_eur": "0.0100227790432801822323462415",
+      "duration_ms": "306351.8394"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 14777,
+      "output_tokens": 319,
+      "measured_eur": "0.0351138952164009111617312073",
+      "duration_ms": "33288.8338"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 7889,
+      "output_tokens": 189,
+      "measured_eur": "0.0188314350797266514806378132",
+      "duration_ms": "14395.0633"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "0.6939863325740318906605922552",
+  "input_tokens": 285982,
+  "output_tokens": 9339,
+  "planning_status": "final_review",
+  "diagnostics": [],
+  "accepted_tasks": [
+    [
+      "assert_cleanup",
+      "cleanup",
+      "clone",
+      "compare",
+      "destination"
+    ],
+    [
+      "assert_annotation_cleanup",
+      "check_annotation_cleanup"
+    ],
+    [
+      "review"
+    ],
+    [
+      "assert_write",
+      "write_review"
+    ],
+    []
+  ],
+  "result": {
+    "status": "final_review",
+    "calls": 30,
+    "repairs": 1,
+    "execution_status": "host_exited_during_sdk_permission",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "39.034576309794988610478360283",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "30.6817289293849658314350793523",
+    "physical_attempts": 1038,
+    "input_tokens": 16030261,
+    "output_tokens": 552959
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "39.765628701594533029612756651",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "29.9506765375854214123006829843",
+    "physical_attempts": 1070,
+    "input_tokens": 16331975,
+    "output_tokens": 562568
+  },
+  "planning_elapsed_seconds": "945.24254",
+  "planning_finished_utc": "2026-11-27T19:34:12.6660489+00:00",
+  "last_host_log_utc": "2026-11-27T19:40:23.001904+00:00",
+  "wall_seconds_to_last_host_log": 1315.578396,
+  "form_run": "43480f422604c948b652814832b0e16d",
+  "approved_artifact": "9509652bf0b86b31b3d8bc88f4ca93ce2d5a8569a300388d60713084d6243520",
+  "executed": true,
+  "execution_correct": false,
+  "finalization_completed": false,
+  "business_events": [
+    {
+      "tool": "git_clone",
+      "started": "2026-11-27T19:36:31.1580695+00:00",
+      "elapsed_ms": 61771,
+      "success": true,
+      "command": null
+    },
+    {
+      "tool": "git_compare_refs",
+      "started": "2026-11-27T19:37:39.1495999+00:00",
+      "elapsed_ms": 385,
+      "success": true,
+      "command": null
+    },
+    {
+      "tool": "cmd_run",
+      "started": "2026-11-27T19:37:43.4292986+00:00",
+      "elapsed_ms": 7043,
+      "success": true,
+      "command": "check_annotation_cleanup"
+    }
+  ],
+  "checked_revisions": {
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "upstream_test_count": 4,
+  "sdk_phase": {
+    "physical_attempts": 2,
+    "input_tokens": 15732,
+    "output_tokens": 270,
+    "measured_eur": "0.0370660592255125284738041128",
+    "terminal_sdk_duration_ms": null,
+    "duration_basis": "The SDK did not return a terminal receipt before the host exited.",
+    "business_elapsed_seconds_to_last_host_log": 245.539305,
+    "budget_basis": "Exclusive settled campaign delta minus physical planning measurements."
+  },
+  "independent_journal": {
+    "journal_status": "running",
+    "journal_revision": 44,
+    "journal_updated_utc": "2026-11-27T19:40:02.6012517+00:00",
+    "parent_status": "dispatched",
+    "sdk_status": "dispatched",
+    "sdk_receipt_sha256": "d2ac6ca7a4fb983aa646c15fc7482a07167b4191504b14b5ece821f8dd844dd4",
+    "finalization_completed": false,
+    "completed_permissions": 3,
+    "waiting_permissions": 11
+  },
+  "report_exists": false,
+  "operator_cleanup": {
+    "run": "improve40-code-20261127-191616",
+    "relative_path": "workflows/pr120-agent-routing-20261126-30/improve40-code-20261127-191616/repository",
+    "commit": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "clean_checkout_verified": true,
+    "qualification_process_exited": true,
+    "exists_on_readback": true,
+    "workflow_finalization_completed": false,
+    "operator_cleanup": "Automatic approval review blocked the scoped recursive removal after the qualification host exited."
+  },
+  "host_error": "WorkflowRunConflictException after four revision-checked attempts to record a one-time SDK permission."
+}
