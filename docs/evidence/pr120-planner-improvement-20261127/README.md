@@ -2,7 +2,7 @@
 
 The baseline ended at `f4140fcc` with 665 physical attempts in 15 planning sessions and no business execution. Drafting, discovery and block implementation accounted for 506 calls. The new qualification uses the same SlimFaas revisions and Amazon selection rules. It starts in the normal Server, records actual provider exchanges and opens the generated workflow through the authenticated form.
 
-**SlimFaas passed the normal Server workflow on `afe16fbd`. Amazon reached workbook planning on `970fdba9`.** The eleventh Amazon session stopped during selection planning on `f5544789`. A fresh SlimFaas session on that revision passed planning and the pinned repository checks, then stopped during concurrent SDK permissions. The campaign had €29.950677 available after this run. [Verified earlier review](slimfaas-review-verification.json) · [Latest review](server-code-6.json) · [Latest Amazon](server-amazon-11.json) · [Funding](funding.json)
+**The twelfth Amazon session reached a deterministic visit loop on `64b2f269` and stopped at the protected review allowance before execution.** It made zero product visits and produced no workbook. SlimFaas passed the full workflow on `afe16fbd`. Its later session on `f5544789` stopped during concurrent SDK permissions. The available campaign balance after Amazon 12 was €28.477686. [Latest Amazon](server-amazon-12.json) · [Verified earlier review](slimfaas-review-verification.json) · [Later review](server-code-6.json) · [Funding](funding.json)
 
 ## Recorded normal Server runs
 
@@ -27,6 +27,7 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [Amazon 10](server-amazon-10.json) | 36 / 36 | 466,421 / 23,961 | €1.171624 | — | 20m 55s | The Server accepted the deterministic visit loop. Workbook delivery planning stalled. Zero searches, visits and XLSX files. |
 | [Amazon 11](server-amazon-11.json) | 14 / 14 | 183,978 / 11,260 | €0.470383 | — | 8m 40s | The selection draft emitted its guard and stopped at an empty deferred export list. No business execution. |
 | [SlimFaas 6](server-code-6.json) | 30 / 30 | 285,982 / 9,339 | €0.693986 | €0.037066 | 21m 56s to host exit | Four upstream tests passed. Concurrent SDK permission requests advanced the journal during four attempts to record one answer. The host exited before writing a report or completing cleanup. |
+| [Amazon 12](server-amazon-12.json) | 46 / 46 | 603,055 / 21,794 | €1.472991 | — | 21m 06s | The Server accepted ordered selection, adaptive resolution and the deterministic visit loop. The remaining two calls were protected for review. No business execution or workbook. |
 
 The eighth session's six-field prerequisite came from its retained implementation decision. A deterministic value task can now project the evidenced fields, preserve their original paths and reconnect the suspended consumer. Both captured drafts resumed their original consumer. The complete archived Amazon and SlimFaas candidates also compiled through final review. [Continuation, complete-plan replays and binary hashes](continuation-object-view.json)
 
@@ -37,6 +38,12 @@ The seventh and tenth provider responses stopped at the same point in a binary c
 The eleventh draft emitted the compound guard, selection and both outcome branches, then chose to continue in the root scope. Its next property could only be null or an empty array. The provider emitted an opening bracket and 37,776 whitespace characters. The continuing branch now omits those deferred fields. An offline diagnostic using the recorded task data passed the issued schema, candidate validation and checkpoint acceptance. The full provider response remained incomplete. [Captured prefix, diagnostic scope and tested binaries](continuing-cursor.json)
 
 A hosted Windows Server 2025 runner passed all 33 historical failures on `284bf783`. The TRX matched all 33 original case names and theory arguments. All cases ran with their original assertions and time limits. [Case outcomes, durations and assembly hashes](hosted-windows-33.json) · [Windows qualification](https://github.com/GnouGo/GnouGo/actions/runs/46052030316)
+
+The same 33 cases passed again in an expanded 441-case hosted Windows run on `cf3c8bd7`. The run matched the complete selected discovery list across 12 additional classes. The laptop ran 115 variants on the baseline `d6fd346c` with the local model catalog. Of the historical 33, 19 passed, ten reached the explicit mapping elapsed-time budget and four reached the three-second browser deadline. Two additional variants also reached the mapping elapsed-time budget. [Hosted Windows results and binaries](hosted-windows-441.json) · [Laptop case results and binaries](laptop-windows-33.json)
+
+On `64b2f269`, the self-contained Windows x64 Server passed the published encrypted storage and exact receipt recovery smoke in 691 seconds. Publishing emitted six EF Core experimental-feature warnings and one ASP.NET Core linker warning from dependencies. Three archived full plans reached final review and both original suspended consumers resumed in the same frozen qualification. [Published executable and smoke](windows-published-64b2f269.json) · [Frozen replays and qualification binaries](frozen-64b2f269-validation.json)
+
+Amazon 12 used two calls after the model had already selected three accepted ports and named the two requirements ready for review. The engine now reconstructs the identical candidate hash with the original root still open and mandatory review pending. The captured empty loop also reproduced the missing precondition in the original draft. The issued draft now states when a control body must include work or a bound output. [Exact closure replay, capture hashes and Windows tests](selected-claim-replay.json)
 
 ## Planner changes
 

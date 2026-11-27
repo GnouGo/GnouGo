@@ -215,6 +215,48 @@ public sealed class CompactAcceptedClosureTests
         }
     }
 
+    [Theory]
+    [InlineData("accepted")]
+    [InlineData("missing_port")]
+    [InlineData("unowned")]
+    [InlineData("invalidated")]
+    [InlineData("unrelated_claim")]
+    [InlineData("open_child")]
+    public async Task ExplicitBusinessClaimUsesOnlyItsAcceptedProducerPorts(string variant)
+    {
+        var state = await State(2);
+        var construction = state.Construction!;
+        foreach (var requirement in construction.Requirements) requirement.Status = "in_progress";
+        SelectBlock(state, ["req_0", "req_1"]);
+        var checkpoint = Assert.Single(construction.Checkpoints);
+        checkpoint.Step!.BlockId = variant == "unowned" ? "other" : construction.Compact!.CurrentBlockId;
+        checkpoint.ClosedRequirementIds = [];
+        checkpoint.RequirementIds = ["req_0"];
+        if (variant == "invalidated") checkpoint.InvalidatedTaskIds.Add("producer");
+        if (variant == "open_child") construction.OpenScopes.Add("/tasks/unfinished/body");
+        var input = Output("producer");
+        if (variant == "missing_port") input.Port = "missing";
+        construction.Compact!.CurrentStep = new()
+        {
+            Id = "claim", BlockId = construction.Compact.CurrentBlockId, Kind = "close", Scope = "/root",
+            DiscoveryComplete = true, BaseHash = PlanningConstruction.Hash(state.Plan), CloseScopes = [],
+            RequirementIds = ["req_0", "req_1"], CloseRequirementIds = [variant == "unrelated_claim" ? "req_1" : "req_0"],
+            Inputs = [input], DependencyTaskIds = ["producer"]
+        };
+        var prepared = PlanningCompactConstruction.PrepareSelectedClosure(state);
+        if (variant != "accepted")
+        {
+            Assert.Null(prepared);
+            return;
+        }
+        var candidate = prepared!.Construction!.Candidate!;
+        PlanningCompactConstruction.ValidateExtension(prepared, candidate);
+        Assert.Equal(["req_0"], candidate.Extension.RequirementIds);
+        Assert.Equal(PlanningConstruction.Hash(state.Plan), candidate.Hash);
+        Assert.False(candidate.BusinessReviewed);
+        Assert.All(construction.Requirements, requirement => Assert.Equal("in_progress", requirement.Status));
+    }
+
     [Fact]
     public async Task InitialExplicitBusinessClaimUsesDeclaredInputsWithoutInventingExecutableTasks()
     {

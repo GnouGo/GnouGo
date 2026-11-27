@@ -1,0 +1,261 @@
+{
+  "cases": {
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:02:29.5550000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")": {
+      "outcome": "Failed",
+      "elapsed": "00:03:15.8180000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 130631.5463
+    },
+    "GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests.ExactReadAuthorityCannotBeForgedOrTransferredToAnotherArtifactOrWorkspace": {
+      "outcome": "Passed",
+      "elapsed": "00:00:10.0440000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"missing\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:10.1230000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup\")": {
+      "outcome": "Failed",
+      "elapsed": "00:00:12.6760000",
+      "observed": "Browser snapshot shared timeout.",
+      "stage": "navigation",
+      "allowance_ms": 3000
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:31.3409999"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"null_href\")": {
+      "outcome": "Passed",
+      "elapsed": "00:00:39.9350000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:58.0780000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 129578.1913
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:30.8490000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete\")": {
+      "outcome": "Failed",
+      "elapsed": "00:00:14.6680000",
+      "observed": "Browser snapshot shared timeout.",
+      "stage": "selector",
+      "allowance_ms": 3000
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:58.6020000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 120661.3216
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:53.9010000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 126537.8786
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(defect: \"choice\", variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:02:16.9880000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup-indexed\")": {
+      "outcome": "Failed",
+      "elapsed": "00:00:26.6740000",
+      "observed": "Browser snapshot shared timeout.",
+      "stage": "startup",
+      "allowance_ms": 3000
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:03.0830000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"missing\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:29.4180000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"complete\")": {
+      "outcome": "Passed",
+      "elapsed": "00:02:03.7190000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:31.3930000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat\")": {
+      "outcome": "Failed",
+      "elapsed": "00:00:11.0879999",
+      "observed": "Browser snapshot shared timeout.",
+      "stage": "startup",
+      "allowance_ms": 3000
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"null_href\")": {
+      "outcome": "Failed",
+      "elapsed": "00:03:03.2700000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 123273.2753
+    },
+    "GnOuGo.Agent.Server.Tests.DiscoveryRestartHostTests.EncryptedPaginationSurvivesActualProcessExitWithoutRefetch": {
+      "outcome": "Passed",
+      "elapsed": "00:00:33.2800000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"complete\")": {
+      "outcome": "Failed",
+      "elapsed": "00:03:16.4670000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 139133.1065
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"repeated\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:18.5669999"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"one\")": {
+      "outcome": "Passed",
+      "elapsed": "00:00:33.6990000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"null_href\")": {
+      "outcome": "Passed",
+      "elapsed": "00:02:22.6960000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"empty_selection\")": {
+      "outcome": "Passed",
+      "elapsed": "00:00:27.8810000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:38.9139999",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 124339.5108
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:57.7930000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 128702.9139
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"complete\")": {
+      "outcome": "Passed",
+      "elapsed": "00:01:28.9479999"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+      "outcome": "Passed",
+      "elapsed": "00:03:01.9380000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:50.7270000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 120806.2009
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"missing\")": {
+      "outcome": "Passed",
+      "elapsed": "00:02:29.3740000"
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"repeated\")": {
+      "outcome": "Failed",
+      "elapsed": "00:03:08.8950000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 127514.1958
+    }
+  },
+  "historical_cases": 33,
+  "all_selected": 115,
+  "outcomes": {
+    "Passed": 19,
+    "Failed": 14
+  },
+  "trx_sha256": "13e7f9efc3c744dfd1d20614d474ccc35945dc7cc90ca3250218c1926e2b66dd",
+  "started": "2026-11-27T18:31:05.3274171+01:00",
+  "finished": "2026-11-27T20:44:33.8371875+01:00",
+  "source": "d6fd346cd1a6757d16f36413962f069bb27746ac",
+  "local_model_catalog_sha256": "3dae3a3fd77240a49f1b5787298031941680e86765ff54cd7b2b9b77389a2f20",
+  "full_selection": {
+    "Passed": 99,
+    "Failed": 16
+  },
+  "additional_failures": {
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"complete\")": {
+      "outcome": "Failed",
+      "elapsed": "00:02:42.0550000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 134702.223
+    },
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")": {
+      "outcome": "Failed",
+      "elapsed": "00:03:23.7110000",
+      "observed": "Explicit workflow elapsed-time limit during mapping inference.",
+      "allowance_ms": 120000,
+      "attempted_elapsed_ms": 152389.693
+    }
+  },
+  "assembly_provenance": "TRX names the Release test assembly. The listed copies in the same test output directory have source-stamped file versions and modification times before TRX start.",
+  "binaries": [
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "sourceVersion": "0.0.0-dev+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:30:19.9578765+01:00",
+      "sha256": "b2dd9a2ad46843bd49c4729a11f41b97ad65148cab7cc31b6e1fa9838b4a37a6"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:31:03.4860405+01:00",
+      "sha256": "4db0b8633be0110fd598ea30edbb34ed46ecd4ad2b0a6f45e7e57112be1230f2"
+    },
+    {
+      "name": "GnOuGo.AI.Core.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:26:36.0765076+01:00",
+      "sha256": "37934e76ef959f797d7ae5b73e3b9d6147aa40df3a11b54f981b7cb3b3e8d2b1"
+    },
+    {
+      "name": "GnOuGo.Browser.Mcp.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:29:49.2622133+01:00",
+      "sha256": "b6544e87a25425bcea9c01b39bb7e0bf95db785629d9c4a73583fa120b4a1755"
+    },
+    {
+      "name": "GnOuGo.Document.Mcp.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:29:52.9878936+01:00",
+      "sha256": "24488443b2e3bd4694314bf6eb138964aaf97ebb63c08d97b05b4057c839a767"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:25:54.1511826+01:00",
+      "sha256": "b939d936a8358f713790df7a585cd8749fb7e75476a06b037143468efefac1c4"
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:27:00.7054484+01:00",
+      "sha256": "41927ee9d986011cbc9b6ec85cd81cbcc8fb3211610300017c9af51da6d04792"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "sourceVersion": "1.0.0+d6fd346cd1a6757d16f36413962f069bb27746ac",
+      "modified": "2026-11-27T18:29:25.7121407+01:00",
+      "sha256": "c87abea555a6cfe9d9f9ec5078e74a77521ebd43b62352de2358811ee5bb0236"
+    }
+  ],
+  "interpretation": "All 33 historical cases also ran on hosted Windows at 284bf783. The machines and sources differ. The encrypted journal allocation microbenchmark and controlled-clock tests are separate experiments. These laptop results measure enforcement of real limits and do not identify the machine or the source change as the sole cause."
+}

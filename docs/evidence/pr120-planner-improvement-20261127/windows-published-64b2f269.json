@@ -1,0 +1,40 @@
+{
+  "source": "64b2f26998af70122b833b5898fba25982ba3113",
+  "platform": "Windows x64 self-contained partial trim",
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "fbf3bc27088e3325f98b73c34c48e5a335bb85a373a6e19a7258a8a81f6693cd"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.exe",
+      "version": "0.0.0-dev+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "404f454c38cc4200fcd2324e0e071700877d47a658e9ad896ae4015543c47ce3"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "3a55d58a588edf077b6bad56605b149cfbaa95983d8f45ef5ab6d8c23ec8ef48"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "6c6965db0cec8a3bce2adac53be4946313475b20616d0d88405a545a1e0bafb5"
+    }
+  ],
+  "started": "2026-11-27T20:54:48.2151819+01:00",
+  "finished": "2026-11-27T21:06:19.3033795+01:00",
+  "seconds": 691.0885887,
+  "smoke_exit": 0,
+  "smoke_log_sha256": "2c7de508e006ad5ee20ed61f2c462484e386ee060910449e01a6ac9c6ffa2b73",
+  "warnings": [
+    ": Query precompilation is an experimental feature and should be used with caution.",
+    ": NativeAOT support is experimental and can change in the future.",
+    ": Query precompilation is an experimental feature and should be used with caution.",
+    ": NativeAOT support is experimental and can change in the future.",
+    ": Query precompilation is an experimental feature and should be used with caution.",
+    ": NativeAOT support is experimental and can change in the future.",
+    "IL2101: Microsoft.AspNetCore.Components.Endpoints: Embedded XML in assembly 'Microsoft.AspNetCore.Components.Endpoints' contains assembly \"fullname\" attribute for another assembly 'Microsoft.AspNetCore.Components.Forms, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null'"
+  ]
+}

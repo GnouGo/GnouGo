@@ -1,0 +1,89 @@
+{
+  "source": "cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+  "run": "https://github.com/GnouGo/GnouGo/actions/runs/46057408878",
+  "outcomes": {
+    "Passed": 441
+  },
+  "cases": 441,
+  "matched_discovery_exactly": true,
+  "historical_cases": 33,
+  "additional_classes": [
+    "PlanningOutputLimitRecoveryTests",
+    "PlanningModelRecoveryTests",
+    "WorkflowPlanningBudgetSettingsTests",
+    "AmazonAaxWorkflowTests",
+    "AmazonCardReviewWorkflowTests",
+    "AmazonResolvedProductWorkflowTests",
+    "AmazonReviewProofWorkflowTests",
+    "AmazonResolvedStoreWorkflowTests",
+    "AmazonStoreListWorkflowTests",
+    "AmazonFirstProductsTests",
+    "CodeReviewCompositionTests",
+    "DelegatedTestReviewTests"
+  ],
+  "nonpassing": [],
+  "started": "2026-11-27T19:36:07.1810988+00:00",
+  "ended": "2026-11-27T20:05:51.5341247+00:00",
+  "trx_sha256": "1b84f549e03eeb0e29ac3c7719052b03be0c35a49765d509bf9fbc2ad484e5fb",
+  "assembly_manifest_sha256": "029ecb6b2506aab811c4b8412a604298504ec919aba76f62464a749ec21a8dcc",
+  "sorted_case_names_sha256": "bbd37d55435f46e3ee02a237c846375c9e07e9e2d408788ba84a2b72da43a996",
+  "by_class": {
+    "GnOuGo.Agent.Server.Tests.AmazonAaxWorkflowTests": 33,
+    "GnOuGo.Agent.Server.Tests.AmazonCardReviewWorkflowTests": 41,
+    "GnOuGo.Agent.Server.Tests.AmazonFirstProductsTests": 17,
+    "GnOuGo.Agent.Server.Tests.AmazonResolvedProductWorkflowTests": 37,
+    "GnOuGo.Agent.Server.Tests.AmazonResolvedStoreWorkflowTests": 34,
+    "GnOuGo.Agent.Server.Tests.AmazonReviewProofWorkflowTests": 31,
+    "GnOuGo.Agent.Server.Tests.AmazonStoreListWorkflowTests": 32,
+    "GnOuGo.Agent.Server.Tests.CodeReviewCompositionTests": 33,
+    "GnOuGo.Agent.Server.Tests.DelegatedTestReviewTests": 133,
+    "GnOuGo.Agent.Server.Tests.DiscoveryRestartHostTests": 1,
+    "GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests": 1,
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests": 31,
+    "GnOuGo.Agent.Server.Tests.PlanningModelRecoveryTests": 9,
+    "GnOuGo.Agent.Server.Tests.PlanningOutputLimitRecoveryTests": 2,
+    "GnOuGo.Agent.Server.Tests.WorkflowPlanningBudgetSettingsTests": 6
+  },
+  "binaries": [
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "F11472BA1F3B7B13B18FCC096968D66C4DB5E975C914DF58E604E46ED176380D"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "5C7351014B552E65CDE30A0F28FDF99E207F451E998CF96E9963E95EC18BF8DF"
+    },
+    {
+      "name": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "F26741D42A04DC280D55573DC43C82F6A37674939B526A905607FE5DE4E67F6B"
+    },
+    {
+      "name": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "A47641B5D1A1E63EFD7E53F8E0A24A8503EC8CBEEAEF6375E0A096DF08F7E105"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "98781E534FA4C6C0B6EAB6E5E0AAC47A76233F919DE8BF8E5693F0DA5BE2B59E"
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "316159F5E9FBA40C2954389CCE7406F1A246BE380D569F945AF58663E56ED80D"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "7184A65F81485CB0D5EE6C547074DB42BAFFFE9622AA65D68D4D9F5F2C46D533"
+    },
+    {
+      "name": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+cf3c8bd7a2a605964e554bb7962832ef89ea7733",
+      "sha256": "67BB8764E8D4EE22591380E937464A0FE454A4CBAB3079559E4045C80C58A864"
+    }
+  ]
+}

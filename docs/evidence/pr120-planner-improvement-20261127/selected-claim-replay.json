@@ -1,0 +1,57 @@
+{
+  "storedPendingPreserved": true,
+  "decisionMatchesOriginal": true,
+  "priorCandidateHash": "0a09e05b2b0de71a62d9068f67c5eea0335739db5d34ecee6e766c8ca9f0ae61",
+  "selectedSources": [
+    "capture_assessment.clearCapture",
+    "capture_assessment.observedReason",
+    "resolved_selection.selection"
+  ],
+  "claimIds": [
+    "req_2",
+    "req_3"
+  ],
+  "openScopes": [
+    "/root"
+  ],
+  "mandatoryReviewPending": true,
+  "preflightOrSemanticFindings": 0,
+  "originalCalls": [
+    32,
+    33
+  ],
+  "oldDraftHasOpeningRule": false,
+  "newDraftHasOpeningRule": true,
+  "live_source": "64b2f26998af70122b833b5898fba25982ba3113",
+  "run": "improve40-amazon-20261127-195137",
+  "method": "Offline reconstruction of the decision before call 32 using its retained selection. First verified the issued call cannot be superseded, then removed its pending marker in memory to inspect the counterfactual pre-dispatch decision. The calculated candidate matches the original submitted to review at call 34. No model call or business execution in this replay.",
+  "exchanges_sha256": {
+    "42": "680e0fa7d84d1610b7652f43a7c2af9e132a65c0adf1389aeac4e604df27ea2b",
+    "43": "c996048e72d3cdb050c6e965931a5089440044c072b0dfdfe5988f9a07b65e44",
+    "34": "9d82b48e6e49a57bd906f7ed73223137d2d11849d2182ed566f322a4dc0aea0f",
+    "31": "957fb6693e57c0929bc5cb4ec83ba0c4ef47f7cf9666645ec238a439228c10df",
+    "41": "ffc6e0ebac7b5779097f1466ce91b09692e69702c759cf3b07264797be59262d",
+    "32": "600833ef461c302598b37bb3361c4abcd305ba085b288f7014092d8061891b9b",
+    "33": "07a962295d3c4fe4764f68e05904b6b0f196e4d19d09c550820fa9cc6d5955a8"
+  },
+  "precommit_test_artifacts": {
+    "pr120-claim.trx": {
+      "passed": 161,
+      "failed": 0,
+      "total": 161,
+      "sha256": "eae8041c3068c013edcbd9265d636147854c84dde2e16da06d1bacda4b1062ee"
+    },
+    "pr120-closure-scope-full.trx": {
+      "passed": 3400,
+      "failed": 0,
+      "total": 3400,
+      "sha256": "390d5e3f0911e34226b0383ab8a49cd144bd2c845fd495a5651133d7b8f51737"
+    }
+  },
+  "full_suite_basis": "The 3,400-case suite includes the corrected continuing-cursor fixture on the previous product source. The 161 focused cases also include the claim and control-draft changes.",
+  "precommit_replay_assemblies": {
+    "GnOuGo.Flow.Core.dll": "c18720613c91f970f4187d1a4dba70c35ed5b67e1721a926b58c382e8574717a",
+    "GnOuGo.Flow.Planning.dll": "89b4a2c2f0ca24ef8b9a093876d0e16711ec4c809eef77fcff50a1457a9a0196",
+    "GnOuGo.Flow.Planning.Tests.dll": "69660e1954560ffd83eec6fbf44d6f3ecaa2fdfb741b6d0e0112d3de6a3adc63"
+  }
+}

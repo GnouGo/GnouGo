@@ -328,12 +328,16 @@ public sealed class CompactConstructionClosureTests
             PlanningCompactConstruction.ValidateExtension(state, PlanningConstruction.Apply(state, extension))).Diagnostics,
             d => d.Code == "CONSTRUCTION_BLOCK_CONTINUATION_INVALID");
 
-        wire["extension"]!["continueInScope"] = null;
+        var cursor = wire["extension"]!.AsObject();
+        cursor["continueInScope"] = null;
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
-        wire["extension"]!["continueInScope"] = "/root";
-        wire["extension"]!["boundaryTransitions"] = null;
-        Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
-        wire["extension"]!["boundaryTransitions"] = new JsonArray();
+        cursor["continueInScope"] = "/root";
+        cursor.Remove("continuationBinding");
+        cursor["boundaryTransitions"] = null;
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        cursor["boundaryTransitions"] = new JsonArray();
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        cursor.Remove("boundaryTransitions");
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
     }

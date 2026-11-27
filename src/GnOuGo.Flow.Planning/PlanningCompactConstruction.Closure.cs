@@ -153,19 +153,21 @@ internal static partial class PlanningCompactConstruction
     {
         var construction = state.Construction!; var compact = State(state);
         if (compact.CurrentStep is not { Kind: "close", DiscoveryComplete: true, CloseScopes: not null } step ||
-            step.BaseHash != PlanningConstruction.Hash(state.Plan) || step.CloseRequirementIds.Count > 0 ||
+            step.BaseHash != PlanningConstruction.Hash(state.Plan) ||
             compact.ReplacementScope is not null && !WithdrewTentativeRequirementClosure(state) ||
             compact.ResumingStepId is not null || step.ContinuationBinding is not null ||
             compact.PendingCommitments.Any(item => item.Value.Count > 0) || construction.RebuildTasks.Count > 0)
             return null;
+        var claims = step.CloseRequirementIds;
+        if (claims.Count > 0 && !HasAcceptedClaimInputs(state, step)) return null;
         var checkpoint = step.ReuseScopeOutputs ? AcceptedScopeCheckpoint(state, step.Scope)
-            : step.CloseScopes.Count == 0 && CanClaimCurrentBlockCompletion(state) ? BusinessBlockCheckpoints(state).Last() : null;
+            : step.CloseScopes.Count == 0 && HasAcceptedCompletionBasis(state) ? BusinessBlockCheckpoints(state).Last() : null;
         if (checkpoint is null) return null;
         ValidateSelectedCloseScopes(state, step);
         var probe = CloneTransitionState(state);
         probe.Construction!.Candidate = PlanningConstruction.Apply(probe, new()
         {
-            Scope = step.Scope, RequirementIds = step.RequirementIds.ToList(),
+            Scope = step.Scope, RequirementIds = (claims.Count > 0 ? claims : step.RequirementIds).ToList(),
             CloseScopes = step.CloseScopes.ToList(), CompleteBlock = !step.ReuseScopeOutputs
         });
         // Selecting an existing public output does not change its binding.
@@ -179,10 +181,30 @@ internal static partial class PlanningCompactConstruction
             ["reason"] = step.ReuseScopeOutputs ? "The selection preserves the accepted leaf exports and keeps the business block open for review." :
                 "The explicit block-completion claim preserves accepted work and requires ordinary business review. No workflow scope or original requirement is closed.",
             ["baseline"] = step.BaseHash, ["scope"] = step.Scope, ["block"] = step.BlockId,
-            ["requirements"] = new JsonArray(step.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
+            ["requirements"] = new JsonArray(probe.Construction.Candidate.Extension.RequirementIds.Select(id => (JsonNode?)JsonValue.Create(id)).ToArray()),
             ["checkpoint"] = checkpoint.Sequence
         });
         return probe;
+    }
+
+    private static bool HasAcceptedClaimInputs(PlanningSession state, PlanningConstructionStep step)
+    {
+        var compact = State(state);
+        if (state.Plan is not { } plan || step.Scope != "/root" || !state.Construction!.OpenScopes.SequenceEqual(["/root"]) ||
+            step.CloseScopes?.Count != 0 || step.ReuseScopeOutputs || step.Prerequisites?.Count > 0 ||
+            step.OperationIds.Count > 0 || step.OutputNames.Count > 0 || step.Inputs.Count == 0 ||
+            compact.ReplacementScope is not null || compact.SuspendedSteps?.Any(Active) == true) return false;
+
+        var sources = step.Inputs.Select(input => input.Source).OfType<string>().ToHashSet(StringComparer.Ordinal);
+        if (!sources.SetEquals(step.DependencyTaskIds)) return false;
+        var contributions = BusinessBlockCheckpoints(state).Where(checkpoint => checkpoint.TaskIds.Any(sources.Contains)).ToArray();
+        var symbols = new TaskPlanSymbols(plan);
+        return step.CloseRequirementIds.All(id => step.RequirementIds.Contains(id) && CanClaimRequirementCompletion(state, id) &&
+                contributions.Any(checkpoint => checkpoint.RequirementIds.Contains(id))) &&
+            step.Inputs.All(input => input is { Kind: "output", Source: { } source, Port: { } port } &&
+                contributions.Any(checkpoint => checkpoint.TaskIds.Contains(source)) &&
+                symbols.Tasks.TryGetValue(source, out var site) && site.Scope.Path == step.Scope &&
+                NavigationPorts(state, site.Task).Contains(port, StringComparer.Ordinal));
     }
 
     internal static void ValidateSelectedCloseScopes(PlanningSession state, PlanningConstructionStep step)

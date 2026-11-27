@@ -581,3 +581,5 @@ When a suspended consumer cites an exact MCP contract and a fragment binds its n
 An unfinished block can export an already accepted task result in a separate draft. The coordinator validates each proposed boundary binding against the current plan, declared public outputs and waiting consumers. The accepted transition applies those exports at the next checkpoint. The block and its obligations remain open for review.
 
 A draft that continues in a scope has no deferred boundary export or continuation binding to declare. Its response schema omits those fields. Finishing the cursor exposes the eligible bindings for review.
+
+When a selected root closure cites accepted output ports for specific requirements, the coordinator can submit those exact claims to business review. It verifies that the selected dependencies own the cited ports, that the current block contributed to each claimed requirement and that all child scopes are closed. Review receives the unchanged plan and the selected requirements. An unresolved prerequisite, missing port or pending draft retains the ordinary drafting path.

@@ -96,7 +96,9 @@ internal static partial class PlanningCompactConstruction
                 string.Join(", ", NestedControlKinds) + (step.OperationIds.Count > 0 ? " and selected operation tasks." : " tasks.") +
                 FormattableString.Invariant($" Set foreach.itemLimit (1..{TaskPlanCompiler.MaximumIterationItems}) beside items and body on each loop, including inner loops. When a producer enumerates the remaining arguments, iterate that ordered collection once. Guard a nullable collection on the loop and put each item's checks beside its consumer. A fixed chain of conditionals cannot cover an unknown runtime count.")
             : "";
-        if (createsScopes) controlGuidance += " " + PlanningSchemas.BinaryGuardGuidance;
+        if (createsScopes)
+            controlGuidance += " " + PlanningSchemas.BinaryGuardGuidance +
+                " Include executable work or a bound output when opening a control or group. A fragment containing only empty bodies requires an existing evidence-linked unresolved prerequisite. Moving continueInScope into a body does not supply that prerequisite.";
         if (kinds.Contains("conditional") && step.OperationIds.Count > 0)
             controlGuidance += " A selected operation can run in just one branch. The other branch can return an existing value. An agent's verification applies when that agent runs.";
         var scopeChoices = new JsonArray();

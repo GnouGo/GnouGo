@@ -1,0 +1,163 @@
+{
+  "source": "64b2f26998af70122b833b5898fba25982ba3113",
+  "frozen_assemblies": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "54f7be7cbbc7f21f89c4eeb4d77a7ed4396992ca6147e44a66a79ddf9493e694"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "6b2e89bc876f51db8f3e491d3faefd52dab0d604d41ad67d93a39624de140f7e"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "7d2c6cacdf311e508bd8d94283cbe447de54e6b2c3eb8ee1c88bf3b4367adede"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "515ad6fe85a6c313e5699ec5018fdbeb7058458ec489ba9ac52b3b7fa6164f61"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "b08621c4fbde8b8087d85467bd7fcf2e4057ce322e7104fd2a04f1772a85bc62"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "4f28fbd82ff6e7b81880380a021687410ae505658e08643e1988969cbdd3f72a"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "16bac97d1f8c280c3f8c0977f8312516f74cae069a4bf7a11684193577146e9a"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "f950143074d0ac95d794379c4602b1fd41a5d79d467d4cffc50b3050cf678be2"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "ab096f58eff32707e9d2c31c653fdd397397553a330b45f43d840ca5c4696046"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "559ac9fde0d40ab6ead0d149f382cd0dae634132f334ccb7053a34d6ac3d95dc"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+64b2f26998af70122b833b5898fba25982ba3113",
+      "sha256": "da0636a2079368593d75d97e3cea1ffabfacca93b937d0f495f2b4ded5ef7730"
+    }
+  ],
+  "offline_provider_calls": 0,
+  "full_candidates": {
+    "baseline": {
+      "phase": "review",
+      "status": "final_review",
+      "diagnostics": [],
+      "compiled_yaml_bytes": 249681,
+      "yaml_sha256": "0fdda7d1d69d37e3d43564734f1f587dc07f4c1899f2411905f0b7ddfe37bf55",
+      "report_sha256": "f28bd1b246534891796da01eb3a7050b50194789012b79cfc1f8ee9a434962a8"
+    },
+    "composed": {
+      "phase": "review",
+      "status": "final_review",
+      "diagnostics": [],
+      "compiled_yaml_bytes": 234402,
+      "yaml_sha256": "7100c8bf506e55b6bed126befe8187da4a912d0c7f09721516e35598477d155b",
+      "report_sha256": "1f880daac8876b8c233c8d73206203a5a0c7ab20014850dcfbb6dee0b266a7b1"
+    },
+    "slimfaas": {
+      "phase": "review",
+      "status": "final_review",
+      "diagnostics": [],
+      "compiled_yaml_bytes": 16473,
+      "yaml_sha256": "e5d41747fe8cf39beedcda0f4cdf25ae61939ba55d212b73888676086bca96fe",
+      "report_sha256": "21dba4031b90a6e7c8633057e3e3cb11b6f89361216c54f17a1151815cd2f46d"
+    }
+  },
+  "original_consumers": {
+    "14": {
+      "suspended_step": "continuation_0",
+      "status": "resuming",
+      "state_sha256": "6771382abce754d5b9c3f09ef3707a9a7b66c8255d0ea7f33933b43b1eb5d75c",
+      "session_id": "305fa4b27cf042b8b26433eb1d15c3c3"
+    },
+    "15": {
+      "suspended_step": "continuation_0",
+      "status": "resuming",
+      "state_sha256": "8e45c9c538dc320a84186d8df9d5937faf95ef601cd4a7c6063d7b40faebec16",
+      "session_id": "305fa4b27cf042b8b26433eb1d15c3c3"
+    }
+  },
+  "same_block_exports": {
+    "checkpoints": 5,
+    "exports": {
+      "capture_clear": "assess_capture.clear",
+      "observed_reason": "assess_capture.reason"
+    },
+    "sha256": "ed763651ae11b90f5300c0887ab0cac01ac6de034778d89b6060cbdd124df093"
+  },
+  "cursor": {
+    "wireBefore": true,
+    "wireAfter": true,
+    "emptyFieldRejectedOnNewWire": true,
+    "candidateDiagnostics": [],
+    "taskCount": 2,
+    "acceptedCheckpoints": 3,
+    "continuingScope": "/root"
+  },
+  "stalled_guard_replays": {
+    "captures": {
+      "7": {
+        "run": "improve40-amazon-20261127-143825",
+        "exchange_sha256": "99caddfeb1c8b389bdf0495cba8920286c603c95522a0fd2b98daf89e2bd14f7",
+        "raw_response_sha256": "2e9ee6f31409021ca65a3eb803e5a22f26106988bf334978a4dbad4746d62d2f",
+        "useful_prefix_characters": 786,
+        "trailing_structural_whitespace": 17494,
+        "input_tokens": 24996,
+        "output_tokens": 4096,
+        "reasoning_tokens": 405,
+        "stop_position": "after the items array of the second equality in a binary conjunction",
+        "original_draft_explained_pairing": false,
+        "new_draft_explains_pairing": true,
+        "binary_guard_valid_in_both": true,
+        "nested_third_operand_valid_in_both": true,
+        "flat_third_operand_rejected_in_both": true
+      },
+      "10": {
+        "run": "improve40-amazon-20261127-182713",
+        "exchange_sha256": "25fbc6c7b4525954bd26c913540549cfd19a69e446c7ebcc26f591ffc7c6cb35",
+        "raw_response_sha256": "811a2e0924aae6220023243430e250e1a1fa1deaa8b81865e9759fc4f31023b7",
+        "useful_prefix_characters": 620,
+        "trailing_structural_whitespace": 59557,
+        "input_tokens": 15786,
+        "output_tokens": 4096,
+        "reasoning_tokens": 39,
+        "stop_position": "after the items array of the second equality in a binary conjunction",
+        "original_draft_explained_pairing": false,
+        "new_draft_explains_pairing": true,
+        "binary_guard_valid_in_both": true,
+        "nested_third_operand_valid_in_both": true,
+        "flat_third_operand_rejected_in_both": true
+      }
+    },
+    "interpretation": "Both original responses are incomplete. Closing the isolated guard tests whether the captured prefix is a legal grammar prefix. The provider did not emit the closing tokens. Its reason for stalling is not observable. The pairing instruction was absent from both original prompts and present in both regenerated drafts. No case rewrites the response or dispatches a model call."
+  },
+  "precommit_permission_fixtures": {
+    "base": "a01d8509",
+    "changes_in": "64b2f26998af70122b833b5898fba25982ba3113",
+    "passed": 264,
+    "failed": 0,
+    "total": 266,
+    "trx_sha256": "fa985d899e447988c63c2cb6fbfbb1dc3b0dc2fc3feae6f6f9ed96e8e99fd6fd"
+  }
+}
