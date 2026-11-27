@@ -1,3 +1,4 @@
+using GnOuGo.AI.Core;
 using Microsoft.Extensions.Configuration;
 
 namespace GnOuGo.Flow.Copilot;
@@ -10,17 +11,30 @@ public sealed record CopilotRunnerConfiguration(
     public IConfiguration? Host { get; init; }
     public static CopilotRunnerConfiguration Read(IConfiguration configuration)
     {
-        var profiles = configuration.GetSection("Flow:AgentRunners");
-        var runners = (profiles.Exists() ? profiles : configuration.GetSection("Flow:CopilotRunners")).GetChildren()
-            .ToDictionary(runner => runner.Key, runner => RequiredValue(runner), StringComparer.Ordinal);
+        var current = ReadSections(configuration.GetSection("Flow:AgentRunners"), configuration.GetSection("Flow:AgentTools"));
+        var legacy = ReadSections(configuration.GetSection("Flow:CopilotRunners"), configuration.GetSection("Flow:CopilotTools"));
+        var runners = new Dictionary<string, string>(current.Runners, StringComparer.Ordinal);
+        var tools = new Dictionary<string, IReadOnlyList<CopilotToolBinding>>(current.Tools, StringComparer.Ordinal);
+        foreach (var (name, profile) in legacy.Runners)
+            if (runners.TryAdd(name, profile) && legacy.Tools.TryGetValue(name, out var scope))
+                tools.Add(name, scope);
+        return new(runners, tools) { Host = configuration };
+    }
+
+    public static Dictionary<string, McpServerOptions> WorkflowMcpServers(Dictionary<string, McpServerOptions> servers) =>
+        servers.Where(pair => !string.Equals(pair.Key, "GnOuGo.GithubCopilot.Mcp", StringComparison.OrdinalIgnoreCase))
+            .ToDictionary(pair => pair.Key, pair => pair.Value, servers.Comparer);
+
+    private static CopilotRunnerConfiguration ReadSections(IConfigurationSection profiles, IConfigurationSection toolSection)
+    {
+        var runners = profiles.GetChildren().ToDictionary(runner => runner.Key, RequiredValue, StringComparer.Ordinal);
         var tools = new Dictionary<string, IReadOnlyList<CopilotToolBinding>>(StringComparer.Ordinal);
-        var toolSection = configuration.GetSection(profiles.Exists() ? "Flow:AgentTools" : "Flow:CopilotTools");
         if (!string.IsNullOrEmpty(toolSection.Value))
             throw new InvalidOperationException($"Declare MCP tool scopes per runner under '{toolSection.Path}'.");
         foreach (var scope in toolSection.GetChildren())
         {
             if (!runners.ContainsKey(scope.Key))
-                throw new InvalidOperationException($"No Copilot runner is configured for '{scope.Path}'.");
+                throw new InvalidOperationException($"No agent runner is configured for '{scope.Path}'.");
             var bindings = new List<CopilotToolBinding>();
             foreach (var server in scope.GetChildren())
             {
@@ -33,7 +47,7 @@ public sealed record CopilotRunnerConfiguration(
                 throw new InvalidOperationException($"Declare at least one MCP tool at '{scope.Path}'.");
             tools.Add(scope.Key, bindings);
         }
-        return new(runners, tools) { Host = configuration };
+        return new(runners, tools);
     }
 
     private static string RequiredValue(IConfigurationSection section) => !string.IsNullOrWhiteSpace(section.Value)

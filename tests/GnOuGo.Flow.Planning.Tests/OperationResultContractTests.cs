@@ -47,6 +47,14 @@ public sealed class OperationResultContractTests
             Assert.True(JsonNode.DeepEquals(expected["evidence"], envelope["evidence"]));
             Assert.True(JsonNode.DeepEquals(expected["usage"], envelope["usage"]));
             Assert.True(JsonNode.DeepEquals(expected["artifacts"], envelope["artifacts"]));
+            var contract = catalog.Capabilities.Single(c => c.StepType == "agent.run").OutputSchema;
+            Assert.Empty(PlanningContractValidation.ValidateInstance(envelope, contract));
+            var failed = envelope.DeepClone();
+            failed["verification"]![0]!["passed"] = false;
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(failed, contract));
+            failed = envelope.DeepClone();
+            failed["status"] = "needs_reconciliation";
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstance(failed, contract));
             Assert.Equal("completed", envelope["status"]!.ToString());
             Assert.True(envelope["verification"]![0]!["passed"]!.GetValue<bool>());
             Assert.Equal("check", envelope["verification"]![0]!["requirement_id"]!.ToString());

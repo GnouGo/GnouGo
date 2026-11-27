@@ -9,6 +9,33 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CompactConstructionClosureTests
 {
     [Fact]
+    public void DeferredExportUsesOnlyTheSelectedResolvedContractWithoutChangingTheAcceptedCatalog()
+    {
+        var state = State();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.Kind = "operation";
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        step.OperationIds = ["deliver"];
+        var extension = Leaf(false);
+        extension.Tasks = [new() { Id = "deliver_message", Kind = "operation", Operation = "deliver",
+            Objective = "Deliver the requested message." }];
+        extension.BoundaryTransitions = [new() { Scope = "/root", RequirementIds = ["req"],
+            Outputs = [new("message", new() { Kind = "output", Source = "deliver_message", Port = "message" })] }];
+        extension.Outputs = [];
+        var candidate = PlanningConstruction.Apply(state, extension);
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics, d => d.Code == "TASK_OPERATION_UNKNOWN");
+        state.Discovery.Resolved.Add(new() { Id = "deliver", StepType = "mcp.call",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}""")!.AsObject() });
+        PlanningCompactConstruction.ValidateExtension(state, candidate);
+        Assert.Empty(state.Catalog!.Capabilities);
+        step.OperationIds.Clear();
+        Assert.Contains(Assert.Throws<PlanningResponseException>(() =>
+            PlanningCompactConstruction.ValidateExtension(state, candidate)).Diagnostics, d => d.Code == "CONSTRUCTION_STEP_INVALID");
+    }
+
+    [Fact]
     public void ReadyLeafRetainsOneDraftCompletion()
     {
         var state = State();

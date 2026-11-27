@@ -145,7 +145,7 @@ public sealed class CapabilityDiscovery(WorkflowEngine engine) : ICapabilityCata
             if (string.IsNullOrWhiteSpace(declared.Description) || PlanningContractValidation.ValidateSchema(declared.InputSchema).Count > 0)
                 throw new CapabilityDiscoveryException("invalid_contract", "The task runner declares an invalid contract.");
             capabilities.Add(new() { Id = Identity(id, "agent", selectedRunner.Key), Method = selectedRunner.Key, Kind = "agent", StepType = "agent.run", EffectKind = "execute",
-                Description = declared.Description, InputSchema = declared.InputSchema.DeepClone().AsObject(),
+                Description = declared.Description + " " + AgentRunExecutor.ResultGuarantee, InputSchema = declared.InputSchema.DeepClone().AsObject(),
                 OutputSchema = new AgentRunExecutor().Contract.OutputSchema.DeepClone().AsObject(), FixedInput = new() { ["runner"] = selectedRunner.Key } });
         }
         else

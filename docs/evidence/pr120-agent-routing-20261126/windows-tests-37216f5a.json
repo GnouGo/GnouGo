@@ -1,0 +1,37 @@
+{
+  "source": "37216f5a26549f5f102a76e034d73f089640df3c",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "tests": [
+    {
+      "trx": "TestResults/agent-routing-qualification/normal-server-37216f5a.trx",
+      "sha256": "63b4fc06442e7f9a428380bca7182835704e2b1c1c1a3400aa4dd0327a141593",
+      "result": "Completed",
+      "counts": {
+        "total": 188,
+        "executed": 188,
+        "passed": 188,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/reviewed-rebuild-37216f5a.trx",
+      "sha256": "8e7cffc44ac8702ecd693c91e69556fb747f4340f7defa3d23643ea2de2530b5",
+      "result": "Completed",
+      "counts": {
+        "total": 142,
+        "executed": 142,
+        "passed": 142,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    }
+  ]
+}

@@ -413,7 +413,7 @@ Standalone MCP hosts still expose `/mcp` directly in their own projects:
 
 ## Bundled stdio MCP tools
 
-The base `appsettings.json` now enables `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.GithubCopilot.Mcp`, and `GnOuGo.Git.Mcp` for non-development runs using bundled executable paths:
+The base `appsettings.json` registers `GnOuGo.Browser.Mcp`, `GnOuGo.Cmd.Mcp`, `GnOuGo.Document.Mcp`, `GnOuGo.GithubCopilot.Mcp`, and `GnOuGo.Git.Mcp` using bundled executable paths. The external Copilot MCP remains available to explicit clients. The workflow hosts select the managed code SDK directly and expose the configured business MCP servers to workflows.
 
 ```json
 {

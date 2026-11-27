@@ -85,11 +85,12 @@ internal static partial class PlanningCompactConstruction
         probe.Plan = PlanningConstruction.Clone(candidate.Plan);
         probe.Construction!.OpenScopes = candidate.OpenScopes.ToList();
         probe.Construction!.Candidate = null;
+        PlanningConstruction.AdmitResolvedOperations(probe, candidate.Plan);
         foreach (var claim in OrderedBoundaryClaims(candidate.Plan, claims))
         {
             probe.Construction.Compact!.CurrentStep = BoundaryStep(probe, claim);
             var projected = PlanningConstruction.Apply(probe, BoundaryExtension(claim));
-            var validation = TaskPlanCompiler.ValidateConstruction(projected.Plan, state.Catalog!, state.Request,
+            var validation = TaskPlanCompiler.ValidateConstruction(projected.Plan, probe.Catalog!, probe.Request,
                 projected.OpenScopes.ToHashSet(StringComparer.Ordinal));
             if (validation.Diagnostics.Count != 0) throw new PlanningResponseException(validation.Diagnostics.ToList());
             probe.Plan = projected.Plan; probe.Construction.OpenScopes = projected.OpenScopes;

@@ -25,22 +25,25 @@ internal static class AmazonFirstProductsPolicy
             occupied.Add(slot);
         }
     }
-    internal const string PlanningFacts = "Use the input query at amazon.fr/s and capture the full rendered source with browser_get_content, format=observation_complete, omitting selector. " +
-        "The configured Browser already captures data-asin in observationSnapshot.pages[].records[].ancestorAttributes. Use that structured source directly. A URL-less read needs a current issued cursor and observation or observation_pages format. " +
-        "On the initial search set prefixAttribute=data-asin and prefixGroups=10. Bind observationSnapshot.linkPrefix alone to the ordered selection stage. Browser constructs this view across all pages through ten distinct populated groups and retains earlier empty groups. " +
-        "On this configured source, observedSourceAccepted=true confirms a successful 2xx GET, complete owned capture and publication of the requested linkPrefix. An empty link list is still a present prefix. Check page content separately for challenge or error evidence. The selection branch needs both a usable source and a clear page. If the source or prefix is missing, return its observed absence as the failure reason. Supply the source flag and presence checks to any assessment that produces this reason. " +
-        "Its ancestors table and links in original order expose group identity, heading membership, descriptive routes and literal hrefs for empty groups and primary links. Only a literal href can authorize a GET. Page/offset reconnects any link to its exact original record. " +
-        "A present prefix href already satisfies the Browser absolute HTTP(S) navigation syntax. Carry that same string pattern in the selected-product href output schema and copy the observed value verbatim into the detail GET. Preserve encoded query parameters; transforming or decoding a signed link can change its destination. " +
-        "One bounded adaptive selection can scan that prefix sequentially, resolving only necessary empty groups with their observed hrefs and stopping as soon as ten products are established. Return ordered source positions for separate business visits. A populated attribute still requires product evidence. " +
-        "Give the selection a single owner. Require status, ordered products array and reason in every structured selection result. Carry only actually observed products on partial or empty outcomes. A missing array is invalid. Feed the same result to the eligibility decision. On complete status with ten entries, iterate its products once in a sequential loop for the detail visits. Preserve the observed reason on other outcomes. " +
-        "Keep the complete observations in workflow data. If the prefix falls short use further original groups in order or report the observed shortfall. " +
-        "Each observation_complete detail visit already provides compact detail-field candidates in observationSnapshot.textMatches.records, in page order with exact text, selector and source reference. Bind this compact view to the field extraction together with visit status, page identity and any observed error. Guard absent or truncated views and preserve source uncertainty. Passing every record's text, the whole Browser result, rendered HTML or full snapshot to inference can exceed its context. " +
-        "Keep the original ordered cards, data-asin and semantic occurrence; count sponsored products and repeated occurrences. Stop selection after the first ten products. " +
-        "A known card can identify its non-heading review and offer anchors from card membership; retain these records without visiting them. Choose the observed product heading, or a same-card product link when the card has no heading. " +
-        "Resolve earlier empty-ASIN sponsored entries in original order using their own observed GETs; a verified store or listing is not a product. A necessary observed /deals read may redirect to the exact /blackfriday listing. " +
-        "Do not invent URLs, skip ambiguous earlier products, or count a source proof as a business visit. Visit each selected product separately in original order and extract Nom, Description and Prix from that detail page. " +
-        "Distinguish an observed product with an unavailable field from an HTTP 200 challenge or error page. Branch on ten eligible rows and successful product visits before writing. Put write and readback together in that branch. The other branch returns the observed failure reason. A write precondition cannot return that result. " +
-        "Write the actual XLSX, return it and close Browser on completion or failure. " + AmazonObservedRedirectPolicy.AcquisitionGuarantees;
+    internal const string PlanningFacts =
+        "Acquire the encoded input query at amazon.fr/s with browser_get_content, format=observation_complete and no selector. " +
+        "Set prefixAttribute=data-asin and prefixGroups=10. The complete search retains observationSnapshot.pages[].records[].ancestorAttributes. " +
+        "observedSourceAccepted=true establishes the observed 2xx GET, complete capture and publication of the requested prefix, including an empty link list. " +
+        "Check the captured pages for a challenge or error. If the source, prefix or clear page is missing, return the actual reason. " +
+        "Bind observationSnapshot.linkPrefix alone to ordered selection. Its links and ancestor table retain original order, grouping, heading, href and page/offset. " +
+        "Select the first ten actual product occurrences, including sponsored cards and repeated ASINs. Use the heading or a same-card product link when no heading exists. " +
+        "Keep auxiliary reviews and offers associated with their cards. A populated ASIN alone does not establish a product. " +
+        "Resolve only earlier ambiguous empty-ASIN groups using their exact observed hrefs in order. A necessary observed /deals GET may redirect to /blackfriday. Exclude stores and listings. " +
+        "Use one bounded agent only where observations determine further GETs. A complete unambiguous list needs no extra navigation. " +
+        "Stop selecting at ten. A short prefix requires further original groups in order or an explicit observed shortfall. " +
+        "Return a single selection with status, ordered products and reason. Retain only observed entries on partial or empty outcomes. " +
+        "Copy verbatim each signed absolute href. Keep the same string pattern in the selected-product href output schema. " +
+        "On complete status and ten entries, visit the ten exact hrefs with one sequential loop. Source resolutions are separate from product visits. " +
+        "Each observation_complete detail GET exposes observationSnapshot.textMatches.records in original page order with text, selector and source reference. " +
+        "Bind this compact view to the field extraction together with visit status, page identity and any observed error. Reject challenges, errors and incomplete evidence. " +
+        "Preserve unavailable fields explicitly. On ten eligible rows from successful detail visits, write and independently reopen the workbook. Otherwise return the observed failure. " +
+        "Close Browser in the enclosing workflow's cleanup. A URL-less page read requires a current issued cursor and observation or observation_pages format. " +
+        AmazonObservedRedirectPolicy.AcquisitionGuarantees;
 
     internal static string RunPathFacts(string directory)
     {

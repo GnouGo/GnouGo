@@ -1,0 +1,10 @@
+{
+  "probe": "planning discovery replay with the retained Amazon browser contract",
+  "reference_session": "58590fa82d5d4ec0a064637eb54b8aac",
+  "previous_description_characters": 20363,
+  "current_description_characters": 4171,
+  "same_pinned_capability": true,
+  "same_tool_description": true,
+  "workflow_model_calls": 0,
+  "source": "1ee7e7e06661d5af0ffdb70947dadd33761c538e"
+}

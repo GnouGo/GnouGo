@@ -61,7 +61,7 @@ internal static class PlanningSchemas
                 Described(Object(("kind", Enum("string_operation")), ("text", Enum("concat")), ("items", Array(Ref("value"), 2, 16))), "Concatenate established nonnullable strings in order, without coercion or interpolation."),
                 Described(Object(("kind", Enum("string_operation")), ("text", Enum("uri_component")), ("items", Array(Ref("value"), 1, 1))), "Encode one nonnullable string as a URI component using encodeURIComponent; this does not validate or authorize a URL."),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("not")), ("items", Array(Ref("guard"), 1, 1))),
-                Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or")), ("items", Array(Ref("guard"), 2, 2))),
+                Described(Object(("kind", Enum("predicate")), ("predicate", Enum("and", "or")), ("items", Array(Ref("guard"), 2, 2))), "Two Boolean operands. For three or more conditions nest the next pair inside the second operand, e.g. and(a,and(b,c))."),
                 Object(("kind", Enum("predicate")), ("predicate", Enum("equal", "not_equal", "less", "less_equal", "greater", "greater_equal")), ("items", Array(Ref("value"), 2, 2)))) },
             ["literal"] = new JsonObject { ["anyOf"] = new JsonArray(
                 Object(("kind", Enum("null"))), Object(("kind", Enum("string")), ("text", String())),

@@ -141,9 +141,10 @@ builder.Services.AddSingleton<ILLMClient>(sp =>
 builder.Services.AddSingleton<IMcpClientFactory>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-    if (llmOptions.McpServers.Count > 0)
+    var servers = CopilotRunnerConfiguration.WorkflowMcpServers(llmOptions.McpServers);
+    if (servers.Count > 0)
         return new ConfiguredMcpClientFactory(
-            llmOptions.McpServers,
+            servers,
             sp.GetService<IHumanInputProvider>(),
             llmOptions.DefaultProvider,
             llmOptions.DefaultModel);

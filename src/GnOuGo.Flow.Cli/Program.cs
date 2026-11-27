@@ -194,9 +194,10 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             var llmLoggerFactory = LoggerFactory.Create(logging => logging.AddSimpleConsole());
             var routingClient = new RoutingLLMClient(http, llmOptions, llmLoggerFactory);
             llmClient = new RoutingLLMClientAdapter(routingClient);
-            mcpFactory = llmOptions.McpServers.Count > 0
+            var servers = CopilotRunnerConfiguration.WorkflowMcpServers(llmOptions.McpServers);
+            mcpFactory = servers.Count > 0
                 ? new ConfiguredMcpClientFactory(
-                    llmOptions.McpServers,
+                    servers,
                     humanInputProvider: humanInput,
                     defaultLlmProvider: llmOptions.DefaultProvider,
                     defaultLlmModel: llmOptions.DefaultModel)
@@ -448,7 +449,7 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
             if (id is null || parsed.GetValue(revisionOption) is not { } revision || parsed.GetValue(invocationOption) is not { } invocation)
                 throw new ArgumentException("Reconciliation requires --id, --revision and --invocation.");
             var options = config.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-            await using var transport = new ConfiguredMcpClientFactory(options.McpServers, new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
+            await using var transport = new ConfiguredMcpClientFactory(CopilotRunnerConfiguration.WorkflowMcpServers(options.McpServers), new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
             var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(CopilotRunnerConfiguration.Read(config));
             var reconciled = await engine.ReconcileAsync(tenant, id, revision, invocation, parsed.GetValue(stoppedOption), ct);
             Console.WriteLine(JsonSerializer.Serialize(reconciled, WorkflowRunJsonContext.Default.WorkflowRun));

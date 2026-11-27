@@ -27,6 +27,24 @@ public sealed class SecureWorkflowRuntimeFactoryTests
         Assert.Throws<InvalidOperationException>(() => CopilotRunnerConfiguration.Read(config));
     }
 
+    [Fact]
+    public void ExplicitProfileRetainsOnlyItsOwnToolScopeDuringMigration()
+    {
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> {
+            ["Flow:AgentRunners:review"] = "code",
+            ["Flow:CopilotRunners:review"] = "GnOuGo.GithubCopilot.Mcp",
+            ["Flow:CopilotTools:review:legacy:0"] = "retired_read",
+            ["Flow:CopilotRunners:observe"] = "GnOuGo.GithubCopilot.Mcp",
+            ["Flow:CopilotTools:observe:documents:0"] = "read"
+        }).Build();
+        var profiles = CopilotRunnerConfiguration.Read(config);
+        var engine = new WorkflowEngine { McpClientFactory = new InMemoryMcpClientFactory() }.WithCopilotRunners(profiles);
+        Assert.IsType<CopilotAgentTaskRunner>(engine.AgentTaskRunners["review"]);
+        Assert.DoesNotContain("review", profiles.Tools.Keys);
+        Assert.IsType<BusinessAgentTaskRunner>(engine.AgentTaskRunners["observe"]);
+        Assert.Equal([new("documents", "read")], profiles.Tools["observe"]);
+    }
+
     [Theory]
     [InlineData("github", "pull_request_read", "pull_request_review_write")]
     [InlineData("configured-service", "inspect", "update")]
@@ -93,6 +111,8 @@ public sealed class SecureWorkflowRuntimeFactoryTests
         keyVaultStore.WithEffectiveOptions(CopilotOptions("next-workflow-model"));
         await using var nextSession = await factory.CreateAsync(TestContext.Current.CancellationToken);
 
+        Assert.Empty(existingSession.McpClientFactory.ServerMetadata);
+        Assert.Empty(nextSession.McpClientFactory.ServerMetadata);
         Assert.Equal(
             "first-workflow-model",
             existingSession.Options.McpServers["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables?["TEST_WORKFLOW_VALUE"]);

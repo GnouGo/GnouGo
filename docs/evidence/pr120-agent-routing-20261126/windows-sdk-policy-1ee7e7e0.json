@@ -1,0 +1,13 @@
+{
+  "probe": "direct injected code adapter on Windows with read-only policy",
+  "generic_capabilities": [
+    "project.read",
+    "project.native_read"
+  ],
+  "selected_capabilities": [
+    "project.read"
+  ],
+  "model_calls": 0,
+  "workflow_execution": false,
+  "source": "1ee7e7e06661d5af0ffdb70947dadd33761c538e"
+}

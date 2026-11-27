@@ -22,19 +22,22 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class GnOuGoAgentWebHostTests
 {
-    [Fact]
-    public async Task OneRunnerKeepsItsConfiguredToolsFromBothServers()
+    [Theory]
+    [InlineData("AgentRunners", "AgentTools", "business")]
+    [InlineData("CopilotRunners", "CopilotTools", "GnOuGo.GithubCopilot.Mcp")]
+    public async Task OneRunnerKeepsItsConfiguredToolsFromBothServers(string profiles, string scopes, string profile)
     {
         var args = TelemetryTestHostArgs.Create().Concat(new[] {
-            "--Flow:CopilotRunners:collect=managed",
-            "--Flow:CopilotTools:collect:catalog:0=observe",
-            "--Flow:CopilotTools:collect:documents:0=read"
+            $"--Flow:{profiles}:collect={profile}",
+            $"--Flow:{scopes}:collect:catalog:0=observe",
+            $"--Flow:{scopes}:collect:documents:0=read"
         }).ToArray();
         await using var app = TelemetryTestHostArgs.Build(args, urls: "http://127.0.0.1:0",
             contentRoot: GetServerContentRoot(), enableHttpsRedirection: false);
         var factory = app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>();
         await using var runtime = await factory.CreateAsync(TestContext.Current.CancellationToken);
-        Assert.Equal("managed", runtime.CopilotRunners["collect"]);
+        var engine = runtime.ConfigureAgentRunners(new GnOuGo.Flow.Core.Runtime.WorkflowEngine { McpClientFactory = runtime.McpClientFactory });
+        Assert.IsType<GnOuGo.Flow.Core.Runtime.BusinessAgentTaskRunner>(engine.AgentTaskRunners["collect"]);
         Assert.Equal([new("catalog", "observe"), new("documents", "read")], runtime.CopilotTools!["collect"]);
     }
 

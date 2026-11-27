@@ -9,10 +9,29 @@ namespace GnOuGo.Flow.Core.Runtime.Executors;
 /// <summary>Executes one bounded adaptive stage through injected, provider-neutral contracts.</summary>
 public sealed class AgentRunExecutor : IStepExecutor
 {
+    public const string ResultGuarantee = "A dependent step receives output only after the runner completed, the output matched output_schema, and the host passed every requested verification. Failure or missing evidence stops this step.";
+
     public string StepType => "agent.run";
     public StepContract Contract => new(
         AgentTaskContracts.InputSchema,
-        JsonNode.Parse("""{"type":"object","properties":{"status":{"type":"string"},"output":{},"evidence":{"type":"array"},"artifacts":{"type":"array"},"usage":{"type":"object"},"verification":{"type":"array"}},"required":["status","output","evidence","artifacts","usage","verification"]}""")!.AsObject(),
+        JsonNode.Parse("""
+            {
+              "type":"object",
+              "properties":{
+                "status":{"type":"string","enum":["completed"]},
+                "output":{},
+                "evidence":{"type":"array"},
+                "artifacts":{"type":"array"},
+                "usage":{"type":"object"},
+                "verification":{"type":"array","minItems":1,"items":{
+                  "type":"object","required":["requirement_id","passed","message"],"properties":{
+                    "requirement_id":{"type":"string"},"passed":{"type":"boolean","enum":[true]},"message":{"type":["string","null"]}
+                  },"additionalProperties":false
+                }}
+              },
+              "required":["status","output","evidence","artifacts","usage","verification"]
+            }
+            """)!.AsObject(),
         InputRequired: true);
 
     public string DslSnippet => """

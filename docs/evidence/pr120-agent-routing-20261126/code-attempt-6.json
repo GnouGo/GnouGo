@@ -1,0 +1,208 @@
+{
+  "source": "1ee7e7e06661d5af0ffdb70947dadd33761c538e",
+  "run": "routing30-code-20261127-021326",
+  "session_id": "17eb38fe03644268b532ba9abefdaca3",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261127-021326",
+  "planning_passed": null,
+  "passed": null,
+  "result": {
+    "status": "stopped",
+    "calls": 47,
+    "repairs": 4,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_draft": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "known_input_tokens": 207008,
+      "known_output_tokens": 4823,
+      "cost_eur": "0.4935170842824601366742596810"
+    },
+    "construction_discovery": {
+      "logical_calls": 24,
+      "physical_attempts": 24,
+      "known_input_tokens": 424391,
+      "known_output_tokens": 8748,
+      "cost_eur": "1.006576309794988610478359909"
+    },
+    "construction_implementation": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "known_input_tokens": 67816,
+      "known_output_tokens": 3635,
+      "cost_eur": "0.1710387243735763097949886106"
+    },
+    "construction_intent": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 4274,
+      "known_output_tokens": 2893,
+      "cost_eur": "0.0229157175398633257403189067"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 4291,
+      "known_output_tokens": 1279,
+      "cost_eur": "0.0156013667425968109339407745"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 5089,
+      "known_output_tokens": 579,
+      "cost_eur": "0.0142300683371298405466970387"
+    }
+  },
+  "logical_planning_calls": 47,
+  "campaign_delta": {
+    "calls": 47,
+    "known_input_tokens": 712869,
+    "known_output_tokens": 21957,
+    "known_cost_eur": "1.723879271070615034168564940",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "1.723879271070615034168564940"
+  },
+  "campaign_after": {
+    "calls": 458,
+    "session_calls": 0,
+    "known_input_tokens": 7228906,
+    "known_output_tokens": 240441,
+    "known_cost_eur": "17.562159453302961275626423802",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "17.562159453302961275626423802",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "030a9f7c7d624adf8892cd297db8a477",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5017380410022779043280182232",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "17eb38fe03644268b532ba9abefdaca3",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7238792710706150341685649203",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "22776588c0bc4545a1ba6588c3d8149b",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9240706150341685649202733485",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "58590fa82d5d4ec0a064637eb54b8aac",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0884601366742596810933940776",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8e8df1d69bd463ba4180929d5c945d9",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7150842824601366742596810934",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "abbd18f3dca04c229c59c7a3881b668e",
+        "httpAttempts": 44,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6792801822323462414578587702",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "db68062abe534f9aa3bfcbe06cdea2fa",
+        "httpAttempts": 67,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.3950637813211845102505694767",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e0d3f70a3ba3465ca8d5fd3c6f972bfa",
+        "httpAttempts": 79,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.5321230068337129840546697044",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "12.43784054669703872437357620",
+  "diagnostics": [
+    {
+      "code": "TASK_OPERATION_UNKNOWN",
+      "location": "/tasks/write_report/operation"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-27T02:13:57.4375805+00:00",
+  "finished_utc": "2026-11-27T02:29:14.6116259+00:00",
+  "wall_seconds": 917.174,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "TASK_OPERATION_UNKNOWN",
+      "location": "/tasks/write_report/operation",
+      "message": "Select one issued, unambiguous operation."
+    }
+  ]
+}

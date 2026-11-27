@@ -54,9 +54,7 @@ gnougo-flow runs --tenant default --id RUN_ID --command cancel --revision REVISI
 Completed receipts are reused. Unknown external outcomes require reconciliation through the run API or CLI before execution or cleanup can continue. The CLI reports recovery status and the remaining step ceiling. Reusing a run ID without `--resume-revision` is rejected.
 Completed model receipts are reused and an unverifiable dispatch stops without another call.
 
-Configure bounded Copilot explicitly under `Flow:CopilotRunners`, mapping a runner
-identifier to its configured MCP server name (for example `coding` to
-`GnOuGo.GithubCopilot.Mcp`). Ordinary MCP execution needs no agent adapter.
+Configure `Flow:AgentRunners` with explicit `code` or `business` profiles. A code runner uses the managed Copilot SDK directly. Each business runner uses the workflow provider and the MCP methods listed for it under `Flow:AgentTools`. Existing names in `Flow:CopilotRunners` keep their corresponding legacy tool scopes. An explicit modern profile for the same name takes precedence with its own tool scope.
 See [adapter scope and evidence](../GnOuGo.Flow.Copilot/README.md).
 
 ```sh
