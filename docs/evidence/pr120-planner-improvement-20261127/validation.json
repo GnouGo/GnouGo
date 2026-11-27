@@ -267,5 +267,39 @@
     "started": "2026-11-27T12:46:15.9518609+01:00",
     "finished": "2026-11-27T12:46:36.2452006+01:00",
     "notes": "The stdio test inspects both advertised array element types, writes the values, reopens the workbook, and compares the distinct null and string positions."
+  },
+  {
+    "group": "Amazon first-products qualification tests",
+    "source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+    "receipt": "improve40-8a0f10c0-agent-server-tests.xml",
+    "receipt_sha256": "65bebe3400753fada5a719e2b82e7d4ff733626e55cbdbbfb8d634db6f4e0877",
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0,
+    "total": 17,
+    "start_utc": "2026-11-27T12:39:37.3664725+00:00",
+    "end_utc": "2026-11-27T12:39:41.1622435+00:00"
+  },
+  {
+    "group": "complete planner suite after nullable operand diagnostic",
+    "source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+    "receipt": "gnougo-pr120-improve40-8a0f10c0-planning-suite.log",
+    "receipt_sha256": "91433f91757e0e3157417b843b43b26b061cb6879dd81dd64f245d518a35cecc",
+    "passed": 3363,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3363
+  },
+  {
+    "group": "full Windows Server suite",
+    "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+    "receipt": "improve40-fce11263-server-suite.trx",
+    "receipt_sha256": "aed726d78d1d1ecb1e953a0b1332c505b45752879566414baad4a09232a87c3b",
+    "passed": 2747,
+    "failed": 33,
+    "skipped": 3,
+    "total": 2783,
+    "start_utc": "2026-11-27T09:00:50.5547643+01:00",
+    "end_utc": "2026-11-27T13:52:21.4310749+01:00"
   }
 ]

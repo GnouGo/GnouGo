@@ -1,136 +1,150 @@
 {
   "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
   "scope": "Full Windows Server test suite",
-  "status": "running_at_observation",
-  "observed_utc": "2026-11-27T12:05:54.169346+00:00",
-  "observed_failures": 31,
+  "status": "completed",
+  "observed_utc": "2026-11-27T12:54:44.928688+00:00",
+  "observed_failures": 33,
   "failed_cases": [
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"null_href\")",
-      "reason": "The fixture could not find an expected record."
+      "test": "GnOuGo.Agent.Server.Tests.DiscoveryRestartHostTests.EncryptedPaginationSurvivesActualProcessExitWithoutRefetch",
+      "reason": "A timed host operation expired before the assertion completed."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests.ExactReadAuthorityCannotBeForgedOrTransferredToAnotherArtifactOrWorkspace",
+      "reason": "Source discovery could not obtain metadata before the authority assertion."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"complete\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"null_href\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"complete\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"null_href\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"empty_selection\")",
       "reason": "The fixture could not find an expected record."
     },
     {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"null_href\")",
+      "reason": "The fixture could not find an expected record."
+    },
+    {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"complete\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete\")",
+      "reason": "The Browser MCP timed out during snapshot acquisition."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat\")",
+      "reason": "The Browser MCP timed out during snapshot acquisition."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup\")",
+      "reason": "The Browser MCP timed out during snapshot acquisition."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup-indexed\")",
+      "reason": "The Browser MCP timed out during snapshot acquisition."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(defect: \"choice\", variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
+    },
+    {
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"null_href\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"one\")",
       "reason": "The fixture could not find an expected record."
     },
     {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup\")",
-      "reason": "The fixture asserted a different execution result."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup-indexed\")",
-      "reason": "The local Browser MCP timed out during snapshot acquisition."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat\")",
-      "reason": "The local Browser MCP timed out during snapshot acquisition."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete\")",
-      "reason": "The local Browser MCP timed out during snapshot acquisition."
+      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
+      "reason": "The active runtime budget stopped the workbook fixture."
     },
     {
       "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"null_href\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
-    },
-    {
-      "test": "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"missing\")",
-      "reason": "The active runtime budget stopped this workbook fixture."
+      "reason": "The active runtime budget stopped the workbook fixture."
     }
   ],
-  "complete_log_or_observed_prefix_sha256": "d4d389f1e5d0db8341238f71e82119c623268bac72f03dd8756d6151558420bb",
-  "final_test_summary": null,
-  "notes": "The larger local workflow fixtures ran with their original budgets. The newer focused Server, Copilot and Document test results have independent receipts."
+  "complete_log_or_observed_prefix_sha256": "0b0d6723d7607d949210376d782dfb4b89c0a3e69bedc403c510864b73621506",
+  "final_test_summary": "Failed!  - Failed:    33, Passed:  2747, Skipped:     3, Total:  2783, Duration: 4 h 51 m - GnOuGo.Agent.Server.Tests.dll (net11.0)",
+  "notes": "The larger local workflow fixtures ran with their original budgets. The newer focused Server, Copilot and Document test results have independent receipts.",
+  "total": 2783,
+  "passed": 2747,
+  "failed": 33,
+  "skipped": 3,
+  "trx_sha256": "aed726d78d1d1ecb1e953a0b1332c505b45752879566414baad4a09232a87c3b",
+  "trx_filename": "improve40-fce11263-server-suite.trx"
 }

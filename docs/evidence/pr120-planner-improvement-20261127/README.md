@@ -16,6 +16,7 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [SlimFaas 4](server-code-4.json) | 13 / 13 | 117,771 / 7,085 | €0.300549 | €0.255221 | 24m 00s | Eight changed files read. The SDK token budget stopped the workflow before delivery. |
 | [Amazon 3](server-amazon-3.json) | 41 / 41 | 692,595 / 20,496 | €1.671041 | — | 27m 43s | The operator stopped at the request for lossless XLSX readback. |
 | [SlimFaas 5](server-code-5.json) | 16 / 16 | 231,961 / 12,507 | €0.585364 | €0.291021 | 20m 25s | Passed. Eight observed changed files, verified local JSON, four upstream tests and confirmed cleanup. |
+| [Amazon 4](server-amazon-4.json) | 22 / 22 | 297,027 / 13,205 | €0.736759 | — | 13m 36s | The Server stopped on a nullable source flag before business execution. |
 
 ## Planner changes
 
@@ -80,8 +81,18 @@ The fifth SlimFaas session passed the normal Server oracle on `afe16fbd`. The Se
 
 The successful run cost €0.876385 in measured usage, including €0.291021 for the direct SDK. The fifth native request retained 29 tool messages and selected a final answer within the original allowance. The encrypted physical ledger measured 126,102 SDK input and 828 output tokens. The runner conservatively reserved 565,451 tokens over five calls. [Verified native request hashes](slimfaas-review-verification.json) · [Planning, SDK and deterministic operation timings](server-code-5.json)
 
-The broad Windows Server suite on `fce11263` has reported failures in workbook fixtures, including active-budget stops and missing expected records. The live and focused results above have separate receipts. [Broad test status and failed cases](broad-windows-validation.json)
+The full Windows Server suite at `fce11263` finished with 2,747 passing, 33 failing and three skipped tests. The failing cases include workbook budget stops, missing records and timed host operations. The linked report lists every failing case and the TRX hash. [Broad test status and failed cases](broad-windows-validation.json)
 
 Both captured candidate plans were revalidated against the frozen `c34e376a` planner and Server before the next normal Amazon session. The workflow compiler returned zero diagnostics. [Source and binary hashes](revalidated-c34e376a.json)
 
-The cold campaign ledger immediately after the successful SlimFaas run records €32.307920 measured, €0.237339 reserved for the SDK attempt with unknown usage and €0.046355 held for the closed pre-dispatch request. This leaves €37.408385 available before the next Amazon session. [Audited campaign balance](funding.json)
+The cold campaign ledger immediately after the successful SlimFaas run records €32.307920 measured, €0.237339 reserved for the SDK attempt with unknown usage and €0.046355 held for the closed pre-dispatch request. The available balance before Amazon session four was €37.408385. [SlimFaas closing ledger](server-code-5.json)
+
+The fourth Amazon session stopped after 22 measured planning calls. Three scoped repairs used the nullable Browser source flag directly in a Boolean guard. The compiler rejected all three. The search and product visits never ran, and the workspace contains no workbook. [Fourth Amazon session and phase measurements](server-amazon-4.json)
+
+At `8a0f10c0`, the compiler identifies the exact nullable operand in a compound guard and shows its type. Only that operand contributes conditional-branch evidence to the diagnostic. Replaying the three actual revision patches recovered the same error and named the same Browser field each time. Comparing this field to literal true cleared the diagnostic in each partial candidate. The unbuilt tasks remain outside that replay. Both complete original candidates separately passed the full validation path with byte-identical YAML. The 17 first-products verifier tests passed on the same frozen assemblies. [Captured repair replays](nullable-guard-replay.json) · [Both full candidate validations and binary hashes](revalidated-8a0f10c0.json) · [Verifier tests](validation.json)
+
+The Windows x64 self-contained Server at `8a0f10c0` passed its published planning persistence and receipt-recovery smoke. Its build recorded 7 dependency warnings. [Executable and assembly hashes](windows-published-8a0f10c0.json)
+
+The complete planner suite at `8a0f10c0` passed all 3,363 tests in 19 minutes 33 seconds. [Validation receipts](validation.json)
+
+After Amazon session four, the campaign ledger contains €33.044679 in measured usage, €0.237339 in reserved provider usage and €0.046355 in retained application reservations. The available balance before session five was €36.671626. [Audited campaign balance](funding.json)
