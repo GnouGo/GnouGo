@@ -11,7 +11,7 @@ internal static class XlsxCellReader
 
     internal static DocumentReadResult Read(string path, WorkbookPart? workbook)
     {
-        if (workbook?.Workbook.Sheets is not { } sheets)
+        if (workbook?.Workbook?.Sheets is not { } sheets)
             return DocumentReadResult.Error("READ_FAILED", "The workbook has no sheet directory.");
         var shared = workbook.SharedStringTablePart?.SharedStringTable?.Elements<SharedStringItem>().ToArray() ?? [];
         var sections = new List<DocumentSection>();
@@ -20,8 +20,9 @@ internal static class XlsxCellReader
         {
             if (workbook.GetPartById(sheet.Id!) is not WorksheetPart worksheet) continue;
             var rows = new List<string?[]>();
-            var data = worksheet.Worksheet.GetFirstChild<SheetData>();
-            foreach (var row in data?.Elements<Row>() ?? [])
+            if (worksheet.Worksheet?.GetFirstChild<SheetData>() is not { } data)
+                return DocumentReadResult.Error("READ_FAILED", "The worksheet has no cell data.");
+            foreach (var row in data.Elements<Row>())
             {
                 var rowNumber = row.RowIndex?.Value ?? (uint)(rows.Count + 1);
                 if (rowNumber > MaxRowsPerSheet)
