@@ -27,7 +27,7 @@ internal static partial class PlanningCompactConstruction
 
     internal static string ImplementationGuidance(PlanningSession state) => $"""
         Match overallProgress, accepted work and contracts to block criteria. Clauses are obligations. Resume ready consumers or supply prerequisites. Invalidate before reopening. Origins do not prove completion.
-        Bind caller inputs. Discover with kind:null or use inspected operationIds. Containers own control, reuse, cleanup, exports and capture ancestors. {ReusableGroupSemantics}
+        Bind caller inputs. When knownOperations identifies the required contract, select its issued ID in operationIds with the operation or enclosing control. The draft can retrieve exact input and output fields for that selection. Use kind:null when choosing the operation still needs discovery. Containers own control, reuse, cleanup, exports and capture ancestors. {ReusableGroupSemantics}
         {ValueSemantics} Prefer known operations, then conditions, ordered loops and verified mappings. Use bounded interpretation for supplied data. Use agent.run only when observations determine the next action. Bind its decision, capabilities, limits and evidence. Resume explicit artifact, verification and publication steps.
         Resolve dependency hints. Bind prerequisite results to original evidence. Discover metadata. expectedOutputs are provisional. Reselect unsupported mechanisms. outputNames declares public root results. Preserve objectives, literals, results and cleanup.
         For fulfilled obligations closeScopes:[] closes requirements, [scope] the boundary, else null. Choose one step, resumeStep, evidenceRequests or missing-fact clarifications. Others null. Evidence grants no authority.

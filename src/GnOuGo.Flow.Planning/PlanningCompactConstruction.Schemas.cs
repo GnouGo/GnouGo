@@ -99,6 +99,8 @@ internal static partial class PlanningCompactConstruction
         if (createsScopes)
             controlGuidance += " " + PlanningSchemas.BinaryGuardGuidance +
                 " Include executable work or a bound output when opening a control or group. A fragment containing only empty bodies requires an existing evidence-linked unresolved prerequisite. Moving continueInScope into a body does not supply that prerequisite.";
+        if (kinds.Contains("value"))
+            controlGuidance += "\nA flatten value concatenates one array of arrays in order. To prepend an item to a source array, supply a singleton array containing that item followed by the bound source array inside the outer array. This preserves an array-valued item as one element.";
         if (kinds.Contains("conditional") && step.OperationIds.Count > 0)
             controlGuidance += " A selected operation can run in just one branch. The other branch can return an existing value. An agent's verification applies when that agent runs.";
         var scopeChoices = new JsonArray();

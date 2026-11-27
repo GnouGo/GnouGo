@@ -459,6 +459,12 @@ includes direct read addresses for nested declarations. Up to 24 addresses
 fit within a two-KiB index. Exact task reads carry the original scope and
 phase. Binding and repair still use their respective scope rules.
 
+An implementation can select an operation from the retained directory and
+declare its enclosing control in the same response. The draft can inspect its
+input and output fields through that selected contract. When composing a matrix
+with `flatten`, wrap a new row in a one-row array and concatenate it with the
+existing rows. This preserves the new row and the full ordered input.
+
 An MCP can declare several possible response shapes. A `field` selection on
 the whole response can read a property declared by a subset of those shapes
 when every other alternative excludes it. The compiler checks the received

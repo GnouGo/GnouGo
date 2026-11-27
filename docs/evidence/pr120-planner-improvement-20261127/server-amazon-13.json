@@ -1,0 +1,203 @@
+{
+  "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+  "run": "improve40-amazon-20261127-202710",
+  "session": "cec761bb919d4f5cb196ccd63060310a",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T20:28:32.0891134+00:00",
+  "finished_utc": "2026-11-27T20:43:03.5914352+00:00",
+  "wall_seconds": 871.502322,
+  "phases": {
+    "construction_implementation": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 97979,
+      "output_tokens": 5281,
+      "measured_eur": "0.2472460136674259681093394078",
+      "duration_ms": "159863.3724"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2275,
+      "output_tokens": 2077,
+      "measured_eur": "0.0146446469248291571753986333",
+      "duration_ms": "139187.5744"
+    },
+    "construction_discovery": {
+      "logical_calls": 18,
+      "physical_attempts": 18,
+      "input_tokens": 216544,
+      "output_tokens": 3988,
+      "measured_eur": "0.5114350797266514806378132120",
+      "duration_ms": "226452.2798"
+    },
+    "construction_draft": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "input_tokens": 205352,
+      "output_tokens": 8083,
+      "measured_eur": "0.5045968109339407744874715260",
+      "duration_ms": "203059.9650"
+    },
+    "replan": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 19746,
+      "output_tokens": 50,
+      "measured_eur": "0.0452072892938496583143507973",
+      "duration_ms": "9357.7165"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 9214,
+      "output_tokens": 1729,
+      "measured_eur": "0.0288656036446469248291571754",
+      "duration_ms": "48740.2387"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 24592,
+      "output_tokens": 735,
+      "measured_eur": "0.0593667425968109339407744875",
+      "duration_ms": "30027.1054"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "1.4113621867881548974943052393",
+  "input_tokens": 575702,
+  "output_tokens": 21943,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_ALLOWANCE",
+      "path": "/",
+      "message": "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "captureAssessment",
+      "closeBrowser",
+      "search"
+    ],
+    [
+      "prefixDecision",
+      "selectPrefix"
+    ],
+    [
+      "navigateAmbiguous",
+      "resolveSelection"
+    ],
+    [
+      "collectVisits",
+      "detail",
+      "detailAvailable",
+      "extractDetail",
+      "hrefMatch",
+      "inRange",
+      "visits"
+    ],
+    [
+      "deliverWorkbook",
+      "expectedMatrix"
+    ],
+    [
+      "expectedMatrix"
+    ],
+    [
+      "writeWorkbook"
+    ],
+    [
+      "assessReadback",
+      "readWorkbook"
+    ]
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 47,
+    "repairs": 1,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "41.238619589977220956719818174",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "28.4776856492027334851936214613",
+    "physical_attempts": 1116,
+    "input_tokens": 16935030,
+    "output_tokens": 584362
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "42.649981776765375854214123436",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "27.0663234624145785876993161993",
+    "physical_attempts": 1163,
+    "input_tokens": 17510732,
+    "output_tokens": 606305
+  },
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "36776ec388f83ae3859a17f08406b27d521551d9bd188317d7788d46f71331e6"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "d8c57041ce478d443a60d1a16b9d4e632a388048fd3843f663a15e9c5e898fd4"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "5190431ad9f080d1f49e009d2dd78a1a1df7b8a56fd124b2d72ba8b2f8764716"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "0f8cb088be758afa70d8fa0e089627ebf5d4703d3e0ad15ec846a680dd26287f"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "b2c1d991107e1e97a62e829d0359b745c5220f4e79efc425791ac59c92a9accd"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "eeed58a7fbe8cbe342f7073ae0293a9fdc51377d12faab703561b340f8b2a331"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "e31a4f114f332ca4a8d22edb457aeebf37ce5e22b24c9d0f7f18733b861f4242"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "108db99cb279972b384b520884947290093f8dfd292d08b951eed77cb30f5dd4"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "92d64113ea955600df1a25de3fac079aad4c4fba6b72cf1db27814d98d527766"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "c8da3501c4cdd7d6958ca6b9838459c4b69c984968bcffe2de593d14830f2d04"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "sha256": "c9a73efaa6475e7f4eec70104bd30157d249a0ef5b43bae083635bfce0c26a3a"
+    }
+  ]
+}

@@ -50,9 +50,8 @@ public sealed class DocumentTools
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_read", UseStructuredContent = true, OutputSchemaType = typeof(DocumentReadResult)), Description(
-        "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
-        "and returns its text content. For Office/PDF formats, extracts text and optionally " +
-        "formats it as markdown. Returns structured sections (pages, sheets, slides). For exact XLSX readback use format=cells. Each worksheet's sections[].rows contains its ordered array of cell arrays. " +
+        "Reads document text or exact XLSX cells. For XLSX, format=cells returns each worksheet's ordered cell matrix in sections[].rows. " +
+        "PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML and YAML support text extraction. Office and PDF text can be formatted as markdown, with sections for pages, sheets or slides. " +
         "Use a relative path only from the workspace root.")]
     public DocumentReadResult Read(
         [Description("Relative file path only inside the workspace root, for example 'docs/report.pdf'.")] string filePath,
