@@ -192,6 +192,42 @@ internal static partial class PlanningCompactConstruction
         };
     }
 
+    internal static void AssembleContinuationView(PlanningSession state, PlanningConstructionExtension extension)
+    {
+        if (extension.ContinuationBinding is not { Binding: { Kind: "output", Port: null, Source: { } id, SelectedFields: null } binding } association ||
+            State(state).SuspendedSteps?.SingleOrDefault(item => item.Id == association.ContinuationId) is not { Status: "waiting" } item ||
+            extension.Tasks.Where(task => task.Id == id).ToArray() is not [{ Kind: "operation", Operation: { } operation }] ||
+            !State(state).CurrentStep!.OperationIds.Contains(operation, StringComparer.Ordinal) ||
+            item.Prerequisite.ExpectedType.Kind != "object" ||
+            !item.Prerequisite.EvidenceAddresses.Any(address => address.StartsWith(
+                "contract:" + ContractIdentity(operation, ""), StringComparison.Ordinal))) return;
+        var fields = ContinuationViewFields(state, item, ExactContract(state, operation));
+        if (fields is null) return;
+        // Both the explicit instance and the cited contract are necessary. Keep
+        // the producer unchanged and let normal validation own the new value.
+        var viewId = item.Id + "_view";
+        var introduced = TaskPlanRevisions.Tasks(new TaskScope { Tasks = extension.Tasks, Always = extension.Always });
+        if (new TaskPlanSymbols(state.Plan ?? new()).Tasks.ContainsKey(viewId) || introduced.Any(task => task.Id == viewId)) return;
+        binding.SelectedFields = fields;
+        extension.Tasks.Add(new()
+        {
+            Id = viewId, Kind = "value", Objective = "Select the declared prerequisite fields from " + id + ".",
+            Outputs = [new("value", binding)]
+        });
+        association.Binding = new() { Kind = "output", Source = viewId, Port = "value" };
+    }
+
+    private static JsonObject? ContinuationViewFields(PlanningSession state, PlanningConstructionSuspendedStep item, PlanningCapability capability)
+    {
+        if (capability.StepType != "mcp.call" || item.Prerequisite.ExpectedType.Kind != "object") return null;
+        var operation = TaskOperations.Describe(capability);
+        var address = "contract:" + ContractIdentity(operation.Id, operation.Version);
+        if (!item.Prerequisite.EvidenceAddresses.Contains(address, StringComparer.Ordinal) ||
+            !ContractEvidenceCurrent(state, address, State(state).RejectedSteps[item.RejectedStepIndex]["evidence"]?[address])) return null;
+        return PlanningObjectView.SelectFields(PlanningSchemaReferences.ExpandLocalReferences(capability.OutputSchema),
+            item.Prerequisite.ExpectedType, state.Request);
+    }
+
     internal static void ValidateContinuationBinding(PlanningSession state, PlanningConstructionCandidate candidate)
     {
         var compact = State(state); var association = candidate.Extension.ContinuationBinding;

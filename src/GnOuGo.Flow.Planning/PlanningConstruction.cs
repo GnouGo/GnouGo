@@ -51,9 +51,13 @@ internal static partial class PlanningConstruction
         if (!issued.Contains(extension.Scope)) Fail("CONSTRUCTION_SCOPE_INVALID", extension.Scope, "Choose an issued open scope.");
         // Host-derived closure must not mutate the received response or a retained
         // caller-owned fragment. The candidate owns its normalized edit envelope.
-        if (construction.Compact?.CurrentStep is { } block && PlanningCompactConstruction.SupportsBusinessFragment(block.Kind))
+        if (construction.Compact?.CurrentStep is { } block && (PlanningCompactConstruction.SupportsBusinessFragment(block.Kind) ||
+            extension.ContinuationBinding is not null))
+        {
             extension = JsonSerializer.Deserialize(JsonSerializer.Serialize(extension, PlanningJsonContext.Default.PlanningConstructionExtension),
                 PlanningJsonContext.Default.PlanningConstructionExtension)!;
+            PlanningCompactConstruction.AssembleContinuationView(state, extension);
+        }
         var additions = TaskPlanRevisions.Tasks(new TaskScope { Tasks = extension.Tasks, Always = extension.Always })
             .Concat(extension.Groups.SelectMany(g => TaskPlanRevisions.Tasks(g.Body))).ToArray();
         if (PlanningOptimizationThresholds.Exceeded(state, "fragment", "recursive_tasks", additions.Length, construction.Limits.MaxTasksPerDraft))

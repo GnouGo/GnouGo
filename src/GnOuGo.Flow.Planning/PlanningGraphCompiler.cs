@@ -371,7 +371,7 @@ public sealed partial class PlanningGraphCompiler
                 // Keep the envelope visible to final contract validation. The
                 // expression computes only its value; set checks the whole result.
                 return new JsonObject { ["value"] = LowerValue(computed, scope, allowReferences, depth + 1) };
-            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "array_length" or "flatten" or "lookup" or "at_index" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
+            case "input" or "output" or "loop_item" or "loop_index" or "loop_previous" or "artifact_collection" or "present" or "expression" or "predicate" or "arithmetic" or "string_operation" or "json" or "array_length" or "flatten" or "lookup" or "at_index" or "object_view" or "projection" when allowReferences: return JsonValue.Create(ToExpression(value, scope));
             case "template" when allowReferences:
                 var template = value.Text ?? "";
                 EnsureUnique(value.Members.Select(m => m.Name), "template binding");
@@ -447,6 +447,13 @@ public sealed partial class PlanningGraphCompiler
             var script = FlattenExpression("source");
             GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
             expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + ExpressionBody(value.Items.Single()) + ")";
+        }
+        else if (value.Kind == "object_view")
+        {
+            var fields = PlanningGraphValidation.Literal(value.Items[1])!.AsObject();
+            var script = PlanningObjectView.Mapping(fields);
+            GnOuGo.Flow.Core.Scripting.JintSandbox.ValidateMapping(script, learned: false);
+            expression = "checkedMapping(" + ProgramLiteral(script, scope) + "," + ExpressionBody(value.Items[0]) + ")";
         }
         else if (value.Kind == "at_index")
         {

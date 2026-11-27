@@ -49,6 +49,14 @@ internal static class PlanningValues
         if (value.Source is not null || value.ResultChannel is not null || value.Path.Count != 0 || value.Members.Count != 0 ||
             value.Number is not null || value.Boolean is not null)
             throw new InvalidOperationException("A typed computation contains unsupported fields.");
+        if (value.Kind == "object_view")
+        {
+            if (value.Text is null && value.Items is [var source, var shape] &&
+                resolve(source) is { } original && PlanningGraphValidation.IsLiteral(shape) &&
+                PlanningGraphValidation.Literal(shape) is JsonObject fields && PlanningObjectView.Contract(original, fields) is { } view)
+                return view;
+            throw new InvalidOperationException("The selected object fields must have an exact source contract.");
+        }
         if (value.Kind == "json")
         {
             if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is null)

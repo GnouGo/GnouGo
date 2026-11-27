@@ -320,7 +320,10 @@ internal static partial class PlanningCompactConstruction
         return new(SelectedContracts(state).Select(capability =>
         {
             var view = ContractView(state, capability, useCandidate);
-            if (continuation is not null && RequiredFieldOutsidePrerequisite(capability.OutputSchema, continuation.Prerequisite.ExpectedType) is { } extra)
+            if (continuation is not null && ContinuationViewFields(state, continuation, capability) is not null)
+                view["prerequisiteView"] = new JsonObject { ["continuationId"] = continuation.Id,
+                    ["binding"] = "Associate this operation's whole result. The host will select the retained fields by exact path." };
+            else if (continuation is not null && RequiredFieldOutsidePrerequisite(capability.OutputSchema, continuation.Prerequisite.ExpectedType) is { } extra)
                 view["wholeResultMismatch"] = new JsonObject { ["continuationId"] = continuation.Id,
                     ["requiredFieldOutsideExpectedType"] = extra.DeepClone() };
             if (capability.Composition is { } composition)

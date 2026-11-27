@@ -444,7 +444,7 @@ public sealed partial class TaskPlanCompiler
         }
     }
 
-    private bool CopyValue(TaskValue value) => (value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" || _indexedProjections && value.Kind is "index" or "at_index") &&
+    private bool CopyValue(TaskValue value) => value.SelectedFields is null && (value.Kind is "null" or "string" or "number" or "boolean" or "item" or "input" or "output" or "field" or "object" or "array" || _indexedProjections && value.Kind is "index" or "at_index") &&
         value.Items.All(CopyValue) && value.Members.All(m => CopyValue(m.Value));
 
     private bool PureProjection(PlanTask task)
@@ -660,6 +660,13 @@ public sealed partial class TaskPlanCompiler
     private Bound Value(TaskValue value, Scope scope, bool consume = true, bool requireNonNull = false)
     {
         var bound = ValueCore(value, scope, consume);
+        if (value.SelectedFields is { } fields)
+        {
+            var projected = PlanningObjectView.Contract(bound.Schema, fields);
+            if (value.Kind != "output" || value.Port is not null || !bound.WholeMcpResult || projected is null)
+                Fail("TASK_FIELD_TYPE", "An object view must select declared fields of an original MCP result.");
+            bound = new(new() { Kind = "object_view", Items = [bound.Value, PlanningJsonTransport.Literal(fields)] }, projected!);
+        }
         if ((!consume && !requireNonNull) || value.Kind is not ("input" or "output" or "field")) return bound;
         if (IsGuardedNonNull(value, scope, requireNonNull) && PlanningContractShapes.WithoutNull(bound.Schema) is { } schema && !JsonNode.DeepEquals(schema, bound.Schema))
         {

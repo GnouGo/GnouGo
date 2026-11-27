@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -148,6 +149,9 @@ internal static class PlanningValueProvenance
         var remaining = path.ToArray();
         for (var i = 0; i < remaining.Length && source is not null; i++)
         {
+            if (source is { Kind: "object_view", Items: [var original, var shape] })
+                return PlanningGraphValidation.IsLiteral(shape) && PlanningGraphValidation.Literal(shape) is JsonObject fields &&
+                    PlanningObjectView.CopiesPath(fields, remaining.Skip(i)) ? Select(original, remaining.Skip(i)) : null;
             if (source is { Kind: "flatten", Items.Count: 1 } && source.Items[0] is { Kind: "array" } groups && groups.Items.All(v => v.Kind == "array"))
                 source = new() { Kind = "array", Items = groups.Items.SelectMany(v => v.Items).ToList() };
             if (source is { Kind: "at_index", Items.Count: 2 })

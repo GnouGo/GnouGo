@@ -527,6 +527,87 @@ public sealed class CompactSuspendedConsumerTests
         Assert.Equal(catalogue, JsonSerializer.Serialize(state.Catalog, PlanningJsonContext.Default.PlanningCatalog));
     }
 
+    [Theory]
+    [InlineData("current")]
+    [InlineData("missing_evidence")]
+    [InlineData("conflicting_contract")]
+    public async Task ClosedObjectViewResumesOnlyTheConsumerOfTheCitedOperation(string evidence)
+    {
+        var state = await ConsumerSelection(false, followUp: "Independently verify the returned count.");
+        var runtime = new TestRuntime { Respond = (_, _) => Ok() };
+        var construction = state.Construction!;
+        var compact = construction.Compact!;
+        var need = Need("Read the original record and provide a closed view of its count.");
+        compact.CurrentStep!.CloseRequirementIds = ["req"];
+        need.Prerequisite!.ExpectedType = new()
+        {
+            Kind = "object", Fields = [new() { Name = "count", Type = new() { Kind = "integer" } }]
+        };
+        var contract = new PlanningCapability { Id = "read", Version = "v1", Kind = "tool", StepType = "mcp.call",
+            Server = "source", Method = "read", EffectKind = "read",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{}}""")!.AsObject(),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"extra":{"type":"string"},"count":{"type":"integer"}},"required":["extra","count"]}""")!.AsObject() };
+        state.Discovery.Resolved.Add(contract);
+        state.Catalog!.AllowedStepTypes.Add("mcp.call");
+        const string address = "contract:read@v1";
+        if (evidence != "missing_evidence")
+        {
+            construction.Evidence = new() { [address] = PlanningCompactConstruction.LoadContractEvidence(state, address) };
+            need.Prerequisite.EvidenceAddresses.Add(address);
+        }
+        PlanningCompactConstruction.Reselect(state, need);
+        var waiting = Assert.Single(compact.SuspendedSteps!);
+        compact.CurrentStep = Consumer(state, "producer");
+        compact.CurrentStep.Kind = "sequence";
+        compact.CurrentStep.OperationIds = ["read"];
+        compact.ReplacementScope = null;
+        compact.ReplacementRequirements = null;
+        state.Diagnostics.Clear();
+        if (evidence == "conflicting_contract")
+        {
+            var conflicting = JsonSerializer.SerializeToNode(contract, PlanningJsonContext.Default.PlanningCapability)!
+                .Deserialize(PlanningJsonContext.Default.PlanningCapability)!;
+            conflicting.OutputSchema["description"] = "Different version content.";
+            state.Discovery.Resolved.Add(conflicting);
+        }
+        var extension = new PlanningConstructionExtension { CompleteBlock = false, RequirementIds = ["req"],
+            Tasks = [new() { Id = "read_count", Kind = "operation", Objective = "Read the observed count.", Operation = "read" }],
+            ContinuationBinding = new() { ContinuationId = waiting.Id, Binding = new() { Kind = "output", Source = "read_count" } } };
+        construction.Candidate = PlanningConstruction.Apply(state, extension);
+        Assert.Single(extension.Tasks);
+        Assert.Null(extension.ContinuationBinding.Binding.SelectedFields);
+        if (evidence != "current")
+        {
+            Assert.Single(construction.Candidate.TaskIds);
+            Assert.Throws<PlanningResponseException>(() => PlanningCompactConstruction.ValidateExtension(state, construction.Candidate));
+            Assert.Equal("waiting", waiting.Status);
+            return;
+        }
+        PlanningCompactConstruction.ValidateExtension(state, construction.Candidate);
+        PlanningConstruction.AdmitResolvedOperations(state, construction.Candidate.Plan);
+        state = await Advance(state, runtime);
+        state = await Advance(PlannerFixture.Clone(state), runtime);
+        Assert.Empty(runtime.Calls);
+        var resumed = Assert.Single(state.Construction!.Compact!.SuspendedSteps!);
+        Assert.Equal("resuming", resumed.Status);
+        var binding = Assert.Single(state.Construction.Compact.CurrentStep!.Inputs);
+        Assert.Equal(state.Construction.Checkpoints.Single().Step!.ContinuationBinding!.Binding.Source, binding.Source);
+        Assert.Equal("read_count", state.Plan!.Root.Tasks.Single(task => task.Id == binding.Source).Outputs.Single().Value.Source);
+        state.Construction.Candidate = PlanningConstruction.Apply(state, new()
+        {
+            Scope = "/root", RequirementIds = ["req"], CompleteBlock = true,
+            Tasks = [new() { Id = "consume", Kind = "value", Objective = "Consume the accepted count.",
+                Outputs = [new("count", new() { Kind = "field", Port = "count", Items = [binding] })] }]
+        });
+        state = await Advance(state, runtime);
+        Assert.Empty(state.Diagnostics);
+        Assert.Equal("completed", Assert.Single(state.Construction!.Compact!.SuspendedSteps!).Status);
+        Assert.Equal(2, state.Construction.Checkpoints.Count);
+        Assert.Equal("closed", state.Construction.Requirements.Single(requirement => requirement.Id == "req").Status);
+        Assert.Equal("open", state.Construction.Requirements.Single(requirement => requirement.Id == "verify").Status);
+        Assert.Equal("req", Assert.Single(state.Construction.Checkpoints[^1].ClosedRequirementIds!));
+    }
+
     private static async Task<PlanningSession> AssociatedProducer()
     {
         var (state, runtime) = await TentativeProducer();
@@ -658,10 +739,10 @@ public sealed class CompactSuspendedConsumerTests
         throw new InvalidOperationException();
     }
 
-    private static async Task<(PlanningSession, TestRuntime)> TentativeProducer(bool diagnostic = false)
+    private static async Task<PlanningSession> ConsumerSelection(bool diagnostic, string? followUp = null)
     {
         const string original = "Produce the authorized numeric prerequisite and consume it to return the requested result.";
-        var state = new PlanningSession { Request = new() { TenantId = "continuations", Prompt = original,
+        var state = new PlanningSession { Request = new() { TenantId = "continuations", Prompt = followUp is null ? original : original + " " + followUp,
             MaxModelCalls = 64, MaxReplanAttempts = 4, Options = new() { ["automatic_correction"] = true } } };
         if (diagnostic) state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
         PlanningSessionCreation.Capture(state);
@@ -669,6 +750,11 @@ public sealed class CompactSuspendedConsumerTests
         state.Requirements = new() { Inputs = [], Outputs = [], Outcomes = [new("req", original)] };
         state.Catalog = await new TestRuntime().DiscoverAsync(state.Request, PlannerFixture.Ct); state.Plan = new();
         state.Construction!.Requirements = [new() { Id = "req", Status = "in_progress" }];
+        if (followUp is not null)
+        {
+            state.Requirements.Outcomes.Add(new("verify", followUp));
+            state.Construction.Requirements.Add(new() { Id = "verify", Status = "open" });
+        }
         PlanningCompactConstruction.InitializeSources(state);
         var compact = state.Construction.Compact!;
         foreach (var source in compact.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
@@ -681,6 +767,13 @@ public sealed class CompactSuspendedConsumerTests
         });
         compact.CurrentStep = Consumer(state, "consumer");
         state.Diagnostics = [new("CONSTRUCTION_TENTATIVE_SELECTION", "/step", "This exact consumer needs its typed prerequisite.")];
+        return state;
+    }
+
+    private static async Task<(PlanningSession, TestRuntime)> TentativeProducer(bool diagnostic = false)
+    {
+        var state = await ConsumerSelection(diagnostic);
+        var compact = state.Construction!.Compact!;
         PlanningCompactConstruction.Reselect(state, Need("The exact numeric prerequisite."));
         compact.CurrentStep = Consumer(state, "producer"); compact.ReplacementScope = null; compact.ReplacementRequirements = null;
         state.Construction.Candidate = PlanningConstruction.Apply(state, new()

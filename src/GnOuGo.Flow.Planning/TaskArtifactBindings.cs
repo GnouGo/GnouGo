@@ -26,6 +26,7 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
 
     private bool Trace(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind, bool checkedNonNull = false)
     {
+        if (value.SelectedFields is { } fields && !PlanningObjectView.CopiesPath(fields, path)) return false;
         var key = (value, scope, kind);
         if (!_visiting.Add(key)) return false;
         try

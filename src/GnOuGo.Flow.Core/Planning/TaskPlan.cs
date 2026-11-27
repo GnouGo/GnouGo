@@ -94,6 +94,9 @@ public sealed record TaskOutput(string Name, TaskValue Value);
 /// <remarks>string_operation uses Text=concat (2..16 strings) or uri_component (one string), without implicit coercion.</remarks>
 public sealed class TaskValue
 {
+    /// <summary>Host-selected fields of one original output. A null leaf copies the complete observed field.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? SelectedFields { get; set; }
     public string Kind { get; set; } = "null";
     public string? Text { get; set; }
     // Keep original JSON tokens when reading saved plans so historical hashes do
