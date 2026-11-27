@@ -1,0 +1,71 @@
+{
+  "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+  "validation_source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+  "run": "improve40-amazon-20261127-140108",
+  "original": {
+    "baseline": "29b30492801498f2142a9e3953e0ab91cf1bf9c68b57efef7653aa043e628929",
+    "start_scope": "/root",
+    "requested_scope": "/tasks/prefix_decision/body",
+    "checkpoints": 4,
+    "diagnostic": "REPLAN_NO_PROGRESS",
+    "accepted_work_and_budget_unchanged": true,
+    "planner_sha256": "301cf54645022f9bf5388ccda39fc8292977a8715285ad644d05309940d4dc8d"
+  },
+  "corrected": {
+    "baseline": "29b30492801498f2142a9e3953e0ab91cf1bf9c68b57efef7653aa043e628929",
+    "start_scope": "/root",
+    "requested_scope": "/tasks/prefix_decision/body",
+    "checkpoints": 4,
+    "next_request_scope": "/tasks/prefix_decision/body",
+    "next_request_block": "block_2",
+    "next_request_operation_ids": [
+      "cap_424f1c176056398813db293a"
+    ],
+    "next_request_hash": "8d61d8e13befe06524815d6511bab82f7fc2f044cceb989e0630f95f92ddd6bc",
+    "repeated_navigation_accepted": false,
+    "accepted_work_and_budget_unchanged": true,
+    "planner_sha256": "c3cc23040192001c17b7e27d47b8254a4665276a4db11ffa3811298f9e014680"
+  },
+  "captured_calls": [
+    {
+      "call": 23,
+      "action": [
+        "extension"
+      ],
+      "exchange_sha256": "48d774e90b585d293d3253cdea926247d953457a6fb431043e2554e39b45e919",
+      "input_tokens": 19692,
+      "output_tokens": 828,
+      "measured_eur": "0.0486287015945330296127562642"
+    },
+    {
+      "call": 24,
+      "action": [
+        "evidenceRequests"
+      ],
+      "exchange_sha256": "9b78a90d1dd0ecd8062a1ab40bb1b01e04a901073d4d66400fb33e5edfdacbb0",
+      "input_tokens": 19306,
+      "output_tokens": 113,
+      "measured_eur": "0.0444920273348519362186788155"
+    },
+    {
+      "call": 25,
+      "action": [
+        "extension"
+      ],
+      "exchange_sha256": "ea9c7d9e159fcc20143139d6a42d3f16a7e4775510337b1ccf8ba8a7f4bc3821",
+      "input_tokens": 19885,
+      "output_tokens": 298,
+      "measured_eur": "0.0466537585421412300683371298"
+    }
+  ],
+  "new_physical_attempts": 0,
+  "scope": "Both planners normalized the exact stored request and reply against the accepted session checkpoint. The corrected implementation generated the next draft for the selected body. The replay did not dispatch it or execute the commerce workflow.",
+  "offline_planner_advance": {
+    "status": "generating",
+    "scope": "/tasks/prefix_decision/body",
+    "diagnostics": [],
+    "mocked_responses": 1,
+    "accepted_unchanged": true,
+    "checkpoint_count": 4
+  }
+}

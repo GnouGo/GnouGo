@@ -1,82 +1,82 @@
 {
-  "source": "6818ed90287878b61d15b124445b6a8e7381ac69",
-  "observed_utc": "2026-11-27T14:02:52.178231+00:00",
+  "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+  "observed_utc": "2026-11-27T14:41:18.191010+00:00",
   "checks": [
     {
       "name": "validate",
       "conclusion": "",
       "status": "IN_PROGRESS",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804306/job/140538689496",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803764/job/140559087721",
       "workflowName": "Deterministic planner validation"
     },
     {
       "name": "ProxyCopilot AOT (linux-x64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538690048",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559089096",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "Build all nine frontends",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804311/job/140538689623",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803818/job/140559088846",
       "workflowName": "Frontend and Python dependency validation"
     },
     {
       "name": "standalone",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804389/job/140538689291",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803664/job/140559088100",
       "workflowName": "ProxyCopilot standalone validation"
     },
     {
       "name": "ProxyCopilot AOT (linux-arm64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538690142",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559088539",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "ProxyCopilot AOT (win-x64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538690151",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559088984",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "ProxyCopilot AOT (win-arm64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538689636",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559089144",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "ProxyCopilot AOT (osx-x64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538690026",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559089103",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "ProxyCopilot AOT (osx-arm64)",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804410/job/140538690082",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803607/job/140559089145",
       "workflowName": "Build ProxyCopilot Native AOT"
     },
     {
       "name": "Python 3.10 tests, lint and packages",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804311/job/140538689106",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803818/job/140559089286",
       "workflowName": "Frontend and Python dependency validation"
     },
     {
       "name": "Python 3.14 tests, lint and packages",
       "conclusion": "SUCCESS",
       "status": "COMPLETED",
-      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46008804311/job/140538689507",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46014803818/job/140559090066",
       "workflowName": "Frontend and Python dependency validation"
     }
   ]

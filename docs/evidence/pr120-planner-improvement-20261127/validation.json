@@ -349,5 +349,49 @@
     "failed": 0,
     "skipped": 0,
     "total": 3368
+  },
+  {
+    "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+    "group": "Amazon first-products qualification tests",
+    "receipt": "improve40-324b5229-agent-server-tests.xml",
+    "receipt_sha256": "ed4c2dea1704824e22c4ab7efedf563d9c61bbb5dca5d0ba33b95fd5380bf5cf",
+    "passed": 17,
+    "total": 17,
+    "failed": 0,
+    "skipped": 0,
+    "start_utc": "2026-11-27T14:22:04.7562801+00:00",
+    "end_utc": "2026-11-27T14:22:08.1487079+00:00"
+  },
+  {
+    "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+    "group": "Server provider terminal diagnostics, exact receipt and cold recovery",
+    "fixture_repository_path": "tests/GnOuGo.Agent.Server.Tests/PlanningOutputLimitRecoveryTests.cs",
+    "tested_fixture_sha256": "d625e7541752a62e7a64d35e1bc18b489401406c5c15f21288653b0e47b972f4",
+    "receipt": "improve40-324b5229-agent-server-tests-output-recovery.xml",
+    "receipt_sha256": "0a36cbbe5a791a1336c404c23395d5269a0882296bb741373696987c5478a851",
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "superseded_ci_source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+    "superseded_ci_job": "https://github.com/GnouGo/GnouGo/actions/runs/46008804306/job/140538689496",
+    "assertions": [
+      "24,202 structural whitespace characters following an unfinished array select MODEL_OUTPUT_STALLED and output_stalled.",
+      "A structurally complete response carrying provider finish_reason length selects MODEL_OUTPUT_LIMIT and output_limit.",
+      "Both preserve the provider output_limit receipt and all 8,192 reported output tokens. Neither accepts a candidate or redispatches after cold restoration."
+    ],
+    "tested_fixture_repository_blob": "3910473907b859ee8254e074db8f6f6199c1db93"
+  },
+  {
+    "group": "complete planner suite after owned child-scope continuation",
+    "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+    "receipt": "improve40-324b5229-planning-suite.trx",
+    "receipt_sha256": "ab2646f72aa3350b9f78749ce40aae886fb8e61f90af8dac7f248162c28bd9c8",
+    "start_utc": "2026-11-27T14:19:57.929373+00:00",
+    "end_utc": "2026-11-27T14:38:20.707221+00:00",
+    "passed": 3372,
+    "failed": 0,
+    "skipped": 0,
+    "total": 3372
   }
 ]

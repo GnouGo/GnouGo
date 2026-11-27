@@ -14,9 +14,9 @@ public sealed class PlanningOutputLimitRecoveryTests
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task ProviderLengthStopsFreshDraftDespiteWarningsAndRestoresWithoutReplay(bool schemaValidText)
+    [InlineData(false, "MODEL_OUTPUT_STALLED", "output_stalled")]
+    [InlineData(true, "MODEL_OUTPUT_LIMIT", "output_limit")]
+    public async Task ProviderLengthStopsFreshDraftDespiteWarningsAndRestoresWithoutReplay(bool schemaValidText, string diagnostic, string measuredResult)
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var settings = new TypedWorkflowPlanningSettings { BackgroundProcessingEnabled = false, DiagnosticEnabled = true,
@@ -31,7 +31,7 @@ public sealed class PlanningOutputLimitRecoveryTests
         for (var step = 0; step < 20 && !PlanningStatus.IsTerminal(state.Status) && !PlanningStatus.IsWaiting(state.Status); step++)
             state = await server.SubmitAsync(state.Request.SessionId, new() { ExpectedRevision = state.Revision }, Ct);
         Assert.Equal(PlanningStatus.Stopped, state.Status);
-        Assert.Equal("MODEL_OUTPUT_LIMIT", Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(diagnostic, Assert.Single(state.Diagnostics).Code);
         Assert.NotEmpty(state.ThresholdWarnings!);
         Assert.True(JsonNode.DeepEquals(JsonNode.Parse(capture), state.Request.Options));
         Assert.Null(state.PendingCall); Assert.Null(state.Construction!.Candidate);
@@ -39,6 +39,9 @@ public sealed class PlanningOutputLimitRecoveryTests
         Assert.Equal(0, state.ReplanAttempts);
         var request = Assert.Single(model.Requests, r => r.StructuredOutputSchema!["title"]!.ToString() == "construction_draft");
         Assert.Equal(8192, request.MaxTokens);
+        var measurement = Assert.Single(state.RequestMeasurements!, value => value.RequestId == request.ClientRequestId && value.Admission == "admitted");
+        Assert.Equal(measuredResult, measurement.Result);
+        Assert.Equal(8192, measurement.OutputTokens);
         var key = state.Request.SessionId + ":" + request.ClientRequestId;
         var receipt = (await fixture.Records.GetAsync("agent-planning-model-receipts-v11", "planning-tests", key, "test", Ct))!;
         var response = JsonSerializer.Deserialize(receipt.Value, PlanningJsonContext.Default.LLMResponse)!;

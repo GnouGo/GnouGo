@@ -18,6 +18,7 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 | [SlimFaas 5](server-code-5.json) | 16 / 16 | 231,961 / 12,507 | €0.585364 | €0.291021 | 20m 25s | Passed. Four upstream tests, eight changed-file reads, local report and verified cleanup. |
 | [Amazon 4](server-amazon-4.json) | 22 / 22 | 297,027 / 13,205 | €0.736759 | — | 13m 36s | Three repairs retained a nullable flag in the search guard. The Server stopped in planning. |
 | [Amazon 5](server-amazon-5.json) | 46 / 46 | 989,801 / 24,694 | €2.367173 | — | 24m 00s | Planning stopped at the review allowance. No search, product visits or workbook. |
+| [Amazon 6](server-amazon-6.json) | 25 / 25 | 291,732 / 12,124 | €0.719772 | — | 8m 20s | The Server interpreted entry into an open branch as an empty plan edit. Execution never started. |
 
 ## Planner changes
 
@@ -114,6 +115,18 @@ The published Windows x64 Server at `6818ed90` passed its planning persistence a
 
 The complete planner suite passed all 3,368 tests in 18 minutes 53 seconds against the frozen `6818ed90` planner. The retained inline composition and tentative repair regression tests passed as part of the full run. [Full-suite and focused receipts](validation.json)
 
-The cold audit after session five recorded €35.411852 measured, €0.237339 reserved for unknown SDK usage and €0.046355 held for the closed pre-dispatch request. The available balance was €34.304453 against the €70 ceiling. [Reconciled funding](funding.json)
+The cold audit after session five recorded €35.411852 measured, €0.237339 reserved for unknown SDK usage and €0.046355 held for the closed pre-dispatch request. The available balance was €34.304453 against the €70 ceiling. [Session five closing audit](server-amazon-5.json)
 
 Session six then opened in the normal Server on those same frozen binaries with the unchanged query, ten-visit rule and independent workbook verifier. [Session opening and binary provenance](server-amazon-6-opening.json)
+
+The sixth Amazon session opened a conditional after accepting the search and capture assessment. Its 25th response selected the open body of that conditional without adding tasks or changing outcomes. The Server treated this as an empty plan edit and stopped after 25 calls, 291,732 input tokens and 12,124 output tokens. Planning cost €0.719772 over 8 minutes 20 seconds. No search, product visit or workbook was recorded. [Measured phases, provenance and outcome](server-amazon-6.json)
+
+At `324b5229`, that exact response enters the child opened by the same accepted checkpoint. The next issued draft retains the selected operation and targets the requested scope. Local replay compared the accepted workflow, requirements, four checkpoints, open scopes, commitments and budget counters before and after the move. A repeated request could not enter the child a second time. The public planner advance method also consumed the captured response in an isolated fixture and returned the selected scope with zero diagnostics and the same four checkpoints. Both original corrected scenarios also passed full compilation and workflow validation on these binaries. [Recorded response and next request](accepted-child-scope-replay.json) · [Complete archived candidate replays](revalidated-324b5229.json)
+
+After session six, the €70 campaign had €36.131624 in measured usage, a €0.237339 physical reservation for the unknown SDK attempt and a €0.046355 retained Server reservation. The available balance was €33.584681. [Audited campaign balance](funding.json)
+
+The partially trimmed Windows x64 Server at `324b5229` passed the planning persistence and exact receipt-recovery smoke. Publication and execution took 583 seconds and emitted 7 dependency warnings. [Executable, assembly hashes and warning breakdown](windows-published-324b5229.json)
+
+The complete planner suite passed all 3,372 tests on `324b5229`. All 17 first-products verifier tests passed against the frozen product binaries. The seventh normal Server session opened with the same search, visit and readback rules. [Full test receipts](validation.json) · [Session opening and binaries](server-amazon-7-opening.json)
+
+CI on `6818ed90` found an outdated integration-test expectation for a provider response ending in 24,202 whitespace characters. The two persisted-receipt cases now require their distinct planner diagnosis and measured terminal result, all 8,192 reported output tokens, and exact restoration without another call. Both passed on Windows against the `324b5229` product assemblies. [CI failure](https://github.com/GnouGo/GnouGo/actions/runs/46008804306/job/140538689496) · [Updated fixture and test receipt](validation.json)
