@@ -12,6 +12,49 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed partial class BoundedCopilotTasksTests
 {
     [Fact]
+    public async Task ConcurrentSdkDialogsRegisterInOrderAndReceiveIndependentAnswers()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var journal = new ConcurrentDialogProvider();
+        var owner = new AgentTaskContext("tenant", "run", "review", new() { Runner = "coding" });
+        var adapter = new WorkflowCopilotHumanInput(owner, journal, ct);
+        var request = new CopilotHumanInputRequest(new("tenant", RunId: "run", StepId: "review"), "permission", "Read one", ["Allow once", "Refuse"], false);
+        var first = adapter.RequestAsync(request, ct);
+        var second = adapter.RequestAsync(request with { Prompt = "Read two" }, ct);
+        Assert.Equal(1, journal.Registrations);
+        journal.ReleaseRegistration.SetResult();
+        await journal.BothPending.Task.WaitAsync(TimeSpan.FromSeconds(10), ct);
+        Assert.Equal(2, journal.Registrations);
+        Assert.False(first.IsCompleted);
+        journal.Replies["Read two"].SetResult(new JsonObject { ["response"] = "Refuse" });
+        journal.Replies["Read one"].SetResult(new JsonObject { ["response"] = "Allow once" });
+        Assert.Equal("Allow once", (await first).Answer);
+        Assert.Equal("Refuse", (await second).Answer);
+    }
+
+    private sealed class ConcurrentDialogProvider : IHumanInputProvider
+    {
+        internal int Registrations;
+        internal TaskCompletionSource ReleaseRegistration { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal TaskCompletionSource BothPending { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        internal System.Collections.Concurrent.ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> Replies { get; } = new();
+
+        public async Task PrepareAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            Interlocked.Increment(ref Registrations);
+            await ReleaseRegistration.Task.WaitAsync(ct);
+        }
+
+        public Task<JsonNode?> RequestInputAsync(HumanInputRequest request, CancellationToken ct)
+        {
+            var answer = new TaskCompletionSource<JsonNode?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Assert.True(Replies.TryAdd(request.Prompt, answer));
+            if (Replies.Count == 2) BothPending.TrySetResult();
+            return answer.Task.WaitAsync(ct);
+        }
+    }
+
+    [Fact]
     public async Task LargeApprovedInputsArePagedInsideTheOriginalSdkInvocation()
     {
         await using var fixture = new Fixture();

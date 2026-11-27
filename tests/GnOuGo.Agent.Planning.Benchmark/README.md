@@ -1446,7 +1446,9 @@ navigation task. An incomplete selection carries the observed shortfall.
 With `--case code --local-review`, the approved report stays in the run
 workspace. The direct SDK sends each concrete project read or approved input-page
 request through the Server's ordinary human-input journal. The reviewer can allow
-that operation once or refuse it. A read must belong to the active approved task
+that operation once or refuse it. Concurrent SDK calls register their permission
+requests one at a time in the same invocation journal. Each request keeps its own
+answer and cancellation token. A read must belong to the active approved task
 and stay inside the pinned checkout. If that SDK invocation finishes while a
 decision is pending, the observer discards the late answer and reports the
 terminal workflow journal.

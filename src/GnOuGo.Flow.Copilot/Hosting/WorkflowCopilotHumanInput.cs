@@ -9,6 +9,8 @@ namespace GnOuGo.GithubCopilot.Mcp;
 internal sealed class WorkflowCopilotHumanInput(AgentTaskContext owner, IHumanInputProvider provider, CancellationToken lifetime)
     : ICopilotHumanInputProvider
 {
+    private readonly SemaphoreSlim _registration = new(1, 1);
+
     public async Task<CopilotHumanInputResponse> RequestAsync(CopilotHumanInputRequest input, CancellationToken ct)
     {
         if (input.Context.TenantId != owner.TenantId || input.Context.RunId != owner.RunId || input.Context.StepId != owner.InvocationId)
@@ -38,7 +40,11 @@ internal sealed class WorkflowCopilotHumanInput(AgentTaskContext owner, IHumanIn
                 Options = (p.Value?["enum"] as JsonArray)?.Select(n => n!.ToString()).ToList(),
                 Required = (schema["required"] as JsonArray)?.Any(n => n?.ToString() == p.Key) == true
             }).ToList();
-        await provider.PrepareAsync(request, deadline.Token);
+        // Parallel SDK tool calls can request many dialogs against one journal revision.
+        // Serialize their registrations while allowing independent answers to remain pending.
+        await _registration.WaitAsync(deadline.Token);
+        try { await provider.PrepareAsync(request, deadline.Token); }
+        finally { _registration.Release(); }
         owner.HumanInput?.Invoke(request, "Waiting");
         try
         {
