@@ -66,7 +66,7 @@ public static class PlanningReviewFormatter
         _ => type.Kind
     }) + (type.Nullable ? "?" : "");
 
-    private static string Describe(TaskValue value) => value.Kind switch
+    internal static string Describe(TaskValue value) => value.Kind switch
     {
         "input" => "input " + value.Source,
         "output" => value.Source + (value.Port is null ? "" : "." + value.Port),

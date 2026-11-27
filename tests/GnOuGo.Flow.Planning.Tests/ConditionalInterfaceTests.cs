@@ -42,6 +42,34 @@ public sealed class ConditionalInterfaceTests
     private static void BindOperation(TaskPlan plan, PlanningCatalog catalog) =>
         TaskPlanRevisions.Tasks(plan).Single(t => t.Kind == "operation").Operation = catalog.Capabilities.Single(c => c.Server == "arbitrary").Id;
 
+    [Fact]
+    public async Task NullableFlagDiagnosticIdentifiesItsOperandInACompoundGuard()
+    {
+        var (_, catalog, _) = await Environment("");
+        var plan = Fixture(true, "");
+        BindOperation(plan, catalog);
+        plan.Inputs.Add(new() { Name = "flag", Type = new() { Kind = "boolean", Nullable = true } });
+        plan.Root.Tasks.Insert(0, new()
+        {
+            Id = "observation", Kind = "value", Objective = "Retain the observed flag",
+            Outputs = [new("permitted", new() { Kind = "input", Source = "flag" })]
+        });
+        var gate = plan.Root.Tasks[2];
+        var flag = new TaskValue { Kind = "output", Source = "observation", Port = "permitted" };
+        gate.Condition = new() { Kind = "predicate", Predicate = "and", Items = [flag, gate.Condition!] };
+
+        var rejected = new TaskPlanCompiler().Compile(plan, catalog);
+        var finding = Assert.Single(rejected.Diagnostics, d => d.Code == "TASK_CONDITION_TYPE");
+        Assert.Contains("observation.permitted", finding.Message);
+        Assert.Contains("[\"boolean\",\"null\"]", finding.Message);
+        Assert.Contains("literal true", finding.Message);
+        Assert.DoesNotContain("Conditional export contracts", finding.Message);
+
+        gate.Condition.Items[0] = new() { Kind = "predicate", Predicate = "equal",
+            Items = [flag, new() { Kind = "boolean", Boolean = true }] };
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
+    }
+
     [Theory]
     [InlineData("alpha_")][InlineData("omega_")]
     public async Task DifferentlyShapedWholeExportsRemainRejectedWithBranchContracts(string prefix)

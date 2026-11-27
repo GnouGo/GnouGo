@@ -80,8 +80,11 @@ public sealed partial class TaskPlanCompiler
         public string? PredicateBranch { get; set; }
         public bool Cleanup { get; set; }
     }
-    private sealed class InvalidTask(string code, string location, string message) : Exception(message)
-    { public PlanningDiagnostic Diagnostic { get; } = new(code, location, message); }
+    private sealed class InvalidTask(string code, string location, string message, TaskValue? operand = null) : Exception(message)
+    {
+        public PlanningDiagnostic Diagnostic { get; } = new(code, location, message);
+        public TaskValue? Operand { get; } = operand;
+    }
     private TaskPlan _plan = null!;
     private TaskPlanSymbols _symbols = null!;
     private PlanningCatalog _catalog = null!;
@@ -302,7 +305,7 @@ public sealed partial class TaskPlanCompiler
         if (task.Requires is not null)
         {
             _location += "/requires";
-            var required = Value(task.Requires, scope); RequireBoolean(required);
+            var required = Value(task.Requires, scope); RequireBoolean(required, task.Requires);
             var guard = Key(key, "requires"); _sources[guard] = _location;
             target.Add(new() { Key = guard, Type = "set", Purpose = "Required condition: " + task.Objective,
                 Input = Projection([new("value", required.Value), new("paths", Array([Strings([])]))]),
@@ -334,7 +337,8 @@ public sealed partial class TaskPlanCompiler
                 var sequence = Child(task.Body ?? MissingScope(), scope, key, "body");
                 target.Add(sequence.Call); outputs = WorkflowResult(sequence.Call.Key, sequence.Workflow, sequence.Exports); break;
             case "conditional":
-                var condition = Value(task.Condition ?? MissingValue(), scope); RequireBoolean(condition);
+                var conditionValue = task.Condition ?? MissingValue();
+                var condition = Value(conditionValue, scope); RequireBoolean(condition, conditionValue);
                 var yes = Child(task.Body ?? MissingScope(), scope, key, "yes", NonNullReferences(task.Condition, true));
                 var no = Child(task.Otherwise ?? MissingScope(), scope, key, "no", NonNullReferences(task.Condition, false));
                 if (!yes.Workflow.Outputs.Select(o => o.Name).Order().SequenceEqual(no.Workflow.Outputs.Select(o => o.Name).Order()))
@@ -929,7 +933,7 @@ public sealed partial class TaskPlanCompiler
     {
         if (ShortCircuits(value))
         {
-            var left = Value(value.Items[0], scope); RequireBoolean(left);
+            var left = Value(value.Items[0], scope); RequireBoolean(left, value.Items[0]);
             var target = scope.Target;
             var location = _location; var rightNodes = new List<PlanningNode>(); Bound right;
             // A field check belongs to the branch that evaluates it. Sibling
@@ -941,7 +945,7 @@ public sealed partial class TaskPlanCompiler
             try
             {
                 using var facts = EnterRequirement(scope, value.Items[0], whenTrue: value.Predicate == "and");
-                right = Value(value.Items[1], scope); RequireBoolean(right);
+                right = Value(value.Items[1], scope); RequireBoolean(right, value.Items[1]);
             }
             finally { scope.Target = target; scope.PredicateBranch = parentBranch; _location = location; }
             if (target is null || key is null || rightNodes.Count == 0)
@@ -968,7 +972,8 @@ public sealed partial class TaskPlanCompiler
         if (operands.Length != (unary ? 1 : 2)) Fail("TASK_PREDICATE_INVALID", "Predicate arity is invalid.");
         var op = value.Predicate switch { "not" => "!", "and" => "&&", "or" => "||", "equal" => "===", "not_equal" => "!==", "less" => "<", "less_equal" => "<=", "greater" => ">", "greater_equal" => ">=", _ => null };
         if (op is null) Fail("TASK_PREDICATE_INVALID", "Unknown typed predicate.");
-        if (value.Predicate is "and" or "or" or "not") foreach (var operand in operands) RequireBoolean(operand);
+        if (value.Predicate is "and" or "or" or "not")
+            for (var i = 0; i < operands.Length; i++) RequireBoolean(operands[i], value.Items[i]);
         else if (ordering && operands.Any(b => b.Schema["type"]?.ToString() is not ("number" or "integer")))
             Fail("TASK_PREDICATE_TYPE", "Ordering predicates require numeric operands.");
         return new(PlanningValues.Predicate(value.Predicate!, operands.Select(o => o.Value).ToArray()), new() { ["type"] = "boolean" });
@@ -1017,7 +1022,16 @@ public sealed partial class TaskPlanCompiler
     private static string Key(string parent, string role) => "task_" + PlanningGraphCompiler.Fingerprint(parent + "/" + role)[..24];
     private static string ValueIdentity(PlanningValue value) => JsonSerializer.Serialize(value, PlanningJsonContext.Default.PlanningValue);
     private static bool Literal(TaskValue value) => value.Kind is "null" or "string" or "number" or "boolean" || value.Kind == "object" && value.Members.All(m => Literal(m.Value)) || value.Kind == "array" && value.Items.All(Literal);
-    private void RequireBoolean(Bound value) { if (value.Schema["type"]?.ToString() != "boolean") Fail("TASK_CONDITION_TYPE", "Conditions require a boolean business value."); }
+    private void RequireBoolean(Bound value, TaskValue operand)
+    {
+        if (value.Schema["type"]?.ToString() == "boolean") return;
+        var name = operand.Kind is "input" or "output" ? PlanningReviewFormatter.Describe(operand) : operand.Kind;
+        var message = $"Conditions require a boolean business value. The operand '{name}' has contract {Describe(value.Schema)}.";
+        if (value.Schema["type"] is JsonArray types && types.Count == 2 &&
+            types.Any(type => type?.ToString() == "boolean") && types.Any(type => type?.ToString() == "null"))
+            message += " When the requirement needs an affirmative flag, compare this operand to literal true using equal. A null flag fails that comparison.";
+        throw new InvalidTask("TASK_CONDITION_TYPE", _location, message, operand);
+    }
     private JsonObject Schema(TaskType type) { try { return TypeSchema(type, _advisoryOptimization); } catch (ArgumentException ex) { Fail("TASK_TYPE_INVALID", ex.Message); return null!; } }
     private void Unique(IEnumerable<string> names)
     {

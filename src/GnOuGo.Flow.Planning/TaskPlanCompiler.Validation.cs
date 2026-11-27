@@ -82,6 +82,7 @@ public sealed partial class TaskPlanCompiler
         var symbols = _symbols;
         var artifacts = new TaskArtifactBindings(_plan, _catalog, symbols);
         var branchContracts = new Dictionary<(string Task, string Port), List<(string Path, JsonObject Schema)>>();
+        var rejectedOperands = new Dictionary<PlanningDiagnostic, TaskValue>();
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var contracts = new Dictionary<string, Dictionary<string, Bound>>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -112,7 +113,7 @@ public sealed partial class TaskPlanCompiler
                 !symbols.Values.TryGetValue(finding.Location, out var site)) return finding;
             var visited = new HashSet<(string, string?)>();
             var branches = new List<(string Path, JsonObject Schema)>();
-            Visit(site.Value);
+            Visit(rejectedOperands.GetValueOrDefault(finding) ?? site.Value);
             if (branches.Count == 0) return finding;
             return finding with { Message = finding.Message + " Conditional export contracts: " +
                 string.Join("; ", branches.DistinctBy(b => b.Path).Select(b => b.Path + " = " + Interface(b.Schema))) +
@@ -145,7 +146,11 @@ public sealed partial class TaskPlanCompiler
         {
             var saved = _location; _location = location;
             try { action(); }
-            catch (InvalidTask ex) { findings.Add(ex.Diagnostic); }
+            catch (InvalidTask ex)
+            {
+                findings.Add(ex.Diagnostic);
+                if (ex.Operand is { } operand) rejectedOperands[ex.Diagnostic] = operand;
+            }
             catch (UnavailableValue) { /* A diagnosed prerequisite has no usable contract. */ }
             finally { _location = saved; }
         }
@@ -298,7 +303,7 @@ public sealed partial class TaskPlanCompiler
             }
             TaskValue? provenRequirement = null;
             if (task.Requires is not null && Read(task.Requires, scope, path + "/requires") is { } required)
-                Check(path + "/requires", () => { RequireBoolean(required); provenRequirement = task.Requires; });
+                Check(path + "/requires", () => { RequireBoolean(required, task.Requires); provenRequirement = task.Requires; });
             using var requirementFacts = EnterRequirement(scope, provenRequirement);
             switch (task.Kind)
             {
@@ -471,7 +476,7 @@ public sealed partial class TaskPlanCompiler
                     break;
                 case "conditional":
                     if (task.Condition is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/condition", "A conditional requires a predicate."));
-                    else if (Read(task.Condition, scope, path + "/condition") is { } predicate) Check(path + "/condition", () => RequireBoolean(predicate));
+                    else if (Read(task.Condition, scope, path + "/condition") is { } predicate) Check(path + "/condition", () => RequireBoolean(predicate, task.Condition));
                     var yes = Child(task.Body, "body"); var no = Child(task.Otherwise, "otherwise");
                     var yesNames = task.Body?.Outputs.Select(o => o.Name).ToArray() ?? [];
                     var noNames = task.Otherwise?.Outputs.Select(o => o.Name).ToArray() ?? [];

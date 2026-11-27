@@ -29,7 +29,8 @@ internal static class AmazonFirstProductsPolicy
         "Acquire the encoded input query at amazon.fr/s with browser_get_content, format=observation_complete and no selector. " +
         "Set prefixAttribute=data-asin and prefixGroups=10. The complete search retains observationSnapshot.pages[].records[].ancestorAttributes. " +
         "observedSourceAccepted=true establishes the observed 2xx GET, complete capture and publication of the requested prefix, including an empty link list. " +
-        "Check the captured pages for a challenge or error. If the source, prefix or clear page is missing, return the actual reason. " +
+        "Assess the captured pages together for a challenge or error. Return a boolean for a nonempty, entirely clear capture and the observed reason. " +
+        "Select only when this boolean and observedSourceAccepted each equal true and the prefix exists. Otherwise return the actual reason. " +
         "Bind observationSnapshot.linkPrefix alone to ordered selection. Its links and ancestor table retain original order, grouping, heading, href and page/offset. " +
         "Select the first ten actual product occurrences, including sponsored cards and repeated ASINs. Use the heading or a same-card product link when no heading exists. " +
         "Keep auxiliary reviews and offers associated with their cards. A populated ASIN alone does not establish a product. " +

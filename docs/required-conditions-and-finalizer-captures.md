@@ -13,6 +13,10 @@ produce a substitute output. The compiler checks the condition's type, dependenc
 and availability, then emits an existing checked `set` before inputs, runtime
 inference or effects. Predicates remain structured until final YAML lowering.
 Selected-field checks on the right of `and`/`or` retain short-circuit behavior.
+For an affirmative prerequisite on a nullable Boolean, `equal(flag, true)`
+accepts only an observed true value. A type diagnostic identifies the rejected
+operand and its contract. When that operand comes from a conditional export,
+the diagnostic also shows the relevant alternative contracts.
 When a conditional exports a record on one branch and null on the other,
 `and(not_equal(record, null), record.more)` can read the declared Boolean
 field. The right operand and the selected branch inherit the non-null check.
