@@ -8,6 +8,26 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiLlmProviderTests
 {
     [Theory]
+    [InlineData("length", true, true)]
+    [InlineData("length", false, false)]
+    [InlineData("stop", true, false)]
+    [InlineData(null, true, false)]
+    public async Task TruncatedStructuredChatPreservesWireEvidence(string? finishReason, bool structured, bool preservePadding)
+    {
+        var incomplete = finishReason == "length";
+        var meaningful = incomplete ? "{\"field\":" : "{\"field\":\"  content  \"}";
+        var text = meaningful + new string('\t', 14996);
+        var body = JsonSerializer.Serialize(new { choices = new[] { new { finish_reason = finishReason, message = new { content = text } } } });
+        using var http = new HttpClient(new StubHttpMessageHandler(_ => Task.FromResult(JsonResponse(body))));
+        var response = await new OpenAiLLMProvider(http).CallAsync("model",
+            new() { Type = "openai", Url = "https://gateway.example/v1", ApiKey = "test" },
+            new() { Prompt = "Return the object.", StructuredOutputSchema = structured
+                ? System.Text.Json.Nodes.JsonNode.Parse("""{"type":"object"}""") : null }, TestContext.Current.CancellationToken);
+        Assert.Equal(preservePadding ? text : meaningful, response.Text);
+        if (structured && !incomplete) Assert.Equal("  content  ", response.Json?["field"]?.GetValue<string>());
+    }
+
+    [Theory]
     [InlineData("discovery")]
     [InlineData("token")]
     [InlineData("generation")]

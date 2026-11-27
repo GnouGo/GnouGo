@@ -13,10 +13,17 @@ public static class ChatResponseParser
     /// Extracts content from an OpenAI Chat Completions response: choices[0].message.content
     /// </summary>
     public static string ExtractOpenAiContent(JsonElement root)
-        => root.GetProperty("choices")[0]
-               .GetProperty("message")
-               .GetProperty("content")
-               .GetString()?.Trim() ?? string.Empty;
+        => ExtractOpenAiContent(root, structured: false);
+
+    internal static string ExtractOpenAiContent(JsonElement root, bool structured)
+    {
+        var choice = root.GetProperty("choices")[0];
+        var content = choice.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        // Incomplete structured output is diagnostic evidence, including any structural padding.
+        return structured && choice.TryGetProperty("finish_reason", out var reason) &&
+            reason.ValueKind == JsonValueKind.String && reason.ValueEquals("length")
+            ? content : content.Trim();
+    }
 
     /// <summary>
     /// Extracts content from an Ollama chat response: message.content

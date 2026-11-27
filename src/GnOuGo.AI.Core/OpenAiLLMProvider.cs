@@ -154,7 +154,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             using var json = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             var root = json.RootElement;
 
-            var content = ChatResponseParser.ExtractOpenAiContent(root);
+            var content = ChatResponseParser.ExtractOpenAiContent(root, request.StructuredOutputSchema is not null);
             var toolCalls = ChatResponseParser.ParseOpenAiToolCalls(root);
             var usage = ChatResponseParser.ExtractUsage(root);
 
