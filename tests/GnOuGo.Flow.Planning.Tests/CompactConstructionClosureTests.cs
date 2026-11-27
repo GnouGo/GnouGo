@@ -339,6 +339,16 @@ public sealed class CompactConstructionClosureTests
         Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
         cursor.Remove("boundaryTransitions");
         Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        foreach (var path in new[] { "/tasks/nested/body", "/tasks/choice/otherwise", "/tasks/fanout/branches/0", "/groups/group/body" })
+        {
+            cursor["continueInScope"] = path;
+            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        }
+        foreach (var path in new[] { "/root/workflow/body", "/tasks/fanout/branches/-1", "/groups/group/otherwise" })
+        {
+            cursor["continueInScope"] = path;
+            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(wire, schema));
+        }
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
     }
 

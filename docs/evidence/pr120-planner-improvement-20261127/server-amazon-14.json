@@ -1,0 +1,226 @@
+{
+  "source": "eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+  "run": "improve40-amazon-20261127-210723",
+  "session": "4dbb938038bc49729db86a3dfb44d0c2",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T21:08:50.5759193+00:00",
+  "finished_utc": "2026-11-27T21:24:28.4670171+00:00",
+  "wall_seconds": 937.891098,
+  "phases": {
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 8126,
+      "output_tokens": 1627,
+      "measured_eur": "0.0259225512528473804100227791",
+      "duration_ms": "45649.9418"
+    },
+    "construction_implementation": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "input_tokens": 94923,
+      "output_tokens": 5606,
+      "measured_eur": "0.2417653758542141230068337130",
+      "duration_ms": "156383.3936"
+    },
+    "construction_draft": {
+      "logical_calls": 18,
+      "physical_attempts": 18,
+      "input_tokens": 347202,
+      "output_tokens": 9232,
+      "measured_eur": "0.8329521640091116173120728929",
+      "duration_ms": "266414.4615"
+    },
+    "replan": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 72887,
+      "output_tokens": 389,
+      "measured_eur": "0.1678018223234624145785876993",
+      "duration_ms": "30778.1219"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 23148,
+      "output_tokens": 730,
+      "measured_eur": "0.0560546697038724373576309795",
+      "duration_ms": "27313.9700"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 142158,
+      "output_tokens": 3028,
+      "measured_eur": "0.3376173120728929384965831437",
+      "duration_ms": "123262.0705"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2271,
+      "output_tokens": 1885,
+      "measured_eur": "0.0137608200455580865603644647",
+      "duration_ms": "217987.2459"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "1.6758747152619589977220956722",
+  "input_tokens": 690715,
+  "output_tokens": 22497,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_ALLOWANCE",
+      "path": "/",
+      "message": "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "assess",
+      "close_browser",
+      "search"
+    ],
+    [
+      "prefix_decision",
+      "select_if_accepted",
+      "unaccepted_decision"
+    ],
+    [
+      "navigation_if_needed",
+      "resolve_agent",
+      "resolve_selection"
+    ],
+    [],
+    [
+      "detail",
+      "detail_available",
+      "extract_product",
+      "href_matches",
+      "in_range",
+      "visit_selection",
+      "visits"
+    ],
+    []
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 46,
+    "repairs": 3,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "43.631066059225512528473804543",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "26.0852391799544419134396350923",
+    "physical_attempts": 1201,
+    "input_tokens": 17920466,
+    "output_tokens": 616786
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "45.306940774487471526195900236",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "24.4093644646924829157175393993",
+    "physical_attempts": 1247,
+    "input_tokens": 18611181,
+    "output_tokens": 639283
+  },
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "810ca1cae0d9c46db5e0e56875c135c78d14abbae867df220587b5411176a4a2"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "39ba1aaeb34f98b5099f5c1ad53354c8bbc494dfe1d65c94a51cc2326189f27e"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "0bde20fcbe88bc281ed27c9a1a691fe970ec2da3053fb5b19119b206c8d0fdeb"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "95896a11e9261c41d605b6ad847825a6f3ae7e700ba0f5eab03bbab737965c02"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "d261ca311faa5548002ce90db42cbcb097a18c5b098c04a070bb7b2f3f8651ed"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "191310e40753ec711e8216d18949023f47bd697282a7523d2fe257dae0719b41"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "b9c7bd317bffa628dbec5c650092143fd7eecb55f21c0eb8caace35fe7006d0a"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "427ab35ad2e0137fd2e212b8e920c7af056475d1acaf5be2b5e7b3317dcb6989"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "1b35cc6e9e778c4cae3dd509e059fa21a090f0154ec7260e203b8d5a45b8ca87"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "6f05fe7ba674ea7117195fcf7c309c00af9e4b9c507613b4a340e9c7e65e03c0"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "0d9eac13966660ef951e70cd44b0b9e8401c8aa76648d74ebdee067280fe9659"
+    }
+  ],
+  "business_execution": {
+    "form_run": null,
+    "recorded_events": 0,
+    "searches": 0,
+    "visits": 0,
+    "workspace_contains_products_xlsx": false,
+    "remaining_requirements": [
+      [
+        "req_0",
+        "in_progress"
+      ],
+      [
+        "req_1",
+        "remaining"
+      ],
+      [
+        "req_2",
+        "closed"
+      ],
+      [
+        "req_3",
+        "closed"
+      ],
+      [
+        "req_4",
+        "closed"
+      ],
+      [
+        "req_5",
+        "remaining"
+      ]
+    ]
+  }
+}

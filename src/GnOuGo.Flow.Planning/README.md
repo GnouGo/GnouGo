@@ -459,6 +459,12 @@ includes direct read addresses for nested declarations. Up to 24 addresses
 fit within a two-KiB index. Exact task reads carry the original scope and
 phase. Binding and repair still use their respective scope rules.
 
+The draft cursor uses the compiler’s scope addresses. Task bodies use
+`/tasks/<taskId>/body`, alternatives use `/tasks/<taskId>/otherwise`,
+parallel branches use `/tasks/<taskId>/branches/<index>`, and group bodies
+use `/groups/<groupId>/body`. The host checks that the addressed scope is
+open and belongs to the selected business block before accepting it.
+
 An implementation can select an operation from the retained directory and
 declare its enclosing control in the same response. The draft can inspect its
 input and output fields through that selected contract. When composing a matrix

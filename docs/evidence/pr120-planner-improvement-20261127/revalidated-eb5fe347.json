@@ -1,0 +1,118 @@
+{
+  "source": "eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+  "business_scenario": "amazon",
+  "run": "improve40-amazon-20261127-210723",
+  "provider_calls_in_replay": 0,
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "810ca1cae0d9c46db5e0e56875c135c78d14abbae867df220587b5411176a4a2"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "39ba1aaeb34f98b5099f5c1ad53354c8bbc494dfe1d65c94a51cc2326189f27e"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "0bde20fcbe88bc281ed27c9a1a691fe970ec2da3053fb5b19119b206c8d0fdeb"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "95896a11e9261c41d605b6ad847825a6f3ae7e700ba0f5eab03bbab737965c02"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "d261ca311faa5548002ce90db42cbcb097a18c5b098c04a070bb7b2f3f8651ed"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "191310e40753ec711e8216d18949023f47bd697282a7523d2fe257dae0719b41"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "b9c7bd317bffa628dbec5c650092143fd7eecb55f21c0eb8caace35fe7006d0a"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "427ab35ad2e0137fd2e212b8e920c7af056475d1acaf5be2b5e7b3317dcb6989"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "1b35cc6e9e778c4cae3dd509e059fa21a090f0154ec7260e203b8d5a45b8ca87"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "6f05fe7ba674ea7117195fcf7c309c00af9e4b9c507613b4a340e9c7e65e03c0"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "sha256": "0d9eac13966660ef951e70cd44b0b9e8401c8aa76648d74ebdee067280fe9659"
+    }
+  ],
+  "archived_full_candidates": {
+    "baseline": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 249516,
+      "yaml_sha256": "0fdda7d1d69d37e3d43564734f1f587dc07f4c1899f2411905f0b7ddfe37bf55",
+      "receipt_sha256": "f28bd1b246534891796da01eb3a7050b50194789012b79cfc1f8ee9a434962a8"
+    },
+    "composed": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 234244,
+      "yaml_sha256": "7100c8bf506e55b6bed126befe8187da4a912d0c7f09721516e35598477d155b",
+      "receipt_sha256": "1f880daac8876b8c233c8d73206203a5a0c7ab20014850dcfbb6dee0b266a7b1"
+    },
+    "slimfaas": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 16473,
+      "yaml_sha256": "e5d41747fe8cf39beedcda0f4cdf25ae61939ba55d212b73888676086bca96fe",
+      "receipt_sha256": "21dba4031b90a6e7c8633057e3e3cb11b6f89361216c54f17a1151815cd2f46d"
+    }
+  },
+  "original_consumer_continuations": {
+    "14": {
+      "receipt_sha256": "48fc852849b08a7cc19999c946f406226abfd16b556ee25c9614e986eed958d3",
+      "suspended_status": [
+        "resuming"
+      ],
+      "accepted_root_tasks": [
+        "search",
+        "continuation_0_view"
+      ],
+      "diagnostics": []
+    },
+    "15": {
+      "receipt_sha256": "7f2ba7431e407b01285735fd5c0562f5b088d55d4ecc44ad24611fe830bb485c",
+      "suspended_status": [
+        "resuming"
+      ],
+      "accepted_root_tasks": [
+        "search_capture",
+        "continuation_0_view"
+      ],
+      "diagnostics": []
+    }
+  },
+  "other_replays": {
+    "pr120-boundary-replayed.json": "6f99cf90b56ce3e07011cacc20d56eaaa5bb78a92f6c0b40a66f5bc899acf531",
+    "pr120-guard-draft-7.json": "a12a17d8e12ec7bbf649eb91e508e4e377628296497683ccbac367c76969ae3e",
+    "pr120-guard-draft-10.json": "890b94cb918bb5b70af3ac4cd7add7b96cb69c4add6294a4717934ecd1e208a1",
+    "pr120-cursor-replayed.json": "09c6ca5ddc2e5e3165d6fd6569e8dd5e99cfe3e9b9e83b9421d2e7121e6a1462",
+    "pr120-claim-replay.json": "84e01698d5fc2eec8fd48b4870f2e6d150a21de3feb0d574931baae348cab82c",
+    "pr120-matrix-replay.json": "3db452ecc9e0cfdd5ea014c62eb2c15d28cd38c574ebf648beb27f797cd26c45"
+  }
+}

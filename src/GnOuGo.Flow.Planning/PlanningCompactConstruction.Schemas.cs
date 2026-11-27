@@ -125,7 +125,10 @@ internal static partial class PlanningCompactConstruction
             ("complete", completion), ("completeBlock", PlanningSchemas.Type("boolean")));
         if (SupportsBusinessFragment(step.Kind))
         {
-            extension["properties"]!["continueInScope"] = PlanningSchemas.Nullable(Text(state, 192));
+            var cursor = Text(state, 192);
+            cursor["pattern"] = "^/(root|tasks/[^/]+/(body|otherwise|branches/(0|[1-9][0-9]*))|groups/[^/]+/body)$";
+            cursor["description"] = "Use /root, /tasks/<taskId>/body, /tasks/<taskId>/otherwise, /tasks/<taskId>/branches/<index>, or /groups/<groupId>/body for an owned open scope.";
+            extension["properties"]!["continueInScope"] = PlanningSchemas.Nullable(cursor);
             extension["required"]!.AsArray().Add((JsonNode?)JsonValue.Create("continueInScope"));
         }
         if (step.Kind == "close" && step.CloseScopes is { } selectedClosure)
