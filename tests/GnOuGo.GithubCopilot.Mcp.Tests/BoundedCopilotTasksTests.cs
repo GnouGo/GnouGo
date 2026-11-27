@@ -189,6 +189,57 @@ public sealed partial class BoundedCopilotTasksTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(bool cancelDuringShutdown)
+    {
+        await using var fixture = new Fixture();
+        var context = fixture.Context with { Task = fixture.Context.Task with
+        {
+            Capabilities = ["project.read"],
+            Budget = new() { MaxElapsedMilliseconds = 60000 }
+        } };
+        await File.WriteAllTextAsync(Path.Combine(fixture.Root, "result.txt"), "existing", TestContext.Current.CancellationToken);
+        fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", """{"summary":"review completed"}""", null, []));
+        var closing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Host.OnDispose = () =>
+        {
+            closing.TrySetResult();
+            return new ValueTask(closed.Task);
+        };
+        var testToken = TestContext.Current.CancellationToken;
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(testToken);
+        var run = fixture.Tasks.RunAsync(context, caller.Token);
+        try
+        {
+            await closing.Task.WaitAsync(TimeSpan.FromSeconds(30), testToken);
+            if (cancelDuringShutdown)
+            {
+                await caller.CancelAsync();
+                var interrupted = await run.WaitAsync(TimeSpan.FromSeconds(5), testToken);
+                Assert.Equal("needs_reconciliation", interrupted.Status);
+                Assert.Null(interrupted.Output);
+            }
+            else
+            {
+                await Task.Delay(TimeSpan.FromSeconds(11), testToken);
+                Assert.False(run.IsCompleted);
+                closed.SetResult();
+                var result = await run;
+                Assert.Equal("completed", result.Status);
+                Assert.Equal("review completed", result.Output!["summary"]!.GetValue<string>());
+                Assert.Equal("completed", (await fixture.Tasks.InspectAsync(context, testToken)).Status);
+            }
+        }
+        finally
+        {
+            closed.TrySetResult();
+            await run.WaitAsync(TimeSpan.FromSeconds(30), testToken);
+        }
+    }
+
+    [Theory]
     [InlineData("stopped", "budget_exhausted")]
     [InlineData("missing", "needs_reconciliation")]
     [InlineData("conflict", "needs_reconciliation")]

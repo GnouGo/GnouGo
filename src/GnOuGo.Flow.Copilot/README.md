@@ -21,6 +21,11 @@ Use `agent.run` when an observation determines the next action. The plan identif
 
 **Code work.** Review and editing use the same managed Copilot SDK session service. The host sets project roots, permitted extensions and writes. Read-only tasks can use controlled file tools. A managed, enforced sandbox can also expose native single-file `view` and `rg` with `project.native_read` and `project.read`. Commands require `command.execute`, host write permission and mandatory sandbox enforcement. Edits require `project.write`. Code permissions use the workflow human-input provider. SDK inference reservations retain conservative token upper bounds. Device sandbox configuration and enforcement are checked before native operations.
 
+The approved elapsed-time limit covers the final SDK turn and managed-session
+shutdown. A successful code task waits for observed tool completion and session
+closure before it returns verification evidence. If the caller cancels or the
+deadline expires during shutdown, the invocation requires reconciliation.
+
 **Results.** Flow verifies the output schema and every requested evidence condition before a dependent step receives the output. A successful return has `status: completed` and a verification entry for each requirement with its ID, a passing result and an optional message. A dependent step can use the typed `output` directly. `file.read` records a successful SDK file read and its arguments, `file.content` records a file hash and change status, and `command.exit` records the observed terminal result. A review can use those facts to establish the files and checks it covered. Anchor validation establishes a location. The reviewer supplies the reasoning behind a finding. Publication requires an explicitly authorized workflow operation.
 
 [Bounded coding example](../GnOuGo.Flow.Cli/examples/bounded-coding.yaml)

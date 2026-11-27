@@ -1,0 +1,187 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "starting_after": "server-amazon-8.json",
+  "units": "EUR tariff estimates, observed provider tokens, host invocation milliseconds. Workflow elapsed time in each run can include human review, host setup and local verification. Business inference duration, where available, is reported in the individual business-phase receipt.",
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "36.947979498861047835990888731",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "32.7683257403189066059225509043",
+    "physical_attempts": 975,
+    "input_tokens": 15199395,
+    "output_tokens": 510384
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "43.631066059225512528473804543",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "26.0852391799544419134396350923",
+    "physical_attempts": 1201,
+    "input_tokens": 17920466,
+    "output_tokens": 616786
+  },
+  "incremental_measured_eur": "6.683086560364464692482915812",
+  "incremental_physical_attempts": 226,
+  "incremental_input_tokens": 2721071,
+  "incremental_output_tokens": 106402,
+  "by_phase": {
+    "construction_discovery": {
+      "logical_calls": 81,
+      "physical_attempts": 81,
+      "input_tokens": 968847,
+      "output_tokens": 18490,
+      "duration_ms": "1379377.7109",
+      "measured_eur": "2.2911776765375854214123006839"
+    },
+    "construction_draft": {
+      "logical_calls": 55,
+      "physical_attempts": 55,
+      "input_tokens": 978349,
+      "output_tokens": 40368,
+      "duration_ms": "1338201.0528",
+      "measured_eur": "2.4124943052391799544419134395"
+    },
+    "construction_implementation": {
+      "logical_calls": 46,
+      "physical_attempts": 46,
+      "input_tokens": 414295,
+      "output_tokens": 20319,
+      "duration_ms": "929510.5727",
+      "measured_eur": "1.0362938496583143507972665150"
+    },
+    "construction_intent": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 15068,
+      "output_tokens": 12734,
+      "duration_ms": "1547390.9536",
+      "measured_eur": "0.0923371298405466970387243736"
+    },
+    "construction_select": {
+      "logical_calls": 16,
+      "physical_attempts": 16,
+      "input_tokens": 42851,
+      "output_tokens": 8055,
+      "duration_ms": "328087.8617",
+      "measured_eur": "0.1343075170842824601366742598"
+    },
+    "construction_local_judge": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 96717,
+      "output_tokens": 2616,
+      "duration_ms": "166042.1184",
+      "measured_eur": "0.2322300683371298405466970387"
+    },
+    "construction_global_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 15690,
+      "output_tokens": 294,
+      "duration_ms": "24639.3633",
+      "measured_eur": "0.0370797266514806378132118451"
+    },
+    "business_inference": {
+      "physical_attempts": 6,
+      "measured_eur": "0.2844897494305239179954442172",
+      "input_tokens": 122667,
+      "output_tokens": 1112
+    },
+    "replan": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 66587,
+      "output_tokens": 2414,
+      "duration_ms": "68655.8136",
+      "measured_eur": "0.1626765375854214123006833714"
+    }
+  },
+  "by_run_in_execution_order": [
+    {
+      "receipt": "server-amazon-9.json",
+      "source": "daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "run": "improve40-amazon-20261127-175353",
+      "elapsed_seconds": "759.922411",
+      "planning_calls": 13,
+      "planning_input": 180467,
+      "planning_output": 7354,
+      "planning_eur": "0.4445899772209567198177676537",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-10.json",
+      "source": "970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "run": "improve40-amazon-20261127-182713",
+      "elapsed_seconds": "1254.506025",
+      "planning_calls": 36,
+      "planning_input": 466421,
+      "planning_output": 23961,
+      "planning_eur": "1.1716241457858769931662870160",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-11.json",
+      "source": "f554478910e14f3482c1384deac1f306b6700fab",
+      "run": "improve40-amazon-20261127-190417",
+      "elapsed_seconds": "519.981934",
+      "planning_calls": 14,
+      "planning_input": 183978,
+      "planning_output": 11260,
+      "planning_eur": "0.4703826879271070615034168566",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-6.json",
+      "source": "f554478910e14f3482c1384deac1f306b6700fab",
+      "run": "improve40-code-20261127-191616",
+      "elapsed_seconds": "1315.578396",
+      "planning_calls": 30,
+      "planning_input": 285982,
+      "planning_output": 9339,
+      "planning_eur": "0.6939863325740318906605922552",
+      "business_calls": 2,
+      "business_eur": "0.0370660592255125284738041128"
+    },
+    {
+      "receipt": "server-amazon-12.json",
+      "source": "64b2f26998af70122b833b5898fba25982ba3113",
+      "run": "improve40-amazon-20261127-195137",
+      "elapsed_seconds": "1266.031012",
+      "planning_calls": 46,
+      "planning_input": 603055,
+      "planning_output": 21794,
+      "planning_eur": "1.4729908883826879271070615036",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-13.json",
+      "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "run": "improve40-amazon-20261127-202710",
+      "elapsed_seconds": "871.502322",
+      "planning_calls": 47,
+      "planning_input": 575702,
+      "planning_output": 21943,
+      "planning_eur": "1.4113621867881548974943052393",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-7.json",
+      "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "run": "improve40-code-20261127-204426",
+      "elapsed_seconds": "979.618279",
+      "planning_calls": 34,
+      "planning_input": 302799,
+      "planning_output": 9639,
+      "planning_eur": "0.7336605922551252847380410026",
+      "business_calls": 4,
+      "business_eur": "0.2474236902050113895216401044"
+    }
+  ]
+}

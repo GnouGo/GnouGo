@@ -248,9 +248,8 @@ internal sealed class BoundedCopilotTasks(CopilotSessionManager sessions, Copilo
             else
             {
                 // Close the managed session before collecting final file evidence. This is the existing lifecycle API.
-                using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-                await bounds.StopAsync(stop.Token);
-                await sessions.DeleteAsync(providerContext, handle, stop.Token).WaitAsync(stop.Token);
+                await bounds.StopAsync(deadline.Token);
+                await sessions.DeleteAsync(providerContext, handle, deadline.Token).WaitAsync(deadline.Token);
                 handle = null; sessionClosed = true;
                 var artifacts = new List<AgentTaskArtifact>();
                 foreach (var requirement in context.Task.Verification.Where(v => v.Kind == "file.content"))

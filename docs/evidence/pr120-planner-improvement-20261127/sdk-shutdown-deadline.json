@@ -1,0 +1,57 @@
+{
+  "source_live": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+  "live_receipt": "server-code-7.json",
+  "observed_seconds_from_completed_sdk_event_to_unresolved_journal": 10.3451794,
+  "original_success_path_temporary_deadline_seconds": 10,
+  "approved_live_deadline_seconds": 600,
+  "live_cause_inference": "The timing and sessionClosed=false are consistent with the independent 10-second successful-turn shutdown deadline. The retained receipt does not identify the original exception.",
+  "local_cases": {
+    "previous": {
+      "suite_cases": 2,
+      "passed": 0,
+      "targeted_results": [
+        {
+          "name": "GnOuGo.GithubCopilot.Mcp.Tests.BoundedCopilotTasksTests.CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(cancelDuringShutdown: True)",
+          "outcome": "Failed",
+          "duration": "00:00:05.0450000",
+          "message": [
+            "System.TimeoutException : The operation has timed out."
+          ]
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.Mcp.Tests.BoundedCopilotTasksTests.CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(cancelDuringShutdown: False)",
+          "outcome": "Failed",
+          "duration": "00:00:11.4510000",
+          "message": [
+            "Assert.False() Failure"
+          ]
+        }
+      ],
+      "trx_sha256": "d846dbba82a2236adb2ba10c0c5e3872eaa5e77d0d99e2ab38129366293fe399",
+      "test_assembly_sha256": "8ac45ce06b40ef2c38a62fe52c17d91ad6a038962a346b8f61f476eb88f95859",
+      "flow_copilot_sha256": "8fe55cfbfe12c683e6f9b80e182b9c7a11bf68707ab29f843c89aa3777a30bce"
+    },
+    "revised": {
+      "suite_cases": 267,
+      "passed": 267,
+      "targeted_results": [
+        {
+          "name": "GnOuGo.GithubCopilot.Mcp.Tests.BoundedCopilotTasksTests.CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(cancelDuringShutdown: False)",
+          "outcome": "Passed",
+          "duration": "00:00:11.0280000",
+          "message": []
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.Mcp.Tests.BoundedCopilotTasksTests.CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(cancelDuringShutdown: True)",
+          "outcome": "Passed",
+          "duration": "00:00:00.0190000",
+          "message": []
+        }
+      ],
+      "trx_sha256": "b480f894c7860a471abf5a3876db5a0f8bbf4def742bf2620a3435f312ec76ce",
+      "test_assembly_sha256": "8ac45ce06b40ef2c38a62fe52c17d91ad6a038962a346b8f61f476eb88f95859",
+      "flow_copilot_sha256": "e50eef51a92cfc75299df53cec02d329f82cdda71a427ab68022830157f70b2b"
+    }
+  },
+  "behavior": "After an ordinary completed turn with fully observed tool cessation, stop admissions and await managed-session deletion under the linked task deadline, including caller cancellation. An interrupted or unconfirmed shutdown still requires reconciliation. Admission-stop and recovery paths retain their independent bounded cleanup handling."
+}
