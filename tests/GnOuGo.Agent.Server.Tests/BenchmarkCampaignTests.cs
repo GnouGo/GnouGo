@@ -788,6 +788,22 @@ public sealed class BenchmarkCampaignTests
     }
 
     [Theory]
+    [InlineData(8, 45, "execution_verification_reserve")]
+    [InlineData(3, 1, "planning_cost_reservation_exhausted")]
+    public async Task PhysicalPlanningAttemptCannotConsumeTheExecutionReserveOrExceedItsSessionCost(int sessionLimit, int reserve, string reason)
+    {
+        var campaign = new BenchmarkCampaign(new Records(), "bounded-planner");
+        var limits = new JsonObject { ["enforce_session_limits"] = true, ["planning_cost_limit_eur"] = (decimal)sessionLimit,
+            ["execution_verification_reserve_eur"] = (decimal)reserve, ["financial_forecast_mode"] = "experimental_warning" };
+        var journal = new BenchmarkHttpJournal(campaign, "session:1:hash", 10, 20, 6m, effectiveTransportPolicy: limits);
+        await journal.PrepareAsync(Ct);
+        var error = await Assert.ThrowsAsync<GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException>(() =>
+            journal.SaveAsync(new() { Attempts = [new() { Id = "session:1:hash:1" }] }, Ct));
+        Assert.Equal(reason, error.Details!["reason"]!.ToString());
+        Assert.Empty((await journal.LoadAsync(Ct))!.Attempts);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task CampaignFinancialForecastWarningsKeepCurrentAndUnknownExposureHard(bool experimental)

@@ -261,6 +261,7 @@ public sealed partial class HybridWorkflowPlanner
         PlanningConstructionCandidate next;
         try
         {
+            PlanningConstruction.AssembleBindings(admission, proposal.Extension!, proposal.Commitments);
             next = PlanningConstruction.Apply(admission, proposal.Extension!);
             PlanningCompactConstruction.StageCommitments(admission, proposal.Commitments, next);
             var extensionFindings = PlanningCompactConstruction.ExtensionFindings(admission, next);

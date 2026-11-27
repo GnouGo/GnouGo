@@ -30,6 +30,8 @@ public sealed class PlanningHostPolicy(IKeyVaultRecordStore records, IOptions<Ty
             state.Request.Options[PlanningApplicationBudget.OptionName] = budgetPolicy.Capture();
             var capturedBudget = state.Request.Options[PlanningApplicationBudget.OptionName]!.AsObject();
             capturedBudget["applicationOwnsLimits"] = applicationOwnsLimits;
+            if (settings.Value.EnforceSessionLimits && capturedBudget["mode"]!.ToString() == "limited")
+                capturedBudget["enforceSessionLimits"] = true;
             if (capturedBudget["mode"]!.ToString() == "limited")
                 capturedBudget["planningLimits"] = new JsonObject
                 {

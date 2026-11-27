@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Planning.Capabilities;
 
 namespace GnOuGo.Flow.Planning;
 
@@ -153,6 +154,48 @@ internal static partial class PlanningCompactConstruction
         // A consumed directory is not an inspected contract. Stateless decisions
         // still need bounded identities and exact description links.
         return page["items"]!.AsArray().Count == 0 || JsonNode.DeepEquals(state.Construction!.Evidence?[OperationPageAddress(state, 0)], page) ? null : page;
+    }
+
+    // Names summarize a bounded selection from the current provider response.
+    // The menu fingerprint binds every offered name to its original source and
+    // version. An ambiguous name remains available only by exact operation ID.
+    private static JsonObject? DiscoveryNameMenu(PlanningSession state, out Dictionary<string, string> operations)
+    {
+        operations = new(StringComparer.Ordinal);
+        var step = State(state).CurrentStep!;
+        var candidates = DescriptorCandidates(state, PlanningDiscoveryFocus.VisiblePages(state)
+            .Where(page => page.Query == step.Objective && page.ProducedArtifactKind is null)).ToArray();
+        var retained = (state.Catalog!.Capabilities).Concat(state.Discovery.Resolved)
+            .ToLookup(contract => TaskOperations.Describe(contract).Id, StringComparer.Ordinal);
+        var unique = candidates.GroupBy(candidate => candidate.Name, StringComparer.Ordinal)
+            .Where(group => group.Count() == 1).Select(group => group.First())
+            .Where(candidate => candidate.SourceId != "runtime" &&
+                candidates.All(other => other.Operation!.Id != candidate.Name) &&
+                retained[candidate.Operation!.Id].All(contract => PlanningDiscoveryContext.MatchesDescriptor(contract, candidate)));
+        var descriptions = new JsonObject();
+        var identities = new JsonArray();
+        foreach (var candidate in CapabilityRelevance.Rank(unique, CapabilityRelevance.Query(step.Objective)).Take(12))
+        {
+            var operation = candidate.Operation!;
+            descriptions[candidate.Name] = BoundedDescription(operation.Description, 96);
+            if (System.Text.Encoding.UTF8.GetByteCount(descriptions.ToJsonString()) > 1536)
+            { descriptions.Remove(candidate.Name); continue; }
+            operations.Add(candidate.Name, operation.Id);
+            identities.Add((JsonNode)new JsonArray(candidate.SourceId, candidate.Id, candidate.Name, operation.Id, operation.Version));
+        }
+        return operations.Count == 0 ? null : new JsonObject
+            { ["entries"] = descriptions, ["identity"] = PlanningGraphCompiler.Fingerprint(identities.ToJsonString()) };
+    }
+
+    internal static string[] ResolveDiscoveryNames(PlanningSession state, string issuedPrompt, string[] choices)
+    {
+        var offset = issuedPrompt.LastIndexOf('\n');
+        if (offset < 0 || !issuedPrompt.Contains("\"bindByName\"", StringComparison.Ordinal) ||
+            JsonNode.Parse(issuedPrompt[(offset + 1)..])?["bindByName"] is not JsonObject issued ||
+            !choices.Any(name => issued["entries"] is JsonObject entries && entries.ContainsKey(name))) return choices;
+        if (!JsonNode.DeepEquals(issued, DiscoveryNameMenu(state, out var operations)))
+            throw new PlanningConflictException("The issued operation name directory changed before binding.");
+        return choices.Select(name => operations.GetValueOrDefault(name, name)).ToArray();
     }
 
     private static JsonArray? CompleteProviderMenu(PlanningSession state, JsonObject context)

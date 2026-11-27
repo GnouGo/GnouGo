@@ -28,6 +28,11 @@ internal static partial class PlanningCompactConstruction
         if (PlanningTokenThresholds.OptimizationAdvisory(state.Request))
         {
             if (purpose == DiscoveryPurpose) displayed = OmitDisplayedDirectoryReads(state, displayed);
+            if (PlanningApplicationBudget.EnforceSessionLimits(state.Request))
+            {
+                displayed = displayed.DeepClone().AsObject();
+                CompactAuthoringNavigation(displayed, compactCheckpoints: purpose is PlanningConstruction.DraftPurpose or "replan");
+            }
             return Render(purpose == SelectPurpose ? displayed : CompactSelectedProducerContractMetadata(displayed));
         }
         var request = Render(displayed);

@@ -321,6 +321,7 @@ public sealed partial class HybridWorkflowPlanner
         if (await CompactOtherActionAsync(state, runtime, response, primary, ct, descriptionReadKey, correction, exactRequest.StructuredOutputSchema)) return;
         var binding = primary == "binding" ? response[primary]!.AsObject() : null;
         var operations = (binding?["operationIds"] ?? response["operationIds"])!.AsArray().Select(o => o!.ToString()).ToArray();
+        operations = PlanningCompactConstruction.ResolveDiscoveryNames(state, exactRequest.Prompt, operations);
         var kind = binding?["kind"]?.ToString() ?? "operation";
         var groupId = binding?["groupId"]?.ToString();
         var closeScopes = binding?["closeScopes"]?.AsArray().Select(value => value!.ToString()).ToList();

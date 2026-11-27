@@ -546,3 +546,11 @@ Suspended consumers validate contract evidence by its canonical operation/versio
 original hash and current policy. This metadata check does not need an implementation
 cursor or render its projected input bindings. Missing, changed or conflicting originals
 invalidate the continuation without creating work or granting binding authority.
+
+## Contract assembly in a planning session
+
+A discovery decision can select multiple unambiguous method names from the current provider response. The host binds each name to the source, operation and version in the issued menu. The same policy and exact contract resolution apply as for a selection by ID. Full descriptions and continuation pages remain available.
+
+For a new root invocation, a result commitment identifies both its producer port and the declared public output. When the invocation is unique the planner connects those endpoints. An agent returning its whole verified object can inherit the closed public type, including through a value task that forwards it after a success check. An explicit schema still controls the agent when it needs further constraints. Conflicting inputs reach the validator. Repeated identical input bindings collapse in the tentative fragment.
+
+Structured responses that hit the provider output ceiling after at least 4,096 trailing JSON whitespace characters outside a string report `MODEL_OUTPUT_STALLED`. A measurement records the original token usage. Neither form of incomplete response authorizes a retry.

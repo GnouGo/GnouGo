@@ -102,11 +102,25 @@ internal static class ServerLiveDiagnostics
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
         if (!retained && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
         var planningAllowance = fundingScope?["current_authorized_ceiling_eur"]?.GetValue<decimal>();
+        JsonObject? planningEnvelope = null;
+        if (SchemaPortabilityCampaign.Option(args, "--planning-envelope") is { } envelopeFile)
+        {
+            if (!planning || planningAllowance is null) throw new ArgumentException("A planning envelope requires a funded fresh Server plan.");
+            planningEnvelope = JsonNode.Parse(await File.ReadAllTextAsync(envelopeFile))!.AsObject();
+            var limits = PlanningBudgetOptions.Parse(planningEnvelope);
+            if (limits is not { MaxCalls: >= 1 and <= 1000, MaxTotalTokens: > 0, MaxElapsed: not null, MaxEstimatedCost.Currency: "EUR" } ||
+                planningEnvelope["execution_verification_reserve_eur"]?.GetValue<decimal>() is not > 0)
+                throw new ArgumentException("The planning envelope requires calls, tokens, elapsed time, EUR cost and a positive execution/verification reserve.");
+            model.ExecutionVerificationReserveEur = planningEnvelope["execution_verification_reserve_eur"]!.GetValue<decimal>();
+        }
         if (planning && planningAllowance is { } ceiling)
         {
             var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: CancellationToken.None);
             var exposure = LLMUsageBudgetScope.SumCostConservatively(accounting["cost_upper_bound_eur"]!.GetValue<decimal>(), model.RetainedExternalReservationsEur);
             planningAllowance = LLMUsageBudgetScope.AvailableCostAllowance(ceiling, exposure);
+            if (planningEnvelope is not null)
+                planningAllowance = Math.Min(PlanningBudgetOptions.Parse(planningEnvelope)!.MaxEstimatedCost!.Amount,
+                    LLMUsageBudgetScope.AvailableCostAllowance(planningAllowance.Value, model.ExecutionVerificationReserveEur));
             if (planningAllowance == 0)
             {
                 Console.Error.WriteLine("Warning: the campaign has no remaining funds for a fresh Server reservation.");
@@ -160,6 +174,13 @@ internal static class ServerLiveDiagnostics
         }
         if (business?.Target is not null)
             hostArgs = hostArgs.Append("--Flow:Execution:FinalizationTimeoutSeconds=270").ToArray();
+        if (planningEnvelope is not null)
+        {
+            var limits = PlanningBudgetOptions.Parse(planningEnvelope)!;
+            hostArgs = [.. hostArgs, "--TypedWorkflowPlanning:EnforceSessionLimits=true",
+                $"--TypedWorkflowPlanning:MaxModelCalls={limits.MaxCalls}", $"--TypedWorkflowPlanning:LargeMaxModelCalls={limits.MaxCalls}",
+                $"--TypedWorkflowPlanning:MaxTotalTokens={limits.MaxTotalTokens}", $"--TypedWorkflowPlanning:MaxActiveMilliseconds={(long)limits.MaxElapsed!.Value.TotalMilliseconds}"];
+        }
         if (planningAllowance is { } amount)
             hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
                 "--WorkflowPlanningBudget:Amount=" + amount.ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
@@ -271,6 +292,11 @@ internal static class ServerLiveDiagnostics
                 throw new PlanningConflictException("The retained review target has changed.");
         }
         if (workflowOutputLimit is not null) report["workflow_model_output_limit"] = workflowOutputLimit.Value;
+        if (planningEnvelope is not null)
+        {
+            report["planning_envelope"] = planningEnvelope.DeepClone();
+            report["effective_planning_allowance_eur"] = planningAllowance;
+        }
         if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
         if (sdkWireApi is not null) report["sdk_wire_api"] = sdkWireApi;
         if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();

@@ -8,6 +8,23 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningModelCalls
 {
+    // Examine only rejected completions. Whitespace inside a JSON string is data.
+    private static int TrailingStructuralWhitespace(string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return 0;
+        var end = text.Length;
+        while (end > 0 && text[end - 1] is ' ' or '\r' or '\n' or '\t') end--;
+        var length = text.Length - end;
+        if (length < 4096) return 0;
+        var quoted = false;
+        for (var i = 0; i < end; i++)
+        {
+            if (quoted && text[i] == '\\') i++;
+            else if (text[i] == '"') quoted = !quoted;
+        }
+        return quoted ? 0 : length;
+    }
+
     // Active responses use Unicode code-point bounds; exact requests still govern recovery.
     internal const string UnicodeStringLengths = "GnOuGo planning response: string length limits count Unicode code points.";
     internal static IReadOnlyList<PlanningInstanceFinding> ValidateResponseFindings(JsonNode? response, JsonNode issuedSchema) =>
@@ -19,7 +36,9 @@ internal static partial class PlanningModelCalls
     internal static long RemainingCalls(PlanningSession state) => Math.Max(0, CallLimit(state) - CallsUsed(state));
     internal static int RemainingRepairs(PlanningSession state) => Math.Max(0, state.Request.MaxReplanAttempts - state.ReplanAttempts);
     internal static bool HasCallCapacity(PlanningSession state, long required = 1) =>
-        PlanningApplicationBudget.TrackingOnly(state.Request) || PlanningTokenThresholds.OptimizationAdvisory(state.Request) || RemainingCalls(state) >= required;
+        PlanningApplicationBudget.TrackingOnly(state.Request) ||
+        PlanningTokenThresholds.OptimizationAdvisory(state.Request) && !PlanningApplicationBudget.EnforceSessionLimits(state.Request) ||
+        RemainingCalls(state) >= required;
     private static bool RepairsAdvisory(PlanningSession state) => PlanningTokenThresholds.OptimizationAdvisory(state.Request) &&
         state.Request.Options["diagnostic_progress_policy"]?.ToString() != PlanningTokenThresholds.BoundedRepairs;
     internal static bool HasRepairCapacity(PlanningSession state) => RepairsAdvisory(state) || RemainingRepairs(state) > 0;
@@ -278,6 +297,14 @@ internal static partial class PlanningModelCalls
                 throw new WorkflowRuntimeException("MODEL_PHYSICAL_LIMIT", "Measured provider usage contradicts the captured model/deployment capacity or issued output allocation. No result was accepted; the exact receipt and charge remain retained.",
                     details: new JsonObject { ["input_tokens"] = input, ["output_tokens"] = output, ["origin"] = capacity["origin"]?.DeepClone(), ["replay_allowed"] = false });
             }
+        }
+        if (response.CompletionStatus == "output_limit" && TrailingStructuralWhitespace(response.Text) is > 0 and var stalled)
+        {
+            if (activeMeasurement is not null) activeMeasurement.Result = "output_stalled";
+            throw new WorkflowRuntimeException(ErrorCodes.ModelOutputStalled,
+                $"The incomplete structured response ended with {stalled} whitespace characters outside a JSON string. Inspect the issued decision and its schema before another request.",
+                details: new JsonObject { ["location"] = "/phases/" + purpose, ["trailing_whitespace"] = stalled,
+                    ["limit"] = call.Request.MaxTokens, ["request_id"] = call.Id, ["replay_allowed"] = false });
         }
         if (response.CompletionStatus == "output_limit") throw new WorkflowRuntimeException(ErrorCodes.ModelOutputLimit,
             $"The provider returned incomplete output: allocation {call.Request.MaxTokens}, reported output {activeMeasurement?.OutputTokens?.ToString() ?? "unknown"}, " +

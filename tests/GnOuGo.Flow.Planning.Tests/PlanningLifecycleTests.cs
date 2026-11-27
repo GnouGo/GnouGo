@@ -54,6 +54,22 @@ public sealed class PlanningLifecycleTests
         Assert.Single(runtime.Calls);
     }
 
+    [Theory]
+    [InlineData("{\"tasks\":[", 13601, "MODEL_OUTPUT_STALLED")]
+    [InlineData("", 33708, "MODEL_OUTPUT_STALLED")]
+    [InlineData("{\"objective\":\"embedded \\\" quote", 13601, "MODEL_OUTPUT_LIMIT")]
+    [InlineData("{\"tasks\":[", 3, "MODEL_OUTPUT_LIMIT")]
+    public async Task IncompleteStructuredResponseDistinguishesStructuralPadding(string prefix, int spaces, string expected)
+    {
+        var runtime = new TestRuntime { Respond = (_, _) => new() { Text = prefix + new string(' ', spaces), CompletionStatus = "output_limit" } };
+        var state = await PlannerFixture.RunAsync(runtime);
+        Assert.Equal(expected, Assert.Single(state.Diagnostics).Code);
+        Assert.Equal(PlanningStatus.Stopped, state.Status);
+        Assert.Equal(0, state.ReplanAttempts);
+        Assert.Single(runtime.Calls);
+        Assert.Null(state.PendingCall);
+    }
+
     [Fact]
     public async Task InvalidReceivedResponseStopsAfterOneDiagnosticCorrection()
     {

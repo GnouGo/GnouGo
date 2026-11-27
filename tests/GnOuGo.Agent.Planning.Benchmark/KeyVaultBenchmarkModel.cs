@@ -42,6 +42,7 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
     private readonly Dictionary<string, DateTimeOffset> _planningDeadlines = new(StringComparer.Ordinal);
     private bool _advisoryTokens;
     internal decimal RetainedExternalReservationsEur { get; set; }
+    internal decimal ExecutionVerificationReserveEur { get; set; }
 
     internal void CaptureTokenPolicy(PlanningRequest request) => _advisoryTokens = PlanningTokenThresholds.Advisory(request);
     private static readonly TimeSpan MaxQuoteAge = new EcbExchangeRateProviderOptions().MaxQuoteAge;
@@ -797,6 +798,13 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
             if (state.Request.Options[PlanningTokenThresholds.OptionName] is { } tokenAuthority)
                 effective[PlanningTokenThresholds.OptionName] = tokenAuthority.DeepClone();
             if (PlanningTokenThresholds.OptimizationAdvisory(state.Request)) effective[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+            if (PlanningApplicationBudget.EnforceSessionLimits(state.Request))
+            {
+                effective["enforce_session_limits"] = true;
+                effective["execution_verification_reserve_eur"] = ExecutionVerificationReserveEur;
+                effective["planning_cost_limit_eur"] = PlanningBudgetOptions.Parse(state.Request.Options)!.MaxEstimatedCost!.Amount;
+                effective["deadline_utc"] = (_time.GetUtcNow() + elapsed - TimeSpan.FromMilliseconds(state.ActiveMilliseconds)).ToString("O");
+            }
             if (RetainedExternalReservationsEur < 0) throw new ArgumentOutOfRangeException(nameof(RetainedExternalReservationsEur));
             effective["retained_external_reservations_eur"] = RetainedExternalReservationsEur;
             if (experimentalForecast)

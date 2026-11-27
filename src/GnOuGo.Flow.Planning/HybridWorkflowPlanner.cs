@@ -195,7 +195,7 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
             }
             else
             {
-            var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"
+            var location = ex.Code is "MODEL_INPUT_LIMIT" or "MODEL_OUTPUT_LIMIT" or ErrorCodes.ModelOutputStalled or "DISCOVERY_INCOMPLETE" or "DISCOVERY_NOT_ALLOWED"
                 ? ex.Details?["location"]?.GetValue<string>() ?? "/" : "/";
             if (!state.Diagnostics.Any(d => d.Code == ex.Code && d.Location == location))
                 state.Diagnostics.Add(new(ex.Code, location, ex.Message) { BudgetFailure =

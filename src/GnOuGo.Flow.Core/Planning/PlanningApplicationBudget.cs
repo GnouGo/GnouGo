@@ -24,12 +24,14 @@ internal static class PlanningApplicationBudget
     }
     internal static bool TrackingOnly(PlanningRequest request) => Unlimited(request) && !ExplicitWorkflowLimits(request);
     internal static bool ExplicitWorkflowLimits(PlanningRequest request) => request.Options[OptionName]?["explicitWorkflowLimits"]?.GetValue<bool>() == true;
+    internal static bool EnforceSessionLimits(PlanningRequest request) =>
+        request.Options[OptionName]?["mode"]?.ToString() == "limited" && request.Options[OptionName]?["enforceSessionLimits"]?.GetValue<bool>() == true;
     internal static string Currency(PlanningRequest request) => request.Options[OptionName]?["currency"]?.GetValue<string>() ?? "USD";
     internal static TimeSpan? HardElapsedLimit(PlanningRequest request)
     {
         if (TrackingOnly(request)) return null;
         var authored = PlanningBudgetOptions.Parse(request.Options)?.MaxElapsed;
-        if (PlanningTokenThresholds.OptimizationAdvisory(request))
+        if (PlanningTokenThresholds.OptimizationAdvisory(request) && !EnforceSessionLimits(request))
             return ExplicitWorkflowLimits(request) ? authored : null;
         if (request.Options[OptionName]?["mode"]?.ToString() == "limited" && request.Options[OptionName]?["planningLimits"] is { } captured)
         {

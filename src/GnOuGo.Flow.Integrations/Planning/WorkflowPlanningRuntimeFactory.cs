@@ -132,11 +132,13 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 var applicationUsage = await records.GetAsync(ApplicationBudgetSink.Collection, tenant, key, Author, ct);
                 var retainedUsage = applicationUsage is null ? null : JsonSerializer.Deserialize(applicationUsage.Value, PlanningJsonContext.Default.LLMUsageBudgetSnapshot)
                     ?? throw new PlanningConflictException("The encrypted application planning budget is invalid.");
-                parentBudget = new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(state.Request), capturedLimits, retainedUsage,
+                var hardSessionLimits = PlanningApplicationBudget.EnforceSessionLimits(state.Request);
+                parentBudget = new LLMUsageBudgetScope(!hardSessionLimits && PlanningTokenThresholds.Advisory(state.Request), capturedLimits, retainedUsage,
                     inheritedBudget, new ApplicationBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
-                    advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(state.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = application["financialForecastMode"]?.ToString() == "experimental_warning" };
+                    advisoryOptimization: !hardSessionLimits && PlanningTokenThresholds.OptimizationAdvisory(state.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = application["financialForecastMode"]?.ToString() == "experimental_warning" };
             }
             var explicitLimits = PlanningApplicationBudget.ExplicitWorkflowLimits(state.Request);
+            var advisorySession = !explicitLimits && !PlanningApplicationBudget.EnforceSessionLimits(state.Request);
             var configuredLimits = PlanningBudgetOptions.Parse(state.Request.Options);
             var limits = (configuredLimits ?? new LLMUsageBudgetLimits()) with
                 { MaxElapsed = explicitLimits ? configuredLimits?.MaxElapsed : null,
@@ -144,9 +146,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var budget = PlanningApplicationBudget.TrackingOnly(state.Request)
                 ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(state.Request, usage, parentBudget, new WorkflowPlanningBudgetSink(records, tenant, key),
                     exchangeRateProvider: context.Engine.ExchangeRateProvider)
-                : new LLMUsageBudgetScope(!explicitLimits && PlanningTokenThresholds.Advisory(state.Request), limits, usage, parentBudget,
+                : new LLMUsageBudgetScope(advisorySession && PlanningTokenThresholds.Advisory(state.Request), limits, usage, parentBudget,
                 new WorkflowPlanningBudgetSink(records, tenant, key), exchangeRateProvider: context.Engine.ExchangeRateProvider,
-                advisoryOptimization: !explicitLimits && PlanningTokenThresholds.OptimizationAdvisory(state.Request))
+                advisoryOptimization: advisorySession && PlanningTokenThresholds.OptimizationAdvisory(state.Request))
                     { AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(state.Request) };
             // The journal meters actual dispatches; replaying a receipt consumes no new allowance.
             context.LLMUsageBudget = null;

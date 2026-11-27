@@ -426,12 +426,13 @@ public sealed partial class PlanningSessionService(
             MaxEstimatedCost = configured?.MaxEstimatedCost ?? new MonetaryAmount(budgetSettings.Value.Amount, budgetSettings.Value.Currency)
         };
         var estimator = new ModelMetadataUsageCostEstimator(runtime.Options);
+        var hardSessionLimits = PlanningApplicationBudget.EnforceSessionLimits(current.Request);
         var budget = PlanningApplicationBudget.TrackingOnly(current.Request)
             ? LLMUsageBudgetScope.CreatePlanningTrackingOnly(current.Request, initial, sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId),
                 exchangeRateProvider: exchangeRates)
-            : new LLMUsageBudgetScope(PlanningTokenThresholds.Advisory(current.Request), limits, initial,
+            : new LLMUsageBudgetScope(!hardSessionLimits && PlanningTokenThresholds.Advisory(current.Request), limits, initial,
             sink: new PlanningBudgetSink(records, Tenant, current.Request.SessionId), exchangeRateProvider: exchangeRates,
-            advisoryOptimization: PlanningTokenThresholds.OptimizationAdvisory(current.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(current.Request) };
+            advisoryOptimization: !hardSessionLimits && PlanningTokenThresholds.OptimizationAdvisory(current.Request)) { PolicyOrigin = "captured_application_planning_limits", AdvisoryFinancialForecasts = PlanningApplicationBudget.AdvisoryFinancialForecasts(current.Request) };
         var journal = new PlanningModelJournal(runtime.LlmClient, contexts, records, Tenant, current.Request.SessionId, budget, estimator, current.Request.Generation, runtime.LlmCapabilityResolver, current.Request,
             PlanningDispatchDeadline.Resolve(current.Request, current.ActiveMilliseconds), requireCapturedMetadata: hostPolicy is not null, observer: hostPolicy?.Observer);
         if (current.PendingCall is { } retained)

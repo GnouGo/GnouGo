@@ -1520,3 +1520,7 @@ requests deletion only after observing a remaining cluster or labelled node,
 then checks the cluster, nodes and kubeconfig again. The Cmd event retains
 the observations even if checkout deletion fails. The independent end-of-run
 probe checks the same resources after the workflow terminates.
+
+## Reserving execution funds before Server planning
+
+A fresh funded `server-live-plan` accepts `--planning-envelope Profiles/server-business-planning-budget.json`. The profile caps each session at 48 calls, 3,200,000 tokens, one hour of active planning and €3.50. Each planning HTTP admission also leaves €15 of campaign funds available for business execution and verification. The opening accounting includes unresolved liabilities. Execution retains the campaign ceiling and its own runtime controls. Reports capture the profile and effective monetary allowance.

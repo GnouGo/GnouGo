@@ -157,7 +157,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 throw new InvalidOperationException("Each new dispatch must have one reserved identity.");
             var totals = await AccountingAsync(campaign, requestId, record, ct);
             var sessionExhausted = sessionAttemptLimit is { } limit && totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom > limit;
-            var diagnostic = PlanningTokenThresholds.OptimizationAdvisory(_effectiveTransportPolicy);
+            var hardSession = _effectiveTransportPolicy?["enforce_session_limits"]?.GetValue<bool>() == true;
+            var diagnostic = !hardSession && PlanningTokenThresholds.OptimizationAdvisory(_effectiveTransportPolicy);
             if (sessionExhausted && diagnostic)
             {
                 OptimizationWarning(record, "physical_calls", totals["session_calls"]!.GetValue<long>() + reviewAttemptHeadroom,
@@ -198,6 +199,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                     if (tokenLimit <= 0 || reviewTokens < 0) throw new InvalidOperationException("Captured token thresholds are invalid.");
                     if (tokenLimit > 15_000_000 || totals["session_token_upper_bound"]!.GetValue<long>() > tokenLimit - reviewTokens)
                     {
+                        if (hardSession) throw PlanningLimit("planning_token_reservation_exhausted", tokenLimit,
+                            totals["session_token_upper_bound"]!.GetValue<long>() + reviewTokens);
                         if (!PlanningTokenThresholds.Advisory(_effectiveTransportPolicy)) sessionExhausted = true;
                         else record["token_threshold_warning"] = new JsonObject { ["kind"] = "cumulative_tokens",
                             ["threshold"] = tokenLimit, ["current"] = totals["session_token_upper_bound"]!.DeepClone(),
@@ -209,6 +212,17 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
             if (retainedOtherReservations < 0) throw new InvalidOperationException("Retained financial headroom cannot be negative.");
             await campaign.RequireRetainedApplicationHoldsAsync(retainedOtherReservations, ct);
             var ceiling = await campaign.CostCeilingAsync(ct);
+            if (hardSession)
+            {
+                var reserve = _effectiveTransportPolicy!["execution_verification_reserve_eur"]!.GetValue<decimal>();
+                var sessionCost = _effectiveTransportPolicy["planning_cost_limit_eur"]!.GetValue<decimal>();
+                if (reserve < 0 || sessionCost <= 0) throw new InvalidOperationException("Invalid captured planning allowance.");
+                if (totals["session_cost_upper_bound_eur"]!.GetValue<decimal>() > sessionCost)
+                    throw PlanningLimit("planning_cost_reservation_exhausted", sessionCost, totals["session_cost_upper_bound_eur"]!.GetValue<decimal>());
+                if (LLMUsageBudgetScope.CostSumExceeds(ceiling, totals["cost_upper_bound_eur"]!.GetValue<decimal>(), retainedOtherReservations, reserve))
+                    throw PlanningLimit("execution_verification_reserve", ceiling,
+                        LLMUsageBudgetScope.SumCostConservatively(totals["cost_upper_bound_eur"]!.GetValue<decimal>(), retainedOtherReservations, reserve));
+            }
             var experimentalForecast = _effectiveTransportPolicy?["financial_forecast_mode"]?.ToString() == "experimental_warning";
             if (experimentalForecast && _effectiveTransportPolicy?["external_accounting_status"]?.ToString() == "unverified_external_holds")
                 throw BenchmarkCampaign.AdmissionFailure("external_financial_history_incomplete");
@@ -242,6 +256,10 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         }
         await campaign.SaveAsync(Collection, requestId, record, ct);
     }
+
+    private static GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException PlanningLimit(string reason, decimal allowance, decimal required) =>
+        new(GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded, "The captured planning allowance cannot admit this HTTP attempt.",
+            details: new JsonObject { ["reason"] = reason, ["dispatch_status"] = "not_started", ["allowance"] = allowance, ["required_reservation"] = required });
 
     private void OptimizationWarning(JsonObject record, string kind, long current, long threshold, int reviewHeadroom = 0)
     {
@@ -289,7 +307,7 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         if (snapshot is not null && snapshot.EstimatedCostCurrency != "EUR") throw new InvalidOperationException("The existing campaign ledger must be denominated in EUR.");
         long calls = snapshot?.Calls ?? 0, input = snapshot?.InputTokens ?? 0, output = snapshot?.OutputTokens ?? 0;
         long reservedInput = 0, reservedOutput = 0, uncertain = 0, sessionCalls = 0, sessionTokens = 0;
-        decimal cost = snapshot?.EstimatedCost ?? 0, reservedCost = 0;
+        decimal cost = snapshot?.EstimatedCost ?? 0, reservedCost = 0, sessionCost = 0;
         var session = requestId?.Split(':')[0] + ":";
         var perSession = includeSessions ? new Dictionary<string, JsonObject>(StringComparer.Ordinal) : null;
         foreach (var (key, row) in rows)
@@ -310,8 +328,12 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
                 if (row.Attempts == 0) item["zeroAttemptRequests"]!.AsArray().Add(key);
             }
             if (requestId is not null && key.StartsWith(session, StringComparison.Ordinal))
+            {
                 sessionTokens = checked(sessionTokens + pending * checked(row.InputCeiling + row.OutputCeiling) +
                     row.InputTokens + row.OutputTokens);
+                if (replacement?["effective_transport_policy"]?["enforce_session_limits"]?.GetValue<bool>() == true)
+                    sessionCost = LLMUsageBudgetScope.SumCostConservatively(new[] { sessionCost, row.MeasuredCost ?? 0 }.Concat(Enumerable.Repeat(row.CostCeiling, pending)).ToArray());
+            }
             uncertain += pending;
             reservedInput += pending * row.InputCeiling;
             reservedOutput += pending * row.OutputCeiling;
@@ -343,6 +365,8 @@ internal sealed class BenchmarkHttpJournal(BenchmarkCampaign campaign, string re
         // Preserve historical accounting hashes when no new captured policy is being admitted.
         if (replacement is not null && PlanningBenchmarkMeasurements.RetainsAllHttpFailures(replacement))
             result["session_token_upper_bound"] = sessionTokens;
+        if (replacement?["effective_transport_policy"]?["enforce_session_limits"]?.GetValue<bool>() == true)
+            result["session_cost_upper_bound_eur"] = sessionCost;
         return result;
     }
 }

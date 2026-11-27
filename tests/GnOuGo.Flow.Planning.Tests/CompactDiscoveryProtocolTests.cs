@@ -861,6 +861,59 @@ public sealed partial class CompactDiscoveryProtocolTests
 
 
     [Fact]
+    public async Task SelectedProviderNamesBindTogetherAgainstTheIssuedVersions()
+    {
+        var (state, _) = await Ready();
+        AddOperations(state, 8);
+        var context = PlanningCompactConstruction.DiscoveryContext(state);
+        var issued = "Choose\n" + context.ToJsonString();
+        Assert.Equal(new[] { "operation_1", "operation_7" },
+            PlanningCompactConstruction.ResolveDiscoveryNames(state, issued, ["read_1", "read_7"]));
+        Assert.Empty(state.Discovery.Resolved);
+        var page = state.Discovery.Pages.Single();
+        var first = page.Capabilities[0];
+        page.Capabilities.Add(first with { Id = "other", Operation = new() { Id = "other", Version = first.Version } });
+        Assert.Throws<PlanningConflictException>(() => PlanningCompactConstruction.ResolveDiscoveryNames(state, issued, ["read_1"]));
+        Assert.Null(PlanningCompactConstruction.DiscoveryContext(state)["bindByName"]!["entries"]![first.Name]);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExplicitResultBindsOnlyAnUnambiguousRootInvocation(bool secondInvocation)
+    {
+        var (state, _) = await Ready();
+        var step = state.Construction!.Compact!.CurrentStep!;
+        step.OperationIds = ["inspect"];
+        step.OutputNames = ["report"];
+        state.Requirements!.Outputs = [new() { Name = "report", Type = new() { Kind = "object", Fields = [new() { Name = "coverage" }] } }];
+        state.Discovery.Resolved.Add(new() { Id = "inspect", StepType = "agent.run", Kind = "agent", Version = "v1" });
+        TaskOutput Input(string value) => new("workspace", new() { Kind = "string", Text = value });
+        var task = new PlanTask { Id = "a", Kind = "operation", Operation = "inspect", Inputs = [Input("work"), Input("work")] };
+        var extension = new PlanningConstructionExtension { Scope = "/root", Tasks = [task] };
+        if (secondInvocation) extension.Tasks.Add(new() { Id = "b", Kind = "operation", Operation = "inspect",
+            Inputs = [Input("one"), Input("two")] });
+        var before = PlanningConstruction.Hash(state.Plan);
+        PlanningConstruction.AssembleBindings(state, extension, [new() { RequirementId = "req_0", Operation = "inspect", Result = new("output", "report") }]);
+        Assert.Single(task.Inputs, input => input.Name == "workspace");
+        if (secondInvocation)
+        {
+            Assert.Empty(extension.Outputs);
+            Assert.Equal(2, extension.Tasks[1].Inputs.Count);
+            Assert.DoesNotContain(task.Inputs, input => input.Name == "output_schema");
+        }
+        else
+        {
+            var result = Assert.Single(extension.Outputs);
+            Assert.Equal(("report", "a", "output"), (result.Name, result.Value.Source, result.Value.Port));
+            var schema = Assert.Single(task.Inputs, input => input.Name == "output_schema").Value;
+            Assert.False(schema.Members.Single(member => member.Name == "additionalProperties").Value.Boolean);
+            Assert.Equal("coverage", Assert.Single(schema.Members.Single(member => member.Name == "required").Value.Items).Text);
+        }
+        Assert.Equal(before, PlanningConstruction.Hash(state.Plan));
+    }
+
+    [Fact]
     public async Task NearbyOperationPagesCanBeReadTogetherWithoutSelectingOrResolvingATool()
     {
         var (state, runtime) = await Ready();
