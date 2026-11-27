@@ -14,6 +14,43 @@ public sealed partial class BenchmarkPermanentRetentionTests
 {
     private const string InterruptedServerRun = "interrupted-server-run";
 
+    [Theory]
+    [InlineData("covered")]
+    [InlineData("underfunded")]
+    [InlineData("different_wire")]
+    [InlineData("received_body")]
+    public async Task InterruptedHeadersRequireMatchingPhysicalEvidenceAndFullFunding(string variant)
+    {
+        var workspace = Path.Combine(Path.GetTempPath(), "GnOuGo.ServerRetention", Guid.NewGuid().ToString("N"));
+        await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync(Path.Combine(workspace, ".GnOuGo/data/live-server", InterruptedServerRun));
+        var campaign = await SeedInterruptedServerAsync(fixture);
+        var journal = (await campaign.LoadAsync(BenchmarkHttpJournal.Collection, RequestId, Ct))!;
+        journal["cost_ceiling_eur"] = variant == "underfunded" ? .90m : 1m;
+        var wire = journal["transport"]!;
+        wire["Fingerprint"] = new string('a', 64);
+        wire["Attempts"] = new JsonArray(new JsonObject { ["Id"] = RequestId + ":1", ["StartedAtUtc"] = DateTimeOffset.UtcNow.AddSeconds(-1),
+            ["CompletedAtUtc"] = DateTimeOffset.UtcNow, ["Failure"] = "cancelled", ["FailurePhase"] = "response_headers",
+            ["RetryDecision"] = "cancelled; no retry", ["ResponseBodyComplete"] = false, ["Body"] = variant == "received_body" ? "{}" : null });
+        await campaign.SaveAsync(BenchmarkHttpJournal.Collection, RequestId, journal, Ct);
+        var raw = await fixture.Records.GetAsync("agent-planning-model-http-v11", "benchmark", RequestId, "test", Ct);
+        var server = JsonNode.Parse(raw!.Value)!;
+        server["transport"] = wire.DeepClone();
+        if (variant == "different_wire") server["transport"]!["Fingerprint"] = new string('b', 64);
+        await fixture.Records.UpsertAsync("agent-planning-model-http-v11", "benchmark", RequestId, server.ToJsonString(), "test", Ct);
+        Task<JsonObject> Inspect() => campaign.InspectPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId, Ct, Interrupted, workspace);
+        if (variant != "covered")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(Inspect);
+            return;
+        }
+        var preview = await Inspect();
+        await campaign.ApplyPermanentRetentionAsync("planning-evaluation-runs", InterruptedServerRun, RequestId,
+            preview["evidence_hash"]!.ToString(), Operator, Authorization, Ct, Interrupted, workspace);
+        Assert.Equal(1m, preview["evidence"]!["exact_http_reservation_eur"]!.GetValue<decimal>());
+        Assert.Equal(0m, await campaign.RetainedApplicationReservationsAsync(Ct));
+        Assert.Equal(1m, (await BenchmarkHttpJournal.AccountingAsync(campaign, ct: Ct))["reserved_cost_eur"]!.GetValue<decimal>());
+    }
+
     [Fact]
     public async Task FreshServerPlanChecksExternalReservationsBeforeCreatingSessionState()
     {

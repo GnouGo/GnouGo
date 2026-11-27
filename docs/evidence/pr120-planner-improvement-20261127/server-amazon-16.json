@@ -1,0 +1,186 @@
+{
+  "source": "bdd668e7fd5230bfdae8e051f9f3167cf3eee25f",
+  "run": "improve40-amazon-20261127-220802",
+  "session": "605e468a2e024f3f8a8f59ac4777c8a9",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T22:09:22.9797093+00:00",
+  "finished_utc": "2026-11-27T22:26:14.878529+00:00",
+  "wall_seconds": 1011.89882,
+  "phases": {
+    "construction_implementation": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 63905,
+      "output_tokens": 2694,
+      "measured_eur": "0.1578428246013667425968109340",
+      "duration_ms": "89552.7812"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 117238,
+      "output_tokens": 2773,
+      "measured_eur": "0.2796902050113895216400911162",
+      "duration_ms": "131805.9540"
+    },
+    "construction_draft": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 199923,
+      "output_tokens": 8131,
+      "measured_eur": "0.4924487471526195899772209567",
+      "duration_ms": "210406.9558"
+    },
+    "construction_local_judge": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 42583,
+      "output_tokens": 1397,
+      "measured_eur": "0.1033644646924829157175398634",
+      "duration_ms": "48998.7130"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2311,
+      "output_tokens": 1684,
+      "measured_eur": "0.0129362186788154897494305239",
+      "duration_ms": "168673.9372"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 9467,
+      "output_tokens": 1737,
+      "measured_eur": "0.0294783599088838268792710706",
+      "duration_ms": "48995.9157"
+    },
+    "replan": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 30169,
+      "output_tokens": 205,
+      "measured_eur": "0.0696560364464692482915717540",
+      "duration_ms": "20294.0868"
+    },
+    "construction_global_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 33924,
+      "output_tokens": 1313,
+      "measured_eur": "0.0832574031890660592255125285",
+      "duration_ms": "39135.3940"
+    },
+    "operator_revision_after_observer_deadline": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 11983,
+      "output_tokens": 274,
+      "measured_eur": "0.0285444191343963553530751708",
+      "duration_ms": 7122,
+      "duration_basis": "Physical attempt elapsed milliseconds. Usage remains unknown on attempt 39.",
+      "retained_eur": "0.2376924829157175398633257403"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "1.2572186788154897494305239181",
+  "input_tokens": 511503,
+  "output_tokens": 20208,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "path": "/construction/candidate",
+      "message": "On a successful document_read with mismatched workbook rows, ece5ac8d1_58 takes the failure branch, but ece5ac8d1_37 returns an unlabeled success=true without explicitly reporting verification failure. Return a clear failure reason alongside the read and comparison evidence in finalOutcome."
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "path": "/construction/candidate",
+      "message": "On a successful document_read with mismatched workbook rows, ece5ac8d1_58 takes the failure branch, but ece5ac8d1_37 returns an unlabeled success=true without explicitly reporting verification failure. Return a clear failure reason alongside the read and comparison evidence in finalOutcome."
+    },
+    {
+      "code": "BUSINESS_REVIEW_REQUIRED",
+      "path": "/construction/candidate",
+      "message": "On a successful document_read with mismatched workbook rows, ece5ac8d1_58 takes the failure branch, but ece5ac8d1_37 returns an unlabeled success=true without explicitly reporting verification failure. Return a clear failure reason alongside the read and comparison evidence in finalOutcome."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "close_browser",
+      "search"
+    ],
+    [
+      "assess_source"
+    ],
+    [
+      "prefix_decision",
+      "select_prefix"
+    ],
+    [
+      "navigation_branch",
+      "resolve_agent",
+      "resolve_selection"
+    ],
+    [
+      "detail",
+      "detail_guard",
+      "extract_detail",
+      "href_guard",
+      "index_guard",
+      "selection_guard",
+      "visit_products"
+    ],
+    [
+      "deliver",
+      "write"
+    ],
+    [
+      "readback",
+      "verify"
+    ],
+    []
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 37,
+    "repairs": 1,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "46.885555808656036446469248774",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "22.8307494305239179954441908613",
+    "physical_attempts": 1294,
+    "input_tokens": 19255897,
+    "output_tokens": 663431
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "48.142774487471526195899772705",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "21.3358382687927107061503411903",
+    "physical_attempts": 1333,
+    "input_tokens": 19767400,
+    "output_tokens": 683639
+  },
+  "business_execution": {
+    "form_run": null,
+    "searches": 0,
+    "product_visits": 0,
+    "workbook_created": false
+  },
+  "observed_revision_after_report": 113,
+  "original_report_revision": 109,
+  "late_request_evidence": {
+    "38": "The normal Server accepted a scoped operator correction. One response completed.",
+    "39": "Host shutdown cancelled the call while waiting for headers. Both wire journals agree. No response, usage, request identifier from the provider or completion receipt was retained.",
+    "preview_evidence_hash": "9dc09bcd5f2ad9a2f079fe9d7e05831e6b559cfd5090db116717db8d8ac66c02"
+  },
+  "observed_deadline_utc": "2026-11-27T22:26:14.8698921+00:00"
+}

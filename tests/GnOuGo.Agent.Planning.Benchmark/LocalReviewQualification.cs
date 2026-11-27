@@ -12,13 +12,14 @@ using Microsoft.Extensions.Configuration;
 internal static class LocalReviewQualification
 {
     internal const string Scenario = "code-local", Version = "local-sdk-review-v2";
+    internal const string NotesDirectory = ".review-notes";
 
     internal const string UnitCheck = "check_annotation_cleanup";
     internal const string UnitScript = ".bin/test-annotation-policy-cleanup.py";
     internal const string PolicyScript = ".bin/test-annotation-policy.py";
     internal const int MaxUnitPathLength = 240;
 
-    internal static bool OwnsReadDialog(AgentTaskContext active, HumanInputRequest request)
+    internal static bool OwnsFileDialog(AgentTaskContext active, HumanInputRequest request)
     {
         var context = request.Context;
         if (request.RunId != active.RunId || request.ParentInvocationId != active.InvocationId ||
@@ -29,10 +30,16 @@ internal static class LocalReviewQualification
             request.Fields is not null || !request.AllowAbandon || request.Choices is not { } choices ||
             !choices.Contains("Allow once", StringComparer.Ordinal) || !choices.Contains("Refuse", StringComparer.Ordinal))
             return false;
+        if (context["project_write_tool"] is not null || context["project_write_paths"] is not null)
+            return active.Task.Capabilities.Contains("project.write", StringComparer.Ordinal) &&
+                context["host_tool"] is null && context["project_tool"] is null && context["project_path"] is null &&
+                context["project_write_tool"]?.ToString() is "project_write" or "project_append" or "apply_patch" &&
+                context["project_write_paths"] is JsonArray { Count: > 0 } paths && paths.All(item =>
+                    item is JsonValue value && value.TryGetValue<string>(out var path) && !string.IsNullOrWhiteSpace(path) && !path.Any(char.IsControl));
         if (context["host_tool"] is not null)
             return context["host_tool"]!.ToString() == "read_task_input" && context["project_tool"] is null && context["project_path"] is null;
         return active.Task.Capabilities.Contains("project.read", StringComparer.Ordinal) &&
-            context["project_tool"]?.ToString() is "project_read" or "project_list" or "project_stat" &&
+            context["project_tool"]?.ToString() is "view" or "project_read" or "project_list" or "project_stat" &&
             context["project_path"]?.GetValue<string>() is { Length: > 0 } path && !path.Any(char.IsControl);
     }
 
@@ -69,7 +76,7 @@ internal static class LocalReviewQualification
         return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(source))) == expected;
     }
 
-    internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, CancellationToken ct)
+    internal static async Task<string> PromptAsync(string relative, PublishedReviewQualification target, JsonObject report, bool allowWrites, CancellationToken ct)
     {
         if ((relative + "/repository/" + UnitScript).Length > MaxUnitPathLength)
             throw new InvalidOperationException("The fixed upstream test path exceeds the configured Cmd alias limit.");
@@ -80,10 +87,10 @@ internal static class LocalReviewQualification
             file["patch"] is JsonValue && !string.IsNullOrWhiteSpace(file["filename"]?.ToString()))?["filename"]?.GetValue<string>()
             ?? throw new InvalidOperationException("The pinned change has no readable changed file for the local review.");
         report["review_read_subject"] = readSubject;
-        return Prompt(relative, target, files.Count, readSubject);
+        return Prompt(relative, target, files.Count, readSubject, allowWrites);
     }
 
-    internal static string Prompt(string relative, PublishedReviewQualification target, int changedFiles, string readSubject) =>
+    internal static string Prompt(string relative, PublishedReviewQualification target, int changedFiles, string readSubject, bool allowWrites = true) =>
         $"Declare two required public string inputs named pullRequestUrl and reviewText and one required public object output named report. Bind report to the verified structured report after its successful file write. " +
         $"The approved target is {LiveWorkflowEvaluation.ReviewUrl}, base {target.Base}, head {target.Head}. Verify the URL. " +
         $"Clone https://github.com/{target.Owner}/{target.Repository}.git at that head into {relative}/repository with full ancestry (historyDepth=0) so Git can compare the two pinned revisions locally. " +
@@ -92,7 +99,9 @@ internal static class LocalReviewQualification
             ? $"Use one git_compare_refs with pageSize={changedFiles} and expectedCompleteFileCount={changedFiles}. On success bind its files output directly to inputs.review.files. A mismatch fails the comparison. "
             : "Use the complete ordered page directory from git_compare_refs and include each page exactly once. Bind its complete ordered files to inputs.review.files. ") +
         $"Run the known {UnitCheck} command directly via cmd_run with parameters.path={relative}/repository/{UnitScript}. Require success and pass its result to the review. " +
-        $"Use one bounded read-only code agent in the literal workspace {relative}/repository. Bind reviewText and the Git comparison as data inputs. " +
+        $"Use one bounded code agent in the literal workspace {relative}/repository with {(allowWrites ? "project.read and project.write" : "project.read")}. Bind reviewText and the Git comparison as data inputs. " +
+        "Inspect the pinned files with native view on absolute file paths or project_read on relative paths. Preserve every pinned source file. " +
+        (allowWrites ? $"If scratch evidence is needed, create or edit it under {NotesDirectory}/. " : "") +
         "Set its finite budget to 16 model calls, 1800000 total tokens, 80 actions and 1200000 milliseconds. SDK token reservations include each request's maximum output. " +
         $"Keep the verification list static: file.read with subject {readSubject} requires observed tool and arguments, and review.diff with subject {target.Head} " +
         "verifies the reported coverage and changed-line anchors against actual SDK file reads and Git patches. Explore other relevant files as needed. " +
@@ -231,7 +240,7 @@ internal sealed partial class ServerBusinessExecution
         public string Description => "Review the pinned local checkout with the managed Copilot SDK.";
         private CopilotAgentTaskRunner Adapter(ReviewExecution? execution)
         {
-            var policy = new Dictionary<string, string?> { ["Code:AllowWrites"] = "false", ["Code:Copilot:Provider"] = provider,
+            var policy = new Dictionary<string, string?> { ["Code:AllowWrites"] = configuration["Code:AllowWrites"] ?? "true", ["Code:Copilot:Provider"] = provider,
                 ["Code:Copilot:Model"] = model, ["Code:Copilot:EnableApproveAll"] = "false" };
             if (execution is not null)
             {
@@ -261,8 +270,17 @@ internal sealed partial class ServerBusinessExecution
                 throw new PlanningConflictException("The SDK requires a verified base and head before exploration.");
             if (execution.Report["events"] is not JsonArray events || !events.OfType<JsonObject>().Any(e => LocalReviewQualification.PassedCheck(e, execution.Relative)))
                 throw new PlanningConflictException("The SDK review requires the observed pinned unit check before exploration.");
+            var checkout = Path.GetFullPath(context.Task.Workspace, execution.Workspace);
+            if (!await LiveCodeEvidence.IsPinnedReviewCheckoutAsync(checkout, owner.Target.Head, LocalReviewQualification.NotesDirectory))
+                throw new PlanningConflictException("The review requires a clean pinned checkout and an untracked scratch location.");
             using var permissionOwner = owner._authority!.BeginLocalReview(context);
             var result = await Adapter(execution).RunAsync(context, ct);
+            if (result.Status == "completed")
+            {
+                var clean = await LiveCodeEvidence.IsPinnedReviewCheckoutAsync(checkout, owner.Target.Head, LocalReviewQualification.NotesDirectory);
+                execution.Report["tracked_checkout_clean_after_sdk"] = clean;
+                if (!clean) result = result with { Status = "failed", Output = null, Message = "Tracked checkout contents changed during the pinned review." };
+            }
             var receipts = execution.Report["code_agent_receipts"] as JsonArray ?? new JsonArray();
             if (receipts.Parent is null) execution.Report["code_agent_receipts"] = receipts;
             receipts.Add(JsonSerializer.SerializeToNode(result, AgentTaskJsonContext.Default.AgentTaskResult));

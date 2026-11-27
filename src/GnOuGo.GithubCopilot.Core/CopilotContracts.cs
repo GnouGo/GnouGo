@@ -103,9 +103,11 @@ public sealed record CopilotHumanInputRequest(
 {
     public string? RequestedHostTool { get; init; }
     public CopilotProjectReadPermission? ProjectRead { get; init; }
+    public CopilotProjectWritePermission? ProjectWrite { get; init; }
 }
 
 public sealed record CopilotProjectReadPermission(string Tool, string Path);
+public sealed record CopilotProjectWritePermission(string Tool, IReadOnlyList<string> Paths);
 
 public sealed record CopilotHumanInputResponse(
     bool Accepted,

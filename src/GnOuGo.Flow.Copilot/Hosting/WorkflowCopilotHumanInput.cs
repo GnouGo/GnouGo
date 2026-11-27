@@ -24,6 +24,11 @@ internal sealed class WorkflowCopilotHumanInput(AgentTaskContext owner, IHumanIn
             context["project_path"] = read.Path;
         }
         if (input.RequestedHostTool is { } hostTool) context["host_tool"] = hostTool;
+        if (input.ProjectWrite is { } write)
+        {
+            context["project_write_tool"] = write.Tool;
+            context["project_write_paths"] = new JsonArray(write.Paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray());
+        }
         var request = new HumanInputRequest
         {
             RunId = owner.RunId, StepId = owner.InvocationId + "/human/" + Guid.NewGuid().ToString("N"),

@@ -383,12 +383,18 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
         if (scenario == LocalReviewQualification.Scenario && request.ParentInvocationId is not null)
         {
             var active = Volatile.Read(ref _activeReview);
-            if (active is null || !LocalReviewQualification.OwnsReadDialog(active, request))
-                throw new PlanningConflictException("Only a concrete read from the active approved SDK review may request a decision.");
+            if (active is null || !LocalReviewQualification.OwnsFileDialog(active, request))
+                throw new PlanningConflictException("The permission must belong to a concrete file operation in the active approved SDK review.");
+            var checkout = Path.GetFullPath(active.Task.Workspace, root);
             if (request.Context!["project_path"]?.GetValue<string>() is { } path)
             {
-                var checkout = Path.GetFullPath(active.Task.Workspace, root);
                 RequirePath(Path.GetFullPath(path, checkout), checkout, exact: false);
+            }
+            if (request.Context["project_write_paths"] is JsonArray paths)
+            {
+                var notes = Path.Combine(checkout, LocalReviewQualification.NotesDirectory);
+                foreach (var target in paths)
+                    RequirePath(Path.GetFullPath(target!.GetValue<string>(), checkout), notes, exact: false);
             }
             return false;
         }

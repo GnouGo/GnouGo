@@ -10,6 +10,7 @@ using GnOuGo.Agent.Mcp.Services;
 using GnOuGo.AI.Core;
 using GnOuGo.Planning.Examples;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Integrations;
@@ -265,6 +266,28 @@ internal static class ServerLiveDiagnostics
                         mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>(), copilotRunners: adaptive?.Runners, copilotTools: adaptive?.Bindings, agentConfiguration: sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(),
                         codeRunner: localReview ? business!.ConfigureReviewRunner(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(), model.Provider, model.Model) : null);
                 });
+            });
+        var awaitScopedRevision = args.Contains("--await-scoped-revision", StringComparer.Ordinal);
+        using var revisionGate = new SemaphoreSlim(1);
+        PathString closedCommandPath = default;
+        if (awaitScopedRevision)
+            app.Use(async (context, next) =>
+            {
+                var path = context.Request.Path;
+                if (!HttpMethods.IsPost(context.Request.Method) || !path.StartsWithSegments("/api/planning") ||
+                    path.Value?.TrimEnd('/').EndsWith("/commands", StringComparison.OrdinalIgnoreCase) != true)
+                {
+                    await next(context);
+                    return;
+                }
+                await revisionGate.WaitAsync(context.RequestAborted);
+                try
+                {
+                    if (closedCommandPath.HasValue && path.Value.TrimEnd('/').Equals(closedCommandPath.Value, StringComparison.OrdinalIgnoreCase))
+                        context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    else await next(context);
+                }
+                finally { revisionGate.Release(); }
             });
         if (!planning && business is null)
             app.Use(async (context, next) =>
@@ -708,7 +731,8 @@ internal static class ServerLiveDiagnostics
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
                     ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
-                    "code" when localReview => await LocalReviewQualification.PromptAsync(relative, business!.Target!, report, CancellationToken.None),
+                    "code" when localReview => await LocalReviewQualification.PromptAsync(relative, business!.Target!, report,
+                        app.Configuration.GetValue("Code:AllowWrites", true), CancellationToken.None),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
                 if (adaptive is not null) report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
@@ -759,9 +783,8 @@ internal static class ServerLiveDiagnostics
                 report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
                 Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
                 var awaitPlanningClarification = args.Contains("--await-planning-clarification", StringComparer.Ordinal);
-                var awaitScopedRevision = args.Contains("--await-scoped-revision", StringComparer.Ordinal);
                 using var observer = StartObserver(app, root, url, id, run, awaitPlanningClarification: awaitPlanningClarification, awaitScopedRevision: awaitScopedRevision);
-                var remainingRevisionWindows = awaitScopedRevision ? 2 : 0;
+                var revisionWindow = TimeSpan.FromMinutes(15);
                 long revision = -1;
                 var reportedWarnings = 0;
                 while (true)
@@ -795,18 +818,27 @@ internal static class ServerLiveDiagnostics
                     }
                     if (!awaitingAnswer && (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)))
                     {
-                        if (remainingRevisionWindows > 0 && ServerLiveReviewWait.CanOfferScopedRevision(state))
+                        if (awaitScopedRevision && ServerLiveReviewWait.CanOfferScopedRevision(state))
                         {
-                            remainingRevisionWindows--;
-                            using var window = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+                            using var window = new CancellationTokenSource(revisionWindow);
                             Console.WriteLine(new JsonObject { ["awaiting_scoped_revision"] = id, ["revision"] = state.Revision,
-                                ["deadline_utc"] = DateTimeOffset.UtcNow.AddMinutes(3), ["remaining_windows"] = remainingRevisionWindows }.ToJsonString());
+                                ["deadline_utc"] = DateTimeOffset.UtcNow.Add(revisionWindow), ["remaining_repairs"] = state.Request.MaxReplanAttempts - state.ReplanAttempts }.ToJsonString());
                             if (await ServerLiveReviewWait.AwaitNewRevisionAsync(state,
                                 () => app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None), window.Token)) continue;
                         }
                         if (awaitScopedRevision && state.Status == PlanningStatus.Stopped)
+                        {
+                            await revisionGate.WaitAsync();
+                            try
+                            {
+                                var current = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None);
+                                if (current?.Revision != state.Revision) continue;
+                                closedCommandPath = "/api/planning/" + id + "/commands";
+                            }
+                            finally { revisionGate.Release(); }
                             await File.WriteAllTextAsync(Path.Combine(root, "artifacts/live-server-20261106", run, "observer-terminal-revision.txt"),
                                 state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        }
                         var planningPassed = state.Status == PlanningStatus.FinalReview;
                         report["planning_passed"] = planningPassed;
                         report["passed"] = planningPassed && business is null;

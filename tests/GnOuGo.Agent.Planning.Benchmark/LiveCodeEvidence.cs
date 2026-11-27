@@ -52,6 +52,11 @@ internal static class LiveCodeEvidence
         if (run["checkout_head"]?.ToString() == expectedHead) run["repository_manifest"] = manifest;
     }
 
+    internal static async Task<bool> IsPinnedReviewCheckoutAsync(string repository, string head, string notesDirectory) =>
+        await Git(repository, "rev-parse", "HEAD") == head &&
+        await Git(repository, "ls-tree", head, "--", notesDirectory) == "" &&
+        await Git(repository, "status", "--porcelain=v1", "--untracked-files=no") == "";
+
     internal static JsonArray Commands(JsonObject run, string repository, HashSet<string>? inconclusive = null)
     {
         var commands = new JsonArray();

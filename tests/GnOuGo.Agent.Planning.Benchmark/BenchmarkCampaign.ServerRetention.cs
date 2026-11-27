@@ -90,8 +90,11 @@ internal sealed partial class BenchmarkCampaign
         var budget = await ServerRecord("agent-planning-budgets-v11", scope.Session);
         // Check both authoritative receipt locations before interpreting any empty
         // attempt list. A body/usage requires ordinary exact recovery instead.
+        var interruptedHeaders = retentionKind == InterruptedProcessRetention &&
+            MatchesInterruptedHeaders(serverHttp?["transport"], journal?["transport"]);
         if (await LoadAsync("planning-evaluation-receipts", requestId, ct) is not null ||
-            await ServerRecord("agent-planning-model-receipts-v11", key) is not null || journal?["usage"] is not null || serverHttp?["transport"] is not null)
+            await ServerRecord("agent-planning-model-receipts-v11", key) is not null || journal?["usage"] is not null ||
+            serverHttp?["transport"] is not null && !interruptedHeaders)
             throw new InvalidOperationException("Received evidence or a physical transport record requires exact recovery/reconciliation.");
         if (retentionKind is CancelledBeforeCampaignRetention or RefusedBeforeCampaignRetention or StorageFailureBeforeCampaignRetention)
             return await InspectBeforeCampaignServerAsync(run, collection, runKey, requestId, scope, state, pending,
@@ -103,9 +106,9 @@ internal sealed partial class BenchmarkCampaign
         var applicationHold = budget?["journaledAttempts"]?[attemptKey];
         if (request is null || !JsonNode.DeepEquals(request, exactRequest) || !JsonNode.DeepEquals(serverRequest, exactRequest) ||
             policy is null || retry is null || capture is null ||
-            journal?["transport"]?["Attempts"] is not JsonArray { Count: 0 } attempts ||
+            journal?["transport"]?["Attempts"] is not JsonArray attempts || attempts.Count != (interruptedHeaders ? 1 : 0) ||
             journal["effective_transport_policy"] is not JsonObject effective || journal["effective_transport_policy_hash"]?.ToString() != Hash(effective) ||
-            !MatchesInterruptedPlanning(state, policy, journal, attempts, allowEmptyTransport: true) ||
+            !MatchesInterruptedPlanning(state, policy, journal, attempts, allowEmptyTransport: true, allowCancelledAttempt: interruptedHeaders) ||
             !MatchesCapturedTokenAuthority(state.Request, journal["effective_transport_policy"] as JsonObject) ||
             policy["planning_format"]?.GetValue<int>() != 11 || policy["construction_review_headroom"]?.GetValue<int>() is not > 0 ||
             policy["max_physical_attempts"]?.GetValue<int>() != state.Request.MaxModelCalls ||
@@ -154,11 +157,30 @@ internal sealed partial class BenchmarkCampaign
             ["retained_application_reservation_eur"] = applicationHold["reservedEstimatedCost"]!.DeepClone(),
             ["application_reservation_in_campaign_http"] = false, ["accounting"] = await BenchmarkHttpJournal.AccountingAsync(this, requestId, ct: ct)
         };
+        if (interruptedHeaders)
+        {
+            var covered = LiveCampaignEvidence.Summarize([journal]);
+            var reserved = covered["reserved_cost_eur"]?.GetValue<decimal>();
+            if (covered["unknown_attempts"]?.GetValue<long>() != 1 || reserved is null || reserved < applicationHold["reservedEstimatedCost"]!.GetValue<decimal>())
+                throw new InvalidOperationException("The interrupted HTTP attempt does not cover the complete application reservation.");
+            evidence["application_reservation_in_campaign_http"] = true;
+            evidence["exact_http_reservation_eur"] = reserved;
+        }
         if (cancelled) evidence["failure_hash"] = Hash(failure);
         if (siblings.Count > 0) evidence["accounted_sibling_reservations"] = siblings;
         return new() { ["evidence"] = evidence, ["evidence_hash"] = Hash(evidence), ["outcome"] = "inconclusive",
             ["reservation_retained"] = true, ["request_replay_forbidden"] = true, ["run_continuation_forbidden"] = true };
     }
+
+    internal static bool MatchesInterruptedHeaders(JsonNode? server, JsonNode? campaign)
+        => server is JsonObject && JsonNode.DeepEquals(server, campaign) &&
+            server["Attempts"] is JsonArray { Count: 1 } attempts && attempts[0] is JsonObject a &&
+            a["Id"]?.ToString() is { Length: > 0 } && a["StartedAtUtc"] is not null && a["CompletedAtUtc"] is not null &&
+            a["Failure"]?.ToString() == "cancelled" && a["FailurePhase"]?.ToString() == "response_headers" &&
+            a["RetryDecision"]?.ToString() == "cancelled; no retry" && a["ResponseBodyComplete"]?.GetValue<bool>() == false &&
+            new[] { "Status", "ObservedStatus", "ContentType", "Body", "AssembledBody", "PartialBody", "PartialBodyBase64",
+                "ResponseId", "ProviderRequestId", "StreamFailure", "ProviderErrorCode", "TerminationStatus" }.All(k => a[k] is null) &&
+            a["ProtocolComplete"]?.GetValue<bool>() != true && a["UsageKnown"]?.GetValue<bool>() != true;
 
     private async Task<JsonObject> InspectBeforeCampaignServerAsync(JsonObject run, string collection, string runKey, string requestId,
         ServerRetentionScope scope, PlanningSession state, PlanningModelCall pending, JsonObject? serverRequest, JsonObject? serverHttp,
@@ -323,7 +345,10 @@ internal sealed partial class BenchmarkCampaign
         => new[] { "server_session_hash", "server_http_hash", "server_budget_hash", "cancellation_failure_hash" }
             .All(k => evidence[k]?.ToString() is { Length: 64 } hash && hash.All(Uri.IsHexDigit)) &&
             evidence["retained_application_reservation_eur"]?.GetValue<decimal>() is > 0 &&
-            evidence["application_reservation_in_campaign_http"]?.GetValue<bool>() == false && evidence["dispatch_certainty"]?.ToString() == "unknown";
+            (evidence["application_reservation_in_campaign_http"]?.GetValue<bool>() == false ||
+             evidence["retention_kind"]?.ToString() == InterruptedProcessRetention && evidence["application_reservation_in_campaign_http"]?.GetValue<bool>() == true &&
+             evidence["exact_http_reservation_eur"]?.GetValue<decimal>() >= evidence["retained_application_reservation_eur"]!.GetValue<decimal>()) &&
+            evidence["dispatch_certainty"]?.ToString() == "unknown";
 
     internal async Task RequireRetainedApplicationHoldsAsync(decimal supplied, CancellationToken ct, bool requireComplete = false,
         PlanningSession? activeState = null, LLMRequest? activeRequest = null)
@@ -393,6 +418,14 @@ internal sealed partial class BenchmarkCampaign
             var budget = await Records.GetAsync("agent-planning-budgets-v11", "benchmark", evidence["session_id"]!.ToString(), Author, ct);
             if (budget is null || Hash(JsonNode.Parse(budget.Value)!.AsObject()) != evidence["server_budget_hash"]!.ToString())
                 throw AdmissionFailure("retained_application_hold_evidence_changed");
+            if (evidence["application_reservation_in_campaign_http"]?.GetValue<bool>() == true)
+            {
+                var journal = await LoadAsync(BenchmarkHttpJournal.Collection, request, ct);
+                if (journal is null || Hash(journal) != evidence["http_journal_hash"]?.ToString() ||
+                    !JsonNode.DeepEquals(LiveCampaignEvidence.Summarize([journal])["reserved_cost_eur"], evidence["exact_http_reservation_eur"]))
+                    throw AdmissionFailure("retained_application_hold_evidence_changed");
+                continue;
+            }
             retained = LLMUsageBudgetScope.SumCostConservatively(retained, evidence["retained_application_reservation_eur"]!.GetValue<decimal>());
         }
         return retained;

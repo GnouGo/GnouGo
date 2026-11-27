@@ -34,7 +34,7 @@ internal sealed class AdaptiveLiveProfile(string scenario)
             scope[member.Name] = PlanningGraphValidation.Literal(member.Value);
         var task = AgentTaskContracts.Parse(scope);
         if (task.Budget.MaxActions is null || task.Capabilities.Count == 0 || (runner == "coding"
-            ? !task.Capabilities.Contains("project.read") || task.Capabilities.Any(id => id is not ("project.read" or "project.native_read")) ||
+            ? !task.Capabilities.Contains("project.read") || task.Capabilities.Any(id => id is not ("project.read" or "project.native_read" or "project.write")) ||
                 task.Verification.All(v => v.Kind != "file.read")
             : task.Capabilities.Any(id => !id.StartsWith("mcp_", StringComparison.Ordinal)) || task.Verification.Any(v => v.Kind != "mcp.result")))
             throw new PlanningConflictException("The reviewed runner requires bounded, host-only MCP observations.");

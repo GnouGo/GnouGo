@@ -46,7 +46,7 @@ internal static class AmazonFirstProductsPolicy
         "Bind this compact view to the field extraction together with visit status, page identity and any observed error. Pass textMatches.records as a distinct input. Reject challenges, errors and incomplete evidence. " +
         "Extract named fields and preserve unavailable values explicitly. Form each row from name, description and price in that order. Check ten true visit eligibilities before writing. " +
         "The expected matrix starts with a batch containing the single header row, followed by the batch of ten ordered visit rows. " +
-        "Independently reopen the same workbook with document_read format=cells and compare the worksheet's rows with that full matrix. Return the required public string finalOutcome at the root. After successful readback include the verified workbook path. On failure return the observed reason. " +
+        "Independently reopen the same workbook with document_read format=cells and compare the worksheet's rows with that full matrix. Return the required public string finalOutcome at the root. After successful readback and exact equality include the verified workbook path. If the read fails or its cells differ, report verified=false and the reason, with the read status and both matrices as evidence. A successful document_read alone only confirms the read. " +
         "Close Browser in the enclosing workflow's cleanup. A URL-less page read requires a current issued cursor and observation or observation_pages format. " +
         AmazonObservedRedirectPolicy.AcquisitionGuarantees;
 

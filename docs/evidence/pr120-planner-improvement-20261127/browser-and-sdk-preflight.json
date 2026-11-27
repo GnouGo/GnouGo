@@ -65,5 +65,103 @@
         "message": "Declare the matching business output explicitly in this alternative."
       }
     ]
+  },
+  "initialized_sdk": {
+    "runtime": "1.0.112",
+    "protocol": 3,
+    "sdk": "1.0.34.0",
+    "managed_policy_read_error": false,
+    "sandbox_enabled": null,
+    "sandbox_fail_if_unavailable": null,
+    "tools": [
+      "powershell",
+      "read_powershell",
+      "stop_powershell",
+      "list_powershell",
+      "glob",
+      "grep",
+      "create",
+      "edit",
+      "skill",
+      "view",
+      "web_fetch",
+      "task",
+      "read_agent",
+      "list_agents",
+      "write_agent"
+    ],
+    "inference_calls": 0,
+    "session_enforcement_required": false,
+    "session_enforcement_blocked": false,
+    "ensure_enforcement_returned": true,
+    "session_metadata_tools": [
+      "powershell",
+      "read_powershell",
+      "stop_powershell",
+      "list_powershell",
+      "apply_patch",
+      "view",
+      "web_fetch",
+      "semantic_code_search",
+      "skill",
+      "run_dynamic_workflow",
+      "dynamic_workflows_manage",
+      "sql",
+      "read_agent",
+      "list_agents",
+      "write_agent",
+      "rg",
+      "glob",
+      "task"
+    ],
+    "scope": "Installed SDK tool registry after session initialization with the pinned model, without inference. Each bounded task separately records its actual tool metadata."
+  },
+  "isolated_native_tool_invocations": {
+    "read": {
+      "tool": "view",
+      "outcome": "success",
+      "session_fs_reads": 1,
+      "read_from_session": true,
+      "read_from_disk": false,
+      "wrote_to_session": null,
+      "wrote_to_disk": null,
+      "provider_calls": 0,
+      "receipt_sha256": "7da678212c0f86c517ed4c98ea31e8fdbe2a9a1f8424952ea07feae51fe429bb"
+    },
+    "search": {
+      "tool": "rg",
+      "outcome": "success",
+      "session_fs_reads": 0,
+      "read_from_session": false,
+      "read_from_disk": true,
+      "wrote_to_session": null,
+      "wrote_to_disk": null,
+      "provider_calls": 0,
+      "receipt_sha256": "4734741a6f894295dceb68a28220c6571482559eb994dda614d8d31ebe130090"
+    },
+    "patch": {
+      "tool": "apply_patch",
+      "outcome": "failure",
+      "session_fs_reads": 0,
+      "read_from_session": false,
+      "read_from_disk": false,
+      "wrote_to_session": false,
+      "wrote_to_disk": false,
+      "provider_calls": 0,
+      "receipt_sha256": "299a6b63272e807e374afb3a77dde09d8c83972a08addae0582327e290e03631",
+      "sandbox_writable_paths_grant": false
+    },
+    "write": {
+      "tool": "apply_patch",
+      "outcome": "success",
+      "session_fs_reads": 0,
+      "read_from_session": false,
+      "read_from_disk": false,
+      "wrote_to_session": true,
+      "wrote_to_disk": false,
+      "provider_calls": 0,
+      "receipt_sha256": "c321bda1fddbe5df19218f7faa9c6f049da6e28b3d1e923e43bedcf3aaabde96",
+      "sandbox_writable_paths_grant": true
+    }
   }
 }

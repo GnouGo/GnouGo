@@ -9,7 +9,7 @@ financial evidence and committed reports remain unchanged historical data.
 
 A fresh `server-live-plan` session with `--adaptive-mcp-tools` records the selected binaries, their source and the `workflow-agent-observations-v2` profile. In the Amazon scenario, known browser operations, ordered visits, workbook creation and readback are explicit workflow steps. The native business runner can use the guarded browser read when its next action depends on an observation.
 
-The read-only local review uses the shared managed Copilot SDK runner. Its code-only catalog inspects the actual host sandbox policy before planning. Confined project reads are available on this host. Native reads require mandatory managed isolation. The workflow verifies the pinned checkout and runs the approved unit check before the SDK explores the changes. Its public report and the independently reopened local file must agree. Publication requires a separate scenario and authorization.
+The local review uses the shared managed Copilot SDK runner. Its catalog inspects the host sandbox policy before planning. Native `view` and `apply_patch` use the controlled filesystem. The signed review can authorize scratch files under `.review-notes/` in its disposable checkout. The host checks every requested write destination and verifies the clean tracked tree before and after the SDK review. The workflow runs the pinned unit check before the SDK explores the changes. Its public report and the independently reopened local file must agree. Publication requires a separate scenario and authorization.
 
 The Server binds the reviewed stage, allowed tools, workspace and limits to its invocation. It records the actual calls and results. An SDK permission request uses the workflow's one-use human-input channel. Business model calls and SDK inference use the campaign's respective admission paths.
 
@@ -631,6 +631,10 @@ captured deployment, cancellation failure and exact application hold. A missing
 transport record or empty campaign attempt list leaves dispatch **unknown**. It
 cannot prove non-dispatch, release money or authorize replay. Received evidence,
 active ownership, execution markers and mismatched records reject retention.
+A single interrupted attempt cancelled while waiting for response headers can
+use the same retention operation when the complete Server and campaign wire
+journals match, neither has a recoverable result and the exact HTTP reservation
+covers the whole application hold. Later audits verify the journal hash and amount.
 Persisted bounded application holds outside HTTP accounting are enforced at every
 new physical admission; the supplied external-reservation total cannot omit them.
 Experimental forecasts accept those attributable holds only when the complete
@@ -693,8 +697,9 @@ keeps its Server and observer running when the planner has questions. The run
 prints the session, revision and number of pending questions. An operator
 can answer through the ordinary planning page or its revision-checked command.
 Add `--await-scoped-revision` to an interactive run to keep the host available
-after a stopped business review. It offers up to two three-minute windows
-when the current candidate has a concrete finding and repair capacity remains.
+after a stopped business review. Each eligible finding has a fifteen-minute
+operator window within the captured repair allowance. At expiry the host
+finishes any submitted command and checks the revision before closing it.
 An operator can submit the normal `revise` command for exact editable paths
 with the accepted requirements preserved. The wait consumes no model call.
 A planning answer records intent. An explicit scoped revision records the
@@ -1458,7 +1463,7 @@ decision is pending, the observer discards the late answer and reports the
 terminal workflow journal.
 
 The workflow checks the pinned comparison and cleanup unit tests,
-then uses the shared read-only code runner. Its report must match the written
+then uses the shared code runner to inspect the pinned files. Its report must match the written
 JSON. The verifier requires both a successful cleanup receipt for this
 checkout and its physical absence.
 

@@ -13,6 +13,8 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
     private sealed record Entry(string Session, string Id, string Tool, string Signature, bool Observation, bool Verification, int Generation)
     {
         internal JsonObject? HostResult { get; set; }
+        internal string? ViewPath { get; init; }
+        internal IReadOnlyList<string>? PatchPaths { get; init; }
     }
     internal Func<IReadOnlyList<CopilotToolExecutionObservation>>? ExecutionObservations { get; set; }
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -25,7 +27,7 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
     private volatile bool _unresolved;
     internal bool Unresolved => _unresolved;
 
-    internal async Task<string?> AdmitAsync(CopilotExecutionBounds bounds, string? session, string? id, string tool, object? arguments)
+    internal async Task<string?> AdmitAsync(CopilotExecutionBounds bounds, string? session, string? id, string tool, object? arguments, string? workingDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(session) || string.IsNullOrWhiteSpace(id))
             return "The SDK did not identify the tool invocation.";
@@ -38,7 +40,7 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
             var command = shell && args.ValueKind == JsonValueKind.Object && args.TryGetProperty("command", out var text) &&
                 text.ValueKind == JsonValueKind.String ? text.GetString() : null;
             var signature = Identity(tool, command is null ? Fingerprint(args) : Hash(command));
-            var observation = ObservationTools.Contains(tool) || tool is "project_read" or "project_list" or "project_stat" or "read_bash" or "read_powershell";
+            var observation = ObservationTools.Contains(tool) || tool is "view" or "rg" or "project_read" or "project_list" or "project_stat" or "read_bash" or "read_powershell";
             if (_unresolved) return "Inspect the original action receipt before dispatching more work.";
             if (_identities.Contains(key) || _pending.Values.Any(a => a.Signature == signature))
                 return "An identical operation was already admitted. Reconcile its observed outcome before repeating it.";
@@ -59,9 +61,13 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
             }
             if (observation && _observations.TryGetValue(signature, out var prior) && prior.Generation == _generation && prior.Repeats >= 2)
                 return "Two reads returned identical evidence. Reuse it or select a different observation.";
+            if (tool == "apply_patch" && (workingDirectory is null || !Path.IsPathFullyQualified(workingDirectory)))
+                return "The patch has no absolute session working directory.";
+            var patchPaths = tool == "apply_patch" ? CopilotProjectFileTool.PatchTargets(args).Select(p => Path.GetFullPath(p, workingDirectory!)).ToArray() : null;
             if (!bounds.TryAdmitSdkTool(tool)) return "The approved action scope, limit or deadline was reached.";
             _identities.Add(key);
-            var entry = new Entry(session, id, tool, signature, observation, command is not null && verificationCommands.Contains(command), _generation);
+            var entry = new Entry(session, id, tool, signature, observation, command is not null && verificationCommands.Contains(command), _generation)
+            { ViewPath = tool == "view" ? CopilotProjectFileTool.RequiredString(args, "path") : null, PatchPaths = patchPaths };
             _pending[key] = entry;
             if (!observation) _effects[signature] = entry;
             await persist(key, Receipt(entry, "admitted", null));
@@ -76,6 +82,20 @@ public sealed class CopilotAdaptiveActions(Func<string, JsonObject, Task> persis
         {
             _unresolved = true;
             return "The host could not retain the action intent.";
+        }
+        finally { _gate.Release(); }
+    }
+
+    internal async Task<IReadOnlyList<string>?> NativeFileTargetsAsync(string? session, string? id, string tool, string path)
+    {
+        if (string.IsNullOrEmpty(session) || string.IsNullOrEmpty(id) || !Path.IsPathFullyQualified(path)) return null;
+        await _gate.WaitAsync();
+        try
+        {
+            if (_unresolved || !_pending.TryGetValue(Identity(session, id), out var action) || action.Tool != tool) return null;
+            if (tool == "view" && action.ViewPath == path) return [path];
+            return tool == "apply_patch" && action.PatchPaths?.Contains(Path.GetFullPath(path),
+                OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal) == true ? action.PatchPaths : null;
         }
         finally { _gate.Release(); }
     }

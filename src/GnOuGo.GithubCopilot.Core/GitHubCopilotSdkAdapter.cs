@@ -141,9 +141,9 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     public async Task<ICopilotSdkSession> CreateSessionAsync(CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
         var config = BuildCreateConfig(configuration);
-        await ReadManagedPolicyAsync(cancellationToken);
+        var mandatory = await ReadManagedPolicyAsync(configuration, cancellationToken);
         var session = await _client.CreateSessionAsync(config, cancellationToken);
-        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, mandatory, cancellationToken);
     }
 
     public async Task<CopilotSandboxReadiness> ReadSandboxReadinessAsync(CancellationToken cancellationToken)
@@ -152,14 +152,17 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         return CopilotSandboxPolicy.Read(policy.SettingsJson?.GetRawText(), policy.ErrorMessage);
     }
 
-    private async Task ReadManagedPolicyAsync(CancellationToken cancellationToken)
+    private async Task<bool> ReadManagedPolicyAsync(CopilotSdkSessionConfiguration source, CancellationToken cancellationToken)
     {
-        if (_configuration.ExecutionBounds?.RequiresSandbox != true) return;
+        if (_configuration.ExecutionBounds is not { InspectsSandboxPolicy: true } bounds) return false;
         var readiness = await ReadSandboxReadinessAsync(cancellationToken);
-        if (readiness != CopilotSandboxReadiness.Configured) throw new CopilotSandboxRequiredException(readiness);
+        if (readiness == CopilotSandboxReadiness.Configured) return true;
+        if (readiness == CopilotSandboxReadiness.NotConfigured &&
+            !bounds.RequiresDeviceIsolation(_configuration.UseSessionFileSystem && source.FileSystem is not null)) return false;
+        throw new CopilotSandboxRequiredException(readiness);
     }
 
-    private async Task<ICopilotSdkSession> ConfigureBoundedSessionAsync(CopilotSession session, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
+    private async Task<ICopilotSdkSession> ConfigureBoundedSessionAsync(CopilotSession session, CopilotSdkSessionConfiguration configuration, bool mandatory, CancellationToken cancellationToken)
     {
         try
         {
@@ -179,11 +182,15 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                             Network = new() { AllowOutbound = false, AllowLocalNetwork = false }
                         }
                     }, cancellationToken: cancellationToken);
-                if (bounds.RequiresSandbox)
+                if (bounds.InspectsSandboxPolicy)
                 {
                     var enforcement = await session.Rpc.Sandbox.GetEnforcementStatusAsync(cancellationToken);
-                    ValidateSandboxEnforcement(enforcement.Required, enforcement.Blocked);
+                    if (enforcement.Blocked) throw new CopilotSandboxRequiredException(CopilotSandboxReadiness.Unavailable);
+                    if (mandatory) ValidateSandboxEnforcement(enforcement.Required, enforcement.Blocked);
                 }
+                await session.Rpc.Tools.InitializeAndValidateAsync(cancellationToken);
+                var metadata = await session.Rpc.Tools.GetCurrentMetadataAsync(cancellationToken);
+                bounds.SessionTools = (metadata.Tools ?? []).Select(tool => tool.Name).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
             }
             return new GitHubCopilotSdkSession(session, _configuration, configuration.FileSystem, configuration.SessionState);
         }
@@ -199,9 +206,9 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
     public async Task<ICopilotSdkSession> ResumeSessionAsync(string sessionId, CopilotSdkSessionConfiguration configuration, CancellationToken cancellationToken)
     {
         var config = BuildResumeConfig(configuration);
-        await ReadManagedPolicyAsync(cancellationToken);
+        var mandatory = await ReadManagedPolicyAsync(configuration, cancellationToken);
         var session = await _client.ResumeSessionAsync(sessionId, config, cancellationToken);
-        return await ConfigureBoundedSessionAsync(session, configuration, cancellationToken);
+        return await ConfigureBoundedSessionAsync(session, configuration, mandatory, cancellationToken);
     }
 
     public Task DeleteSessionAsync(string sessionId, CancellationToken cancellationToken)
@@ -225,10 +232,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         {
             SessionId = string.IsNullOrWhiteSpace(request.RequestedSessionId) ? null : request.RequestedSessionId,
             ClientName = "GnOuGo.GithubCopilot.Core",
-            EnableManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true ? true : null,
+            EnableManagedSettings = configuration.ExecutionBounds?.InspectsSandboxPolicy == true ? true : null,
             // Runtime 1.0.88 resolves device policy with this flag after ManagedSettings.ReadAsync.
             // Keep authentication on the client: a per-session token conflicts with BYOK providers.
-            ManagedSettings = configuration.ExecutionBounds?.RequiresSandbox == true
+            ManagedSettings = configuration.ExecutionBounds?.InspectsSandboxPolicy == true
                 ? new() { Permissions = new() { DisableBypassPermissionsMode = DisableBypassPermissionsModes.Disable } } : null,
             Model = source.Provider?.Model ?? configuration.Model,
             ReasoningEffort = NormalizeNullable(configuration.ReasoningEffort),
@@ -306,10 +313,10 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 logger.LogDebug("Copilot hook pre-tool-use: {ToolName}", input.ToolName);
                 if (logical is { AdmitsTools: false })
                     return new() { PermissionDecision = "deny", PermissionDecisionReason = "The logical operation is stopped or its deadline elapsed." };
-                if (ValidateFileTool(input, filePolicy, state) is { } rejection) return rejection;
+                if (ValidateFileTool(input, filePolicy, state, bounds) is { } rejection) return rejection;
                 if (bounds?.AdaptiveActions is { } actions)
                 {
-                    var finding = await actions.AdmitAsync(bounds, invocation.SessionId, input.ToolCallId, input.ToolName, input.ToolArgs);
+                    var finding = await actions.AdmitAsync(bounds, invocation.SessionId, input.ToolCallId, input.ToolName, input.ToolArgs, input.WorkingDirectory);
                     if (finding is not null) return new() { PermissionDecision = "deny", PermissionDecisionReason = finding };
                 }
                 else if (bounds is not null && !bounds.TryAdmitSdkTool(input.ToolName))
@@ -400,7 +407,8 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         { return PermissionDecision.Reject("The host filesystem policy denies this operation: " + ex.Message); }
     }
 
-    internal static PreToolUseHookOutput? ValidateFileTool(PreToolUseHookInput input, ICopilotFileAccessPolicy? policy, CopilotTransientSessionState? state = null)
+    internal static PreToolUseHookOutput? ValidateFileTool(PreToolUseHookInput input, ICopilotFileAccessPolicy? policy, CopilotTransientSessionState? state = null,
+        CopilotExecutionBounds? bounds = null)
     {
         if (policy is null) return null;
         try
@@ -433,7 +441,12 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
             var args = input.ToolArgs is System.Text.Json.JsonElement element ? element
                 : System.Text.Json.JsonSerializer.SerializeToElement(input.ToolArgs, CopilotCoreJsonContext.Default.Object);
             if (input.ToolName == "apply_patch")
-                throw new UnauthorizedAccessException("Use a file edit tool with an explicit path under the controlled filesystem policy.");
+            {
+                if (state is null || bounds?.Tools.Contains("apply_patch") != true || !bounds.Tools.Contains("project_write"))
+                    throw new UnauthorizedAccessException("Native patches require an approved session filesystem write.");
+                foreach (var target in CopilotProjectFileTool.PatchTargets(args)) policy.ValidateWrite(target);
+                return null;
+            }
             if (args.ValueKind != System.Text.Json.JsonValueKind.Object) throw new UnauthorizedAccessException("File tool arguments must declare a path.");
             string? path = null;
             foreach (var key in new[] { "path", "file_path", "filePath", "file", "filename" })
@@ -456,7 +469,7 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         CopilotSdkSessionConfiguration source)
     {
         var taskState = new InteractivePermissionTaskState();
-        return async (request, _) => await RequestInteractivePermissionAsync(request, source, taskState);
+        return async (request, invocation) => await RequestInteractivePermissionAsync(request, source, taskState, invocation.SessionId);
     }
 
     private static Func<UserInputRequest, UserInputInvocation, Task<UserInputResponse>>? BuildUserInputHandler(CopilotSdkSessionConfiguration source)
@@ -512,10 +525,34 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
         };
     }
 
+    private static async Task<CopilotProjectReadPermission?> ProjectReadAsync(PermissionRequest request, CopilotSdkSessionConfiguration source, string? sessionId)
+    {
+        if (source.Request.Configuration.ExecutionBounds is not { } bounds) return null;
+        if (request is PermissionRequestCustomTool { ToolName: "project_read" or "project_list" or "project_stat" } custom &&
+            bounds.Tools.Contains(custom.ToolName))
+            return new(custom.ToolName, CopilotProjectFileTool.RequiredString(CopilotProjectFileTool.Arguments(custom.Args), "path"));
+        if (request is PermissionRequestRead { ManagedApprovalRequired: not true, SandboxPathGrant: null } read &&
+            source.FileSystem is not null && bounds.AdaptiveActions is { } actions &&
+            await actions.NativeFileTargetsAsync(sessionId, read.ToolCallId, "view", read.Path) is not null)
+            return new("view", read.Path);
+        return null;
+    }
+
+    private static async Task<CopilotProjectWritePermission?> ProjectWriteAsync(PermissionRequest request, CopilotSdkSessionConfiguration source, string? sessionId)
+    {
+        if (source.FileSystem is null || source.Request.Configuration.ExecutionBounds is not { } bounds || !bounds.Tools.Contains("project_write")) return null;
+        if (request is PermissionRequestCustomTool { ToolName: "project_write" or "project_append" } custom && bounds.Tools.Contains(custom.ToolName))
+            return new(custom.ToolName, [CopilotProjectFileTool.RequiredString(CopilotProjectFileTool.Arguments(custom.Args), "path")]);
+        if (request is PermissionRequestWrite { ManagedApprovalRequired: not true, SandboxPathGrant: null } write &&
+            bounds.AdaptiveActions is { } actions && await actions.NativeFileTargetsAsync(sessionId, write.ToolCallId, "apply_patch", write.FileName) is { } paths)
+            return new("apply_patch", paths);
+        return null;
+    }
+
     internal static async Task<PermissionDecision> RequestInteractivePermissionAsync(
         PermissionRequest request,
         CopilotSdkSessionConfiguration source,
-        InteractivePermissionTaskState taskState)
+        InteractivePermissionTaskState taskState, string? sessionId = null)
     {
         if (ValidateFilePermission(request, source.FileSystem, source.SessionState) is { } denied) return denied;
         if (source.HumanInputProvider is null)
@@ -605,10 +642,8 @@ internal sealed class GitHubCopilotSdkClient : ICopilotSdkClient
                 RequestedHostTool = !sandboxBypass && source.Request.Configuration.ExecutionBounds is not null &&
                     request is PermissionRequestCustomTool tool && source.Request.Configuration.HostTools.Any(t => t.Name == tool.ToolName)
                     ? tool.ToolName : null,
-                ProjectRead = !sandboxBypass && source.Request.Configuration.ExecutionBounds is { } bounds &&
-                    request is PermissionRequestCustomTool { ToolName: "project_read" or "project_list" or "project_stat" } read &&
-                    bounds.Tools.Contains(read.ToolName)
-                    ? new(read.ToolName, CopilotProjectFileTool.RequiredString(CopilotProjectFileTool.Arguments(read.Args), "path")) : null
+                ProjectRead = !sandboxBypass ? await ProjectReadAsync(request, source, sessionId) : null,
+                ProjectWrite = !sandboxBypass ? await ProjectWriteAsync(request, source, sessionId) : null
             },
             CancellationToken.None);
 

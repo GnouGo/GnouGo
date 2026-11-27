@@ -10,6 +10,7 @@ public sealed class PublishedReviewQualificationTests
     [InlineData("project_read", true)]
     [InlineData("project_list", true)]
     [InlineData("project_stat", true)]
+    [InlineData("view", true)]
     [InlineData("project_write", false)]
     [InlineData("read_task_input", true)]
     [InlineData("unreviewed_host_tool", false)]
@@ -17,7 +18,7 @@ public sealed class PublishedReviewQualificationTests
     {
         var owner = new AgentTaskContext("tenant", "run", "step", new() { Runner = "coding", Capabilities = ["project.read"] });
         var details = new JsonObject { ["tenant_id"] = "tenant", ["runner"] = "coding", ["kind"] = "permission" };
-        if (tool.StartsWith("project_", StringComparison.Ordinal))
+        if (tool.StartsWith("project_", StringComparison.Ordinal) || tool == "view")
         {
             details["project_tool"] = tool;
             details["project_path"] = "src/reviewed.cs";
@@ -26,10 +27,28 @@ public sealed class PublishedReviewQualificationTests
         var request = new HumanInputRequest { RunId = owner.RunId, ParentInvocationId = owner.InvocationId,
             StepId = "step/human/" + Guid.NewGuid().ToString("N"), Context = details, Mode = HumanInputContract.ModeChoice,
             Choices = ["Allow once", "Refuse"], AllowAbandon = true };
-        Assert.Equal(accepted, LocalReviewQualification.OwnsReadDialog(owner, request));
-        Assert.False(LocalReviewQualification.OwnsReadDialog(owner with { InvocationId = "other" }, request));
+        Assert.Equal(accepted, LocalReviewQualification.OwnsFileDialog(owner, request));
+        Assert.False(LocalReviewQualification.OwnsFileDialog(owner with { InvocationId = "other" }, request));
         details["kind"] = "question";
-        Assert.False(LocalReviewQualification.OwnsReadDialog(owner, request));
+        Assert.False(LocalReviewQualification.OwnsFileDialog(owner, request));
+    }
+
+    [Fact]
+    public void ReviewWriteRequiresDeclaredWriteCapabilityAndConcreteFileDestinations()
+    {
+        var owner = new AgentTaskContext("tenant", "run", "step", new() { Runner = "coding", Capabilities = ["project.read", "project.write"] });
+        var details = new JsonObject { ["tenant_id"] = "tenant", ["runner"] = "coding", ["kind"] = "permission",
+            ["project_write_tool"] = "apply_patch", ["project_write_paths"] = new JsonArray(".review-notes/summary.md") };
+        var request = new HumanInputRequest { RunId = owner.RunId, ParentInvocationId = owner.InvocationId,
+            StepId = "step/human/" + Guid.NewGuid().ToString("N"), Context = details, Mode = HumanInputContract.ModeChoice,
+            Choices = ["Allow once", "Refuse"], AllowAbandon = true };
+        Assert.True(LocalReviewQualification.OwnsFileDialog(owner, request));
+        Assert.False(LocalReviewQualification.OwnsFileDialog(owner with { Task = owner.Task with { Capabilities = ["project.read"] } }, request));
+        details["host_tool"] = "read_task_input";
+        Assert.False(LocalReviewQualification.OwnsFileDialog(owner, request));
+        details.Remove("host_tool");
+        details["project_write_paths"] = new JsonArray();
+        Assert.False(LocalReviewQualification.OwnsFileDialog(owner, request));
     }
 
     [Fact]
