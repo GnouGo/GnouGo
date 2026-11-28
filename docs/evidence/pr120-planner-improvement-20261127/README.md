@@ -44,6 +44,13 @@ Each row is one fresh session. The linked receipt breaks planning down by phase.
 
 The corrected Browser MCP passed all 237 Windows tests. A fresh capture validated against its actual published schema with 1,162 records, 126 nullable hrefs and 11 exact original hrefs. The Release package also passed its stdio discovery smoke test. All 464 selected hosted Windows Server cases passed on the approval verifier revision, including the 33 historical cases. [Browser tests and live preflight](browser-validation-99eb4c96.json) · [Hosted Windows results](hosted-windows-c32ffb88.json)
 
+At revision 207, the Server returned HTTP 400 for a targeted correction to the
+source-index condition. Rollback had removed the condition and four dependent
+tasks from the editable plan. Offline replay of the same command restored all
+five tasks to their recorded plan hash and issued the condition as the only
+editable field. The session retained its 85 calls and all open requirements.
+All 109 selected Windows planner tests passed. [Command, hashes and replay](rolled-back-condition-revision.json)
+
 The independent SlimFaas inspection matched all eight changed files and both candidate anchors to Git. The review contract now names the four accepted severity values and both diff sides in discovery and in the SDK prompt. After this run the available balance was €20.389285. A separate Amazon preflight using the exact workflow navigation policy observed a product-page title, description and price after following an original link. [SlimFaas qualification](server-code-8.json) · [Product preflight and interrupted-request reconciliation](detail-preflight-and-retention.json)
 
 The fourteenth run’s first proposed search, assessment and cleanup fragment used a noncanonical child scope. Its archive accepted that wire response and rejected its cursor during application. In an isolated copy, replacing only the cursor with the compiler address committed the full fragment. The revised issued schema rejects the original spelling and the canonical replay still commits. The fresh session subsequently recovered on a different plan. [Original and revised issued schema, Windows cases and binary hashes](issued-scope-coordinate.json) · [Frozen prevalidation before the live run](revalidated-eb5fe347.json)

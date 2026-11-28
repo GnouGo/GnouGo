@@ -749,6 +749,13 @@ journal identifies the invalidated tasks that still need to be rebuilt. The
 normal revision command selects the editable paths. Accepted work, request
 receipts, session ceilings and cumulative usage carry forward.
 
+When a rollback removed the operator's target, `--verify-restored-slot <path>`
+checks the recorded before and after hashes and the original placements with the
+current planner before reopening the session. This migration permits changes in
+the scoped revision command, validation and rollback modules. The MCP builds and
+other production sources remain pinned. The operator must submit the actual
+revision through the normal Server command.
+
 `server-live-revalidate --run <id> --expected-revision <revision> --artifact-hash <hash>`
 can recover only a completed, unapproved artifact stopped solely on catalog
 validation, with no pending call/question and exact equality to its retained final

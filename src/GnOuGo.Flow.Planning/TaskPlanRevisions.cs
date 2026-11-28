@@ -6,13 +6,14 @@ namespace GnOuGo.Flow.Planning;
 /// <summary>Only diagnosed semantic slots are editable. Revalidation never grants edit permission.</summary>
 internal static class TaskPlanRevisions
 {
-    internal static void ValidateEditablePaths(PlanningSession state, IReadOnlyList<string> paths)
+    internal static void ValidateEditablePaths(PlanningSession state, IReadOnlyList<string> paths, TaskPlan? baseline = null)
     {
-        if (state.Plan is null || state.Catalog is null || paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace) ||
-            TaskPlanCompiler.IdentityDiagnostics(state.Plan, includeReferences: false).Count > 0)
+        var plan = baseline ?? state.Plan;
+        if (plan is null || state.Catalog is null || paths.Count == 0 || paths.Any(string.IsNullOrWhiteSpace) ||
+            TaskPlanCompiler.IdentityDiagnostics(plan, includeReferences: false).Count > 0)
             throw new PlanningConflictException("A targeted revision needs an unambiguous retained TaskPlan and explicit editable paths.");
-        var symbols = new TaskPlanSymbols(state.Plan);
-        var index = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(state.Plan, PlanningJsonContext.Default.TaskPlan)!);
+        var symbols = new TaskPlanSymbols(plan);
+        var index = PlanningRepairPatch.Index(JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!);
         foreach (var path in paths)
         {
             if (string.IsNullOrWhiteSpace(path) || paths.Count(p => p == path) != 1 ||

@@ -144,7 +144,13 @@ public sealed partial class HybridWorkflowPlanner(TimeProvider? timeProvider = n
                     if (command.PreserveRequirements == true && (state.Requirements is null ||
                         command.ArtifactHash != state.ComputeArtifactHash()))
                         throw new PlanningConflictException("A correction must retain current accepted requirements and identify the exact artifact, when present.");
-                    if (command.EditablePaths is not null) TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths);
+                    if (command.EditablePaths is not null)
+                    {
+                        var restored = command.PreserveRequirements == true
+                            ? PlanningConstruction.RestoreRevisionBaseline(state, command.EditablePaths) : null;
+                        TaskPlanRevisions.ValidateEditablePaths(state, command.EditablePaths, restored);
+                        if (restored is not null) PlanningConstruction.RecordRestoredBaseline(state, restored, command.EditablePaths);
+                    }
                     if (state.Construction is not null)
                     {
                         ReviseConstruction(state, command);

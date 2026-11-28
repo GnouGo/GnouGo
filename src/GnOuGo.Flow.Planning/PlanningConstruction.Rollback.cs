@@ -5,6 +5,60 @@ namespace GnOuGo.Flow.Planning;
 
 internal static partial class PlanningConstruction
 {
+    // A rollback can remove the very field the operator needs to correct. Restore only
+    // the exact previously accepted baseline before issuing the ordinary scoped patch.
+    internal static TaskPlan? RestoreRevisionBaseline(PlanningSession state, IReadOnlyList<string> paths)
+    {
+        if (state is not { Status: PlanningStatus.Stopped, PendingCall: null, ApprovedHash: null, Plan: { } plan,
+                Construction: { Candidate: null } construction } || paths.Count == 0 ||
+            construction.Invalidations.LastOrDefault() is not { Scopes.Count: > 0 } rollback) return null;
+        var present = new TaskPlanSymbols(plan);
+        var originals = rollback.Tasks.ToDictionary(task => task.Id, StringComparer.Ordinal);
+        if (!paths.All(path => path?.Split('/') is ["", "tasks", var id, ..] && originals.ContainsKey(id) &&
+            !present.Tasks.ContainsKey(id))) return null;
+        if (Hash(plan) != rollback.AfterHash || construction.Checkpoints.LastOrDefault()?.PlanHash != rollback.BeforeHash)
+            throw new PlanningConflictException("The scoped revision does not identify the current rollback boundary.");
+
+        var result = Clone(plan);
+        var retained = new TaskPlanSymbols(result);
+        foreach (var placement in rollback.Scopes)
+        {
+            // A removed parent already contains its original children and their exports.
+            if (retained.Scopes.SingleOrDefault(s => s.Path == placement.Path) is not { } scope) continue;
+            scope.Source.Tasks = placement.Tasks.Select(FindOriginal).ToList();
+            scope.Source.Always = placement.Always.Select(FindOriginal).ToList();
+            scope.Source.Outputs = placement.Outputs.ToList();
+        }
+        if (Hash(result) != rollback.BeforeHash || RebuildFindings(state, result, complete: true).Any())
+            throw new PlanningConflictException("The original rollback region could not be restored exactly.");
+        return Clone(result);
+
+        PlanTask FindOriginal(string id) => originals.TryGetValue(id, out var original) ? original :
+            retained.Tasks.TryGetValue(id, out var surviving) ? surviving.Task :
+            throw new PlanningConflictException("The rollback is missing an original task.");
+    }
+
+    internal static void RecordRestoredBaseline(PlanningSession state, TaskPlan restored, IReadOnlyList<string> paths)
+    {
+        var construction = state.Construction!;
+        var rollback = construction.Invalidations[^1];
+        var checkpoint = new PlanningConstructionCheckpoint
+        {
+            Sequence = construction.Checkpoints.Count + 1, BaseHash = rollback.AfterHash, PlanHash = rollback.BeforeHash,
+            TaskIds = rollback.Tasks.Select(task => task.Id).ToList(), ClosedRequirementIds = [],
+            Fragment = new JsonObject { ["transition"] = "restore_for_scoped_revision", ["invalidation"] = rollback.Sequence, ["operatorRevision"] = state.Revision,
+                ["editablePaths"] = new JsonArray(paths.Select(path => (JsonNode?)JsonValue.Create(path)).ToArray()) }
+        };
+        PlanningArtifactApproval.VerifyCheckpoints(new() { Checkpoints = [.. construction.Checkpoints, checkpoint],
+            Invalidations = construction.Invalidations, FailedCandidates = construction.FailedCandidates });
+        construction.Checkpoints.Add(checkpoint);
+        var restoredIds = checkpoint.TaskIds.ToHashSet(StringComparer.Ordinal);
+        construction.RebuildTasks.RemoveAll(task => restoredIds.Contains(task.Id));
+        var remaining = construction.RebuildTasks.Select(task => task.Id).ToHashSet(StringComparer.Ordinal);
+        construction.RebuildScopes.RemoveAll(s => !s.Tasks.Concat(s.Always).Any(remaining.Contains));
+        state.Plan = restored;
+    }
+
     internal static IEnumerable<PlanningDiagnostic> RebuildFindings(PlanningSession state, TaskPlan candidate, bool complete)
     {
         var symbols = new TaskPlanSymbols(candidate);

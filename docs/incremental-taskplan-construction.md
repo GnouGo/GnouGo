@@ -377,6 +377,13 @@ creates no review authority.
 
 Open-frontier pages order actual owning boundaries before their parents, including isolated group bodies. Canonical task addresses are flat identities, so their slash count does not establish ancestry. Acceptance and rollback use the existing symbols; paging retains exact continuation links.
 
+An operator can target a field removed by the latest rollback while the session
+is stopped. The coordinator reconstructs the original tasks, normal and cleanup
+placements and scope exports from the journal. Both plan hashes must match. It
+records the restoration without closing a requirement, then issues the ordinary
+scoped revision for the requested field. Model usage and earlier reviews remain
+in the session history.
+
 Implementation selection requests the next executable contribution inside an offered scope. Attaching an original clause does not require completing that whole clause in one substep; a producer or prerequisite may contribute while its obligation remains open. Business selection retains its separate, implementation-free context.
 
 After a suspended completion returns to business selection, retain its unresolved

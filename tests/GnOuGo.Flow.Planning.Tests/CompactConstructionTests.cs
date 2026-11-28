@@ -284,6 +284,36 @@ public sealed class CompactConstructionTests
     }
 
     [Fact]
+    public async Task TargetedRevisionCanRecoverOnlyTheIdenticalRolledBackRegion()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var action = state.Plan!.Root.Tasks.Single(task => task.Id == "greet");
+        var path = "/tasks/greet/outputs/" + action.Outputs[0].Name;
+        var original = PlanningConstruction.Hash(state.Plan);
+        var calls = state.ModelCalls;
+        PlanningConstruction.Rollback(state, "greet", "Correct the original output.");
+        state.Status = PlanningStatus.Stopped;
+        var rollback = state.Construction!.Invalidations[^1];
+        Assert.Null(PlanningConstruction.RestoreRevisionBaseline(state, ["/tasks/unknown/condition"]));
+        var after = rollback.AfterHash;
+        rollback.AfterHash = new string('0', 64);
+        Assert.Throws<PlanningConflictException>(() => PlanningConstruction.RestoreRevisionBaseline(state, [path]));
+        rollback.AfterHash = after;
+        var restored = PlanningConstruction.RestoreRevisionBaseline(state, [path]);
+        Assert.NotNull(restored);
+        Assert.Equal(original, PlanningConstruction.Hash(restored));
+        Assert.Equal(after, PlanningConstruction.Hash(state.Plan));
+        Assert.Throws<ArgumentException>(() => TaskPlanRevisions.ValidateEditablePaths(state, ["/tasks/greet/operation"], restored));
+        TaskPlanRevisions.ValidateEditablePaths(state, [path], restored);
+        PlanningConstruction.RecordRestoredBaseline(state, restored, [path]);
+        PlanningArtifactApproval.VerifyCheckpoints(state.Construction);
+        Assert.Empty(state.Construction.Checkpoints[^1].ClosedRequirementIds!);
+        Assert.All(state.Construction.Requirements, requirement => Assert.Equal("remaining", requirement.Status));
+        Assert.Equal(calls, state.ModelCalls);
+        Assert.Equal(original, PlanningConstruction.Hash(state.Plan));
+    }
+
+    [Fact]
     public async Task CheckpointsLinkAcrossTheExactRecordedRollbackOnce()
     {
         var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());

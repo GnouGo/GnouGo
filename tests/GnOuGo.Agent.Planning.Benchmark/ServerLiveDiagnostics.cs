@@ -67,6 +67,9 @@ internal static class ServerLiveDiagnostics
         var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
         var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
         var resumeRevision = SchemaPortabilityCampaign.Option(args, "--resume-scoped-revision");
+        var restorePath = SchemaPortabilityCampaign.Option(args, "--verify-restored-slot");
+        if (restorePath is not null && resumeRevision is null)
+            throw new ArgumentException("Verifying a restored slot requires an exact scoped resumption.");
         if (resumeRevision is not null && (!planning || !args.Contains("--await-scoped-revision", StringComparer.Ordinal) ||
             SchemaPortabilityCampaign.Option(args, "--case") is not ("amazon" or "code")))
             throw new ArgumentException("Scoped resumption requires interactive business planning with --await-scoped-revision.");
@@ -619,11 +622,27 @@ internal static class ServerLiveDiagnostics
         });
         if (previous is not null)
         {
-            RequireSameProductionSource(previous["source"]!.GetValue<string>(), recheckApproval: false);
             var snapshot = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
             var current = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(snapshot.Request.TenantId,
                 snapshot.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("Stopped planning session missing.");
             RequireScopedResume(previous, current, resumeRevision!);
+            var original = previous["source"]!.GetValue<string>();
+            if (restorePath is null) RequireSameProductionSource(original, recheckApproval: false);
+            else
+            {
+                if (original.Length != 40 || !original.All(char.IsAsciiHexDigit) ||
+                    SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src",
+                        ":(exclude)src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+                        ":(exclude)src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+                        ":(exclude)src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs").Length != 0)
+                    throw new PlanningConflictException("A rollback migration permits only scoped command and reconstruction changes.");
+                var restored = PlanningConstruction.RestoreRevisionBaseline(current, [restorePath]) ??
+                    throw new PlanningConflictException("No exact baseline for the requested rollback slot.");
+                TaskPlanRevisions.ValidateEditablePaths(current, [restorePath], restored);
+                report["rechecked_rollback"] = new JsonObject { ["slot"] = restorePath,
+                    ["original_plan_hash"] = PlanningConstruction.Hash(restored), ["after_hash"] = PlanningConstruction.Hash(current.Plan),
+                    ["planner"] = AssemblyEvidence(typeof(PlanningArtifactApproval).Assembly) };
+            }
             await campaign.RequireRunNotRetainedAsync(current.Request.SessionId, CancellationToken.None);
             await RequireNotCancelledAsync(app, current, CancellationToken.None);
         }
@@ -828,7 +847,7 @@ internal static class ServerLiveDiagnostics
                         ["prior_session_sha256"] = PlanningGraphCompiler.Fingerprint(previous["session"]!.ToJsonString()),
                         ["started_utc"] = report["started_utc"]!.DeepClone(), ["harness_source"] = report["source"]!.DeepClone(),
                         ["assemblies"] = report["loaded_assemblies"]!.DeepClone(), ["external_reservations_eur"] = model.RetainedExternalReservationsEur,
-                        ["execution_reserve_eur"] = model.ExecutionVerificationReserveEur });
+                        ["execution_reserve_eur"] = model.ExecutionVerificationReserveEur, ["rechecked_rollback"] = report["rechecked_rollback"]?.DeepClone() });
                     report = previous;
                     report.Remove("finished_utc");
                     id = report["session_id"]!.GetValue<string>();

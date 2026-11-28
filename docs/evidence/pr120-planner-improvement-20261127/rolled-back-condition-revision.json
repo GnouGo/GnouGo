@@ -1,0 +1,65 @@
+{
+  "run": "improve40-amazon-20261128-010738",
+  "planning_source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "observing_harness": "3053ec3b94cb3f9b03a5b2fd047ea77a1381ada5",
+  "session": "59a776fd8f9c42159523cb85c3949297",
+  "stopped_revision": 207,
+  "retained_checkpoints": 12,
+  "live_command": {
+    "command": {
+      "kind": "revise",
+      "expectedRevision": 207,
+      "preserveRequirements": true,
+      "editablePaths": [
+        "/tasks/source_in_range/condition"
+      ],
+      "text": "Correct the recorded source_in_range condition to test that the selected sourceIndex is nonnegative and strictly less than the original ordered links array length. Index only in the success branch. Preserve both outcomes, the original href, the ten ordered visits, the write and readback and the final outcome."
+    },
+    "result": {
+      "http": 400,
+      "detail": "\"Invalid planning command.\""
+    }
+  },
+  "rollback_reason": "Its condition checks only that the snapshot and prefix exist, not that sourceIndex is nonnegative and less than the original links array length. The body can therefore evaluate at_index out of range. An explicit scoped condition revision is needed before reconstructing dependent work.",
+  "rollback_after_hash": "e31b16269c1bce3bf14b6aafbc1a771ed9ff4474f7c648eecb37143097d9b44d",
+  "captured_report_sha256": "06bd07e32109c4282aa2c27ddcba091ef571760c9747caffc6ac6027801b1a48",
+  "independent_replay": {
+    "revision": 208,
+    "calls_before": 85,
+    "calls_after": 85,
+    "restored_hash": "717dd8e335b98d9f64ebad36c314a8048636f45d32f069736301b68df834942a",
+    "editable": [
+      "/tasks/source_in_range/condition"
+    ],
+    "recovered_tasks": [
+      "extract_product",
+      "product_visit",
+      "source_in_range",
+      "visit_evidence_available",
+      "visit_if_source_matches"
+    ],
+    "completed_requirements": [],
+    "model_calls": 0
+  },
+  "dll_sha256": "c8a7764415b4d89d2873f3eb2a910b288f86ec0fe9d2d9dd3ca9d1d456e9dfef",
+  "windows_tests": {
+    "total": "109",
+    "executed": "109",
+    "passed": "109",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "trx_sha256": "a8a176311bd6c8c19109d162c3fb9e48a461d03fa3f0daff4658c24633dae45b",
+  "evidence_scope": "The original public command and the captured stopped session went through HybridWorkflowPlanner.AdvanceAsync in memory. The runtime accepted checkpoint writes and rejected any attempted inference or external action."
+}
