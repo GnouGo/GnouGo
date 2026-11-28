@@ -43,12 +43,10 @@ jobs:
           python $verify "$folder/before.pptx" --title 'Présentation initiale' --series Volume --categories A B --values 4 7 > "$folder/before.json"
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           python $verify "$folder/after.pptx" --title 'Présentation révisée' --series Volume --categories A B --values 4 11 > "$folder/after.json"
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@v7.0.1
         if: always()
         with:
           name: deckcraft-${{ matrix.os }}
           path: |
             ${{ runner.temp }}/roundtrip
-            ${{ runner.temp }}/qualified-cli/components.json
-            ${{ runner.temp }}/qualified-cli/installation.json
-            ${{ runner.temp }}/qualified-cli/notices
+            ${{ runner.temp }}/qualified-cli

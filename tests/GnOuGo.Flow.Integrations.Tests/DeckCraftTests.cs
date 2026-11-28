@@ -22,9 +22,7 @@ public sealed class DeckCraftTests(ITestOutputHelper output)
         {
             await using var factory = new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
             {
-                ["deckcraft"] = new() { Type = "stdio", Command = Path.GetFullPath(binary),
-                    Args = ["mcp", "--automation-read-root", root, "--automation-write-root", root],
-                    CallTimeoutSeconds = 60, DiscoveryTimeoutSeconds = 30 }
+                ["deckcraft"] = DeckCraftMcp.ForWorkspace(Path.GetFullPath(binary), root)
             });
             await using var client = await factory.GetClientAsync("deckcraft", deadline.Token);
             var protocol = Assert.IsType<McpSessionAdapter>(client).ProtocolVersion;

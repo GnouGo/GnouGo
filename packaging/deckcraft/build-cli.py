@@ -60,6 +60,9 @@ def notices(source, stage, target, env):
             if directory.is_dir():
                 files.update(f for f in directory.iterdir() if f.is_file() and
                              f.name.upper().startswith(("LICENSE", "LICENCE", "COPYING", "NOTICE", "OFL", "COPYRIGHT")))
+        if p["name"] == "epaint_default_fonts":
+            files.update((root / "fonts" / name) for name in
+                         ("UFL.txt", "OFL.txt", "Hack-Regular.txt", "egui-icons.txt", "emoji-icon-font-mit-license.txt"))
         if not files and not registry:
             parent = next((d for d in (root, *root.parents) if (d / ".git").exists()), None)
             if parent is not None:
@@ -90,6 +93,7 @@ def build(target_dir):
         def git(*args):
             subprocess.run(["git", *args], cwd=source, check=True)
         git("init", "--quiet")
+        git("config", "core.autocrlf", "false")
         git("fetch", "--quiet", "--depth=1", REPO, SOURCE)
         git("checkout", "--quiet", "--detach", "FETCH_HEAD")
         git("apply", "--check", str(PATCH))

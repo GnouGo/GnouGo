@@ -8,6 +8,35 @@ namespace GnOuGo.AI.Core.Tests;
 public sealed class OpenAiLlmProviderTests
 {
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task VisionRequiresDeclaredCapabilityAndTransmitsTheImageInTheHttpBody(bool supported)
+    {
+        var calls = 0;
+        byte[] image = [137, 80, 78, 71];
+        using var http = new HttpClient(new StubHttpMessageHandler(async message =>
+        {
+            calls++;
+            using var body = JsonDocument.Parse(await message.Content!.ReadAsByteArrayAsync(TestContext.Current.CancellationToken));
+            var user = body.RootElement.GetProperty("messages").EnumerateArray().Single(m => m.GetProperty("role").GetString() == "user");
+            var content = user.GetProperty("content").EnumerateArray().ToArray();
+            Assert.Equal("Read the slide.", content.Single(p => p.GetProperty("type").GetString() == "text").GetProperty("text").GetString());
+            var url = content.Single(p => p.GetProperty("type").GetString() == "image_url").GetProperty("image_url").GetProperty("url").GetString();
+            Assert.Equal("data:image/png;base64," + Convert.ToBase64String(image), url);
+            return JsonResponse("""{"choices":[{"finish_reason":"stop","message":{"content":"observed"}}]}""");
+        }));
+        var options = new LLMOptions { DefaultProvider = "configured", DefaultModel = "test-image",
+            Models = { ["configured"] = new() { Type = "openai", Url = "https://gateway.example/v1", ApiKey = "test" } },
+            ModelOverrides = { ["openai/test-image"] = new() { Id = "test-image", Capabilities = new() { SupportsVision = supported } } } };
+        var client = new RoutingLLMClient(http, options);
+        var request = new LLMClientRequest { Prompt = "Read the slide.", Images = [new("image/png", image)] };
+        if (supported)
+            Assert.Equal("observed", (await client.CallAsync(request, TestContext.Current.CancellationToken)).Text);
+        else
+            Assert.Contains("Vision", (await Assert.ThrowsAsync<InvalidOperationException>(() => client.CallAsync(request, TestContext.Current.CancellationToken))).Message);
+        Assert.Equal(supported ? 1 : 0, calls);
+    }
+    [Theory]
     [InlineData("length", true, true)]
     [InlineData("length", false, false)]
     [InlineData("stop", true, false)]

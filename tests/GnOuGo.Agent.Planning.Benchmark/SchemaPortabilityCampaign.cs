@@ -387,6 +387,7 @@ internal static class SchemaPortabilityCampaign
             await campaign.RequireRunNotRetainedAsync(Option(args, "--run") ?? "diagnostic-" + (Option(args, "--case") ?? "amazon") + "-1");
         using var model = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root, CancellationToken.None,
             campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
+        if (phase == "vision-control") { await BlindVisionControl.RunAsync(model, campaign, root, CancellationToken.None); return; }
         if (phase is "first-product-extraction" or "first-ten-product-extraction" or "review-local-report")
         {
             await QualificationReports.RunAsync(phase, RequiredOption(args, "--run"), args, campaign, model, CancellationToken.None);
