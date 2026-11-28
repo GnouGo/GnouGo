@@ -618,6 +618,8 @@ internal static class LiveWorkflowEvaluation
             => model.InputTokenAllowanceAsync(provider, name, outputTokens, ct);
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string name, CancellationToken ct)
             => model.SupportsStructuredOutputAsync(provider, name, ct);
+        public Task<int?> ImageTokenUpperBoundAsync(string? provider, string name, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+            => model.ImageTokenUpperBoundAsync(provider, name, images, ct);
         public Task<bool?> SupportsVisionAsync(string? provider, string name, CancellationToken ct)
             => model.SupportsVisionAsync(provider, name, ct);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string name, CancellationToken ct)

@@ -43,7 +43,10 @@ public sealed class BusinessAgentTaskRunner : IAgentTaskRunner
                 ["server"] = tool.Binding.Server, ["method"] = tool.Binding.Method,
                 ["description"] = tool.Descriptor["description"]?.DeepClone(), ["effect"] = tool.Descriptor["effect"]?.DeepClone()
             };
-        return new(Description + " Verify mcp.result by exact capability ID with facts {request,result}. " +
+        return new(Description + " The configured workflow model can inspect PNG/JPEG images from approved tools when vision is enabled. " +
+            "A tool image is stored by SHA-256 and sent as a multimodal input on the next decision. " +
+            "The agent can return structured visual findings with that digest from its observed image references. " +
+            "Verify mcp.result by exact capability ID with facts {request,result} and optional content_blocks for mixed results. " +
             "Inspect the named MCP operation for field contracts. The agent receives its complete pinned schema at execution. Tools: " +
             directory.ToJsonString(), schema);
     }

@@ -96,6 +96,11 @@ public static class CapturedPlanningModel
                 ? (int?)Math.Max(0, Math.Min(metadata.MaxInputTokens.Value, metadata.ContextWindowTokens.Value - outputTokens)) : null);
         }
         public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct) => Task.FromResult(Resolve(provider, model)?.Capabilities.SupportsStructuredOutput);
+        public Task<int?> ImageTokenUpperBoundAsync(string? provider, string model, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+        {
+            ct.ThrowIfCancellationRequested();
+            return Task.FromResult(RoutingLLMClientAdapter.ImageTokenUpperBound(Resolve(provider, model), images));
+        }
         public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct) => Task.FromResult(Resolve(provider, model)?.Capabilities.SupportsVision);
         public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct) => Task.FromResult<IReadOnlyList<string>?>(Resolve(provider, model)?.Capabilities.SupportedReasoningEfforts);
     }

@@ -27,6 +27,9 @@ public interface ILLMCapabilityResolver
 {
     Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
         => Task.FromResult<bool?>(null);
+    /// <summary>Conservative token count for the images alone under the selected provider's sizing rules.</summary>
+    Task<int?> ImageTokenUpperBoundAsync(string? provider, string model, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+        => Task.FromResult<int?>(null);
     /// <summary>Known input allowance after reserving the requested output; null means unverifiable.</summary>
     Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => Task.FromResult<int?>(null);

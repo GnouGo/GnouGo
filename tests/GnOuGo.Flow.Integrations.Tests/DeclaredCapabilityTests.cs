@@ -1,10 +1,26 @@
 using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
 using Xunit;
 
 namespace GnOuGo.Flow.Integrations.Tests;
 
 public sealed class DeclaredCapabilityTests
 {
+    [Theory]
+    [InlineData("gpt-6-astra", 7)]
+    [InlineData("gpt-4o", 510)]
+    [InlineData("gpt-6.1-terra", null)]
+    public async Task VisionReservationUsesEachTransmittedImageAndExactModelRules(string model, int? expected)
+    {
+        var options = new LLMOptions { DefaultProvider = "deployment", Models = { ["deployment"] = new() { Type = "openai" } },
+            ModelOverrides = { ["openai/" + model] = new() { Capabilities = new() { SupportsVision = true } } } };
+        var adapter = new RoutingLLMClientAdapter(new RoutingLLMClient(options, []));
+        WorkflowImage[] images = [new("a", "image/png", 32, 32, 100), new("b", "image/png", 64, 32, 180)];
+        var ct = TestContext.Current.CancellationToken;
+        Assert.Equal(expected, await adapter.ImageTokenUpperBoundAsync(null, model, images, ct));
+        Assert.Equal(expected, await adapter.ImageTokenUpperBoundAsync(null, model, [images[0] with { Size = 2000 }, images[1]], ct));
+    }
+
     [Fact]
     public async Task MappingAllowanceUsesOnlyExactLimitsAndReservesOutput()
     {

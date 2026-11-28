@@ -28,6 +28,8 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
 {
     public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).InputTokenAllowanceAsync(Provider, Model, outputTokens, ct);
+    public Task<int?> ImageTokenUpperBoundAsync(string? provider, string model, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+        => ((ILLMCapabilityResolver)_client).ImageTokenUpperBoundAsync(Provider, Model, images, ct);
     public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).SupportsVisionAsync(Provider, Model, ct);
 
@@ -78,16 +80,57 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
             throw new ArgumentException("An exact chat route is required; no alternate gateway or provider is inferred.");
         return new UriBuilder(chat) { Path = chat.AbsolutePath[..^suffix.Length] + "/responses" }.Uri;
     }
+    // Read the exact completion ID from the original deployment. Never resubmit a generation.
+    internal async Task<JsonObject> InspectStoredChatAsync(string requestId, CancellationToken ct)
+    {
+        var journal = await _campaign.LoadAsync(BenchmarkHttpJournal.Collection, requestId, ct);
+        var wire = journal?["transport"];
+        var settings = _options.ResolveProvider(Provider)!;
+        var chat = new Uri(OpenAiEndpoints.ChatCompletions(settings.Url, settings.ApiVersion));
+        if (wire?["RequestMethod"]?.ToString() != "POST" || wire["Endpoint"]?.ToString() != chat.ToString() ||
+            wire["Attempts"] is not JsonArray attempts || attempts.LastOrDefault() is not JsonObject attempt ||
+            attempt["ProviderResponseId"]?.ToString() is not { Length: > 0 and <= 256 } id ||
+            !id.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_') || attempt["Body"] is not null ||
+            attempt["ProtocolComplete"]?.GetValue<bool>() == true ||
+            JsonNode.Parse(wire["RequestBody"]!.ToString())?["messages"] is not JsonArray)
+            throw new InvalidOperationException("Exact incomplete Chat Completions evidence on the captured deployment is required.");
+        var uri = new UriBuilder(chat) { Path = chat.AbsolutePath.TrimEnd('/') + "/" + Uri.EscapeDataString(id) }.Uri;
+        using var message = new HttpRequestMessage(HttpMethod.Get, uri);
+        var token = await RouteTokenAsync(settings, ct);
+        if (!string.IsNullOrWhiteSpace(token)) message.Headers.Authorization = new("Bearer", token);
+        using var bound = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        bound.CancelAfter(TimeSpan.FromSeconds(30));
+        using var response = await _http.SendAsync(message, HttpCompletionOption.ResponseHeadersRead, bound.Token);
+        await response.Content.LoadIntoBufferAsync(8 * 1024 * 1024, bound.Token);
+        var body = await response.Content.ReadAsStringAsync(bound.Token);
+        JsonNode? receipt = null;
+        if (response.IsSuccessStatusCode)
+        {
+            receipt = JsonNode.Parse(body);
+            if (receipt?["id"]?.ToString() != id || receipt["choices"] is not JsonArray { Count: > 0 })
+                throw new InvalidDataException("Returned completion has no matching identity and choices.");
+            await _campaign.SaveAsync("planning-evaluation-retrieved-chat", requestId, receipt.AsObject(), ct);
+        }
+        return new() { ["request_id"] = requestId, ["method"] = "GET", ["status"] = (int)response.StatusCode,
+            ["response_sha256"] = PlanningGraphCompiler.Fingerprint(body), ["exact_completion"] = receipt is not null,
+            ["usage_available"] = receipt?["usage"] is JsonObject, ["generation_dispatches"] = 0 };
+    }
+
+    private async Task<string?> RouteTokenAsync(ModelProviderOptions settings, CancellationToken ct)
+    {
+        var token = settings.ApiKey;
+        if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(settings.Issuer))
+            token = await new GnOuGo.Auth.Core.OidcJwtApiKeyProvider(_http,
+                new(settings.Issuer, settings.ClientId!, settings.Scopes!, settings.ClientSecret, settings.PrivateKeyPem)).GetApiKeyAsync(ct);
+        return string.IsNullOrWhiteSpace(token) ? Environment.GetEnvironmentVariable("OPENAI_API_KEY") : token;
+    }
+
     internal async Task<JsonObject> InspectResponsesRouteAsync(string run, CancellationToken ct)
     {
         var settings = _options.ResolveProvider(Provider)!;
         var chat = new Uri(OpenAiEndpoints.ChatCompletions(settings.Url, settings.ApiVersion));
         var responses = ResponsesRoute(chat);
-        var token = settings.ApiKey;
-        if (string.IsNullOrWhiteSpace(token) && !string.IsNullOrWhiteSpace(settings.Issuer))
-            token = await new GnOuGo.Auth.Core.OidcJwtApiKeyProvider(_http,
-                new(settings.Issuer, settings.ClientId!, settings.Scopes!, settings.ClientSecret, settings.PrivateKeyPem)).GetApiKeyAsync(ct);
-        if (string.IsNullOrWhiteSpace(token)) token = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var token = await RouteTokenAsync(settings, ct);
         var results = new JsonArray(); var originals = new JsonArray();
         foreach (var method in new[] { HttpMethod.Options, HttpMethod.Get })
         {
@@ -712,10 +755,9 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
                 await ModelRequestAdmission.ValidateAsync(dispatched, this, int.MaxValue, "execution", token);
             var output = dispatched.MaxTokens ?? 32_768;
             var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
-            // Providers meter images differently. Reserve the declared physical input ceiling until
-            // the provider reports usage. The serialized logical request contains only image references.
+            // Use the same image exposure for the campaign journal and the workflow budget.
             if (dispatched.Images is { Count: > 0 })
-                input = await InputTokenAllowanceAsync(Provider, Model, output, token)
+                input = await ModelRequestAdmission.VisionInputCeilingAsync(dispatched, this, output, token)
                     ?? throw new InvalidOperationException("Vision requires a declared input capacity for financial admission.");
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
             var estimatedPlanningInput = ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;

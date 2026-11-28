@@ -40,7 +40,7 @@ internal sealed class AdaptiveLiveProfile(string scenario, string? capturedVersi
         if (capability.Kind != "agent" || capability.Method != runner || capability.FixedInput["runner"]?.ToString() != runner)
             throw new PlanningConflictException("The reviewed stage selected a different runner.");
         var scope = new JsonObject { ["runner"] = runner };
-        foreach (var member in stage.Input.Members.Where(p => p.Name != "inputs"))
+        foreach (var member in stage.Input.Members.Where(p => p.Name != "inputs" && (p.Name != "images" || ProfileVersion != DeckCraftInspection)))
             scope[member.Name] = PlanningGraphValidation.Literal(member.Value);
         var task = AgentTaskContracts.Parse(scope);
         if (task.Budget.MaxActions is null || task.Capabilities.Count == 0 || (runner == "coding"
@@ -55,8 +55,9 @@ internal sealed class AdaptiveLiveProfile(string scenario, string? capturedVersi
         _approved[suffix] = approved;
     }
 
-    private static JsonObject Scope(AgentTaskDefinition task) =>
-        JsonSerializer.SerializeToNode(task with { Inputs = new() }, AgentTaskJsonContext.Default.AgentTaskDefinition)!.AsObject();
+    private JsonObject Scope(AgentTaskDefinition task) =>
+        JsonSerializer.SerializeToNode(task with { Inputs = new(), Images = ProfileVersion == DeckCraftInspection ? null : task.Images },
+            AgentTaskJsonContext.Default.AgentTaskDefinition)!.AsObject();
 
     internal bool Approves(AgentTaskContext context) => _approved.Any(stage =>
         context.InvocationId.EndsWith(stage.Key, StringComparison.Ordinal) && JsonNode.DeepEquals(stage.Value, Scope(context.Task)));

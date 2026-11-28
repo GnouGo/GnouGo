@@ -36,6 +36,8 @@ llm.call and the business runner for agent.run accept an images array alongside 
 
 mcp.call exposes an images array when the result contains images. Bind the entire array to the next vision step, for example `images: ${data.steps.render.images}`. Each distinct digest appears once in provider order. The step also keeps the structured response and projects mixed blocks into content_blocks. An image block contains an image reference. An embedded image resource carries its reference in resource.image. The business agent can request a previously observed image by digest. A successful llm.call returns inspected references under meta.images. For visual review, request a structured result with the slide or region, observed problem, severity, proposed correction and uncertainty. Match that receipt to the rendered slide digest. Check native content and public output separately.
 
+For a finite token or cost budget, the runtime and campaign journal use the same pre-dispatch reservation. OpenAI models with implemented, published patch or tile rules use the validated dimensions of each transmitted image and a conservative UTF-8 text bound. For other models, including the qualified `gpt-6.1-terra` route, the reservation uses the declared input allowance. Provider-reported input and output usage settle a completed call. [OpenAI image token rules](https://developers.openai.com/api/docs/guides/images-vision#calculating-costs)
+
 The qualification evidence includes native round trips for three OS targets, a Microsoft PowerPoint edit and a blind two-image review. [PR 120 evidence](evidence/pr120-deckcraft-vision-20261128/README.md)
 
 ## Distribution notices

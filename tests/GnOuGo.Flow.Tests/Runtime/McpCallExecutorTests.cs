@@ -46,6 +46,25 @@ public class McpCallExecutorTests
     }
 
     [Fact]
+    public void SpecializedOutputTypesPreserveTheRuntimeImageEnvelope()
+    {
+        var workflows = new Dictionary<string, WorkflowDef>();
+        var tools = new Dictionary<(string, string), McpToolOutputContract>();
+        var symbols = WorkflowSymbolTable.Create("main", null, new HashSet<string> { "render", "review" });
+        var render = StepOutputTypeResolver.Resolve(new StepDef { Id = "render", Type = "mcp.call",
+            Input = new JsonObject { ["server"] = "preview", ["method"] = "render" } }, workflows, symbols, tools, BuiltInStepContracts.All);
+        var review = StepOutputTypeResolver.Resolve(new StepDef { Id = "review", Type = "llm.call" },
+            workflows, symbols, tools, BuiltInStepContracts.All);
+
+        Assert.False(render.Properties["images"].Required);
+        Assert.Equal(FlowTypeKind.String, render.Properties["images"].Type.Items!.Properties["sha256"].Type.Kind);
+        Assert.Equal(FlowTypeKind.Array, render.Properties["content_blocks"].Type.Kind);
+        var inspected = review.Properties["meta"].Type.Properties["images"];
+        Assert.False(inspected.Required);
+        Assert.Equal(FlowTypeKind.Array, inspected.Type.Kind);
+    }
+
+    [Fact]
     public async Task MixedPreviewProducesAReusableImageInputForTheNextWorkflowStep()
     {
         const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/FioAAAAASUVORK5CYII=";

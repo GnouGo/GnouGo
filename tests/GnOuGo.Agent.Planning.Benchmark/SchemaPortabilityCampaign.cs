@@ -74,6 +74,13 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine((await BenchmarkHttpJournal.InspectRequestAsync(campaign, RequiredOption(args, "--request-id"), CancellationToken.None)).ToJsonString());
             return;
         }
+        if (phase == "inspect-stored-chat")
+        {
+            using var captured = await KeyVaultBenchmarkModel.CreateAsync("OpenAi", RequiredOption(args, "--model"), campaign, root,
+                CancellationToken.None, campaignConfiguration: RequiredOption(args, "--campaign-configuration"));
+            Console.WriteLine((await captured.InspectStoredChatAsync(RequiredOption(args, "--request-id"), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "server-live-funding")
         {
             await ServerLiveFundingEvidence.RunAsync(args, campaign, records, root);

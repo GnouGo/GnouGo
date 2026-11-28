@@ -23,5 +23,17 @@
     "unknown_attempts": 2,
     "available_eur": "7.474537585421412300683370640",
     "provider_invoice": null
+  },
+  "after_deckcraft_plan": {
+    "ceiling": 70,
+    "attempts": 1782,
+    "input_tokens": 27070266,
+    "output_tokens": 892591,
+    "known_cost_eur": "65.729949886104783599088838976",
+    "http_reserved_eur": "0.8634715261958997722095671982",
+    "retained_application_eur": "0.0463553530751708428246013667",
+    "unknown_attempts": 3,
+    "available_eur": "3.3602232346241457858769924591",
+    "provider_invoice": null
   }
 }

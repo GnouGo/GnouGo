@@ -22,6 +22,14 @@ The Linux dependency inventory covers 185 resolved components. Distribution pack
 
 Two run-owned images went through the workflow runtime, encrypted artifact store and OpenAI adapter. The prompt asked for the upper-right code and visible problems without giving the expected results. The model read `N7K-492` in the unobstructed panel. For the other panel it returned null and identified a major header overlap. Each successful receipt identifies the bytes sent by SHA-256. [Model output and image receipts](blind-vision.json) · [Control and fixtures](../../../tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft)
 
+## Eight-slide Server attempt
+
+The normal Server planner stopped at revision 275 after 104 physical requests. It retained 47 top-level draft tasks. During planning, the model could discover the renderer but could not establish from its published runner description that a subsequent model decision receives the rendered pixels and their SHA-256 references. The runner description now exposes that behavior. The workflow had not reached approval or form execution. The eight-slide before/after presentations and their visual findings are outstanding. [Session and draft task IDs](deckcraft-planning-attempt-a.json)
+
+The final request received HTTP 200 headers and part of the native Chat Completions stream. The 270-second timeout expired before a completion or usage receipt arrived. The captured policy permits zero uncertain retries. An authenticated GET for the exact completion ID on the original deployment returned HTTP 404. The journal retains the attempt and its EUR 0.388440 reservation. The Amazon assessment was subsequently refused before dispatch because the campaign shares this unresolved request. [Transport and retrieval evidence](deckcraft-planning-attempt-a.json)
+
+The campaign recorded 1,782 physical attempts, 27,070,266 known input tokens and 892,591 known output tokens. Reported usage at the captured tariffs accounts for EUR 65.729950. Three HTTP attempts retain EUR 0.863472 in total. The separate application hold is EUR 0.046355. The remaining balance under the original EUR 70 ceiling is EUR 3.360223. The additional EUR 30 authorization has not been applied. [Exact accounting](accounting.json)
+
 ## Campaign history
 
 The retained Amazon form reached a first-attempt budget refusal before its capture assessment. The encrypted HTTP journal contains zero physical attempts for that request. The reconciliation retained its accounting and the workflow remains separately traceable. [Refusal evidence](amazon-zero-attempt.json) · [Opening and control accounting](accounting.json)

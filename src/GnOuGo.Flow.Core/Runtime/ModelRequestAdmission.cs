@@ -15,6 +15,17 @@ internal static class ModelRequestAdmission
     internal static long EstimateTokens(LLMRequest request) =>
         ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
 
+    internal static async Task<int?> VisionInputCeilingAsync(LLMRequest request, ILLMCapabilityResolver resolver, int outputTokens, CancellationToken ct)
+    {
+        var allowance = await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, outputTokens, ct);
+        if (allowance is not > 0 || request.Images is not { Count: > 0 } images) return allowance;
+        var imageTokens = await resolver.ImageTokenUpperBoundAsync(request.Provider, request.Model, images, ct);
+        if (imageTokens is not > 0) return allowance;
+        // Use raw UTF-8 bytes as a conservative text bound. The serialized request excludes image bytes.
+        var textBytes = JsonSerializer.SerializeToUtf8Bytes(request, PlanningJsonContext.Default.LLMRequest).LongLength;
+        return (int)Math.Min(allowance.Value, textBytes + 256 + imageTokens.Value);
+    }
+
     internal static async Task ValidateAsync(LLMRequest request, ILLMCapabilityResolver? resolver, int hostLimit, string stage, CancellationToken ct, bool advisoryTokens = false)
     {
         ct.ThrowIfCancellationRequested();
@@ -41,6 +52,8 @@ internal static class ModelRequestAdmission
         // provider's declared physical capacity after reserving output.
         var limit = advisoryTokens ? allowance.Value : Math.Min(hostLimit, allowance.Value);
         var current = EstimateTokens(request);
+        if (request.Images is { Count: > 0 } images)
+            current += await resolver.ImageTokenUpperBoundAsync(request.Provider, request.Model, images, ct) ?? 0;
         if (current > limit)
             throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetExceeded,
                 $"The complete serialized {stage} request is estimated at {current} tokens; its effective input limit is {limit} tokens. Dispatch did not start; cumulative budgets were not increased.",

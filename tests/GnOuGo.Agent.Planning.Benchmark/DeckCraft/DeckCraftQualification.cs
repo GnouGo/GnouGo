@@ -35,6 +35,9 @@ internal static class DeckCraftQualification
         $"Declare a caller output named presentationPath with the delivered workspace path {relative}/after.pptx. " +
         "The pinned registry publishes slide.notes (text, zero-based index) and chart.data (categories, series). Use list_commands filtered by the exact ID before run_command or batch. " +
         "The specialized insert_table accepts rows, cols and data as rows of strings. " +
+        "The configured business agent receives each successful render_slide image in its next multimodal decision. " +
+        "Its mcp.result evidence pins the approved tool ID and request; the projected image block contains image.sha256. " +
+        "The runner can return that observed digest and a structured visual assessment. Use the configured model's input reservation when budgeting image decisions. " +
         "Keep before.pptx as evidence. Review renders in batches of at most eight. Return a structured findings array, empty if clear. " +
         "Include each reviewed image digest and slide number. Finish with eight reviewed renders from the reopened delivery.";
 
