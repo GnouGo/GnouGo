@@ -739,6 +739,15 @@ recorded checkpoint history, recompiles the exact reviewed graph and YAML, and
 records the new verifier assembly before normal Server approval and form execution.
 Supply the current audited application holds with `--retained-external-reservations-eur`.
 
+A saved agent whose previous form failed after completed Browser reads and verified
+cleanup can receive a new form submission after a tool correction. Use
+`server-live-revalidate --after-finalized-read <form-run-id> --tool-build-source <sha>`
+with the original `--run` and current audited holds to verify the predecessor without inference.
+Use the same options with `server-live-execute` for a fresh submission. The host compares
+the journal, the registered agent, the reusable approval, the selected tool contracts
+and the empty run workspace. The new attempt uses its own provider request namespace,
+form receipts and campaign record. The planning and previous execution records remain available.
+
 `server-live-plan --await-scoped-revision --resume-scoped-revision <revision>`
 reopens the original stopped Server session for an operator's scoped revision.
 Supply the original run and planning profile and the current audited application

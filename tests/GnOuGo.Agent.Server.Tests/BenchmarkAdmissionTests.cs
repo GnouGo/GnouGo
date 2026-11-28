@@ -82,6 +82,37 @@ public sealed partial class BenchmarkAdmissionTests
         Assert.Equal(warning, ServerBusinessExecution.IsExecutionBudgetOverrun(journal));
     }
 
+    [Theory]
+    [InlineData("closed_read", true)]
+    [InlineData("unknown_journal", false)]
+    [InlineData("unfinished_cleanup", false)]
+    [InlineData("cancelled", false)]
+    [InlineData("recorded_write", false)]
+    [InlineData("missing_event", false)]
+    [InlineData("foreign_server", false)]
+    [InlineData("uncertain_read", false)]
+    [InlineData("active_page", false)]
+    public void AnotherSavedFormRequiresFinalizedReadOnlyEffects(string variant, bool expected)
+    {
+        var journal = new WorkflowRun { Status = variant == "unknown_journal" ? WorkflowRunStatus.NeedsReconciliation : WorkflowRunStatus.Failed,
+            CancelRequested = variant == "cancelled", FinalizationCompleted = variant != "unfinished_cleanup", Result = new() { Success = false } };
+        var events = new JsonArray();
+        foreach (var method in new[] { "browser_get_content", "browser_close" })
+        {
+            journal.Invocations[method] = new() { Id = method, StepType = "mcp.call", Recovery = StepRecovery.External,
+                Status = variant == "uncertain_read" ? "dispatching" : "completed", CompletedAt = DateTimeOffset.UtcNow,
+                ResolvedInput = new JsonObject { ["server"] = "GnOuGo.Browser.Mcp", ["method"] = variant == "recorded_write" ? "document_write" : method } };
+            events.Add(new JsonObject { ["server"] = variant == "foreign_server" ? "unrelated" : "GnOuGo.Browser.Mcp", ["tool"] = method,
+                ["error"] = false, ["result"] = new JsonObject { ["success"] = true } });
+        }
+        events.Add(new JsonObject { ["server"] = "GnOuGo.Browser.Mcp", ["tool"] = "browser_get_content", ["arguments"] = new JsonObject(),
+            ["error"] = true, ["result"] = new JsonObject { ["success"] = false, ["error_message"] = variant == "active_page" ? "different error" : "No active page" } });
+        events.Add(events[1]!.DeepClone());
+        if (variant == "missing_event") events.RemoveAt(0);
+        var previous = new JsonObject { ["execution"] = new JsonObject { ["status"] = "failed", ["finalization_completed"] = true }, ["events"] = events };
+        Assert.Equal(expected, ServerBusinessExecution.FinalizedBrowserRead(journal, previous));
+    }
+
     [Fact]
     public async Task DiagnosticExecutionCannotExceedProviderCapacityOrReserveHttpAttempt()
     {

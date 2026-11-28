@@ -66,6 +66,12 @@ internal static class ServerLiveDiagnostics
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
         var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
+        var previousForm = SchemaPortabilityCampaign.Option(args, "--after-finalized-read");
+        var toolSource = SchemaPortabilityCampaign.Option(args, "--tool-build-source");
+        if ((previousForm is not null || toolSource is not null) &&
+            ((!executionOnly && !revalidationOnly) || recheckApproval || !Guid.TryParseExact(previousForm, "N", out _) ||
+             toolSource is not { Length: 40 } || !toolSource.All(char.IsAsciiHexDigit)))
+            throw new ArgumentException("Another saved form invocation requires its finalized read-only execution ID and an exact tool build source.");
         var resumeRevision = SchemaPortabilityCampaign.Option(args, "--resume-scoped-revision");
         var restorePath = SchemaPortabilityCampaign.Option(args, "--verify-restored-slot");
         if (restorePath is not null && resumeRevision is null)
@@ -109,13 +115,13 @@ internal static class ServerLiveDiagnostics
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
-        if (planning || recheckApproval || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
+        if (planning || recheckApproval || previousForm is not null || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
         var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
         if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
-        if (planning || recheckApproval)
+        if (planning || recheckApproval || previousForm is not null)
             await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: model.AdvisoryFinancialForecasts);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
@@ -155,7 +161,7 @@ internal static class ServerLiveDiagnostics
         }
         var root = Directory.GetCurrentDirectory();
         var stateRoot = Path.Combine(workspace, ".GnOuGo", "data", "live-server", run); Directory.CreateDirectory(stateRoot);
-        var retainedReport = executionOnly ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
+        var retainedReport = executionOnly || previousForm is not null ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
         var freshOutcome = delegatedScenario is not null || retainedReport?["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
         var business = freshOutcome ? new ServerBusinessExecution() : null;
         var localKindCleanup = delegatedScenario == "code" && !localReview || retainedReport?["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
@@ -668,9 +674,17 @@ internal static class ServerLiveDiagnostics
             if (retained)
             {
                 var saved = await campaign.LoadAsync("planning-evaluation-runs", run) ?? throw new PlanningConflictException("No retained live run.");
-                await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
+                if (previousForm is null) await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
                 if (executionOnly || revalidationOnly)
                 {
+                    if (previousForm is not null)
+                    {
+                        if (business is null || fundingScope is null || await campaign.HasUncertainRequestAsync(CancellationToken.None))
+                            throw new PlanningConflictException("A funded business form with settled campaign admission is required.");
+                        await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
+                        await RepeatSavedFormAsync(app, client, business, campaign, model, saved, previousForm, toolSource!, root, workspace, revalidationOnly);
+                        return;
+                    }
                     if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
                     await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
                     RequireSameProductionSource(saved["source"]!.ToString(), recheckApproval);
@@ -1177,6 +1191,95 @@ internal static class ServerLiveDiagnostics
         report["session"] = JsonSerializer.SerializeToNode(restored, PlanningJsonContext.Default.PlanningSession);
         report["result"]!["status"] = restored.Status;
         await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+    }
+
+    private static async Task RepeatSavedFormAsync(WebApplication app, HttpClient client, ServerBusinessExecution business,
+        BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, JsonObject previous, string previousForm, string toolSource, string root, string workspace, bool verifyOnly)
+    {
+        var ct = app.Lifetime.ApplicationStopping;
+        var run = previous["run"]!.GetValue<string>();
+        var sessionId = previous["session_id"]!.GetValue<string>();
+        var key = run + "-form-" + previousForm;
+        if (previous["execution_run_id"]?.ToString() != previousForm || previous["execution_started"] is null ||
+            previous["passed"]?.GetValue<bool>() != false || await campaign.LoadAsync("planning-evaluation-runs", key, ct) is not null)
+            throw new PlanningConflictException("This predecessor does not identify an unused, independently observed form attempt.");
+        var reviewed = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var saved = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(sessionId, ct);
+        if (reviewed.Status != PlanningStatus.FinalReview || saved is not { Status: PlanningStatus.Saved, SavedAgentId: not null } ||
+            saved.Request.TenantId != "benchmark" || saved.Request.SessionId != reviewed.Request.SessionId ||
+            saved.SavedAgentId != previous["saved_agent_id"]?.ToString() || saved.Yaml != reviewed.Yaml ||
+            saved.ApprovedHash != reviewed.ComputeArtifactHash() || saved.ApprovedHash != previous["execution_artifact_hash"]?.ToString())
+            throw new PlanningConflictException("The saved agent differs from the original reviewed artifact.");
+        await RequireNotCancelledAsync(app, saved, ct);
+        await using var scope = app.Services.CreateAsyncScope();
+        var agent = await scope.ServiceProvider.GetRequiredService<IAgentRepository>().GetByNameAsync(saved.Request.Name, ct);
+        if (agent is null || agent.Id.ToString() != saved.SavedAgentId || agent.Workflow != saved.Yaml)
+            throw new PlanningConflictException("The agent currently served by the form differs from the saved artifact.");
+        var journal = await app.Services.GetRequiredService<WorkflowRunService>().ReadAsync(previousForm, ct);
+        if (journal is null || journal.RunId != previousForm || journal.TenantId != saved.Request.TenantId ||
+            journal.Limits.AgentId != saved.SavedAgentId || journal.WorkflowYaml != saved.Yaml ||
+            !ServerBusinessExecution.MatchesSubmittedInputs(previous["inputs"], journal.Inputs) ||
+            !ServerBusinessExecution.FinalizedBrowserRead(journal, previous))
+            throw new PlanningConflictException("The prior execution has unresolved effects or lacks read-only and cleanup evidence.");
+        var relative = previous["workspace_relative"]!.GetValue<string>();
+        var scenario = previous["scenario"]!.GetValue<string>();
+        var originalOutput = Path.Combine(root, "artifacts/live-server-20261106", run);
+        var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(originalOutput, "authorization.json"), ct),
+            DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
+        var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(originalOutput, "review.json"), ct),
+            DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
+        var authority = CreateReviewAuthority(authorization, document, campaign.Id, sessionId, scenario, workspace, previous, business);
+        if (authorization.ReuseReviewedAuthority != true || saved.ApprovalReview?.Id != document.Receipt.Id)
+            throw new PlanningConflictException("The saved agent lacks the reusable artifact-bound approval.");
+        authority.Validate(reviewed);
+        PlanningArtifactApproval.Verify(saved, authority.Receipt);
+        await authority.PinAsync(campaign, ct);
+        authority.PrepareAdaptiveWorkspace(run);
+        if (Directory.EnumerateFileSystemEntries(Path.GetFullPath(relative, workspace)).Any())
+            throw new PlanningConflictException("The original workspace contains an output or other retained state.");
+        _ = app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        var runtime = ServerLiveArtifactValidation.Runtime(business, saved.Request.Policy, (_, _) => Task.CompletedTask, business.Adaptive);
+        var findings = await runtime.ValidateCatalogAsync(saved.Catalog!, ct);
+        if (findings.Count != 0)
+            throw new PlanningConflictException("The selected tool contracts changed: " + string.Join(", ", findings.Select(d => d.Code)));
+        var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null,
+            "Release", root, previous["browser_observation_policy"]?.ToString(), business.Adaptive is not null), toolSource);
+        var originalBuilds = previous["mcp_builds"]!.AsObject();
+        if (!builds.Select(p => p.Key).ToHashSet(StringComparer.Ordinal).SetEquals(originalBuilds.Select(p => p.Key)) ||
+            JsonNode.DeepEquals(originalBuilds, builds))
+            throw new PlanningConflictException("A corrected build of the original tool set is required.");
+        if (verifyOnly)
+        {
+            Console.WriteLine(new JsonObject { ["verified_predecessor"] = previousForm, ["journal_revision"] = journal.Revision,
+                ["saved_agent_id"] = saved.SavedAgentId, ["artifact_hash"] = saved.ApprovedHash, ["catalog_findings"] = 0,
+                ["tool_builds"] = builds, ["execution_started"] = false, ["provider_dispatches"] = 0 }.ToJsonString());
+            return;
+        }
+        var report = new JsonObject();
+        foreach (var field in new[] { "run", "session_id", "scenario", "source", "campaign", "campaign_configuration", "provider", "model",
+            "working_directory", "workspace_relative", "inputs", "max_products", "qualification_profile", "oracle_version", "workflow_readback_required",
+            "adaptive_runner_profile", "browser_observation_policy", "browser_scope_approval", "workflow_model_output_limit",
+            "execution_model_output_limit", "session" })
+            report[field] = previous[field]?.DeepClone();
+        report["form_attempt"] = key;
+        report["previous_form"] = previousForm;
+        report["previous_journal_revision"] = journal.Revision;
+        report["execution_tool_source"] = toolSource;
+        report["mcp_builds"] = builds;
+        report["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+        report["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
+        report["execution_external_reservations_eur"] = model.RetainedExternalReservationsEur;
+        report["started_utc"] = DateTimeOffset.UtcNow;
+        report["result"] = new JsonObject { ["status"] = saved.Status, ["execution_correct"] = false };
+        report["passed"] = false;
+        // The campaign lease serializes attempts. An existing claim is never automatically reissued.
+        await campaign.SaveAsync("planning-evaluation-runs", key, report, ct);
+        await ServerBusinessExecution.ObserveExecutionAsync(
+            token => business.ExecuteAsync(app, client, campaign, model, reviewed, authority, report, workspace,
+                Path.Combine(root, "artifacts/live-server-20261106", key), token, saved),
+            TimeSpan.FromMinutes(30), () => Console.Error.WriteLine("The saved form is still awaiting its terminal journal."), ct);
+        Console.WriteLine(new JsonObject { ["form_attempt"] = key, ["execution_run_id"] = report["execution_run_id"]?.DeepClone(),
+            ["passed"] = report["passed"]?.DeepClone() }.ToJsonString());
     }
 
     private static async Task<bool> ExecuteReviewedLocalAsync(WebApplication app, HttpClient client, ServerBusinessExecution? business, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,

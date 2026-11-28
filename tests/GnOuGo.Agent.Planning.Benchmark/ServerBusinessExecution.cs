@@ -110,19 +110,47 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         };
     }
 
+    internal static bool FinalizedBrowserRead(WorkflowRun journal, JsonObject previous)
+    {
+        if (journal.Status != WorkflowRunStatus.Failed || journal.CancelRequested || journal.Result is not { Success: false } || !journal.FinalizationCompleted ||
+            previous["execution"]?["status"]?.ToString() != WorkflowRunStatus.Failed ||
+            previous["execution"]?["finalization_completed"]?.GetValue<bool>() != true ||
+            previous["events"] is not JsonArray events || events.Count < 4 ||
+            journal.Invocations.Values.Any(i => i.CompletedAt is null || i.Status is not ("completed" or "failed") ||
+                i.Recovery is not (StepRecovery.ReplaySafe or StepRecovery.External))) return false;
+        var effects = journal.Invocations.Values.Where(i => i.Recovery == StepRecovery.External).ToArray();
+        if (effects.Length < 2 || effects.Any(i => i.StepType != "mcp.call" || i.Status != "completed" ||
+            i.ResolvedInput?["server"]?.ToString() != "GnOuGo.Browser.Mcp" ||
+            i.ResolvedInput?["method"]?.ToString() is not ("browser_get_content" or "browser_close"))) return false;
+        // The oracle makes its own empty-page probe and close after the workflow closed the Browser.
+        if (events.Count != effects.Length + 2 || events.Any(e => e?["server"]?.ToString() != "GnOuGo.Browser.Mcp") ||
+            events[^2]?["tool"]?.ToString() != "browser_get_content" || events[^2]?["arguments"] is not JsonObject { Count: 0 } ||
+            events[^2]?["error"]?.GetValue<bool>() != true || events[^2]?["result"]?["success"]?.GetValue<bool>() != false ||
+            events[^2]?["result"]?["error_message"]?.ToString().Contains("No active page", StringComparison.Ordinal) != true ||
+            events[^1]?["tool"]?.ToString() != "browser_close" || events[^1]?["error"]?.GetValue<bool>() != false ||
+            events[^1]?["result"]?["success"]?.GetValue<bool>() != true) return false;
+        var actual = events.Take(effects.Length).ToArray();
+        return actual[^1]?["tool"]?.ToString() == "browser_close" && actual.All(e => e?["error"]?.GetValue<bool>() == false &&
+            e?["result"]?["success"]?.GetValue<bool>() == true) &&
+            actual.Select(e => e?["tool"]?.ToString()).Order(StringComparer.Ordinal)
+                .SequenceEqual(effects.Select(i => i.ResolvedInput!["method"]!.ToString()).Order(StringComparer.Ordinal));
+    }
+
     internal async Task ExecuteAsync(WebApplication app, HttpClient client, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model,
-        PlanningSession state, DelegatedTestReviewAuthority authority, JsonObject report, string workspace, string output, CancellationToken ct)
+        PlanningSession state, DelegatedTestReviewAuthority authority, JsonObject report, string workspace, string output, CancellationToken ct,
+        PlanningSession? previouslySaved = null)
     {
         var scenario = report["scenario"]!.ToString();
         var localReview = report["oracle_version"]?.ToString() == LocalReviewQualification.Version;
         var grant = localReview ? LocalReviewQualification.Scenario : scenario == "code" ? PublishedReviewQualification.Scenario : scenario;
-        var source = report["source"]!.ToString();
+        var source = (report["execution_tool_source"] ?? report["source"])!.ToString();
+        var recordKey = (report["form_attempt"] ?? report["run"])!.ToString();
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, grant, null, "Release",
             report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null);
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, source), report["mcp_builds"]))
             throw new PlanningConflictException("Execution requires the original tool builds.");
         var service = app.Services.GetRequiredService<PlanningSessionService>();
-        Task Save() => campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report, CancellationToken.None);
+        Task Save() => campaign.SaveAsync("planning-evaluation-runs", recordKey, report, CancellationToken.None);
         async Task<PlanningSession> CommandAsync(PlanningCommand command)
         {
             using var response = await client.PostAsJsonAsync($"/api/planning/{state.Request.SessionId}/commands", new
@@ -140,13 +168,16 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         var relative = report["workspace_relative"]!.ToString();
         RequireInputs(state.Plan, inputs);
         _authority = authority;
-        var approved = await CommandAsync(authority.Command());
-        PlanningArtifactApproval.Verify(approved, authority.Receipt);
-        if (approved.Status != PlanningStatus.Approved) throw new PlanningConflictException("Approval did not complete.");
-        _saving = approved;
-        PlanningSession saved;
-        try { saved = await CommandAsync(new() { Kind = "save", ExpectedRevision = approved.Revision, ArtifactHash = approved.ApprovedHash }); }
-        finally { _saving = null; }
+        var saved = previouslySaved;
+        if (saved is null)
+        {
+            var approved = await CommandAsync(authority.Command());
+            PlanningArtifactApproval.Verify(approved, authority.Receipt);
+            if (approved.Status != PlanningStatus.Approved) throw new PlanningConflictException("Approval did not complete.");
+            _saving = approved;
+            try { saved = await CommandAsync(new() { Kind = "save", ExpectedRevision = approved.Revision, ArtifactHash = approved.ApprovedHash }); }
+            finally { _saving = null; }
+        }
         if (saved.Status != PlanningStatus.Saved || saved.SavedAgentId is null || saved.Yaml != state.Yaml)
             throw new PlanningConflictException("Saving the approved workflow did not complete.");
         _savedId = saved.SavedAgentId;
@@ -157,7 +188,8 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         if (Adaptive is not null) authority.PrepareAdaptiveWorkspace(report["run"]!.GetValue<string>());
         model.CaptureTokenPolicy(state.Request);
         var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
-        await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
+        var usageKey = previouslySaved is null ? state.Request.SessionId : recordKey;
+        await using var proxy = await CampaignInferenceProxy.StartAsync(model, usageKey,
             report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
         if (localReview) ConfigureReviewExecution(proxy.Endpoint, workspace, relative, report);
         else if (scenario == "code")
@@ -248,10 +280,10 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         report["execution_started"] = DateTimeOffset.UtcNow;
         await Save();
         proxy.ExecutionEnabled = true;
-        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId, WorkflowOutputLimit(report));
+        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, usageKey, WorkflowOutputLimit(report));
         _execution = observed;
         using var browser = ServerLiveDiagnostics.StartObserver(app, report["working_directory"]!.ToString(), client.BaseAddress!.ToString(),
-            state.Request.SessionId, report["run"]!.ToString(), _agentName, report["inputs"]!.AsObject());
+            state.Request.SessionId, recordKey, _agentName, report["inputs"]!.AsObject());
         try
         {
             var runs = app.Services.GetRequiredService<WorkflowRunService>();
