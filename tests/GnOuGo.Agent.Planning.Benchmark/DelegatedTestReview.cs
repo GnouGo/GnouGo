@@ -32,6 +32,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal const string CleanupCommand = "delete_directory";
     private bool ReusesDecision(bool artifactGate) =>
         authorization.ReuseReviewedAuthority == true && (artifactGate || scenario == LocalReviewQualification.Scenario);
+    internal DeckCraftQualification.CorrectionLimit? PresentationCorrections { get; } = scenario == "deckcraft" ? new() : null;
     private string? _boundExecutionId;
     private string ExecutionId => _boundExecutionId ?? run;
     internal void BindServerRun(string executionId)
@@ -235,7 +236,12 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             return;
         }
         var relative = authorizedRelativePath ?? "workflows/" + campaign + "/" + run;
-        if (scenario == "deckcraft") { DeckCraftQualification.CheckArguments(tool, args, Path.Combine(root, relative)); return; }
+        if (scenario == "deckcraft")
+        {
+            DeckCraftQualification.CheckArguments(tool, args, Path.Combine(root, relative));
+            PresentationCorrections!.BeforeTool(tool);
+            return;
+        }
         if (tool is "document_write" or "document_read") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
         if (tool == "browser_close") { ClearBrowser(); _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_get_content")

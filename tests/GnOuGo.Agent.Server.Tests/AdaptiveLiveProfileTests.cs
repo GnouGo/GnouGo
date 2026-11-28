@@ -8,6 +8,18 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class AdaptiveLiveProfileTests
 {
+    [Fact]
+    public void FreshDeckCraftInspectionCanReadTheFilteredCommandRegistryWhileRetainedGrantsKeepTheirOriginalTools()
+    {
+        var current = new AdaptiveLiveProfile("deckcraft");
+        Assert.Equal(AdaptiveLiveProfile.DeckCraftInspection, current.ProfileVersion);
+        Assert.Contains(new("DeckCraft", "list_commands"), current.Tools);
+        Assert.DoesNotContain(new("DeckCraft", "run_command"), current.Tools);
+        var retained = new AdaptiveLiveProfile("deckcraft", AdaptiveLiveProfile.Version);
+        Assert.Equal(AdaptiveLiveProfile.Version, retained.ProfileVersion);
+        Assert.Equal("render_slide", Assert.Single(retained.Tools).Method);
+    }
+
     [Theory]
     [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content")]
     [InlineData(PublishedReviewQualification.Scenario, "GnOuGo.Git.Mcp", "git_compare_refs")]

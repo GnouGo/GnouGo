@@ -97,16 +97,45 @@ internal static class DeckCraftQualification
             ["sha256"] = Convert.ToHexStringLower(SHA256.HashData(bytes)) };
     }
 
-    internal static async Task<JsonObject> VerifyAsync(JsonObject report, string workspace, WorkflowRun journal, CancellationToken ct)
+    internal static async Task<JsonObject> VerifyAsync(JsonObject report, string workspace, string evidenceDirectory, WorkflowRun journal, CancellationToken ct)
     {
         var folder = Path.Combine(workspace, report["workspace_relative"]!.ToString());
         var evidence = new JsonObject { ["version"] = Version, ["passed"] = false };
-        if (journal.Result?.Success != true || !journal.FinalizationCompleted) return evidence;
         var events = report["events"]!.AsArray().OfType<JsonObject>().Where(e => e["server"]?.ToString() == "DeckCraft" && e["error"]?.GetValue<bool>() == false).ToArray();
+        var archive = new JsonArray();
+        IWorkflowImageStore imageStore = LiveWorkflowEvaluation.ExecutionStore(workspace);
+        foreach (var render in events.Where(e => e["tool"]?.ToString() == "render_slide"))
+        {
+            if (render["result"]?["sha256"]?.ToString() is not { Length: 64 } digest || !digest.All(char.IsAsciiHexDigitLower)) continue;
+            var bytes = await imageStore.GetAsync(journal.TenantId, journal.RunId, digest, ct);
+            if (bytes is null || Convert.ToHexStringLower(SHA256.HashData(bytes)) != digest) continue;
+            var name = "renders/" + digest + ".png";
+            Directory.CreateDirectory(Path.Combine(evidenceDirectory, "renders"));
+            await File.WriteAllBytesAsync(Path.Combine(evidenceDirectory, name), bytes, ct);
+            archive.Add(new JsonObject { ["slide"] = render["arguments"]?["slide"]?.DeepClone(),
+                ["started"] = render["started"]?.DeepClone(), ["sha256"] = digest, ["file"] = name });
+        }
+        evidence["renders"] = archive;
+        if (journal.FinalizationCompleted)
+            evidence["staged_illustration_released"] = ReleaseIllustration(report, workspace, folder);
+        if (journal.Result?.Success != true || !journal.FinalizationCompleted) return evidence;
         var reopened = Array.FindLastIndex(events, e => e["tool"]?.ToString() == "open_presentation" &&
             e["arguments"]?["path"]?.ToString() is { } path && Path.GetFullPath(path) == Path.GetFullPath(Path.Combine(folder, "after.pptx")));
         var finalRenders = events.Skip(reopened + 1).Where(e => e["tool"]?.ToString() == "render_slide" && e["result"]?["sha256"] is not null).ToArray();
-        var coverage = finalRenders.Select(e => e["arguments"]?["slide"]?.GetValue<int>() ?? 0).ToHashSet();
+        var coverage = new HashSet<int>();
+        int? selected = null;
+        foreach (var evt in events.Skip(reopened + 1))
+        {
+            switch (evt["tool"]?.ToString())
+            {
+                case "go_to_slide": selected = evt["arguments"]?["index"]?.GetValue<int>(); break;
+                case "inspect_document": selected = evt["result"]?["selection"]?["slide"]?.GetValue<int>() ?? selected; break;
+                case "render_slide" when (evt["arguments"]?["slide"]?.GetValue<int>() ?? selected) is int slide:
+                    if (evt["result"]?["sha256"] is not null) coverage.Add(slide);
+                    break;
+                case "new_presentation" or "open_presentation" or "add_slide" or "batch" or "run_command": selected = null; break;
+            }
+        }
         var reviews = report["vision_receipts"]?.AsArray().OfType<JsonObject>().ToArray() ?? [];
         var initialRenders = events.Take(Math.Max(reopened, 0)).Where(e => e["tool"]?.ToString() == "render_slide" && e["result"]?["sha256"] is not null).ToArray();
         var expected = report["workspace_relative"]!.ToString() + "/after.pptx";
@@ -126,10 +155,76 @@ internal static class DeckCraftQualification
         evidence["initial_vision_observed"] = initialRenders.Length > 0 && reopened >= 0 && initialRenders.Any(e =>
             reviews.Any(r => Reviewed(e, r) && Timestamp(r, "received") <= Timestamp(events[reopened], "started")));
         evidence["final_vision_coverage"] = finalRenders.Length >= 8 && finalRenders.All(e => reviews.Any(r => Reviewed(e, r)));
-        evidence["passed"] = process.ExitCode == 0 && correctOutput && evidence["reopened_slide_coverage"]!.GetValue<bool>() &&
+        var cycles = CorrectionCycles(events, reviews);
+        evidence["correction_cycles"] = cycles;
+        var archived = archive.OfType<JsonObject>().Select(r => r["sha256"]!.ToString()).ToHashSet();
+        evidence["passed"] = process.ExitCode == 0 && correctOutput && cycles <= 2 &&
+            evidence["staged_illustration_released"]?.GetValue<bool>() == true &&
+            finalRenders.All(e => archived.Contains(e["result"]!["sha256"]!.ToString())) && evidence["reopened_slide_coverage"]!.GetValue<bool>() &&
             evidence["initial_vision_observed"]!.GetValue<bool>() && evidence["final_vision_coverage"]!.GetValue<bool>() &&
             finalRenders.All(e => reviews.Any(r => Reviewed(e, r) && Findings(r) is { Count: 0 }));
         return evidence;
+    }
+
+    private static bool ReleaseIllustration(JsonObject report, string workspace, string folder)
+    {
+        var campaign = report["campaign"]!.ToString();
+        var run = report["run"]!.ToString();
+        if (new[] { campaign, run }.Any(s => s.Length == 0 || !s.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) ||
+            Path.GetFullPath(folder) != Path.GetFullPath(Path.Combine(workspace, "workflows", campaign, run))) return false;
+        for (var dir = new DirectoryInfo(folder); dir is not null; dir = dir.Parent)
+            if (dir.LinkTarget is not null) return false;
+        var file = new FileInfo(Path.Combine(folder, "illustration.png"));
+        if (file.LinkTarget is not null) return false;
+        if (!file.Exists) return true;
+        if (Hash(file.FullName) != Hash(Fixture("panel-k.png"))) return false;
+        file.Delete();
+        return !File.Exists(file.FullName);
+    }
+
+    internal sealed class CorrectionLimit
+    {
+        private readonly object _gate = new();
+        private bool _pending;
+        private int _passes;
+
+        internal void Observe(JsonObject review)
+        {
+            if (Findings(review) is { Count: > 0 }) lock (_gate) _pending = true;
+        }
+
+        internal void BeforeTool(string tool)
+        {
+            if (!IsMutation(tool)) return;
+            lock (_gate)
+            {
+                if (!_pending) return;
+                if (_passes >= 2) throw new PlanningConflictException("The two visual correction passes are exhausted.");
+                _passes++;
+                _pending = false;
+            }
+        }
+    }
+
+    private static bool IsMutation(string? tool) => tool is "run_command" or "batch" or "add_slide" or
+        "set_text" or "add_text_box" or "add_shape" or "insert_table" or "insert_chart" or "insert_picture";
+
+    internal static int CorrectionCycles(JsonObject[] events, JsonObject[] reviews)
+    {
+        // Several findings from the same review pass can precede a single edit pass.
+        var findings = reviews.Where(r => Findings(r) is { Count: > 0 }).Select(r => Timestamp(r, "received"))
+            .Where(t => t.HasValue).Order().ToArray();
+        var mutations = events.Where(e => IsMutation(e["tool"]?.ToString()))
+            .Select(e => Timestamp(e, "started")).Where(t => t.HasValue).Order().ToArray();
+        var passes = 0;
+        var next = 0;
+        foreach (var mutation in mutations)
+        {
+            if (next == findings.Length || findings[next] > mutation) continue;
+            passes++;
+            while (next < findings.Length && findings[next] <= mutation) next++;
+        }
+        return passes;
     }
 
     private static string? CallerPath(string? text)
@@ -141,7 +236,7 @@ internal static class DeckCraftQualification
 
     private static DateTimeOffset? Timestamp(JsonObject receipt, string field) =>
         DateTimeOffset.TryParse(receipt[field]?.ToString(), System.Globalization.CultureInfo.InvariantCulture,
-            System.Globalization.DateTimeStyles.RoundtripKind, out var timestamp) ? timestamp : null;
+            System.Globalization.DateTimeStyles.None, out var timestamp) ? timestamp : null;
 
     private static bool Reviewed(JsonObject render, JsonObject review) =>
         Timestamp(review, "started") >= Timestamp(render, "started") && Findings(review) is not null &&

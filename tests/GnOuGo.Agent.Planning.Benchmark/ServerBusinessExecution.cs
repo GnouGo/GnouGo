@@ -57,8 +57,13 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         var started = DateTimeOffset.UtcNow;
         var response = await pending;
         if (request.Images is { Count: > 0 } images)
-            _visionReceipts.Enqueue(new JsonObject { ["started"] = started, ["received"] = DateTimeOffset.UtcNow, ["request"] = request.ClientRequestId, ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
-                ["response"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() });
+        {
+            var review = new JsonObject { ["started"] = started, ["received"] = DateTimeOffset.UtcNow, ["request"] = request.ClientRequestId,
+                ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
+                ["response"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() };
+            _authority?.PresentationCorrections?.Observe(review);
+            _visionReceipts.Enqueue(review);
+        }
         return response;
     }
     public IDisposable BeginCall(McpCallExecutionContext context)
@@ -382,7 +387,7 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
                 if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));
             }
             if (localKind) report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
-            report["oracle"] = scenario == "deckcraft" ? await DeckCraftQualification.VerifyAsync(report, workspace, journal, ct) : localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+            report["oracle"] = scenario == "deckcraft" ? await DeckCraftQualification.VerifyAsync(report, workspace, output, journal, ct) : localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
             report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
             report["result"]!["execution_status"] = journal.Status;
             report["passed"] = report["oracle"]!["passed"]!.DeepClone();

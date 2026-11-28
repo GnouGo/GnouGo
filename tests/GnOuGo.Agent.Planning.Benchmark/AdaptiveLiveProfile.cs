@@ -7,12 +7,21 @@ using GnOuGo.Flow.Planning;
 
 // Captured only for a fresh opt-in business session. All selected business calls still
 // pass through the existing argument-level guards and independent scenario observers.
-internal sealed class AdaptiveLiveProfile(string scenario)
+internal sealed class AdaptiveLiveProfile(string scenario, string? capturedVersion = null)
 {
     internal const string Version = "workflow-agent-observations-v2", Runner = "observe";
+    internal const string DeckCraftInspection = "deckcraft-inspection-v1";
+    internal string ProfileVersion { get; } = capturedVersion switch {
+        null => scenario == "deckcraft" ? DeckCraftInspection : Version,
+        Version => Version,
+        DeckCraftInspection when scenario == "deckcraft" => DeckCraftInspection,
+        _ => throw new PlanningConflictException("Unknown captured observation profile.")
+    };
     internal IReadOnlyList<CopilotToolBinding> Tools { get; } = scenario switch
     {
-        "deckcraft" => [new("DeckCraft", "render_slide")],
+        "deckcraft" when capturedVersion == Version => [new("DeckCraft", "render_slide")],
+        "deckcraft" => [new("DeckCraft", "list_commands"), new("DeckCraft", "inspect_document"),
+            new("DeckCraft", "inspect_slide"), new("DeckCraft", "render_slide")],
         LocalReviewQualification.Scenario => [],
         "amazon" => [new("GnOuGo.Browser.Mcp", "browser_get_content")],
         PublishedReviewQualification.Scenario => [new("GnOuGo.Git.Mcp", "git_compare_refs")],

@@ -80,6 +80,9 @@
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonAaxProduct.cs" Link="LiveWorkflowOracles.AmazonAaxProduct.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonAaxProposal.cs" Link="LiveWorkflowOracles.AmazonAaxProposal.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonDealsProposal.cs" Link="LiveWorkflowOracles.AmazonDealsProposal.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/DeckCraft/BlindVisionControl.cs" Link="DeckCraft/BlindVisionControl.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/DeckCraft/DeckCraftQualification.cs" Link="DeckCraft/DeckCraftQualification.cs" />
+    <Compile Include="../GnOuGo.Agent.Planning.Benchmark/RetainedCaptureReview.cs" Link="RetainedCaptureReview.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/AmazonDealsPolicy.cs" Link="AmazonDealsPolicy.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/AmazonFirstProductsPolicy.cs" Link="AmazonFirstProductsPolicy.cs" />
     <Compile Include="../GnOuGo.Agent.Planning.Benchmark/LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" Link="LiveWorkflowOracles.AmazonSourceResolutionProposal.cs" />

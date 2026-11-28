@@ -180,8 +180,9 @@ internal static class ServerLiveDiagnostics
             browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
         }
         var deckcraftRoot = discoveryScenario == "deckcraft" ? DeckCraftQualification.PrepareDirectory(workspace, campaign.Id, run) : null;
-        var adaptive = localReview || deckcraftRoot is not null || adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
-            ? new AdaptiveLiveProfile(discoveryScenario!) : null;
+        var capturedAdaptive = retainedReport?["adaptive_runner_profile"]?.ToString();
+        var adaptive = localReview || deckcraftRoot is not null || adaptiveRequested || capturedAdaptive is not null
+            ? new AdaptiveLiveProfile(discoveryScenario!, capturedAdaptive) : null;
         if (business is not null) business.Adaptive = adaptive;
         if (business is not null && discoveryScenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
             business.Target = await PublishedReviewQualification.CaptureAsync(
@@ -279,7 +280,7 @@ internal static class ServerLiveDiagnostics
                                 var current = await sp.GetRequiredService<LlmDefaultsResolver>().ResolveAsync(ct);
                                 var agent = current.McpServers["GnOuGo.Agent.Mcp"];
                                 return new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions> { ["GnOuGo.Agent.Mcp"] = agent });
-                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup, adaptive is not null);
+                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup, adaptive is not null, adaptive?.ProfileVersion);
                     }
                     var planningClient = new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
                         sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>());
@@ -810,7 +811,7 @@ internal static class ServerLiveDiagnostics
                         CancellationToken.None, app.Configuration.GetValue("Code:AllowWrites", true)),
                     "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
                 report["scenario"] = scenario;
-                if (adaptive is not null) report["adaptive_runner_profile"] = AdaptiveLiveProfile.Version;
+                if (adaptive is not null) report["adaptive_runner_profile"] = adaptive.ProfileVersion;
                 report["workspace_relative"] = relative;
                 if (localKindCleanup) report["kind_cleanup_profile"] = SlimFaasReviewProfile.CleanupProfile;
                 report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = amazonQuery ?? "chaussure geox homme 45" } : scenario == "code"
@@ -1016,7 +1017,7 @@ internal static class ServerLiveDiagnostics
         var grant = scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" :
             report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : business?.Target is not null ? PublishedReviewQualification.Scenario : scenario;
         var adaptive = business?.Adaptive;
-        if (report["adaptive_runner_profile"]?.ToString() != (adaptive is null ? null : AdaptiveLiveProfile.Version))
+        if (report["adaptive_runner_profile"]?.ToString() != adaptive?.ProfileVersion)
             throw new PlanningConflictException("The adaptive runner differs from the profile captured for this review.");
         return new(authorization, document, campaign, sessionId, grant, workspace, report["source"]!.ToString(),
             scenario is "amazon" or "code" or "deckcraft" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target, adaptive);
@@ -1175,12 +1176,12 @@ internal static class ServerLiveDiagnostics
             ?? throw new PlanningConflictException("The retained session disappeared.");
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
         var discoveryScenario = report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
-        var adaptive = report["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version ? new AdaptiveLiveProfile(discoveryScenario) : null;
+        var adaptive = report["adaptive_runner_profile"]?.ToString() is { } captured ? new AdaptiveLiveProfile(discoveryScenario, captured) : null;
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null, report["deckcraft_root"]?.ToString());
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
         await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), discoveryScenario,
-            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile, adaptive: adaptive is not null);
+            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile, adaptive: adaptive is not null, adaptiveVersion: adaptive?.ProfileVersion);
         var previousRevision = current.Revision;
         var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
         {
@@ -1515,7 +1516,7 @@ internal static class ServerLiveDiagnostics
 
     internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
         Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null, Func<string, JsonNode?, bool>? authorizedAgentCall = null,
-        bool localKindCleanup = false, bool adaptive = false)
+        bool localKindCleanup = false, bool adaptive = false, string? adaptiveVersion = null)
         : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
     {
         private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario, localKindCleanup: localKindCleanup);
@@ -1523,7 +1524,7 @@ internal static class ServerLiveDiagnostics
         public IReadOnlyList<McpServerMetadata> ServerMetadata => _filtered.ServerMetadata.Where(s => s.Name != AgentServer).ToArray();
         public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
             ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash
-                + (adaptive ? "\n" + AdaptiveLiveProfile.Version : "")
+                + (adaptive ? "\n" + (adaptiveVersion ?? AdaptiveLiveProfile.Version) : "")
                 + (localKindCleanup && serverName is "GnOuGo.Cmd.Mcp" or "GnOuGo.GithubCopilot.Mcp" ? "\n" + SlimFaasReviewProfile.CleanupProfile : ""))
             : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
         public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
