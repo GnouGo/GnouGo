@@ -35,5 +35,14 @@
     "unknown_attempts": 3,
     "available_eur": "3.3602232346241457858769924591",
     "provider_invoice": null
+  },
+  "continuation_delta": {
+    "attempts": 106,
+    "input_tokens": 1545697,
+    "output_tokens": 45925,
+    "unknown_attempts": 1,
+    "known_cost_eur": "3.730175398633257403189066110",
+    "http_reserved_eur": "0.3884396355353075170842824602",
+    "budget_extension_applied_eur": 0
   }
 }

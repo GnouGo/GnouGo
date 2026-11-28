@@ -1,0 +1,225 @@
+{
+  "environment": "Windows x86-64, .NET SDK 11.0.100",
+  "normal_benchmark_build": {
+    "source": "4160c8eccb39cd95fcc372eb7f3b420bc8c998d2",
+    "configuration": "Release",
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "dccaa4a374d44382904523e1e66b26f7e71865b0546f81bcdcadb1d6109c99ca"
+  },
+  "deterministic_tests": {
+    "GnOuGo.Flow.Planning.Tests": 3410,
+    "GnOuGo.Flow.Tests": 1570,
+    "GnOuGo.Flow.Integrations.Tests": 129,
+    "GnOuGo.AI.Core.Tests": 412,
+    "GnOuGo.Flow.Persistence.Tests": 28,
+    "GnOuGo.Browser.Mcp.Tests": 238,
+    "GnOuGo.Flow.Copilot.Tests": 13
+  },
+  "additional_checks": {
+    "Browser_observation_projection": 5,
+    "Server_visual_correction_and_scoped_runner": 5
+  },
+  "nuget_packages": [
+    {
+      "id": "GnOuGo.AI.Core",
+      "version": "1.0.0",
+      "source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "package_sha256": "6093b219012e5485cdf8a600461e370c51baa93fb5d30137e2bfab7893681800",
+      "assembly_entry": "lib/net11.0/GnOuGo.AI.Core.dll",
+      "assembly_sha256": "380b7b63c72bc287d77966dd304a0916fe1e3235a645cbf108379e6b8c09c985"
+    },
+    {
+      "id": "GnOuGo.Browser.Mcp",
+      "version": "1.0.0",
+      "source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "package_sha256": "341e4397d888c7c46584f4e8eadd1668e8cd6b3d333d51199a1a6cc88ace4fd3",
+      "assembly_entry": "lib/net11.0/GnOuGo.Browser.Mcp.dll",
+      "assembly_sha256": "14adcc03254a5f0c1e48f204f55528d2c60564c2f2cacc38d01c841619494a7a"
+    },
+    {
+      "id": "GnOuGo.Flow.Core",
+      "version": "1.0.0",
+      "source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "package_sha256": "9c5660276903f346bc6af0bfe7036af1c72b0832893c24886f6374befcf08bc0",
+      "assembly_entry": "lib/net11.0/GnOuGo.Flow.Core.dll",
+      "assembly_sha256": "198b75d242901e6901d5fb377bf8cfac4c1d0e6f4c49dcf0d74f63e3655e4a4a"
+    },
+    {
+      "id": "GnOuGo.Flow.Integrations",
+      "version": "1.0.0",
+      "source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "package_sha256": "07c2d6c929e0062ac6d0e2fa1a9119f77862b23e029bd43c400a26edef04ab71",
+      "assembly_entry": "lib/net11.0/GnOuGo.Flow.Integrations.dll",
+      "assembly_sha256": "7bfd6536f717960cab0389e6a90e531784b75d6d6464a07eede2434a2856af9b"
+    },
+    {
+      "id": "GnOuGo.Flow.Persistence",
+      "version": "1.0.0",
+      "source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "package_sha256": "56b4738a9de7cf5867f040987c69b34f448a1f3ce4b71fa679cc3a8e7e60eb4a",
+      "assembly_entry": "lib/net11.0/GnOuGo.Flow.Persistence.dll",
+      "assembly_sha256": "0ddca843d162742cb72f193513688deeefbf2b6278348fcf6276bd3adad555c6"
+    }
+  ],
+  "windows_package_consumer": {
+    "production_source": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+    "assemblies": {
+      "GnOuGo.AI.Core": {
+        "package_sha256": "8d6ccfa06fdfa75d4c6aee5631527906cc774036751472cc8aa80800b9b60da4",
+        "assembly_sha256": "380b7b63c72bc287d77966dd304a0916fe1e3235a645cbf108379e6b8c09c985",
+        "test_hosts": [
+          "GnOuGo.AI.Core.Tests",
+          "GnOuGo.Flow.Integrations.Tests"
+        ]
+      },
+      "GnOuGo.Flow.Core": {
+        "package_sha256": "8b6d23485fcd46334d297cb170406095c75494180a29afbb7d1309486d51af3e",
+        "assembly_sha256": "198b75d242901e6901d5fb377bf8cfac4c1d0e6f4c49dcf0d74f63e3655e4a4a",
+        "test_hosts": [
+          "GnOuGo.Flow.Tests",
+          "GnOuGo.Flow.Integrations.Tests"
+        ]
+      },
+      "GnOuGo.Flow.Integrations": {
+        "package_sha256": "05e629534dbeed057cd13ddd0a8b4efb258153ccfe36782da5977090a547d2a8",
+        "assembly_sha256": "7bfd6536f717960cab0389e6a90e531784b75d6d6464a07eede2434a2856af9b",
+        "test_hosts": [
+          "GnOuGo.Flow.Integrations.Tests"
+        ]
+      }
+    },
+    "suites": [
+      {
+        "test_host": "GnOuGo.AI.Core.Tests",
+        "passed": 2,
+        "tests": [
+          {
+            "name": "GnOuGo.AI.Core.Tests.OpenAiLlmProviderTests.VisionRequiresDeclaredCapabilityAndTransmitsTheImageInTheHttpBody(supported: True)",
+            "outcome": "Passed"
+          },
+          {
+            "name": "GnOuGo.AI.Core.Tests.OpenAiLlmProviderTests.VisionRequiresDeclaredCapabilityAndTransmitsTheImageInTheHttpBody(supported: False)",
+            "outcome": "Passed"
+          }
+        ]
+      },
+      {
+        "test_host": "GnOuGo.Flow.Integrations.Tests",
+        "passed": 4,
+        "tests": [
+          {
+            "name": "GnOuGo.Flow.Integrations.Tests.DeclaredCapabilityTests.VisionReservationUsesEachTransmittedImageAndExactModelRules(model: \"gpt-6.1-terra\", expected: null)",
+            "outcome": "Passed"
+          },
+          {
+            "name": "GnOuGo.Flow.Integrations.Tests.DeckCraftTests.HeadlessCliCreatesEditsReopensAndRenders",
+            "outcome": "Passed"
+          },
+          {
+            "name": "GnOuGo.Flow.Integrations.Tests.DeclaredCapabilityTests.VisionReservationUsesEachTransmittedImageAndExactModelRules(model: \"gpt-6-astra\", expected: 7)",
+            "outcome": "Passed"
+          },
+          {
+            "name": "GnOuGo.Flow.Integrations.Tests.DeclaredCapabilityTests.VisionReservationUsesEachTransmittedImageAndExactModelRules(model: \"gpt-4o\", expected: 510)",
+            "outcome": "Passed"
+          }
+        ]
+      },
+      {
+        "test_host": "GnOuGo.Flow.Tests",
+        "passed": 2,
+        "tests": [
+          {
+            "name": "GnOuGo.Flow.Tests.Runtime.McpCallExecutorTests.BusinessAgentSeesItsInputImageAndTheImageFromItsSelectedMcpTool",
+            "outcome": "Passed"
+          },
+          {
+            "name": "GnOuGo.Flow.Tests.Runtime.McpCallExecutorTests.MixedPreviewProducesAReusableImageInputForTheNextWorkflowStep",
+            "outcome": "Passed"
+          }
+        ]
+      }
+    ]
+  },
+  "windows_published_server_smoke": {
+    "source": "4160c8eccb39cd95fcc372eb7f3b420bc8c998d2",
+    "rid": "win-x64",
+    "runtime": ".NET 11",
+    "self_contained": true,
+    "trimmed": true,
+    "single_file": true,
+    "server_sha256": "05f375024013355d12e0f6dab5a6a37c9ae697f58105b94a130f46c8661bb50c",
+    "command": "GnOuGo.Agent.Server.exe --planning-persistence-smoke <scratch>",
+    "result": "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged.",
+    "publish_diagnostics": [
+      "Microsoft.EntityFrameworkCore.Tasks 11.0 reported experimental query precompilation and Native AOT support.",
+      "IL2101 from Microsoft.AspNetCore.Components.Endpoints embedded substitutions references Microsoft.AspNetCore.Components.Forms."
+    ]
+  },
+  "diagnostic_log_sha256": {
+    "deckcraft-planner-ci-failure.log": "576436e252b9e3fbdcb5f43b2b33d4642142799245b1f15661864050cdcf34ec",
+    "deckcraft-server-win-publish2.log": "354a878c8e500719bbb46434a24225fbe8e9c3157ce6f6fc5fb39dc9423470a2",
+    "deckcraft-final-runner-contract.log": "428fd8564619c73113de89b77128d62096c5c8cf3329391c5edf0e3c70b8794e",
+    "deckcraft-isolated-design.log": "ad17a18374a5d34dfa12dec5f3d4cc74412b2c1b4c975ff29591ac427d3ccb9f",
+    "deckcraft-isolated-publish.log": "c3a7e2ca9ecc314e17c44ced31e0155322b5da227286cac50019f15cfd4ba0a0",
+    "deckcraft-isolated-smoke.log": "2c7de508e006ad5ee20ed61f2c462484e386ee060910449e01a6ac9c6ffa2b73",
+    "deckcraft-4160-design.log": "fac712d5ff9e49b1870cc5e2d599df3628c98bf1def446ad1dfb4eabd3738978",
+    "deckcraft-4160-publish.log": "a2ad009a989fa202f1d3cf0d743a0d2de33ee1e8f2ec27e20c62056af610e29e",
+    "deckcraft-4160-smoke.log": "2c7de508e006ad5ee20ed61f2c462484e386ee060910449e01a6ac9c6ffa2b73"
+  },
+  "resolved_validation_failures": [
+    {
+      "check": "Hosted Server test compilation",
+      "run": "https://github.com/GnouGo/GnouGo/actions/runs/46139771284",
+      "cause": "The test project explicitly links benchmark sources and lacked the new qualification classes.",
+      "fix": "Link the DeckCraft, blind vision and retained capture sources. The benchmark now builds with warnings treated as errors and the scoped Server tests pass."
+    },
+    {
+      "check": "Local Windows publish",
+      "cause": "The framework-dependent publish conflicted with self-contained bundled tools. A concurrent test restore also replaced RID-specific assets during a later attempt.",
+      "fix": "Publish the self-contained win-x64 Server in its own checkout after preparing the design-time reference. The published executable passed the encrypted persistence smoke test."
+    },
+    {
+      "check": "Local targeted Server test refresh",
+      "cause": "A concurrent full Server test host had loaded the previous output DLL.",
+      "fix": "Run the scoped tests in the separate Release checkout. All five passed."
+    }
+  ],
+  "hosted_planner_and_server": {
+    "46143520114": {
+      "pr_head": "e31262f5464f907e696ccf11227ec7d44e3b3031",
+      "tested_merge_commit": "512e35fb8182eb13de2a923a3f916576780ef06f",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/46143520114",
+      "github_artifact_id": 15263693046,
+      "github_artifact_digest": "sha256:d6c7f54d8dca10775dd264320f75b1c96f108e63a2475fb60444f850a52acc06",
+      "server_coverage_sha256": "1d9b9a42b5431730e87ca2cef79750366627cb0843f73fa453c216c777d966ba",
+      "passed": 2842,
+      "skipped": [
+        "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+      ],
+      "frozen_binary_exact_test_coverage": true
+    },
+    "46144498707": {
+      "pr_head": "4160c8eccb39cd95fcc372eb7f3b420bc8c998d2",
+      "tested_merge_commit": "24aab2a182f4b2eca50e066fb945be37c6897d3b",
+      "url": "https://github.com/GnouGo/GnouGo/actions/runs/46144498707",
+      "github_artifact_id": 15263948152,
+      "github_artifact_digest": "sha256:00b4b11940665d700dd5f3bfc44a9e0df9d2295cfeb236c16b28b1592fbe2f37",
+      "server_coverage_sha256": "e69b38ca6fff36056c6c46990d7b76960b78eb311dab45772e49c8d8fc484b40",
+      "passed": 2843,
+      "skipped": [
+        "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+      ],
+      "frozen_binary_exact_test_coverage": true
+    }
+  },
+  "windows_planning_clarification_browser": {
+    "source": "4160c8eccb39cd95fcc372eb7f3b420bc8c998d2",
+    "test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+    "outcome": "Passed",
+    "duration": "00:00:40.4769999",
+    "trx_sha256": "1e60a4446949c651cda8519a63cd0e31dd451586cfd61828ddbd953f46c07c2a",
+    "provider_generation_calls": 0
+  }
+}

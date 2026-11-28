@@ -602,8 +602,9 @@ No bootstrap link, credential or raw provider error is printed. A used run ident
 cannot be invoked again. Failed probes are not evidence of successful planning,
 approval, execution or an independent oracle.
 
-`server-live-plan --case local|collections|amazon|code` uses the same protected host
-and fresh identities, with Server-owned session journals and the existing campaign
+`server-live-plan` uses the same protected host for the local, collections, Amazon,
+code review and DeckCraft cases. Each case uses fresh identities
+with Server-owned session journals and the existing campaign
 journal attached as mandatory global financial admission to the same HTTP context.
 It preserves configured phase allocations, diagnostic warnings and captured retry
 policy. It never starts another retry loop or dispatches around a failed journal.

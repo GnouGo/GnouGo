@@ -40,7 +40,11 @@ mcp.call exposes an images array when the result contains images. Bind the entir
 
 For a finite token or cost budget, the runtime and campaign journal use the same pre-dispatch reservation. OpenAI models with implemented, published patch or tile rules use the validated dimensions of each transmitted image and a conservative UTF-8 text bound. For other models, including the qualified `gpt-6.1-terra` route, the reservation uses the declared input allowance. Provider-reported input and output usage settle a completed call. [OpenAI image token rules](https://developers.openai.com/api/docs/guides/images-vision#calculating-costs)
 
-The qualification evidence includes native round trips for three OS targets, a Microsoft PowerPoint edit and a blind two-image review. [PR 120 evidence](evidence/pr120-deckcraft-vision-20261128/README.md)
+## Running the presentation scenario
+
+Set `GNOUGO_DECKCRAFT_CLI` to the qualified executable. Use the benchmark's `server-live-plan --case deckcraft` command with the normal Server campaign and planning envelope. The fixed brief specifies the eight slides, table values, initial and revised chart values, French titles and source notes. Review the generated workflow through the Server before executing it. The final checks use the reopened presentation, its rendered slides and the bytes read back from public delivery. [Server campaign commands](../tests/GnOuGo.Agent.Planning.Benchmark/README.md#deckcraft-and-retained-capture-qualifications) · [Eight-slide brief](../tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft/scenario.md)
+
+The qualification evidence includes native round trips for three OS targets, a Microsoft PowerPoint edit, a blind two-image review and the retained eight-slide planning session. [PR 120 evidence](evidence/pr120-deckcraft-vision-20261128/README.md)
 
 ## Distribution notices
 

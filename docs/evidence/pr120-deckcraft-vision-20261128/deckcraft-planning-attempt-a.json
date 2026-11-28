@@ -150,6 +150,14 @@
   "amazon_continuation": {
     "request_dispatched": false,
     "reason": "campaign_uncertain_request_requires_recovery",
-    "form": "improve40-amazon-20261127-234035-form-27a5afcffafe1f3846d02e4999667931"
+    "form": "improve40-amazon-20261127-234035-form-27a5afcffafe1f3846d02e4999667931",
+    "diagnostic_log_sha256": "fe678f9773ceb3c94cad2d7a11678b713ba16ef64d6766e97a0bacff280a7850"
+  },
+  "retention_preview": {
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "applied": false
   }
 }

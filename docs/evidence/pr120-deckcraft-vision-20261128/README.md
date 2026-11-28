@@ -18,6 +18,14 @@ The final packaged artifacts passed the native workflow on all three runners. In
 
 The Linux dependency inventory covers 185 resolved components. Distribution packages produced by the current build include the exact source archives for 16 MPL-licensed Symphonia crates, with Cargo.lock SHA-256 verification, and the content-addressed third-party notices. [Linux component inventory](linux-components.json) · [Distribution documentation](../../deckcraft-and-vision.md)
 
+## GnOuGo package and runtime checks
+
+Windows x86-64, Linux x86-64 and macOS ARM64 each passed eight tests against DLLs extracted from the actual AI.Core, Flow.Core and Flow.Integrations NuGet packages. Independent readback verified the packages, assembly digests, native workbooks and test reports on all three targets. Each downloaded CLI distribution also contained its referenced notices and the sixteen matching MPL source archives. [Matrix receipts](packaged-runtime-matrix.json) · [Download the tested packages and presentations](https://github.com/GnouGo/GnouGo/actions/runs/46144498783)
+
+The package check verified provider capability rejection, image bytes in the HTTP request, mixed MCP content, two distinct images across business-agent decisions, model-specific budget reservations and the native presentation round trip. The local Release build completed with zero warnings. A self-contained, trimmed Windows Server executable passed encrypted planning persistence and exact receipt recovery. Its publish log contained EF experimental-feature diagnostics and one IL2101 from the ASP.NET Core framework. [Suite counts, package digests and smoke evidence](local-validation.json)
+
+The hosted planner validation on `4160c8ec` completed successfully. Its five Server test reports covered every discovered case once, with 2,843 passes and one browser smoke skipped because the runner had no configured Playwright module for that test. The same browser test subsequently passed on Windows against a disposable Server and real Chromium. [Hosted planner and Server workflow](https://github.com/GnouGo/GnouGo/actions/runs/46144498707) · [Coverage and Windows browser receipt](local-validation.json)
+
 ## Blind visual control
 
 Two run-owned images went through the workflow runtime, encrypted artifact store and OpenAI adapter. The prompt asked for the upper-right code and visible problems without giving the expected results. The model read `N7K-492` in the unobstructed panel. For the other panel it returned null and identified a major header overlap. Each successful receipt identifies the bytes sent by SHA-256. [Model output and image receipts](blind-vision.json) · [Control and fixtures](../../../tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft)
@@ -28,7 +36,9 @@ The normal Server planner stopped at revision 275 after 104 physical requests. I
 
 The final request received HTTP 200 headers and part of the native Chat Completions stream. The 270-second timeout expired before a completion or usage receipt arrived. The captured policy permits zero uncertain retries. An authenticated GET for the exact completion ID on the original deployment returned HTTP 404. The journal retains the attempt and its EUR 0.388440 reservation. The Amazon assessment was subsequently refused before dispatch because the campaign shares this unresolved request. [Transport and retrieval evidence](deckcraft-planning-attempt-a.json)
 
-The campaign recorded 1,782 physical attempts, 27,070,266 known input tokens and 892,591 known output tokens. Reported usage at the captured tariffs accounts for EUR 65.729950. Three HTTP attempts retain EUR 0.863472 in total. The separate application hold is EUR 0.046355. The remaining balance under the original EUR 70 ceiling is EUR 3.360223. The additional EUR 30 authorization has not been applied. [Exact accounting](accounting.json)
+An exact completion and usage receipt would allow recovery of this session. The campaign also supports an operator-authorized permanent closure. Its preview retains the reservation and all draft evidence, forbids replay of this request and permanently prevents continuation of this session. The preview was recorded without applying it. [Recovery and closure evidence](deckcraft-planning-attempt-a.json)
+
+This continuation added 106 physical attempts and EUR 3.730175 of known usage. Across all runs the campaign recorded 1,782 physical attempts, 27,070,266 known input tokens and 892,591 known output tokens. Reported usage at the captured tariffs accounts for EUR 65.729950. Three HTTP attempts retain EUR 0.863472 in total. The separate application hold is EUR 0.046355. The remaining balance under the original EUR 70 ceiling is EUR 3.360223. The additional EUR 30 authorization has not been applied. [Exact accounting](accounting.json)
 
 ## Campaign history
 
