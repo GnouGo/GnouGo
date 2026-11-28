@@ -29,7 +29,6 @@ internal static class BlindVisionControl
                       max_tokens: 1600
                       prompt: Inspect this slide for a publication review. Transcribe the code printed in the top right if fully legible, otherwise return null. Report visible layout or legibility problems with region, severity, correction and uncertainty. An empty findings array is valid.
                       structured_output:
-                        name: visual_review
                         strict: true
                         schema_inline:
                           type: object
