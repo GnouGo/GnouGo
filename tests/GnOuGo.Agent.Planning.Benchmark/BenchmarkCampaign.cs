@@ -285,6 +285,40 @@ internal sealed partial class BenchmarkCampaign(IKeyVaultRecordStore records, st
         await SaveAsync("planning-evaluation-configuration", "spending-authorization", saved, ct);
         return saved;
     }
+    internal async Task<JsonObject> RetainUndispatchedBudgetRefusalAsync(string id, bool apply, CancellationToken ct)
+    {
+        var request = await LoadAsync("planning-evaluation-requests", id, ct);
+        var failure = await LoadAsync("planning-evaluation-failures", id, ct);
+        var journal = await LoadAsync(BenchmarkHttpJournal.Collection, id, ct);
+        var denial = failure?["budget_refusal"];
+        var policy = journal?["effective_transport_policy"] as JsonObject;
+        var transport = journal?["transport"];
+        if (request is null || request["clientRequestId"]?.ToString() != id || policy is null ||
+            !BenchmarkHttpJournal.IsRuntimePolicy(policy) ||
+            journal!["effective_transport_policy_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(policy.ToJsonString()) ||
+            policy["request_hash"]?.ToString() != PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(
+                request.Deserialize(PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)) ||
+            failure?["stage"]?.ToString() != "dispatch" || failure["previous_failures"] is not null ||
+            denial?["request_id"]?.ToString() != id || denial["scope"]?.ToString() != "campaign_llm_budget" ||
+            denial["origin"]?.ToString() != "captured_campaign_ceiling" || denial["limit_kind"]?.ToString() != "estimated_cost" ||
+            denial["dispatch_status"]?.ToString() != "not_started" || denial["attempt_dispatch_status"]?.ToString() != "not_started" ||
+            denial["denied_attempt_number"]?.GetValue<int>() != 1 || transport?["Attempts"] is not JsonArray { Count: 0 } ||
+            transport["RequestBody"] is not null || journal["usage"] is not null ||
+            await LoadAsync("planning-evaluation-receipts", id, ct) is not null)
+            throw AdmissionFailure("unproven_zero_attempt_budget_refusal");
+        var proof = new JsonObject { ["reason"] = "first_physical_attempt_refused_by_campaign_ceiling", ["outcome"] = "not_dispatched",
+            ["request_hash"] = policy["request_hash"]!.DeepClone(), ["physical_attempts"] = 0,
+            ["failure_hash"] = PlanningGraphCompiler.Fingerprint(failure.ToJsonString()),
+            ["http_journal_hash"] = PlanningGraphCompiler.Fingerprint(journal.ToJsonString()), ["request_id"] = id };
+        if (await LoadAsync("planning-evaluation-closures", id, ct) is { } existing)
+        {
+            if (!JsonNode.DeepEquals(existing, proof)) throw AdmissionFailure("existing_closure_differs");
+            return existing;
+        }
+        if (apply) await SaveAsync("planning-evaluation-closures", id, proof, ct);
+        return proof;
+    }
+
     internal async Task<bool> HasUncertainRequestAsync(CancellationToken ct)
     {
         foreach (var key in await OwnedKeysAsync("planning-evaluation-requests", ct))

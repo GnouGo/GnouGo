@@ -351,6 +351,12 @@ internal static class SchemaPortabilityCampaign
             Console.WriteLine(grant.ToJsonString()); return;
         }
         if (Git("status", "--porcelain").Length != 0) throw new InvalidOperationException("Commit the tested source and harness before paid dispatch.");
+        if (phase == "retain-undispatched-budget-refusal")
+        {
+            Console.WriteLine((await campaign.RetainUndispatchedBudgetRefusalAsync(RequiredOption(args, "--request-id"),
+                args.Contains("--apply", StringComparer.Ordinal), CancellationToken.None)).ToJsonString());
+            return;
+        }
         if (phase == "retain-uncertain-request")
         {
             string Required(string name) => Option(args, name) ?? throw new ArgumentException("Supply " + name + ".");
