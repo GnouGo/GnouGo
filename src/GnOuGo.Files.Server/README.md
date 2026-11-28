@@ -2,6 +2,8 @@
 
 Temporary streamed file upload/download API for GnOuGo.
 
+The proposed durable artifact service and owner retention policy are described in the [decision record](../../docs/adr-files-and-owner-retention.md) and [implementation plan](../../docs/files-and-owner-retention.md).
+
 ## Features
 
 - Streams request bodies directly to disk with a small fixed buffer.
