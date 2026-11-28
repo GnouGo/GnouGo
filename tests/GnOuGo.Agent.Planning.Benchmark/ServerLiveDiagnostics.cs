@@ -68,6 +68,14 @@ internal static class ServerLiveDiagnostics
         var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
         var previousForm = SchemaPortabilityCampaign.Option(args, "--after-finalized-read");
         var toolSource = SchemaPortabilityCampaign.Option(args, "--tool-build-source");
+        long? executionTokens = null;
+        if (args.Contains("--execution-total-tokens", StringComparer.Ordinal))
+        {
+            if (previousForm is null || !long.TryParse(SchemaPortabilityCampaign.Option(args, "--execution-total-tokens"),
+                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var tokens) || tokens <= 0)
+                throw new ArgumentException("A saved form token amendment requires a finalized predecessor and a positive token allowance.");
+            executionTokens = tokens;
+        }
         if ((previousForm is not null || toolSource is not null) &&
             ((!executionOnly && !revalidationOnly) || recheckApproval || !Guid.TryParseExact(previousForm, "N", out _) ||
              toolSource is not { Length: 40 } || !toolSource.All(char.IsAsciiHexDigit)))
@@ -203,6 +211,8 @@ internal static class ServerLiveDiagnostics
         }
         if (business?.Target is not null)
             hostArgs = hostArgs.Append("--Flow:Execution:FinalizationTimeoutSeconds=270").ToArray();
+        if (executionTokens is { } tokenLimit)
+            hostArgs = [.. hostArgs, "--Flow:Execution:LlmBudget:MaxTotalTokens=" + tokenLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)];
         if (planningEnvelope is not null)
         {
             var limits = PlanningBudgetOptions.Parse(planningEnvelope)!;
@@ -682,7 +692,7 @@ internal static class ServerLiveDiagnostics
                         if (business is null || fundingScope is null || await campaign.HasUncertainRequestAsync(CancellationToken.None))
                             throw new PlanningConflictException("A funded business form with settled campaign admission is required.");
                         await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
-                        await RepeatSavedFormAsync(app, client, business, campaign, model, saved, previousForm, toolSource!, root, workspace, revalidationOnly);
+                        await RepeatSavedFormAsync(app, client, business, campaign, model, saved, previousForm, toolSource!, executionTokens, root, workspace, revalidationOnly);
                         return;
                     }
                     if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
@@ -1194,7 +1204,8 @@ internal static class ServerLiveDiagnostics
     }
 
     private static async Task RepeatSavedFormAsync(WebApplication app, HttpClient client, ServerBusinessExecution business,
-        BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, JsonObject previous, string previousForm, string toolSource, string root, string workspace, bool verifyOnly)
+        BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, JsonObject previous, string previousForm, string toolSource, long? executionTokens,
+        string root, string workspace, bool verifyOnly)
     {
         var ct = app.Lifetime.ApplicationStopping;
         var run = previous["run"]!.GetValue<string>();
@@ -1234,8 +1245,14 @@ internal static class ServerLiveDiagnostics
         if (journal is null || journal.RunId != previousForm || journal.TenantId != saved.Request.TenantId ||
             journal.Limits.AgentId != saved.SavedAgentId || journal.WorkflowYaml != saved.Yaml ||
             !ServerBusinessExecution.MatchesSubmittedInputs(previous["inputs"], journal.Inputs) ||
-            !ServerBusinessExecution.FinalizedBrowserRead(journal, previous))
+            !ServerBusinessExecution.FinalizedBrowserRead(journal, previous, executionTokens))
             throw new PlanningConflictException("The prior execution has unresolved effects or lacks read-only and cleanup evidence.");
+        if (executionTokens is not null)
+        {
+            var prefix = (previous["form_attempt"]?.ToString() ?? sessionId) + "-execution:";
+            if ((await campaign.OwnedKeysAsync(BenchmarkHttpJournal.Collection, ct, prefix)).Count != 0)
+                throw new PlanningConflictException("The previous form has a physical inference journal. Reconcile it before amending its token allowance.");
+        }
         var relative = previous["workspace_relative"]!.GetValue<string>();
         var scenario = previous["scenario"]!.GetValue<string>();
         var originalOutput = Path.Combine(root, "artifacts/live-server-20261106", run);
@@ -1261,8 +1278,8 @@ internal static class ServerLiveDiagnostics
             "Release", root, previous["browser_observation_policy"]?.ToString(), business.Adaptive is not null), toolSource);
         var originalBuilds = previous["mcp_builds"]!.AsObject();
         if (!builds.Select(p => p.Key).ToHashSet(StringComparer.Ordinal).SetEquals(originalBuilds.Select(p => p.Key)) ||
-            JsonNode.DeepEquals(originalBuilds, builds))
-            throw new PlanningConflictException("A corrected build of the original tool set is required.");
+            executionTokens is null && JsonNode.DeepEquals(originalBuilds, builds))
+            throw new PlanningConflictException("A corrected build of the original tool set or a verified token amendment is required.");
         if (verifyOnly)
         {
             Console.WriteLine(new JsonObject { ["verified_predecessor"] = previousForm, ["journal_revision"] = journal.Revision,
@@ -1280,6 +1297,7 @@ internal static class ServerLiveDiagnostics
         report["previous_form"] = previousForm;
         report["previous_journal_revision"] = journal.Revision;
         report["execution_tool_source"] = toolSource;
+        if (executionTokens is not null) report["execution_total_token_amendment"] = executionTokens.Value;
         report["mcp_builds"] = builds;
         report["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
         report["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);

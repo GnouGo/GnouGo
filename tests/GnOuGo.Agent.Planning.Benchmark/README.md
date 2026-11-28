@@ -750,6 +750,12 @@ the journal, the registered agent, the reusable approval, the selected tool cont
 and the empty run workspace. The new attempt uses its own provider request namespace,
 form receipts and campaign record. The planning and previous execution records remain available.
 
+If a finalized form's first inference was refused before dispatch by the Server's total-token
+limit, supply `--execution-total-tokens <allowance>` on the next saved form. The host checks the
+previous journal's required reservation, confirms that no physical inference journal exists for
+that execution, and applies the new limit through the normal Server execution configuration.
+The campaign still reserves each physical attempt against the cumulative monetary ceiling.
+
 `server-live-plan --await-scoped-revision --resume-scoped-revision <revision>`
 reopens the original stopped Server session for an operator's scoped revision.
 Supply the original run and planning profile and the current audited application

@@ -334,6 +334,18 @@
       "planning_eur": 0,
       "business_calls": 0,
       "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-18-token-refusal.json",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "367.28",
+      "planning_calls": 0,
+      "planning_input": 0,
+      "planning_output": 0,
+      "planning_eur": 0,
+      "business_calls": 0,
+      "business_eur": 0
     }
   ]
 }

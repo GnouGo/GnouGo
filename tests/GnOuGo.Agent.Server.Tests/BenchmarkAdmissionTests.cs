@@ -88,6 +88,11 @@ public sealed partial class BenchmarkAdmissionTests
     [InlineData("different_failure_receipt", false)]
     [InlineData("different_read_arguments", false)]
     [InlineData("failed_cleanup", false)]
+    [InlineData("larger_token_budget", true)]
+    [InlineData("insufficient_token_budget", false)]
+    [InlineData("without_token_amendment", false)]
+    [InlineData("uncertain_inference", false)]
+    [InlineData("other_budget", false)]
     [InlineData("unknown_journal", false)]
     [InlineData("unfinished_cleanup", false)]
     [InlineData("cancelled", false)]
@@ -129,7 +134,19 @@ public sealed partial class BenchmarkAdmissionTests
         }
         if (variant == "missing_event") events.RemoveAt(0);
         var previous = new JsonObject { ["execution"] = new JsonObject { ["status"] = "failed", ["finalization_completed"] = true }, ["events"] = events };
-        Assert.Equal(expected, ServerBusinessExecution.FinalizedBrowserRead(journal, previous));
+        long? amended = null;
+        if (variant is "larger_token_budget" or "insufficient_token_budget" or "without_token_amendment" or "uncertain_inference" or "other_budget")
+        {
+            amended = variant switch { "without_token_amendment" => null, "insufficient_token_budget" => 1_400_000, _ => 2_500_000 };
+            var error = new WorkflowError { Code = ErrorCodes.LlmBudgetExceeded, Details = new JsonObject {
+                ["scope"] = "finite_llm_budget", ["origin"] = "application_execution_configuration", ["stage"] = "llm.call",
+                ["limit_kind"] = variant == "other_budget" ? "estimated_cost" : "total_tokens", ["limit"] = 1_000_000,
+                ["current"] = 2_241_561, ["calls"] = 0, ["dispatch_status"] = variant == "uncertain_inference" ? "unknown" : "not_started" } };
+            journal.Result!.Error = error;
+            journal.Invocations["model"] = new() { Id = "model", StepType = "llm.call", Status = "failed",
+                CompletedAt = DateTimeOffset.UtcNow, Recovery = StepRecovery.External, Error = error };
+        }
+        Assert.Equal(expected, ServerBusinessExecution.FinalizedBrowserRead(journal, previous, amended));
     }
 
     [Fact]

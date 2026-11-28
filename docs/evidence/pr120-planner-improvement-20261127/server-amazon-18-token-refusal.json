@@ -1,0 +1,170 @@
+{
+  "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+  "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+  "run": "improve40-amazon-20261127-234035",
+  "session": "299ee94971e54cee989050f13ebd40ce",
+  "scenario": "amazon",
+  "phases": {},
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "planning_session_cost_eur": 0,
+  "wall_seconds": 367.28,
+  "execution_seconds": 56.30511,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "opening_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "closing_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "form": {
+    "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+    "execution_source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+    "tool_source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+    "parent_session": "299ee94971e54cee989050f13ebd40ce",
+    "previous_execution": "a74e6e93ed84b5a1cfb640f572be4ef4",
+    "predecessor_journal_revision": 10,
+    "new_execution": "27a5afcffafe1f3846d02e4999667931",
+    "approved_artifact": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+    "run": "improve40-amazon-20261127-234035",
+    "attempt_record": "improve40-amazon-20261127-234035-form-a74e6e93ed84b5a1cfb640f572be4ef4",
+    "execution": {
+      "success": false,
+      "status": "failed",
+      "finalization_completed": true
+    },
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "public_workbook_outcome_missing_or_different",
+        "independent_workflow_workbook_read_missing",
+        "workbook_missing"
+      ]
+    },
+    "workbook_exists": false,
+    "workbook_sha256": null,
+    "browser_reads": [
+      {
+        "event_index": 0,
+        "requested_href_sha256": "bc369121bd89f7d6a40c7693dcc5a57072ff2ec470e9435a392afcb52d74557c",
+        "status": 200,
+        "success": true,
+        "capture": "257a3b9657b74cb39162168a72393fe5",
+        "records": 1544,
+        "pages": 71,
+        "complete": true
+      }
+    ],
+    "document_calls": [],
+    "workflow_form_invocation_sha256": "9848e4c3f399e80a55d8b21da96af161aa6d9d8b75e7af02bbe5ffd0c9be95dd",
+    "form_answer_sha256": "840a27e262780dacc9ef5f7013678f246604df32b962fb92ff3cd3228fe922fe",
+    "passed": false,
+    "caller_text_present": false,
+    "source_verification": null,
+    "row_verification": null
+  },
+  "business": {
+    "physical_attempts": 0,
+    "measured_eur": "0E-27",
+    "input_tokens": 0,
+    "output_tokens": 0
+  },
+  "event_counts_including_closure_check": {
+    "browser_get_content": 2,
+    "browser_close": 2
+  },
+  "budget_refusal": {
+    "scope": "finite_llm_budget",
+    "origin": "application_execution_configuration",
+    "stage": "llm.call",
+    "limit_kind": "total_tokens",
+    "limit": 1000000,
+    "current": 2241561,
+    "calls": 0,
+    "dispatch_status": "not_started",
+    "required_reservation": 2241561
+  },
+  "prompt_utf8_bytes": 1661783,
+  "browser_preflight": {
+    "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+    "binary_sha256": "d4efe58921f0ad8dbf3d5b96b5046edc08b281cc3f013b6aeea836df4417e567",
+    "model_calls": 0,
+    "time_utc": "2026-11-28T03:10:45.134708+00:00",
+    "http_status": 200,
+    "record_count": 1187,
+    "pages": 51,
+    "capture_complete": true,
+    "null_hrefs": 115,
+    "original_hrefs": 15,
+    "validated_schema": true,
+    "workspace_writable": true,
+    "browser_closed": true
+  },
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "sha256": "6d5407ac1e11bce9d8e14fddff3da09550a8676bbcf4d4500a3c4cdcabef8958",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "sha256": "6bff9201be01bcf43e5a793f15a37490a716fc67215bd1130722a5510ad9f123",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "sha256": "d1b98816ee70f13be9a0f1b732ba96c3fe945453e14f0b612215c55f46f9f42c",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "7ef66718c1ef3e95d5064c4b496825502ab4faa0766c69695c7345e3facf6d6a",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "sha256": "d4efe58921f0ad8dbf3d5b96b5046edc08b281cc3f013b6aeea836df4417e567",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "sha256": "dc49eadec4110ebbaa7b3f18026056ab3ac6b9413e0c32df58c9f0e5a2836748",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0"
+    }
+  ],
+  "release_validation": {
+    "selector-full": {
+      "total": 238,
+      "passed": 238,
+      "failed": 0,
+      "notExecuted": 0,
+      "trx_sha256": "bcb58a2291f6c6503ec550ada60ec09e8e430397dcf78e44a323084af35ff535"
+    },
+    "finalized-forms": {
+      "total": 124,
+      "passed": 122,
+      "failed": 0,
+      "notExecuted": 0,
+      "trx_sha256": "6401274bb27b4749ba7bd04b12df6adf4d2ec83dfbc3c3309058071b00f2443c"
+    }
+  },
+  "tool_source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+  "model": "gpt-6.1-terra",
+  "approved_artifact": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19"
+}

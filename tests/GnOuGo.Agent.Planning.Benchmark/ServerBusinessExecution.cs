@@ -110,7 +110,7 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         };
     }
 
-    internal static bool FinalizedBrowserRead(WorkflowRun journal, JsonObject previous)
+    internal static bool FinalizedBrowserRead(WorkflowRun journal, JsonObject previous, long? executionTokens = null)
     {
         if (journal.Status != WorkflowRunStatus.Failed || journal.CancelRequested || journal.Result is not { Success: false } || !journal.FinalizationCompleted ||
             previous["execution"]?["status"]?.ToString() != WorkflowRunStatus.Failed ||
@@ -119,6 +119,18 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             journal.Invocations.Values.Any(i => i.CompletedAt is null || i.Status is not ("completed" or "failed") ||
                 i.Recovery is not (StepRecovery.ReplaySafe or StepRecovery.External))) return false;
         var effects = journal.Invocations.Values.Where(i => i.Recovery == StepRecovery.External).ToArray();
+        if (executionTokens is { } allowance)
+        {
+            var inference = effects.Where(i => i.StepType == "llm.call").ToArray();
+            if (inference is not [var refused] || refused.Status != "failed" || refused.Error?.Code != ErrorCodes.LlmBudgetExceeded ||
+                journal.Result.Error?.Code != ErrorCodes.LlmBudgetExceeded || refused.Error.Details is not JsonObject details ||
+                details["scope"]?.ToString() != "finite_llm_budget" || details["origin"]?.ToString() != "application_execution_configuration" ||
+                details["stage"]?.ToString() != "llm.call" || details["limit_kind"]?.ToString() != "total_tokens" ||
+                details["dispatch_status"]?.ToString() != "not_started" || details["calls"]?.ToString() != "0" ||
+                !long.TryParse(details["current"]?.ToString(), out var required) || !long.TryParse(details["limit"]?.ToString(), out var previousLimit) ||
+                previousLimit <= 0 || required <= previousLimit || allowance < required) return false;
+            effects = effects.Where(i => i != refused).ToArray();
+        }
         if (effects.Length < 2 || effects.Any(i => i.StepType != "mcp.call" ||
             i.ResolvedInput?["server"]?.ToString() != "GnOuGo.Browser.Mcp" ||
             i.ResolvedInput?["method"]?.ToString() is not ("browser_get_content" or "browser_close"))) return false;

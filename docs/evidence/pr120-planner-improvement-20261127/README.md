@@ -1,5 +1,7 @@
 # Planner cost and normal Server qualification, 27 November 2026
 
+On `8d6e97a3`, the approved Amazon form captured 1,544 records across 71 pages. The Server stopped at its first interpretation step. Its 1,000,000-token execution allowance could not reserve 2,241,561 tokens for the serialized request. The workflow finalized, closed Browser and recorded zero physical inference attempts. The account held €7.478838 of available funding. All 238 local Windows Browser tests passed. [Form, budget decision and binary hashes](server-amazon-18-token-refusal.json)
+
 The baseline ended at `f4140fcc` with 665 physical attempts in 15 planning sessions and no business execution. Drafting, discovery and block implementation accounted for 506 calls. The new qualification uses the same SlimFaas revisions and Amazon selection rules. It starts in the normal Server, records actual provider exchanges and opens the generated workflow through the authenticated form.
 
 The saved Amazon agent ran from the form again on the corrected nullable-href contract. The search returned HTTP 200. Playwright observed an attached body, then counted zero elements. The Browser returned that error after 6.112 seconds, and the workflow closed it. The journal and observer agree on the request and its error. There were zero model calls, product visits or workbook writes. A real Chromium selector reproduced the race with the original count and passed after its removal. [Form receipts, costs and regression](server-amazon-18-saved-form.json)
