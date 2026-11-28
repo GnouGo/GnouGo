@@ -8,7 +8,7 @@ using GnOuGo.Flow.Core.Runtime;
 
 internal static class RetainedCaptureReview
 {
-    internal static async Task RunAsync(KeyVaultBenchmarkModel model, BenchmarkCampaign campaign, string workspace,
+    internal static async Task RunAsync(KeyVaultBenchmarkModel? model, BenchmarkCampaign campaign, string workspace,
         string form, string execution, string sourceStep, CancellationToken ct)
     {
         var report = await campaign.LoadAsync("planning-evaluation-runs", form, ct);
@@ -37,6 +37,18 @@ internal static class RetainedCaptureReview
         var prompt = header + "\n" + data.ToJsonString();
         if (Encoding.UTF8.GetByteCount(prompt) > 96 * 1024) throw new InvalidDataException("Projected input exceeds 96 KiB.");
         var request = execution + ":capture-review:" + Hash(prompt)[..16];
+        var receipt = new JsonObject {
+            ["form"] = form, ["execution"] = execution, ["source_step"] = sourceStep, ["source_status"] = source.Status,
+            ["request_id"] = request, ["snapshot"] = parsed.Id, ["pages"] = parsed.Pages.Count, ["records"] = parsed.RecordCount,
+            ["original_bytes"] = Encoding.UTF8.GetByteCount(original), ["original_sha256"] = Hash(original),
+            ["projected_bytes"] = Encoding.UTF8.GetByteCount(prompt), ["projected_sha256"] = Hash(prompt), ["workflow_modified"] = false
+        };
+        if (model is null)
+        {
+            receipt["inspection_only"] = true;
+            Console.WriteLine(receipt.ToJsonString());
+            return;
+        }
         var saved = await campaign.LoadAsync("planning-evaluation-capture-reviews", request, ct);
         if (saved is not null) { Console.WriteLine(saved.ToJsonString()); return; }
         if (await campaign.HasUncertainRequestAsync(ct)) throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
@@ -52,13 +64,10 @@ internal static class RetainedCaptureReview
         var decision = result.Json ?? JsonNode.Parse(result.Text);
         if (decision?["clear"] is not JsonValue clear || !clear.TryGetValue<bool>(out _) || string.IsNullOrWhiteSpace(decision["reason"]?.GetValue<string>()))
             throw new InvalidDataException("The model response is missing the original decision fields.");
-        var receipt = new JsonObject {
-            ["form"] = form, ["execution"] = execution, ["source_step"] = sourceStep, ["source_status"] = source.Status,
-            ["request_id"] = request, ["provider"] = model.Provider, ["model"] = model.Model, ["snapshot"] = parsed.Id,
-            ["pages"] = parsed.Pages.Count, ["records"] = parsed.RecordCount, ["original_bytes"] = Encoding.UTF8.GetByteCount(original),
-            ["original_sha256"] = Hash(original), ["projected_bytes"] = Encoding.UTF8.GetByteCount(prompt), ["projected_sha256"] = Hash(prompt),
-            ["decision"] = decision.DeepClone(), ["usage"] = result.Usage?.DeepClone(), ["workflow_modified"] = false
-        };
+        receipt["provider"] = model.Provider;
+        receipt["model"] = model.Model;
+        receipt["decision"] = decision.DeepClone();
+        receipt["usage"] = result.Usage?.DeepClone();
         await campaign.SaveAsync("planning-evaluation-capture-reviews", request, receipt, ct);
         Console.WriteLine(receipt.ToJsonString());
     }

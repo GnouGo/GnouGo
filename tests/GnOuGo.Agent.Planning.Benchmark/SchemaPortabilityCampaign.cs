@@ -79,6 +79,12 @@ internal static class SchemaPortabilityCampaign
             await ServerLiveFundingEvidence.RunAsync(args, campaign, records, root);
             return;
         }
+        if (phase == "retained-capture-inspect")
+        {
+            await RetainedCaptureReview.RunAsync(null, campaign, root, RequiredOption(args, "--run"), RequiredOption(args, "--execution"),
+                RequiredOption(args, "--source-step"), CancellationToken.None);
+            return;
+        }
         if (phase == "financial-audit")
         {
             await WriteFinancialAuditAsync(campaign, Console.Out, CancellationToken.None);

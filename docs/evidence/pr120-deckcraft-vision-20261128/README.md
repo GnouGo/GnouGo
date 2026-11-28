@@ -27,3 +27,5 @@ Two run-owned images went through the workflow runtime, encrypted artifact store
 The retained Amazon form reached a first-attempt budget refusal before its capture assessment. The encrypted HTTP journal contains zero physical attempts for that request. The reconciliation retained its accounting and the workflow remains separately traceable. [Refusal evidence](amazon-zero-attempt.json) · [Opening and control accounting](accounting.json)
 
 The previously completed SlimFaas review remains available with its independent verification. [Server execution](../pr120-planner-improvement-20261127/server-code-9.json) · [SlimFaas verification](../pr120-planner-improvement-20261127/slimfaas-review-verification.json)
+
+The encrypted form journal retained the exact refused prompt. Its SHA-256 matches the request identity. The complete text projection covers all 72 pages and 1543 records, reducing 1675315 UTF-8 bytes to 43082 bytes. This inspection dispatched zero model calls. [Projection receipt](amazon-retained-projection.json)
