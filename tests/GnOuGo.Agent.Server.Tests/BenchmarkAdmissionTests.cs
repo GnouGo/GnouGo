@@ -84,6 +84,10 @@ public sealed partial class BenchmarkAdmissionTests
 
     [Theory]
     [InlineData("closed_read", true)]
+    [InlineData("observed_read_failure", true)]
+    [InlineData("different_failure_receipt", false)]
+    [InlineData("different_read_arguments", false)]
+    [InlineData("failed_cleanup", false)]
     [InlineData("unknown_journal", false)]
     [InlineData("unfinished_cleanup", false)]
     [InlineData("cancelled", false)]
@@ -108,6 +112,21 @@ public sealed partial class BenchmarkAdmissionTests
         events.Add(new JsonObject { ["server"] = "GnOuGo.Browser.Mcp", ["tool"] = "browser_get_content", ["arguments"] = new JsonObject(),
             ["error"] = true, ["result"] = new JsonObject { ["success"] = false, ["error_message"] = variant == "active_page" ? "different error" : "No active page" } });
         events.Add(events[1]!.DeepClone());
+        if (variant is "observed_read_failure" or "different_failure_receipt" or "different_read_arguments" or "failed_cleanup")
+        {
+            var index = variant == "failed_cleanup" ? 1 : 0;
+            var evt = events[index]!;
+            var invocation = journal.Invocations[evt["tool"]!.ToString()];
+            var result = new JsonObject { ["success"] = false, ["error_code"] = "INVALID_INPUT", ["error_message"] = "Missing selector" };
+            evt["error"] = true;
+            evt["result"] = result;
+            evt["arguments"] = new JsonObject { ["url"] = "https://example.test/item" };
+            invocation.ResolvedInput!["request"] = evt["arguments"]!.DeepClone();
+            invocation.Status = "failed";
+            invocation.Error = new() { Code = ErrorCodes.McpCallError, Details = new JsonObject { ["content"] = result.DeepClone() } };
+            if (variant == "different_failure_receipt") result["error_message"] = "Different error";
+            if (variant == "different_read_arguments") evt["arguments"]!["url"] = "https://example.test/elsewhere";
+        }
         if (variant == "missing_event") events.RemoveAt(0);
         var previous = new JsonObject { ["execution"] = new JsonObject { ["status"] = "failed", ["finalization_completed"] = true }, ["events"] = events };
         Assert.Equal(expected, ServerBusinessExecution.FinalizedBrowserRead(journal, previous));

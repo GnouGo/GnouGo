@@ -1,0 +1,304 @@
+{
+  "source": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+  "planning_source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "run": "improve40-amazon-20261128-010738",
+  "window": "improve40-amazon-20261128-010738-scope-resume-207",
+  "session": "59a776fd8f9c42159523cb85c3949297",
+  "scenario": "amazon",
+  "phases": {
+    "replan": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 21399,
+      "output_tokens": 489,
+      "measured_eur": "0.0509726651480637813211845103",
+      "duration_ms": "125491.8969"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 13519,
+      "output_tokens": 184,
+      "measured_eur": "0.0316332574031890660592255125",
+      "duration_ms": "89265.0828"
+    },
+    "construction_implementation": {
+      "logical_calls": 35,
+      "physical_attempts": 35,
+      "input_tokens": 719538,
+      "output_tokens": 20850,
+      "measured_eur": "1.7340273348519362186788154896",
+      "duration_ms": "750734.5624"
+    },
+    "construction_draft": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "input_tokens": 154922,
+      "output_tokens": 3012,
+      "measured_eur": "0.3666195899772209567198177678",
+      "duration_ms": "204287.7600"
+    }
+  },
+  "input_tokens": 909378,
+  "output_tokens": 24535,
+  "planning_session_cost_eur": "2.1832528473804100227790432802",
+  "wall_seconds": 1676.0235211849213,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "59.816521640091116173120729564",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "9.6620911161731207289293843313",
+    "physical_attempts": 1625,
+    "input_tokens": 24615191,
+    "output_tokens": 822131
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "initial_revision": 207,
+  "ending_revision": 328,
+  "initial_calls": 85,
+  "ending_calls": 136,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "TASK_IDENTITY_INVALID",
+      "location": "/tasks/if_prefix_available/body/outputs",
+      "message": "Business identities must be distinct, nonempty and outside reserved namespaces.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 136,
+    "repairs": 10,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "execution": null,
+  "execution_run_id": null,
+  "new_checkpoints": [
+    {
+      "sequence": 13,
+      "tasks": [
+        "extract_product",
+        "product_visit",
+        "source_in_range",
+        "visit_evidence_available",
+        "visit_if_source_matches"
+      ]
+    },
+    {
+      "sequence": 14,
+      "tasks": [
+        "source_in_range",
+        "visit_if_source_matches",
+        "product_visit",
+        "visit_evidence_available",
+        "extract_product"
+      ]
+    },
+    {
+      "sequence": 15,
+      "tasks": []
+    },
+    {
+      "sequence": 16,
+      "tasks": [
+        "summarize_visits"
+      ]
+    },
+    {
+      "sequence": 17,
+      "tasks": [
+        "correct_visit_aggregate"
+      ]
+    },
+    {
+      "sequence": 18,
+      "tasks": [
+        "verified_visit_eligibility"
+      ]
+    },
+    {
+      "sequence": 19,
+      "tasks": [
+        "all_visits_eligible"
+      ]
+    },
+    {
+      "sequence": 20,
+      "tasks": [
+        "visit_eligibility_checked"
+      ]
+    },
+    {
+      "sequence": 21,
+      "tasks": [
+        "exact_visit_aggregate"
+      ]
+    },
+    {
+      "sequence": 22,
+      "tasks": [
+        "verify_ten_visit_results"
+      ]
+    }
+  ],
+  "scope_grant": {
+    "revision": 207,
+    "prior_result": {
+      "status": "stopped",
+      "calls": 85,
+      "repairs": 8,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "prior_finish": "2026-11-28T02:07:33.8455787+00:00",
+    "prior_session_sha256": "2f29c8aac0fc69884d4b3abc915f3cf870647f74fe9225bd17923f1d5420ad96",
+    "started_utc": "2026-11-28T02:12:09.8250369+00:00",
+    "harness_source": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+    "assemblies": {
+      "entry": {
+        "sha256": "0fd57ab8bd6f6ac70174a3a65d3e28d7dbfac9711d1ed1532dba31f067ee7e65"
+      },
+      "server": {
+        "sha256": "95e3d42dd26428182120e9415c2d3d7074f6c8b9ea4519309bfe809416bb32af"
+      }
+    },
+    "external_reservations_eur": "0.0463553530751708428246013667",
+    "execution_reserve_eur": "2.42",
+    "rechecked_rollback": {
+      "slot": "/tasks/source_in_range/condition",
+      "original_plan_hash": "717dd8e335b98d9f64ebad36c314a8048636f45d32f069736301b68df834942a",
+      "after_hash": "e31b16269c1bce3bf14b6aafbc1a771ed9ff4474f7c648eecb37143097d9b44d",
+      "planner": {
+        "sha256": "c1f15961cab820bb77c6955dabe39baa478bb6d18a6b3fd1f51309821325a937"
+      }
+    }
+  },
+  "opening_audit_sha256": "1e9540aea27917a25444ef80fcf0d7e1a3287370d6b686924019f6f983ba9814",
+  "closing_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "visit_eligibility_bindings": {
+    "scope": "/tasks/if_prefix_available/body/outputs/allEligible",
+    "accepted": [
+      "summarize_visits"
+    ],
+    "rejected_candidate": [
+      "summarize_visits",
+      "check_all_ten_visits"
+    ],
+    "accepted_values": [
+      {
+        "task": "summarize_visits",
+        "inputs": [
+          "resolve_selection.selection"
+        ],
+        "literal_numbers": [
+          10
+        ],
+        "literal_true_count": 0,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "correct_visit_aggregate",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10
+        ],
+        "literal_true_count": 0,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "verified_visit_eligibility",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10
+        ],
+        "literal_true_count": 0,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "all_visits_eligible",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10,
+          0
+        ],
+        "literal_true_count": 1,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "visit_eligibility_checked",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10,
+          0
+        ],
+        "literal_true_count": 1,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "exact_visit_aggregate",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10,
+          0
+        ],
+        "literal_true_count": 1,
+        "array_literal_lengths": []
+      },
+      {
+        "task": "verify_ten_visit_results",
+        "inputs": [
+          "visit_products.eligible"
+        ],
+        "literal_numbers": [
+          10,
+          0
+        ],
+        "literal_true_count": 1,
+        "array_literal_lengths": []
+      }
+    ],
+    "proposed_value": {
+      "task": "check_all_ten_visits",
+      "inputs": [
+        "visit_products.eligible"
+      ],
+      "literal_numbers": [
+        10,
+        0
+      ],
+      "literal_true_count": 1,
+      "array_literal_lengths": []
+    },
+    "final_candidate_hash": "88c59ce1d51b54f5dcccbe0ba7aec111058ac634febcd11ad37b2afb32da82d3",
+    "remaining_model_calls": 24,
+    "automatic_repairs_used": 10,
+    "automatic_repairs_limit": 10,
+    "active_milliseconds": 3016964.809999998,
+    "previous_generated_artifact_with_exact_ten_true_array": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19"
+  }
+}

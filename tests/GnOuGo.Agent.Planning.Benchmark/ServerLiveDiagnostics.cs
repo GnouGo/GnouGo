@@ -1199,8 +1199,23 @@ internal static class ServerLiveDiagnostics
         var ct = app.Lifetime.ApplicationStopping;
         var run = previous["run"]!.GetValue<string>();
         var sessionId = previous["session_id"]!.GetValue<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        while (previous["execution_run_id"]?.ToString() != previousForm)
+        {
+            var parent = previous["execution_run_id"]?.ToString();
+            if (parent is null || !Guid.TryParseExact(parent, "N", out _) || !seen.Add(parent))
+                throw new PlanningConflictException("The requested predecessor is outside this form's recorded history.");
+            var childKey = run + "-form-" + parent;
+            var child = await campaign.LoadAsync("planning-evaluation-runs", childKey, ct);
+            if (child is null || child["form_attempt"]?.ToString() != childKey || child["previous_form"]?.ToString() != parent ||
+                child["campaign"]?.ToString() != campaign.Id || child["run"]?.ToString() != run || child["session_id"]?.ToString() != sessionId ||
+                child["saved_agent_id"]?.ToString() != previous["saved_agent_id"]?.ToString() ||
+                child["execution_artifact_hash"]?.ToString() != previous["execution_artifact_hash"]?.ToString())
+                throw new PlanningConflictException("The requested predecessor lacks an artifact-bound form record.");
+            previous = child;
+        }
         var key = run + "-form-" + previousForm;
-        if (previous["execution_run_id"]?.ToString() != previousForm || previous["execution_started"] is null ||
+        if (previous["execution_started"] is null ||
             previous["passed"]?.GetValue<bool>() != false || await campaign.LoadAsync("planning-evaluation-runs", key, ct) is not null)
             throw new PlanningConflictException("This predecessor does not identify an unused, independently observed form attempt.");
         var reviewed = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;

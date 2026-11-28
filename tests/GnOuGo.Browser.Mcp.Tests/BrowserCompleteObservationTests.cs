@@ -5,12 +5,34 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using Microsoft.Playwright;
 using Xunit;
 
 namespace GnOuGo.Browser.Mcp.Tests;
 
 public sealed class BrowserCompleteObservationTests
 {
+    [Fact]
+    public async Task LocatorRemainsUsableWhenAnAttachedElementBrieflyDisappears()
+    {
+        using var playwright = await Playwright.CreateAsync();
+        await playwright.Selectors.RegisterAsync("changing", new() { Script = """
+            (() => {
+                let reads = 0;
+                return {
+                    query(root, selector) { return this.queryAll(root, selector)[0]; },
+                    queryAll(root, selector) { return ++reads === 2 ? [] : Array.from(root.querySelectorAll(selector)); }
+                };
+            })()
+            """ });
+        await using var browser = await playwright.Chromium.LaunchAsync(new() { Headless = true });
+        var page = await browser.NewPageAsync();
+        await page.SetContentAsync("<main>observed</main>");
+        var resolved = await PlaywrightBrowserHost.TryResolveLocatorAsync(page, "changing=main", 5000);
+        Assert.Null(resolved.FailureReason);
+        Assert.Equal("observed", await Assert.IsAssignableFrom<ILocator>(resolved.Locator).InnerTextAsync(new() { Timeout = 5000 }));
+    }
+
     [Theory]
     [InlineData("capture", false)]
     [InlineData("publish", false)]

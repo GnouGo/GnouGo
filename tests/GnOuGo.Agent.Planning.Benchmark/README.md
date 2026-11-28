@@ -739,10 +739,12 @@ recorded checkpoint history, recompiles the exact reviewed graph and YAML, and
 records the new verifier assembly before normal Server approval and form execution.
 Supply the current audited application holds with `--retained-external-reservations-eur`.
 
-A saved agent whose previous form failed after completed Browser reads and verified
-cleanup can receive a new form submission after a tool correction. Use
+A saved agent whose previous form failed after Browser reads and verified cleanup can receive
+a new form submission after a tool correction. A failed read requires the same arguments
+and terminal MCP error in both the workflow journal and the observer. Use
 `server-live-revalidate --after-finalized-read <form-run-id> --tool-build-source <sha>`
-with the original `--run` and current audited holds to verify the predecessor without inference.
+with the original `--run`, the latest finalized form ID and current audited holds to verify
+the predecessor without inference. Later submissions must follow the recorded chain for the same agent and artifact.
 Use the same options with `server-live-execute` for a fresh submission. The host compares
 the journal, the registered agent, the reusable approval, the selected tool contracts
 and the empty run workspace. The new attempt uses its own provider request namespace,

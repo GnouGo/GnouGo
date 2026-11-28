@@ -119,7 +119,7 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             journal.Invocations.Values.Any(i => i.CompletedAt is null || i.Status is not ("completed" or "failed") ||
                 i.Recovery is not (StepRecovery.ReplaySafe or StepRecovery.External))) return false;
         var effects = journal.Invocations.Values.Where(i => i.Recovery == StepRecovery.External).ToArray();
-        if (effects.Length < 2 || effects.Any(i => i.StepType != "mcp.call" || i.Status != "completed" ||
+        if (effects.Length < 2 || effects.Any(i => i.StepType != "mcp.call" ||
             i.ResolvedInput?["server"]?.ToString() != "GnOuGo.Browser.Mcp" ||
             i.ResolvedInput?["method"]?.ToString() is not ("browser_get_content" or "browser_close"))) return false;
         // The oracle makes its own empty-page probe and close after the workflow closed the Browser.
@@ -130,10 +130,20 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             events[^1]?["tool"]?.ToString() != "browser_close" || events[^1]?["error"]?.GetValue<bool>() != false ||
             events[^1]?["result"]?["success"]?.GetValue<bool>() != true) return false;
         var actual = events.Take(effects.Length).ToArray();
-        return actual[^1]?["tool"]?.ToString() == "browser_close" && actual.All(e => e?["error"]?.GetValue<bool>() == false &&
-            e?["result"]?["success"]?.GetValue<bool>() == true) &&
-            actual.Select(e => e?["tool"]?.ToString()).Order(StringComparer.Ordinal)
-                .SequenceEqual(effects.Select(i => i.ResolvedInput!["method"]!.ToString()).Order(StringComparer.Ordinal));
+        if (actual[^1]?["tool"]?.ToString() != "browser_close") return false;
+        var unmatched = effects.ToList();
+        foreach (var evt in actual)
+        {
+            var index = unmatched.FindIndex(i => i.ResolvedInput!["method"]!.ToString() == evt?["tool"]?.ToString() &&
+                JsonNode.DeepEquals(i.ResolvedInput["request"], evt?["arguments"]) &&
+                (i.Status == "completed" && evt?["error"]?.GetValue<bool>() == false && evt["result"]?["success"]?.GetValue<bool>() == true ||
+                 i.Status == "failed" && evt?["tool"]?.ToString() == "browser_get_content" && evt["error"]?.GetValue<bool>() == true &&
+                 evt["result"]?["success"]?.GetValue<bool>() == false && i.Error?.Code == ErrorCodes.McpCallError &&
+                 JsonNode.DeepEquals(i.Error.Details?["content"], evt["result"])));
+            if (index < 0) return false;
+            unmatched.RemoveAt(index);
+        }
+        return true;
     }
 
     internal async Task ExecuteAsync(WebApplication app, HttpClient client, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model,

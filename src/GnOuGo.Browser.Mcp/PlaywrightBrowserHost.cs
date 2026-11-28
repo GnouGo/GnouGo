@@ -834,7 +834,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         return resolution.Locator;
     }
 
-    private static async Task<LocatorResolution> TryResolveLocatorAsync(IPage page, string selector, float timeoutMs)
+    internal static async Task<LocatorResolution> TryResolveLocatorAsync(IPage page, string selector, float timeoutMs)
     {
         try
         {
@@ -845,9 +845,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Timeout = timeoutMs
             });
 
-            if (await locator.CountAsync() == 0)
-                return new LocatorResolution(null, "selector resolved but no elements were found");
-
+            // The locator resolves again at use. A separate count can see a transient
+            // detachment after the successful wait and discard the remaining deadline.
             return new LocatorResolution(locator, null);
         }
         catch (PlaywrightException ex)
