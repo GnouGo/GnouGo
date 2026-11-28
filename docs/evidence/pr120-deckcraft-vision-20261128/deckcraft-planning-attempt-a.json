@@ -159,5 +159,26 @@
     "request_replay_forbidden": true,
     "run_continuation_forbidden": true,
     "applied": false
+  },
+  "permanent_closure": {
+    "run": "deckcraft-8-fr-20261128-a",
+    "request_id": "f3da027662bb49f5a5f34fa5a91e1344:104:b24d636320653987fe95a6fa5f271625079d16c1dfc86e23e230f99fe84dae81:0ef4d9a5c1599b171853ff67f84d0b660808274c87b11762d98554387ada5709",
+    "retained_at_utc": "2026-11-28T16:16:41.4953833+00:00",
+    "retention_kind": "exhausted-planning-retries",
+    "evidence_hash": "c534335231e6f89f0e6a6401c7055afe06686b181ebc20c29964a4c12f6c52ed",
+    "authorization_hash": "14e8b97064532bacc0e44e77b386f52790a918a3c2d1a8821c0a297f2ddfa909",
+    "authorized_preview_run_hash": "4c2c8ef91b4b32245a71889ae304a8335e43d86319fc01b102f03cda29314cfb",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reservation_eur": "0.3884396355353075170842824602",
+    "persisted_matching_closures": 1,
+    "financial_audit_matches_preclosure": true,
+    "campaign_physical_attempts_after": 1782,
+    "known_cost_eur_after": "65.729949886104783599088838976",
+    "http_reservations_eur_after": "0.8634715261958997722095671982",
+    "application_reservations_eur_after": "0.0463553530751708428246013667",
+    "closure_generation_calls": 0
   }
 }
