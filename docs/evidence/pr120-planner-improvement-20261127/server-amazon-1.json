@@ -1,0 +1,76 @@
+{
+  "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+  "run": "improve40-amazon-20261127-080820",
+  "session": "c1daf64d560d4f87b61d49b88f68d5e0",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T08:09:09.1079453+00:00",
+  "finished_utc": "2026-11-27T08:09:58.9980962+00:00",
+  "wall_seconds": "49.890151",
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "measured_eur": "0",
+      "duration_ms": "32359.9751"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 0,
+  "diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 1,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "2a9c4f189cb5ecded7b77785ceb873ffb1cfc7f85866b5482593c9b3b6186b34",
+    "server": "f60d8e5ffcedb118a5b9dc4ead588ff0b28f2b2c6dbb102c62b721480c6799d9",
+    "GnOuGo.Browser.Mcp": "751de5bef361c426a2c889d57ac39f67e418a2adf07b2caf88e35f8dc2f4febe",
+    "GnOuGo.Document.Mcp": "cca3a4c9f22fcce122677ed3833d8ae956475bac7b82281b69124749951bd7ec"
+  },
+  "campaign_opening_measured_eur": "26.337166287015945330296127774",
+  "operator_reconciliation": {
+    "evidence_hash": "b494b1241750b15751c6e93e1dd61eaac53cf78367dbb60f9cdb8ef9466ccd11",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "outcome": "inconclusive",
+    "retention_kind": "storage-failure-before-campaign-envelope",
+    "request_id": "c1daf64d560d4f87b61d49b88f68d5e0:1:238b39439b6b672c3fc42d2c1252e7c9271d62d0b61f4baaa2e0156b2252ab2c",
+    "storage_failure_span_hash": "eaa87fdd3e94b9f7c3ae997fcca277c451a12c7dc672faf701594c9898df5fc8",
+    "campaign_envelope_absent": true,
+    "dispatch_certainty": "unknown",
+    "retained_application_reservation_eur": "0.0463553530751708428246013667",
+    "source": "fce11263ed63d4e53cf8035ed4afa6941e6d7b65",
+    "server_session_hash": "d21d6fcd3ba176042c63f337f7fea0bade12115618c4ca40acfb826ecea977ac",
+    "server_http_hash": "33da4b590452da1e8a2c63284716a4f227e8ab37621136eaa6f38e0995105e45",
+    "server_budget_hash": "1c7ba7112208bc8ed4c1fac567f70a92ce0cd34f5420dde0e4d920a913d7e057",
+    "source_of_reconciliation": "3cf04d86231d4ae4ceced6bad98f453fba9f0c7f"
+  },
+  "post_reconciliation_available_eur": "43.37913895216400911161731186"
+}

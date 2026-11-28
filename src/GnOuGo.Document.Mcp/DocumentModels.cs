@@ -23,7 +23,11 @@ public sealed record DocumentSection(
     string SectionId,
     string Title,
     int? PageNumber,
-    string Content);
+    string Content)
+{
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string?[][]? Rows { get; init; }
+}
 
 // ── Write result ─────────────────────────────────────────────────────────
 

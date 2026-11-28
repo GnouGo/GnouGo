@@ -29,16 +29,12 @@ public sealed class RetainedCompositionRequestTests(ITestOutputHelper output)
         state.Catalog = fixture["catalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!;
         state.Requirements = context["requirements"]!.Deserialize(PlanningJsonContext.Default.PlanningRequirements)!;
         state.Plan = response["plan"]!.Deserialize(PlanningJsonContext.Default.TaskPlan)!;
-        var fresh = new PlanningPrompt(state).Request();
-        Assert.Empty(PlanningContractValidation.ValidateInstance(response, fresh.StructuredOutputSchema!));
         // An annotation is advice, not a new semantic checker. The same malformed
         // TaskPlan value must still fail against both complete issued schemas.
         var malformed = response.DeepClone();
         malformed["plan"]!["root"]!["tasks"]![0]!["requires"] = new JsonObject { ["kind"] = "made_up" };
         var historicalFindings = PlanningContractValidation.ValidateInstanceFindings(malformed, issued.StructuredOutputSchema!);
-        var freshFindings = PlanningContractValidation.ValidateInstanceFindings(malformed, fresh.StructuredOutputSchema!);
         Assert.NotEmpty(historicalFindings);
-        Assert.NotEmpty(freshFindings); // Narrower fresh Boolean union can locate the same error more precisely.
 
         var tasks = TaskPlanRevisions.Tasks(state.Plan).ToArray();
         Assert.DoesNotContain(tasks, t => t.Each is not null);
@@ -65,19 +61,6 @@ public sealed class RetainedCompositionRequestTests(ITestOutputHelper output)
             Assert.All(compiled.Diagnostics, d => Assert.Equal("TASK_FIELD_TYPE", d.Code));
         }
         output.WriteLine($"{version}: original request={fixture["original_request_sha256"]}; receipt={fixture["original_receipt_sha256"]}; tasks={tasks.Length}; compiler=[{string.Join(',', compiled.Diagnostics.Select(d => d.Code + ":" + d.Location))}]; schema-valid unsuitable composition remains a review concern.");
-        output.WriteLine($"{version}: retained complete request estimate={PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema.AsObject())}; fresh presentation estimate={PlanningJsonTransport.EstimateInputTokens(fresh.Prompt, fresh.StructuredOutputSchema!.AsObject())}. Context now includes retained plan; no inference or session advancement.");
-        // Isolate presentation cost using exactly the same newly packed context
-        // and operation admission. This is not a replacement for the saved request.
-        var contextStart = fresh.Prompt.IndexOf("\n{", StringComparison.Ordinal);
-        var freshContext = JsonNode.Parse(fresh.Prompt[(contextStart + 1)..])!;
-        var admitted = freshContext["operations"]!.AsArray().Select(o => o!["id"]!.ToString()).ToHashSet(StringComparer.Ordinal);
-        var unannotated = PlanningContractValidation.ProjectStructuredOutputSchema(PlanningSchemas.FullProposal(state, admitted: admitted));
-        var oldPresentation = issued.Prompt[..issued.Prompt.IndexOf("\n{", StringComparison.Ordinal)] + fresh.Prompt[contextStart..];
-        var before = PlanningJsonTransport.EstimateInputTokens(oldPresentation, unannotated);
-        var after = PlanningJsonTransport.EstimateInputTokens(fresh.Prompt, fresh.StructuredOutputSchema!.AsObject());
-        Assert.InRange(after, 1, state.Request.Generation.MaxInputTokensPerRequest);
-        Assert.Empty(PlanningContractValidation.ValidateInstance(response, unannotated));
-        output.WriteLine($"{version}: SAME context/operations; estimate {before} -> {after}; prompt UTF8 bytes {Encoding.UTF8.GetByteCount(oldPresentation)} -> {Encoding.UTF8.GetByteCount(fresh.Prompt)}; schema UTF8 bytes {Encoding.UTF8.GetByteCount(unannotated.ToJsonString())} -> {Encoding.UTF8.GetByteCount(fresh.StructuredOutputSchema.ToJsonString())}.");
         Assert.Equal(storedRequest, JsonSerializer.Serialize(issued, PlanningJsonContext.Default.LLMRequest));
     }
 

@@ -9,7 +9,11 @@ namespace GnOuGo.Browser.Mcp;
 public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
 {
     private readonly BrowserServerSettings _settings;
+    private readonly BrowserObservedNavigationScope _observedNavigation;
+    private bool _sourceAuthorityAcquisition;
     private readonly ILogger<PlaywrightBrowserHost> _logger;
+    private readonly string[] _observationAncestorAttributes;
+    private readonly string[] _observationTextSelectorPrefixes;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     private IPlaywright? _playwright;
@@ -23,7 +27,18 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         ILogger<PlaywrightBrowserHost> logger)
     {
         _settings = settings.Value;
+        _observedNavigation = new(_settings, logger);
         _logger = logger;
+        var names = _settings.ObservationAncestorAttributes;
+        if (names is null || names.Count > 8 || names.Any(name => string.IsNullOrEmpty(name) || name.Length > 64 ||
+            !(char.IsAsciiLetter(name[0]) || name[0] is '_' or ':') ||
+            name.Any(c => !(char.IsAsciiLetterOrDigit(c) || c is '_' or ':' or '.' or '-'))))
+            throw new ArgumentException("Observation ancestor attributes require at most eight valid names of at most 64 characters.");
+        _observationAncestorAttributes = names.Select(name => name.ToLowerInvariant()).Distinct(StringComparer.Ordinal).ToArray();
+        var prefixes = _settings.ObservationTextSelectorPrefixes;
+        if (prefixes.Count > 16 || prefixes.Any(prefix => string.IsNullOrWhiteSpace(prefix) || prefix.Length > 128))
+            throw new ArgumentException("Configure up to sixteen nonempty observation text selector prefixes of at most 128 characters.");
+        _observationTextSelectorPrefixes = prefixes.Distinct(StringComparer.Ordinal).ToArray();
     }
 
     public Task<BrowserContentResult> GetContentAsync(
@@ -41,6 +56,11 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             includeScriptContent: false,
             cancellationToken: cancellationToken);
 
+    public Task<BrowserContentResult> GetContentAsync(string? url, string waitUntil, int? timeoutMs, string? selector,
+        string format, int? maxCharacters, bool includeScriptContent, CancellationToken cancellationToken, string? cursor, int? maxRecords)
+        => GetContentAsync(url, waitUntil, timeoutMs, selector, format, maxCharacters, includeScriptContent, cancellationToken,
+            cursor, maxRecords, null, null);
+
     public async Task<BrowserContentResult> GetContentAsync(
         string? url,
         string waitUntil,
@@ -49,12 +69,19 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         string format,
         int? maxCharacters,
         bool includeScriptContent,
-        CancellationToken cancellationToken, string? cursor = null, int? maxRecords = null)
+        CancellationToken cancellationToken, string? cursor = null, int? maxRecords = null, string? prefixAttribute = null, int? prefixGroups = null)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
+            _observedNavigation.BeginRead(url);
+            var navigationAuthorityGeneration = _observedNavigation.Generation;
             var contentFormat = NormalizeFormat(format);
+            if ((prefixAttribute is not null || prefixGroups.HasValue) &&
+                (contentFormat != "observation_complete" || cursor is not null || prefixGroups is not (>= 1 and <= 100) ||
+                 !_observationAncestorAttributes.Contains(prefixAttribute, StringComparer.Ordinal)))
+                throw new ArgumentException("A link prefix requires observation_complete, a configured ancestor attribute and 1–100 groups.");
+            lock (_observationLock) _sourceAuthorityAcquisition = contentFormat == "observation_complete" && _observedNavigation.IsSource(url);
             if (cursor is not null)
             {
                 if (contentFormat is not ("observation" or "observation_pages") || url is not null || selector is not null)
@@ -62,7 +89,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 return ContinueObservation(cursor, maxCharacters, maxRecords, cancellationToken);
             }
             if (contentFormat == "observation_complete")
-                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken);
+                return await AcquireCompleteObservationAsync(url, waitUntil, timeoutMs, selector, maxCharacters, maxRecords, cancellationToken, navigationAuthorityGeneration, prefixAttribute, prefixGroups);
             var limit = maxCharacters.GetValueOrDefault(_settings.MaxContentCharacters);
             var selectorTimeout = NormalizeTimeout(timeoutMs, _settings.DefaultTimeoutMs);
             if (limit <= 0)
@@ -77,16 +104,13 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             else
             {
                 InvalidateObservation("navigation");
-                var targetUri = BrowserNavigationPolicy.ValidateNavigationTarget(url, _settings);
+                var targetUri = _observedNavigation.Validate(url, _settings, true);
                 page = await EnsurePageAsync();
                 IResponse? response = null;
                 try
                 {
-                    response = await page.GotoAsync(targetUri.ToString(), new PageGotoOptions
-                    {
-                        Timeout = NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs),
-                        WaitUntil = ParseWaitUntil(waitUntil)
-                    });
+                    response = await NavigateReadAsync(page, targetUri.AbsoluteUri, ParseWaitUntil(waitUntil),
+                        NormalizeTimeout(timeoutMs, _settings.NavigationTimeoutMs), cancellationToken);
                 }
                 catch (TimeoutException ex) when (string.Equals(waitUntil, "networkidle", StringComparison.OrdinalIgnoreCase))
                 {
@@ -112,7 +136,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             var locatorResolution = await ResolveContentLocatorAsync(page, selector, selectorTimeout);
             var locator = locatorResolution.Locator;
             if (contentFormat is "observation" or "observation_pages")
-                return await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages");
+                return (await CaptureObservationAsync(page, locator, locatorResolution, selector, statusCode, maxCharacters, maxRecords, cancellationToken, contentFormat == "observation_pages"))
+                    with { NavigationEvidence = NavigationEvidenceFor(page) };
             var rawContent = contentFormat switch
             {
                 "html" => await locator.EvaluateAsync<string>("element => element.outerHTML"),
@@ -137,10 +162,16 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Format: contentFormat,
                 Content: content,
                 Truncated: truncated,
-                MaxCharacters: limit);
+                MaxCharacters: limit) { NavigationEvidence = NavigationEvidenceFor(page) };
+        }
+        catch
+        {
+            _observedNavigation.Clear();
+            throw;
         }
         finally
         {
+            lock (_observationLock) { _sourceAuthorityAcquisition = false; _sourceAuthorityRead = null; }
             await ReleaseBrowserGateAsync();
         }
     }
@@ -203,6 +234,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "click",
                 Url: page.Url,
@@ -282,6 +314,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                     page.Url);
             }
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "fill",
                 Url: page.Url,
@@ -334,6 +367,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserActionResult(
                 Action: "click_text",
                 Url: page.Url,
@@ -407,6 +441,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 beforeUrl,
                 page.Url);
 
+            ThrowNavigationFailure();
             return new BrowserKeyActionResult(
                 Action: "press",
                 Url: page.Url,
@@ -459,6 +494,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 ? await locator!.SelectOptionAsync(new[] { normalizedValue }, new LocatorSelectOptionOptions { Timeout = timeout })
                 : await observed.SelectOptionAsync(new[] { normalizedValue }, new ElementHandleSelectOptionOptions { Timeout = timeout });
 
+            ThrowNavigationFailure();
             return new BrowserSelectResult(
                 Url: page.Url,
                 Title: await page.TitleAsync(),
@@ -584,6 +620,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             if (_disposed)
                 return;
 
+            InvalidateObservation("closure");
             await HoldOpenIfConfiguredAsync(CancellationToken.None);
 
             if (_settings.KeepBrowserOpen)
@@ -634,8 +671,10 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
             AcceptDownloads = false,
             IgnoreHTTPSErrors = false,
             UserAgent = string.IsNullOrWhiteSpace(_settings.UserAgent) ? null : _settings.UserAgent,
-            ViewportSize = new ViewportSize { Width = 1440, Height = 900 }
+            ViewportSize = new ViewportSize { Width = 1440, Height = 900 },
+            ServiceWorkers = ServiceWorkerPolicy.Block
         });
+        await _context.RouteAsync("**/*", GuardNavigationAsync);
 
         _context.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         _context.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
@@ -664,6 +703,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 "webkit" => await _playwright.Webkit.LaunchAsync(launchOptions),
                 _ => await _playwright.Chromium.LaunchAsync(launchOptions)
             };
+            _browser.Disconnected += (_, _) => InvalidateObservation("closure");
 
             _logger.LogInformation(
                 "Playwright browser launched with engine {BrowserName} (headless={Headless}, slowMoMs={SlowMoMs}, holdOpenMs={HoldOpenMs}, keepBrowserOpen={KeepBrowserOpen})",
@@ -688,7 +728,60 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         page.SetDefaultTimeout(_settings.DefaultTimeoutMs);
         page.SetDefaultNavigationTimeout(_settings.NavigationTimeoutMs);
         page.Dialog += async (_, dialog) => await dialog.DismissAsync();
-        page.FrameNavigated += (_, frame) => { if (page == _page && frame == page.MainFrame) InvalidateObservation("navigation"); };
+        var responses = new Dictionary<IRequest, BrowserNavigationHop>();
+        page.Response += (_, response) =>
+        {
+            var request = response.Request;
+            if (page != _page || !request.IsNavigationRequest || request.Frame != page.MainFrame) return;
+            lock (_observationLock)
+            {
+                // Bound document-response provenance independently of observation page size.
+                if (responses.Count >= MaximumRedirects + 2) responses.Clear();
+                response.Headers.TryGetValue("location", out var location);
+                responses[request] = new(request.Url, request.Method, response.Status, location);
+            }
+        };
+        page.Request += (_, request) =>
+        {
+            if (page == _page && request.IsNavigationRequest && request.Frame == page.MainFrame)
+                lock (_observationLock)
+                {
+                    _pendingMainNavigation = request;
+                    // A request has not replaced the committed document. Keep
+                    // its provenance until a main-frame commit; a denied or
+                    // aborted request must not erase the still-current source.
+                }
+        };
+        page.RequestFailed += (_, request) =>
+        {
+            if (page == _page && request.IsNavigationRequest && request.Frame == page.MainFrame)
+                lock (_observationLock)
+                    if (_pendingMainNavigation == request) _pendingMainNavigation = null;
+        };
+        page.FrameNavigated += (_, frame) =>
+        {
+            if (page == _page && frame == page.MainFrame)
+                lock (_observationLock)
+                {
+                    var ownedSourceCommit = _sourceAuthorityAcquisition && _pendingMainNavigation is not null &&
+                        _sourceAuthorityRead?.Page == page && _sourceAuthorityReadGeneration == _observedNavigation.Generation &&
+                        _sourceAuthorityRead.ResponseIndexes.ContainsKey(_pendingMainNavigation);
+                    if (ownedSourceCommit) _observedNavigation.ObserveOwnedCommit(_sourceAuthorityReadGeneration);
+                    if (_navigationRead is null && !ownedSourceCommit && !(_sourceAuthorityAcquisition && _pendingMainNavigation is null))
+                        _observedNavigation.BeginRead(frame.Url, _pendingMainNavigation is null ? "unowned_source_history" : "unowned_source_commit");
+                    if (_pendingMainNavigation is null && _committedMainNavigation is not null && _lastNavigationEvidence is { } document)
+                    {
+                        _lastNavigationEvidence = document with { DocumentUrl = frame.Url };
+                    }
+                    else
+                    {
+                        _committedMainNavigation = _pendingMainNavigation?.Url == frame.Url ? _pendingMainNavigation : null;
+                        _lastNavigationEvidence = CommittedNavigationEvidence(_committedMainNavigation, frame.Url, responses);
+                    }
+                    _pendingMainNavigation = null;
+                    InvalidateObservation("navigation");
+                }
+        };
         page.Close += (_, _) => { if (page == _page) InvalidateObservation("closure"); };
     }
 
@@ -741,7 +834,7 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
         return resolution.Locator;
     }
 
-    private static async Task<LocatorResolution> TryResolveLocatorAsync(IPage page, string selector, float timeoutMs)
+    internal static async Task<LocatorResolution> TryResolveLocatorAsync(IPage page, string selector, float timeoutMs)
     {
         try
         {
@@ -752,9 +845,8 @@ public sealed partial class PlaywrightBrowserHost : IAsyncDisposable
                 Timeout = timeoutMs
             });
 
-            if (await locator.CountAsync() == 0)
-                return new LocatorResolution(null, "selector resolved but no elements were found");
-
+            // The locator resolves again at use. A separate count can see a transient
+            // detachment after the successful wait and discard the remaining deadline.
             return new LocatorResolution(locator, null);
         }
         catch (PlaywrightException ex)
@@ -996,6 +1088,11 @@ public sealed record BrowserContentResult(
     public BrowserObservationSnapshot? ObservationSnapshot { get; init; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public BrowserSnapshotAcquisition? Acquisition { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public BrowserNavigationEvidence? NavigationEvidence { get; init; }
+    [System.ComponentModel.Description("For a configured source, true confirms publication of the complete observationSnapshot from the successful owned GET. With prefixAttribute and prefixGroups supplied, that snapshot contains linkPrefix even if its links array is empty. False means publication was withheld. Later navigation can expire the scope.")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? ObservedSourceAccepted { get; init; }
 }
 
 internal sealed record LocatorResolution(ILocator? Locator, string? FailureReason);
@@ -1102,9 +1199,11 @@ internal sealed class NavigationObservation : IDisposable
     private bool _closed;
     private long _version;
     private long _navigationVersion;
+    private IRequest? _pendingNavigation;
 
     // Deterministic test checkpoint in the former check/subscribe race window.
     internal Func<Task>? ReadinessCheckpoint { get; init; }
+    internal Func<Task>? ReadinessEvaluationCheckpoint { get; init; }
 
     public NavigationObservation(IPage page)
     {
@@ -1119,6 +1218,8 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated += OnFrameNavigated;
+        _page.Request += OnRequest;
+        _page.RequestFailed += OnRequestFailed;
         _page.DOMContentLoaded += OnDomContentLoaded;
         _page.Load += OnLoad;
         _page.Close += OnClosed;
@@ -1156,12 +1257,25 @@ internal sealed class NavigationObservation : IDisposable
                 }
 
                 if (ReadinessCheckpoint is { } checkpoint) await checkpoint().WaitAsync(deadline.Token);
+                bool pending;
+                lock (_sync)
+                {
+                    pending = _pendingNavigation is not null;
+                    if (pending) changed = _changed.Task;
+                    else if (navigationVersion != _navigationVersion) continue;
+                }
+                // A dispatched main-document navigation can destroy the old context
+                // before FrameNavigated. Do not accept the previous document's ready
+                // state, or evaluate its disappearing context while the commit waits.
+                if (pending) { await changed.WaitAsync(deadline.Token); continue; }
                 // Subscribe before checking. Events wake this loop even if they arrive while
                 // evaluating; navigation invalidates the result before it can be accepted.
                 // Timing also covers an already-loaded document and same-document navigation.
                 // "interactive" alone precedes DOMContentLoaded and is not sufficient.
                 bool ready;
-                try { ready = await _page.EvaluateAsync<bool>("""
+                try {
+                    if (ReadinessEvaluationCheckpoint is { } evaluate) await evaluate().WaitAsync(deadline.Token);
+                    ready = await _page.EvaluateAsync<bool>("""
                     ([load, observed]) => {
                         const entry = performance.getEntriesByType('navigation')[0];
                         return load
@@ -1197,6 +1311,8 @@ internal sealed class NavigationObservation : IDisposable
             return;
 
         _page.FrameNavigated -= OnFrameNavigated;
+        _page.Request -= OnRequest;
+        _page.RequestFailed -= OnRequestFailed;
         _page.DOMContentLoaded -= OnDomContentLoaded;
         _page.Load -= OnLoad;
         _page.Close -= OnClosed;
@@ -1210,10 +1326,28 @@ internal sealed class NavigationObservation : IDisposable
         lock (_sync)
         {
             _triggered = true;
+            _pendingNavigation = null;
             _navigationVersion++;
             _domReady = _loadReady = false;
             SignalChanged();
         }
+    }
+
+    private void OnRequest(object? sender, IRequest request)
+    {
+        if (!request.IsNavigationRequest || request.Frame != _page.MainFrame) return;
+        lock (_sync)
+        {
+            _pendingNavigation = request;
+            _navigationVersion++;
+            SignalChanged();
+        }
+    }
+
+    private void OnRequestFailed(object? sender, IRequest request)
+    {
+        lock (_sync)
+            if (_pendingNavigation == request) { _pendingNavigation = null; SignalChanged(); }
     }
 
     private void OnDomContentLoaded(object? sender, IPage page)

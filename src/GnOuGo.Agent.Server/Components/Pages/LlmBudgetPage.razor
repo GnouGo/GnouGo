@@ -1,0 +1,47 @@
+@page "/settings/llm-budget"
+@using GnOuGo.Agent.Server.Configuration
+@using GnOuGo.Agent.Server.Planning
+@inject ApplicationLlmBudgetPolicy Policy
+@inject LocalOperatorAccess Access
+@inject Microsoft.Extensions.Options.IOptions<TypedWorkflowPlanningSettings> PlanningSettings
+
+<PageTitle>LLM budget</PageTitle>
+<main id="llm-budget-settings" data-interactive="@(_interactive ? "true" : "false")" class="container py-4">
+    <a href="/planning">Workflow designer</a> · <a href="/">Chat</a>
+    <h1>Application LLM budget</h1>
+    <p>This setting applies to new plans and executions in Desktop and Server. Existing sessions keep their captured policy.</p>
+    @if (_authorized)
+    {
+        <label for="application-budget-mode">Consumption mode</label>
+        <select id="application-budget-mode" @bind="_mode"><option value="unlimited">Unlimited — usage and costs tracked</option><option value="limited">Limited — configured application ceilings</option></select>
+        <label for="financial-forecast-mode">Planning forecasts in Limited mode</label>
+        <select id="financial-forecast-mode" @bind="_forecastMode"><option value="strict">Strict — admit current request and future reviews</option><option value="experimental_warning">Experimental — warn for future reviews</option></select>
+        <p>Experimental forecasting keeps the current request reservation, actual usage, explicit workflow limits and incomplete-history protection enforced. Existing sessions keep their policy.</p>
+        <button id="save-application-budget" disabled="@(_busy || !_interactive)" @onclick="SaveAsync">Save</button>
+        <p role="status">@_message</p>
+        var configured = Policy.Describe();
+        <p>@(configured["policy"]?["origin"]?.ToString() == "operator_preference" ? "Using your saved application preference." : "Using the application default.")</p>
+        <dl>
+            <dt>Planning allowance in Limited</dt><dd>@configured["planningLimits"]?["amount"] @configured["planningLimits"]?["currency"]</dd>
+            <dt>Planning call/token targets in Limited</dt><dd>@PlanningSettings.Value.MaxModelCalls calls · @PlanningSettings.Value.MaxTotalTokens tokens · @(TimeSpan.FromMilliseconds(PlanningSettings.Value.MaxActiveMilliseconds)) active time. Diagnostic targets produce warnings.</dd>
+            <dt>Execution allowance in Limited</dt><dd>@(configured["executionLimits"]?["maxCalls"]?.ToString() ?? "Unspecified") calls · @(configured["executionLimits"]?["maxTotalTokens"]?.ToString() ?? "Unspecified") tokens · @(configured["executionLimits"]?["maxElapsed"]?.ToString() ?? "Unspecified") LLM time</dd>
+            <dt>Execution monetary allowance in Limited</dt><dd>@(configured["executionLimits"]?["maxEstimatedCost"]?.ToJsonString() ?? configured["executionLimits"]?["maxEstimatedCostUsd"]?.ToString() ?? "Unspecified")</dd>
+        </dl>
+    }
+    else { <PlanningDebugHelp /> }
+    <p>Provider charges and account quotas apply. Explicit workflow limits, request timeouts, cancellation and execution resource limits remain effective.</p>
+</main>
+@code {
+    private bool _authorized, _busy, _interactive;
+    private string _forecastMode = "strict";
+    private string _mode = "unlimited", _message = "";
+    protected override async Task OnInitializedAsync() { _authorized = await Access.CanInspectAsync(); _mode = Policy.Mode; _forecastMode = Policy.FinancialForecastMode; }
+    protected override void OnAfterRender(bool firstRender) { if (firstRender) { _interactive = true; StateHasChanged(); } }
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try { await Policy.SetAsync(_mode, Access, CancellationToken.None, _forecastMode); _message = "Saved for new plans and executions."; }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or ArgumentException) { _message = ex.Message; }
+        finally { _busy = false; }
+    }
+}

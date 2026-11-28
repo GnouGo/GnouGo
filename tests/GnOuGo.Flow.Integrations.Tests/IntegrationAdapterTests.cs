@@ -184,6 +184,36 @@ public sealed class IntegrationAdapterTests
         Assert.DoesNotContain("raw-provider-body", failure.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task RoutingAdapter_PreservesAuthenticationStageWithoutRawException()
+    {
+        using var http = new HttpClient(new AuthenticationFailureHandler());
+        var client = new RoutingLLMClient(http, new()
+        {
+            DefaultProvider = "configured", DefaultModel = "model",
+            Models = { ["configured"] = new ModelProviderOptions
+            {
+                Type = "openai", Url = "https://gateway.example/v1", Issuer = "https://issuer.example",
+                ClientId = "client", Scopes = "models.read", ClientSecret = "secret"
+            } }
+        });
+        var adapter = new RoutingLLMClientAdapter(client);
+        var failure = await Assert.ThrowsAsync<LLMClientException>(() => adapter.CallAsync(
+            new() { Prompt = "secret prompt", MaxTokens = 8192 }, TestContext.Current.CancellationToken));
+
+        Assert.Equal(LLMClientFailureStage.Authentication, failure.Stage);
+        Assert.Equal(LLMClientFailureKind.Transport, failure.Kind);
+        Assert.True(failure.Retryable);
+        Assert.Null(failure.InnerException);
+        Assert.DoesNotContain("private-authentication-response", failure.ToString());
+    }
+
+    private sealed class AuthenticationFailureHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new HttpRequestException("private-authentication-response");
+    }
+
     [Theory]
     [InlineData(LLMProviderFailureKind.Transport, LLMClientFailureKind.Transport, true)]
     [InlineData(LLMProviderFailureKind.Timeout, LLMClientFailureKind.Timeout, true)]

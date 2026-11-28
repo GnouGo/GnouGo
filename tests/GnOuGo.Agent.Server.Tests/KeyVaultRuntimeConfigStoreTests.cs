@@ -10,6 +10,12 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class KeyVaultRuntimeConfigStoreTests
 {
+    private static void DeleteDatabase(string path)
+    {
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        File.Delete(path);
+    }
+
     [Theory]
     [InlineData("\"Responses\"", "Responses")]
     [InlineData("\"ChatCompletions\"", "ChatCompletions")]
@@ -22,9 +28,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         var dbPath = Path.Combine(Path.GetTempPath(), "gnougo-protocol-" + Guid.NewGuid().ToString("N") + ".db");
         var services = new ServiceCollection(); services.AddLogging(); services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
-        await using var provider = services.BuildServiceProvider();
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
             var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
             await store.SaveSecretValueAsync("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://provider.example/v1\",\"backgroundProtocol\":" + json + "}", TestContext.Current.CancellationToken);
@@ -36,7 +42,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                 Assert.Equal(expected, options.Models["openai"].RequestPolicy.BackgroundProtocol.ToString());
             }
         }
-        finally { File.Delete(dbPath); }
+        finally { DeleteDatabase(dbPath); }
     }
 
     [Theory]
@@ -53,9 +59,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         var dbPath = Path.Combine(Path.GetTempPath(), "gnougo-retry-policy-" + Guid.NewGuid().ToString("N") + ".db");
         var services = new ServiceCollection(); services.AddLogging(); services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
-        await using var provider = services.BuildServiceProvider();
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
             var store = provider.GetRequiredService<IKeyVaultRuntimeConfigStore>();
             await store.SaveSecretValueAsync("LLM--Models--openai", "{\"provider\":\"openai\",\"url\":\"https://provider.example/v1\",\"retryPolicy\":" + policy + "}", TestContext.Current.CancellationToken);
@@ -68,7 +74,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             var retry = options.Models["openai"].RetryPolicy;
             Assert.Equal(3, retry.MaxAttempts); Assert.Equal(0, retry.MaxUncertainRetries); Assert.Equal(12345, retry.AttemptTimeoutMilliseconds);
         }
-        finally { try { File.Delete(dbPath); } catch (IOException) { } }
+        finally { DeleteDatabase(dbPath); }
     }
 
     [Fact]
@@ -81,10 +87,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
-        await using var provider = services.BuildServiceProvider();
-
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await using (var scope = provider.CreateAsyncScope())
             {
                 await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
@@ -123,6 +128,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         RequestPolicy = new LLMProviderRequestPolicyOptions
                         {
                             BackgroundProtocol = LLMBackgroundProtocolMode.ChatCompletions,
+                            BillingServiceTier = "fast",
+                            BillingRegionalProcessing = true,
+                            BillingCacheRetention = "12h",
                             UnspecifiedOutputTokens = LLMUnspecifiedOutputTokensMode.Configured,
                             DefaultMaxOutputTokens = 4_096,
                             MaxOutputTokensCap = 8_192
@@ -157,7 +165,11 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("https://api.openai.com/v1", providerConfig.Url);
             Assert.Equal("top-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
+            Assert.Equal("gpt-4.1", await store.GetConfiguredModelAsync("OPENAI", CancellationToken.None));
             Assert.Equal(LLMBackgroundProtocolMode.ChatCompletions, providerConfig.RequestPolicy.BackgroundProtocol);
+            Assert.Equal("fast", providerConfig.RequestPolicy.BillingServiceTier);
+            Assert.True(providerConfig.RequestPolicy.BillingRegionalProcessing);
+            Assert.Equal("12h", providerConfig.RequestPolicy.BillingCacheRetention);
             Assert.Equal(4_096, providerConfig.RequestPolicy.DefaultMaxOutputTokens);
             Assert.Equal(2, providerConfig.RetryPolicy.MaxAttempts);
             Assert.Equal(0, providerConfig.RetryPolicy.MaxUncertainRetries);
@@ -178,18 +190,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal(90, keyVaultServer.DiscoveryTimeoutSeconds);
             Assert.Equal(600, keyVaultServer.CallTimeoutSeconds);
         }
-        finally
-        {
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-                // Best-effort cleanup for a temporary SQLite file.
-            }
-        }
+        finally { DeleteDatabase(dbPath); }
     }
 
     [Fact]
@@ -202,10 +203,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         services.AddKeyVaultMcpPersistence(dbPath);
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
-        await using var provider = services.BuildServiceProvider();
-
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await using (var scope = provider.CreateAsyncScope())
             {
                 await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
@@ -226,18 +226,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("legacy-secret", providerConfig.ApiKey);
             Assert.Equal("gpt-4.1", effective.DefaultModel);
         }
-        finally
-        {
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-                // Best-effort cleanup for a temporary SQLite file.
-            }
-        }
+        finally { DeleteDatabase(dbPath); }
     }
 
     [Fact]
@@ -269,10 +258,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         services.AddSingleton<IOptions<BundledMcpSettings>>(Options.Create(settings));
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
-        await using var provider = services.BuildServiceProvider();
-
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await using (var scope = provider.CreateAsyncScope())
             {
                 await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
@@ -306,18 +294,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("ghp-runtime-token", git.EnvironmentVariables?["Git__Token"]);
             Assert.Null(git.ApiKey);
         }
-        finally
-        {
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-                // Best-effort cleanup for a temporary SQLite file.
-            }
-        }
+        finally { DeleteDatabase(dbPath); }
     }
 
     [Theory]
@@ -334,6 +311,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             ["provider"] = "Provider",
             ["model"] = "Model",
             ["reasoning_effort"] = "ReasoningEffort",
+            ["inference_transport"] = "InferenceTransport",
             ["use_logged_in_user"] = "UseLoggedInUser",
             ["request_timeout_seconds"] = "RequestTimeoutSeconds",
             ["managed_session_ttl_seconds"] = "ManagedSessionTtlSeconds"
@@ -350,7 +328,8 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                         entry => entry.Key,
                         entry => new BundledMcpEditableFieldSettings
                         {
-                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}"
+                            SecretKey = $"LLM--McpServerOverrides--{serverName}--Code--Copilot--{entry.Value}",
+                            Target = entry.Value == "InferenceTransport" ? "env:Code__Copilot__InferenceTransport" : null
                         },
                         StringComparer.OrdinalIgnoreCase)
                 }
@@ -367,9 +346,9 @@ public sealed class KeyVaultRuntimeConfigStoreTests
         }));
         services.AddSingleton<IKeyVaultRuntimeConfigStore, KeyVaultRuntimeConfigStore>();
 
-        await using var provider = services.BuildServiceProvider();
         try
         {
+            await using var provider = services.BuildServiceProvider();
             await provider.InitializeKeyVaultMcpAsync(ct: TestContext.Current.CancellationToken);
             await using (var scope = provider.CreateAsyncScope())
             {
@@ -385,6 +364,7 @@ public sealed class KeyVaultRuntimeConfigStoreTests
                     ["Provider"] = "openai",
                     ["Model"] = "fallback-model",
                     ["ReasoningEffort"] = "medium",
+                    ["InferenceTransport"] = "gnougo-structured-tools-v1",
                     ["UseLoggedInUser"] = "false",
                     ["RequestTimeoutSeconds"] = "600",
                     ["ManagedSessionTtlSeconds"] = "300"
@@ -422,24 +402,14 @@ public sealed class KeyVaultRuntimeConfigStoreTests
             Assert.Equal("tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp", copilot.Command);
             Assert.Equal(["--stdio"], copilot.Args);
             var environment = Assert.IsType<Dictionary<string, string?>>(copilot.EnvironmentVariables);
-            Assert.Single(environment);
+            Assert.Equal(2, environment.Count);
             Assert.Equal(expectedDatabasePath, environment["KeyVault__DatabasePath"]);
+            Assert.Equal("gnougo-structured-tools-v1", environment["Code__Copilot__InferenceTransport"]);
 
             var configuredProvider = Assert.Contains("openai", effective.Models);
             Assert.Equal("provider-secret", configuredProvider.ApiKey);
             Assert.Equal("https://api.openai.com/v1", configuredProvider.Url);
         }
-        finally
-        {
-            try
-            {
-                if (File.Exists(dbPath))
-                    File.Delete(dbPath);
-            }
-            catch (IOException)
-            {
-                // Best-effort cleanup for a temporary SQLite file.
-            }
-        }
+        finally { DeleteDatabase(dbPath); }
     }
 }

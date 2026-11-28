@@ -1,0 +1,20 @@
+{
+  "reference_session": "db68062abe534f9aa3bfcbe06cdea2fa",
+  "block": "block_1",
+  "completion_checkpoint": 9,
+  "reviewed_task_ids": [
+    "destination",
+    "clone",
+    "comparison",
+    "annotation_check",
+    "review",
+    "write_report",
+    "written_report",
+    "cleanup",
+    "cleanup_check"
+  ],
+  "local_review_recognized": true,
+  "global_review_or_execution_claimed": false,
+  "model_calls": 0,
+  "source": "37216f5a26549f5f102a76e034d73f089640df3c"
+}

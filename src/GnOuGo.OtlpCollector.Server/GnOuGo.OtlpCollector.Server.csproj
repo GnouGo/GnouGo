@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <LangVersion>preview</LangVersion>
+    <LangVersion>15.0</LangVersion>
     <OutputType>Exe</OutputType>
     <AssemblyName>GnOuGo.OtlpCollector.Server</AssemblyName>
     <TargetName>GnOuGo.OtlpCollector.Server</TargetName>
@@ -115,17 +115,17 @@
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/trace/v1/trace_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/logs/v1/logs_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
     <Protobuf Include="Protos/otlp-proto/opentelemetry/proto/collector/metrics/v1/metrics_service.proto" ProtoRoot="Protos/otlp-proto" GrpcServices="Server" />
-    <PackageReference Include="Grpc.Tools" Version="2.84.0">
+    <PackageReference Include="Grpc.Tools" Version="2.85.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Google.Protobuf" Version="3.36.2" />
 
     <!-- gRPC server -->
-    <PackageReference Include="Grpc.AspNetCore" Version="2.84.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.85.0" />
 
     <!-- EF Core SQLite storage -->
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0" />
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.5" />
   </ItemGroup>
 

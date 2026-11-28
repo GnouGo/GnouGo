@@ -50,8 +50,9 @@ internal static class WorkflowTelemetryInputAttributes
     private static JsonObject RedactSensitiveObject(JsonObject source)
     {
         var redacted = new JsonObject();
+        var image = source["mimeType"]?.ToString().StartsWith("image/", StringComparison.OrdinalIgnoreCase) == true;
         foreach (var (key, value) in source)
-            redacted[key] = IsSensitiveKey(key) ? "<redacted>" : RedactSensitiveValues(value);
+            redacted[key] = IsSensitiveKey(key) || image && key is "data" or "blob" ? "<redacted>" : RedactSensitiveValues(value);
         return redacted;
     }
 

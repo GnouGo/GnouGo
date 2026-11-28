@@ -1,0 +1,96 @@
+{
+  "source": "a2ffec26df4e02f37d46a657967fe7149d1a9f2a",
+  "identity": "diagnosis301-amazon-real-profile-20261110-02",
+  "kind": "Fresh source-only actual benchmark host profile; not guarded workflow or workbook execution",
+  "real_benchmark_configuration_builder": true,
+  "policy": "amazon-observed-product-context-v3",
+  "safe_host_policy": {
+    "Browser__KeepBrowserOpen": "false",
+    "Browser__AllowedHosts__0": "www.amazon.fr",
+    "Browser__AllowedHosts__1": "amazon.fr",
+    "Browser__AllowedHosts__2": "sponsored-ads.amazon.fr",
+    "Browser__AllowedNavigationUrlPatterns__0": "(?:https://(?:www\\.)?amazon\\.fr/(?:s\\?[^#]+|sspa/click\\?[^#]+|(?:[^/?#]+/)?dp/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/product/[A-Za-z0-9]{10}(?:[/?][^#]*)?|gp/aw/d/[A-Za-z0-9]{10}(?:\\?[^#]*)?)|https://sponsored-ads\\.amazon\\.fr/clk/\\?[^#]+)",
+    "Browser__ObservationAncestorAttributes__0": "data-asin"
+  },
+  "browser_assembly_sha256": "e800d3a7863e576d361cd371257b8b698eda8681a6ffdf78285b0c70674dd3e7",
+  "model_calls": 0,
+  "campaign_spend_eur": "0",
+  "full_amazon_planning_started": false,
+  "delegated_product_link_guard_exercised": false,
+  "source_records": 1495,
+  "source_capture_truncated": false,
+  "source_manifest_truncated": false,
+  "actual_sponsored_paths": {
+    "/clk/": 65
+  },
+  "historical_clk_without_slash_still_forbidden": true,
+  "context_dom_matches_original_observation": true,
+  "contexts": [
+    {
+      "attributes": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 0
+        }
+      },
+      "html_characters": 89368,
+      "truncated": false
+    },
+    {
+      "attributes": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 23
+        }
+      },
+      "html_characters": 196932,
+      "truncated": false
+    },
+    {
+      "attributes": {
+        "data-asin": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 86
+        }
+      },
+      "html_characters": 66092,
+      "truncated": false
+    }
+  ],
+  "whole_page_html_truncated": true,
+  "independent_oracle": {
+    "kind": "read-only actual-source inspection; no workflow execution or generation",
+    "selection_evidence": {
+      "version": "amazon-business-v7",
+      "passed": false,
+      "expected_product_count": 3,
+      "visited_product_count": 0,
+      "findings": [
+        "search_product_context_unverified",
+        "first_product_visits_incomplete"
+      ]
+    },
+    "eligible_observed_redirect_entries": 0,
+    "source_record_count": 1495,
+    "capture_truncated": false
+  },
+  "source_prerequisite_passed": false,
+  "browser_closed": true,
+  "permissions_changed": false,
+  "oracle_changed": false,
+  "private_evidence_sha256": {
+    "diagnosis301-amazon-real-profile-20261110-02.html-result.json": "6cb6bee55b0d9da82229918122d52df7da5eca802c1e3e1e3ba35aa5dfc416a6",
+    "diagnosis301-amazon-real-profile-20261110-02.oracle.json": "65d7e0a68f06809d46d2a2471906d6e5985023c1be18be9360bf31f19a573fa8",
+    "diagnosis301-amazon-real-profile-20261110-02.contexts.json": "63715442580c6e0c83fe6ad83a3f74318a4a2289572675c4da2c006899bf1a97",
+    "diagnosis301-amazon-real-profile-20261110-02.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "diagnosis301-amazon-real-profile-20261110-02.observation.json": "0445dda3f8172cbb855829f84296b9ce0d2f274ddc3ca7e9db5f32d8aebf83e5",
+    "diagnosis301-amazon-real-profile-20261110-02.profile.json": "24400bc877ef943cb746c0cd314830ae06194be4168716e1074d5b3b7bae5fee",
+    "diagnosis301-amazon-real-profile-20261110-02.html": "579ace883299fa4b88720ab88e3dbc13333124ce8f81c1369d5d32c6090198fb"
+  }
+}

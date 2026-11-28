@@ -2,6 +2,12 @@
 
 ## Command completion and bounded output reads
 
+After a native tool returns an observation, the last affordable inference can
+return a final answer using that history. The host sets optional tool selection
+to `none` when another request of the same size would exceed the approved token
+budget or the current call is the last allowed. Explicitly required tools keep
+their selection policy. Physical retries use the previously admitted request.
+
 Native asynchronous shell calls can finish through a later polling callback.
 Execution observations correlate those exits within the same SDK session and
 unambiguous shell/command instance. Resolved terminals identify their original
@@ -32,7 +38,7 @@ Verified terminal failures retain partial evidence and a durable error receipt;
 unknown completion continues to prohibit automatic replay and cleanup. Historical
 uncertain invocations are never reconciled automatically by this correction.
 
-Publishable .NET 10 library containing the GitHub Copilot SDK integration used by GnOuGo. It is independent of MCP transport and can be tested with fake SDK clients.
+Publishable .NET 11 library containing the GitHub Copilot SDK integration used by GnOuGo. It is independent of MCP transport and can be tested with fake SDK clients.
 
 Hosts can inject the SDK's `CopilotRequestHandler` into `GitHubCopilotSdkClientFactory`.
 `CopilotInferenceProxyHandler` routes inference through an explicit loopback HTTP
@@ -53,7 +59,7 @@ result field defaults to an empty list when reading older serialized results. Bo
 legacy `terminal` and current `shell_exit` SDK receipts are supported; output-preview
 truncation and output-file metadata remain explicit.
 
-The library pins `GitHub.Copilot.SDK` `1.0.14`, bundles Copilot CLI `1.0.88`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
+The library pins `GitHub.Copilot.SDK` `1.0.34`, bundles Copilot CLI `1.0.112`, and maintains an explicit GA allowlist. The CLI version supplies the native runtime wrapper and its adjacent runtime library required by this SDK. Experimental, preview, insiders, fleet, fork, remote/cloud sandbox, canvas, extensions, manual compaction, history truncation, agent-management, citations, and unknown RPC APIs are rejected.
 
 It provides:
 
@@ -84,8 +90,9 @@ clears the owned transient store; SDK disk deletion is used only for native stor
 
 Controlled sessions expose Core's `project_read`, `project_write`, `project_append`,
 `project_list`, `project_stat`, `project_mkdir`, `project_remove`, and `project_rename`
-functions. Native file tools and child-agent tools are excluded so file I/O cannot bypass
-the injected policy. Tool allowlists are still applied; hosts using an explicit allowlist
+functions. Bounded tasks can also expose native `view` for files and directories, and `apply_patch` for edits, through
+the registered filesystem. The host validates every declared patch destination.
+Tool allowlists are still applied; hosts using an explicit allowlist
 must name the required `project_*` functions. Deny-mode suggestions receive no file tools.
 The pre-tool hook and permission callback enforce host policy before remembered approval,
 and each filesystem operation validates again before accessing the project.
@@ -121,3 +128,13 @@ session enforcement probe remains authoritative before inference. This query nev
 changes device settings, authentication or permissions.
 
 Agent budget stops retain safe admission diagnostics and execution observations. Only verified cessation permits a terminal failure and cleanup; unknown outcomes require explicit reconciliation. See [budget stops and recovery](../../docs/agent-budget-interruptions.md).
+
+
+An optional captured `InferenceTransport` identifies a host-registered HTTP adapter.
+Core admits the prepared physical request through the existing inference budget
+before direct or policy-proxy dispatch, and restores the SDK response afterward.
+A received response that fails decoding does not become a transport retry or
+release its reservation. Native configurations omit the new field and keep their
+previous representation. Restore requires the registered adapter for the captured
+identity; it cannot silently substitute native inference. Adapters execute no tools
+and change no filesystem, approval or sandbox rules.

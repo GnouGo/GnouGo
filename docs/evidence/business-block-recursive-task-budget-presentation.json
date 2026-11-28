@@ -1,0 +1,105 @@
+{
+  "schema": 1,
+  "recorded_utc": "2026-10-30T11:40:12.641586+00:00",
+  "purpose": "Present the existing captured recursive task bound in generator and repair requests; preserve all enforcement and review authority.",
+  "parent_source": "aa21aca20fb3f31ccd27f4c6291f6166b9f733f7",
+  "retained_observation": {
+    "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+    "run": "biz6f063c51amz01-amazon-2",
+    "request_ordinal": 6,
+    "request_record_sha256": "ca7a5a01afec04e5f3a684999c9b7e274d13abe01409b259c468928252770bab",
+    "received_response_snapshot_sha256": "01804b211a60e646e624d7bb858dbd12c1047fc4e52efde5fe12c202ea8d2ccc",
+    "captured_recursive_task_limit": 8,
+    "request_context_includes_numeric_recursive_task_limit": false,
+    "schema_root_description_includes_numeric_recursive_task_limit": false,
+    "local_task_array_maxItems": 8,
+    "received_recursive_task_count": 25,
+    "received_local_task_array_counts": {
+      "top_level": 1,
+      "sequence_body": 8,
+      "each_of_three_conditional_bodies": 4,
+      "each_of_three_conditional_otherwise_bodies": 1,
+      "sequence_cleanup": 1
+    },
+    "all_local_task_arrays_within_schema_limit": true,
+    "diagnostic_code": "CONSTRUCTION_DRAFT_LIMIT",
+    "diagnostic_location": "/root",
+    "old_diagnostic_omits_actual_and_maximum_counts": true,
+    "interpretation": "The host correctly rejected the aggregate overflow. The issued authoring request omitted the numeric shared limit; per-array maxima did not convey it."
+  },
+  "implementation": {
+    "numeric_value_source": "PlanningConstructionState.Limits.MaxTasksPerDraft captured for the session",
+    "presentation": "Draft, replacement and typed-repair authoring context includes maxTasksPerDraft with shared counting guidance. Larger work uses existing bounded continueInScope fragments.",
+    "counting": "Existing TaskPlanRevisions.Tasks traversal: each control and every nested body, otherwise, branch and always task, plus group bodies.",
+    "diagnostics": "Existing code and location now include actual recursive task count and captured maximum, also after structural repair.",
+    "unchanged": [
+      "captured bound",
+      "recursive counting implementation",
+      "schema array maxima",
+      "selected step and original requirements",
+      "repair counters and paths",
+      "raw receipts",
+      "continuation and acceptance semantics",
+      "business Judge projection",
+      "approvals and execution authority",
+      "model profile and output allocation"
+    ],
+    "automatic_response_rewriting": false,
+    "new_planner_or_execution_path": false
+  },
+  "source_file_sha256": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Schemas.cs": "dcc7968f76a1b1d3e52be1a384a8d391fad4c67c91cc995e3dc76661f173c9db",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "e6e38227a521bd9a2cb7c8ee9e9686b229ea05d3ddd7233c9cacd852a4eb68ab",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.cs": "992883ac11e05edcd0ccf85b3df4963a4a7fbe8ca50ac236411ab78ef4d8a9f0",
+    "src/GnOuGo.Flow.Planning/PlanningConstruction.Evidence.cs": "03a4b3d59710e4716859ae48c1e16e1d495ad2a76541b21a4637ac77cdf78035",
+    "tests/GnOuGo.Flow.Planning.Tests/RecursiveTaskBudgetPresentationTests.cs": "1984e5222f77b6a7787748daf826da6b1ddc941ac1edf948411d6fc7c159dfe4",
+    "tests/GnOuGo.Flow.Planning.Tests/CoherentBusinessFragmentTests.cs": "f5e4b8e47bae2d771a500e71836eea28eb425dda982621f8ad321403c6af75b6"
+  },
+  "regression_coverage": [
+    "Rendered draft and replacement requests retain nondefault 3 and default 8 numeric limits through context compaction and source-generated session restart.",
+    "A 25-task fragment with locally valid task arrays, directly and inside a reusable group, keeps the existing exact limit rejection without changing its raw extension, accepted plan, checkpoints or correction count.",
+    "Ten related tasks still continue one selected block as 8 plus 2 across restart, with one business review and unchanged optional requirement closure; budget context is absent from that review."
+  ],
+  "checks": [
+    {
+      "name": "pr120-task-budget-red.log",
+      "status": "expected_failure",
+      "passed": 0,
+      "failed": 8,
+      "skipped": 0,
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~RecursiveTaskBudgetPresentationTests|FullyQualifiedName~TenTasksContinueOneSelectedBlockAcrossRestartWithTwoDraftsAndOneReview'",
+      "provenance": "Parent production source with the new and strengthened regression assertions.",
+      "log_sha256": "645e657349540ba035707217ec81f38ea5466583ef44bae38792f57d77a4bea1",
+      "surfaced_warning_lines": 0
+    },
+    {
+      "name": "pr120-task-budget-focused.log",
+      "status": "passed",
+      "passed": 34,
+      "failed": 0,
+      "skipped": 0,
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --filter 'FullyQualifiedName~RecursiveTaskBudgetPresentationTests|FullyQualifiedName~CoherentBusinessFragmentTests|FullyQualifiedName~PopulatedScopeClosureTests'",
+      "provenance": "Build of the source files identified below; no subsequent production or test edits.",
+      "log_sha256": "f5244541793ed476f6b88045e51126a106797a98e1e8603d0e7dbfbbadbd5a05",
+      "surfaced_warning_lines": 0
+    },
+    {
+      "name": "pr120-task-budget-full-planning.log",
+      "status": "passed",
+      "passed": 2402,
+      "failed": 0,
+      "skipped": 0,
+      "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests/GnOuGo.Flow.Planning.Tests.csproj -m:1 -warnaserror -p:SkipClientBuild=true -p:SkipModelMetadataGeneration=true --no-build",
+      "provenance": "The same binaries as the focused warning-free build; full owning Planning suite.",
+      "log_sha256": "a02b6bdd8d9aa0263f81140b28e6123774661a675ff0b548c8ce720a2bab52ac",
+      "surfaced_warning_lines": 0
+    }
+  ],
+  "independent_read_only_review": "No material issue found in captured-value source, traversal correspondence, preserved rejection predicates, generator-only presentation or continuation/Judge lifecycle.",
+  "limitations": [
+    "Tests use controlled local fixtures; the changed source has not been dispatched live.",
+    "The historical run later ended with a separately received output_limit response. This presentation fix does not establish a remedy for output exhaustion or live scenario success.",
+    "No historical request or response was rewritten or replayed, and no model call, ledger mutation or execution was performed for this change.",
+    "Full solution and publication validation have not been run for this candidate; prior-source checks remain historical."
+  ]
+}

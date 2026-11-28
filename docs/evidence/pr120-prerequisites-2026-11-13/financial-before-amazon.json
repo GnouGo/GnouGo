@@ -1,0 +1,15 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceilingEur": 1700,
+  "retainedApplicationReservationsEur": "78.429543670458514476397434969",
+  "globallyAvailableFunding": null,
+  "fundingLimitation": "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+  "historicalChanges": false,
+  "grants": 6,
+  "accounting": {
+    "calls": 2107,
+    "known_cost_eur": "908.5392655620241827138379124",
+    "reserved_cost_eur": "419.6402955665024630541871923",
+    "unknown_attempts": 50
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "baseline": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+  "baseline_failure": {
+    "case": "GnOuGo.Agent.Server.Tests.AmazonBusinessOracleTests.TenProductQualificationReopensWorkbookAndChecksWorkflowClosure(variant: \"read_writer_path\", expected: True)",
+    "message": "{\"passed\":false,\"findings\":[\"independent_workflow_workbook_read_missing\"]}",
+    "counts": {
+      "total": "14",
+      "executed": "14",
+      "passed": "13",
+      "failed": "1",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trx_sha256": "63de7da85aa133e0f4fdb7794c66964b3fc782d196c06c681f888f8d5fcc0f54"
+  },
+  "corrected": {
+    "counts": {
+      "total": "143",
+      "executed": "143",
+      "passed": "143",
+      "failed": "0",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "trx_sha256": "71fa50e905a635cabc14355e30931c2035aa84b3a3ee776ccecd11a6fa15f7ed",
+    "server_test_assembly_sha256": "8c3c6765de9f6cdb8ec854327837d753c1cbfce7f34ac5c7ce8e0a23e58c46fb"
+  },
+  "evidence_scope": "Windows loopback fixtures on a real workbook, signed-source selection tests and retained revision tests. The caller delivery tests use the normal public output envelope and check exact run, agent and value. No provider calls."
+}

@@ -1,0 +1,53 @@
+{
+  "observed_source": "c34e376a304bca0fd6ad0445f1622a62c6d5e7bd",
+  "validation_source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+  "run": "improve40-amazon-20261127-120807",
+  "session": "3fcc0261d2874ba28ffc69a5a39d3158",
+  "validation": "Production TaskPlanCompiler.ValidateConstruction on the original accepted prefix and each of the three captured scoped edits. Only the offending nullable operand was changed for the second check. The remaining business workflow was still unbuilt.",
+  "new_provider_calls": 0,
+  "binary_sha256": "6e86b2644081cdbfbf90e025222734005b8077ad5f2915db6ddd0f2bcb2b9da8",
+  "cases": [
+    {
+      "logical_request": 20,
+      "captured_exchange_sha256": "3b12089625e0b92bba29b7f4d3cb9df73c5a76027c549d940c955743f9a87217",
+      "scoped_candidate_sha256": "12713408eb13f701efa43b0d830d90ee143ce6331d0f0b748b76f749a06ba142",
+      "rejected": [
+        {
+          "code": "TASK_CONDITION_TYPE",
+          "location": "/tasks/prefix_decision/condition",
+          "message": "Conditions require a boolean business value. The operand 'search.observedSourceAccepted' has contract [\"boolean\",\"null\"]. When the requirement needs an affirmative flag, compare this operand to literal true using equal. A null flag fails that comparison."
+        }
+      ],
+      "explicit_affirmative_guard_sha256": "936fc4087a833a0ec87ec310c8d0091f358d7e101902a88c7291154494924a50",
+      "corrected_partial_candidate_diagnostics": []
+    },
+    {
+      "logical_request": 21,
+      "captured_exchange_sha256": "09958e69f3c03c5a2380743a52403c3f702b237d6df8fd53790e713ea2152d0e",
+      "scoped_candidate_sha256": "db68a095ff8326ebf6a44c34709230a71a5d6c070941e09292b2fc12bddb4b20",
+      "rejected": [
+        {
+          "code": "TASK_CONDITION_TYPE",
+          "location": "/tasks/prefix_decision/condition",
+          "message": "Conditions require a boolean business value. The operand 'search.observedSourceAccepted' has contract [\"boolean\",\"null\"]. When the requirement needs an affirmative flag, compare this operand to literal true using equal. A null flag fails that comparison."
+        }
+      ],
+      "explicit_affirmative_guard_sha256": "f08c45d3783df2cd8368751fd27762f43cf17fe9f8702a20c615ebffc60b061e",
+      "corrected_partial_candidate_diagnostics": []
+    },
+    {
+      "logical_request": 22,
+      "captured_exchange_sha256": "039999901e3282bfeea45ff080cff5081181bda824ae7ae4eeb5430ed563bc6a",
+      "scoped_candidate_sha256": "97b0c07b067cdd1593452a85af94c29e6022777c68932bc260e169879874630b",
+      "rejected": [
+        {
+          "code": "TASK_CONDITION_TYPE",
+          "location": "/tasks/prefix_decision/condition",
+          "message": "Conditions require a boolean business value. The operand 'search.observedSourceAccepted' has contract [\"boolean\",\"null\"]. When the requirement needs an affirmative flag, compare this operand to literal true using equal. A null flag fails that comparison."
+        }
+      ],
+      "explicit_affirmative_guard_sha256": "cda05fdc077efbef4db7c51afc4c0281cd2cd48179de6a480df719d9a8d4dfc6",
+      "corrected_partial_candidate_diagnostics": []
+    }
+  ]
+}

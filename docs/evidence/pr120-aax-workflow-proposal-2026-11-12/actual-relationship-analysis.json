@@ -1,0 +1,38 @@
+{
+  "version": "amazon-aax-product-context-proposal-v1",
+  "active": false,
+  "relationship_evidence_complete": true,
+  "contexts": [
+    {
+      "original_context": {
+        "heading_record": "f0f1851f4aab4fe2b3c1f6ef64305326:record:402",
+        "source_records": [
+          "f0f1851f4aab4fe2b3c1f6ef64305326:record:400",
+          "f0f1851f4aab4fe2b3c1f6ef64305326:record:402",
+          "f0f1851f4aab4fe2b3c1f6ef64305326:record:406"
+        ],
+        "asin_context": {
+          "value": "",
+          "tag": "div",
+          "role": null,
+          "index": 24
+        },
+        "occurrence": null,
+        "classification": "unverified",
+        "product_identity": null,
+        "navigation_authorized": false
+      },
+      "original_member_count": 3,
+      "own_product_reads": 3,
+      "candidate_identity": "B0H8RD31XM",
+      "exact_review_aliases": [],
+      "relationship_supported": true
+    }
+  ],
+  "findings": [],
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false,
+  "navigation_authorized": false,
+  "model_calls": 0,
+  "navigation_calls": 0
+}

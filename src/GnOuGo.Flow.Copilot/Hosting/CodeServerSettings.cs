@@ -1,0 +1,90 @@
+namespace GnOuGo.GithubCopilot.Mcp;
+
+public sealed class CodeServerSettings
+{
+    public const string SectionName = "Code";
+
+    public string DefaultWorkingDirectory { get; set; } = "GnOuGo";
+    public long MaxFileSizeBytes { get; set; } = 512 * 1024;
+    public int MaxSearchResults { get; set; } = 100;
+    public int MaxPromptCharacters { get; set; } = 24_000;
+    public bool AllowWrites { get; set; }
+    public List<string> AllowedWorkingRoots { get; set; } = [];
+    public List<string> AllowedExtensions { get; set; } =
+    [
+        ".cs", ".csproj", ".sln", ".json", ".xml", ".yaml", ".yml", ".md", ".txt", ".ps1", ".sh",
+        ".js", ".jsx", ".ts", ".tsx", ".py", ".css", ".html"
+    ];
+    public CodeCopilotSettings Copilot { get; set; } = new();
+}
+
+public sealed class CodeCopilotSettings
+{
+    public CopilotLogicalLimits LogicalLimits { get; set; } = new();
+    public string? InferenceProxyEndpoint { get; set; }
+    public string InferenceTransport { get; set; } = "native";
+    public string Provider { get; set; } = "Copilot";
+    public string Model { get; set; } = "gpt-5.4";
+    public string Mode { get; set; } = "ask";
+    public string? ReasoningEffort { get; set; } = "high";
+    public string Endpoint { get; set; } = "https://models.github.ai/inference";
+    public string? ApiKey { get; set; }
+    public bool UseLoggedInUser { get; set; }
+    public bool ForwardTraceContext { get; set; } = true;
+    public string LogLevel { get; set; } = "warning";
+    public int RequestTimeoutSeconds { get; set; } = 120;
+    public int ManagedSessionTtlSeconds { get; set; } = 1800;
+    public bool EnableApproveAll { get; set; }
+    public bool EnableSandboxBypassGrants { get; set; }
+    public int WorkflowGrantTtlSeconds { get; set; } = 86_400;
+    public List<string> TokenEnvironmentVariables { get; set; } = ["GITHUB_TOKEN", "COPILOT_API_KEY"];
+    public Dictionary<string, CodeCopilotProviderSettings> Providers { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+    public CodeCopilotTelemetrySettings Telemetry { get; set; } = new();
+}
+
+public sealed class CodeCopilotProviderSettings
+{
+    public string? Provider { get; set; }
+    public string? Type { get; set; }
+    public string? Url { get; set; }
+    public string? Model { get; set; }
+    public string? WireApi { get; set; }
+    public string? WireModel { get; set; }
+    public string? AuthType { get; set; }
+    public string? ApiKey { get; set; }
+    public string? BearerToken { get; set; }
+    public string? ApiVersion { get; set; }
+    public string? OidcIssuer { get; set; }
+    public string? OidcClientId { get; set; }
+    public string? OidcScopes { get; set; }
+    public string? OidcClientSecret { get; set; }
+    public string? OidcPrivateKeyPem { get; set; }
+}
+
+public sealed class CodeCopilotTelemetrySettings
+{
+    public bool Enabled { get; set; } = true;
+    public string ExporterType { get; set; } = "otlp";
+    public string? OtlpEndpoint { get; set; } = "http://127.0.0.1:4317";
+    public string? FilePath { get; set; }
+    public string SourceName { get; set; } = "GnOuGo.GithubCopilot.Mcp.Copilot";
+    public bool CaptureContent { get; set; }
+}
+
+
+public sealed class CopilotLogicalLimits
+{
+    public int Sessions { get; set; } = 3;
+    public int Interactions { get; set; } = 64;
+    public int Seconds { get; set; } = 1800;
+    public int InferenceAttempts { get; set; } = 32;
+    public long ReservedTokens { get; set; } = 2_000_000;
+    internal void Validate()
+    {
+        if (Sessions is < 1 or > 3 || Interactions is < 1 or > 64 || Seconds is < 1 or > 1800 ||
+            InferenceAttempts is < 1 or > 32 || ReservedTokens is < 1 or > 2_000_000)
+            throw new InvalidOperationException("Logical Copilot limits must be positive and cannot exceed the host safety ceilings.");
+    }
+}
+

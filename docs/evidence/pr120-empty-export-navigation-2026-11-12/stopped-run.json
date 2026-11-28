@@ -1,0 +1,90 @@
+{
+  "session": "435c641ba1d9426da659673cf29333d4",
+  "status": "cancelled",
+  "revision": 116,
+  "issued_model_calls": 45,
+  "checkpoints": 6,
+  "diagnostics": [
+    "CONSTRUCTION_EVIDENCE_UNKNOWN"
+  ],
+  "phase_counts": {
+    "construction_intent": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.2427675772503358710255261979"
+    },
+    "construction_select": {
+      "issued": 5,
+      "physical_attempts": 5,
+      "complete": 5,
+      "known_usage": 5,
+      "known_cost_eur": "0.8555575459023734885803851322"
+    },
+    "construction_implementation": {
+      "issued": 13,
+      "physical_attempts": 12,
+      "complete": 12,
+      "known_usage": 12,
+      "known_cost_eur": "5.9537304075235109717868338555"
+    },
+    "construction_discovery": {
+      "issued": 8,
+      "physical_attempts": 8,
+      "complete": 8,
+      "known_usage": 8,
+      "known_cost_eur": "2.7837796686072548141513658755"
+    },
+    "construction_draft": {
+      "issued": 15,
+      "physical_attempts": 15,
+      "complete": 15,
+      "known_usage": 15,
+      "known_cost_eur": "9.6383967756381549484997760857"
+    },
+    "construction_local_judge": {
+      "issued": 2,
+      "physical_attempts": 2,
+      "complete": 2,
+      "known_usage": 2,
+      "known_cost_eur": "0.7908822212270488132557098075"
+    },
+    "replan": {
+      "issued": 1,
+      "physical_attempts": 1,
+      "complete": 1,
+      "known_usage": 1,
+      "known_cost_eur": "0.8265920286609941782355575459"
+    }
+  },
+  "physical_attempts": 44,
+  "complete_attempts": 44,
+  "known_usage_attempts": 44,
+  "max_complete_http_seconds": 92.39112,
+  "known_cost_eur": "21.0917062248096730855351545002",
+  "recent_attempts": [
+    {
+      "StartedAtUtc": "2026-11-11T23:00:06.579086+00:00",
+      "CompletedAtUtc": "2026-11-11T23:00:40.508958+00:00",
+      "FirstOutputAtUtc": "2026-11-11T23:00:39.650381+00:00",
+      "ProtocolComplete": true,
+      "UsageKnown": true,
+      "TerminationStatus": "stop",
+      "phase": "construction_implementation",
+      "duration_seconds": 33.929872,
+      "first_output_seconds": 33.071295
+    },
+    {
+      "StartedAtUtc": "2026-11-11T23:00:46.858262+00:00",
+      "CompletedAtUtc": "2026-11-11T23:01:20.661479+00:00",
+      "FirstOutputAtUtc": "2026-11-11T23:01:20.547517+00:00",
+      "ProtocolComplete": true,
+      "UsageKnown": true,
+      "TerminationStatus": "stop",
+      "phase": "construction_implementation",
+      "duration_seconds": 33.803217,
+      "first_output_seconds": 33.689255
+    }
+  ]
+}

@@ -60,11 +60,14 @@ public sealed record CopilotRuntimeConfiguration(
     /// </summary>
     public bool EnableSandboxBypassGrants { get; init; }
     public bool UseSessionFileSystem { get; init; }
+    [JsonIgnore] public IReadOnlyList<CopilotHostTool> HostTools { get; init; } = [];
     [JsonIgnore] public CopilotExecutionBounds? ExecutionBounds { get; init; }
     [JsonIgnore] public CopilotInferenceBudget? LogicalInferenceBudget { get; init; }
     [JsonIgnore] public CopilotLogicalPermissions? LogicalPermissions { get; init; }
     public string? LogLevel { get; init; }
     public CopilotTelemetryConfiguration? Telemetry { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? InferenceTransport { get; init; }
 }
 
 public sealed record CopilotTelemetryConfiguration(string ExporterType, string? OtlpEndpoint, string? FilePath, string SourceName, bool CaptureContent);
@@ -96,7 +99,15 @@ public sealed record CopilotHumanInputRequest(
     IReadOnlyList<string> Choices,
     bool AllowFreeform,
     string? Details = null,
-    JsonElement? RequestedSchema = null);
+    JsonElement? RequestedSchema = null)
+{
+    public string? RequestedHostTool { get; init; }
+    public CopilotProjectReadPermission? ProjectRead { get; init; }
+    public CopilotProjectWritePermission? ProjectWrite { get; init; }
+}
+
+public sealed record CopilotProjectReadPermission(string Tool, string Path);
+public sealed record CopilotProjectWritePermission(string Tool, IReadOnlyList<string> Paths);
 
 public sealed record CopilotHumanInputResponse(
     bool Accepted,
@@ -189,6 +200,9 @@ public sealed record CopilotSendResult(
     [property: Description("Whether the assistant turn completed. This does not certify that the requested work succeeded; use verified execution observations to establish its outcome.")]
     bool Completed = true)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public CopilotInferenceFailure? InferenceFailure { get; init; }
+
     public CopilotUsage? Usage { get; init; }
     public IReadOnlyList<string> ModifiedFiles { get; init; } = [];
     /// <summary>Host-only complete output artifacts for encrypted persistence. Never included in model-facing tool results.</summary>
@@ -229,8 +243,10 @@ public sealed record CopilotToolExecutionObservation(
         {
             foreach (var terminal in Terminals.Where(t => t.SourceToolCallId is not null))
             {
-                var source = observations.SingleOrDefault(o => o.ToolCallId == terminal.SourceToolCallId && o.CopilotSessionId == CopilotSessionId);
-                if (source is null || !source.CompletionObserved || source.ConflictingCompletion || source.ToolSucceeded != true ||
+                var sources = observations.Where(o => o.ToolCallId == terminal.SourceToolCallId && o.CopilotSessionId == CopilotSessionId).Take(2).ToArray();
+                if (sources is not [var source] || string.IsNullOrEmpty(CopilotSessionId) ||
+                    StartedSequence is null || CompletedSequence is null || source.StartedSequence is null || source.CompletedSequence is null ||
+                    !source.CompletionObserved || source.ConflictingCompletion || source.ToolSucceeded != true ||
                     source.StartedSequence <= StartedSequence || source.CompletedSequence <= CompletedSequence ||
                     !source.Terminals.Contains(terminal with { SourceToolCallId = null })) return null;
             }

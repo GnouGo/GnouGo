@@ -1,0 +1,58 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "kind": "external financial hold using original nominal reservation estimates where actual cost is unavailable; not historical repricing or an actual invoice",
+  "sessions": [
+    {
+      "session": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+      "inspectedAtUtc": "2026-11-06T20:00:10.811765+00:00",
+      "currency": "EUR",
+      "attempts": 258,
+      "unpricedCompleted": 256,
+      "pendingReservesAttempts": 1,
+      "costComplete": false,
+      "actualChargeUnavailable": true,
+      "budgetEvidenceHash": "63fff77cb94c90af57d816181455cedef00b0b7bce954f17ab1bb46008bdd76e",
+      "historicalChanges": false,
+      "modelDispatches": 0,
+      "unpricedNominalReservationHold": "547.0481824661439771917320028455",
+      "pendingReservesRetainedReservation": "2.0222736992159657875980042765",
+      "knownHistoricalSettledEstimate": "0.0860923022095509622238061297",
+      "raw_sha256": "0fb02ccd3641dd2c88c24339c27a67f95dee5f2fab64ead5e10e24117900ac59"
+    },
+    {
+      "session": "1a54de6fa5934c7aa9ddc3cd31da99cb",
+      "inspectedAtUtc": "2026-11-06T20:00:10.42134+00:00",
+      "currency": "EUR",
+      "attempts": 71,
+      "unpricedCompleted": 69,
+      "pendingReservesAttempts": 1,
+      "costComplete": false,
+      "actualChargeUnavailable": true,
+      "budgetEvidenceHash": "cbcc552bbe9d5d7254f21cb6985d2d7c088cda1c3a49157b4de06da14ca2a27b",
+      "historicalChanges": false,
+      "modelDispatches": 0,
+      "unpricedNominalReservationHold": "177.6835263720598717034925160346",
+      "pendingReservesRetainedReservation": "3.0320741268709907341411261582",
+      "knownHistoricalSettledEstimate": "0.0973182466143977191732002851",
+      "raw_sha256": "0e8910abfffdbf1438b0e43b7a30113c64b62dfa9ec26391f91b430df072c476"
+    }
+  ],
+  "local_01_retained_reservation_eur": "1.9552387740555951532430506058",
+  "exact_external_hold_eur": "731.9247059871703492516037063354",
+  "upward_rounded_decimal_admission_hold_eur": "731.9247059871703492516037064",
+  "cost_complete": false,
+  "no_historical_mutation": true,
+  "reader_sha256": "e295b9f189f842b241f5b2555b6c08de4c33328504451d02152ef424217178aa",
+  "retainedAdditionalBlockedServerSession": {
+    "session": "11386753f6ce4c4eb456deb20376e057",
+    "captured_budget_hash": "2c33cd8b550076985cedc63e5cdedf4d115d9be581cc296a0348d3e696fa45ee",
+    "currency": "EUR",
+    "retained_uncertain_reservation": "1.9655709807433945364979847738",
+    "calls": 1,
+    "uncertain_calls": 1,
+    "historical_changes": false,
+    "model_dispatches": 0
+  },
+  "roundedAdmissionHoldWithAdditionalBlockedSessionEur": "733.8902769679137437881016912",
+  "timestampsAreOriginalEvidence": true
+}

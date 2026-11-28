@@ -20,13 +20,6 @@ public sealed class OutputDeclarationDiagnosticsTests
         Assert.Null(result.Graph);
     }
 
-    [Fact]
-    public void HistoricalDeclarationDiagnosticsRemainUnchanged()
-    {
-        var result = new TaskPlanCompiler().Compile(Plan("same", true), new());
-        Assert.Contains(result.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID" && d.Location == "/tasks/assemble/outputs" &&
-            d.Message == "Business identities must be distinct, nonempty and outside reserved namespaces.");
-    }
 
     [Fact]
     public void NamesAndDiagnosticCountsAreBoundedWithoutExposingValues()

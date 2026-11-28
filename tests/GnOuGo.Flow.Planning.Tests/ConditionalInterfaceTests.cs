@@ -42,6 +42,34 @@ public sealed class ConditionalInterfaceTests
     private static void BindOperation(TaskPlan plan, PlanningCatalog catalog) =>
         TaskPlanRevisions.Tasks(plan).Single(t => t.Kind == "operation").Operation = catalog.Capabilities.Single(c => c.Server == "arbitrary").Id;
 
+    [Fact]
+    public async Task NullableFlagDiagnosticIdentifiesItsOperandInACompoundGuard()
+    {
+        var (_, catalog, _) = await Environment("");
+        var plan = Fixture(true, "");
+        BindOperation(plan, catalog);
+        plan.Inputs.Add(new() { Name = "flag", Type = new() { Kind = "boolean", Nullable = true } });
+        plan.Root.Tasks.Insert(0, new()
+        {
+            Id = "observation", Kind = "value", Objective = "Retain the observed flag",
+            Outputs = [new("permitted", new() { Kind = "input", Source = "flag" })]
+        });
+        var gate = plan.Root.Tasks[2];
+        var flag = new TaskValue { Kind = "output", Source = "observation", Port = "permitted" };
+        gate.Condition = new() { Kind = "predicate", Predicate = "and", Items = [flag, gate.Condition!] };
+
+        var rejected = new TaskPlanCompiler().Compile(plan, catalog);
+        var finding = Assert.Single(rejected.Diagnostics, d => d.Code == "TASK_CONDITION_TYPE");
+        Assert.Contains("observation.permitted", finding.Message);
+        Assert.Contains("[\"boolean\",\"null\"]", finding.Message);
+        Assert.Contains("literal true", finding.Message);
+        Assert.DoesNotContain("Conditional export contracts", finding.Message);
+
+        gate.Condition.Items[0] = new() { Kind = "predicate", Predicate = "equal",
+            Items = [flag, new() { Kind = "boolean", Boolean = true }] };
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
+    }
+
     [Theory]
     [InlineData("alpha_")][InlineData("omega_")]
     public async Task DifferentlyShapedWholeExportsRemainRejectedWithBranchContracts(string prefix)
@@ -67,20 +95,16 @@ public sealed class ConditionalInterfaceTests
     [Theory]
     [InlineData("alpha_", true, false)][InlineData("alpha_", false, false)]
     [InlineData("omega_", true, true)][InlineData("omega_", false, true)]
-    public async Task ExplicitPortsReachReviewWithoutRepairAndExecuteExactCapturedValues(string prefix, bool branch, bool absent)
+    public async Task ExplicitPortsValidateAndExecuteExactCapturedValues(string prefix, bool branch, bool absent)
     {
         var (engine, catalog, calls) = await Environment(prefix); var plan = Fixture(true, prefix); BindOperation(plan, catalog);
-        var runtime = new TestRuntime(engine) { Proposal = new() { Plan = plan, Requirements = new() { Summary = "Preserve the selected observations and use only an available selector", Inputs = plan.Inputs,
-            Outcomes = [new("selected", "Preserve the selected observations")] } } };
-        var session = PlannerFixture.Session(); session.Catalog = catalog; session.Request.Prompt = runtime.Proposal.Requirements.Summary;
-        session.Request.Generation.MaxInputTokensPerRequest = 96000;
-        var reviewed = await PlannerFixture.RunAsync(runtime, session);
-        Assert.True(reviewed.Status == PlanningStatus.FinalReview, string.Join("; ", reviewed.Diagnostics));
-        Assert.Single(runtime.Calls); Assert.Equal(0, reviewed.ReplanAttempts);
-        var before = JsonSerializer.Serialize(reviewed, PlanningJsonContext.Default.PlanningSession);
-        var restored = PlannerFixture.Clone(reviewed);
-        Assert.Equal(before, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
-        var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(reviewed.Yaml!));
+        var original = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
+        var restored = JsonSerializer.Deserialize(original, PlanningJsonContext.Default.TaskPlan)!;
+        Assert.Equal(original, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.TaskPlan));
+        var compiled = new TaskPlanCompiler().Compile(restored, catalog); Assert.Empty(compiled.Diagnostics);
+        PlanningConfirmationGuards.Apply(compiled.Graph!, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        var doc = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         JsonObject Observation(string label, bool extra) { var data = new JsonObject { [prefix + "ready"] = true, [prefix + "blocked"] = false,
             [prefix + "selector"] = absent ? null : label + " ${literal}", [prefix + "secondary"] = null,
             [prefix + "address"] = "https://local.invalid/" + label, [prefix + "label"] = label + " é 東京" }; if (extra) data[prefix + "extra"] = true; return data; }

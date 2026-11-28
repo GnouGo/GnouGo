@@ -89,12 +89,14 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         var sandbox = new JintSandbox(Math.Min(ctx.Limits.MaxExpressionStatements, 10000), Math.Min(ctx.Limits.ExpressionTimeoutSeconds * 1000, 5000),
             Math.Min(ctx.Limits.ExpressionMemoryLimitBytes, 50000000));
         var client = ctx.Engine.LLMClient;
+        var advisoryOptimization = ctx.LLMUsageBudget?.AdvisoryOptimizationThresholds == true;
         string? previous = null; string? failure = null; int? failedIndex = null;
         JsonNode? failureDetails = null;
         if (adaptive)
             return await ExecuteAdaptiveAsync(ctx, sources, collection!, eachInput!, eachOutput!, target, itemTarget!,
                 fingerprintData, sandbox, Model, ct);
         var allowance = sandbox.CreateMappingAllowance();
+        var unsuccessful = new HashSet<string>(StringComparer.Ordinal);
         try
         {
             var cached = persistent is null ? ctx.Engine.MappingMemory.GetValueOrDefault(key) : await persistent.ReadAsync(tenant!, key, ct);
@@ -114,7 +116,7 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                     if (persistent is not null) await persistent.RemoveAsync(tenant!, key, ct);
                 }
             }
-            for (var attempt = 0; attempt < 2; attempt++)
+            for (var attempt = 0; attempt < 2 || advisoryOptimization; attempt++)
             {
                 ct.ThrowIfCancellationRequested();
                 ctx.SetTelemetryAttribute("gnougo.mapping.model_attempts", attempt + 1);
@@ -136,7 +138,12 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
                     return result;
                 }
                 catch (WorkflowRuntimeException ex) when (ex.Code == "CONTRACT_UNSATISFIED" && ex.Details?["mapping_resource_limit"]?.GetValue<bool>() != true)
-                { previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); failureDetails = ex.Details; }
+                {
+                    previous = script; failure = ex.Message; failedIndex = ex.Details?["source_index"]?.GetValue<int>(); failureDetails = ex.Details;
+                    if (advisoryOptimization && !unsuccessful.Add(Hash(new JsonObject
+                        { ["script"] = script, ["source"] = contentHash, ["cause"] = failure }, ct)))
+                        throw JintSandbox.Unsatisfied("An identical mapping candidate repeated the same unresolved failure on unchanged source data.");
+                }
             }
             var details = new JsonObject { ["consumer_binding"] = input["binding"]!.DeepClone(), ["mapping_attempts"] = 2, ["source_index"] = failedIndex };
             // Carry only bounded structural diagnostics, never scripts or observations.
@@ -204,8 +211,12 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
             // Completed receipts returned above require no metadata or new call.
             // Newly dispatched learning requests include every bound source, even
             // when the declared output or iteration is small.
+            using var warnings = ctx.LLMUsageBudget?.ObserveTokenWarnings(request.ClientRequestId);
+            if (advisoryOptimization && !adaptive && attempt >= 2)
+                PlanningTokenThresholds.Warn("mapping.dynamic", "mapping_model_attempts", attempt + 1L, 2);
             await ModelRequestAdmission.ValidateAsync(request, ctx.Engine.LLMCapabilities ?? inferenceClient as ILLMCapabilityResolver,
-                ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct);
+                ctx.Limits.MaxMappingInputTokens ?? 12_000, "mapping.dynamic", ct,
+                ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true);
             async Task<JsonNode?> Dispatch(string? id)
             {
                 JsonObject receipt;
@@ -252,12 +263,13 @@ public sealed partial class DynamicMappingExecutor : IStepExecutor
         Copy opaque IDs/references verbatim: key:record.reference. Never shorten/decode IDs. Copy verbatim facts as one whole observed block, without trimming, joining or paraphrasing. UI affordances are not producer errors.
         Observed properties/contracts only. A locator string does not prove DOM ancestry; unfamiliar URLs remain observed targets. No guessed structure/formats; justified text/URL extraction allowed.
         Compact facts; decisions outside mapping. No blank/placeholder IDs.
+        m.indexed(originalArray): ordered {index,value} pairs with grounded zero-based positions. Filter after indexing.
         m.select(value, [[property,...],...], eachBoolean): first PRESENT path, null stays null.
         m.optional(item,['label']): observed container only; absent path needs a host-declared default, null stays null. Never pass constructed/filtered containers.
         Nullable fact example: ({key:item.reference,fact:m.has(item,'fact')?item.fact:null}).
         m.parse(token): strict JSON; m.text(token,pattern,captureIndex=1): capture or undefined; m.texts(token,pattern,captureIndex=1): ordered captures.
         m.trim(token); m.decode(token): HTML entities; m.percentDecode(token): URI percent escapes, not plus/HTML; m.resolveUri(observedReference,observedAbsoluteBase).
-        m.number(token): invariant decimal; m.has(object,property): presence; m.test(token,pattern): text match.
+        m.number(token): invariant decimal; m.has(object,property): presence; m.isNull(value): observed null; m.test(token,pattern): text match.
         Tokens: no literal comparisons/truthiness. Use m.test(token,'^literal$'), m.has, and return the original token. Empty collections need observed support.
         Patterns: JS strings, not /regex/; .NET nonbacktracking subset. JS: m.test(item.text,'\\S'); JSON needs four backslashes. Single JS backslash before S becomes literal S.
         Allowed: array map/filter/slice/flatMap, expression-only arrows; literal keys/paths/patterns/control arguments.

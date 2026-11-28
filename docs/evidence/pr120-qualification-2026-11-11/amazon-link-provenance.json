@@ -1,0 +1,569 @@
+{
+  "source_snapshot": "5b8184daa25741bc987b67a7dc77a03d",
+  "record_count": 1527,
+  "source_complete": true,
+  "context_evidence": [
+    {
+      "index": 0,
+      "complete": true,
+      "dom_sha256": "3915f986a1081de5cdad9d830256c355719eedd45d303b5609daeac2d7a1c515",
+      "nonempty_descendant_asin_elements": 3,
+      "source_snapshot": "5b8184daa25741bc987b67a7dc77a03d",
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:58",
+      "requested_selector": "#CardInstanceONl5owRUJZ_IpDpY4gpvLg > a:nth-of-type(1) >> xpath=ancestor-or-self::*[@data-asin][1]"
+    },
+    {
+      "index": 24,
+      "complete": true,
+      "dom_sha256": "47de7783a8b933f24385707752f9b50899b0e86e4ce478c21e8290102aec9a17",
+      "nonempty_descendant_asin_elements": 3,
+      "source_snapshot": "5b8184daa25741bc987b67a7dc77a03d",
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:394",
+      "requested_selector": "#CardInstancentj2wvPFOF90C7ll4G9jXg > a:nth-of-type(1) >> xpath=ancestor-or-self::*[@data-asin][1]"
+    },
+    {
+      "index": 80,
+      "complete": true,
+      "dom_sha256": "6c1da2a6afb66cf0063af618c5a434a2276591e57cf0188232e2fb9171de6e53",
+      "nonempty_descendant_asin_elements": 0,
+      "source_snapshot": "5b8184daa25741bc987b67a7dc77a03d",
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1213",
+      "requested_selector": "div:nth-of-type(2) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > div:nth-of-type(1) > a:nth-of-type(1) >> xpath=ancestor-or-self::*[@data-asin][1]"
+    }
+  ],
+  "links": [
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:58",
+      "source_index": 58,
+      "nearest_context_index": 0,
+      "href_sha256": "02a7a27c3e06c3ca0ce1ab13ed86251792801a6412afa05ef7f1d024d6ec94ef",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "sb-themed-collection-desktop-cards",
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "aetheris-painter",
+        "loom-desktop-top-slot_sb-unified-search"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "be2af22ec21e03c57126fb77e3f3e0b4c1bf33f5efb85c23620542beb315b676",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:59",
+      "source_index": 59,
+      "nearest_context_index": 0,
+      "href_sha256": "239cc0ada7c033357d731d485ffc486a3fc8ef45ed8042653d81370f4da244a6",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "sb-themed-collection-desktop-cards",
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "aetheris-painter",
+        "loom-desktop-top-slot_sb-unified-search"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "be2af22ec21e03c57126fb77e3f3e0b4c1bf33f5efb85c23620542beb315b676",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:60",
+      "source_index": 60,
+      "nearest_context_index": 0,
+      "href_sha256": "9dcda7d63d7505d2f7813609874b4aa8bfe2af0de89dbe95cb365dd531f8524b",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "sb-themed-collection-desktop-cards",
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "aetheris-painter",
+        "loom-desktop-top-slot_sb-unified-search"
+      ],
+      "anchor_data_elementid": "sb-headline",
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "be2af22ec21e03c57126fb77e3f3e0b4c1bf33f5efb85c23620542beb315b676",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:63",
+      "source_index": 63,
+      "nearest_context_index": 0,
+      "href_sha256": "df08d37119e6269924d95b291f7b64dba0fa7d3ff5c031642770a0714313bd89",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "sb-themed-collection-desktop-cards",
+        "sb-themed-collection-desktop_loom-desktop-top-slot_0",
+        "aetheris-painter",
+        "loom-desktop-top-slot_sb-unified-search"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [
+        "ctaContainer"
+      ],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "be2af22ec21e03c57126fb77e3f3e0b4c1bf33f5efb85c23620542beb315b676",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:394",
+      "source_index": 394,
+      "nearest_context_index": 24,
+      "href_sha256": "8357cd42e8d8df0da430a0234e34a52cc37264f56f4ea24f12e3e00dafeea1dc",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-v2-desktop_loom-desktop-inline-slot_0"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "eff8c3617473ef4a12e9a0fdb31323e208deecb02a15ba2d60b52a3bdedf5e53",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:395",
+      "source_index": 395,
+      "nearest_context_index": 24,
+      "href_sha256": "5dabbfae089beeb971b5545c68de7909cbb7a2eb3f2fec04ba2804f428f5b877",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-v2-desktop_loom-desktop-inline-slot_0"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "eff8c3617473ef4a12e9a0fdb31323e208deecb02a15ba2d60b52a3bdedf5e53",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:396",
+      "source_index": 396,
+      "nearest_context_index": 24,
+      "href_sha256": "0b9a3ba843562fb9b9cede56b63fa6f934b3e85a475a7265422984946ab2ab24",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-v2-desktop_loom-desktop-inline-slot_0"
+      ],
+      "anchor_data_elementid": "sb-headline",
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "eff8c3617473ef4a12e9a0fdb31323e208deecb02a15ba2d60b52a3bdedf5e53",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:401",
+      "source_index": 401,
+      "nearest_context_index": 24,
+      "href_sha256": "34841c5a7af8f5579e8c1a487c6ad462595352bcf08196ecfa9ac93579489906",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "collection",
+      "placement_structural_evidence": [
+        "sb-themed-collection-v2-desktop_loom-desktop-inline-slot_0"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [
+        "ctaContainer"
+      ],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "eff8c3617473ef4a12e9a0fdb31323e208deecb02a15ba2d60b52a3bdedf5e53",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1213",
+      "source_index": 1213,
+      "nearest_context_index": 80,
+      "href_sha256": "0898da41d8d1ca355aa53829d975b925cfa52c165ee1ab120d47bdef0440e33e",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "856f1d6d4cbcf9e95fa6d9686dcd460b4432e8b76cfe3b95c6fe1a81e144311b",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1214",
+      "source_index": 1214,
+      "nearest_context_index": 80,
+      "href_sha256": "35016e303d31ef9aa423bcf9726e795d57a8e99299ebb07c2984a71321956622",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "856f1d6d4cbcf9e95fa6d9686dcd460b4432e8b76cfe3b95c6fe1a81e144311b",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1215",
+      "source_index": 1215,
+      "nearest_context_index": 80,
+      "href_sha256": "2e339d5767407c76f5bd2798ca31a59261050b9b5eb98df9241aaec9f0a169af",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "856f1d6d4cbcf9e95fa6d9686dcd460b4432e8b76cfe3b95c6fe1a81e144311b",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1216",
+      "source_index": 1216,
+      "nearest_context_index": 80,
+      "href_sha256": "4d5f4aa44679f136bf4994b956a1072116b4ea134b60fb9981a9942aa9cd1092",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "10fb897aa5698d87f3a615d9f1d72bc3cce6678dab28d9b3c1059d19c74d3a4f",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1217",
+      "source_index": 1217,
+      "nearest_context_index": 80,
+      "href_sha256": "924433a08fd94c5bc2c0185ad2425fe5e3a8219486cddc09e7df397d101afc35",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "10fb897aa5698d87f3a615d9f1d72bc3cce6678dab28d9b3c1059d19c74d3a4f",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1218",
+      "source_index": 1218,
+      "nearest_context_index": 80,
+      "href_sha256": "5c4920204b50b265aaa62106ee304716b3de5bb520d055441eb6bf977dbcf13b",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "10fb897aa5698d87f3a615d9f1d72bc3cce6678dab28d9b3c1059d19c74d3a4f",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1219",
+      "source_index": 1219,
+      "nearest_context_index": 80,
+      "href_sha256": "2db13d1ed9aded5761329882a489706baf5cb4aa4ed61e1915460c39177b6e0a",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "aa073d47f765888383b4cfbefe02739528c78a79b07249d0432e49eb173baa37",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1220",
+      "source_index": 1220,
+      "nearest_context_index": 80,
+      "href_sha256": "419b64945847c2efa5548194378812697fe4d2c685cb2e786adc830843642601",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "aa073d47f765888383b4cfbefe02739528c78a79b07249d0432e49eb173baa37",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    },
+    {
+      "source_record": "5b8184daa25741bc987b67a7dc77a03d:record:1221",
+      "source_index": 1221,
+      "nearest_context_index": 80,
+      "href_sha256": "592362ab640bcf7fe8870c29dd19a47c6c2bea30ff4f2da1304cefe8e2e8df3e",
+      "exact_dom_anchor_matches": 1,
+      "nearest_dom_asin": "",
+      "source_occurrence": null,
+      "source_heading": null,
+      "same_href_identified_product_alias": false,
+      "placement": "brand_navigation",
+      "placement_structural_evidence": [
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "multi-brand-creative-desktop-cards",
+        "multi-brand-creative-desktop_loom-desktop-brand-footer-slot_0",
+        "aetheris-painter",
+        "loom-desktop-brand-footer-slot_hsa-id"
+      ],
+      "anchor_data_elementid": null,
+      "ancestor_data_type": [],
+      "declared_target_hint": {
+        "count": 1,
+        "host": "www.amazon.fr",
+        "path_kind": "/stores/page/{uuid}",
+        "value_sha256": "aa073d47f765888383b4cfbefe02739528c78a79b07249d0432e49eb173baa37",
+        "observed_redirect": false,
+        "navigation_target_constructed": false
+      },
+      "verified_product_identity": null,
+      "eligible_for_exclusion_under_v7": false
+    }
+  ],
+  "counts": {
+    "collection_placement": 8,
+    "brand_navigation_placement": 9,
+    "verified_destination_classifications": 0,
+    "still_unresolved_under_active_v7": 17
+  },
+  "conclusion": "Source placement is corroborated by exact DOM relationships and advertised store-page hints. Actual redirect destinations are unobserved. No equivalent proof of a product identity or permitted non-product exclusion is established under active v3/v7.",
+  "limitations": [
+    "HTML parsing is offline structural forensics, not a visibility recomputation or script replay.",
+    "Advertising r is examined only as an untrusted declared hint; it is never used for navigation, identity or exclusion.",
+    "Descendant ASINs are not assigned to outer links.",
+    "All 17 links retain source order; no product is filtered or normalized."
+  ],
+  "private_evidence_sha256": {
+    "next-amazon-observation-20261110-01.observation.json": "ec84c600c70bec59f3fde9f5c13d5cfc625d7581c7e2baa28aeb758f9fdd453e",
+    "next-amazon-observation-20261110-01.contexts.json": "9d2370b361337ffb8dea436937fe3ab7310585c5825af161cd42381bd8534e51",
+    "next-amazon-observation-20261110-01.profile.json": "b1070af41f36209c8726f0514c1ba553ed07487a39b3af11e5a72d209519a500"
+  }
+}

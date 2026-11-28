@@ -1,0 +1,16 @@
+{
+  "source_sha": "3cf04d86231d4ae4ceced6bad98f453fba9f0c7f",
+  "label": "improve40-sdk-none-20261127-083150",
+  "passed": false,
+  "sdk_chat_tools_reasoning_effort": "none",
+  "execution_ms": 5645,
+  "command_count": 0,
+  "completion_verified": true,
+  "receipt_reloaded": false,
+  "cleanup": false,
+  "error": "MCP_CALL_ERROR",
+  "physical_provider_attempts": 0,
+  "measured_eur": "0E-27",
+  "guard": "AGENT_ISOLATION_REQUIRED: Bounded commands require mandatory host isolation. Configure managed sandbox.enabled=true and sandbox.failIfUnavailable=true before approval.",
+  "scope": "Disposable command readiness. The mandatory host-isolation requirement was enforced before SDK dispatch."
+}

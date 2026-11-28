@@ -120,7 +120,8 @@ public sealed class ExecutionLimits
     public int ExpressionMemoryLimitBytes { get; set; } = 1_000_000_000;
     public int MaxSwitchCases { get; set; } = 100;
     public int MaxFunctionCallDepth { get; set; } = 50;
-    public int FinalizationTimeoutSeconds { get; set; } = 30;
+    public const int DefaultFinalizationTimeoutSeconds = 30;
+    public int FinalizationTimeoutSeconds { get; set; } = DefaultFinalizationTimeoutSeconds;
     public int MaxFinalizationSteps { get; set; } = 50;
 
     /// <summary>

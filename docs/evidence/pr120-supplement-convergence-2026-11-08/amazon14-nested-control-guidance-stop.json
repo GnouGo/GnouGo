@@ -1,0 +1,43 @@
+{
+  "run": "amazon-qualification-20261109-14",
+  "session": "22fd54fb2be64c0e94d80824b3d27d8e",
+  "source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+  "status": "cancelled",
+  "calls": 33,
+  "physical_attempts": 33,
+  "known_usage_tariff_eur": "10.991339005821764442454097631",
+  "unknown_attempts": 1,
+  "full_unknown_reservation_eur": "8.1884549932825794894760412",
+  "global_review": false,
+  "execution_started": false,
+  "new_advertising_host_contacted": false,
+  "first_accepted_call": 11,
+  "unchanged_plan_review_claim_call": 13,
+  "ordinary_local_review_ok_call": 14,
+  "reselection_calls": [
+    19,
+    27,
+    31
+  ],
+  "first_cause": "The sequence draft grammar permits nested foreach controls but its semantic guidance describes only the selected anchor. Repeated sequence strategies seek the absent foreach collection/export contract before declaring future body outputs.",
+  "protected_stop_pending_call": 33,
+  "retention_kind": "cancelled-planning-request",
+  "reservation_retained": true,
+  "replay_and_continuation_forbidden": true,
+  "retention_evidence_hash": "3d13679a54de41282c7b4ba7a8bf12f931070023a6f57927ec0559f5b49821ea",
+  "closed_available_eur": "83.224487236901030004478273388",
+  "retained_application_holds_eur": "44.588114643976712942230183612",
+  "campaign_ceiling_eur": "1200",
+  "private_evidence_sha256": {
+    "amazon14-stopped-final.json": "e2df425348acb6c0e84d60cffb69e550d119d6d5c4f5bef99f99047721691bc5",
+    "amazon14-retention-applied.json": "e522eb31cd64db792c7ae920b91ac484ba928ea265e52f25a3081d9bf845f3aa",
+    "amazon14-closed-audit.json": "6fdebc9889352382e40a4cbf78fcb378f57dede2c63960cbfbb9c00e3af0f49b",
+    "amazon14-request25.json": "1b001b50f4b793b07de39654219756fbadba8339d209219c8089580a9a36dc3e",
+    "amazon14-receipts-final.json": "c781c972f66698ef9e0ae237e2b7d47bc3a29069201c5d0253ca6336b10c77fe"
+  },
+  "limitations": [
+    "No global review, artifact approval, product visit or workbook execution; this is not Amazon end-to-end qualification.",
+    "The reviewed search prefix remains valid prefix evidence; the cancelled run is never resumed.",
+    "Measured-usage tariff estimates and conservative holds are not provider invoices."
+  ]
+}

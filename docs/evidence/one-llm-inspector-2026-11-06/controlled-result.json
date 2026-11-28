@@ -1,0 +1,11 @@
+{
+  "provider": "controlled HTTP fixture; no paid inference",
+  "ordinarySessionId": "eafb0482f4e24702bb2e34d319327726",
+  "sessionId": "ac4feebd3cbd4fb1aac5e2f43a1520ae",
+  "strictSessionId": "b99039ac642240508258fb8af88e8dc0",
+  "correctedSessionId": "41ce5aa083ea4b9dbaa4e5557552638e",
+  "emptySessionId": "d2047fadbd4f4f5aa8a880568290e227",
+  "partialSessionId": "271ab772726544d2ac31836ae51ce7e9",
+  "cancelledSessionId": "e5854ec2adb44ed0aca8d0d0708c7e2e",
+  "browserErrors": []
+}

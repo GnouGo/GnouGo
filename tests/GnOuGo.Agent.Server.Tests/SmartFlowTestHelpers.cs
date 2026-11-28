@@ -56,6 +56,9 @@ internal sealed class FakeKeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigSto
     {
         return Task.FromResult(_effectiveOptions ?? baseOptions);
     }
+    public Task<string?> GetConfiguredModelAsync(string provider, CancellationToken ct)
+        => Task.FromResult(string.Equals(provider, _effectiveOptions?.DefaultProvider, StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(_effectiveOptions?.DefaultModel)
+            ? _effectiveOptions?.DefaultModel : null);
 }
 
 internal sealed class RecordingLlmClient : ILLMClient
@@ -212,7 +215,7 @@ internal sealed class FakeMcpSession : IMcpSession
 internal static class SmartFlowTestFactory
 {
     public static ConfigureProvidersService CreateProvidersService(
-        RecordingLlmClient llmClient,
+        ILLMClient llmClient,
         ILLMModelCatalog? modelCatalog = null,
         LLMOptions? options = null,
         AgentHumanInputProvider? humanInput = null,

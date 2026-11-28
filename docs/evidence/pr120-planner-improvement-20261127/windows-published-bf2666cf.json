@@ -1,0 +1,20 @@
+{
+  "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "platform": "Windows x64",
+  "publication": "Self-contained win-x64 Release Server with its default partial trimming. The persistence smoke does not package bundled MCP tools.",
+  "exe_sha256": "a78ac367fdc7369aedb002be274a2999b74ace6badba6109cc7ab9a8a6941953",
+  "assembly_sha256": {
+    "GnOuGo.Agent.Server.dll": "6738e5fcc84b18eef5d45fc6fa549ae75a697970aff827ac454f8e2df7c5bde4",
+    "GnOuGo.Flow.Planning.dll": "69fd7e160c9a56fdd0049b8b0034819c428751c05958c62da10ae9c890e1d115",
+    "GnOuGo.AI.Core.dll": "cf991ed40cb536f6b34fae885ded10216c975032209824199034dce0a21d7180"
+  },
+  "persistence_smoke": "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged.",
+  "warning_count": 7,
+  "exit": 0,
+  "publish_and_smoke_seconds": 623.094,
+  "warning_summary": {
+    "ef_core_experimental_query_precompilation": 3,
+    "ef_core_experimental_native_aot": 3,
+    "aspnetcore_embedded_linker_substitutions_IL2101": 1
+  }
+}

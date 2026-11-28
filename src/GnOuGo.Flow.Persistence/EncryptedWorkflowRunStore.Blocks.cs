@@ -15,16 +15,19 @@ public sealed partial class EncryptedWorkflowRunStore
     // blocks from an interrupted write are never completion evidence.
     private sealed class SplitJournal(IKeyVaultRecordStore records, string tenant, string runId, JsonObject head)
     {
-        private const string Blocks = "flow-execution-blocks-v1";
+        public const string Blocks = "flow-execution-blocks-v1";
         private const int InlineBytes = 4096, ChunkSize = 32;
-        private readonly string _prefix = Hash(new JsonArray(tenant, runId).ToJsonString()) + "/";
+        public static string Prefix(string tenant, string id) => Hash(new JsonArray(tenant, id).ToJsonString()) + "/";
+        private readonly string _prefix = Prefix(tenant, runId);
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonObject> _loaded = new(StringComparer.Ordinal);
         private readonly HashSet<string> _written = new(StringComparer.Ordinal);
         private readonly Dictionary<(WorkflowInvocation Invocation, bool After), JsonNode> _snapshots = new();
         private JsonNode? _lastCapture;
+        private (string? Text, JsonNode? Reference) _workflowYaml;
         private readonly Dictionary<JsonValue, string> _frozenScalars = new(ReferenceEqualityComparer.Instance);
         private int _eventPrefixCount = head["eventCount"]?.GetValue<int>() ?? 0;
         public JsonObject Head { get; private set; } = head;
+        public OwnerRetention? CommittedRetention => Head["retention"]?.Deserialize(WorkflowRunJsonContext.Default.OwnerRetention);
         public long Revision => Head["revision"]!.GetValue<long>();
         public bool CancelRequested => Head["cancelRequested"]!.GetValue<bool>();
 
@@ -48,6 +51,34 @@ public sealed partial class EncryptedWorkflowRunStore
             return node;
         }
 
+        // Called with the long execution lease and the short publication lock. A reachable
+        // block can predate every retention window. Only age-qualified, unreachable blocks qualify.
+        public async Task CollectOrphansAsync(DateTimeOffset before, CancellationToken ct)
+        {
+            if (records is not IKeyVaultRecordReader reader) return;
+            var marked = false;
+            KeyVaultRecordCursor? cursor = null;
+            do
+            {
+                var page = await reader.QueryMetadataAsync(Blocks, tenant, _prefix, Author, cursor, 100, ct);
+                foreach (var candidate in page.Records)
+                {
+                    if (candidate.UpdatedAt > before || !candidate.Key.StartsWith(_prefix, StringComparison.Ordinal)) continue;
+                    if (!marked)
+                    {
+                        await LoadAsync(Head["header"], new(StringComparer.Ordinal), ct);
+                        foreach (var pair in Head["invocations"]!.AsObject()) await LoadAsync(pair.Value, new(StringComparer.Ordinal), ct);
+                        foreach (var chunk in Head["events"]!.AsArray()) await LoadAsync(chunk, new(StringComparer.Ordinal), ct);
+                        marked = true;
+                    }
+                    var hash = candidate.Key[_prefix.Length..];
+                    if (hash.Length == 64 && hash.All(char.IsAsciiHexDigit) && !_loaded.ContainsKey(hash))
+                        await records.DeleteAsync(Blocks, tenant, candidate.Key, Author, ct);
+                }
+                cursor = page.HasMore ? page.Next : null;
+            } while (cursor is not null);
+        }
+
         public async Task RefreshAsync(CancellationToken ct)
         {
             var record = await records.GetAsync(Collection, tenant, runId, Author, ct) ?? throw Invalid();
@@ -62,7 +93,7 @@ public sealed partial class EncryptedWorkflowRunStore
                 result.Invocations.AddOrUpdate(pair.Key, await ReadInvocationAsync(pair.Value, ct, deferred), (_, _) => throw Invalid());
             foreach (var e in await EventsAsync(ct))
                 result.Events.Add(new(e!["timestamp"]!.GetValue<DateTimeOffset>(), e["kind"]!.GetValue<string>(), e["invocationId"]?.GetValue<string>()));
-            if (result.Revision != Revision || result.CancelRequested != CancelRequested) throw Invalid();
+            if (result.Revision != Revision || result.CancelRequested != CancelRequested || result.Retention != CommittedRetention) throw Invalid();
             foreach (var pair in result.Invocations) if (pair.Key != pair.Value.Id) throw Invalid();
             if (result.Events.Count != Head["eventCount"]?.GetValue<int>()) throw Invalid();
             return result;
@@ -161,14 +192,18 @@ public sealed partial class EncryptedWorkflowRunStore
         {
             WorkflowRunStorage.ValidateOwnership(run, tenant, runId);
             var next = (JsonObject)Head.DeepClone();
+            if (run.Retention is not null)
+                next["retention"] = JsonSerializer.SerializeToNode(run.Retention, WorkflowRunJsonContext.Default.OwnerRetention);
             next["revision"] = run.Revision; next["cancelRequested"] = run.CancelRequested;
             // Serialize only the header, not the invocation dictionary. Payloads
             // remain full fidelity but identical subtrees are stored once.
             var header = new WorkflowRun
             {
                 SchemaVersion = run.SchemaVersion, TenantId = run.TenantId, RunId = run.RunId, Revision = run.Revision,
-                WorkflowName = run.WorkflowName, WorkflowYaml = run.WorkflowYaml, DefinitionHash = run.DefinitionHash,
-                Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
+                WorkflowName = run.WorkflowName, DefinitionHash = run.DefinitionHash,
+                Retention = run.Retention, Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
+                ApplicationLlmBudgetMode = run.ApplicationLlmBudgetMode, ApplicationLlmBudgetOrigin = run.ApplicationLlmBudgetOrigin,
+                ApplicationLlmBudgetVersion = run.ApplicationLlmBudgetVersion,
                 StepsStarted = run.StepsStarted, FinalizationStepsStarted = run.FinalizationStepsStarted,
                 Status = run.Status, CancelRequested = run.CancelRequested, FinalizationStarted = run.FinalizationStarted,
                 FinalizationCompleted = run.FinalizationCompleted, Result = null, CreatedAt = run.CreatedAt, UpdatedAt = run.UpdatedAt
@@ -178,6 +213,7 @@ public sealed partial class EncryptedWorkflowRunStore
             foreach (var pair in headerNode)
                 headerFields.Add((JsonNode)new JsonArray(pair.Key, pair.Key switch
                 {
+                    "workflowYaml" => await EncodeWorkflowYamlAsync(run.WorkflowYaml, ct),
                     "inputs" => await EncodeAsync(run.Inputs, ct),
                     "result" => await EncodeResultAsync(run.Result, ct),
                     _ => await EncodeAsync(pair.Value, ct)
@@ -208,6 +244,15 @@ public sealed partial class EncryptedWorkflowRunStore
             await records.UpsertAsync(Collection, tenant, runId, next.ToJsonString(), Author, ct);
             Head = next; _eventPrefixCount = run.Events.Count;
             // Cache verified immutable block definitions, never expanded snapshots.
+        }
+
+        private async Task<JsonNode> EncodeWorkflowYamlAsync(string yaml, CancellationToken ct)
+        {
+            // The text is immutable and often several hundred KB. Keep the
+            // encoded reference local to this journal and compare the exact value.
+            if (_workflowYaml.Reference is null || _workflowYaml.Text != yaml)
+                _workflowYaml = (yaml, await EncodeAsync(JsonValue.Create(yaml), ct));
+            return _workflowYaml.Reference.DeepClone();
         }
 
         private async Task<JsonNode> EncodeInvocationAsync(WorkflowInvocation invocation, CancellationToken ct)

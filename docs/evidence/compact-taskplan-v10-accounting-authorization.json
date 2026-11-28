@@ -1,0 +1,51 @@
+{
+  "version": 1,
+  "captured_utc": "2026-10-27T12:22:01.148645+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "operator_source": "93d3e1c2747e029f0136d4391ba8480151092ac4",
+  "starting_head": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "authorization_reference": "gnougo-pr120-2026-10-27-supplement-100-eur-once",
+  "retention": {
+    "run_key": "93d3e1c2747e029f0136d4391ba8480151092ac4:fixture:cohort:compactr93d3e1c27colhighv9p9a:collections:1",
+    "request_id": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da:18:6f1d8c620e38ea974a2168a34e26134ab766f87ac116718451e72855535e9673",
+    "evidence_hash": "aad26c5992b69a47594508f8dd61e7f64db022271727038a3f1f19078c47bea8",
+    "authorization_hash": "15fb5d1a0d30521e69afa1c4e324a918571ebac41b7be92e06d31ac06d9986f2",
+    "retained_at": "2026-10-27T12:19:13.9086680+00:00",
+    "reservation_retained_eur": "0.3133422579205711735832217760",
+    "released_eur": "0",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "restart_application_bytes_equal": true,
+    "accounting_unchanged": true
+  },
+  "budget_extension": {
+    "previous_ceiling_eur": "440.0301038327063045424449473",
+    "supplement_eur": "100",
+    "ceiling_eur": "540.0301038327063045424449473",
+    "matching_history_entries": 1,
+    "idempotency": "Exact stable authorization history match skips repeated application; fixed expected/new ceilings reject a duplicate increase.",
+    "authorization_record_sha256": "a143390d715ee890326970dfa2d0ed9ec8b8372c53e6884cfabcaa7d66cd5199"
+  },
+  "accounting_after": {
+    "known_cost_eur": "233.12340992275628179949276645",
+    "reserved_cost_eur": "74.026891897695346093042450314",
+    "cost_upper_bound_eur": "307.15030182045162789253521676"
+  },
+  "available_eur": "232.87980201225467664990973054",
+  "unresolved_requests": 0,
+  "closed_receiptless_requests": 36,
+  "evidence_sha256": {
+    "campaign-after.json": "df92dfc2c9d4861fdbf9e81b43a5cd94a321a386129b19c5681b9bf59ea4208f",
+    "retention-inspected.json": "3e8dc606e0905764c453ddc4d858f52982d0542d3187b70db6746a2ac17e8a09",
+    "budget-extension.json": "113b134a86ddf60ce9495971ef0cc6c5390e8f3e3a5c6121cf922759dd7c23be",
+    "authorization-before.json": "912d2125f5924ff93df7a17a0eec6fb5d1ddd76ccf08aa6680c3df980c915873",
+    "retention-restarted.json": "bdf63e9efc3acc9a0310afe86cb0d8dd6cc8a7c56779c08dbbb43d529bb6316a",
+    "retention-applied.json": "bdf63e9efc3acc9a0310afe86cb0d8dd6cc8a7c56779c08dbbb43d529bb6316a",
+    "authorization-after-restart.json": "15152b867d04049d77f800d469af2e4d81d1e39d0c5d967d085b4f71ec7f60e8"
+  },
+  "limitations": [
+    "No paid dispatch, artifact approval or runtime acceptance is established by these administrative actions.",
+    "Every unknown reservation and original request/receipt remains unchanged.",
+    "The balance is a dated inspection, not a future dispatch allowance."
+  ]
+}

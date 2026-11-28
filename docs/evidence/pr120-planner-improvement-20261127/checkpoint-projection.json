@@ -1,0 +1,21 @@
+{
+  "source": "4cb2c264364b04fd50f941330c376357481c1e56",
+  "planner_assembly_sha256": "ff3f2e5eecfdf23c61a1e5beac0c56af632ceb8c8274550a10af64aa3fa4f18a",
+  "basis": "Exact recorded logical contexts and full retained checkpoint fragments. Archived evidence handles were matched to the original checkpoint sequence, plan hash and complete fragment. The production presentation function ran on those pages. Every link was independently resolved and each whole fragment compared with its source. Counts are serialized context bytes only. Provider calls: zero.",
+  "original_report_sha256": {
+    "improve40-amazon-20261127-085127": "33e25ab061f1e4522ebcea45a44494a53257235283618aceec11bfd344742358"
+  },
+  "projection": [
+    {
+      "run": "improve40-amazon-20261127-085127",
+      "captured_requests": 46,
+      "changed_contexts": 6,
+      "verified_declaration_references": 60,
+      "before_context_bytes": 2659640,
+      "after_context_bytes": 2286926,
+      "saved_bytes_by_phase": {
+        "construction_implementation": 372714
+      }
+    }
+  ]
+}

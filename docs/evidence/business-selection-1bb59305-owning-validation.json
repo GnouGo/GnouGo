@@ -1,0 +1,39 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "1bb59305de63d69cff1a22b14d37fc0d4dffffc4",
+  "observed_at_utc": "2026-11-04T14:44:28.701600+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -m:1 -warnaserror",
+  "trx_sha256": "084d20676ae7b89ba5e989db66cf79bc5d688822850c74a59ab185f5e7c1dd13",
+  "counts": {
+    "total": "2666",
+    "executed": "2666",
+    "passed": "2666",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "new_regression_cases": 4,
+  "new_cases_passed_in_owning_suite": 4,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 2,
+  "initial_connected_conditional_controls_passed": 2,
+  "initial_red_trx_sha256": "f9d70bbb5bd58f8ab1f1d3d0e3bcd2857f333072e67f5d0ea4c0edb79c228492",
+  "postimages": {
+    ".agents/skills/gnougo-planning/SKILL.md": "a71f9413a6047489121ab0dfde25efba42858f233179503403ce0b92e743c080",
+    "docs/incremental-taskplan-construction.md": "0ff97c3a3c2379a0676a801aa738b2131cb4e750a72700875a76bea3c5d5f1c5",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessSelection.cs": "0deac8b332bb3d465fae1b3c3e3457ec66b425da0ff7f7c0056e2878da95ef50",
+    "tests/GnOuGo.Flow.Planning.Tests/BusinessSelectionCoverageContextTests.cs": "b9662fda2d4d3b82c48edc72d09ab3b32571436f49d77a83521ff6221dee8996"
+  },
+  "limit": "Owning tests ran before commit creation on matching committed postimages. Exact-source solution/publication validation remains separate; future live model benefit is unproven."
+}

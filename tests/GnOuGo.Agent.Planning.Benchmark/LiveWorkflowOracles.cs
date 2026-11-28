@@ -5,11 +5,28 @@ using System.Text.RegularExpressions;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Spreadsheet;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
 
-internal static class LiveWorkflowOracles
+internal static partial class LiveWorkflowOracles
 {
     internal const string ObservedProductsVersion = "observed-products-v2";
-    internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport)
+    internal const string AmazonBusinessVersion3 = "amazon-business-v3";
+    internal const string AmazonBusinessVersion = "amazon-business-v4";
+    internal const string AmazonObservedRedirectVersion = "amazon-business-v5";
+    internal const string AmazonSponsoredHostVersion = "amazon-business-v6";
+    internal const string AmazonProductContextVersion = "amazon-business-v7";
+    internal const string CodeBusinessVersion = "code-business-v2";
+
+    private static bool SameWorkbook(JsonNode? value, string workspace, string expected)
+    {
+        if (value is not JsonValue json || !json.TryGetValue<string>(out var path) || string.IsNullOrWhiteSpace(path) ||
+            (Path.IsPathRooted(path) && !Path.IsPathFullyQualified(path))) return false;
+        try { return Path.GetFullPath(path, workspace) == expected; }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
+    internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
+        Func<Task<McpCallResult>>? hostClosureProbe = null)
     {
         var findings = new List<string>();
         var folder = Path.GetFullPath(Path.Combine(root, run["workspace_relative"]!.ToString()));
@@ -17,16 +34,78 @@ internal static class LiveWorkflowOracles
         var events = run["events"]!.AsArray().OfType<JsonObject>().ToArray();
         if (scenario == "amazon")
         {
-            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion))
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion or AmazonFirstProductsVersion))
                 throw new InvalidOperationException("Unknown retained execution oracle version.");
+            if (run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonObservedRedirectPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonObservedRedirectPolicy.Approval))
+                throw new InvalidOperationException("The new Amazon verifier requires its captured strict scope and approval.");
+            if (run["oracle_version"]?.ToString() == AmazonSponsoredHostVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonSponsoredHostPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonSponsoredHostPolicy.Approval))
+                throw new InvalidOperationException("The sponsored-host verifier requires its separately captured strict scope and approval.");
+            if (run["oracle_version"]?.ToString() == AmazonProductContextVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonProductContextPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonProductContextPolicy.Approval))
+                throw new InvalidOperationException("The product-context verifier requires its captured evidence policy and exact granted scope.");
+            if (run["oracle_version"]?.ToString() == AmazonResolvedStoreVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonResolvedStorePolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonResolvedStorePolicy.Approval))
+                throw new InvalidOperationException("The resolved-store verifier requires its separately authorized workflow scope.");
+            if (run["oracle_version"]?.ToString() == AmazonResolvedProductVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonResolvedProductPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonResolvedProductPolicy.Approval))
+                throw new InvalidOperationException("The resolved-product verifier requires its separately authorized resolution phase and route scope.");
+            if (run["oracle_version"]?.ToString() == AmazonReviewProofVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonReviewProofPolicy.Id ||
+                 run["browser_scope_approval"]?.ToString() != AmazonReviewProofPolicy.Approval))
+                throw new InvalidOperationException("The review-proof verifier requires its separately authorized evidence amendment.");
+            if (run["oracle_version"]?.ToString() == AmazonCardReviewVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonCardReviewPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonCardReviewPolicy.Approval))
+                throw new InvalidOperationException("The card-review verifier requires its separately captured grant.");
+            if (run["oracle_version"]?.ToString() == AmazonStoreListVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonStoreListPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonStoreListPolicy.Approval))
+                throw new InvalidOperationException("The inherited store-list verifier requires its separately captured grant.");
+            if (run["oracle_version"]?.ToString() == AmazonSourceCoverageVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonSourceCoveragePolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonSourceCoveragePolicy.Approval))
+                throw new InvalidOperationException("Source coverage requires its versioned capture and unchanged existing grant.");
+            if (run["oracle_version"]?.ToString() == AmazonFirstProductsVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonFirstProductsPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonFirstProductsPolicy.Approval))
+                throw new InvalidOperationException("The ordered product verifier requires its own captured grant.");
+            if (run["oracle_version"]?.ToString() == AmazonDealsVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonDealsPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonDealsPolicy.Approval))
+                throw new InvalidOperationException("The auxiliary listing verifier requires its separately captured workflow grant.");
+            if (run["oracle_version"]?.ToString() == AmazonAaxProductVersion &&
+                (run["browser_observation_policy"]?.ToString() != AmazonAaxProductPolicy.Id || run["browser_scope_approval"]?.ToString() != AmazonAaxProductPolicy.Approval))
+                throw new InvalidOperationException("The AAX verifier requires its separately captured workflow grant.");
             var productLimit = run["max_products"]?.GetValue<int>() ?? 3;
             if (productLimit is < 1 or > 10) throw new InvalidOperationException("Invalid retained product bound.");
+            var exactTen = run["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
+            if (exactTen && (productLimit != LiveWorkflowEvaluation.QualificationProductCount ||
+                events.LastOrDefault(e => e["server"]?.ToString() == "GnOuGo.Browser.Mcp" || e["tool"]?.ToString()?.StartsWith("browser_", StringComparison.Ordinal) == true) is not { } closed ||
+                closed["tool"]?.ToString() != "browser_close" || closed["error"]?.GetValue<bool>() != false || closed["result"]?["success"]?.GetValue<bool>() != true))
+                findings.Add("workflow_browser_close_receipt_or_ten_product_contract_missing");
+            var path = Path.Combine(folder, "products.xlsx");
+            if (run["oracle_version"]?.ToString() == AmazonFirstProductsVersion && !ReturnedWorkbookOutcome(run))
+                findings.Add("public_workbook_outcome_missing_or_different");
+            if (run["workflow_readback_required"]?.GetValue<bool>() == true)
+            {
+                bool WorkbookCall(JsonObject evt, string method) => evt["server"]?.ToString() == "GnOuGo.Document.Mcp" &&
+                    evt["tool"]?.ToString() == method && evt["error"]?.GetValue<bool>() == false &&
+                    evt["result"]?["success"]?.GetValue<bool>() == true &&
+                    SameWorkbook(evt["arguments"]?["filePath"], root, path) && SameWorkbook(evt["result"]?["filePath"], root, path);
+                var lastWrite = Array.FindLastIndex(events, evt => WorkbookCall(evt, "document_write"));
+                if (lastWrite < 0 || !events.Skip(lastWrite + 1).Any(evt =>
+                    WorkbookCall(evt, "document_read") && evt["arguments"]?["format"]?.ToString() == "cells"))
+                    findings.Add("independent_workflow_workbook_read_missing");
+            }
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
-            var cleanup = await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None);
+            var cleanup = hostClosureProbe is null
+                ? await browser.CallToolAsync("browser_get_content", new JsonObject(), CancellationToken.None)
+                : await hostClosureProbe();
             if (!cleanup.IsError || cleanup.Content?.ToJsonString().Contains("No active page", StringComparison.Ordinal) != true)
                 findings.Add("browser_not_closed_by_workflow");
             await browser.CallToolAsync("browser_close", new JsonObject(), CancellationToken.None);
-            var path = Path.Combine(folder, "products.xlsx");
             if (!File.Exists(path)) findings.Add("workbook_missing");
             else
             {
@@ -34,6 +113,13 @@ internal static class LiveWorkflowOracles
                 var part = workbook.WorkbookPart!;
                 var rows = part.WorksheetParts.SelectMany(w => w.Worksheet!.Descendants<Row>())
                     .Select(row => row.Elements<Cell>().Select(c => CellText(c, part)).ToArray()).ToArray();
+                if (exactTen)
+                {
+                    if (part.WorksheetParts.Count() != 1 || rows.Length != LiveWorkflowEvaluation.QualificationProductCount + 1 ||
+                        rows.Any(r => r.Length != 3) || !rows[0].SequenceEqual(["Nom", "Description", "Prix"]))
+                        findings.Add("exact_ten_product_workbook_required");
+                    run["workbook_sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(path)));
+                }
                 if (rows.Length < 2 || rows.Length > productLimit + 1 || rows.Any(r => r.Length < 3)) findings.Add("workbook_row_shape_or_product_bound");
                 else
                 {
@@ -42,14 +128,32 @@ internal static class LiveWorkflowOracles
                     var descriptionIndex = Array.FindIndex(names, n => n == "description");
                     var priceIndex = Array.FindIndex(names, n => n is "prix" or "price");
                     if (nameIndex < 0 || descriptionIndex < 0 || priceIndex < 0) findings.Add("workbook_columns_missing");
-                    else if (run["oracle_version"]?.ToString() == ObservedProductsVersion)
+                    else if (run["oracle_version"]?.ToString() is ObservedProductsVersion or AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion or AmazonFirstProductsVersion)
                     {
-                        var evidence = VerifyObservedProducts(events, rows, productLimit);
+                        var resolvedPolicy = run["oracle_version"]?.ToString() == AmazonFirstProductsVersion ? AmazonFirstProductsPolicy.Id : run["oracle_version"]?.ToString() == AmazonDealsVersion ? AmazonDealsPolicy.Id : run["oracle_version"]?.ToString() == AmazonAaxProductVersion ? AmazonAaxProductPolicy.Id : run["oracle_version"]?.ToString() == AmazonSourceCoverageVersion ? AmazonSourceCoveragePolicy.Id : run["oracle_version"]?.ToString() == AmazonStoreListVersion ? AmazonStoreListPolicy.Id : run["oracle_version"]?.ToString() == AmazonCardReviewVersion ? AmazonCardReviewPolicy.Id : run["oracle_version"]?.ToString() == AmazonReviewProofVersion ? AmazonReviewProofPolicy.Id : run["oracle_version"]?.ToString() == AmazonResolvedProductVersion ? AmazonResolvedProductPolicy.Id : AmazonResolvedStorePolicy.Id;
+                        var resolvedSource = run["oracle_version"]?.ToString() is AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion or AmazonFirstProductsVersion
+                            ? ResolveStoreSource(events, run["inputs"]?["query"]?.ToString(), resolvedPolicy, productLimit) : null;
+                        var evidence = VerifyObservedProducts(events, rows, productLimit,
+                            resolvedSource?.Complete == true ? resolvedPolicy is AmazonResolvedProductPolicy.Id or AmazonReviewProofPolicy.Id or AmazonCardReviewPolicy.Id or AmazonStoreListPolicy.Id or AmazonSourceCoveragePolicy.Id or AmazonAaxProductPolicy.Id or AmazonDealsPolicy.Id or AmazonFirstProductsPolicy.Id ? resolvedSource.SourceReads : resolvedSource.StoreReads : null);
                         run["product_evidence"] = evidence;
                         findings.AddRange(evidence["findings"]!.AsArray().Select(f => f!.ToString()));
+                        if (run["oracle_version"]?.ToString() is AmazonBusinessVersion3 or AmazonBusinessVersion or AmazonObservedRedirectVersion or AmazonSponsoredHostVersion or AmazonProductContextVersion or AmazonResolvedStoreVersion or AmazonResolvedProductVersion or AmazonReviewProofVersion or AmazonCardReviewVersion or AmazonStoreListVersion or AmazonSourceCoverageVersion or AmazonAaxProductVersion or AmazonDealsVersion or AmazonFirstProductsVersion)
+                        {
+                            var selection = resolvedSource is not null
+                                ? ResolvedStoreSelection(events, productLimit, run["inputs"]?["query"]?.ToString(), resolvedSource, resolvedPolicy)
+                                : run["oracle_version"]?.ToString() == AmazonProductContextVersion
+                                ? VerifyAmazonProductContextSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
+                                : run["oracle_version"]?.ToString() == AmazonSponsoredHostVersion
+                                ? VerifyAmazonSponsoredHostSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
+                                : run["oracle_version"]?.ToString() == AmazonObservedRedirectVersion
+                                ? VerifyAmazonObservedRedirectSelection(events, productLimit, run["inputs"]?["query"]?.ToString())
+                                : VerifyAmazonSelection(events, productLimit, run["inputs"]?["query"]?.ToString(), run["oracle_version"]!.ToString());
+                            run["search_evidence"] = selection;
+                            findings.AddRange(selection["findings"]!.AsArray().Select(f => f!.ToString()));
+                        }
                         if (!events.Any(e => e["tool"]?.ToString() == "document_write" && e["error"]?.GetValue<bool>() == false &&
                             e["result"]?["success"]?.GetValue<bool>() == true &&
-                            e["result"]?["filePath"]?.ToString() is { } written && Path.GetFullPath(written) == path))
+                            SameWorkbook(e["result"]?["filePath"], root, path)))
                             findings.Add("workbook_writer_receipt_missing");
                     }
                     else
@@ -73,8 +177,46 @@ internal static class LiveWorkflowOracles
                 run["workbook_rows"] = new JsonArray(rows.Select(r => (JsonNode)new JsonArray(r.Select(v => (JsonNode)JsonValue.Create(v)).ToArray())).ToArray());
             }
         }
+        else if (PublishedReviewQualification.UsesPublicationChecks(run))
+        {
+            var repository = Path.Combine(folder, "repository");
+            var target = await PublishedReviewQualification.CaptureAsync(run["inputs"]!["pullRequestUrl"]!.GetValue<string>(), run["oracle_version"]?.GetValue<string>(), CancellationToken.None);
+            if (run["target_head"]?.ToString() != target.Head || run["target_base"]?.ToString() != target.Base)
+                findings.Add("reviewed_head_or_base_changed");
+            LiveCodeEvidence.Verify(run, repository);
+            if (PublishedReviewQualification.RequiresChatReport(run) &&
+                PublishedReviewQualification.ReturnedReportFinding(run) is { } deliveryFinding)
+                findings.Add(deliveryFinding);
+            if (run["required_checks_verified"]?.GetValue<bool>() != true) findings.Add("repository_required_checks_not_independently_verified");
+            var clones = events.Where(e => e["tool"]?.ToString() == "git_clone").ToArray();
+            if (clones.Length != 1 || clones[0]["error"]?.GetValue<bool>() != false || clones[0]["result"]?["success"]?.GetValue<bool>() != true ||
+                clones[0]["arguments"] is not JsonObject cloneArgs || !target.AllowsClone(cloneArgs)) findings.Add("single_pinned_clone_not_observed");
+            if (Directory.Exists(repository) || !events.Any(e => e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
+                e["arguments"]?["commandName"]?.ToString() == "delete_directory" && e["error"]?.GetValue<bool>() == false))
+                findings.Add("repository_not_cleaned_by_workflow");
+            if (run["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion &&
+                run["kind_cluster_after"]?["absent"]?.GetValue<bool>() != true)
+                findings.Add("run_cluster_or_kubeconfig_cleanup_unverified");
+            if (run["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile && !events.Any(e =>
+                e["server"]?.ToString() == "GnOuGo.Cmd.Mcp" && e["tool"]?.ToString() == "cmd_run" &&
+                e["arguments"]?["commandName"]?.ToString() == DelegatedTestReviewAuthority.CleanupCommand &&
+                e["error"]?.GetValue<bool>() == false && e["result"]?["success"]?.GetValue<bool>() == true &&
+                e["kind_cleanup"]?["cluster"]?.ToString() == SlimFaasReviewProfile.Cluster(run["workspace_relative"]!.ToString()) &&
+                e["kind_cleanup"]?["absent"]?.GetValue<bool>() == true))
+                findings.Add("workflow_cluster_release_receipt_missing");
+            var readback = await target.ReadBackAsync(run["events"]!.AsArray(), CancellationToken.None);
+            run["github_readback"] = readback;
+            findings.AddRange(readback["findings"]!.AsArray().Select(f => f!.ToString()));
+            foreach (var submission in events.Where(e => e["server"]?.ToString() == "Github" &&
+                e["tool"]?.ToString() == "pull_request_review_write" && e["error"]?.GetValue<bool>() == false &&
+                e["arguments"]?["method"]?.ToString() == "submit_pending"))
+                if (LiveCodeEvidence.SubmissionFinding(run, submission["arguments"]!.AsObject()) is { } finding)
+                    findings.Add(finding);
+        }
         else
         {
+            if (run["oracle_version"]?.ToString() is { } version && version is not ("real-workflows-v1" or CodeBusinessVersion))
+                throw new InvalidOperationException("Unknown retained execution oracle version.");
             LiveCodeEvidence.Verify(run, Path.Combine(folder, "repository"));
             if (Directory.Exists(Path.Combine(folder, "repository"))) findings.Add("repository_not_cleaned_by_workflow");
             if (!File.Exists(Path.Combine(folder, "review.json"))) findings.Add("local_review_missing");
@@ -97,6 +239,17 @@ internal static class LiveWorkflowOracles
                 var failedChecks = run["observed_commands"]!.AsArray().Any(c => c!["exit_code"]!.GetValue<long>() != 0);
                 if (review is not JsonObject || review["decision"]?.ToString() is not ("approve" or "request_changes") || review["findings"] is not JsonArray ||
                     failedChecks && review["decision"]?.ToString() == "approve") findings.Add("review_missing_or_false_success");
+                if (run["oracle_version"]?.ToString() == CodeBusinessVersion)
+                {
+                    // Retain the independently read artifact for the same
+                    // source-bound checks in either comparison arm. The hash
+                    // identifies canonical parsed JSON, not original file bytes.
+                    run["review_document"] = review?.DeepClone();
+                    run["review_document_sha256"] = review is null ? null : PlanningGraphCompiler.Fingerprint(review.ToJsonString());
+                    var reportEvidence = LiveCodeEvidence.VerifyReport(run, review, Path.Combine(folder, "repository"), Path.Combine(folder, "review.json"));
+                    run["report_evidence"] = reportEvidence;
+                    findings.AddRange(reportEvidence["findings"]!.AsArray().Select(f => f!.ToString()));
+                }
             }
         }
         return new JsonObject { ["passed"] = findings.Count == 0, ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
@@ -180,7 +333,8 @@ internal static class LiveWorkflowOracles
     }
 
     // Pure evidence replay: no Browser actions, inference or artifact mutation.
-    internal static JsonObject VerifyObservedProducts(IReadOnlyList<JsonObject> events, string[][] rows, int maximum)
+    internal static JsonObject VerifyObservedProducts(IReadOnlyList<JsonObject> events, string[][] rows, int maximum,
+        IReadOnlySet<JsonObject>? verifiedSourceResolutionReads = null)
     {
         var findings = new List<string>();
         var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
@@ -190,7 +344,7 @@ internal static class LiveWorkflowOracles
         for (var index = 0; index < events.Count; index++)
         {
             var read = events[index];
-            if (read["tool"]?.ToString() != "browser_get_content") continue;
+            if (read["tool"]?.ToString() != "browser_get_content" || verifiedSourceResolutionReads?.Contains(read) == true) continue;
             complete.TryGetValue(read, out var snapshot);
             var requested = read["arguments"]?["url"]?.ToString();
             if (requested is not null && observedUrls.Contains(requested))
@@ -247,6 +401,133 @@ internal static class LiveWorkflowOracles
             ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
     }
 
+    // The input and complete search snapshot define the expected products.
+    // Generated workbook rows and selected visit order never define this oracle.
+    internal static JsonObject VerifyAmazonSelection(IReadOnlyList<JsonObject> events, int maximum, string? query,
+        string version = AmazonBusinessVersion)
+    {
+        if (version is not (AmazonBusinessVersion3 or AmazonBusinessVersion))
+            throw new InvalidOperationException("Unknown retained Amazon selection oracle version.");
+        var findings = new List<string>();
+        var complete = CompleteSnapshots(events).ToDictionary(s => s.Read);
+        Snapshot? search = null;
+        var searchIndex = -1;
+        for (var index = 0; index < events.Count; index++)
+        {
+            var read = events[index];
+            if (read["tool"]?.ToString() != "browser_get_content" || read["arguments"]?["url"]?.ToString() is not { } requested ||
+                !AmazonAddress(requested, out var address) || address.AbsolutePath != "/s") continue;
+            if (string.IsNullOrWhiteSpace(query) || SearchQuery(address) != query) findings.Add("search_query_does_not_match_input");
+            if (version == AmazonBusinessVersion && !WholeDocumentSearch(read))
+            { findings.Add("search_observation_scope_not_independently_complete"); continue; }
+            if (!complete.TryGetValue(read, out var snapshot) || !AmazonAddress(snapshot.Url, out var actual) ||
+                actual.AbsolutePath != "/s" || SearchQuery(actual) != query || snapshot.Records.Count == 0 ||
+                read["result"]?["success"]?.GetValue<bool>() != true)
+            { findings.Add("search_observation_not_independently_complete"); continue; }
+            if (search is null) { search = snapshot; searchIndex = index; }
+        }
+        if (search is null) findings.Add("requested_search_not_observed");
+        var expected = new List<(string Identity, string Group, List<string> Urls)>();
+        if (search is not null)
+        {
+            var links = search.Records.OfType<JsonObject>()
+                .Where(r => r["href"]?.ToString() is { } href && ProductIdentity(href) is not null)
+                .Select(r => (Record: r, Identity: ProductIdentity(r["href"]!.ToString())!, Group: r["group"]?.ToString() ?? "")).ToArray();
+            var groups = links.Where(l => l.Group.Length > 0).GroupBy(l => l.Group, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Select(l => l.Identity).Distinct(StringComparer.Ordinal).Count(), StringComparer.Ordinal);
+            foreach (var link in links)
+            {
+                var same = expected.FindIndex(e => e.Identity == link.Identity && e.Group == link.Group);
+                if (same >= 0)
+                {
+                    // Multiple anchors for one product are aliases only when
+                    // original DOM grouping separates that single-product card.
+                    // A broad/mixed group cannot establish result occurrences.
+                    var semanticItem = Regex.IsMatch(link.Group, @"(?:^| > )(?:article|li|tr):nth-of-type\([0-9]+\)$",
+                        RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1));
+                    if (link.Group.Length == 0 || groups[link.Group] != 1 || !semanticItem ||
+                        link.Group == search.Read["arguments"]?["selector"]?.ToString())
+                        findings.Add("search_product_occurrences_ambiguous");
+                    else if (!expected[same].Urls.Contains(link.Record["href"]!.ToString(), StringComparer.Ordinal))
+                        expected[same].Urls.Add(link.Record["href"]!.ToString());
+                    continue;
+                }
+                expected.Add((link.Identity, link.Group, [link.Record["href"]!.ToString()]));
+            }
+            if (search.Records.Any(r => r?["href"]?.ToString() is { } href && AmazonAddress(href, out var uri) &&
+                (uri.AbsolutePath.Contains("sspa/click", StringComparison.Ordinal) || uri.AbsolutePath.Contains("slredirect", StringComparison.Ordinal))))
+                findings.Add("search_product_redirect_identity_unverified");
+            if (search.Records.Any(r => r?["href"]?.ToString() is { } href && AmazonAddress(href, out var uri) &&
+                (uri.AbsolutePath.Contains("/dp/", StringComparison.Ordinal) || uri.AbsolutePath.Contains("/gp/product/", StringComparison.Ordinal)) &&
+                ProductIdentity(href) is null))
+                findings.Add("search_product_identity_unverified");
+            if (expected.Count == 0) findings.Add("search_product_identities_unverified");
+        }
+        var selected = expected.Take(maximum).ToArray();
+        if (events.Take(Math.Max(0, searchIndex)).Any(e => e["tool"]?.ToString() == "browser_get_content" &&
+            ProductIdentity(e["arguments"]?["url"]?.ToString()) is not null)) findings.Add("product_visit_before_search");
+        var visits = events.Select((e, i) => (Event: e, Index: i)).Where(p => p.Index > searchIndex &&
+            p.Event["tool"]?.ToString() == "browser_get_content" && p.Event["arguments"]?["url"] is not null &&
+            !(AmazonAddress(p.Event["arguments"]!["url"]!.ToString(), out var uri) && uri.AbsolutePath == "/s")).ToArray();
+        if (visits.Length != selected.Length || selected.Length == 0) findings.Add("first_product_visits_incomplete");
+        for (var index = 0; index < Math.Min(visits.Length, selected.Length); index++)
+        {
+            var visit = visits[index]; var expectedProduct = selected[index];
+            if (visit.Index <= searchIndex || !expectedProduct.Urls.Contains(visit.Event["arguments"]!["url"]!.ToString(), StringComparer.Ordinal) ||
+                !complete.TryGetValue(visit.Event, out var snapshot) || ProductIdentity(snapshot.Url) != expectedProduct.Identity)
+                findings.Add("first_product_identity_or_order_mismatch");
+        }
+        return new JsonObject { ["version"] = version, ["passed"] = findings.Count == 0,
+            ["expected_product_count"] = selected.Length, ["visited_product_count"] = visits.Length,
+            ["findings"] = new JsonArray(findings.Distinct().Select(f => (JsonNode)JsonValue.Create(f)).ToArray()) };
+    }
+
+    private static bool WholeDocumentSearch(JsonObject read)
+    {
+        if (read["arguments"] is not JsonObject arguments || read["result"] is not JsonObject result ||
+            !Selector(arguments["selector"], out var requested) || !Selector(result["selector"], out var retained) ||
+            !JsonNode.DeepEquals(arguments["selector"], result["selector"]) ||
+            requested != retained || result["resolvedSelector"] is not JsonValue resolved ||
+            !resolved.TryGetValue<string>(out var actual) || actual != requested ||
+            result["fallbackApplied"] is not JsonValue fallback || !fallback.TryGetValue<bool>(out var applied) || applied)
+            return false;
+        return true;
+
+        static bool Selector(JsonNode? value, out string selector)
+        {
+            selector = "body";
+            if (value is null) return true;
+            if (value is not JsonValue text || !text.TryGetValue<string>(out var original)) return false;
+            selector = string.IsNullOrWhiteSpace(original) ? "body" : original.Trim();
+            return selector is "body" or "html";
+        }
+    }
+
+    private static bool AmazonAddress(string? value, out Uri address)
+    {
+        if (Uri.TryCreate(value, UriKind.Absolute, out var parsed) && parsed.Scheme == "https" && parsed.UserInfo.Length == 0 &&
+            parsed.Host is "amazon.fr" or "www.amazon.fr") { address = parsed; return true; }
+        address = null!; return false;
+    }
+
+    private static string? SearchQuery(Uri address)
+    {
+        var values = address.Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries).Select(p => p.Split('=', 2))
+            .Where(p => WebUtility.UrlDecode(p[0]) == "k").ToArray();
+        return values.Length == 1 && values[0].Length == 2 ? WebUtility.UrlDecode(values[0][1]) : null;
+    }
+
+    private static string? ProductIdentity(string? value)
+    {
+        if (!AmazonAddress(value, out var address)) return null;
+        var parts = address.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var index = parts.Length > 1 && parts[0] == "dp" ? 0 : parts.Length > 2 && parts[1] == "dp" && parts[0] != "gp" ? 1 : -1;
+        if (index < 0 && parts.Length > 2 && parts[0] == "gp" && parts[1] == "product") index = 1;
+        if (index < 0 || index + 1 >= parts.Length) return null;
+        var identity = parts[index + 1];
+        return identity.Length == 10 && identity.All(char.IsAsciiLetterOrDigit) ? identity : null;
+    }
+
     private static bool HttpUrl(string? value) => Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme is "http" or "https";
 
     private static bool ExactSegment(string text, string value)
@@ -263,7 +544,7 @@ internal static class LiveWorkflowOracles
         static bool Part(char character) => char.IsLetterOrDigit(character) || character is ',' or '.';
     }
 
-    private static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString
+    internal static string CellText(Cell cell, WorkbookPart workbook) => cell.DataType?.Value == CellValues.SharedString
         ? workbook.SharedStringTablePart!.SharedStringTable!.Elements<SharedStringItem>().ElementAt(int.Parse(cell.InnerText, CultureInfo.InvariantCulture)).InnerText : cell.InnerText;
     private static string Normalize(string value) => Regex.Replace(WebUtility.HtmlDecode(Regex.Replace(value, "<[^>]+>", " ", RegexOptions.CultureInvariant, TimeSpan.FromSeconds(1))), "\\s+", " ").Trim().ToLowerInvariant();
     private static bool PriceObserved(string price, string text) => text.Contains(price, StringComparison.Ordinal) ||

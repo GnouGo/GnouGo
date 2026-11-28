@@ -1,0 +1,73 @@
+{
+  "run": "amazon-source-20261123-30",
+  "source_commit": "42cbcc71a26c3ff3cf823fec281f0457050b06ca",
+  "profile": "amazon-observed-aax-product-context-v10",
+  "grant": "user-amazon-aax-workflow-20261112",
+  "source_sha256": "9c4fbf0c12184b587b8ee7c43d32ee8616b6266c6ee84dbb4ada37f6c308b71d",
+  "source_snapshot": "b63e1dd6b2594f6f9ea737faa9acf954",
+  "records": 1594,
+  "pages": 76,
+  "http_200_reads": 21,
+  "source_resolution_reads": 20,
+  "source_store_reads": 17,
+  "source_product_reads": 3,
+  "unverified_card": {
+    "ancestor_index": 21,
+    "asin": "",
+    "members": [
+      {
+        "reference": "b63e1dd6b2594f6f9ea737faa9acf954:record:291",
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk",
+        "fragment": "",
+        "heading": false,
+        "identity_from_http": "B0H4HPQLVM"
+      },
+      {
+        "reference": "b63e1dd6b2594f6f9ea737faa9acf954:record:293",
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk",
+        "fragment": "",
+        "heading": true,
+        "identity_from_http": "B0H4HPQLVM"
+      },
+      {
+        "reference": "b63e1dd6b2594f6f9ea737faa9acf954:record:296",
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk",
+        "fragment": "customerReviews",
+        "heading": false,
+        "identity_from_http": null
+      },
+      {
+        "reference": "b63e1dd6b2594f6f9ea737faa9acf954:record:297",
+        "host": "www.amazon.fr",
+        "path": "/deals",
+        "fragment": "",
+        "heading": false,
+        "identity_from_http": null
+      },
+      {
+        "reference": "b63e1dd6b2594f6f9ea737faa9acf954:record:299",
+        "host": "sponsored-ads.amazon.fr",
+        "path": "/clk",
+        "fragment": "",
+        "heading": false,
+        "identity_from_http": "B0H4HPQLVM"
+      }
+    ]
+  },
+  "findings": [
+    "source_product_resolution_context_unverified",
+    "search_product_context_unverified",
+    "source_resolutions_incomplete",
+    "first_product_visits_incomplete"
+  ],
+  "cold_reproduced": true,
+  "source_prerequisite_qualified": false,
+  "observed_browser_closed": true,
+  "business_visits": 0,
+  "workbook_created": false,
+  "model_attempts": 0,
+  "cost_eur": 0
+}

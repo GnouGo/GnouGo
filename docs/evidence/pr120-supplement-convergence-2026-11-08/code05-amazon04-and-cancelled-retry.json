@@ -1,0 +1,112 @@
+{
+  "frozen_workflow_source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+  "profile": "server-navigation4096-draft32k.json",
+  "code05": {
+    "run": "code-qualification-20261108-05",
+    "session_id": "a8da951303184ddc9199cacbd7db4a25",
+    "logical_calls": 29,
+    "accepted_checkpoints": 0,
+    "diagnostic": "MODEL_OUTPUT_LIMIT",
+    "final_protocol_and_usage_complete": true,
+    "last_output_tokens": 4096,
+    "last_reasoning_tokens": 53,
+    "qualification_passed": false,
+    "replayed": false,
+    "accounting": {
+      "sessionId": "a8da951303184ddc9199cacbd7db4a25",
+      "httpAttempts": 29,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "7.8955217196596506941334527537",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  },
+  "amazon04": {
+    "run": "amazon-qualification-20261108-04",
+    "session_id": "dd2a1bf3c095481d85a0f7ff7f3be833",
+    "logical_calls": 9,
+    "draft_entered_call": 8,
+    "accepted_checkpoints": 0,
+    "validation_failures_before_stall": 0,
+    "browser_policy": "amazon-observed-redirects-v1",
+    "verifier": "amazon-business-v5",
+    "cancelled_via_protected_operator_stop": true,
+    "stop_provider_dispatches": 0,
+    "qualification_passed": false,
+    "execution_started": false,
+    "attempts_of_request_9": [
+      {
+        "failure": "transport",
+        "retry_decision": "abandoned; independent tool-free generation retry",
+        "started_utc": "2026-11-08T18:24:22.393584+00:00",
+        "completed_utc": "2026-11-08T18:29:35.636191+00:00",
+        "content_characters": 0,
+        "non_whitespace_characters": 0,
+        "partial_sha256": "a2c5bf84fbf42c151aa05e297862c6a8100cc00c33641a56dfea83a77abe001b",
+        "complete_response_or_usage": false
+      },
+      {
+        "failure": "cancelled",
+        "retry_decision": "cancelled; no retry",
+        "started_utc": "2026-11-08T18:29:36.134706+00:00",
+        "completed_utc": "2026-11-08T18:36:24.664697+00:00",
+        "content_characters": 129875,
+        "non_whitespace_characters": 3152,
+        "partial_sha256": "5f6cd1aab411a548066b08fa7bc8e49a945b863d4c16284f170c335aeff4c20d",
+        "complete_response_or_usage": false
+      }
+    ],
+    "permanent_retention_evidence_hash": "db7b3a13c6ef4ec8452f22eea0949c9a81c7ab514c19a86842c0f3266fbf6aaa",
+    "all_holds_preserved": true,
+    "request_replay_and_session_continuation_forbidden": true,
+    "accounting": {
+      "sessionId": "dd2a1bf3c095481d85a0f7ff7f3be833",
+      "httpAttempts": 10,
+      "unresolvedAttempts": 2,
+      "measuredUsageTariffEstimateEur": "1.1635109717868338557993730406",
+      "unresolvedReservationEur": "14.393766233766233766233766234",
+      "zeroAttemptRequests": []
+    }
+  },
+  "contract_materialization_probe": {
+    "source_revision": "93384b66395f4d3802611f19fad5e3ceaab5a6f9",
+    "run": "code-materialization-guide-20261108-02",
+    "source_request": "a8da951303184ddc9199cacbd7db4a25:28:86a0f2ef76cee24b7cfa00f8c34f856f66ebca6fd42bdd58550b939acca8c29c:ea70f3439c66f7afe49a95a9a557ab8e1d1c632b11c50f3e48b048f20b01d212",
+    "only_factor": "717 UTF-8 bytes of system prompt guidance explaining exact contract retrieval after binding",
+    "strict_schema_context_and_other_wire_fields_unchanged": true,
+    "schema_valid": true,
+    "response": {
+      "discoveryRequests": null,
+      "evidenceRequests": [
+        "e5a3d518e_3"
+      ],
+      "reselectStep": null,
+      "clarifications": null,
+      "binding": null
+    },
+    "physical_attempts": 1,
+    "cost_eur": "0.2812718316166592028660994178",
+    "candidate_or_effect_applied": false,
+    "outcome": "Same description reread as original; no demonstrated improvement. Guidance remains diagnostic-only.",
+    "readiness_attempt_01": "Frontend readiness rejected before provider admission; separate worktree assets then built before fresh attempt 02."
+  },
+  "cancelled_retry_retention_regression": {
+    "red_before": true,
+    "green_after_tests": 215,
+    "scope": "Recognize the captured already-abandoned independent attempt before a protected-stop cancelled attempt; preserve every original and hold and permanently forbid replay.",
+    "new_retry_layer": false
+  },
+  "balance_after_amazon04_before_later_trials": {
+    "ceiling_eur": "800",
+    "supplement_entries": 1,
+    "known_cost_eur": "300.72892073443797581728616478",
+    "retained_http_holds_eur": "196.27730407523510971786833861",
+    "external_hold_eur": "2.4215763546798029556650246305",
+    "available_eur": "300.5721988356471115091804719795"
+  },
+  "limitations": [
+    "No global favorable review, artifact approval, execution or independent oracle success for Code05 or Amazon04.",
+    "Equivalent schema ordering and output allocation did not eliminate the provider whitespace failure. No upstream root cause is established.",
+    "The exact bcc0434f unchanged-plan business-review boundary remains unproved live."
+  ]
+}

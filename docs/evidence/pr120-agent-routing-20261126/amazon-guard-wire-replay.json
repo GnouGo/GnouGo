@@ -1,0 +1,9 @@
+{
+  "reference_session": "22776588c0bc4545a1ba6588c3d8149b",
+  "provider_prefix_characters": 815,
+  "trailing_whitespace_characters": 13601,
+  "complete_nested_binary_example_validates_against_captured_wire_schema": true,
+  "partial_response_accepted": false,
+  "model_calls": 0,
+  "source": "1ee7e7e06661d5af0ffdb70947dadd33761c538e"
+}

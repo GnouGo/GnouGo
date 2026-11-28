@@ -1,13 +1,71 @@
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Compilation;
 using GnOuGo.Flow.Core.Parsing;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Planning.Examples;
 
 namespace GnOuGo.Flow.Planning.Tests;
 
 public sealed class TaskArtifactBindingTests
 {
+    [Theory]
+    [InlineData("concat")]
+    [InlineData("uri_component")]
+    public async Task StringOperationsCannotManufactureArtifactProvenance(string operation)
+    {
+        var (plan, catalog) = await Fixture();
+        var actual = plan.Root.Tasks[1].Inputs[0].Value;
+        plan.Root.Tasks[1].Inputs[0] = new("location", new() { Kind = "string_operation", Text = operation,
+            Items = operation == "concat" ? [actual, new() { Kind = "string", Text = "" }] : [actual] });
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Null(compilation.Graph);
+        Assert.Contains(compilation.Diagnostics, diagnostic => diagnostic.Code == "TASK_ARTIFACT_BINDING");
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task GenerationDoesNotOfferManufacturedValuesForDeclaredArtifactArguments(bool compact, bool json)
+    {
+        var (plan, catalog) = await Fixture();
+        catalog.Capabilities.Single(c => c.Id == "inspect").InputSchema!["properties"]!["label"] = new JsonObject { ["type"] = "string" };
+        catalog.Capabilities.Single(c => c.Id == "inspect").InputSchema!["required"]!.AsArray().Add("label");
+        plan.Root.Tasks[1].Inputs.Add(new("label", new() { Kind = "string", Text = "Ordinary text remains literal." }));
+        var state = PlannerFixture.Session();
+        state.Catalog = catalog;
+        state.Requirements = new() { Outcomes = [new("req", "Inspect the exact produced resource.")] };
+        state.Plan = new() { Root = new() { Tasks = [plan.Root.Tasks[0]] } };
+        PlanningCompactConstruction.InitializeSources(state);
+        foreach (var source in state.Construction!.Compact!.Sources) { source.Indexed = true; source.Inputs = []; source.Outputs = []; }
+        state.Construction.Requirements = [new() { Id = "req", Status = "in_progress" }];
+        state.Construction.Compact.CurrentStep = new()
+        {
+            Id = "consume", BaseHash = PlanningConstruction.Hash(state.Plan), Scope = "/root", Kind = "operation",
+            Objective = "Inspect the produced resource.", RequirementIds = ["req"], OperationIds = ["inspect"], DiscoveryComplete = true
+        };
+        var schema = compact ? PlanningCompactConstruction.DraftSchema(state) : PlanningSchemas.TaskPlanGrammar(state);
+        var response = compact
+            ? new JsonObject { ["extension"] = JsonSerializer.SerializeToNode(new PlanningConstructionExtension
+                { CompleteBlock = false, RequirementIds = ["req"], Tasks = [plan.Root.Tasks[1]] }, PlanningJsonContext.Default.PlanningConstructionExtension) }
+            : JsonSerializer.SerializeToNode(plan, PlanningJsonContext.Default.TaskPlan)!;
+        var wire = PlanningCorpus.Transport(response, schema, schema)!;
+        Assert.NotNull(wire);
+        Assert.Empty(PlanningContractValidation.ValidateInstance(wire, schema));
+        Assert.Empty(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics);
+        var input = (compact ? wire["extension"]!["tasks"]![0] : wire["root"]!["tasks"]![1])!["inputs"]![0]!;
+        var manufactured = json
+            ? new JsonObject { ["kind"] = "json", ["items"] = new JsonArray(new JsonObject { ["kind"] = "string", ["text"] = "same-looking-handle" }) }
+            : new JsonObject { ["kind"] = "string", ["text"] = "same-looking-handle" };
+        input["value"] = manufactured;
+        plan.Root.Tasks[1].Inputs[0] = new("location", manufactured.Deserialize(PlanningJsonContext.Default.TaskValue)!);
+        Assert.Contains(new TaskPlanCompiler().Compile(plan, catalog).Diagnostics, d => d.Code == "TASK_ARTIFACT_BINDING");
+        Assert.NotEmpty(PlanningContractValidation.ValidateInstance(wire, schema));
+    }
+
     [Fact]
     public async Task WrongFieldIsRejectedAtTheConsumerBeforeLowering()
     {
@@ -18,6 +76,38 @@ public sealed class TaskArtifactBindingTests
         var error = Assert.Single(result.Diagnostics);
         Assert.Equal("TASK_ARTIFACT_BINDING", error.Code);
         Assert.Equal("/tasks/use/inputs/location", error.Location);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ScopedRepairIdentifiesTheDeclaredArtifactPortAmongExistingOutputs(bool selected)
+    {
+        var (plan, catalog) = await Fixture();
+        var consumer = plan.Root.Tasks[1];
+        consumer.Inputs = [new("location", new() { Kind = "string", Text = "same-looking-handle" })];
+        if (selected) consumer.DependsOn.Add("make");
+        var state = PlannerFixture.Session();
+        state.Catalog = catalog;
+        state.Plan = plan;
+        state.Diagnostics = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics.ToList();
+        var diagnostic = Assert.Single(state.Diagnostics);
+        Assert.Equal("TASK_ARTIFACT_BINDING", diagnostic.Code);
+        state.RevisionScope = [diagnostic.Location];
+        var repair = PlanningRepairContext.Build(state);
+        var producer = selected
+            ? repair["tasks"]!.AsArray().Single(row => row!["id"]!.ToString() == "make")
+            : repair["scopes"]![0]!["availablePorts"]!.AsArray().Single(row => row!["task"]!.ToString() == "make");
+        var declaration = Assert.Single(Assert.IsType<JsonArray>(producer!["produces"]));
+        Assert.Equal("resource", declaration!["kind"]!.ToString());
+        Assert.Equal("handle", declaration["port"]!.ToString());
+        Assert.Equal(diagnostic.Location, Assert.Single(repair["slots"]!.AsArray())!["location"]!.ToString());
+        var value = new JsonObject { ["kind"] = "output", ["source"] = "make", ["port"] = declaration["port"]!.ToString() };
+        var corrected = RepairPatchTests.Apply(state, RepairPatchTests.Edit(state, diagnostic.Location, "replace", value));
+        Assert.Empty(new TaskPlanCompiler().Compile(corrected, catalog).Diagnostics);
+        Assert.Equal("string", consumer.Inputs[0].Value.Kind);
+        catalog.Policy.DeniedCapabilityIds.Add("allocate");
+        Assert.DoesNotContain("\"produces\"", PlanningRepairContext.Build(state).ToJsonString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -31,6 +121,71 @@ public sealed class TaskArtifactBindingTests
         Assert.Empty(PlanningExecutableValidation.Validate(result.Graph, catalog));
         Assert.True(result.Graph.Workflows[0].Outputs.Single().Schema.Contract!["x-gnougo-opaque"]!.GetValue<bool>());
         Assert.NotEmpty(new PlanningGraphCompiler().Compile(result.Graph, catalog));
+    }
+
+    [Theory]
+    [InlineData("null", true, true)]
+    [InlineData("null", false, false)]
+    [InlineData("literal", true, false)]
+    [InlineData("display", true, false)]
+    [InlineData("all_null", true, false)]
+    public async Task OnlyANonNullGuardedArtifactCanCrossAnOptionalExport(string alternate, bool guard, bool valid)
+    {
+        var (plan, catalog) = await Fixture();
+        var make = plan.Root.Tasks[0];
+        var consume = plan.Root.Tasks[1];
+        plan.Inputs = [new() { Name = "eligible", Type = new() { Kind = "boolean" } }];
+        plan.Root.Outputs.Clear();
+        var conditional = new PlanTask { Id = "optional", Kind = "conditional", Objective = "Expose the resource when eligible.",
+            Condition = new() { Kind = "input", Source = "eligible" },
+            Body = new() { Tasks = [make], Outputs = [new("handle", alternate == "all_null" ? new() : Reference("make", "handle"))] },
+            Otherwise = new() { Outputs = [new("handle", alternate switch {
+                "literal" => new() { Kind = "string", Text = "untrusted" },
+                "display" => Reference("unrelated", "display"), _ => new() })] } };
+        var outer = new PlanTask { Id = "forward", Kind = "sequence", Objective = "Forward the optional handle.",
+            Body = new() { Tasks = [conditional], Outputs = [new("handle", Reference("optional", "handle"))] } };
+        plan.Root.Tasks = [outer, consume];
+        if (alternate == "display")
+            plan.Root.Tasks.Insert(0, new() { Id = "unrelated", Operation = make.Operation, Objective = "Observe the unrelated display value." });
+        consume.Inputs = [new("location", Reference("forward", "handle"))];
+        if (guard) consume.Requires = new() { Kind = "predicate", Predicate = "not_equal", Items = [Reference("forward", "handle"), new()] };
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        if (!valid)
+        {
+            Assert.Null(compilation.Graph);
+            Assert.Contains(compilation.Diagnostics, d => d.Required);
+            return;
+        }
+        Assert.Empty(compilation.Diagnostics);
+        var graph = Assert.IsType<PlanningGraph>(compilation.Graph);
+        Assert.Empty(PlanningExecutableValidation.Validate(graph, catalog));
+        var yaml = new PlanningGraphCompiler().Compile(graph, catalog);
+        var received = new List<string>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("renamed", new()
+        {
+            Tools = catalog.Capabilities.Where(c => c.Server == "renamed").Select(c => new McpToolInfo
+                { Name = c.Method!, InputSchema = c.InputSchema, OutputSchema = c.OutputSchema }).ToList(),
+            ToolHandlers = new()
+            {
+                ["allocate"] = _ => new() { Content = new JsonObject { ["handle"] = "acquired", ["display"] = "label" } },
+                ["inspect"] = arguments => { received.Add(arguments!["location"]!.ToString()); return new() { Content = new JsonObject() }; }
+            }
+        });
+        foreach (var eligible in new[] { false, true })
+        {
+            var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["eligible"] = eligible },
+                new() { McpClientFactory = factory });
+            Assert.Equal(eligible, result.Success);
+            Assert.Equal(eligible ? new[] { "acquired" } : Array.Empty<string>(), received);
+        }
+
+        var root = graph.Workflows.Single(w => w.Key == graph.Entrypoint);
+        var inspect = root.Steps.Single(n => n.CapabilityId == "inspect");
+        var bound = PlanningGraphValidation.Member(PlanningGraphValidation.Member(inspect.Input, "request")!, "location")!;
+        var check = root.Steps.Single(n => n.Key == bound.Source);
+        check.OutputSchema!.Contract!["properties"]!["value"] = new JsonObject { ["type"] = new JsonArray("string", "null") };
+        Assert.Contains(PlanningExecutableValidation.Validate(graph, catalog), d => d.Code == "ARTIFACT_BINDING_INVALID");
     }
 
     [Theory]

@@ -37,3 +37,5 @@ response fields. Thinking is disabled by default; when requested, reasoning cont
 is stripped and is never logged or returned.
 
 CUDA and Vulkan acceleration are intentionally deferred.
+
+The common [generation transport policy](../../docs/native-provider-streaming.md) uses LLamaSharp's native incremental iterator. Cancellation and native EOS/token-limit termination are checked before publishing the existing complete response; absent usage remains unknown.

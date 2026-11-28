@@ -1,0 +1,91 @@
+{
+  "source": "afe16fbded350949d0bc5f294de6edae1f306582",
+  "run": "improve40-code-20261127-113943",
+  "session": "03e6319d48964dda932253dd7fee0a14",
+  "form_run": "fb923551f355b19ccc480bd4bb58db33",
+  "approved_artifact": "7e497e93f5ed5a5f531e78919ef4a7bb56a9fb1141eeb86b1983c633387718b2",
+  "report_sha256": "c4c3a12700f3d65ddcfaf4cfa7c8fb54d57833681c39d83c9d1759ab408d07ca",
+  "workspace_artifact": "workflows/pr120-agent-routing-20261126-30/improve40-code-20261127-113943/review.json",
+  "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+  "head": "00af9df84dfba79c3330beed31e118523f4f094d",
+  "changed_paths": 8,
+  "successful_sdk_file_reads": [
+    ".bin/test-annotation-policy-cleanup.py",
+    ".bin/test-annotation-policy.py",
+    ".github/workflows/main.yml",
+    "demo/slimfaas-annotation-policy.yml",
+    "docs/annotation-policy.md",
+    "docs/functions.md",
+    "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+    "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+  ],
+  "reported_coverage": [
+    ".bin/test-annotation-policy-cleanup.py",
+    ".bin/test-annotation-policy.py",
+    ".github/workflows/main.yml",
+    "demo/slimfaas-annotation-policy.yml",
+    "docs/annotation-policy.md",
+    "docs/functions.md",
+    "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+    "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+  ],
+  "findings": 0,
+  "coverage_limitations_count": 2,
+  "file_matches_returned_object_and_oracle": true,
+  "upstream_tests": 4,
+  "upstream_exit": 0,
+  "cleanup_receipt": true,
+  "checkout_absent_on_readback": true,
+  "anchor_verifier": {
+    "passed": true,
+    "changed_files": 8,
+    "observed_files": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "findings": []
+  },
+  "native_inference": [
+    {
+      "call": 1,
+      "request_sha256": "40eb92657d3337d071726b85e6ba3347501c0d88f6ebb0a80ed0a55da3352030",
+      "bytes": 28188,
+      "tool_results": 0,
+      "tool_selection": "auto"
+    },
+    {
+      "call": 2,
+      "request_sha256": "8f10d966bd2315d4ea3922608e15fca542f84115c348295e468272108a8c95e7",
+      "bytes": 39049,
+      "tool_results": 3,
+      "tool_selection": "auto"
+    },
+    {
+      "call": 3,
+      "request_sha256": "e1510f22e2b7f5350b063b201912d9620dc8ea9415043dc7e680146d07239b0f",
+      "bytes": 94534,
+      "tool_results": 14,
+      "tool_selection": "auto"
+    },
+    {
+      "call": 4,
+      "request_sha256": "1c686217cd55fbbd1326ba61cbbb6a46c6e0d7f1552df099baaa4512398ec083",
+      "bytes": 152664,
+      "tool_results": 23,
+      "tool_selection": "auto"
+    },
+    {
+      "call": 5,
+      "request_sha256": "5a518a35a3d51b3da94ff8bd976cea65c1e8677e9aeb92448a78d0498ad0c84d",
+      "bytes": 189576,
+      "tool_results": 29,
+      "tool_selection": "none"
+    }
+  ]
+}

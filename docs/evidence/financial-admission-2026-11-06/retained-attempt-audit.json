@@ -1,0 +1,2581 @@
+{
+  "inspectedAtUtc": "2026-11-06T23:07:15.789321+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "modelDispatches": 0,
+  "historicalChanges": false,
+  "requests": [
+    {
+      "requestId": "057738776a1c84ccb3b58c3f3211dd3e85792271ebd8a63816929e6f5b129dcc:2:33305ab98a8c8a384fca88a097b2af92f1a8d2c93f78c9994a487c48efd1dd5c",
+      "sessionId": "057738776a1c84ccb3b58c3f3211dd3e85792271ebd8a63816929e6f5b129dcc",
+      "recordHash": "a6bb09629b7075d6c98f4db5362089fb164a9af8f3ef314da911511c8e81415c",
+      "updatedAtUtc": "2026-10-25T14:50:15.737375+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ae245dd9fe7479004e0c8c2b4b06bb49ccdc8d75ddcf88c4fa11435a913ba4a8"
+    },
+    {
+      "requestId": "0880d487f7c7c33dc9af9af146e8c79e66d2c23d558237c116dce6086d98db7a:2:057b5f8233878470f830501c6aa7a690080cf845d3a8698850b279e89b7ad77b",
+      "sessionId": "0880d487f7c7c33dc9af9af146e8c79e66d2c23d558237c116dce6086d98db7a",
+      "recordHash": "388497d7e44ee412bc954cb3df26e25c4c6cb42f4104eb064dc4e2a700f9d031",
+      "updatedAtUtc": "2026-10-22T19:00:59.794518+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4901093041855505198613703012",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "sessionId": "11386753f6ce4c4eb456deb20376e057",
+      "recordHash": "1481cc624b96f5d5e365c85f2ddcdfbbcb2e9786629feec1dbd3b19c3fd2b2f5",
+      "updatedAtUtc": "2026-11-06T20:01:54.670549+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "29.277037302084265139994632794",
+      "reservedInputTokensPerAttempt": 1041808,
+      "reservedOutputTokensPerAttempt": 8192,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "f39b448373043117a0248a9d94787f3115b896e2e6d5ea9c526f13960c8aa44f"
+    },
+    {
+      "requestId": "1babfb895d103531e827af6886ac511a28de4be558c2af46571ba098cc9ec7e4:1:bc5ea1e54bfa2c9872a4c3a8c828034233304dd293a1eea28df8b02bec2d6e08",
+      "sessionId": "1babfb895d103531e827af6886ac511a28de4be558c2af46571ba098cc9ec7e4",
+      "recordHash": "28c25ce962c7814039061b132801f4b2827259fb0468ed50ebe31354b7232b6e",
+      "updatedAtUtc": "2026-10-28T11:21:32.156315+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2886120bdc9adb591a00b27d1b782aa85dbc2de3dc9c86508e11b9b1b884b981"
+    },
+    {
+      "requestId": "24017a070d6fdf876bdb4af4f75c179df4971a442431d024c37408266e1a6812:1:cd2e16b0ee84fbfc5d70ea0b8fc8b08ae391c999c5ae19bc113a0536bec98f18",
+      "sessionId": "24017a070d6fdf876bdb4af4f75c179df4971a442431d024c37408266e1a6812",
+      "recordHash": "a9cb31af7f1d5931f0faaa19534dbc03255aa226f709462779025b163cbacb96",
+      "updatedAtUtc": "2026-10-29T20:24:12.033066+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "b5eda785a463c7b406a28e28b6cce99c9326a39bce0aed981b4c649d7eca50cf"
+    },
+    {
+      "requestId": "2b32920c7d9e47bab3be23ccf116a9e8:47:720a3a972660acf022a37045967148cf99f2c3566616d8ef85d4d147349cd809:de0f0d3ad3ea405fd258df9476ebdc9659656339a9d36322dcd3de05b3bf6092",
+      "sessionId": "2b32920c7d9e47bab3be23ccf116a9e8",
+      "recordHash": "4590b8a8dca18d310a5a9dd5088e6bda60c1ef0d070ac7f0ec097235ca04b909",
+      "updatedAtUtc": "2026-11-06T06:29:39.122402+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": 169950,
+      "reservationPerUnresolvedAttemptEur": "32.574648895250022363359871187",
+      "reservedInputTokensPerAttempt": 1017232,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d09a602f0e8d3b63c510c1a2c2be906a0a2324d667069b94b4025d4550260139"
+    },
+    {
+      "requestId": "2f09f5bd4bce93fb9e8993e09309c6a920927538fe2e14957317613ef23f1a1c:2:07be85fe0d0b6299664c8dcca131ec3f67654b998a432688b4d0fb879e86ab5e",
+      "sessionId": "2f09f5bd4bce93fb9e8993e09309c6a920927538fe2e14957317613ef23f1a1c",
+      "recordHash": "a7e7c204bbe82eadacc86ff79e67e433751876ac7df6552bc7e2e2d6f09225c3",
+      "updatedAtUtc": "2026-10-20T18:57:43.987608+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4634497467342042122100773127",
+      "reservedInputTokensPerAttempt": 6000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "2f9880b259a09109f57aca6419e2b564ff308cb65854d91e238b5b149ec185e8:2:5ce16726b77942632bf7112ef2842ea80824311c47290832abcc8336c68e354d",
+      "sessionId": "2f9880b259a09109f57aca6419e2b564ff308cb65854d91e238b5b149ec185e8",
+      "recordHash": "10f258f047318006ba9b80740818bac648a25a916bec415e2f1a7fdfe3b91bcd",
+      "updatedAtUtc": "2026-10-28T09:39:59.768887+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "07ee09e96bec87aa493902309d0df846bbbba6048e53c60e9869a3b3fb899b76"
+    },
+    {
+      "requestId": "2fb987a2c39c7cdaa0e72a337f00f7903b144c0583ce1937d6f18970572fb4bc:2:33305ab98a8c8a384fca88a097b2af92f1a8d2c93f78c9994a487c48efd1dd5c",
+      "sessionId": "2fb987a2c39c7cdaa0e72a337f00f7903b144c0583ce1937d6f18970572fb4bc",
+      "recordHash": "7810667a0556e70b794dd3484156a519938c000aa8955510cbb0dda22e83c471",
+      "updatedAtUtc": "2026-10-25T22:31:03.595713+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "735334766607a13e0989619e3d976c9ae4d860d479f724742f401810282ca1b8"
+    },
+    {
+      "requestId": "30bf7eacfb95af598b855429eb7ed39adb8efad4b8f79b08e518f99a829cc2f8:2:237678e39f0cd9e2ac3f87f44a4454713d691b926792aa607ab39b7b6d7f6e05",
+      "sessionId": "30bf7eacfb95af598b855429eb7ed39adb8efad4b8f79b08e518f99a829cc2f8",
+      "recordHash": "aa390cfad17e9cea3eda3d9986e6451c9be36831ee3ba6622b3f8a2b7d9fcf3d",
+      "updatedAtUtc": "2026-10-24T05:59:06.900277+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "57e53ec8777a0e70fce24883a571ad7b7c787d07a140258271ecb91795e93ee2"
+    },
+    {
+      "requestId": "3155add585f553c011d8fa43226c374fffaa869dcaba7890ab7b2dac53c00af9:2:e3f0b62889cdf0933f17910af849d9077a70c5cacc141f44c46bc3f2ae5a7471",
+      "sessionId": "3155add585f553c011d8fa43226c374fffaa869dcaba7890ab7b2dac53c00af9",
+      "recordHash": "73dc70cde335c2ee5e20b56671c633ef65e5a014714a0a0d05ba607df54e6653",
+      "updatedAtUtc": "2026-10-23T14:09:03.711341+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "339b0e4d1cd35bec49f367eb6970d2d7383eaa66b41f67b7727c5eec243337b6:2:0068a04d7ec101cd98707dfe5cb44492a394954d0fb7d7ca3d5fd0f6a454be82",
+      "sessionId": "339b0e4d1cd35bec49f367eb6970d2d7383eaa66b41f67b7727c5eec243337b6",
+      "recordHash": "024aae43d2e15004a665d5d29e1607aa4ebc6fd27706620abf3b7b57fdb506bc",
+      "updatedAtUtc": "2026-10-25T10:08:12.967406+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "8ef8dbb293204fe7924e29ca389a9103303e556ef66088e4ec9cd9685e98d431"
+    },
+    {
+      "requestId": "371723ddde30b49f04acc28144f6bcd1ed6e1e0a753b83a03e9766f1a5cb0ff2:2:b9819dc695a081fac75b52339c3e67f878401fecda3e64da320ccb9c4ac9466f",
+      "sessionId": "371723ddde30b49f04acc28144f6bcd1ed6e1e0a753b83a03e9766f1a5cb0ff2",
+      "recordHash": "432d69e76e1d2b0bcf1b448d64c2f7d1a5b63f2a5a224ebd3ba73aaeab91515b",
+      "updatedAtUtc": "2026-10-26T11:01:08.23137+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d20b20ad6d5b3a0d053d6ebc5b042b4bbde3439e4a778060a71cf7f35255f608"
+    },
+    {
+      "requestId": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+      "sessionId": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9",
+      "recordHash": "19d9c7fa1bacbdef542167e2a2187bdda918d711ebb7cee222a172b662599ce2",
+      "updatedAtUtc": "2026-10-23T09:53:53.431492+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4922088353413654618473895582",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "4eb052aab9d772c867f92ea3684e241d4647acc3785342a184e09313467dcebe:2:07be85fe0d0b6299664c8dcca131ec3f67654b998a432688b4d0fb879e86ab5e",
+      "sessionId": "4eb052aab9d772c867f92ea3684e241d4647acc3785342a184e09313467dcebe",
+      "recordHash": "0c83e22ed19ce94621f2368c2cd1c6d599c412f6edf7ccb5d42e4dd131821f67",
+      "updatedAtUtc": "2026-10-20T19:58:38.249252+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4634497467342042122100773127",
+      "reservedInputTokensPerAttempt": 6000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "524f68e751c6826de102a9a54c43d4a0f8bd6563d9125b7c91573e9bc65f90d5:2:237678e39f0cd9e2ac3f87f44a4454713d691b926792aa607ab39b7b6d7f6e05",
+      "sessionId": "524f68e751c6826de102a9a54c43d4a0f8bd6563d9125b7c91573e9bc65f90d5",
+      "recordHash": "2daf07923338133381f5bf0b7f33c6e781a291326ac7c88eeee8618aa15f2726",
+      "updatedAtUtc": "2026-10-24T06:27:05.669336+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "f1dd54528d1254cce65c83f52f8ff8174c51ca4729c5a86f7fe86a3ef9e99365"
+    },
+    {
+      "requestId": "5cd04af9dfb9f31aeedb19c5e642eeef76e9487742fc94bea935f0536ead17d0:2:1623a15b0bf6c5fe9ffbcda12e327320ce58b5968154918806927dea46739f42",
+      "sessionId": "5cd04af9dfb9f31aeedb19c5e642eeef76e9487742fc94bea935f0536ead17d0",
+      "recordHash": "1da4a40c3b967776f5ecaa1dee50c52f86851b08916833616473a170bf607d0d",
+      "updatedAtUtc": "2026-10-22T20:26:07.955817+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4901093041855505198613703012",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e:2:0068a04d7ec101cd98707dfe5cb44492a394954d0fb7d7ca3d5fd0f6a454be82",
+      "sessionId": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e",
+      "recordHash": "03048fc37039b3e6507211e9401ea5083c435f0c50dadd5d26fdd13e788d2110",
+      "updatedAtUtc": "2026-10-25T06:03:09.752293+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e837122722e60afb930ffb9349739441e95e824878a123116e8fe6c56647b05c"
+    },
+    {
+      "requestId": "678af13659effc8e98c477ac79a5011227b13614dbe4127cadfd0a7d4905d0f1:2:276836875f131b63e2d5752823caa62b6d836c7656a49b481f68c959270b1d00:2336a330744557623ce25ca1fa075d9b48cbb3c352f6095d9367a120ee23b904",
+      "sessionId": "678af13659effc8e98c477ac79a5011227b13614dbe4127cadfd0a7d4905d0f1",
+      "recordHash": "fd7f150ae7ac808765fbd68407000ce79f27702aef5f9994cd932435860bde5c",
+      "updatedAtUtc": "2026-10-29T16:33:01.553451+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "cd4d8699c5e727ef9be4ec33e9fee74e65add9b5f340a184572e2fb3fe1a6691"
+    },
+    {
+      "requestId": "6cd68bafcf7c99ede46bb0ddaa410eec5ed75dd9ac90a7f4e6344d45767bd7ad:2:67cbc7a881cd13e1c78fac889e4fd7b6127a080de9a25b6415c447c111061bb9",
+      "sessionId": "6cd68bafcf7c99ede46bb0ddaa410eec5ed75dd9ac90a7f4e6344d45767bd7ad",
+      "recordHash": "417eff286472a2e81e8a264e178eed9d1b87f7545fc1ac69a31c8b7300e21246",
+      "updatedAtUtc": "2026-10-25T08:00:46.441489+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "9af474c4b2597144bc8460272423affcefdbee6fe42e3d8115089b6e0f1e0b48"
+    },
+    {
+      "requestId": "75037700fdd790501821386430efedd6eb79f5cac98c9fad34a98a85e645d982:2:b9819dc695a081fac75b52339c3e67f878401fecda3e64da320ccb9c4ac9466f",
+      "sessionId": "75037700fdd790501821386430efedd6eb79f5cac98c9fad34a98a85e645d982",
+      "recordHash": "19b230476cb74c4d65afeab06fced4d6fa423eeb22038aa04f0fbd8c643b4283",
+      "updatedAtUtc": "2026-10-27T13:00:31.479338+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "fd8e5dc953c3582ccb36f5b3c875b9f771b656769b6933f92cbff9bd506bbabe"
+    },
+    {
+      "requestId": "7d11bcf6a17d4fa687902b141cd7c7b7:43:b438a28794c050a60e3d3e2760cbb58d425c5191d088dd89ae5ec9fcb93952db:2b23e4410a5d3484bb07de6a3c3542843811af7fa30b25de40123ac2d914e46a",
+      "sessionId": "7d11bcf6a17d4fa687902b141cd7c7b7",
+      "recordHash": "f242805587f373d60522e091c53f3838bfb345ca32d57e4660e587f8fd11551f",
+      "updatedAtUtc": "2026-11-06T05:12:00.698272+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": 28029,
+      "reservationPerUnresolvedAttemptEur": "32.574648895250022363359871187",
+      "reservedInputTokensPerAttempt": 1017232,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ba34e50370d5aed616170d668a61cd656d4b1829f710639fad807ac82f110841"
+    },
+    {
+      "requestId": "7fc0d968290691fd47897f3152b8451dc9eb25965aef6af284c7e62dea89775d:11:6d468946c8305dec709e0b613f554c91f4621a6f3be131af19f81169420ccbce",
+      "sessionId": "7fc0d968290691fd47897f3152b8451dc9eb25965aef6af284c7e62dea89775d",
+      "recordHash": "3af787bdad8f2af4dbcb8631b050648c50ba978b68a99765d90721367bfb8017",
+      "updatedAtUtc": "2026-10-21T03:46:24.129592+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.2894872478450191060161734648",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 8192,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "8b9ac5e003d506734602bd9fa78c9dcf98d649389cfab06d859f36d2eeb6aa19:2:f433052865d00860241a0e1bedb7fa9eec4d13ad93e0c490c072eb86abe0833c",
+      "sessionId": "8b9ac5e003d506734602bd9fa78c9dcf98d649389cfab06d859f36d2eeb6aa19",
+      "recordHash": "3104dac4bec59f43e5f3d8f760691505f6a62a5e6acb9856daad1b0410732249",
+      "updatedAtUtc": "2026-10-23T07:27:09.268115+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4922088353413654618473895582",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "925236f0b32617c8f3e71cced6534b6c9bd56ea84fae8e473acb540f5d0208a4:2:9bcce1ab0066dc1fa15ede82692b1e880045369286f9076bf452e4840bc367ed",
+      "sessionId": "925236f0b32617c8f3e71cced6534b6c9bd56ea84fae8e473acb540f5d0208a4",
+      "recordHash": "85d78d24cae2061983ebffc28eaecf89a74a37bc8e24f577d60d460742b016fd",
+      "updatedAtUtc": "2026-10-23T08:28:22.275184+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4922088353413654618473895582",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d:2:102bd5191ed7bdd1cb4485b02570e84d0fb985d9e1055ed03f24e0ced50cd085",
+      "sessionId": "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d",
+      "recordHash": "c345db2315bafd15afb1255ec0341416d8e854532b95e8a08e57ea6368083fcb",
+      "updatedAtUtc": "2026-10-27T23:45:37.30901+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 3,
+      "unresolvedHttpStatuses": {
+        "500": 3
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ef926a08bc4f60df6ee2eff9fba0f921c3b3c5741791c67c37387c92f7d5e683"
+    },
+    {
+      "requestId": "9f1563085f5fb409f04b7369c1c7f59c7695e9dd617da7b179d168e3e047e981:2:67cbc7a881cd13e1c78fac889e4fd7b6127a080de9a25b6415c447c111061bb9",
+      "sessionId": "9f1563085f5fb409f04b7369c1c7f59c7695e9dd617da7b179d168e3e047e981",
+      "recordHash": "4cbd2ad04a00b1e8547ee9e1dfd03d5aafa172d58f20d41977bcb8372b23274f",
+      "updatedAtUtc": "2026-10-25T13:41:21.019782+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "93d31b41fdd14232fff6e138e7e4ab73393df2329e64867d2d641738d1796fdf"
+    },
+    {
+      "requestId": "a6306aa42f9124df0548c9e53bfd0997a714434a8e1568ffab3ef38bd8466fff:2:d18eed1e152c45e2ae83372d7e011f264eab0b83adde9fc903d22aa4ef24f487",
+      "sessionId": "a6306aa42f9124df0548c9e53bfd0997a714434a8e1568ffab3ef38bd8466fff",
+      "recordHash": "e945881659139fb4bac097603ac70e9f72de29cf266f24eee417f53f9720be81",
+      "updatedAtUtc": "2026-10-24T14:41:23.365024+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "5b0d6000ab0995e68c731aa80b5d0525630a21e365c219322253f72dcd7a21b7"
+    },
+    {
+      "requestId": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da:18:6f1d8c620e38ea974a2168a34e26134ab766f87ac116718451e72855535e9673",
+      "sessionId": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da",
+      "recordHash": "7bdaf31d5a2134ea716b9c82bd57e8ef50b6450521b6b96dde3057b250362be9",
+      "updatedAtUtc": "2026-10-27T07:30:35.69416+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.3133422579205711735832217760",
+      "reservedInputTokensPerAttempt": 21068,
+      "reservedOutputTokensPerAttempt": 8192,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "63a24709f0b8f164923cf8279ca83b337357fada33bfa3575fc31b18eeac5b0e"
+    },
+    {
+      "requestId": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da:2:33305ab98a8c8a384fca88a097b2af92f1a8d2c93f78c9994a487c48efd1dd5c",
+      "sessionId": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da",
+      "recordHash": "d119d2894a264aeaa020ad44831f2355e3ff181c37c24d76bf17cb081987600b",
+      "updatedAtUtc": "2026-10-27T07:10:49.285973+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "acc9a7b1e1a6972c33ba5a9bac38e201f6c488db334e15530689d7bb2a4ab423"
+    },
+    {
+      "requestId": "ae393cfa6eb953c800f7dfed0b88c0fcf86f39b16484c78bdaf8a697230df039:2:5ce16726b77942632bf7112ef2842ea80824311c47290832abcc8336c68e354d",
+      "sessionId": "ae393cfa6eb953c800f7dfed0b88c0fcf86f39b16484c78bdaf8a697230df039",
+      "recordHash": "521f2e4025141d6110b1a20d17c41504e8587d02cecad9c63d3d85e793685184",
+      "updatedAtUtc": "2026-10-28T01:28:01.80269+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "c78c61bdd7a0c3d03d0949d60be66d0c9533da8cac1bd12931aab0d28582556a"
+    },
+    {
+      "requestId": "b38ca16c3be5d4f533bc44c7ffb2ece2c0283d98503928bcba1bebfc6d0b3d21:2:b9819dc695a081fac75b52339c3e67f878401fecda3e64da320ccb9c4ac9466f",
+      "sessionId": "b38ca16c3be5d4f533bc44c7ffb2ece2c0283d98503928bcba1bebfc6d0b3d21",
+      "recordHash": "3550a7ea3b16627ae483409b595df6e7be6b25a2f0408f469951cbe034750e72",
+      "updatedAtUtc": "2026-10-25T19:59:12.411298+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "838005a797e865f1f0dc725757aa346765ff6ff1a9ba48e4b602d800258677a9"
+    },
+    {
+      "requestId": "b61b68bfee68d839826bf15d6427cf5c179b11602d61a476a24c16127082b6be:2:0fdf075b165478e1ce9485d05ba9b8aea55ed0db5ab199b032c8d7d621e034f0",
+      "sessionId": "b61b68bfee68d839826bf15d6427cf5c179b11602d61a476a24c16127082b6be",
+      "recordHash": "7b21dab57a257f088af5c1ccd7b375cbeed4a8990338886c3db46185cfabdb54",
+      "updatedAtUtc": "2026-10-23T20:36:31.087843+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "bc0ec4832b0d01cd5d39edee30c69a65970821e456da322092e2e082d87b9bb6"
+    },
+    {
+      "requestId": "b919500d8f32131545eb4eecd4fdbc07594fbacf9e7103e536c1655caca9f693:2:237678e39f0cd9e2ac3f87f44a4454713d691b926792aa607ab39b7b6d7f6e05",
+      "sessionId": "b919500d8f32131545eb4eecd4fdbc07594fbacf9e7103e536c1655caca9f693",
+      "recordHash": "6e4046d0d3d067337ef7cffef980a8c6d8feee447d837fe81a4a58ff8aaafc6e",
+      "updatedAtUtc": "2026-10-23T23:18:51.507094+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "88ac9e4690b3f91e289d8dff104c96cec4ee6e3034ec97fb9692264b9485d8f5"
+    },
+    {
+      "requestId": "bb67753d15a84f569158bb4175af6613790c6852eec6eec3452edfb5941fa027:2:5e5be357fee73d771267290ac7bfb4a77ecf588755bca3e1613e1b3d6e4e4261:28ac9d14952b234c82ae51d0163134d01b2f4fb6b998103695f34073e3f5cf14",
+      "sessionId": "bb67753d15a84f569158bb4175af6613790c6852eec6eec3452edfb5941fa027",
+      "recordHash": "e5d1659a4decb5e43fba70402f4a8665a1bca0836524d6fdcbce3059b3470318",
+      "updatedAtUtc": "2026-10-28T22:58:54.477976+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d7edc84fb36e9c53b6cf27271ca3f41e2f83fd67dcb5cb10f2578eed50cbb4b6"
+    },
+    {
+      "requestId": "biz1bb59305amz32a-amazon-1:8:cb067a126ecc1d6952bd31df56351040de7ed4fdf87c07fe45bd4a76dd4c067d:27b3b27e70224bf0c56af258f0ea86c9ce10bb20c3bbe91d5cd68b7f9d58eba3",
+      "sessionId": "biz1bb59305amz32a-amazon-1",
+      "recordHash": "710cac54e4e1fd7e7a1e7223fea28e3b50f1356e9198ab30d7a6e08ed01d3d75",
+      "updatedAtUtc": "2026-11-04T15:04:53.702597+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.1341041238035602468914929779",
+      "reservedInputTokensPerAttempt": 56955,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "a841e379e7822014b333a0348b6b1bc75f38ed830fa4816bf1874914946a700f"
+    },
+    {
+      "requestId": "biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03",
+      "sessionId": "biz1d6632c5amz01-amazon-1",
+      "recordHash": "f14794412014516c04d3229561168ed893b244a09e3cb0dee1fb5b729e31c591",
+      "updatedAtUtc": "2026-10-31T13:03:45.911847+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "264f8dcd06929b5c69a96cffbb356f02d416b0074d32e094306d6a2e5b292a57"
+    },
+    {
+      "requestId": "biz1d6632c5amz02-amazon-1:7:d090b893dd48a1e8e8fe3c0f7fff4f2748b3f8e3e0af05ce6cca53bf3cbc46fe:063a50edf5c72af29153e0088c55d1e57b05073dbc956f91c5f3ef2082bb5af4",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "recordHash": "da6558e8caf43241868d32edf881957e4571a4a82ab175dc3e991d88d5a6a3d0",
+      "updatedAtUtc": "2026-11-04T09:52:30.80012+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6910457107075767063243581716",
+      "reservedInputTokensPerAttempt": 56200,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "fb525f024b92d1ad2828774d6e983406dc68f0a764550a6ba7b2f317a8498254"
+    },
+    {
+      "requestId": "biz65b1a0d4amz32a-amazon-1:8:3b072e2f319bc23afcab595d3ec644bcfa7cff2d4d81d5b96dacc40e0f85a6fe:d0f116cad358a60cba8f6a9d8c798cba1d7af0ea5938975be42fa3cf8cb227da",
+      "sessionId": "biz65b1a0d4amz32a-amazon-1",
+      "recordHash": "4a6aa3bbededc4b45371f6a9398bd1c29889f0be5f8b0004306ef43a27fdc273",
+      "updatedAtUtc": "2026-11-04T13:28:51.094141+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 1,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.1204401109222649610877538241",
+      "reservedInputTokensPerAttempt": 53900,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "4c0750ca6a02203b80c1cd9c529d77774779beffe4b9aaa992c19c81273f5502"
+    },
+    {
+      "requestId": "biz65b1a0d4amz32b-amazon-1:9:1b1ab5ff0734720538ce82173a666500fad4d7285091806dba64effd9e2f86b7:b5e9c4fe23243b256f42f9b9b14c6a0ec307a97e8cd43b2d171475ad6adf26a7",
+      "sessionId": "biz65b1a0d4amz32b-amazon-1",
+      "recordHash": "eaee320bcc5d0ed78c4e2cd3822e56ff088940a11ffc96f2771b3019b8676691",
+      "updatedAtUtc": "2026-11-04T14:22:03.045983+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.2637355756328830843545934341",
+      "reservedInputTokensPerAttempt": 85938,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "34dea3dc6080d0a65fb59fef05552fae9ea4d992ec47f40e18f6b8feecbff6bf"
+    },
+    {
+      "requestId": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "sessionId": "biz6f063c51amz01-amazon-1",
+      "recordHash": "3ea7313f05c5ab5af1870d486ca9bdd03319606e2877b7e1825b8828257c85a8",
+      "updatedAtUtc": "2026-10-30T11:06:40.094242+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "85ada1e1ce6d24391caa83ee264baf15201f17b3a7fb16b27bb9600df5c47689"
+    },
+    {
+      "requestId": "biza84fc50damz01-amazon-1:8:5cd81c18d6bb73418eff9e70d10297c7abf14caca40eb132b6ab06b64fdba369:9cbe726ad17f14bce1ca977db86143a0010eba39b88569c4cde78b974f74faca",
+      "sessionId": "biza84fc50damz01-amazon-1",
+      "recordHash": "3de88db8a7d0cd182f30ed5b4aa9e0e114d5cc96aaf417b31dbe0bf87176299c",
+      "updatedAtUtc": "2026-11-04T12:25:57.883145+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6846095357366490741569013329",
+      "reservedInputTokensPerAttempt": 54761,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "0c3a566b2a9275b2df2991b5bd70b153b7e34768baca44587530832651396d83"
+    },
+    {
+      "requestId": "bizb043e027amz01-amazon-1:1:74de85db8700d56388c88683c8a9932a6b85ce3ee13a2f76b1c211cdf91ad428",
+      "sessionId": "bizb043e027amz01-amazon-1",
+      "recordHash": "79173d5cad8bdd33ce6cdc003404d4a4b1177a0136467ce05bc07799d67f997b",
+      "updatedAtUtc": "2026-10-31T00:03:09.606125+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "71b438f79f9ffde9b32cf5b64d21e1d8973e3a06a8917addea370e641f1deecc"
+    },
+    {
+      "requestId": "bizb043e027amz01-amazon-2:7:4fe1600d931eb82ebeaade9453fb2fd3a810dc0e8bab2696da1d69a83c184137:e0cdbcaa6e76f42240c83ae2b9d6f1dafaaa32aea1f1e9670f7bc7becf245242",
+      "sessionId": "bizb043e027amz01-amazon-2",
+      "recordHash": "c8cb3801d2b263ecc2ebbb1c05c0c3b85eff648a57572b330bc6b785958bed7d",
+      "updatedAtUtc": "2026-10-31T07:11:07.671049+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6784200125752268031977005300",
+      "reservedInputTokensPerAttempt": 52753,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "66cb3072a8a5e7ed54e4996c8fb3c34e0f935cf60adea28de3bcfd6ce814b516"
+    },
+    {
+      "requestId": "bizbd4169c8amz01-amazon-1:1:d0e0d9e44f8279deb7c8389f2ef6ae19fdec3b3a992f6af0855803c9bad52c40",
+      "sessionId": "bizbd4169c8amz01-amazon-1",
+      "recordHash": "419c814094555174bf9f66582836ec4c0d30f62695dfdce42878ecf1137f61ed",
+      "updatedAtUtc": "2026-10-31T09:48:46.535548+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d6e59a9f71ccbf087b1e1d759be2aaf355dbb438dc21c8fed4cbe0e1f271649f"
+    },
+    {
+      "requestId": "bizbd4169c8amz02-amazon-1:1:6356bb20532590269079461c5ea3d56efd914b934ba6b725e772a2bd896fa1ac",
+      "sessionId": "bizbd4169c8amz02-amazon-1",
+      "recordHash": "af7fcd3874c3a38926bc8a081901c5f4e991cc22e687bed36c2d304254590fd0",
+      "updatedAtUtc": "2026-10-31T10:32:46.709614+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e1b4451bff07fb5d49f3d04e5a424d02022409b79e1acea4c0fec8379e793bd7"
+    },
+    {
+      "requestId": "bizc89f2e5camz32a-amazon-1:7:cccb3c6f53b508fdfaac9885e01761ac15d3dff154d6ff4b82e4a83973863493:3dacc5267174af22428f4d76d6d9ec564ed228814f117e0d3cf7aa04aa142fbb",
+      "sessionId": "bizc89f2e5camz32a-amazon-1",
+      "recordHash": "d609d7c7acc5ceeda90d0b7b43497ba8ab1bf2bc8cbc63be9d6fbf3e60882d04",
+      "updatedAtUtc": "2026-11-04T15:41:41.622942+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.1279228911351641470614545129",
+      "reservedInputTokensPerAttempt": 55573,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "be473d0115455feb7ba2d0de91c96fece2a3b50012a9a69b833c38ba194c394f"
+    },
+    {
+      "requestId": "bizc89f2e5camz32b-amazon-1:7:a27fc415fed139bcb1b4d2ca409745ae159a9442cb25c710056ba3bd44400df7:6fe0633b3a8e6073f2dd094f366522a279611c8883832851248e9d5efd4a7c09",
+      "sessionId": "bizc89f2e5camz32b-amazon-1",
+      "recordHash": "3d3dce9364bf2591c2663bb9475be6f9e214473494fc402785c0f67ef31b6c98",
+      "updatedAtUtc": "2026-11-04T16:16:27.932438+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.1322211289024062975221397263",
+      "reservedInputTokensPerAttempt": 56534,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "7a7bd593b452a17498bbab758b4d037f667ed2b65393a86c525cc6ab33504e63"
+    },
+    {
+      "requestId": "bizcd864165amz01-amazon-1:7:c332deb8f1b7e027783104dac627e49d8d926a439da9dadb13a866c87738b4d6:86215ff6732f8d8b6e6b302acde343a282da807b4c48201bc24ae19007828b76",
+      "sessionId": "bizcd864165amz01-amazon-1",
+      "recordHash": "d68702a4fd07005647147f9cbc8216a93c896139ff7e1901c49aa59c40519616",
+      "updatedAtUtc": "2026-11-04T10:36:36.938506+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6889882815994274979872976116",
+      "reservedInputTokensPerAttempt": 55740,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ffe7f2126d08dfedb01e62de7c8a9736c697ab4dd660a8dc713ae549cfc0384b"
+    },
+    {
+      "requestId": "c8a9bb18e5d54d594470f0344fc64f28f6c39d1708601ae69094299452f9b9ad:2:102bd5191ed7bdd1cb4485b02570e84d0fb985d9e1055ed03f24e0ced50cd085",
+      "sessionId": "c8a9bb18e5d54d594470f0344fc64f28f6c39d1708601ae69094299452f9b9ad",
+      "recordHash": "a9e90b52a053d3ea8b8d1766dd7bf09f5a91b512174a938643980cafe085d0ec",
+      "updatedAtUtc": "2026-10-28T14:09:31.644163+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ab05d92815deac97cff1c74993304dac8116a3e895f5476de7784df41f509775"
+    },
+    {
+      "requestId": "c9376fc338f2f26a2179959305964951c09d9cab7e6adc4bf70c97db7acdb643:2:d9be36fe3347e99cfaa9b50318bfcb4e258284f6c374f39340427702a7d4e0fd",
+      "sessionId": "c9376fc338f2f26a2179959305964951c09d9cab7e6adc4bf70c97db7acdb643",
+      "recordHash": "410728d226f39d52ccbd464a6d644b3a6124a4e9944ad0a8831ab0dc4f4d00ae",
+      "updatedAtUtc": "2026-10-23T14:45:14.582462+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "cd48d8313d0d5a686e1383ce9af3e1240ffb65a6ae6c64a7565660b8ed780324:2:76d02e17e63b77614dd7e515aa99905acc531415c88a93ff54a1967706d9f530",
+      "sessionId": "cd48d8313d0d5a686e1383ce9af3e1240ffb65a6ae6c64a7565660b8ed780324",
+      "recordHash": "75d8199c3823bdb27dfbe6a5b00e8fe19a5d7ffb89ff1dd297df965528f9c617",
+      "updatedAtUtc": "2026-10-22T21:19:14.586303+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4901093041855505198613703012",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "ce34894824af2ef1290e8fddabe4a1d90d4e80c22cbedae7fc6c669512fe393e:2:5ce16726b77942632bf7112ef2842ea80824311c47290832abcc8336c68e354d",
+      "sessionId": "ce34894824af2ef1290e8fddabe4a1d90d4e80c22cbedae7fc6c669512fe393e",
+      "recordHash": "6a6f11ceaf2540c65cee411e9e4e4831ed6c51dae84cfee70cfdc7569fc1e4f5",
+      "updatedAtUtc": "2026-10-28T07:45:55.892679+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "0258d4f6c52fed3d2d251efb3d361581336058659c21846814ad3adaea714665"
+    },
+    {
+      "requestId": "compacta1a236234-code-1:3:ff6f9f374f06923c8032b3ff7631f18a7d000c8d3dffa0683f4935872453850b",
+      "sessionId": "compacta1a236234-code-1",
+      "recordHash": "815e0af7eed0e607cea31d740b0e41452083b07792ede1ecd97f85a7047624df",
+      "updatedAtUtc": "2026-10-23T10:38:40.789613+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4922088353413654618473895582",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compacta2d0485d0-code-1:3:503582ed05734af235319893b6f468fe901248973c8092dcf68d59f68a3dd43c",
+      "sessionId": "compacta2d0485d0-code-1",
+      "recordHash": "c13b1e7df29229d46f196d5c217d7a5ab8da3eff6c54e3d64e0b568471bdbbc0",
+      "updatedAtUtc": "2026-10-23T05:03:05.315614+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4922088353413654618473895582",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compacta3adc335-amazon-1:2:9125b57c0b14019425e0a998e7715991bde42b239461ca8656f6c7a5d8cd8826",
+      "sessionId": "compacta3adc335-amazon-1",
+      "recordHash": "d7682ee7bb2cba3dad653329f45e07f3a7f3a659163356866544c2a1a90e90c4",
+      "updatedAtUtc": "2026-10-21T02:19:06.401427+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4901093041855505198613703012",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compacta615dd0e96-code-1:13:23e23b67f82af9ebb230affed13d819d17403e03e539bfbfc6d61b1bfabc87bb",
+      "sessionId": "compacta615dd0e96-code-1",
+      "recordHash": "e395f62e1db705a0ae5d65a4862b290da636eac7fd819dca532abcbd48895885",
+      "updatedAtUtc": "2026-10-23T12:40:44.079946+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5479161088799643016510486390",
+      "reservedInputTokensPerAttempt": 24484,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compactd08ad5db-code-1:3:a5ecc90f568b41f1c29d10830c81a8316083614cf65085a4f6ddef9cd9abfc29",
+      "sessionId": "compactd08ad5db-code-1",
+      "recordHash": "8577116705fc98f46a90655205f3588334cecbc241e0b4952c19a97e4bea8b7c",
+      "updatedAtUtc": "2026-10-20T18:08:57.909326+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4634497467342042122100773127",
+      "reservedInputTokensPerAttempt": 6000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compactd3513ccd-amazon-1:6:488ab6cc973f38b92db948de2c8a3e1bafd9c38af0f07a11ce181f800fb0093f",
+      "sessionId": "compactd3513ccd-amazon-1",
+      "recordHash": "8160b132ce27a57331272835ab9eefb890a6362a4ed4279cd03aecc2c84dc293",
+      "updatedAtUtc": "2026-10-20T10:34:55.56486+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "502": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.2473740335910423886963476406",
+      "reservedInputTokensPerAttempt": 6522,
+      "reservedOutputTokensPerAttempt": 8192,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compactd743e4a3-amazon-1:2:d59476d40a580128279e94e9f7b35fde2221916176f8ad56a4d5afbea6237e6a",
+      "sessionId": "compactd743e4a3-amazon-1",
+      "recordHash": "cbfb75127f0351c28baa1ccd1dca3623ba136912895c1ff1b9f118941812ee96",
+      "updatedAtUtc": "2026-10-20T21:15:25.171808+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4723362658846529814271749755",
+      "reservedInputTokensPerAttempt": 8000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compactdcd174ea-amazon-1:1:4b58d3ef50db3a34c427119e77b2053774baac836b8324d22ee2f7abfb032489",
+      "sessionId": "compactdcd174ea-amazon-1",
+      "recordHash": "65ac1649b07d33a4f5d87e9c1b8d0e6f2a810c8751748e1d55432cdb6854c4dc",
+      "updatedAtUtc": "2026-10-20T18:40:46.202063+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "504": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.4634497467342042122100773127",
+      "reservedInputTokensPerAttempt": 6000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "9913de69890c790dc1acb06a6c49e1515493390f0a632d441b9e33afb564e6b1"
+    },
+    {
+      "requestId": "compactdiag673-amazon-1:1:616dd1b7dc56957b4059c8122ddd60b617c04f4b413732a46cadef81afd68461",
+      "sessionId": "compactdiag673-amazon-1",
+      "recordHash": "920a94847694fd8cff3540ac58e00dc5d8928e53659ab5a78d152df452746b36",
+      "updatedAtUtc": "2026-10-19T20:55:14.246546+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.2479472140762463343108504399",
+      "reservedInputTokensPerAttempt": 6651,
+      "reservedOutputTokensPerAttempt": 8192,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": null
+    },
+    {
+      "requestId": "compactf26340bf5amz11a-amazon-1:16:80a4f67d576bdf6b6b553cb41c3d408767d527644d6d90dee648a9ed57efc9c8",
+      "sessionId": "compactf26340bf5amz11a-amazon-1",
+      "recordHash": "354a77eb4c4806353ed76fd5d6a0592c16cbbbb5b3f0adbc2c5064b572a103bd",
+      "updatedAtUtc": "2026-10-28T20:25:06.291978+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9566622043730477465417224453",
+      "reservedInputTokensPerAttempt": 17780,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "4bb15b28262bf05040355c8c42d6235d9f1daab3236eb0d5fd898c0be8620a2a"
+    },
+    {
+      "requestId": "compactf664895d7code11a-code-1:20:608678f2579c1ae21a833a522f04306792556b6e1d0e5b62c0faa42a77449f4c",
+      "sessionId": "compactf664895d7code11a-code-1",
+      "recordHash": "e4c45dfe9166933e7e1f79601f90472018065a9a06f7683137e05f7d7d68def1",
+      "updatedAtUtc": "2026-10-28T18:11:32.058966+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0887193217313699241410084784",
+      "reservedInputTokensPerAttempt": 47374,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e4fe84a711f2a8e09d50c30980f6ca76e7b2bb34e223ca6a679a4123dddf7944"
+    },
+    {
+      "requestId": "compactfd66f4843amz11a-amazon-1:2:c4509924229f07b5215c986a90a56bf8790becdbf4be3969b2683fb3686bdfe1",
+      "sessionId": "compactfd66f4843amz11a-amazon-1",
+      "recordHash": "942ceed5602ca07172ff4e385785cc3db73a4a422f4c6c5ba5fa0879032afd59",
+      "updatedAtUtc": "2026-10-28T17:17:13.655649+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "0382243c44c98a00b9c6f4c6e2c22f5a47daaf08126f8cc3c8da6b9b136a11b3"
+    },
+    {
+      "requestId": "compactl9fe879ccamz11a-amazon-1:12:f815f3e061b9787d4feef92a12fbd17baf47c3e236e9201f0cc87245a006a302:d51d60af7169de54d0b8b110283ad203e8e6a9a94388b1aaad3bb57f9de682e5",
+      "sessionId": "compactl9fe879ccamz11a-amazon-1",
+      "recordHash": "cd4ded266045460889da37eac510d449afbe69e6a81f9a3aa2113adb7cfbe019",
+      "updatedAtUtc": "2026-10-29T02:39:05.480709+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0086005569029012844695948981",
+      "reservedInputTokensPerAttempt": 27967,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "3d9633f1c046801a2c4ff520c99b912c0a5c76164643a0dca70f74a211a0f142"
+    },
+    {
+      "requestId": "compactl9fe879ccamz11a-amazon-1:2:37af5df0c06b41cef019c577549da7e2b24680ea2a14698e5416319a01d0be9c:b1abe2f1675629d8927fb870b44f958bd690fc50b08b12835d1b81c0f597c363",
+      "sessionId": "compactl9fe879ccamz11a-amazon-1",
+      "recordHash": "d5fc51aa8fee773d5313fe529a07c778baf02df6d313eebb86a14d8871ebfec8",
+      "updatedAtUtc": "2026-10-29T02:23:31.78851+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "3d9633f1c046801a2c4ff520c99b912c0a5c76164643a0dca70f74a211a0f142"
+    },
+    {
+      "requestId": "compactm491d580eamz11out32b-amazon-1:10:f51b8a591c29dcd17e8c3a3f540e973bb51dab90b818871213349769dd6c5720:a42858a6f9e2f95e67a7effcbe54451275a7978e5ca09d49e6d49c2fdaf65cf8",
+      "sessionId": "compactm491d580eamz11out32b-amazon-1",
+      "recordHash": "d245f80353f488ca05e71eca0572e8f10504bc2019cd1075accb3169d48b40f9",
+      "updatedAtUtc": "2026-10-30T04:56:46.806805+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9979834725590586544507320578",
+      "reservedInputTokensPerAttempt": 25603,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "ca3f8bf4cfdada00842337014c447ad84fd6824a2468f666967f4ed467d9a05b"
+    },
+    {
+      "requestId": "compactm5e0bc6d8amz11a-amazon-1:14:0a38735258115ce6f381876b92f189ffcc1391c900fc55d0baa4253acdf7b8c1:8716ded82c3fab592a173142985cfea8d7b0ac26d433a183f51c13fb3f1bf1cc",
+      "sessionId": "compactm5e0bc6d8amz11a-amazon-1",
+      "recordHash": "ad1657bd32a8dde9ed1e52c1b0c227498bb3fefaf11c4d2ef5b70a52aa07e6ff",
+      "updatedAtUtc": "2026-10-30T00:19:57.783609+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9874562112638102937213689033",
+      "reservedInputTokensPerAttempt": 23259,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "6c0c90e85244d755e99c98bcdb8b3fbd9538f61d3103fdccdc240fe3f5fbb622"
+    },
+    {
+      "requestId": "compactm68dba9afamz11a-amazon-1:12:981e9a60baa532444cb9d036bf72a9af71405eb0af942194fa54912c9b18bdb6:687ce286e7dd9a745c2de0b8db47c789b3957dd8897bae0e1b4da1e9e6c80daf",
+      "sessionId": "compactm68dba9afamz11a-amazon-1",
+      "recordHash": "d202684d08487f6c933e6fed425c0bc5b6ee49ccab7bcdadb12d9afc8671620c",
+      "updatedAtUtc": "2026-10-29T22:14:07.42706+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0158717326866073834545944489",
+      "reservedInputTokensPerAttempt": 29586,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "981218cd0140d05824740ae4b05cd07104252fb7389948c461d426464020773f"
+    },
+    {
+      "requestId": "compactm68dba9afamz11b-amazon-1:10:eb93d9b190b5c94de87184e3b3875c3ae978b565a08c5e8d03e3f529179dce38:bb83d60c2fbf0361cfc9123415101ede834a34f4ea11edac26d20e5a0230ddaf",
+      "sessionId": "compactm68dba9afamz11b-amazon-1",
+      "recordHash": "6c171d82e36645f65aa8ffc64b42349a7e4e237f1f7998b5fdfa170c3241dd43",
+      "updatedAtUtc": "2026-10-29T23:32:35.136523+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9786849905685798976017246025",
+      "reservedInputTokensPerAttempt": 21306,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "6c475cf2bda3635290fc8d6bced661733d62458ee81a1c1e9da74a7545cbe87b"
+    },
+    {
+      "requestId": "compactm68dba9afcode11a-code-1:14:c115a0923c89c1cdef9f08e93d1eb5539f7d65b5e236d6b2811721c71eb062b7:1eb43d25431217b06ff5313768c90b9ad2c561c7fb13246f37fd37ff866a74e8",
+      "sessionId": "compactm68dba9afcode11a-code-1",
+      "recordHash": "542ac49f246574dca902aa64a33e0137776fd9672770988c16fdeb03e7907ef3",
+      "updatedAtUtc": "2026-10-29T22:41:02.000416+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5481182071319500583849815863",
+      "reservedInputTokensPerAttempt": 23740,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "9811e784ba56de071c5f1c5412d25b3922f8acc87bb20988b7f96ab7cb9f2cad"
+    },
+    {
+      "requestId": "compactm72c7724eamz11out32a-amazon-1:15:584c22cbf236005d8cc0141e910964f15f5c9d4207bda22e7d7ccd1ecde3048f:2252fa15845fa509202e91f7c58208e7da2848abdd42fb28a1f7ee400f1b2d23",
+      "sessionId": "compactm72c7724eamz11out32a-amazon-1",
+      "recordHash": "c954018ca375e1ee611db554320400e08d641d5c824dbc90efbf62ae5b83ea2b",
+      "updatedAtUtc": "2026-10-30T03:34:59.729685+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9887855923830054792059642504",
+      "reservedInputTokensPerAttempt": 23555,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2a27f332b7fb1fcf50989bcb5de5fe2faf3fb255bc8733d28d86818615080495"
+    },
+    {
+      "requestId": "compactm72c7724eamz11out32a-amazon-1:27:c4e12be018c1b41fbcf3cd6a96468277b02009769a90f90533cc2a9b54023db6:5ec80cfd5d93956528f4080a87ed5b7a3bf8df04f9e48f7e05fbfec1ac64889a",
+      "sessionId": "compactm72c7724eamz11out32a-amazon-1",
+      "recordHash": "1b6b1f2d5f79e33da7a4b2d06e340122dd4b540d13397394ca2a46c12298bcaf",
+      "updatedAtUtc": "2026-10-30T03:51:12.93549+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0448261924009700889248181083",
+      "reservedInputTokensPerAttempt": 36033,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2a27f332b7fb1fcf50989bcb5de5fe2faf3fb255bc8733d28d86818615080495"
+    },
+    {
+      "requestId": "compactm8d9a936eamz11a-amazon-1:2:c5def9f677d10118cf4a58ae43d1549517893ff36c5ef2a1523c3671bcf5f9b1:b85a2da5062235e30c1956624df6b0f5d0a8e246d393f7ed8a1838bfbc7a7f35",
+      "sessionId": "compactm8d9a936eamz11a-amazon-1",
+      "recordHash": "6a07f5a000f8e99f2e46ff765809def40a04c1217f8bcedf38d5d2bc76b6fb08",
+      "updatedAtUtc": "2026-10-29T15:13:38.932656+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 1,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "458ad5911278342c69b8e5d3cff1808a2ab553b219449dfd9a03700a9b3a200a"
+    },
+    {
+      "requestId": "compactm90e78f7bcode11a-code-1:27:9a06c80becc952fc1203a9f431280ac1ddf330b6a6f5dd710c54d4e01a2552e0:204ff1af0c9b8e029540c7e07c7bfcd30fbc4b4486b78fc2448d97b4e7519b47",
+      "sessionId": "compactm90e78f7bcode11a-code-1",
+      "recordHash": "86033f98889b531e4d91c448dd01fa23bab090afa084169cbde28e64ad29d37b",
+      "updatedAtUtc": "2026-10-30T04:39:00.974199+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5860235336387316985538489176",
+      "reservedInputTokensPerAttempt": 32180,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "0cfcd40c88efb7c21eab4f1b854ed43adfc6ca9689dfc95f39ed4c6022138b63"
+    },
+    {
+      "requestId": "compactm9c1d9303amz11a-amazon-1:21:3682487737fb62f20a048e610da7176171d37e340ab77bd79074e33dc3b8da97:02a9702299c45b0e940bea328066afb2de3f11d3e27b77c7324b68e3d7529c15",
+      "sessionId": "compactm9c1d9303amz11a-amazon-1",
+      "recordHash": "159b3012d12cd12beea97037b309276bbe19003bd1d3de60d76b413c7521d141",
+      "updatedAtUtc": "2026-10-29T13:41:47.378954+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0061349142189885924728285278",
+      "reservedInputTokensPerAttempt": 27418,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "1f0d84fef03a9e1f4db04ed63ee9202321615f7de58acce2a9fb1b0ef673c07a"
+    },
+    {
+      "requestId": "compactm9c1d9303code11a-code-1:27:cb7a3fc1d70d5078d0b87c774d7430be157d33e8f93824dbf9ed00cd424f3bcb:90c0d3e6226282404de530a89ef287ec6cf1af5101a3bf0c7f0f4225e5e611a1",
+      "sessionId": "compactm9c1d9303code11a-code-1",
+      "recordHash": "76ea1e037b8ede22691f0449ceda4fdbab53553dc55f76970355e85475fb04e2",
+      "updatedAtUtc": "2026-10-29T14:23:51.322038+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "400": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.7372181801850354801041947364",
+      "reservedInputTokensPerAttempt": 65845,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "35734edbd033c8c44ec52a82d86efcbe9d52678ded4a4dee5f1932927d24e6e2"
+    },
+    {
+      "requestId": "compactm9c1d9303code11a-code-1:4:6e53ffb3d769825ecc2fbb2e0d3c8ef5cf98ea713c27d3d88a8a3563ec8ae4d1:849993b13cbb2c7013bb9789cdba0311f17b6560f645f4f2f9cd8805ca2b3053",
+      "sessionId": "compactm9c1d9303code11a-code-1",
+      "recordHash": "fb2791e920629cb26575a99a06f2cea80aa8511b0e5c2f3308bbc333b908497d",
+      "updatedAtUtc": "2026-10-29T14:03:15.933418+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9638372406359471840474265697",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "35734edbd033c8c44ec52a82d86efcbe9d52678ded4a4dee5f1932927d24e6e2"
+    },
+    {
+      "requestId": "compactma3ccf16bamz11q1-amazon-1:26:6ce0363ddbb33477e801e58d9ba55710cc40ca2a58cf85e8f938ed08032ee950:1d891d98d1293a665e3e10bfa7fb9e1e5dd965f2fa5f7aeacd9f7f080cdb6e7f",
+      "sessionId": "compactma3ccf16bamz11q1-amazon-1",
+      "recordHash": "62c0420118484cbfa8e8e19855bf2895fd7452e394447ae459354a97b81c3c2e",
+      "updatedAtUtc": "2026-10-30T07:23:44.401221+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9950507500224557621485673224",
+      "reservedInputTokensPerAttempt": 24950,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "dc18722bceb60ea2873c231ae37b62a7cb74f0164c218991801217214f4cb832"
+    },
+    {
+      "requestId": "compactma3ccf16bcode11q1-code-1:19:320d0540cceae7aaac85d98dead728fe01c7f31b47621e2b23fb827b077b4aef:fc2c77991040bed13459730afab3a4f4e386c7d4fb5d2c08bbafedd89afe44f1",
+      "sessionId": "compactma3ccf16bcode11q1-code-1",
+      "recordHash": "b91e6df84925477bc99ff8192cd6d1d582abc1ff2f8a319087401023f6e04e83",
+      "updatedAtUtc": "2026-10-30T08:21:09.555145+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0914039342495284289948800862",
+      "reservedInputTokensPerAttempt": 46404,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2e27d2feaceab1f1b91dd30997d24a909cde45b3a81d593dd85982b363b9003e"
+    },
+    {
+      "requestId": "compactmed004934code11a-code-1:56:1770cfa1b280335c884622deb5a57ccb2023f22cc6e0322d861c6e54cb012908:da224928711ea1189614afeb2808e06fbcd8f5a417b2adc11865eb4e60c54b9a",
+      "sessionId": "compactmed004934code11a-code-1",
+      "recordHash": "a44a45e92c6ecf3d18c860590c0162bb7bd12ab273955a12a30231cfe8f985c1",
+      "updatedAtUtc": "2026-10-29T10:45:00.506216+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0286041498248450552411748855",
+      "reservedInputTokensPerAttempt": 32421,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "92d83b6dbba1d1e4808fdb2f47ec9cc70229c7b0f10fcce0ce71cd0d39162d8b"
+    },
+    {
+      "requestId": "compactmed004934code11a-code-1:5:f9d047389f299f0918b95e7481c41fd4095ee8b174af31f1b9ae7547fb6fc1b6:7fd4be07f0f6b366ce7d0bf02a7b40cef91985af99e34d4182c8ca5f55b165e3",
+      "sessionId": "compactmed004934code11a-code-1",
+      "recordHash": "ab336cba41e05bc7f355006adba6a444e41629a7a572e8be1e6d69e4d8f8798f",
+      "updatedAtUtc": "2026-10-29T09:45:45.567927+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9638372406359471840474265697",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "92d83b6dbba1d1e4808fdb2f47ec9cc70229c7b0f10fcce0ce71cd0d39162d8b"
+    },
+    {
+      "requestId": "compactmed004934code11a-code-1:62:5de44fde0f1f6bf7d6ef5632353aa4108339c7fd9eeb72b9af66231b7c9a0af5:ef35ccac059463411e33328c51126e01af21cbd8426084b7370a8feee1572008",
+      "sessionId": "compactmed004934code11a-code-1",
+      "recordHash": "1f766687b0295163d71048128d2949e7971cd6cf9112fc730e998f55c2318b05",
+      "updatedAtUtc": "2026-10-29T10:50:41.158654+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0132623731249438605946285817",
+      "reservedInputTokensPerAttempt": 29005,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "92d83b6dbba1d1e4808fdb2f47ec9cc70229c7b0f10fcce0ce71cd0d39162d8b"
+    },
+    {
+      "requestId": "compactr08c5229fcamz20v5-amazon-1:2:09bd6099423141782fe4e3f9869f0ef0a1d08da1232d7c28f8ecb3ce43f1084d",
+      "sessionId": "compactr08c5229fcamz20v5-amazon-1",
+      "recordHash": "22c4008ae1c39bb72e293281484f3b27f80f99ff5d2bcfc1110468253ffbaa71",
+      "updatedAtUtc": "2026-10-24T22:58:57.328075+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "5e04856d50cf658ce386513b57c40465c2d5ee3be393784d97328ab36310e21f"
+    },
+    {
+      "requestId": "compactr08c5229fcamz20v5-amazon-1:43:81f8d4a49765760e56554198354a68689323129fda750259f74d783f1188b08e",
+      "sessionId": "compactr08c5229fcamz20v5-amazon-1",
+      "recordHash": "4468840a817e69def7aee8020d463d4eab48be5a6c21c0380842aff89b53fcca",
+      "updatedAtUtc": "2026-10-24T23:31:59.269854+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5593797411869701026327532352",
+      "reservedInputTokensPerAttempt": 27053,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "5e04856d50cf658ce386513b57c40465c2d5ee3be393784d97328ab36310e21f"
+    },
+    {
+      "requestId": "compactr08c5229fccode20v5-code-1:6:8493ede5153455eb237b9541df0e9bc312364ba56d834729a45447932a7c54f4",
+      "sessionId": "compactr08c5229fccode20v5-code-1",
+      "recordHash": "54ff24b1e99ff557477ba6d632d8f7d7abbb56652def546edc71447814215573",
+      "updatedAtUtc": "2026-10-24T23:50:18.459755+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "725a7f12d1a671c1efd7bdf2591ed13e6f7386d6c7dbc98e632281adc02c2e1e"
+    },
+    {
+      "requestId": "compactr09ac9ff5amz22j20v11a-amazon-1:16:bd8851ee264a668516f9e4417bd0624a04bfd53f08d9c87e06f8878624bbbb4b",
+      "sessionId": "compactr09ac9ff5amz22j20v11a-amazon-1",
+      "recordHash": "d1a61d3b8bb1426f3f99529509d00abf801563ad15ba0fb8093ea44f28212d63",
+      "updatedAtUtc": "2026-10-28T02:16:31.956372+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9912048192771084337349397590",
+      "reservedInputTokensPerAttempt": 25521,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "b58eea91535b63f10c9aed62a72a5195cb76e7ef59b2365c88e94a4ed3de6c14"
+    },
+    {
+      "requestId": "compactr09ac9ff5code20nhv11a-code-1:4:7063c255299e02a998f01be06199a45946bd5725a7c00714868ee2daf6a92714",
+      "sessionId": "compactr09ac9ff5code20nhv11a-code-1",
+      "recordHash": "0dc767be9758a5e59708c3b09b19f322af8bdbe8fc13c9cf683ed314ae3870ae",
+      "updatedAtUtc": "2026-10-28T01:05:53.38633+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 3,
+      "unresolvedHttpStatuses": {
+        "500": 3
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "446df3535c5c9bc958c84f4f9b63d9b8d471ccbecdd48382063fd97d4c1afdcc"
+    },
+    {
+      "requestId": "compactr42757cf76amz22j20v6-amazon-1:2:fc5f8cd5e486a693b9e35154af1c0b64cb0a7a0494e47e06435cb24659d7db71",
+      "sessionId": "compactr42757cf76amz22j20v6-amazon-1",
+      "recordHash": "68612c2a886df4a6eb2f005f21c97734cb5c5a752acc7f965c857cd15f822e17",
+      "updatedAtUtc": "2026-10-26T11:40:41.138273+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "73a074ad9ac6f6a20d91eee44982c309568177b264fa56f6b58f6f571e84494d"
+    },
+    {
+      "requestId": "compactr46e356283amz22j20v10a-amazon-1:17:4c52b9cd06e6943925d0a4866708565b146051eae499317c38c598f0adfdb15b",
+      "sessionId": "compactr46e356283amz22j20v10a-amazon-1",
+      "recordHash": "1991f695a7137e26e4f12c1d2d9231f80678e4e4888c3e2470788db089d06d95",
+      "updatedAtUtc": "2026-10-27T18:20:31.293952+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "502": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5623828647925033467202141901",
+      "reservedInputTokensPerAttempt": 27726,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "550b915042ae5c90b2a5aed6e8466b8f7efad323f065ed36c4b487ad58d25748"
+    },
+    {
+      "requestId": "compactr46e356283amz22j20v10a-amazon-1:33:714dbe8942ffcf654dce94f48368e27cda47f838fd818bf5402916ec10d01e36",
+      "sessionId": "compactr46e356283amz22j20v10a-amazon-1",
+      "recordHash": "124b109b2cffc0924cec76087f57af792b4261b73fb354ae568571af908c5a98",
+      "updatedAtUtc": "2026-10-27T18:32:23.454952+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "502": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9870459616242748772869254797",
+      "reservedInputTokensPerAttempt": 24589,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "550b915042ae5c90b2a5aed6e8466b8f7efad323f065ed36c4b487ad58d25748"
+    },
+    {
+      "requestId": "compactr47c08b428amz12v5-amazon-1:2:fcb86d1ad586ea5e4bccd632ab2760fc107e9d40ff77f8a16a5b62a93b51f2d5",
+      "sessionId": "compactr47c08b428amz12v5-amazon-1",
+      "recordHash": "e379b5b12dc78e11694a85bfa6f5ecffb7752da367eeeda695d4a3164de45ec3",
+      "updatedAtUtc": "2026-10-24T15:58:54.462668+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "440eb348edaa34e3383784ccce71674d9c3beb4ec3dedf20966d29c707b7ff04"
+    },
+    {
+      "requestId": "compactr4857d5558amzv5-amazon-1:2:faa24e395b06d6b545373b37236707de0f2685a4e0539c075d5fe1b4280bcb91",
+      "sessionId": "compactr4857d5558amzv5-amazon-1",
+      "recordHash": "d54337728e4d8cc07d30de496533c8e8ae51c519ad21a69c58f5b00e47c2e0e5",
+      "updatedAtUtc": "2026-10-24T11:50:47.959316+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "64b9994526f476a2126a640a7924dd0a2925d09f25ae9fe086ef0f3657c1e5cf"
+    },
+    {
+      "requestId": "compactr4857d5558amzv5-amazon-1:3:902bc5eed76d153767ab69a6a6ddc313b2ae7c1ebd28dacdb4121776c1ac185e",
+      "sessionId": "compactr4857d5558amzv5-amazon-1",
+      "recordHash": "7c270cb922e4337382587e8dd764b0e936e0c8fb6d4d69c1e718d62b8f3e52bf",
+      "updatedAtUtc": "2026-10-24T12:01:26.177514+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "64b9994526f476a2126a640a7924dd0a2925d09f25ae9fe086ef0f3657c1e5cf"
+    },
+    {
+      "requestId": "compactr4857d5558codev5-code-1:19:46535d58b38054bba5e2f534025f4dc4708b6f87d181e60bbe8718cc5b8cd7ee",
+      "sessionId": "compactr4857d5558codev5-code-1",
+      "recordHash": "f8cce67264e099636651680d87e3e0377a16986fcb7f1c38fd3f48d603ae2495",
+      "updatedAtUtc": "2026-10-24T12:42:21.883609+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0154975457385095939312806783",
+      "reservedInputTokensPerAttempt": 30965,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "b9300f1657109203696ee84054239f9e5240fa150972c39faceda43844215f11"
+    },
+    {
+      "requestId": "compactr4d486d1acamz20v6j16-amazon-1:2:0f97941cfa66cd64354ec02ab7384d6b8833189c820a0e840d5e209d50ee7eac",
+      "sessionId": "compactr4d486d1acamz20v6j16-amazon-1",
+      "recordHash": "419a49622da4f2ac8f163c2d330f303ee5f3a4f748c961cdeefa6d4acb2005cc",
+      "updatedAtUtc": "2026-10-25T17:11:53.205291+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "29baa2de85cce105e857557cbcaa1f5060195af0d217efad771f14297b646cfd"
+    },
+    {
+      "requestId": "compactr4d486d1accode20v6jh1-code-1:4:c0bc977855d5549d9f2c81a61b053fc26b942b4b7eb7bed4bbfe60054e95828c",
+      "sessionId": "compactr4d486d1accode20v6jh1-code-1",
+      "recordHash": "790380aa824a3a7b7ed815041e1c171b2ae123af57209f1d8bc65fd2703b8e8b",
+      "updatedAtUtc": "2026-10-25T18:27:10.282675+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "502": 1,
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2babe9d4960b20613c218da68aa99e3c022701d20f2e3323fad88dc0f42af697"
+    },
+    {
+      "requestId": "compactr60e85c9fccode20nhv7p7a-code-1:6:d3662f342bca03addbd28a09d0e817e3c37eaf0c47d4b3e8d899b9e9394a2f8a",
+      "sessionId": "compactr60e85c9fccode20nhv7p7a-code-1",
+      "recordHash": "03ae9160d59a20dd86c63853aab130e67810ea2a7c4e8208dbc212a9f7a3253a",
+      "updatedAtUtc": "2026-10-26T16:13:38.24253+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "502": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "72bb3d64faebdf8366215a2831651e854152a119244c8011ccc646e476745757"
+    },
+    {
+      "requestId": "compactr6469a1a38code20nhv11a-code-1:8:fdb99c3a7cb63c11f3624bbdb990e5c6054a0a989c107cdee3d4ce790fb927df",
+      "sessionId": "compactr6469a1a38code20nhv11a-code-1",
+      "recordHash": "38738c4c6bb5aa39d5d802228a6158ea2b1815146455dd04004469e801e89ab2",
+      "updatedAtUtc": "2026-10-28T10:59:23.203293+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "8a1a772b5244209037f8a3c4d1532c11db938450a2389cb4914c9b28f43a17f9"
+    },
+    {
+      "requestId": "compactr686c2964dcode20v6-code-1:6:63c48265d205200b911298849898652dd76acb7932f19c0836dfd4242e2e48ad",
+      "sessionId": "compactr686c2964dcode20v6-code-1",
+      "recordHash": "c2336ed7c40aa93997a95c27aa91b23d94ae7ae5c00d9a62898557c1e977519d",
+      "updatedAtUtc": "2026-10-25T14:28:23.145419+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "2d9682a4fbeffa488eafa2cff5a629b193a0d7f6a82d107f615b15f5ca1d8584"
+    },
+    {
+      "requestId": "compactr727b27bdaamz20v5-amazon-1:10:d5cf081dbbf46150561248db907029a81b89976611a4e42a8f86825b6596a0ec",
+      "sessionId": "compactr727b27bdaamz20v5-amazon-1",
+      "recordHash": "b415741b522ff5e0da0c4dfadc72ca13ea4a1dadc57c9630be35cec8b3fc742f",
+      "updatedAtUtc": "2026-10-25T02:43:32.55019+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9690182954038375725122713075",
+      "reservedInputTokensPerAttempt": 20549,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "70ddd512ebdb3bd6e6064a5f18a088afa5e9db9f222bdf4a458d2d74c33ae974"
+    },
+    {
+      "requestId": "compactr727b27bdaamz20v5-amazon-1:2:f6c59dc85c5b56f1e6f19d4cd71476827d76b427d4f7406d7c827fe614880da1",
+      "sessionId": "compactr727b27bdaamz20v5-amazon-1",
+      "recordHash": "a7894e53fea4f1ac7aec80d1792adb9f6c54604e04ab54b58859d37ab37894e2",
+      "updatedAtUtc": "2026-10-25T02:33:28.890803+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "70ddd512ebdb3bd6e6064a5f18a088afa5e9db9f222bdf4a458d2d74c33ae974"
+    },
+    {
+      "requestId": "compactr727b27bdacode20v5-code-1:13:b17cc2413c5d573020c599a3ed35da9d19564299d12fe921abca43c8f89c2096",
+      "sessionId": "compactr727b27bdacode20v5-code-1",
+      "recordHash": "bc7a05d4ecd2cbc28b58b76d09f4f746c46cdf0e0e4f56b4a28bbecfc3dacb8a",
+      "updatedAtUtc": "2026-10-25T04:10:13.238538+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0187550200803212851405622490",
+      "reservedInputTokensPerAttempt": 31695,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "1a8f28edaf7e4dfbcac3992be33d1567638bf794b17d08ba343a87e84c634a73"
+    },
+    {
+      "requestId": "compactr821f16a6amz22j20v11a-amazon-1:2:669c34d3f67b46e4724a8d7a81afbc0a2e5cf9d46f74e64ddd2bc5c333a329f1",
+      "sessionId": "compactr821f16a6amz22j20v11a-amazon-1",
+      "recordHash": "22dc8f7bd868a6f542b80942b2c849983dac23d58a45c1e76fa66d78fe1cf048",
+      "updatedAtUtc": "2026-10-28T00:03:52.272326+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "5a8d0edb3c9f619fd46a3ccdadb46c4fb5f41748b50616a581e52085c12574a3"
+    },
+    {
+      "requestId": "compactr88f338bf3amz22j20v8p8a-amazon-1:2:5c54dbd7610ede8d775d43a88d5cc34a4a4612c441991dd9d98ec0ff5cb88f3e",
+      "sessionId": "compactr88f338bf3amz22j20v8p8a-amazon-1",
+      "recordHash": "f75d2123edf83c079a6f0e5023a4c924bd5db5b0654bd93af5b54930b1c3c125",
+      "updatedAtUtc": "2026-10-26T18:02:58.159103+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "7388f8fa0a597897c912c45be0b87689fda8e2ccecccac10070adda111f79360"
+    },
+    {
+      "requestId": "compactr8c2043418code20v6nv18-code-1:40:eeb849edd1ec92bcc57b969017065c5b8e1cbe8af093e941e9f19b44b999608e",
+      "sessionId": "compactr8c2043418code20v6nv18-code-1",
+      "recordHash": "90e556647548dde985ed5f08e6b3d0bf228dd58ec7bf1c57c5cc03ef3287ba53",
+      "updatedAtUtc": "2026-10-25T23:54:46.867345+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d71af21219e7e50dbbb9b26134d8637ae4b40ff6bf148e4edff14f2e1a1f4efb"
+    },
+    {
+      "requestId": "compactr93d3e1c27amz22j20v9p9a-amazon-1:2:df250c6b6e6e41e7e5a38273fd3a9a6b4e06192ab81cb86853ccb0a06946988d",
+      "sessionId": "compactr93d3e1c27amz22j20v9p9a-amazon-1",
+      "recordHash": "609663e27e6541b7930bed25448f47a4261ee5f2fce58afe44e19db99bdaa4c7",
+      "updatedAtUtc": "2026-10-26T23:33:55.662558+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 3,
+      "unresolvedHttpStatuses": {
+        "500": 3
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "f9c64af0f2985ec1066e7d60c9bccf0de91ee02a1495050bb2e056aba23ca07b"
+    },
+    {
+      "requestId": "compactr9824b7628amz22j20v10a-amazon-1:18:208ebe5915820939891ff312ae12cb42f178c48c65749cffd3a6adc0b7b192a6",
+      "sessionId": "compactr9824b7628amz22j20v10a-amazon-1",
+      "recordHash": "ed19a6b5de2bae181fc2ddd5d29c2bd3fc420ecb7d78b2f65c296153991ee387",
+      "updatedAtUtc": "2026-10-27T16:00:29.272827+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6265238732708612226684515841",
+      "reservedInputTokensPerAttempt": 42100,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "de34a7e4fa9a192c33270524fda025fb2e4cc9c0462c6cd3f480ef00d46ffc73"
+    },
+    {
+      "requestId": "compactr9824b7628amz22j20v10a-amazon-1:4:3fa9e17d5bcc6124313d32ab19de3933134f98bd9ccd14f5083178b17726d692",
+      "sessionId": "compactr9824b7628amz22j20v10a-amazon-1",
+      "recordHash": "34d21e69c127dccd748b0230a9ffca8926159ba552600c0a15234ecf06ef7bad",
+      "updatedAtUtc": "2026-10-27T15:47:35.826389+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5368317715305667112896028559",
+      "reservedInputTokensPerAttempt": 22000,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "de34a7e4fa9a192c33270524fda025fb2e4cc9c0462c6cd3f480ef00d46ffc73"
+    },
+    {
+      "requestId": "compactr9b3da541camzv5-amazon-1:2:72a9815f5c902f71df69f2840e2aa62df2a2fd5e3d0982a4ce376b26d11a2ccb",
+      "sessionId": "compactr9b3da541camzv5-amazon-1",
+      "recordHash": "2cf5b4416c31168c5986221281d06a8a83b4aac33b9dda1dadeabb0b13b9ac65",
+      "updatedAtUtc": "2026-10-24T10:24:35.628939+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "352b937ac81969fb305141d81a2edb06d8cd8348d2d1b7817e372ac9793a4347"
+    },
+    {
+      "requestId": "compactr9d25c65f9amz22j20v6-amazon-1:2:79071c88d4dfb6ae097e72f949f8692ace3dbe5a32e9369615607163d980506a",
+      "sessionId": "compactr9d25c65f9amz22j20v6-amazon-1",
+      "recordHash": "52ea7263425d7dd18fa952ec356d432275e5ffaf603eafebb2d04ab8e64da8c5",
+      "updatedAtUtc": "2026-10-26T09:45:23.416316+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "9e42e5e63878dd6eb35bf6aeb203d7243429589d55835e8121478ebe1388007c"
+    },
+    {
+      "requestId": "compactr9d25c65f9amz22v6o16-amazon-1:34:d2d92f81e825f1406de4155041ae3ab2080a005acc08ca59510229af307b054f",
+      "sessionId": "compactr9d25c65f9amz22v6o16-amazon-1",
+      "recordHash": "1bcd6c463aeab9fadcd8235a7d0992969ab5d62dc693f382c1e9d3f914036cdc",
+      "updatedAtUtc": "2026-10-26T09:12:32.067047+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6402588130298973672467648371",
+      "reservedInputTokensPerAttempt": 45178,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "9d15a64c3571fd491e522756eacf50fcc8f508274311986f4d9f66c838db5756"
+    },
+    {
+      "requestId": "compactra6bd5978amz22j20v11a-amazon-1:2:b27bb3e9b19c7d04679d5fe717af2ed58164c4858f9bfb4bd155c6000f06591c",
+      "sessionId": "compactra6bd5978amz22j20v11a-amazon-1",
+      "recordHash": "d7bcf87a7772ed32476c5fca7442f851fc11e0e55cf15d1b97e494eac3c559ac",
+      "updatedAtUtc": "2026-10-28T04:20:34.354327+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "c14e835fec4ac7871738423f4b7fcfb72ab2367fcdb413f6e506d96b75c5135d"
+    },
+    {
+      "requestId": "compactra93486695code9-code-1:3:3f44f41ab3926f0150a21e4a681054f4e4fb21b725e911276478762660f0744e",
+      "sessionId": "compactra93486695code9-code-1",
+      "recordHash": "7eb338b9a937422204a4b7b5137294fc4c0d13b644c6dd544cd5400c2103ec23",
+      "updatedAtUtc": "2026-10-23T22:30:03.030377+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "52d8541b5ac4b333f08980b608001de0d5c72131186b53a301898c4b3cd37eab"
+    },
+    {
+      "requestId": "compactra93486695code9-code-1:51:cc1e1433578919ea87d888ed08f42aac0f8c687192fd0523df7f6c4ae7a3beef",
+      "sessionId": "compactra93486695code9-code-1",
+      "recordHash": "76db367a75acdc23fb2cc7b85a2012699489b27cadff0bb1f24793b2177ea37f",
+      "updatedAtUtc": "2026-10-23T22:51:07.856513+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "400": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5844399821508255243195002231",
+      "reservedInputTokensPerAttempt": 32669,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "52d8541b5ac4b333f08980b608001de0d5c72131186b53a301898c4b3cd37eab"
+    },
+    {
+      "requestId": "compactrafc8861e4amz20v5-amazon-1:2:c558c3a392cf2153e868ba81e888620b3a45d3fb743b45231fb23fa271e58dc8",
+      "sessionId": "compactrafc8861e4amz20v5-amazon-1",
+      "recordHash": "badeac073a6ef55da4aca022287c9193c50eef33050a025254b516c6c20ca9d8",
+      "updatedAtUtc": "2026-10-24T21:22:03.726285+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "f078c72eb87cb2f9f13b599d3ee1af2ef5c70ea25d6fe6a54816e868769a10fb"
+    },
+    {
+      "requestId": "compactrb2ee37324amz22j20v11a-amazon-1:2:993c4415b6dc79f2082cdf43e7f9765bde7ec700af96c30129db1e668a21b5aa",
+      "sessionId": "compactrb2ee37324amz22j20v11a-amazon-1",
+      "recordHash": "394d2bb4bfb6e5610a5c66b677184fdc6f78513fbea9611802fe98d5507e838d",
+      "updatedAtUtc": "2026-10-28T08:16:51.009887+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e694743b761abf832ab3fa7c336056206dda2656a7a7d3337fae071bbee75b9c"
+    },
+    {
+      "requestId": "compactrba86cf874code20v5-code-1:4:795867e06958961b42507928b672bcc6d092d5e311773fbc2a794346b0d8fd22",
+      "sessionId": "compactrba86cf874code20v5-code-1",
+      "recordHash": "1af6f4d49b1ed5aaf09a5bc98e25553057ec0d2c553f5a70e0863ef209027753",
+      "updatedAtUtc": "2026-10-25T01:40:28.425458+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d9f8c65ac1f2b87d028dfcbd6abce922f0c7516b4f0cc08b0943edbc1d0cdce6"
+    },
+    {
+      "requestId": "compactrba86cf874code20v5-code-1:8:24a47fe2b3c8cead7e25a819e4c48de8257621c502710c8bc15c512c4e715a6c",
+      "sessionId": "compactrba86cf874code20v5-code-1",
+      "recordHash": "ac07be8d34b726315cd375bbeebfc6e7546cda4e162ea5103b6d471266cf3ffb",
+      "updatedAtUtc": "2026-10-25T01:47:57.483078+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9487193217313699241410084784",
+      "reservedInputTokensPerAttempt": 16000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d9f8c65ac1f2b87d028dfcbd6abce922f0c7516b4f0cc08b0943edbc1d0cdce6"
+    },
+    {
+      "requestId": "compactrcb1d9899bcode20nhv8p8a-code-1:31:e877dce4c04ec757b6056a7bdf056c85a912f16ad3c67a9a3389aa77fa4a481e",
+      "sessionId": "compactrcb1d9899bcode20nhv8p8a-code-1",
+      "recordHash": "a553459b15239e4fdb6192f7624a09c1b6564b5ac806bc451e7af066ab9a3d8c",
+      "updatedAtUtc": "2026-10-26T19:26:12.694544+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "1.0905310129406514948683623382",
+      "reservedInputTokensPerAttempt": 47780,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "93602038fa2fea770f1316b123990794407a904f83148bd4e365f365041e170f"
+    },
+    {
+      "requestId": "compactrcb1d9899bcode20nhv8p8a-code-1:4:f030af7cda5d7985c4dc2ab28a6c67ea5826d6de45c0c8068e0af8330700968f",
+      "sessionId": "compactrcb1d9899bcode20nhv8p8a-code-1",
+      "recordHash": "406ddd3a3751034d47cdabe5147c80c50701a0d8db7a6f9b5d5c6f32e469a974",
+      "updatedAtUtc": "2026-10-26T18:56:27.568934+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "502": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "93602038fa2fea770f1316b123990794407a904f83148bd4e365f365041e170f"
+    },
+    {
+      "requestId": "compactrcb1d9899bcode20nhv8p8a-code-1:5:442e1909b28c9fcdc9f7563bcb35481f32b0af8a52c48129dd50eda9601c97bf",
+      "sessionId": "compactrcb1d9899bcode20nhv8p8a-code-1",
+      "recordHash": "917d851ff4262215bea2b5102871ea88821ebce4b147ba5d0cac8ab76d2b9535",
+      "updatedAtUtc": "2026-10-26T19:02:58.339289+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "93602038fa2fea770f1316b123990794407a904f83148bd4e365f365041e170f"
+    },
+    {
+      "requestId": "compactrdbe1ad97amz22j20v11a-amazon-1:16:04fbd3fb93aec547b390260f1f8b2e86dd37d8ac4a693a17ae3a6dd286691aa3",
+      "sessionId": "compactrdbe1ad97amz22j20v11a-amazon-1",
+      "recordHash": "f90414f7ee4c860bb05be858125d05eceac0f0e2fa72e24473388b27aec34d9f",
+      "updatedAtUtc": "2026-10-28T03:20:23.709831+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9984917447568049977688531905",
+      "reservedInputTokensPerAttempt": 27154,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "829e45b5116ee26ca4a1c43cfe1fb4465e11ab3253946084b0f3e6b3475aed25"
+    },
+    {
+      "requestId": "compactrdbe1ad97code20nhv11a-code-1:4:17641d027530edb80148147de6a6c5ce6721fc962e3c938dd87e8a49cc374abc",
+      "sessionId": "compactrdbe1ad97code20nhv11a-code-1",
+      "recordHash": "29f4fa2d87376410d5db7fa6b44a9574e4db842ef9c8b2dcb1298ca09919f5d7",
+      "updatedAtUtc": "2026-10-28T03:48:40.998169+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "6680fa8501066c2b84038e93c47691a6536f1c7de6ccb0b4036d3d46d9e31b3f"
+    },
+    {
+      "requestId": "compactre0c057b15amz22j20v6p7a-amazon-1:31:87b040ff1a7eeb7af05dc4355f05bf59a3562b5253fd528f0cf630af46441f33",
+      "sessionId": "compactre0c057b15amz22j20v6p7a-amazon-1",
+      "recordHash": "c40d57cf537f3dc8f2f2e06f160168ff2bd3dad835325dc976872a013666f7f3",
+      "updatedAtUtc": "2026-10-26T14:44:56.54713+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.6197278000892458723784024989",
+      "reservedInputTokensPerAttempt": 40577,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "407016d33eabe73277be8d61161767d17af52c765b7ff6f95520855fc50d33c5"
+    },
+    {
+      "requestId": "compactre0c057b15code20nhv6p7a-code-1:4:de06146e7b70e6a4b6ba7eff6cfcae540f43ebeafd4754b4fb1359adc7cfd520",
+      "sessionId": "compactre0c057b15code20nhv6p7a-code-1",
+      "recordHash": "9cb8700280edce635c22d564fd35ce6927be20ab761064d6c45b0e6c49725dea",
+      "updatedAtUtc": "2026-10-26T16:03:21.25051+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 1,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "8d801c158947df324855c2536b770283d727beb4a22004412b57cf9fbb06f51f"
+    },
+    {
+      "requestId": "compactre44e08fdamz22j20v11a-amazon-1:2:b6e9c0c65234631eaeac91db9f4154a1f9311e4b0a7aa644a82369c402898530",
+      "sessionId": "compactre44e08fdamz22j20v11a-amazon-1",
+      "recordHash": "afea82f51c11be62ad4232825055e0728c101621cb9c202f91a44a0315aa59e0",
+      "updatedAtUtc": "2026-10-28T05:59:17.190116+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "172a8c01491d0d939619bd920dc8d70957d0cd1cee6205e95eb5d58ed97f3ada"
+    },
+    {
+      "requestId": "compactre44e08fdcode20nhv11a-code-1:4:b7eaa0fe277d049342bbe856220d46785f10bc2706643cb070e045f2ec9a68d6",
+      "sessionId": "compactre44e08fdcode20nhv11a-code-1",
+      "recordHash": "ee2534c18b1b353307eab37dee6e63c3ee80de21645066755b11833c7b154be7",
+      "updatedAtUtc": "2026-10-28T07:11:42.707432+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9576439089692101740294511379",
+      "reservedInputTokensPerAttempt": 18000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "b73f4ea49a0b6bfd94e8e9429fe9dd62dd0a230cd6fd44bb1a9a2cdbd60ce083"
+    },
+    {
+      "requestId": "compactre6b24bb77amz20v5-amazon-1:2:2c0a62bf3841773d4e9980ce6687b869d61499f693cb2efb83c3e22bb7726088",
+      "sessionId": "compactre6b24bb77amz20v5-amazon-1",
+      "recordHash": "61f9e8479982939261527bfb226fdd20a1fbb38b693d32cda4d01bb91150c49e",
+      "updatedAtUtc": "2026-10-24T18:26:09.882416+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e48b32fb4148116a591eb2738308ce54664bd31a1b3dac6e46feb26ac96af2da"
+    },
+    {
+      "requestId": "compactre6b24bb77amz20v5-amazon-1:38:af2ca16cabf51b3ae4628a212b3aafad97fe04e8aa5cec6ab443db5157a0fa5d",
+      "sessionId": "compactre6b24bb77amz20v5-amazon-1",
+      "recordHash": "a628b38742f355acaa8da5a630c6e789f1a0360882bb29c0f4dbf68a7b73fbfa",
+      "updatedAtUtc": "2026-10-24T18:53:36.400711+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5588353413654618473895582329",
+      "reservedInputTokensPerAttempt": 26931,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "e48b32fb4148116a591eb2738308ce54664bd31a1b3dac6e46feb26ac96af2da"
+    },
+    {
+      "requestId": "d43ed189e25344cc141a7c894ada73e4f306968ab80b9e9104b3a9ad3a07d87b:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+      "sessionId": "d43ed189e25344cc141a7c894ada73e4f306968ab80b9e9104b3a9ad3a07d87b",
+      "recordHash": "5e9fea46a0628204347acb20834a9b2b6e8e0ae5ecf3cf29ad9e97966d03bd76",
+      "updatedAtUtc": "2026-10-24T18:16:41.880613+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "23e8dcd65d72b0d4e393fc16e67b43c2122ced5f1fded89889c748b71257e45f"
+    },
+    {
+      "requestId": "d795c8e19725bc251f5a6b067cbf39926e3525df59958830b50f0d254ef594e6:2:5ce16726b77942632bf7112ef2842ea80824311c47290832abcc8336c68e354d",
+      "sessionId": "d795c8e19725bc251f5a6b067cbf39926e3525df59958830b50f0d254ef594e6",
+      "recordHash": "d04274ce4bfabb98b2e537a46ac63aca89187b5706674c5049683978c6e72fbc",
+      "updatedAtUtc": "2026-10-27T16:30:52.182093+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "11a7ff6b444a4d9701b8288013b21d02ad16714d5a44182ce0517391fb43877f"
+    },
+    {
+      "requestId": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3:2:d3ed365e9a5c98a7df5646eaf00996ff3b87c2df59baf0c3b18bd09465954b90",
+      "sessionId": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3",
+      "recordHash": "9355a992a18d04e68a4109e2ef21f72f6bf1309589df532768a5733e9f322c8b",
+      "updatedAtUtc": "2026-10-27T06:40:50.606532+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 1,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "c1a229d95e253a28eebb9e55fff9319f45b269d8f7d03e78ac6ea1248d772aa8"
+    },
+    {
+      "requestId": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3:2:6542379cbdf1b225411aedd80ea53fb73bd54c5c37fe2f5c190f030fcaef9754",
+      "sessionId": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3",
+      "recordHash": "c4200c613dd0488de31bc36ed3452dfa00776597632bd366a8a999e2e308f9b2",
+      "updatedAtUtc": "2026-10-24T20:16:32.273523+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 3,
+      "unresolvedHttpStatuses": {
+        "500": 2,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "52613cf8738768f87db2238519e87640aad0e22b5ec0cb4ac7ed8381631a70be"
+    },
+    {
+      "requestId": "e0313b66172484ccf44d165e690980418732b743ee19af62b54e494014e6fb19:2:6542379cbdf1b225411aedd80ea53fb73bd54c5c37fe2f5c190f030fcaef9754",
+      "sessionId": "e0313b66172484ccf44d165e690980418732b743ee19af62b54e494014e6fb19",
+      "recordHash": "1fdb60178ec4c47e4e7180101917891395e2c56e44bb9e262061c23d1c9f62ff",
+      "updatedAtUtc": "2026-10-24T22:40:36.886202+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "6c0d939effb961330c9c5a8a8629645219b94afa39ada7c69a5b2efff1610680"
+    },
+    {
+      "requestId": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421:2:49bfa345b55c69ea7ede59dd312626e47dba06bc24b1a7e9e85de7e967e46f00",
+      "sessionId": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421",
+      "recordHash": "67bcccc10c50cb6aa84c16d600b85e96af9eab9827ae301f18c7d1464b11ce43",
+      "updatedAtUtc": "2026-10-25T00:47:25.666203+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 2
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "97c77fc20d989717ebc070a79efcf6a2edcb15e490ce5a00f0f3253fd0c33b0e"
+    },
+    {
+      "requestId": "e575c1eed6ebdd815d805dfd4b96f6f383a32b4e3b6e17952738b6d62e894039:2:67cbc7a881cd13e1c78fac889e4fd7b6127a080de9a25b6415c447c111061bb9",
+      "sessionId": "e575c1eed6ebdd815d805dfd4b96f6f383a32b4e3b6e17952738b6d62e894039",
+      "recordHash": "d5f1936d66f762fc25bc47a6f3f507f0ef70e007c2f56aa0e5f356f90f297565",
+      "updatedAtUtc": "2026-10-25T02:15:52.779405+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "500": 1
+      },
+      "verifiedUsagePresent": true,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "92ccab21a006620976289a798804639c2f649a4d27ec420116ac3876621f0e66"
+    },
+    {
+      "requestId": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:19:8c7284f7f0b9306b3d3ce428174cb2059591f02fe2ff539c76adf2521e52d16d",
+      "sessionId": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1",
+      "recordHash": "1aea093a2a2d1577382d560882862379da35b3e26b0639318bccb555dee0ca08",
+      "updatedAtUtc": "2026-10-27T22:41:47.260361+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.5443596608656849620705042392",
+      "reservedInputTokensPerAttempt": 23687,
+      "reservedOutputTokensPerAttempt": 16384,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "d959ae1d5d2f94e858d7d85952642709ef4f1c24daa8393e6f69aef6dbfcf7b8"
+    },
+    {
+      "requestId": "f6afec4453f655e65a2a3f794a2e74c2f33ba21ede10ad69993d3a0260a6f22c:1:cd2e16b0ee84fbfc5d70ea0b8fc8b08ae391c999c5ae19bc113a0536bec98f18",
+      "sessionId": "f6afec4453f655e65a2a3f794a2e74c2f33ba21ede10ad69993d3a0260a6f22c",
+      "recordHash": "535fa5138f588cbff23e0e15f41ab538968d9020acd737230015fbac566ee21d",
+      "updatedAtUtc": "2026-10-30T06:33:45.075491+00:00",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "unresolvedHttpStatuses": {
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9368903260576663971975208839",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "bddcf7e3293eb9c010c9214df580e1938a17e1be7babafe2501695e31db4743c"
+    },
+    {
+      "requestId": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+      "sessionId": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155",
+      "recordHash": "503c3c224bf603326f2e3357088ebf3430f786e21b1563a7e19cb9e2d8c0f5c3",
+      "updatedAtUtc": "2026-10-24T01:11:15.573654+00:00",
+      "httpAttempts": 2,
+      "unresolvedAttempts": 2,
+      "unresolvedHttpStatuses": {
+        "500": 1,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "0.9308701472556894243641231593",
+      "reservedInputTokensPerAttempt": 12000,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "36827ff0452dc1cc5a04f1b077e3979c0a2db9ba6783c683b3dd950005834c97"
+    },
+    {
+      "requestId": "g615656ccddamz32a-amazon-1:9:54d078626aa95900b40be6bbea68ce2850fb60430f820f836fb8d88b34e10a37:3fdce3ddf6a2c098bdcb3b71bf57e0d8917d9c83ddfd54ab5e9db68ea38a2047",
+      "sessionId": "g615656ccddamz32a-amazon-1",
+      "recordHash": "1154d6decbfd08b50413170a7225a0a05f5436c9b5a40eb77ac696b1e7de4349",
+      "updatedAtUtc": "2026-11-04T19:49:35.815864+00:00",
+      "httpAttempts": 3,
+      "unresolvedAttempts": 3,
+      "unresolvedHttpStatuses": {
+        "500": 2,
+        "unobserved": 1
+      },
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "7.3289471330172645138205564005",
+      "reservedInputTokensPerAttempt": 76493,
+      "reservedOutputTokensPerAttempt": 32768,
+      "retainsAllHttpFailures": true,
+      "transportPolicyHash": "806d3433e98fc45115db4115d95a6aa1260fe2f206f0fe5310bd807fb49a831f"
+    },
+    {
+      "requestId": "startup-qualified-probe-c730-20261106-2149:probe:8c84cb225c07a1e0f3f91506033e9021a57806669d43905693f2d0ac633d48dd",
+      "sessionId": "startup-qualified-probe-c730-20261106-2149",
+      "recordHash": "f4f80a060515ffe4b3d0c4de46143fa29aa1c117a0921a312a1559529fb27501",
+      "updatedAtUtc": "2026-11-06T21:48:58.871683+00:00",
+      "httpAttempts": 0,
+      "unresolvedAttempts": 0,
+      "unresolvedHttpStatuses": {},
+      "verifiedUsagePresent": false,
+      "serializedRequestBodyUtf8Bytes": null,
+      "reservationPerUnresolvedAttemptEur": "2.7411396368190356919223544146",
+      "reservedInputTokensPerAttempt": 96000,
+      "reservedOutputTokensPerAttempt": 1024,
+      "retainsAllHttpFailures": false,
+      "transportPolicyHash": "b0f19515400d3f7b70fb4cb4642fd9d5106e3b481ed939ac8c2ff7287fe26b56"
+    }
+  ],
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "rawEvidenceSha256": "8f5c07647b8437e8f03b5bf91f571fc1b6f02a7356430ac943169599627663ac",
+  "pendingStatusCounts": {
+    "500": 115,
+    "unobserved": 38,
+    "502": 6,
+    "504": 1,
+    "400": 2
+  },
+  "settledUsageWithSeparateUnresolvedAttempts": 76,
+  "interpretation": "A later receipt settles only its successful attempt. Status/body absence is not a zero-cost receipt. No reservations released."
+}

@@ -14,7 +14,7 @@ public sealed class TaskPlanContractAlignmentTests
     {
         // Retained HTTP 400: the replacement identity pattern ending in \z
         // was rejected as "not a 'regex'" even though .NET and RE2 accept it.
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
         var engine = new Jint.Engine().SetValue("schemaJson", schema.ToJsonString());
         Assert.True(engine.Evaluate("""
             function check(node) {
@@ -34,7 +34,7 @@ public sealed class TaskPlanContractAlignmentTests
     {
         // Retained HTTP 400: invalid_json_schema at $defs.identities.items.pattern:
         // "Invalid JSON schema: regex lookaround is not supported."
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
         var patterns = Patterns(schema).ToArray();
         Assert.NotEmpty(patterns);
         foreach (var pattern in patterns)
@@ -55,7 +55,7 @@ public sealed class TaskPlanContractAlignmentTests
     [Fact]
     public void PortableIdentityPatternAndCompilerPreserveExactLexicalRules()
     {
-        var pattern = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false)["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        var pattern = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
         var regex = new Regex(pattern, RegexOptions.CultureInvariant | RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1));
         foreach (var id in new[] { "_", "-", "0", "A", "z", "_a", "_-", "_0", "a__", "A-Z_09" })
         {
@@ -134,6 +134,42 @@ public sealed class TaskPlanContractAlignmentTests
             else value[fault.StartsWith("items", StringComparison.Ordinal) ? "maxItems" : "maxConcurrency"] = fault.EndsWith("low", StringComparison.Ordinal) ? 0 : fault == "items_high" ? 10001 : 101;
         }
         Assert.NotEmpty(Errors(value, definition));
+    }
+
+    [Theory]
+    [InlineData("construction_draft")]
+    [InlineData("replan")]
+    public async Task ModelCanSeeAndSetTheWholeCollectionCeiling(string purpose)
+    {
+        var state = PlannerFixture.Session();
+        state.Request.Options[PlanningTokenThresholds.OptimizationOptionName] = "diagnostic-v1";
+        var grammar = PlanningSchemas.TaskPlanGrammar(state);
+        var request = PlanningModelCalls.PrepareRequest(state, purpose, "Use all ordered observations.\n{}", grammar, null, null);
+        var loopFields = PlanningSchemas.TaskShapes(state, "foreach").Single()!["properties"]!.AsObject();
+        Assert.Equal("body", loopFields.Last().Key);
+        var iteration = loopFields["maxItems"]!;
+        Assert.Contains($"foreach.itemLimit accepts {iteration["minimum"]}..{iteration["maximum"]}", request.Prompt);
+        Assert.Contains("one foreach", request.Prompt);
+        Assert.Contains("existing ordered groups", request.Prompt);
+        var task = JsonNode.Parse("""{"id":"iterate","kind":"foreach","objective":"Process each observation","dependsOn":[],"requires":null,"items":{"kind":"array","items":[]},"body":{"tasks":[],"always":[],"outputs":[]},"parallel":false,"maxItems":200,"maxConcurrency":1}""")!;
+        task["items"] = JsonNode.Parse("""{"kind":"input","source":"source"}""");
+        task["body"]!["outputs"]!.AsArray().Add(JsonNode.Parse("""{"name":"entries","value":{"kind":"item"}}"""));
+        Assert.Empty(Errors(task, "task"));
+        var loop = task.Deserialize(PlanningJsonContext.Default.PlanTask)!;
+        var plan = new TaskPlan { Inputs = [new() { Name = "source", Type = LookupCompilationTests.ArrayOf(new() { Kind = "integer" }) }],
+            Root = new() { Tasks = [loop], Outputs = [new("entries", ProductTransformationPlan.Ref(loop.Id, "entries"))] } };
+        var engine = new GnOuGo.Flow.Core.Runtime.WorkflowEngine();
+        var yaml = await LookupCompilationTests.Compile(plan, engine);
+        Assert.DoesNotContain("mapping.dynamic", yaml);
+        var entries = new JsonArray(Enumerable.Range(0, 200).Select(i => (JsonNode?)JsonValue.Create(i % 47)).ToArray());
+        var result = await LookupCompilationTests.Execute(yaml, new JsonObject { ["source"] = entries }, engine);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.True(JsonNode.DeepEquals(entries, result.Outputs!["entries"]));
+        var extra = entries.DeepClone().AsArray();
+        extra.Add(0);
+        var overflow = await LookupCompilationTests.Execute(yaml, new JsonObject { ["source"] = extra }, engine);
+        Assert.False(overflow.Success);
+        Assert.Equal("INPUT_VALIDATION", overflow.Error?.Code);
     }
 
     [Theory]
@@ -236,31 +272,23 @@ public sealed class TaskPlanContractAlignmentTests
     [Theory]
     [InlineData("tone")]
     [InlineData("group\n")]
-    public async Task RecoveredMalformedRepairPreservesBaselineSelectionsReceiptsAndBudgets(string invalidGroupId)
+    public void MalformedRepairPreservesBaselineSelectionsAndCannotWidenAuthority(string invalidGroupId)
     {
-        var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
-        runtime.Proposal.Plan.Root.Outputs.Add(new("bad", PlanningCorpus.Business("output", runtime.Proposal.Plan.Root.Tasks[0].Id, "missing_port")));
-        var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(PlannerFixture.Session(), new(), runtime, PlannerFixture.Ct);
-        state.Plan!.Choices[0].Selected = "formal";
-        var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
-        var receipts = JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState);
-        runtime.Proposal.Plan.Groups.Add(new() { Id = invalidGroupId });
-        state = await planner.AdvanceAsync(PlannerFixture.Clone(state), new() { ExpectedRevision = state.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Contains(state.Diagnostics, d => d.Code == "PLANNING_RESPONSE_INVALID" && d.Location == "/plan");
-        Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(receipts, JsonSerializer.Serialize(state.Discovery, PlanningJsonContext.Default.CapabilityDiscoveryState));
-        Assert.Equal(2, state.ModelCalls); Assert.Equal(1, state.ReplanAttempts); Assert.Equal(1, runtime.Discoveries);
-        Assert.Null(state.ApprovedHash); Assert.Null(state.Yaml);
-        Assert.NotEqual(runtime.Calls[0].ClientRequestId, runtime.Calls[1].ClientRequestId);
+        var plan = PlanningCorpus.Decision(); plan.Choices[0].Selected = "formal";
+        var baseline = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
+        var updated = PlanningConstruction.Clone(plan); updated.Groups.Add(new() { Id = invalidGroupId });
+        Assert.Contains(new TaskPlanCompiler().Compile(updated, new()).Diagnostics, diagnostic => diagnostic.Code == "TASK_IDENTITY_INVALID");
+        Assert.Contains(TaskPlanRevisions.Validate(plan, updated, ["/root/outputs/message"]), diagnostic => diagnostic.Code == "TASK_IDENTITY_INVALID");
+        Assert.Equal(baseline, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Equal("formal", plan.Choices[0].Selected);
     }
 
     [Theory]
-    [InlineData("greet")]
+    [InlineData("answer")]
     [InlineData("group\n")]
     public async Task RecoveredApprovalRejectsInvalidDeclarationIdentity(string invalidGroupId)
     {
-        var state = PlannerFixture.Clone(await PlannerFixture.RunAsync(new TestRuntime()));
+        var state = PlannerFixture.Clone(await CurrentPlanningFixture.LiteralAsync("invalid-declaration", null, null, PlannerFixture.Ct));
         var before = state.ComputeArtifactHash(); state.Plan!.Groups.Add(new() { Id = invalidGroupId });
         Assert.NotEqual(before, state.ComputeArtifactHash());
         Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(state));
@@ -280,32 +308,25 @@ public sealed class TaskPlanContractAlignmentTests
     }
 
     [Fact]
-    public async Task RecoveryStopsBeforeSelectingAnAmbiguousChoice()
+    public void AmbiguousChoiceCannotProduceAnExecutableGraph()
     {
-        var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = PlanningCorpus.Decision() } };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Clarification, state.Status);
-        state.Plan!.Groups.Add(new() { Id = "tone" });
-        var original = JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan);
-        var calls = state.ModelCalls;
-        state = await new HybridWorkflowPlanner().AdvanceAsync(PlannerFixture.Clone(state), new()
-        { Kind = "choose", ExpectedRevision = state.Revision, Selections = new() { ["tone"] = "formal" } }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Stopped, state.Status); Assert.Null(state.Yaml); Assert.Null(state.ApprovedHash);
-        Assert.Equal(original, JsonSerializer.Serialize(state.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Equal(calls, state.ModelCalls);
-        Assert.Contains(state.Diagnostics, d => d.Code == "TASK_IDENTITY_INVALID");
+        var plan = PlanningCorpus.Decision(); plan.Groups.Add(new() { Id = "tone" });
+        var original = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
+        var result = new TaskPlanCompiler().Compile(plan, new());
+        Assert.Null(result.Graph);
+        Assert.Contains(result.Diagnostics, diagnostic => diagnostic.Code == "TASK_IDENTITY_INVALID");
+        Assert.Equal(original, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
     }
-
     private static JsonNode Choice() => JsonNode.Parse("""{"id":"decision","question":"Choose a value","type":{"kind":"any"},"alternatives":[{"id":"one","description":"First","value":{"kind":"string","text":"one"}},{"id":"two","description":"Second","value":{"kind":"null"}}],"recommended":"one"}""")!;
     private static bool WireIdentityMatches(string id)
     {
-        var pattern = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false)["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
+        var pattern = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session())["$defs"]!["identities"]!["items"]!["pattern"]!.GetValue<string>();
         return new Engine().SetValue("pattern", pattern).SetValue("id", id)
             .Evaluate("new RegExp(pattern, 'u').test(id)").AsBoolean();
     }
     private static IReadOnlyList<string> Errors(JsonNode value, string definition)
     {
-        var schema = PlanningSchemas.FullProposal(PlannerFixture.Session(), compact: false);
+        var schema = PlanningSchemas.TaskPlanGrammar(PlannerFixture.Session());
         Assert.Empty(PlanningContractValidation.ValidateSchema(schema, strict: true));
         var inner = PlanningSchemas.Ref(definition); inner["$defs"] = schema["$defs"]!.DeepClone();
         return PlanningContractValidation.ValidateInstance(value, inner);

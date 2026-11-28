@@ -1,15 +1,17 @@
-﻿# GnOuGo.Files.Server
+# GnOuGo.Files.Server
 
-Temporary streamed file upload/download API for GnOuGo.
+Tenant-scoped streamed upload and download API backed by encrypted Files objects.
+
+The durable artifact service and owner retention policy are described in the [decision record](../../docs/adr-files-and-owner-retention.md) and [implementation plan](../../docs/files-and-owner-retention.md).
 
 ## Features
 
-- Streams request bodies directly to disk with a small fixed buffer.
-- Stores metadata in SQLite via Entity Framework Core (`FilesDbContext`) with read-only projections for queries.
+- Encrypts uploads in authenticated 128 KiB frames before writing them to disk. The maximum upload size is 64 MiB.
+- Stores the temporary catalog index in SQLite via Entity Framework Core (`FilesDbContext`) with read-only projections for queries.
 - Uses UTC timestamps for creation and expiration dates.
 - Default TTL is 12 hours and can be configured via typed `Files` options.
 - Per-upload TTL can be provided with the `ttl` query-string parameter.
-- A background worker purges expired metadata and files every minute by default.
+- A background worker checks temporary expiry every minute by default. Files with a durable owner grant survive expiry.
 - React/Vite/TypeScript/SCSS ClientApp for manual API testing.
 
 ## Storage
@@ -26,7 +28,7 @@ The SQLite database defaults to:
 <Desktop>/GnOuGo/.GnOuGo/data/gnougo-files.db
 ```
 
-Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`.
+Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`. Configure the matching local KeyVault with `KeyVault:DatabasePath`. The host uses the authenticated tenant claim or its configured `OpenTelemetry:TenantId` (default `default`). Set `Files:PublicBaseUrl` to the canonical origin and optional path prefix to accept absolute download links in chat. Relative `/api/files/{id}` links work directly.
 
 The table schema is owned by the EF Core `FilesDbContext` model. Managed builds bootstrap it with `EnsureCreatedAsync`; Native AOT builds execute the equivalent pre-generated SQLite DDL because EF Core's design-time model is unavailable there. All runtime operations (upload, list, download, purge) still go through `FilesMetadataRepository` using `FilesDbContext`.
 

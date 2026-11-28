@@ -1,0 +1,14 @@
+{
+  "source": "c9030d3f9825c8d58566c18d770024f5c115b994",
+  "reference_session": "abc2f0ec71334594bdd4c18a3f884b62",
+  "provider_output_characters": 34245,
+  "trailing_whitespace_characters": 33708,
+  "selected_step_kind": "conditional",
+  "tentative_reselections": 7,
+  "last_draft_selected_approved_business_agent": true,
+  "complete_nested_guard_accepted_by_wire_schema": true,
+  "single_status_branch_accepted_by_wire_schema": true,
+  "original_incomplete_response_accepted": false,
+  "model_calls": 0,
+  "workflow_execution": false
+}

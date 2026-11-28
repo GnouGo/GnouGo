@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "base_source": "504a557dd2de8c7e08152396300ee12fb8ec1f32",
+  "scope": "Test-only correction of reconstructed version-one sessions; production request identity checks unchanged.",
+  "cause": "The shared historical fixture retained the fresh planning_transport_policy; legacy host preparation then correctly rejected the changed reserved request.",
+  "fix": "Remove the unavailable captured transport setting during historical fixture restoration and prove legacy serialization remains byte-exact.",
+  "validation": {
+    "passed": 81,
+    "failed": 0,
+    "skipped": 1,
+    "skip": "Existing browser-gated clarification UI test; not executed by this filter.",
+    "warnings_as_errors": true,
+    "compiler_diagnostics": [],
+    "all_eight_original_failures_passed": true,
+    "coverage": "All shared-helper consumers, fresh HTTP journals/recovery, phase and compact-host guards."
+  },
+  "manifest": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/retained-transport-504/validation-safe.json",
+    "sha256": "b2546846afafc5ff19278322b0d658132c5657ee34bc0d046287a0c5b4d5f4d1"
+  },
+  "patch_sha256": "7e962ba28fd5a6f6ff3396c9529c40f8b678014e2819775c811da1a2e5d520cc",
+  "limitations": [
+    "Original full504 failure evidence remains retained and its run was not interrupted.",
+    "Final full-solution and CI results are separate; focused tests do not establish live business acceptance."
+  ]
+}

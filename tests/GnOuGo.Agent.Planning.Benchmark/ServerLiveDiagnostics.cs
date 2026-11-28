@@ -1,0 +1,1563 @@
+using GnOuGo.Flow.Planning.Capabilities;
+using GnOuGo.Flow.Integrations.Planning;
+using System.Diagnostics;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Agent.Server.Hosting;
+using GnOuGo.Agent.Mcp.Services;
+using GnOuGo.AI.Core;
+using GnOuGo.Planning.Examples;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using GnOuGo.Flow.Core.Compilation;
+using GnOuGo.Flow.Core.Parsing;
+using GnOuGo.Flow.Integrations;
+using GnOuGo.Agent.Server.Planning;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Agent.Server.Telemetry;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Planning;
+using GnOuGo.KeyVault.Core;
+using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+
+// Explicit live harness: actual Agent.Server, actual configured provider, existing campaign ledger.
+// No credentials or bootstrap links are exported. The campaign lease is held by the caller.
+internal static class ServerLiveDiagnostics
+{
+    internal static decimal ExecutionReserve(JsonObject envelope, decimal available)
+    {
+        var maximum = envelope["execution_verification_reserve_eur"]!.GetValue<decimal>();
+        if (envelope["execution_verification_reserve_fraction"] is not { } fraction) return maximum;
+        var share = fraction.GetValue<decimal>();
+        if (share is <= 0 or >= 1) throw new ArgumentOutOfRangeException(nameof(envelope), "The execution share must be between zero and one.");
+        return Math.Min(maximum, decimal.Round(available * share, 2, MidpointRounding.ToPositiveInfinity));
+    }
+
+    internal static bool IsBudgetOverrun(IEnumerable<PlanningDiagnostic> diagnostics, PlanningRequestMeasurement? measurement = null)
+    {
+        var required = diagnostics.Where(d => d.Required).ToArray();
+        return required.Length > 0 && required.All(d => d.Code == GnOuGo.Flow.Core.Models.ErrorCodes.LlmBudgetExceeded ||
+            d.Code == "MODEL_OUTPUT_LIMIT" && measurement is { Admission: "admitted", Result: "output_limit", IssuedOutputTokens: > 0 } &&
+            measurement.OutputTokens == measurement.IssuedOutputTokens && d.Location == "/phases/" + measurement.Phase);
+    }
+
+    internal static bool RequiresInteraction(string[] args)
+    {
+        var interactivePlan = args.ElementAtOrDefault(1) == "server-live-plan" && args.Contains("--await-delegated-review", StringComparer.Ordinal);
+        if (args.Contains("--await-planning-clarification", StringComparer.Ordinal) && !interactivePlan)
+            throw new ArgumentException("Waiting for planning answers requires a fresh server-live-plan with --await-delegated-review.");
+        if (args.Contains("--await-scoped-revision", StringComparer.Ordinal) && !interactivePlan)
+            throw new ArgumentException("Waiting for a scoped revision requires a fresh server-live-plan with --await-delegated-review.");
+        return interactivePlan || args.ElementAtOrDefault(1) == "server-live-execute";
+    }
+
+    internal static async Task RunAsync(string[] args, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, string workspace)
+    {
+        var run = SchemaPortabilityCampaign.RequiredOption(args, "--run");
+        var planning = args.ElementAtOrDefault(1) == "server-live-plan";
+        var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
+        var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
+        var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
+        var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
+        var previousForm = SchemaPortabilityCampaign.Option(args, "--after-finalized-read");
+        var toolSource = SchemaPortabilityCampaign.Option(args, "--tool-build-source");
+        long? executionTokens = null;
+        if (args.Contains("--execution-total-tokens", StringComparer.Ordinal))
+        {
+            if (previousForm is null || !long.TryParse(SchemaPortabilityCampaign.Option(args, "--execution-total-tokens"),
+                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var tokens) || tokens <= 0)
+                throw new ArgumentException("A saved form token amendment requires a finalized predecessor and a positive token allowance.");
+            executionTokens = tokens;
+        }
+        if ((previousForm is not null || toolSource is not null) &&
+            ((!executionOnly && !revalidationOnly) || recheckApproval || !Guid.TryParseExact(previousForm, "N", out _) ||
+             toolSource is not { Length: 40 } || !toolSource.All(char.IsAsciiHexDigit)))
+            throw new ArgumentException("Another saved form invocation requires its finalized read-only execution ID and an exact tool build source.");
+        var resumeRevision = SchemaPortabilityCampaign.Option(args, "--resume-scoped-revision");
+        var restorePath = SchemaPortabilityCampaign.Option(args, "--verify-restored-slot");
+        if (restorePath is not null && resumeRevision is null)
+            throw new ArgumentException("Verifying a restored slot requires an exact scoped resumption.");
+        if (resumeRevision is not null && (!planning || !args.Contains("--await-scoped-revision", StringComparer.Ordinal) ||
+            SchemaPortabilityCampaign.Option(args, "--case") is not ("amazon" or "code")))
+            throw new ArgumentException("Scoped resumption requires interactive business planning with --await-scoped-revision.");
+        if (recheckApproval && !executionOnly) throw new ArgumentException("Approval rechecking requires server-live-execute.");
+        var retained = inspectionOnly || executionOnly || revalidationOnly;
+        var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
+        var observedWorkbook = args.ElementAtOrDefault(1) == "server-live-probe" && args.Contains("--probe-observed-workbook", StringComparer.Ordinal);
+        var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code" or "deckcraft"
+            ? SchemaPortabilityCampaign.Option(args, "--case") : null;
+        var workflowOutput = SchemaPortabilityCampaign.Option(args, "--workflow-output-tokens");
+        int? workflowOutputLimit = null;
+        if (args.Contains("--workflow-output-tokens", StringComparer.Ordinal))
+        {
+            if (delegatedScenario is null || !int.TryParse(workflowOutput, System.Globalization.NumberStyles.None,
+                System.Globalization.CultureInfo.InvariantCulture, out var tokens) || tokens is < 1 or > 32768)
+                throw new ArgumentException("A fresh business workflow output allowance must be between 1 and 32768 tokens.");
+            workflowOutputLimit = tokens;
+        }
+        var adaptiveRequested = args.Contains("--adaptive-mcp-tools", StringComparer.Ordinal);
+        if (adaptiveRequested && delegatedScenario is null)
+            throw new ArgumentException("Select the adaptive tool profile only for a fresh Amazon or Review plan.");
+        var amazonQuery = SchemaPortabilityCampaign.Option(args, "--amazon-query");
+        if (amazonQuery is not null && (delegatedScenario != "amazon" || string.IsNullOrWhiteSpace(amazonQuery)))
+            throw new ArgumentException("Supply a nonempty --amazon-query for a fresh Amazon plan. Retained runs use their captured inputs.");
+        var localReview = args.Contains("--local-review", StringComparer.Ordinal);
+        if (localReview && delegatedScenario != "code") throw new ArgumentException("Local review requires a fresh code scenario.");
+        var discoveryScenario = localReview ? LocalReviewQualification.Scenario : delegatedScenario == "code" ? PublishedReviewQualification.Scenario : delegatedScenario;
+        var browserObservationPolicy = AmazonObservedRedirectPolicy.Capture(args, delegatedScenario ?? "");
+        var sdkChatToolsReasoningEffort = SchemaPortabilityCampaign.Option(args, "--sdk-chat-tools-reasoning");
+        KeyVaultBenchmarkModel.ValidateSdkChatToolsReasoningEffort(sdkChatToolsReasoningEffort);
+        if (sdkChatToolsReasoningEffort is not null && (retained || delegatedScenario != "code"))
+            throw new ArgumentException("SDK tool reasoning can be captured only for a fresh Code plan; retained runs use their original capture.");
+        var sdkWireApi = SchemaPortabilityCampaign.Option(args, "--sdk-wire-api");
+        CampaignInferenceProxy.ValidateWireApi(sdkWireApi);
+        if ((sdkWireApi is not null && (retained || delegatedScenario != "code")) || (sdkWireApi == "responses" && sdkChatToolsReasoningEffort is not null))
+            throw new ArgumentException("Capture the SDK wire API only on a fresh Code plan; Responses uses the existing medium reasoning setting.");
+        var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
+        if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
+            throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
+        if (planning || recheckApproval || previousForm is not null || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
+            SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
+
+        var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
+        if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
+        model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
+        if (planning || recheckApproval || previousForm is not null)
+            await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: model.AdvisoryFinancialForecasts);
+
+        if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
+        var previous = !retained ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
+        if (!retained && (previous is null) != (resumeRevision is null))
+            throw new PlanningConflictException("A fresh run needs an unused identity. Scoped resumption needs the original stopped run.");
+        var planningAllowance = fundingScope?["current_authorized_ceiling_eur"]?.GetValue<decimal>();
+        JsonObject? planningEnvelope = null;
+        if (SchemaPortabilityCampaign.Option(args, "--planning-envelope") is { } envelopeFile)
+        {
+            if (!planning || planningAllowance is null) throw new ArgumentException("A planning envelope requires a funded fresh Server plan.");
+            planningEnvelope = JsonNode.Parse(await File.ReadAllTextAsync(envelopeFile))!.AsObject();
+            var limits = PlanningBudgetOptions.Parse(planningEnvelope);
+            if (limits is not { MaxCalls: >= 1 and <= 1000, MaxTotalTokens: > 0, MaxElapsed: not null, MaxEstimatedCost.Currency: "EUR" } ||
+                planningEnvelope["execution_verification_reserve_eur"]?.GetValue<decimal>() is not > 0)
+                throw new ArgumentException("The planning envelope requires calls, tokens, elapsed time, EUR cost and a positive execution/verification reserve.");
+        }
+        if (planning && planningAllowance is { } ceiling)
+        {
+            var accounting = await BenchmarkHttpJournal.AccountingAsync(campaign, ct: CancellationToken.None);
+            var exposure = LLMUsageBudgetScope.SumCostConservatively(accounting["cost_upper_bound_eur"]!.GetValue<decimal>(), model.RetainedExternalReservationsEur);
+            planningAllowance = LLMUsageBudgetScope.AvailableCostAllowance(ceiling, exposure);
+            if (planningEnvelope is not null)
+            {
+                model.ExecutionVerificationReserveEur = ExecutionReserve(planningEnvelope, planningAllowance.Value);
+                planningAllowance = Math.Min(PlanningBudgetOptions.Parse(planningEnvelope)!.MaxEstimatedCost!.Amount,
+                    LLMUsageBudgetScope.AvailableCostAllowance(planningAllowance.Value, model.ExecutionVerificationReserveEur));
+            }
+            if (planningAllowance == 0)
+            {
+                Console.Error.WriteLine("Warning: the campaign has no remaining funds for a fresh Server reservation.");
+                Console.WriteLine(new JsonObject { ["run"] = run, ["status"] = "budget_blocked", ["passed"] = false,
+                    ["campaign_ceiling_eur"] = ceiling, ["campaign_exposure_eur"] = exposure, ["available_eur"] = 0,
+                    ["session_created"] = false, ["provider_attempts"] = 0 }.ToJsonString());
+                return;
+            }
+        }
+        var root = Directory.GetCurrentDirectory();
+        var stateRoot = Path.Combine(workspace, ".GnOuGo", "data", "live-server", run); Directory.CreateDirectory(stateRoot);
+        var retainedReport = executionOnly || previousForm is not null ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
+        var freshOutcome = delegatedScenario is not null || retainedReport?["qualification_profile"]?.ToString() == LiveWorkflowEvaluation.QualificationProfile;
+        var business = freshOutcome ? new ServerBusinessExecution() : null;
+        var localKindCleanup = delegatedScenario == "code" && !localReview || retainedReport?["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
+        if (retainedReport is not null && business is not null)
+        {
+            localReview = retainedReport["oracle_version"]?.ToString() == LocalReviewQualification.Version;
+            discoveryScenario = localReview ? LocalReviewQualification.Scenario : retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : retainedReport["scenario"]?.ToString();
+            browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
+        }
+        var deckcraftRoot = discoveryScenario == "deckcraft" ? DeckCraftQualification.PrepareDirectory(workspace, campaign.Id, run) : null;
+        var capturedAdaptive = retainedReport?["adaptive_runner_profile"]?.ToString();
+        var adaptive = localReview || deckcraftRoot is not null || adaptiveRequested || capturedAdaptive is not null
+            ? new AdaptiveLiveProfile(discoveryScenario!, capturedAdaptive) : null;
+        if (business is not null) business.Adaptive = adaptive;
+        if (business is not null && discoveryScenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
+            business.Target = await PublishedReviewQualification.CaptureAsync(
+                retainedReport?["inputs"]?["pullRequestUrl"]?.GetValue<string>() ?? SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl,
+                retainedReport?["oracle_version"]?.GetValue<string>() ?? (localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion), CancellationToken.None);
+        var hostArgs = new[]
+        {
+            "--DevMode:Enabled=true", "--ApplicationLlmBudget:Mode=limited",
+            "--TypedWorkflowPlanning:DiagnosticEnabled=true", "--TypedWorkflowPlanning:DefaultThresholdMode=diagnostic",
+            "--TypedWorkflowPlanning:DiagnosticModelMaximum=false", "--TypedWorkflowPlanning:OpenLocalOperatorBrowser=false",
+            "--TypedWorkflowPlanning:BackgroundProcessingEnabled=" + planning.ToString(), "--OpenTelemetry:Enabled=true", "--OpenTelemetry:TenantId=benchmark",
+            "--OtlpCollector:Enabled=false", "--Logging:LogLevel:Default=Warning",
+            "--KeyVault:DatabasePath=" + KeyVaultBenchmarkModel.WorkspaceDatabasePath(workspace, null, KeyVaultDatabasePathResolver.DefaultRelativePath),
+            "--Agent:DatabasePath=" + (business is null ? KeyVaultBenchmarkModel.WorkspaceDatabasePath(workspace, null, ".GnOuGo/data/gnougo-agent.db") : Path.Combine(stateRoot, "agents.db")),
+            "--Database:Path=" + Path.Combine(stateRoot, "telemetry.db"),
+            "--TypedWorkflowPlanning:DatabasePath=" + Path.Combine(stateRoot, "planning.db"),
+            "--DocsIngestorMcp:DatabasePath=" + Path.Combine(stateRoot, "docs.db"),
+            "--DocsIngestorMcp:VectorDatabasePath=" + Path.Combine(stateRoot, "vectors.sqlite"),
+            "--DocsIngestorMcp:OriginalsDirectory=" + Path.Combine(stateRoot, "originals")
+        };
+        if (SchemaPortabilityCampaign.Option(args, "--server-repair-limit") is { } repairLimit)
+        {
+            if (!planning || !int.TryParse(repairLimit, System.Globalization.NumberStyles.None,
+                    System.Globalization.CultureInfo.InvariantCulture, out var limit) || limit is < 0 or > 10)
+                throw new ArgumentException("Use a repair limit from zero to ten on a fresh Server plan.");
+            hostArgs = [.. hostArgs, "--TypedWorkflowPlanning:DiagnosticBoundRepairs=true",
+                $"--TypedWorkflowPlanning:MaxReplanAttempts={limit}", $"--TypedWorkflowPlanning:LargeMaxReplanAttempts={limit}"];
+        }
+        if (business?.Target is not null)
+            hostArgs = hostArgs.Append("--Flow:Execution:FinalizationTimeoutSeconds=270").ToArray();
+        if (executionTokens is { } tokenLimit)
+            hostArgs = [.. hostArgs, "--Flow:Execution:LlmBudget:MaxTotalTokens=" + tokenLimit.ToString(System.Globalization.CultureInfo.InvariantCulture)];
+        if (planningEnvelope is not null)
+        {
+            var limits = PlanningBudgetOptions.Parse(planningEnvelope)!;
+            hostArgs = [.. hostArgs, "--TypedWorkflowPlanning:EnforceSessionLimits=true",
+                $"--TypedWorkflowPlanning:MaxModelCalls={limits.MaxCalls}", $"--TypedWorkflowPlanning:LargeMaxModelCalls={limits.MaxCalls}",
+                $"--TypedWorkflowPlanning:MaxTotalTokens={limits.MaxTotalTokens}", $"--TypedWorkflowPlanning:MaxActiveMilliseconds={(long)limits.MaxElapsed!.Value.TotalMilliseconds}"];
+        }
+        if (planningAllowance is { } amount)
+            hostArgs = hostArgs.Concat(new[] { "--WorkflowPlanningBudget:Currency=EUR",
+                "--WorkflowPlanningBudget:Amount=" + amount.ToString("G29", System.Globalization.CultureInfo.InvariantCulture) }).ToArray();
+        hostArgs = hostArgs.Append("--ApplicationLlmBudget:FinancialForecastMode=" + financialForecastMode).ToArray();
+        var phaseFile = SchemaPortabilityCampaign.Option(args, "--server-phase-policy");
+        var transportFile = SchemaPortabilityCampaign.Option(args, "--server-transport-policy");
+        int? attemptTimeoutLimitMilliseconds = null;
+        if (transportFile is not null)
+        {
+            var transport = JsonSerializer.Deserialize(await File.ReadAllTextAsync(transportFile), PlanningJsonContext.Default.PlanningTransportPolicy)
+                ?? throw new ArgumentException("Missing transport policy.");
+            PlanningTransportPolicies.Validate(transport);
+            attemptTimeoutLimitMilliseconds = transport.AttemptTimeoutMilliseconds;
+            hostArgs = hostArgs.Concat(new[] {
+                $"--TypedWorkflowPlanning:TransportPolicy:Version={transport.Version}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxAttempts={transport.MaxAttempts}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxUncertainRetries={transport.MaxUncertainRetries}",
+                $"--TypedWorkflowPlanning:TransportPolicy:AttemptTimeoutMilliseconds={transport.AttemptTimeoutMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:BaseDelayMilliseconds={transport.BaseDelayMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxDelayMilliseconds={transport.MaxDelayMilliseconds}",
+                $"--TypedWorkflowPlanning:TransportPolicy:MaxTotalDelayMilliseconds={transport.MaxTotalDelayMilliseconds}" }).ToArray();
+            if (transport.IndependentGenerationMaxElapsedMilliseconds is { } total)
+                hostArgs = hostArgs.Append($"--TypedWorkflowPlanning:TransportPolicy:IndependentGenerationMaxElapsedMilliseconds={total}").ToArray();
+        }
+        if (phaseFile is not null)
+        {
+            var phases = JsonSerializer.Deserialize(await File.ReadAllTextAsync(phaseFile), PlanningJsonContext.Default.PlanningConstructionPhasePolicy)
+                ?? throw new ArgumentException("Missing phase policy.");
+            PlanningConstructionPhasePolicies.Validate(phases);
+            hostArgs = hostArgs.Concat(new[] { ("Navigation", phases.Navigation), ("Draft", phases.Draft), ("Review", phases.Review) }.SelectMany(pair => new[] {
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:TargetInputTokens={pair.Item2.TargetInputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:MaxInputTokens={pair.Item2.MaxInputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:OutputTokens={pair.Item2.OutputTokens}",
+                $"--TypedWorkflowPlanning:PhasePolicy:{pair.Item1}:Reasoning={pair.Item2.Reasoning}" })).ToArray();
+        }
+        await using var app = GnOuGoAgentWebHost.Build(hostArgs, "http://127.0.0.1:0", Path.Combine(root, "src/GnOuGo.Agent.Server"), false,
+            services => {
+                services.AddSingleton<IPlanningDiscoveryRecoveryGuard>(new RetainedDiscoveryGuard(campaign));
+                if (!planning && business is null && !observedWorkbook) return;
+                if (business is not null) services.AddSingleton<IPlanningApprovalReviewProvider>(business);
+                services.AddSingleton<SecureWorkflowRuntimeFactory>(sp =>
+                {
+                    IMcpClientFactory? discovery = null;
+                    if (observedWorkbook)
+                        discovery = new ConfiguredMcpClientFactory(LiveWorkflowEvaluation.Configuration(model.McpServers, "observed_workbook", null, "Release"),
+                            defaultLlmProvider: model.Provider, defaultLlmModel: model.Model);
+                    if (discoveryScenario is not null)
+                    {
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null, deckcraftRoot: deckcraftRoot);
+                        var policyHash = DelegatedDiscoveryPolicyHash();
+                        discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), discoveryScenario!, policyHash,
+                            async ct =>
+                            {
+                                // Resolve after Server has bound its mounted HTTP listener. Never
+                                // convert the host's Agent MCP into a standalone stdio process.
+                                var current = await sp.GetRequiredService<LlmDefaultsResolver>().ResolveAsync(ct);
+                                var agent = current.McpServers["GnOuGo.Agent.Mcp"];
+                                return new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions> { ["GnOuGo.Agent.Mcp"] = agent });
+                            }, business is null ? null : business.AllowsAgentCall, localKindCleanup, adaptive is not null, adaptive?.ProfileVersion);
+                    }
+                    var planningClient = new CampaignClient(model, sp.GetRequiredService<IPlanningSessionStore>(),
+                        sp.GetRequiredService<LlmTraceCapture>(), sp.GetRequiredService<LLMRuntimeOptionsStore>());
+                    if (business is not null)
+                    {
+                        business.Discovery = (DelegatedPlanningDiscovery)discovery!;
+                        business.PlanningModel = planningClient;
+                    }
+                    return new(sp.GetRequiredService<LLMRuntimeOptionsStore>(),
+                        sp.GetRequiredService<IKeyVaultRuntimeConfigStore>(), sp.GetRequiredService<ILoggerFactory>(),
+                        llmClientOverride: (ILLMClient?)business ?? planningClient,
+                        mcpClientFactoryOverride: (IMcpClientFactory?)business ?? discovery, llmCapabilityResolver: model, defaults: sp.GetRequiredService<LlmDefaultsResolver>(), copilotRunners: adaptive?.Runners, copilotTools: adaptive?.Bindings, agentConfiguration: sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(),
+                        codeRunner: localReview ? business!.ConfigureReviewRunner(sp.GetRequiredService<Microsoft.Extensions.Configuration.IConfiguration>(), model.Provider, model.Model) : null);
+                });
+            });
+        var awaitScopedRevision = args.Contains("--await-scoped-revision", StringComparer.Ordinal);
+        using var revisionGate = new SemaphoreSlim(1);
+        PathString closedCommandPath = default;
+        if (awaitScopedRevision)
+            app.Use(async (context, next) =>
+            {
+                var path = context.Request.Path;
+                if (!HttpMethods.IsPost(context.Request.Method) || !path.StartsWithSegments("/api/planning") ||
+                    path.Value?.TrimEnd('/').EndsWith("/commands", StringComparison.OrdinalIgnoreCase) != true)
+                {
+                    await next(context);
+                    return;
+                }
+                await revisionGate.WaitAsync(context.RequestAborted);
+                try
+                {
+                    if (closedCommandPath.HasValue && path.Value.TrimEnd('/').Equals(closedCommandPath.Value, StringComparison.OrdinalIgnoreCase))
+                        context.Response.StatusCode = StatusCodes.Status409Conflict;
+                    else await next(context);
+                }
+                finally { revisionGate.Release(); }
+            });
+        if (!planning && business is null)
+            app.Use(async (context, next) =>
+            {
+                var safeProbe = !retained && !mcpReadiness && context.Request.Path == "/api/planning/live-provider-probe";
+                if (context.Request.Path.StartsWithSegments("/api/planning") && !safeProbe &&
+                    !HttpMethods.IsGet(context.Request.Method) && !HttpMethods.IsHead(context.Request.Method))
+                { context.Response.StatusCode = 403; return; }
+                await next(context);
+            });
+        if (business is not null && !retained && model.PersistedModelOverrides is { Count: > 0 } overrides)
+        {
+            await using var scope = app.Services.CreateAsyncScope();
+            var isolatedUser = scope.ServiceProvider.GetRequiredService<IUserConfigRepository>();
+            await isolatedUser.SetAsync(new(null, null, null, ModelOverrides: overrides));
+        }
+        var options = await app.Services.GetRequiredService<LlmDefaultsResolver>().ResolveAsync();
+        if (options.DefaultProvider != model.Provider || options.DefaultModel != model.Model ||
+            options.ResolveProvider(model.Provider)!.Url != model.CampaignConfiguration()["endpoint"]!.ToString() ||
+            !JsonNode.DeepEquals(JsonSerializer.SerializeToNode(options.ResolveProvider(model.Provider)!.RequestPolicy), model.CampaignConfiguration()["request_policy"]))
+            throw new PlanningConflictException("Server and campaign effective provider/model/endpoint/request settings differ; no inference started.");
+        var report = new JsonObject { ["source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"), ["run"] = run,
+            ["campaign"] = campaign.Id, ["campaign_configuration"] = campaign.ConfigurationId,
+            ["provider"] = options.DefaultProvider, ["model"] = options.DefaultModel, ["host"] = "GnOuGo.Agent.Server",
+            ["budget_mode"] = "limited", ["financial_forecast_mode"] = financialForecastMode, ["retained_external_reservations_eur"] = model.RetainedExternalReservationsEur, ["started_utc"] = DateTimeOffset.UtcNow, ["phase"] = planning ? "server_planning" : "provider_probe",
+            ["working_directory"] = root, ["launch_arguments"] = SafeLaunchArguments(),
+            ["loaded_assemblies"] = new JsonObject { ["entry"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!),
+                ["server"] = AssemblyEvidence(typeof(GnOuGoAgentWebHost).Assembly) },
+            ["configuration_sources"] = model.ConfigurationSources.DeepClone(),
+            ["server_model_source"] = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().DefaultModelSource };
+        if (business?.Target is { } target)
+        {
+            report["target_head"] = target.Head;
+            report["target_base"] = target.Base;
+            if (retainedReport is not null && (retainedReport["target_head"]?.ToString() != target.Head || retainedReport["target_base"]?.ToString() != target.Base))
+                throw new PlanningConflictException("The retained review target has changed.");
+        }
+        if (workflowOutputLimit is not null) report["workflow_model_output_limit"] = workflowOutputLimit.Value;
+        if (planningEnvelope is not null)
+        {
+            report["planning_envelope"] = planningEnvelope.DeepClone();
+            report["effective_planning_allowance_eur"] = planningAllowance;
+            report["effective_execution_verification_reserve_eur"] = model.ExecutionVerificationReserveEur;
+        }
+        if (sdkChatToolsReasoningEffort is not null) report["sdk_chat_tools_reasoning_effort"] = sdkChatToolsReasoningEffort;
+        if (sdkWireApi is not null) report["sdk_wire_api"] = sdkWireApi;
+        if (fundingScope is not null) report["funding_scope"] = fundingScope.DeepClone();
+        if (browserObservationPolicy is not null)
+        {
+            report["browser_observation_policy"] = browserObservationPolicy;
+            report["browser_scope_approval"] = AmazonObservedRedirectPolicy.ApprovalFor(browserObservationPolicy);
+        }
+        if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
+        if (delegatedScenario is not null) report["planning_discovery_authority"] = "existing_delegated_tool_allowlist_v1";
+        if (!retained && previous is null) await campaign.SaveAsync("planning-evaluation-runs", run, report);
+        var invoked = 0;
+        if (!planning && !retained && !mcpReadiness) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
+        {
+            if (!await access.CanInspectAsync()) return Results.Forbid();
+            await antiforgery.ValidateRequestAsync(context);
+            if (Interlocked.CompareExchange(ref invoked, 1, 0) != 0) return Results.Conflict("A fresh independent run is required; this probe cannot replay.");
+            if (observedWorkbook)
+            {
+                if (args.Any(a => a.StartsWith("--probe-", StringComparison.Ordinal) && a != "--probe-observed-workbook"))
+                    throw new ArgumentException("The observed-workbook diagnostic has its own bounded request.");
+                report["phase"] = "observed_workbook";
+                report["passed"] = false;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                try
+                {
+                    await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(context.RequestAborted);
+                    await LiveExecutionReadiness.VerifyAsync(runtime.McpClientFactory, workspace, async (page, ct) =>
+                    {
+                        var request = ObservedWorkbookRequest(model.Provider, model.Model, run, page);
+                        report["request_id"] = request.ClientRequestId;
+                        report["browser_observation_sha256"] = PlanningGraphCompiler.Fingerprint(page.ToJsonString());
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report, ct);
+                        var response = await capture.CallAsync(request, options, (r, token) =>
+                            model.CallExecutionAsync(r, token, Math.Min(270000, attemptTimeoutLimitMilliseconds ?? 270000)), ct);
+                        var result = response.Json ?? (response.Text is null ? null : JsonNode.Parse(response.Text));
+                        if (response.CompletionStatus is not null || PlanningContractValidation.ValidateInstance(result, request.StructuredOutputSchema!).Count != 0)
+                            throw new InvalidOperationException("The model must return a complete structured page observation.");
+                        report["usage"] = response.Usage?.DeepClone();
+                        return result!["value"]!.GetValue<string>();
+                    }, context.RequestAborted, report);
+                    report["passed"] = true;
+                }
+                catch (Exception error)
+                {
+                    report["exception_type"] = error.GetType().Name;
+                    report["diagnostic"] = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(error.Message);
+                }
+                if (report["request_id"]?.ToString() is { } issued)
+                {
+                    report["effective_http"] = ProbeHttpEvidence(await campaign.LoadAsync(BenchmarkHttpJournal.Collection, issued));
+                    report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", issued) is not null;
+                    report["passed"] = report["passed"]!.GetValue<bool>() && report["durable_receipt"]!.GetValue<bool>();
+                }
+                report["finished_utc"] = DateTimeOffset.UtcNow;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                return Results.Json(report);
+            }
+            var nonce = Guid.NewGuid().ToString("N");
+            var sourceRequest = SchemaPortabilityCampaign.Option(args, "--probe-source-request");
+            var original = sourceRequest is null ? null :
+                (await campaign.LoadAsync("planning-evaluation-requests", sourceRequest, context.RequestAborted))?.Deserialize(PlanningJsonContext.Default.LLMRequest)
+                ?? throw new ArgumentException("The exact owned source request is unavailable.");
+            var request = IndependentProbe(original, model.Provider, model.Model, run, nonce,
+                SchemaPortabilityCampaign.Option(args, "--probe-reasoning"),
+                SchemaPortabilityCampaign.Option(args, "--probe-output-tokens") is { } allocation
+                    ? int.Parse(allocation, System.Globalization.CultureInfo.InvariantCulture) : original?.MaxTokens ?? 1024,
+                SchemaPortabilityCampaign.Option(args, "--probe-structured-strict") is { } strict ? bool.Parse(strict) : null);
+            if (SchemaPortabilityCampaign.Option(args, "--probe-prompt-amendment") is { } amendmentFile)
+            {
+                if (original is null || args.Any(a => a.StartsWith("--probe-", StringComparison.Ordinal) &&
+                    a is not ("--probe-source-request" or "--probe-prompt-amendment")))
+                    throw new ArgumentException("A prompt-evidence experiment requires an exact source and no other probe override.");
+                var amendment = JsonNode.Parse(await File.ReadAllTextAsync(amendmentFile, context.RequestAborted)) as JsonObject
+                    ?? throw new ArgumentException("A prompt-evidence amendment object is required.");
+                report["prompt_evidence_amendment"] = AmendProbePrompt(request, run, nonce, amendment);
+            }
+            if (args.Contains("--probe-share-schema-evidence", StringComparer.Ordinal))
+            {
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.ShareDuplicateContractSchemas(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["schema_evidence_compaction"] = new JsonObject { ["original_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(before),
+                    ["compacted_prompt_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt), ["response_schema_unchanged"] = true };
+            }
+            if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal))
+            {
+                PresentProbeResponseSchema(request, run, nonce);
+                report["response_schema_presented_in_prompt"] = true;
+            }
+            if (args.Contains("--probe-intent-declaration-fields", StringComparer.Ordinal))
+            {
+                if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                PresentProbeIntentDeclarationFields(request, run, nonce);
+                report["intent_declaration_fields_presented_in_prompt"] = true;
+            }
+            if (args.Contains("--probe-business-dependency-fields", StringComparer.Ordinal))
+            {
+                if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal) || args.Contains("--probe-intent-declaration-fields", StringComparer.Ordinal))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                PresentProbeBusinessDependencyFields(request, run, nonce);
+                report["business_dependency_fields_presented_in_prompt"] = true;
+            }
+            if (args.Contains("--probe-discovery-response-fields", StringComparer.Ordinal))
+            {
+                if (args.Contains("--probe-present-response-schema", StringComparer.Ordinal) ||
+                    args.Contains("--probe-intent-declaration-fields", StringComparer.Ordinal) ||
+                    args.Contains("--probe-business-dependency-fields", StringComparer.Ordinal))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentDiscoveryResponseFields(before, request.StructuredOutputSchema!);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["discovery_response_field_guide"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-delivery-channel-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentDeliveryChannelGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["delivery_channel_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-compact-json-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentCompactJsonGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["compact_json_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-specific-array-branches", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance"))
+                    throw new ArgumentException("Choose one representation factor for this probe.");
+                var before = request.StructuredOutputSchema!;
+                request.StructuredOutputSchema = PlanningPromptPresentation.OrderBoundedArrayAlternativesFirst(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["specific_array_branch_order"] = new JsonObject { ["active"] = !JsonNode.DeepEquals(before, request.StructuredOutputSchema),
+                    ["logical_constraints_preserved"] = true, ["prompt_unchanged"] = true };
+            }
+            if (args.Contains("--probe-materialization-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches"))
+                    throw new ArgumentException("Choose one representation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentContractMaterializationGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["contract_materialization_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-group-composition-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or "--probe-materialization-guidance"))
+                    throw new ArgumentException("Choose one representation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentGroupCompositionGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["group_composition_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-evidence-selection-objects", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or
+                    "--probe-materialization-guidance" or "--probe-group-composition-guidance"))
+                    throw new ArgumentException("Choose one representation factor for this probe.");
+                var before = request.StructuredOutputSchema!;
+                request.StructuredOutputSchema = PlanningPromptPresentation.PresentEvidenceSelectionObjects(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["evidence_selection_object_encoding"] = new JsonObject { ["active"] = !JsonNode.DeepEquals(before, request.StructuredOutputSchema),
+                    ["canonical_choices_and_bounds_preserved"] = true, ["prompt_unchanged"] = true };
+            }
+            if (args.Contains("--probe-runtime-prerequisite-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or
+                    "--probe-materialization-guidance" or "--probe-group-composition-guidance" or "--probe-evidence-selection-objects"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentRuntimePrerequisiteGuidance(before);
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["runtime_prerequisite_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            if (args.Contains("--probe-native-control-guidance", StringComparer.Ordinal))
+            {
+                if (args.Any(option => option is "--probe-present-response-schema" or "--probe-intent-declaration-fields" or
+                    "--probe-business-dependency-fields" or "--probe-discovery-response-fields" or "--probe-share-schema-evidence" or
+                    "--probe-delivery-channel-guidance" or "--probe-compact-json-guidance" or "--probe-specific-array-branches" or
+                    "--probe-materialization-guidance" or "--probe-group-composition-guidance" or "--probe-evidence-selection-objects" or
+                    "--probe-runtime-prerequisite-guidance"))
+                    throw new ArgumentException("Choose one presentation factor for this probe.");
+                var before = request.Prompt;
+                request.Prompt = PlanningPromptPresentation.PresentNativeControlGuidance(before, request.StructuredOutputSchema!);
+                if (request.Prompt == before) throw new ArgumentException("The source request does not offer a local control; no native-control probe can be dispatched.");
+                request.ClientRequestId = null;
+                request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+                report["native_control_guidance"] = new JsonObject { ["active"] = request.Prompt != before,
+                    ["schema_unchanged"] = true, ["added_utf8_bytes"] = System.Text.Encoding.UTF8.GetByteCount(request.Prompt) - System.Text.Encoding.UTF8.GetByteCount(before) };
+            }
+            report["request_id"] = request.ClientRequestId; report["requested_output_tokens"] = request.MaxTokens;
+            if (args.Contains("--probe-check-responses", StringComparer.Ordinal))
+                report["responses_route_inspection"] = await model.InspectResponsesRouteAsync(run, context.RequestAborted);
+            report["requested_reasoning"] = request.Reasoning;
+            report["requested_structured_output_strict"] = request.StructuredOutputStrict;
+            report["independent_probe"] = new JsonObject { ["source_request"] = sourceRequest,
+                ["source_request_hash"] = original is null ? null : PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest)),
+                ["prompt_hash"] = PlanningGraphCompiler.Fingerprint(request.Prompt),
+                ["schema_hash"] = PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema!.ToJsonString()),
+                ["applies_candidate"] = false, ["executes_business_tools"] = false };
+            await campaign.SaveAsync("planning-evaluation-runs", run, report);
+            using var activity = new Activity("live.provider.structured_output_probe").Start();
+            try
+            {
+                // An isolated probe has no planning-session retry capture. Use the
+                // existing single-attempt inference journal, never planning defaults.
+                var result = await capture.CallAsync(request, options,
+                    (r, ct) => model.CallExecutionAsync(r, ct, attemptTimeoutLimitMilliseconds), context.RequestAborted);
+                report["completion_status"] = result.CompletionStatus;
+                report["usage"] = result.Usage?.DeepClone();
+                var received = CompleteProbeContent(result);
+                var schemaValid = result.CompletionStatus is null && PlanningContractValidation.ValidateInstance(received, request.StructuredOutputSchema!).Count == 0;
+                report["schema_valid"] = schemaValid;
+                report["executable_extension_returned"] = received?["extension"] is JsonObject;
+                report["passed"] = result.CompletionStatus is null && schemaValid && (original is null
+                    ? received?["ok"]?.GetValue<bool>() == true && received?["nonce"]?.ToString() == nonce
+                    : !args.Contains("--probe-require-extension", StringComparer.Ordinal) || received?["extension"] is JsonObject);
+            }
+            catch (Exception error)
+            {
+                report["passed"] = false; report["exception_type"] = error.GetType().FullName;
+                report["exception_stack"] = error.StackTrace; report["campaign_stop_reason"] = campaign.StopReason;
+                if (error is LLMClientException failure)
+                {
+                    report["failure_kind"] = failure.Kind.ToString(); report["http_status"] = failure.StatusCode;
+                    report["safe_provider_code"] = failure.SafeProviderCode; report["provider_stage"] = failure.Stage.ToString();
+                }
+                if (error.Data[BenchmarkCampaign.BudgetRefusalData] is JsonObject refusal) report["financial_refusal"] = refusal.DeepClone();
+                if (error is GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException runtimeFailure)
+                { report["failure_code"] = runtimeFailure.Code; report["financial_refusal"] = runtimeFailure.Details?.DeepClone(); }
+                // Exception messages and provider bodies remain in protected encrypted evidence.
+            }
+            var transportEvidence = await campaign.LoadAsync(BenchmarkHttpJournal.Collection, request.ClientRequestId!, CancellationToken.None);
+            report["physical_http_attempts"] = transportEvidence?["transport"]?["Attempts"] is JsonArray attempts ? attempts.Count :
+                report["financial_refusal"]?["dispatch_status"]?.ToString() == "not_started" ? 0 : null;
+            report["durable_receipt"] = await campaign.LoadAsync("planning-evaluation-receipts", request.ClientRequestId!, CancellationToken.None) is not null;
+            if (ProbeHttpEvidence(transportEvidence) is { } httpEvidence) report["effective_http"] = httpEvidence;
+            report["finished_utc"] = DateTimeOffset.UtcNow; report["trace_id"] = activity.TraceId.ToHexString();
+            await campaign.SaveAsync("planning-evaluation-runs", run, report, CancellationToken.None);
+            return Results.Json(report);
+        });
+        if (previous is not null)
+        {
+            var snapshot = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            var current = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(snapshot.Request.TenantId,
+                snapshot.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("Stopped planning session missing.");
+            RequireScopedResume(previous, current, resumeRevision!);
+            var original = previous["source"]!.GetValue<string>();
+            if (restorePath is null) RequireSameProductionSource(original, recheckApproval: false);
+            else
+            {
+                if (original.Length != 40 || !original.All(char.IsAsciiHexDigit) ||
+                    SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src",
+                        ":(exclude)src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs",
+                        ":(exclude)src/GnOuGo.Flow.Planning/PlanningConstruction.Rollback.cs",
+                        ":(exclude)src/GnOuGo.Flow.Planning/TaskPlanRevisions.cs").Length != 0)
+                    throw new PlanningConflictException("A rollback migration permits only scoped command and reconstruction changes.");
+                var restored = PlanningConstruction.RestoreRevisionBaseline(current, [restorePath]) ??
+                    throw new PlanningConflictException("No exact baseline for the requested rollback slot.");
+                TaskPlanRevisions.ValidateEditablePaths(current, [restorePath], restored);
+                report["rechecked_rollback"] = new JsonObject { ["slot"] = restorePath,
+                    ["original_plan_hash"] = PlanningConstruction.Hash(restored), ["after_hash"] = PlanningConstruction.Hash(current.Plan),
+                    ["planner"] = AssemblyEvidence(typeof(PlanningArtifactApproval).Assembly) };
+            }
+            await campaign.RequireRunNotRetainedAsync(current.Request.SessionId, CancellationToken.None);
+            await RequireNotCancelledAsync(app, current, CancellationToken.None);
+        }
+        await app.StartAsync();
+        try
+        {
+            var url = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app).AppBaseAddress!;
+            using var client = new HttpClient(new HttpClientHandler { CookieContainer = new CookieContainer() }) { BaseAddress = new Uri(url), Timeout = TimeSpan.FromMinutes(12) };
+            var launch = app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(client.BaseAddress);
+            using var auth = await client.PostAsync("/local-operator/session", new StringContent(launch.Fragment[1..])); auth.EnsureSuccessStatusCode();
+            var csrf = await client.GetFromJsonAsync<JsonObject>("/api/planning/antiforgery");
+            client.DefaultRequestHeaders.Add(csrf!["headerName"]!.ToString(), csrf["requestToken"]!.ToString());
+            if (!retained && !mcpReadiness)
+            {
+                await VerifyFrontendAsync(app, root, url, run, CancellationToken.None);
+                report["frontend_ready"] = true;
+                if (previous is null) await campaign.SaveAsync("planning-evaluation-runs", run, report);
+            }
+            if (!retained)
+            {
+                using var limited = await client.PostAsJsonAsync("/api/application-llm-budget", new JsonObject { ["mode"] = "limited", ["financialForecastMode"] = financialForecastMode }); limited.EnsureSuccessStatusCode();
+            }
+            if (retained)
+            {
+                var saved = await campaign.LoadAsync("planning-evaluation-runs", run) ?? throw new PlanningConflictException("No retained live run.");
+                if (previousForm is null) await ExportInspectionAsync(client, saved["session_id"]!.ToString(), root, run);
+                if (executionOnly || revalidationOnly)
+                {
+                    if (previousForm is not null)
+                    {
+                        if (business is null || fundingScope is null || await campaign.HasUncertainRequestAsync(CancellationToken.None))
+                            throw new PlanningConflictException("A funded business form with settled campaign admission is required.");
+                        await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
+                        await RepeatSavedFormAsync(app, client, business, campaign, model, saved, previousForm, toolSource!, executionTokens, root, workspace, revalidationOnly);
+                        return;
+                    }
+                    if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
+                    await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
+                    RequireSameProductionSource(saved["source"]!.ToString(), recheckApproval);
+                    var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(saved["session_id"]!.ToString(), CancellationToken.None)
+                        ?? throw new PlanningConflictException("No retained Server session.");
+                    if (revalidationOnly)
+                    {
+                        await RevalidateRetainedArtifactAsync(app, campaign, model, state, saved, args);
+                        Console.WriteLine(new JsonObject { ["run"] = run, ["revalidated"] = true, ["provider_dispatches"] = 0 }.ToJsonString());
+                        return;
+                    }
+                    if (state.Status != PlanningStatus.FinalReview || state.ComputeArtifactHash() != saved["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)?.ComputeArtifactHash())
+                        throw new PlanningConflictException("Only the exact unexecuted review-ready artifact may continue.");
+                    if (recheckApproval)
+                    {
+                        var revision = SchemaPortabilityCampaign.RequiredOption(args, "--expected-revision");
+                        var hash = SchemaPortabilityCampaign.RequiredOption(args, "--artifact-hash");
+                        if (revision != state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture) || hash != state.ComputeArtifactHash())
+                            throw new PlanningConflictException("The retained approval recheck requires the exact reviewed revision and artifact hash.");
+                        PlanningArtifactApproval.Verify(state);
+                        saved["approval_recheck"] = new JsonObject { ["revision"] = state.Revision, ["artifact_hash"] = hash,
+                            ["planning_source"] = saved["source"]!.ToString(), ["verification_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+                            ["verification_assembly"] = AssemblyEvidence(typeof(PlanningArtifactApproval).Assembly) };
+                    }
+                    saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+                    saved["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
+                    if (!recheckApproval) model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
+                    saved["execution_external_reservations_eur"] = model.RetainedExternalReservationsEur;
+                    if (!await ExecuteReviewedLocalAsync(app, client, business, campaign, model, state, saved, root, workspace))
+                        throw new PlanningConflictException("The retained artifact was revised; execution requires its new captured review-ready state.");
+                }
+                Console.WriteLine(new JsonObject { ["run"] = run, ["inspection_only"] = inspectionOnly, ["provider_dispatches"] = 0 }.ToJsonString());
+            }
+            else if (mcpReadiness)
+            {
+                using (var denied = await client.PostAsJsonAsync("/api/planning", new GnOuGo.Agent.Shared.PlanningStartDto("forbidden-metadata-inference", "No inference is authorized by metadata readiness.")))
+                {
+                    if (denied.StatusCode != HttpStatusCode.Forbidden) throw new InvalidOperationException("Metadata readiness exposed a planning mutation endpoint.");
+                    report["planning_mutations_blocked"] = true;
+                }
+                var server = SchemaPortabilityCampaign.RequiredOption(args, "--mcp-server");
+                await using var runtime = await app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>().CreateAsync(CancellationToken.None);
+                var config = runtime.Options.McpServers[server];
+                report["phase"] = "mcp_readiness"; report["mcp_server"] = server; report["transport"] = config.Type;
+                report["command"] = config.Command;
+                report["command_file_exists_at_entry_base"] = config.Command is { } command && File.Exists(Path.GetFullPath(command, AppContext.BaseDirectory));
+                report["argument_count"] = config.Args?.Count;
+                try
+                {
+                    using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(45));
+                    if (args.Contains("--snapshot-pagination", StringComparer.Ordinal))
+                    {
+                        var catalog = new CapabilityDiscovery(new() { McpClientFactory = runtime.McpClientFactory });
+                        var snapshot = await catalog.CaptureAsync(CapabilityDiscovery.SourceId(server), deadline.Token);
+                        var journal = new PlanningCapabilitySnapshotJournal(app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>());
+                        var action = Guid.NewGuid().ToString("N");
+                        var reference = await journal.PublishAsync("benchmark", run, action, snapshot, deadline.Token);
+                        var expectedCount = snapshot.Capabilities.Count;
+                        var seen = new HashSet<string>(StringComparer.Ordinal); string? cursor = null; var pages = 0; var recreations = 0;
+                        do
+                        {
+                            var retainedSnapshot = await journal.ReadAsync(reference, "benchmark", run, action, reference.SourceId, deadline.Token);
+                            var page = catalog.ReadPage(retainedSnapshot, cursor, "Inspect the declared operations of this configured source.");
+                            if (page.Capabilities.Any(c => !seen.Add(c.Id))) throw new InvalidOperationException("Duplicate capability in snapshot pagination.");
+                            pages++; cursor = page.NextCursor;
+                            if (cursor is not null && pages % 4 == 0)
+                            {
+                                catalog = new(new() { McpClientFactory = runtime.McpClientFactory });
+                                journal = new(app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>());
+                                recreations++;
+                            }
+                        } while (cursor is not null);
+                        if (seen.Count != expectedCount) throw new InvalidOperationException("Snapshot pagination did not preserve exact coverage.");
+                        report["capability_count"] = expectedCount; report["distinct_capabilities"] = seen.Count;
+                        report["page_count"] = pages; report["runtime_recreations"] = recreations;
+                        report["snapshot_version"] = reference.Version; report["provider_dispatches"] = 0;
+                    }
+                    else
+                    {
+                        var connection = await runtime.McpClientFactory.GetClientAsync(server, deadline.Token);
+                        var tools = await connection.ListToolsAsync(deadline.Token);
+                        report["tool_count"] = tools.Count;
+                        if (server == "Github") report["published_review_operations"] = new JsonArray(tools
+                            .Where(t => DelegatedTestReviewAuthority.AllowsTool(PublishedReviewQualification.Scenario, server, t.Name))
+                            .Select(t => (JsonNode)JsonValue.Create(t.Name)).ToArray());
+                    }
+                    report["passed"] = true;
+                }
+                catch (Exception error)
+                {
+                    var formatted = runtime.McpClientFactory is IMcpExecutionHooks hooks ? hooks.FormatFailureDiagnostics(server, error) : error.ToString();
+                    formatted = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(formatted);
+                    foreach (var secret in new[] { config.ApiKey, config.ClientSecret })
+                        if (!string.IsNullOrEmpty(secret)) formatted = formatted.Replace(secret, "[redacted]", StringComparison.Ordinal);
+                    report["passed"] = false; report["exception_type"] = error.GetType().Name; report["diagnostics"] = formatted;
+                    Environment.ExitCode = 1;
+                }
+                report["provider_dispatches"] = 0; report["finished_utc"] = DateTimeOffset.UtcNow;
+                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                Console.WriteLine(report.ToJsonString());
+            }
+            else if (planning)
+            {
+                var scenario = SchemaPortabilityCampaign.Option(args, "--case") ?? "local";
+                var relative = "workflows/" + campaign.Id + "/" + run;
+                var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
+                    "collections" => PlanningBenchmarkCases.Prompt("collections"),
+                    "deckcraft" => DeckCraftQualification.Brief(deckcraftRoot!, relative),
+                    ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
+                    "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
+                    "code" when localReview => await LocalReviewQualification.PromptAsync(relative, business!.Target!, report,
+                        CancellationToken.None, app.Configuration.GetValue("Code:AllowWrites", true)),
+                    "code" => LiveWorkflowEvaluation.CodeEvaluationPrompt(relative), _ => throw new ArgumentException("Unknown live scenario.") };
+                report["scenario"] = scenario;
+                if (adaptive is not null) report["adaptive_runner_profile"] = adaptive.ProfileVersion;
+                report["workspace_relative"] = relative;
+                if (localKindCleanup) report["kind_cleanup_profile"] = SlimFaasReviewProfile.CleanupProfile;
+                report["inputs"] = scenario == "amazon" ? new JsonObject { ["query"] = amazonQuery ?? "chaussure geox homme 45" } : scenario == "code"
+                    ? new JsonObject { ["pullRequestUrl"] = SchemaPortabilityCampaign.Option(args, "--review-url") ?? LiveWorkflowEvaluation.ReviewUrl, ["reviewText"] = SchemaPortabilityCampaign.Option(args, "--review-text") ?? LiveWorkflowEvaluation.ReviewInstructions } : new JsonObject();
+                if (SchemaPortabilityCampaign.Option(args, "--local-kind-toolchain") is { } bin)
+                {
+                    if (scenario != "code") throw new ArgumentException("The local kind toolchain applies to the code review.");
+                    report["local_kind_toolchain"] = SlimFaasReviewProfile.CaptureToolchain(bin);
+                }
+                if (scenario == "amazon")
+                {
+                    report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
+                    report["workflow_readback_required"] = true;
+                }
+                if (scenario is "amazon" or "code" or "deckcraft") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
+                if (scenario is "amazon" or "code" or "deckcraft")
+                {
+                    if (deckcraftRoot is not null) report["deckcraft_root"] = deckcraftRoot;
+                    report["oracle_version"] = scenario == "deckcraft" ? DeckCraftQualification.Version : scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
+                        browserObservationPolicy == AmazonFirstProductsPolicy.Id ? LiveWorkflowOracles.AmazonFirstProductsVersion :
+                        browserObservationPolicy == AmazonDealsPolicy.Id ? LiveWorkflowOracles.AmazonDealsVersion :
+                        browserObservationPolicy == AmazonAaxProductPolicy.Id ? LiveWorkflowOracles.AmazonAaxProductVersion :
+                        browserObservationPolicy == AmazonSourceCoveragePolicy.Id ? LiveWorkflowOracles.AmazonSourceCoverageVersion :
+                        browserObservationPolicy == AmazonStoreListPolicy.Id ? LiveWorkflowOracles.AmazonStoreListVersion :
+                        browserObservationPolicy == AmazonCardReviewPolicy.Id ? LiveWorkflowOracles.AmazonCardReviewVersion :
+                        browserObservationPolicy == AmazonReviewProofPolicy.Id ? LiveWorkflowOracles.AmazonReviewProofVersion :
+                        browserObservationPolicy == AmazonResolvedProductPolicy.Id ? LiveWorkflowOracles.AmazonResolvedProductVersion :
+                        browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
+                        browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
+                        browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion;
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null, deckcraftRoot: deckcraftRoot), (previous ?? report)["source"]!.ToString());
+                }
+                string id;
+                if (previous is null)
+                {
+                    using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
+                        ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
+                    if (!started.IsSuccessStatusCode)
+                    {
+                        var detail = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(await started.Content.ReadAsStringAsync());
+                        report["result"] = new JsonObject { ["status"] = "start_refused", ["http_status"] = (int)started.StatusCode,
+                            ["detail"] = detail, ["execution_status"] = "not_started", ["execution_correct"] = false };
+                        report["passed"] = false;
+                        report["finished_utc"] = DateTimeOffset.UtcNow;
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                        throw new PlanningConflictException($"Server planning start returned HTTP {(int)started.StatusCode}. {detail}");
+                    }
+                    id = (await started.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<string>();
+                }
+                else
+                {
+                    foreach (var key in new[] { "campaign", "campaign_configuration", "provider", "model", "financial_forecast_mode",
+                        "scenario", "planning_envelope", "workflow_model_output_limit", "workspace_relative", "inputs", "mcp_builds",
+                        "adaptive_runner_profile", "qualification_profile", "oracle_version", "phase_policy_sha256", "browser_scope_approval",
+                        "browser_observation_policy", "target_head", "target_base", "sdk_wire_api", "sdk_chat_tools_reasoning_effort" })
+                        if (!JsonNode.DeepEquals(previous[key], report[key])) throw new PlanningConflictException("Scoped resumption changed " + key + ".");
+                    var resumes = previous["scoped_resumptions"] as JsonArray;
+                    if (resumes is null) previous["scoped_resumptions"] = resumes = [];
+                    resumes.Add(new JsonObject { ["revision"] = previous["session"]!["revision"]!.DeepClone(),
+                        ["prior_result"] = previous["result"]!.DeepClone(), ["prior_finish"] = previous["finished_utc"]?.DeepClone(),
+                        ["prior_session_sha256"] = PlanningGraphCompiler.Fingerprint(previous["session"]!.ToJsonString()),
+                        ["started_utc"] = report["started_utc"]!.DeepClone(), ["harness_source"] = report["source"]!.DeepClone(),
+                        ["assemblies"] = report["loaded_assemblies"]!.DeepClone(), ["external_reservations_eur"] = model.RetainedExternalReservationsEur,
+                        ["execution_reserve_eur"] = model.ExecutionVerificationReserveEur, ["rechecked_rollback"] = report["rechecked_rollback"]?.DeepClone() });
+                    report = previous;
+                    report.Remove("finished_utc");
+                    id = report["session_id"]!.GetValue<string>();
+                    var marker = Path.Combine(root, "artifacts/live-server-20261106", run, "observer-terminal-revision.txt");
+                    if (File.Exists(marker))
+                        File.Move(marker, marker + "." + Guid.NewGuid().ToString("N"));
+                }
+                report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
+                Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
+                var awaitPlanningClarification = args.Contains("--await-planning-clarification", StringComparer.Ordinal);
+                using var observer = StartObserver(app, root, url, id, run, awaitPlanningClarification: awaitPlanningClarification, awaitScopedRevision: awaitScopedRevision);
+                var revisionWindow = TimeSpan.FromMinutes(15);
+                long revision = -1;
+                var reportedWarnings = 0;
+                while (true)
+                {
+                    var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None)
+                        ?? throw new PlanningConflictException("The live Server session disappeared.");
+                    if (business is not null && report["execution_model_output_limit"] is null)
+                        report["execution_model_output_limit"] = Math.Min(32768,
+                            PlanningConstructionPhasePolicies.Resolve(state.Request, "construction_draft").OutputTokens);
+                    var awaitingAnswer = awaitPlanningClarification && state.Status == PlanningStatus.Clarification && state.PendingQuestions is { Count: > 0 };
+                    if (state.Revision != revision)
+                    {
+                        revision = state.Revision;
+                        if (awaitingAnswer)
+                            Console.WriteLine(new JsonObject { ["awaiting_planning_answer"] = id, ["revision"] = revision,
+                                ["questions"] = state.PendingQuestions!.Count }.ToJsonString());
+                        if (state.ThresholdWarnings is { } warnings)
+                        {
+                            foreach (var warning in warnings.Skip(reportedWarnings))
+                                Console.Error.WriteLine($"Warning: {warning.Stage} {warning.Kind} {warning.Current} (target {warning.Threshold}).");
+                            reportedWarnings = warnings.Count;
+                        }
+                        if (scenario == ReviewBoundaryQualification.Scenario) report["unchanged_plan_review"] = ReviewBoundaryQualification.Evidence(state);
+                        report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+                        report["result"] = new JsonObject { ["status"] = state.Status, ["calls"] = state.ModelCalls, ["repairs"] = state.ReplanAttempts,
+                            ["execution_status"] = "not_started", ["execution_correct"] = false };
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                        Console.WriteLine(new JsonObject { ["session_id"] = id, ["status"] = state.Status, ["phase"] = state.Phase,
+                            ["revision"] = revision, ["calls"] = state.ModelCalls,
+                            ["diagnostics"] = new JsonArray(state.Diagnostics.Select(d => (JsonNode)JsonValue.Create(d.Code)).ToArray()) }.ToJsonString());
+                    }
+                    if (!awaitingAnswer && (PlanningStatus.IsWaiting(state.Status) || PlanningStatus.IsTerminal(state.Status)))
+                    {
+                        if (awaitScopedRevision && ServerLiveReviewWait.CanOfferScopedRevision(state))
+                        {
+                            using var window = new CancellationTokenSource(revisionWindow);
+                            Console.WriteLine(new JsonObject { ["awaiting_scoped_revision"] = id, ["revision"] = state.Revision,
+                                ["deadline_utc"] = DateTimeOffset.UtcNow.Add(revisionWindow), ["remaining_repairs"] = state.Request.MaxReplanAttempts - state.ReplanAttempts }.ToJsonString());
+                            if (await ServerLiveReviewWait.AwaitNewRevisionAsync(state,
+                                () => app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None), window.Token)) continue;
+                        }
+                        if (awaitScopedRevision && state.Status == PlanningStatus.Stopped)
+                        {
+                            await revisionGate.WaitAsync();
+                            try
+                            {
+                                var current = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(id, CancellationToken.None);
+                                if (current?.Revision != state.Revision) continue;
+                                closedCommandPath = "/api/planning/" + id + "/commands";
+                            }
+                            finally { revisionGate.Release(); }
+                            await File.WriteAllTextAsync(Path.Combine(root, "artifacts/live-server-20261106", run, "observer-terminal-revision.txt"),
+                                state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                        }
+                        var planningPassed = state.Status == PlanningStatus.FinalReview;
+                        report["planning_passed"] = planningPassed;
+                        report["passed"] = planningPassed && business is null;
+                        report["finished_utc"] = DateTimeOffset.UtcNow;
+                        await ExportInspectionAsync(client, id, root, run);
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                        if (!planningPassed)
+                        {
+                            if (IsBudgetOverrun(state.Diagnostics, state.RequestMeasurements?.LastOrDefault()))
+                            {
+                                report["result"]!["budget_blocked"] = true;
+                                Console.Error.WriteLine("Warning: the run reached its captured budget and is unqualified.");
+                                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                            }
+                            else Environment.ExitCode = 1;
+                        }
+                        if (observer is not null)
+                        {
+                            try { await observer.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(45)); }
+                            finally { if (!observer.HasExited) observer.Kill(entireProcessTree: true); }
+                            report["browser_observation_exit_code"] = observer.ExitCode;
+                            await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                        }
+                        if (state.Status == PlanningStatus.FinalReview && args.Contains("--await-delegated-review", StringComparer.Ordinal) &&
+                            !await ExecuteReviewedLocalAsync(app, client, business, campaign, model, state, report, root, workspace))
+                        {
+                            (report["review_wait_history"] ??= new JsonArray()).AsArray().Add(new JsonObject
+                            {
+                                ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash(),
+                                ["disposition"] = "returned_to_session_monitor_without_execution", ["observed_at_utc"] = DateTimeOffset.UtcNow
+                            });
+                            report["passed"] = false;
+                            revision = -1;
+                            continue;
+                        }
+                        break;
+                    }
+                    await Task.Delay(2000);
+                }
+            }
+            else
+            {
+                using var response = await client.PostAsync("/api/planning/live-provider-probe", new StringContent("{}")); response.EnsureSuccessStatusCode();
+                Console.WriteLine(await response.Content.ReadAsStringAsync());
+                if (report["passed"]?.GetValue<bool>() != true) Environment.ExitCode = 1;
+            }
+        }
+        finally
+        {
+            await app.StopAsync();
+            if (business is not null) await business.DisposeAsync();
+        }
+    }
+
+    internal static JsonNode? CompleteProbeContent(LLMResponse result) =>
+        result.CompletionStatus is null ? result.Json ?? (result.Text is null ? null : JsonNode.Parse(result.Text)) : null;
+
+    internal static LLMRequest ObservedWorkbookRequest(string provider, string model, string run, JsonNode page)
+    {
+        var request = new LLMRequest
+        {
+            Provider = provider, Model = model, MaxTokens = 512, Reasoning = "medium", DisableTransportRetries = true, RequireOutputTokenLimit = true,
+            Prompt = "Extract the single readiness marker from the visible text of this Browser MCP result. Return its exact value.\n" + page.ToJsonString(),
+            StructuredOutputSchema = JsonNode.Parse("""{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}""")!.AsObject()
+        };
+        request.ClientRequestId = run + ":observed:" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return request;
+    }
+
+    internal static DelegatedTestReviewAuthority CreateReviewAuthority(DelegatedTestAuthorization authorization, DelegatedTestReviewDocument document,
+        string campaign, string sessionId, string scenario, string workspace, JsonObject report, ServerBusinessExecution? business)
+    {
+        var grant = scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario ? "synthetic" :
+            report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : business?.Target is not null ? PublishedReviewQualification.Scenario : scenario;
+        var adaptive = business?.Adaptive;
+        if (report["adaptive_runner_profile"]?.ToString() != adaptive?.ProfileVersion)
+            throw new PlanningConflictException("The adaptive runner differs from the profile captured for this review.");
+        return new(authorization, document, campaign, sessionId, grant, workspace, report["source"]!.ToString(),
+            scenario is "amazon" or "code" or "deckcraft" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target, adaptive);
+    }
+
+    internal static JsonObject? ProbeHttpEvidence(JsonObject? transportEvidence)
+    {
+        if (transportEvidence?["transport"] is not JsonObject wire ||
+            wire["RequestBody"]?.GetValue<string>() is not { } requestBody ||
+            wire["Endpoint"]?.GetValue<string>() is not { } endpoint) return null;
+        var body = JsonNode.Parse(requestBody)!;
+        return new JsonObject { ["method"] = wire["RequestMethod"]?.DeepClone(),
+            ["endpoint_sha256"] = PlanningGraphCompiler.Fingerprint(endpoint),
+            ["body_sha256"] = PlanningGraphCompiler.Fingerprint(requestBody),
+            ["model"] = body["model"]?.DeepClone(), ["reasoning_effort"] = body["reasoning_effort"]?.DeepClone(),
+            ["max_completion_tokens"] = body["max_completion_tokens"]?.DeepClone(), ["stream"] = body["stream"]?.DeepClone(),
+            ["tool_count"] = (body["tools"] as JsonArray)?.Count ?? 0,
+            ["captured_transport"] = transportEvidence["effective_transport_policy"]?.DeepClone(),
+            ["attempts"] = BenchmarkHttpJournal.AttemptEvidence(wire) };
+    }
+
+    internal static LLMRequest IndependentProbe(LLMRequest? original, string provider, string model, string run, string nonce, string? reasoning, int outputTokens,
+        bool? structuredStrict = null)
+    {
+        if (outputTokens <= 0 || reasoning is not null && string.IsNullOrWhiteSpace(reasoning))
+            throw new ArgumentException("A positive output allocation and a valid optional reasoning override are required.");
+        if (original is not null && (original.Provider != provider || original.Model != model || original.Tools is { Count: > 0 } ||
+            original.UseBackgroundMode || original.StructuredOutputSchema is null))
+            throw new ArgumentException("Only exact same-deployment tool-free foreground structured generation can seed an independent probe.");
+        var request = original is null ? new LLMRequest { Provider = provider, Model = model,
+            Prompt = "Return the requested JSON object. Set ok to true and nonce to " + nonce + ". No tools or external actions.",
+            StructuredOutputSchema = new JsonObject { ["type"] = "object", ["additionalProperties"] = false,
+                ["properties"] = new JsonObject { ["ok"] = new JsonObject { ["type"] = "boolean" },
+                    ["nonce"] = new JsonObject { ["type"] = "string", ["const"] = nonce } }, ["required"] = new JsonArray("ok", "nonce") } }
+            : JsonSerializer.Deserialize(JsonSerializer.Serialize(original, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
+        request.ClientRequestId = null;
+        request.Reasoning = reasoning ?? (original is null ? "medium" : original.Reasoning);
+        request.MaxTokens = outputTokens; request.RequireOutputTokenLimit = true;
+        if (structuredStrict is { } strict) request.StructuredOutputStrict = strict;
+        request.DisableTransportRetries = true; request.RequiredReviewCalls = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return request;
+    }
+    // One hash-bound presentation experiment, never applied to its source session.
+    internal static JsonObject AmendProbePrompt(LLMRequest request, string run, string nonce, JsonObject amendment)
+    {
+        var before = amendment["before"]?.GetValue<string>(); var after = amendment["after"]?.GetValue<string>();
+        var count = amendment["occurrences"]?.GetValue<int>() ?? 0;
+        var hash = PlanningGraphCompiler.Fingerprint(request.Prompt);
+        var schemaHash = request.StructuredOutputSchema is null ? null : PlanningGraphCompiler.Fingerprint(request.StructuredOutputSchema.ToJsonString());
+        var responseSchema = amendment["responseSchema"] as JsonObject;
+        if (request.Tools is { Count: > 0 } || request.UseBackgroundMode || request.StructuredOutputSchema is null ||
+            string.IsNullOrEmpty(before) || string.IsNullOrEmpty(after) || before == after || count is < 1 or > 32 ||
+            amendment["expectedPromptHash"]?.ToString() != hash ||
+            request.Prompt.Split(before, StringSplitOptions.None).Length - 1 != count)
+            throw new ArgumentException("The tool-free prompt experiment must match its exact owned baseline and occurrence count.");
+        if (amendment.ContainsKey("responseSchema") || amendment.ContainsKey("expectedSchemaHash"))
+            if (responseSchema is null || amendment["expectedSchemaHash"]?.ToString() != schemaHash ||
+                PlanningContractValidation.ValidateSchema(responseSchema, strict: true).Count != 0)
+                throw new ArgumentException("A captured response-schema experiment requires its exact source schema hash and a valid strict schema.");
+        var changed = request.Prompt.Replace(before, after, StringComparison.Ordinal);
+        var evidence = new JsonObject { ["before_prompt_hash"] = hash, ["after_prompt_hash"] = PlanningGraphCompiler.Fingerprint(changed),
+            ["before_evidence_hash"] = PlanningGraphCompiler.Fingerprint(before), ["after_evidence_hash"] = PlanningGraphCompiler.Fingerprint(after),
+            ["occurrences"] = count, ["source_session_modified"] = false, ["response_schema_changed"] = responseSchema is not null };
+        if (responseSchema is not null)
+        {
+            evidence["before_schema_hash"] = schemaHash;
+            evidence["after_schema_hash"] = PlanningGraphCompiler.Fingerprint(responseSchema.ToJsonString());
+            request.StructuredOutputSchema = responseSchema.DeepClone();
+        }
+        request.Prompt = changed; request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+        return evidence;
+    }
+
+    internal static void PresentProbeResponseSchema(LLMRequest request, string run, string nonce)
+    {
+        if (request.StructuredOutputSchema is null || request.Tools is { Count: > 0 } || request.UseBackgroundMode)
+            throw new ArgumentException("An independent tool-free foreground structured request is required.");
+        request.Prompt = PlanningPromptPresentation.PresentResponseSchema(request.Prompt, request.StructuredOutputSchema);
+        request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+    internal static void PresentProbeIntentDeclarationFields(LLMRequest request, string run, string nonce)
+    {
+        if (request.StructuredOutputSchema?["title"]?.ToString() != "construction_intent" ||
+            request.Tools is { Count: > 0 } || request.UseBackgroundMode)
+            throw new ArgumentException("An exact tool-free foreground intent request is required.");
+        request.Prompt = PlanningPromptPresentation.PresentIntentDeclarationFields(request.Prompt);
+        request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+    internal static void PresentProbeBusinessDependencyFields(LLMRequest request, string run, string nonce)
+    {
+        if (request.StructuredOutputSchema?["title"]?.ToString() != "construction_select" ||
+            request.Tools is { Count: > 0 } || request.UseBackgroundMode)
+            throw new ArgumentException("An exact tool-free foreground business-selection request is required.");
+        request.Prompt = PlanningPromptPresentation.PresentBusinessDependencyFields(request.Prompt);
+        request.ClientRequestId = null;
+        request.ClientRequestId = run + ":probe:" + nonce + ":" + PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest));
+    }
+    private static async Task ExportInspectionAsync(HttpClient client, string id, string root, string run)
+    {
+        var output = Path.Combine(root, "artifacts/live-server-20261106", run); Directory.CreateDirectory(output);
+        var summary = await client.GetFromJsonAsync<JsonObject>("/api/planning/" + id + "/inspection") ?? throw new InvalidOperationException("No inspection metadata.");
+        await File.WriteAllTextAsync(Path.Combine(output, "protected-inspection.json"), summary.ToJsonString());
+        foreach (var call in (summary["calls"] as JsonArray ?? []).OfType<JsonObject>())
+        {
+            var key = call["key"]!.ToString();
+            using var response = await client.GetAsync("/api/planning/" + id + "/calls/export?key=" + Uri.EscapeDataString(key), HttpCompletionOption.ResponseHeadersRead);
+            response.EnsureSuccessStatusCode();
+            await using var destination = File.Create(Path.Combine(output, "exchange-" + PlanningGraphCompiler.Fingerprint(key) + ".json"));
+            await response.Content.CopyToAsync(destination);
+        }
+    }
+
+    private static void RequireSameProductionSource(string original, bool recheckApproval)
+    {
+        if (original.Length != 40 || !original.All(char.IsAsciiHexDigit))
+            throw new PlanningConflictException("The original production source must be a full revision.");
+        var changes = SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src");
+        if (changes.Length != 0 && !(recheckApproval && changes == "src/GnOuGo.Flow.Planning/PlanningArtifactApproval.cs"))
+            throw new PlanningConflictException("Retained execution requires unchanged production source and the original frozen tools.");
+    }
+
+    internal static void RequireScopedResume(JsonObject previous, PlanningSession current, string expectedRevision)
+    {
+        if (previous["execution_started"] is not null || previous["saved_agent_id"] is not null ||
+            previous["session_id"]?.ToString() != current.Request.SessionId ||
+            expectedRevision != current.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture) ||
+            !ServerLiveReviewWait.CanOfferScopedRevision(current) ||
+            !JsonNode.DeepEquals(previous["session"], JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession)))
+            throw new PlanningConflictException("Scoped resumption requires the exact unexecuted, stopped planning revision.");
+    }
+
+    private static async Task RequireNotCancelledAsync(WebApplication app, PlanningSession state, CancellationToken ct)
+    {
+        if (await app.Services.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>().GetAsync(
+            "agent-planning-cancellations-v1", state.Request.TenantId, state.Request.SessionId, EfPlanningSessionStore.Author, ct) is not null)
+            throw new PlanningConflictException("Cancellation is pending; artifact revalidation or execution is forbidden.");
+    }
+
+    private static async Task RevalidateRetainedArtifactAsync(WebApplication app, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model,
+        PlanningSession current, JsonObject report, string[] args)
+    {
+        var expectedRevision = long.Parse(SchemaPortabilityCampaign.RequiredOption(args, "--expected-revision"), System.Globalization.CultureInfo.InvariantCulture);
+        var expectedHash = SchemaPortabilityCampaign.RequiredOption(args, "--artifact-hash");
+        var reviewed = report["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)
+            ?? throw new PlanningConflictException("No retained review-ready artifact.");
+        var scenario = report["scenario"]!.ToString();
+        if (scenario is not ("amazon" or "code" or "deckcraft")) throw new PlanningConflictException("This recovery requires a retained live MCP artifact.");
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
+            current.Request.TenantId, current.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The retained session has another active owner.");
+        var store = app.Services.GetRequiredService<IPlanningSessionStore>();
+        current = await store.LoadAsync(current.Request.TenantId, current.Request.SessionId, CancellationToken.None)
+            ?? throw new PlanningConflictException("The retained session disappeared.");
+        await RequireNotCancelledAsync(app, current, CancellationToken.None);
+        var discoveryScenario = report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
+        var adaptive = report["adaptive_runner_profile"]?.ToString() is { } captured ? new AdaptiveLiveProfile(discoveryScenario, captured) : null;
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null, report["deckcraft_root"]?.ToString());
+        if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
+            throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
+        await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), discoveryScenario,
+            DelegatedDiscoveryPolicyHash(), localKindCleanup: report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile, adaptive: adaptive is not null, adaptiveVersion: adaptive?.ProfileVersion);
+        var previousRevision = current.Revision;
+        var runtime = ServerLiveArtifactValidation.Runtime(metadata, current.Request.Policy, async (state, ct) =>
+        {
+            await RequireNotCancelledAsync(app, state, ct);
+            if (state.Revision <= previousRevision) state.Revision = previousRevision + 1;
+            if (!await store.TrySaveAsync(state, previousRevision, ct)) throw new PlanningConflictException("The revalidated artifact changed concurrently.");
+            previousRevision = state.Revision;
+        }, adaptive);
+        var restored = await ServerLiveArtifactValidation.RevalidateAsync(current, reviewed, expectedRevision, expectedHash, runtime, CancellationToken.None);
+        report["approval_validation_recovery"] = new JsonObject
+        {
+            ["harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+            ["harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!),
+            ["reviewed_session"] = JsonSerializer.SerializeToNode(reviewed, PlanningJsonContext.Default.PlanningSession),
+            ["failed_session"] = JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession),
+            ["restored_revision"] = restored.Revision, ["artifact_hash"] = restored.ComputeArtifactHash(),
+            ["revalidated_at_utc"] = DateTimeOffset.UtcNow,
+            ["model_calls_unchanged"] = restored.ModelCalls == current.ModelCalls, ["provider_dispatches"] = 0,
+            ["execution_started"] = false
+        };
+        report["session"] = JsonSerializer.SerializeToNode(restored, PlanningJsonContext.Default.PlanningSession);
+        report["result"]!["status"] = restored.Status;
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+    }
+
+    private static async Task RepeatSavedFormAsync(WebApplication app, HttpClient client, ServerBusinessExecution business,
+        BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, JsonObject previous, string previousForm, string toolSource, long? executionTokens,
+        string root, string workspace, bool verifyOnly)
+    {
+        var ct = app.Lifetime.ApplicationStopping;
+        var run = previous["run"]!.GetValue<string>();
+        var sessionId = previous["session_id"]!.GetValue<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        while (previous["execution_run_id"]?.ToString() != previousForm)
+        {
+            var parent = previous["execution_run_id"]?.ToString();
+            if (parent is null || !Guid.TryParseExact(parent, "N", out _) || !seen.Add(parent))
+                throw new PlanningConflictException("The requested predecessor is outside this form's recorded history.");
+            var childKey = run + "-form-" + parent;
+            var child = await campaign.LoadAsync("planning-evaluation-runs", childKey, ct);
+            if (child is null || child["form_attempt"]?.ToString() != childKey || child["previous_form"]?.ToString() != parent ||
+                child["campaign"]?.ToString() != campaign.Id || child["run"]?.ToString() != run || child["session_id"]?.ToString() != sessionId ||
+                child["saved_agent_id"]?.ToString() != previous["saved_agent_id"]?.ToString() ||
+                child["execution_artifact_hash"]?.ToString() != previous["execution_artifact_hash"]?.ToString())
+                throw new PlanningConflictException("The requested predecessor lacks an artifact-bound form record.");
+            previous = child;
+        }
+        var key = run + "-form-" + previousForm;
+        if (previous["execution_started"] is null ||
+            previous["passed"]?.GetValue<bool>() != false || await campaign.LoadAsync("planning-evaluation-runs", key, ct) is not null)
+            throw new PlanningConflictException("This predecessor does not identify an unused, independently observed form attempt.");
+        var reviewed = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+        var saved = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(sessionId, ct);
+        if (reviewed.Status != PlanningStatus.FinalReview || saved is not { Status: PlanningStatus.Saved, SavedAgentId: not null } ||
+            saved.Request.TenantId != "benchmark" || saved.Request.SessionId != reviewed.Request.SessionId ||
+            saved.SavedAgentId != previous["saved_agent_id"]?.ToString() || saved.Yaml != reviewed.Yaml ||
+            saved.ApprovedHash != reviewed.ComputeArtifactHash() || saved.ApprovedHash != previous["execution_artifact_hash"]?.ToString())
+            throw new PlanningConflictException("The saved agent differs from the original reviewed artifact.");
+        await RequireNotCancelledAsync(app, saved, ct);
+        await using var scope = app.Services.CreateAsyncScope();
+        var agent = await scope.ServiceProvider.GetRequiredService<IAgentRepository>().GetByNameAsync(saved.Request.Name, ct);
+        if (agent is null || agent.Id.ToString() != saved.SavedAgentId || agent.Workflow != saved.Yaml)
+            throw new PlanningConflictException("The agent currently served by the form differs from the saved artifact.");
+        var journal = await app.Services.GetRequiredService<WorkflowRunService>().ReadAsync(previousForm, ct);
+        if (journal is null || journal.RunId != previousForm || journal.TenantId != saved.Request.TenantId ||
+            journal.Limits.AgentId != saved.SavedAgentId || journal.WorkflowYaml != saved.Yaml ||
+            !ServerBusinessExecution.MatchesSubmittedInputs(previous["inputs"], journal.Inputs) ||
+            !ServerBusinessExecution.FinalizedBrowserRead(journal, previous, executionTokens))
+            throw new PlanningConflictException("The prior execution has unresolved effects or lacks read-only and cleanup evidence.");
+        if (executionTokens is not null)
+        {
+            var prefix = (previous["form_attempt"]?.ToString() ?? sessionId) + "-execution:";
+            if ((await campaign.OwnedKeysAsync(BenchmarkHttpJournal.Collection, ct, prefix)).Count != 0)
+                throw new PlanningConflictException("The previous form has a physical inference journal. Reconcile it before amending its token allowance.");
+        }
+        var relative = previous["workspace_relative"]!.GetValue<string>();
+        var scenario = previous["scenario"]!.GetValue<string>();
+        var originalOutput = Path.Combine(root, "artifacts/live-server-20261106", run);
+        var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(originalOutput, "authorization.json"), ct),
+            DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
+        var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(originalOutput, "review.json"), ct),
+            DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
+        var authority = CreateReviewAuthority(authorization, document, campaign.Id, sessionId, scenario, workspace, previous, business);
+        if (authorization.ReuseReviewedAuthority != true || saved.ApprovalReview?.Id != document.Receipt.Id)
+            throw new PlanningConflictException("The saved agent lacks the reusable artifact-bound approval.");
+        authority.Validate(reviewed);
+        PlanningArtifactApproval.Verify(saved, authority.Receipt);
+        await authority.PinAsync(campaign, ct);
+        authority.PrepareAdaptiveWorkspace(run);
+        if (Directory.EnumerateFileSystemEntries(Path.GetFullPath(relative, workspace)).Any())
+            throw new PlanningConflictException("The original workspace contains an output or other retained state.");
+        _ = app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        var runtime = ServerLiveArtifactValidation.Runtime(business, saved.Request.Policy, (_, _) => Task.CompletedTask, business.Adaptive);
+        var findings = await runtime.ValidateCatalogAsync(saved.Catalog!, ct);
+        if (findings.Count != 0)
+            throw new PlanningConflictException("The selected tool contracts changed: " + string.Join(", ", findings.Select(d => d.Code)));
+        var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null,
+            "Release", root, previous["browser_observation_policy"]?.ToString(), business.Adaptive is not null), toolSource);
+        var originalBuilds = previous["mcp_builds"]!.AsObject();
+        if (!builds.Select(p => p.Key).ToHashSet(StringComparer.Ordinal).SetEquals(originalBuilds.Select(p => p.Key)) ||
+            executionTokens is null && JsonNode.DeepEquals(originalBuilds, builds))
+            throw new PlanningConflictException("A corrected build of the original tool set or a verified token amendment is required.");
+        if (verifyOnly)
+        {
+            Console.WriteLine(new JsonObject { ["verified_predecessor"] = previousForm, ["journal_revision"] = journal.Revision,
+                ["saved_agent_id"] = saved.SavedAgentId, ["artifact_hash"] = saved.ApprovedHash, ["catalog_findings"] = 0,
+                ["tool_builds"] = builds, ["execution_started"] = false, ["provider_dispatches"] = 0 }.ToJsonString());
+            return;
+        }
+        var report = new JsonObject();
+        foreach (var field in new[] { "run", "session_id", "scenario", "source", "campaign", "campaign_configuration", "provider", "model",
+            "working_directory", "workspace_relative", "inputs", "max_products", "qualification_profile", "oracle_version", "workflow_readback_required",
+            "adaptive_runner_profile", "browser_observation_policy", "browser_scope_approval", "workflow_model_output_limit",
+            "execution_model_output_limit", "session" })
+            report[field] = previous[field]?.DeepClone();
+        report["form_attempt"] = key;
+        report["previous_form"] = previousForm;
+        report["previous_journal_revision"] = journal.Revision;
+        report["execution_tool_source"] = toolSource;
+        if (executionTokens is not null) report["execution_total_token_amendment"] = executionTokens.Value;
+        report["mcp_builds"] = builds;
+        report["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
+        report["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
+        report["execution_external_reservations_eur"] = model.RetainedExternalReservationsEur;
+        report["started_utc"] = DateTimeOffset.UtcNow;
+        report["result"] = new JsonObject { ["status"] = saved.Status, ["execution_correct"] = false };
+        report["passed"] = false;
+        // The campaign lease serializes attempts. An existing claim is never automatically reissued.
+        await campaign.SaveAsync("planning-evaluation-runs", key, report, ct);
+        await ServerBusinessExecution.ObserveExecutionAsync(
+            token => business.ExecuteAsync(app, client, campaign, model, reviewed, authority, report, workspace,
+                Path.Combine(root, "artifacts/live-server-20261106", key), token, saved),
+            TimeSpan.FromMinutes(30), () => Console.Error.WriteLine("The saved form is still awaiting its terminal journal."), ct);
+        Console.WriteLine(new JsonObject { ["form_attempt"] = key, ["execution_run_id"] = report["execution_run_id"]?.DeepClone(),
+            ["passed"] = report["passed"]?.DeepClone() }.ToJsonString());
+    }
+
+    private static async Task<bool> ExecuteReviewedLocalAsync(WebApplication app, HttpClient client, ServerBusinessExecution? business, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model, PlanningSession state,
+        JsonObject report, string root, string workspace)
+    {
+        if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
+        if (await campaign.HasUncertainRequestAsync(CancellationToken.None)) throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
+        var scenario = report["scenario"]!.ToString();
+        if (scenario is not ("local" or "collections" or "amazon" or "code" or "deckcraft" or ReviewBoundaryQualification.Scenario)) throw new PlanningConflictException("Unknown reviewed execution scenario.");
+        var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
+        Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
+            ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());
+        // Review files acknowledge the already generated immutable artifact. They cannot edit it.
+        var authorizationPath = Path.Combine(output, "authorization.json"); var reviewPath = Path.Combine(output, "review.json");
+        if (!await ServerLiveReviewWait.WaitAsync(state,
+            () => app.Services.GetRequiredService<PlanningSessionService>().GetAsync(state.Request.SessionId, CancellationToken.None),
+            () => File.Exists(authorizationPath) || File.Exists(reviewPath),
+            () => File.Exists(authorizationPath) && File.Exists(reviewPath),
+            () => RequireNotCancelledAsync(app, state, CancellationToken.None), app.Lifetime.ApplicationStopping)) return false;
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
+            state.Request.TenantId, state.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The reviewed session has another active owner.");
+        var latest = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(state.Request.TenantId, state.Request.SessionId, CancellationToken.None);
+        if (latest?.Revision != state.Revision || latest.Status != PlanningStatus.FinalReview || latest.ComputeArtifactHash() != state.ComputeArtifactHash())
+            throw new PlanningConflictException("The review-ready session changed while awaiting delegated review.");
+        await RequireNotCancelledAsync(app, state, CancellationToken.None);
+        var authorization = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "authorization.json")), DelegatedTestJsonContext.Default.DelegatedTestAuthorization)!;
+        var document = JsonSerializer.Deserialize(await File.ReadAllTextAsync(Path.Combine(output, "review.json")), DelegatedTestJsonContext.Default.DelegatedTestReviewDocument)!;
+        var authority = CreateReviewAuthority(authorization, document, campaign.Id, state.Request.SessionId, scenario, workspace, report, business);
+        authority.Validate(state); await authority.PinAsync(campaign, CancellationToken.None);
+        if (business is not null)
+        {
+            await lease.DisposeAsync();
+            await ServerBusinessExecution.ObserveExecutionAsync(
+                token => business.ExecuteAsync(app, client, campaign, model, state, authority, report, workspace, output, token),
+                TimeSpan.FromMinutes(30), () => Console.Error.WriteLine("Warning: execution exceeded 30 minutes. Waiting for the Server journal and cleanup."),
+                app.Lifetime.ApplicationStopping);
+            return true;
+        }
+        var sourceRoot = report["working_directory"]!.ToString();
+        var metadataConfigurations = scenario is "amazon" or "code"
+            ? LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, null, "Release", sourceRoot, report["browser_observation_policy"]?.ToString()) : null;
+        if (metadataConfigurations is not null && !JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(metadataConfigurations, report["source"]!.ToString()), report["mcp_builds"]))
+            throw new PlanningConflictException("The frozen selected tools changed before approval.");
+        await using var metadata = metadataConfigurations is null ? null : new DelegatedPlanningDiscovery(
+            new ConfiguredMcpClientFactory(metadataConfigurations), scenario, DelegatedDiscoveryPolicyHash());
+        var previousRevision = state.Revision;
+        var runtime = ServerLiveArtifactValidation.Runtime(metadata, state.Request.Policy, async (s, ct) => {
+            await RequireNotCancelledAsync(app, s, ct);
+            if (s.Revision <= previousRevision) s.Revision = previousRevision + 1;
+            if (!await app.Services.GetRequiredService<IPlanningSessionStore>().TrySaveAsync(s, previousRevision, ct)) throw new PlanningConflictException("The reviewed Server artifact changed.");
+            previousRevision = s.Revision;
+        });
+        state = await new HybridWorkflowPlanner().AdvanceAsync(state, authority.Command(), new DelegatedTestReviewAuthority.Runtime(runtime, authority), CancellationToken.None);
+        PlanningArtifactApproval.Verify(state, authority.Receipt);
+        if (state.Status != PlanningStatus.Approved) throw new PlanningConflictException("Artifact-bound delegated approval failed.");
+        report["session"] = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession);
+        report["execution_artifact_hash"] = state.ComputeArtifactHash();
+        report["review_origin"] = "delegated_test_reviewed";
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+        await RequireNotCancelledAsync(app, state, CancellationToken.None);
+        await lease.DisposeAsync(); // The execution journal owns effects after the approval transition.
+        var compiled = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        if (scenario is "local" or "collections" or ReviewBoundaryQualification.Scenario)
+        {
+            report["execution_started"] = DateTimeOffset.UtcNow;
+            await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+            var variants = new JsonArray();
+            foreach (var variant in scenario == "local" ? new[] { "nominal" } : new[] { "nominal", "alternate" })
+            {
+                using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var engine = new WorkflowEngine { HumanInputProvider = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority) };
+                var inputs = scenario == "local" ? new JsonObject() : scenario == ReviewBoundaryQualification.Scenario
+                    ? ReviewBoundaryQualification.Inputs(variant) : PlanningBenchmarkCases.Inputs("collections", variant);
+                var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], inputs, cancellation.Token);
+                var correct = scenario == "local" ? NativeOutputOracle(result.Success, result.Outputs) :
+                    scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Outputs(result.Success, result.Outputs, variant) &&
+                        ReviewBoundaryQualification.Artifact(state.Plan, state.Catalog).Count == 0 :
+                    new PlanningBenchmarkCases.Environment("collections", variant).Verify(result) &&
+                    SyntheticArtifactOracle.Validate("collections", state.Plan, state.Catalog).Count == 0;
+                variants.Add(new JsonObject { ["variant"] = variant, ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(), ["oracle_passed"] = correct });
+            }
+            var boundary = scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Evidence(state) : null;
+            var passed = variants.All(v => v!["oracle_passed"]!.GetValue<bool>()) && (boundary is null || boundary["observed"]!.GetValue<bool>());
+            if (boundary is not null) report["unchanged_plan_review"] = boundary;
+            report["execution"] = new JsonObject { ["success"] = passed, ["variants"] = variants };
+            report["oracle"] = new JsonObject { ["version"] = scenario == "local" ? "native-result42-v1" : scenario == ReviewBoundaryQualification.Scenario ? ReviewBoundaryQualification.Version : "collections-native-variants-v1", ["independent"] = true, ["passed"] = passed };
+        }
+        else
+        {
+            model.CaptureTokenPolicy(state.Request);
+            await using var proxy = await CampaignInferenceProxy.StartAsync(model, state.Request.SessionId,
+                report["sdk_chat_tools_reasoning_effort"]?.GetValue<string>(), report["sdk_wire_api"]?.GetValue<string>());
+            var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, scenario, proxy.Endpoint, "Release", sourceRoot, report["browser_observation_policy"]?.ToString());
+            if (scenario == "code") CampaignInferenceProxy.ConfigureWireApi(configurations["GnOuGo.GithubCopilot.Mcp"], model.Provider, report["sdk_wire_api"]?.GetValue<string>());
+            var builds = LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString());
+            if (!JsonNode.DeepEquals(builds, report["mcp_builds"])) throw new PlanningConflictException("The frozen execution tools changed after generation.");
+            var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
+            await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
+            report["events"] = new JsonArray();
+            async Task Save() => await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+            var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, async e => {
+                report["events"]!.AsArray().Add(e);
+                if (scenario == "code") await LiveCodeEvidence.ObserveCheckoutAsync(workspace, report);
+                await Save();
+            }, authority, scenario);
+            foreach (var server in configurations.Keys) _ = await (await observed.GetClientAsync(server, CancellationToken.None)).ListToolsAsync(CancellationToken.None);
+            if (scenario == "code") proxy.RequireSdkAdmission(configurations);
+            var options = app.Services.GetRequiredService<LLMRuntimeOptionsStore>().Current;
+            var engine = new WorkflowEngine { McpClientFactory = observed, HumanInputProvider = human,
+                LLMClient = new LiveWorkflowEvaluation.ExecutionModel(model, state.Request.SessionId), LLMCapabilities = model,
+                ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(options), RunStore = LiveWorkflowEvaluation.ExecutionStore(workspace),
+                LLMUsageBudget = LiveWorkflowEvaluation.ModelBudget("execute", state.Request),
+                LlmDefaults = new() { Provider = model.Provider, Model = model.Model },
+                Limits = new() { TenantId = "benchmark", RunId = state.Request.SessionId, AgentId = campaign.Id + "-" + scenario, MaxMappingInputTokens = 96000 } };
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromMinutes(30));
+            report["execution_started"] = DateTimeOffset.UtcNow; await Save();
+            proxy.ExecutionEnabled = true;
+            try
+            {
+                var result = await engine.ExecuteAsync(compiled.Workflows[compiled.Entrypoint!], report["inputs"]!.DeepClone(), cancellation.Token);
+                report["execution"] = new JsonObject { ["success"] = result.Success, ["outputs"] = result.Outputs?.DeepClone(), ["error"] = result.Error is null ? null : JsonSerializer.SerializeToNode(result.Error) };
+            }
+            finally { proxy.ExecutionEnabled = false; await Save(); }
+            report["oracle"] = await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+        }
+        var accepted = report["oracle"]!["passed"]!.GetValue<bool>();
+        report["result"]!["execution_correct"] = accepted; report["result"]!["execution_status"] = "completed";
+        await campaign.SaveAsync("planning-evaluation-runs", report["run"]!.ToString(), report);
+        Console.WriteLine(new JsonObject { ["session_id"] = state.Request.SessionId, ["execution_success"] = report["execution"]!["success"]!.DeepClone(), ["oracle_passed"] = accepted }.ToJsonString());
+        if (!accepted) Environment.ExitCode = 1;
+        return true;
+    }
+
+    internal static bool NativeOutputOracle(bool success, JsonNode? result) => success && result is JsonObject outputs && outputs.Count == 1 &&
+        outputs["result"] is JsonValue value && value.GetValueKind() == JsonValueKind.Number &&
+        decimal.TryParse(value.ToJsonString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var number) && number == 42m;
+
+    internal static async Task VerifyFrontendAsync(WebApplication app, string root, string url, string run, CancellationToken ct)
+    {
+        using var process = StartObserver(app, root, url, null, run);
+        try { await process.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(45), ct); }
+        finally { if (!process.HasExited) process.Kill(entireProcessTree: true); }
+        if (process.ExitCode != 0) throw new PlanningConflictException(
+            "Agent.Server frontend readiness failed before session creation or provider admission. Build ClientApp (pnpm run build), verify /ui/app.js and /ui/app.css, and inspect the browser readiness artifacts.",
+            "frontend_not_ready");
+    }
+    private static JsonArray SafeLaunchArguments()
+    {
+        var command = Environment.GetCommandLineArgs(); var result = new JsonArray();
+        var safeValue = false;
+        for (var i = 0; i < command.Length; i++)
+        {
+            var value = command[i];
+            if (i == 0) result.Add(value);
+            else if (value.StartsWith("--", StringComparison.Ordinal))
+            {
+                safeValue = value is "--schema-portability" or "--run" or "--case" or "--model" or "--campaign-configuration" or "--workspace" or "--campaign" or "--retained-external-reservations-eur" or "--server-phase-policy" or "--financial-forecast-mode" or "--sdk-chat-tools-reasoning" or "--sdk-wire-api" or "--amazon-scope-approval";
+                result.Add(safeValue ? value : "[unrecorded option]");
+            }
+            else { result.Add(safeValue ? value : "[withheld]"); safeValue = false; }
+        }
+        return result;
+    }
+    private static JsonObject AssemblyEvidence(System.Reflection.Assembly assembly) => new() {
+        ["path"] = assembly.Location, ["sha256"] = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(assembly.Location))) };
+
+    internal static Process StartObserver(WebApplication app, string root, string url, string? id, string run, string? agent = null, JsonObject? inputs = null, bool awaitPlanningClarification = false, bool awaitScopedRevision = false)
+    {
+        var module = Environment.GetEnvironmentVariable("PLAYWRIGHT_MODULE_PATH") ?? Path.Combine(AppContext.BaseDirectory, "tools/GnOuGo.Browser.Mcp/.playwright/package/index.mjs");
+        if (!File.Exists(module)) throw new PlanningConflictException("The staged Playwright module is missing; build bundled browser tools before live qualification.", "frontend_not_ready");
+        var output = Path.Combine(root, "artifacts/live-server-20261106", run); Directory.CreateDirectory(output);
+        var start = new ProcessStartInfo("node") { UseShellExecute = false, RedirectStandardInput = true,
+            RedirectStandardOutput = true, RedirectStandardError = true, WorkingDirectory = root };
+        start.ArgumentList.Add(Path.Combine(root, "scripts/observe-live-planning.mjs")); start.Environment["PLAYWRIGHT_MODULE_PATH"] = module;
+        var process = Process.Start(start)!;
+        var launch = app.Services.GetRequiredService<LocalOperatorBootstrap>().CreateLaunchAddress(new Uri(url));
+        string Redact(string value) => value.Replace(launch.AbsoluteUri, "[protected bootstrap]", StringComparison.Ordinal)
+            .Replace(launch.Fragment[1..], "[redacted]", StringComparison.Ordinal);
+        // Drain both pipes; authority-bearing browser input is never logged, including on child failure.
+        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stdout.log" : id is null ? "readiness.stdout.log" : "observer.stdout.log"), Redact(await process.StandardOutput.ReadToEndAsync())));
+        _ = Task.Run(async () => await File.WriteAllTextAsync(Path.Combine(output, agent is not null ? "execution-form.stderr.log" : id is null ? "readiness.stderr.log" : "observer.stderr.log"), Redact(await process.StandardError.ReadToEndAsync())));
+        process.StandardInput.Write(JsonSerializer.Serialize(new { launch = launch.AbsoluteUri, url = url.TrimEnd('/'), session = id, output, agent, inputs, awaitPlanningClarification, awaitScopedRevision, mode = agent is not null ? "execute" : id is null ? "readiness" : "observe" }));
+        process.StandardInput.Close(); return process;
+    }
+    private sealed class CampaignClient(KeyVaultBenchmarkModel model, IPlanningSessionStore sessions,
+        LlmTraceCapture capture, LLMRuntimeOptionsStore options) : ILLMClient
+    {
+        public async Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct)
+        {
+            var id = request.ClientRequestId?.Split(':')[0] ?? throw new PlanningConflictException("A captured Server request identity is required.");
+            var state = await sessions.LoadAsync("benchmark", id, ct) ?? throw new PlanningConflictException("No owned live Server session.");
+            return await capture.CallAsync(request, options.Current, (r, token) => model.CallServerPlanningAsync(r, state, token), ct);
+        }
+    }
+    internal static string DelegatedDiscoveryPolicyHash() =>
+        Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(typeof(DelegatedTestReviewAuthority).Assembly.Location)));
+
+    internal sealed class DelegatedPlanningDiscovery(IMcpClientFactory inner, string scenario, string policyHash,
+        Func<CancellationToken, Task<IMcpClientFactory>>? hostLookupFactory = null, Func<string, JsonNode?, bool>? authorizedAgentCall = null,
+        bool localKindCleanup = false, bool adaptive = false, string? adaptiveVersion = null)
+        : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
+    {
+        private readonly LiveWorkflowEvaluation.ObservedMcp _filtered = new(inner, _ => Task.CompletedTask, discoveryScenario: scenario, localKindCleanup: localKindCleanup);
+        private const string AgentServer = "GnOuGo.Agent.Mcp";
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => _filtered.ServerMetadata.Where(s => s.Name != AgentServer).ToArray();
+        public string SourceConfigurationFingerprint(string serverName) => inner is IMcpSourceConfigurationFingerprint source
+            ? PlanningGraphCompiler.Fingerprint(source.SourceConfigurationFingerprint(serverName) + "\ndelegated-planning-discovery-v1\n" + scenario + "\n" + policyHash
+                + (adaptive ? "\n" + (adaptiveVersion ?? AdaptiveLiveProfile.Version) : "")
+                + (localKindCleanup && serverName is "GnOuGo.Cmd.Mcp" or "GnOuGo.GithubCopilot.Mcp" ? "\n" + SlimFaasReviewProfile.CleanupProfile : ""))
+            : throw new InvalidOperationException("Delegated discovery requires an exact configured source fingerprint.");
+        public async Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct)
+        {
+            if (serverName != AgentServer || hostLookupFactory is null)
+                return new ReadOnlySession(serverName == AgentServer ? await inner.GetClientAsync(serverName, ct) : await _filtered.GetClientAsync(serverName, ct));
+            var factory = await hostLookupFactory(ct);
+            if (factory is not IAsyncDisposable owner) throw new InvalidOperationException("The host lookup transport must have an owned lifetime.");
+            try { return new ReadOnlySession(await factory.GetClientAsync(serverName, ct), owner, authorizedAgentCall); }
+            catch { await owner.DisposeAsync(); throw; }
+        }
+        public ValueTask DisposeAsync() => inner is IAsyncDisposable owned ? owned.DisposeAsync() : ValueTask.CompletedTask;
+        private sealed class ReadOnlySession(IMcpSession inner, IAsyncDisposable? owner = null, Func<string, JsonNode?, bool>? allowAgentCall = null) : IMcpSession
+        {
+            public string ServerName => inner.ServerName;
+            public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => ServerName == AgentServer
+                ? Task.FromResult<IReadOnlyList<McpToolInfo>>([]) : inner.ListToolsAsync(ct);
+            public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => ServerName == AgentServer
+                ? Task.FromResult<IReadOnlyList<McpResourceInfo>>([]) : inner.ListResourcesAsync(ct);
+            public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpPromptInfo>>([]);
+            public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
+                => throw new InvalidOperationException("Delegated planning permits metadata discovery only.");
+            public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct)
+                => ServerName == AgentServer && (toolName == "agent_get_by_name" && arguments is JsonObject { Count: 1 } value &&
+                   value["name"] is JsonValue name && name.TryGetValue<string>(out var text) && !string.IsNullOrWhiteSpace(text) || allowAgentCall?.Invoke(toolName, arguments) == true)
+                    ? inner.CallToolAsync(toolName, arguments, ct)
+                    : throw new InvalidOperationException("Business tools require the later artifact-bound delegated execution; only the host agent-name lookup is permitted before planning.");
+            public ValueTask DisposeAsync() => owner is null ? inner.DisposeAsync() : owner.DisposeAsync();
+        }
+    }
+    private sealed class RetainedDiscoveryGuard(BenchmarkCampaign campaign) : IPlanningDiscoveryRecoveryGuard
+    {
+        public Task VerifyAsync(PlanningSession session, CancellationToken ct) => campaign.RequireRunNotRetainedAsync(session.Request.SessionId, ct);
+    }
+
+}

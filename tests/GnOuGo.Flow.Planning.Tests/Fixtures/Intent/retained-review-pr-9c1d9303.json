@@ -1,0 +1,206 @@
+{
+  "source": "9c1d930341ac9d4b13b54a5368491ed8de1cd170",
+  "prompt": "A partir d’une url d’une pull request GitHub et d’un texte qui explique ce qu’il faut reviewer, réalise une review automatique. Réalise un unique clone du projet et utilise uniquement ce répertoire. Via GitHub Copilot, installe toutes les dépendances, joue les linters, tests unitaires et tests d’intégration si présents, puis réalise la revue de code demandée. Le feedback doit expliquer acceptation ou refus avec commentaires de diff. Quoi qu’il arrive supprime le répertoire cloné pour nettoyer.\nÉvaluation autorisée: deux entrées publiques nommées pullRequestUrl et reviewText. Cible SmartGuide PR #610, https://github.com/AxaFrance/SmartGuide/pull/610 ; head f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488 et base 8f1779dc25c1843e9ce4d4ec76d02e066ae892c4. L’unique git_clone autorisé doit définir explicitement branch=\"f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488\" et targetDirectory=\"workflows/schema-portability-20261019-incremental/compactm9c1d9303code11a-code-1/repository\" ; omettre branch ou cloner la branche par défaut avant un checkout n’est pas autorisé. Utilise les toolchains et checks déclarés par ce dépôt. Tous les feedbacks, décisions et commentaires de diff restent LOCAUX: aucune publication GitHub. Sauvegarde les preuves exactes de commandes et leurs codes de sortie dans workflows/schema-portability-20261019-incremental/compactm9c1d9303code11a-code-1/review.json, puis nettoie le clone même en cas d’échec. Une capacité absente ou un test échoué reste explicite. Aucune extension de permission/sandbox. Le rapport review.json contient decision (approve ou request_changes), findings (liste), et les commandes/codes de sortie observés. Vérifie explicitement node --version, pnpm --version et python --version avant les checks. Ne présente pas une capacité manquante ou un prérequis indisponible comme un test réussi.",
+  "firstClone": {
+    "remoteUrl": "https://github.com/AxaFrance/SmartGuide.git",
+    "branch": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+    "targetDirectory": "workflows/schema-portability-20261019-incremental/compactm9c1d9303code11a-code-1/repository"
+  },
+  "classification": "complete original request; controlled reproduction, not live success",
+  "faultyClone": {
+    "id": "step_2",
+    "objective": "À partir de l’entrée pullRequestUrl, réaliser l’unique clone autorisé du dépôt de la pull request cible dans un répertoire de travail dédié, préparer ce répertoire comme espace unique à réutiliser pour la suite de la review de SmartGuide PR #610, et retourner le chemin exact du répertoire cloné afin de permettre les étapes suivantes et le nettoyage final.",
+    "kind": "operation",
+    "dependsOn": [],
+    "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+    "inputs": [
+      {
+        "name": "remoteUrl",
+        "value": {
+          "kind": "input",
+          "text": null,
+          "number": null,
+          "boolean": null,
+          "source": "pullRequestUrl",
+          "port": null,
+          "members": [],
+          "items": [],
+          "predicate": null
+        }
+      },
+      {
+        "name": "targetDirectory",
+        "value": {
+          "kind": "string",
+          "text": "workflows/smartguide-pr-610",
+          "number": null,
+          "boolean": null,
+          "source": null,
+          "port": null,
+          "members": [],
+          "items": [],
+          "predicate": null
+        }
+      }
+    ],
+    "outputs": [],
+    "condition": null,
+    "body": null,
+    "otherwise": null,
+    "branches": [],
+    "items": null,
+    "parallel": false,
+    "maxItems": 100,
+    "maxConcurrency": 4,
+    "group": null
+  },
+  "cloneContract": {
+    "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+    "description": "Clones a Git repository into an absent or empty workflow-owned directory below workflows/. Requires Git:AllowNetworkOperations=true and either Git:AllowMutations=true or Git:ReviewReadOnly=true. Declare one workspace-relative creation target and retain it for cleanup, including partial clone failure; do not create a directory first. After success, projectRootRelative is the materialized workspace.directory artifact for downstream repository operations. The reserved .GnOuGo directory is never a valid clone target.",
+    "stepType": "mcp.call",
+    "server": "GnOuGo.Git.Mcp",
+    "method": "git_clone",
+    "kind": "tool",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "remoteUrl": {
+          "description": "Remote Git URL to clone.",
+          "type": "string"
+        },
+        "targetDirectory": {
+          "description": "Workspace-relative creation target below workflows/, using forward slashes, for example workflows/repository-name. Absolute paths, backslashes, empty or dot segments, parent traversal, wildcards and control characters are invalid. The target may be absent or empty; prerequisite directory creation is unnecessary. Retain this exact declared target for cleanup even if clone fails and leaves partial content. After success, use response.projectRootRelative for subsequent repository operations. .GnOuGo is reserved for internal state.",
+          "type": "string",
+          "pattern": "^workflows/(?!\\.{1,2}(?:/|$))[^/\\\\*?\\x00-\\x1F\\x7F-\\x9F]+(?:/(?!\\.{1,2}(?:/|$))[^/\\\\*?\\x00-\\x1F\\x7F-\\x9F]+)*(?![\\s\\S])",
+          "minLength": 11
+        },
+        "branch": {
+          "description": "Optional plain branch name, full commit object ID, or fully qualified remote ref to checkout during clone. A full object ID or refs/... value is fetched exactly and checked out detached. When omitted and fetchAllBranches=false, Git MCP resolves the remote default branch.",
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "historyDepth": {
+          "description": "Commit history depth to fetch. 1 fetches the latest commit only; 0 fetches full history. Defaults to 1 for minimal clones.",
+          "type": "integer",
+          "default": 1
+        },
+        "fetchAllBranches": {
+          "description": "When false, fetch only the selected/default branch. When true, fetch all remote branches. Defaults to false.",
+          "type": "boolean",
+          "default": false
+        },
+        "tagFetchMode": {
+          "description": "Tag fetch mode: none, auto, or all. Defaults to none for minimal clones.",
+          "type": "string",
+          "default": "none"
+        }
+      },
+      "required": [
+        "remoteUrl",
+        "targetDirectory"
+      ]
+    },
+    "outputSchema": {
+      "type": "object",
+      "properties": {
+        "repositoryRoot": {
+          "type": "string"
+        },
+        "remoteUrl": {
+          "type": "string"
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "projectRootRelative": {
+          "description": "Required workspace-relative path to an existing project root created by git_clone. Pass this value to MCP projectRoot inputs after clone succeeds; do not reuse targetDirectory before clone.",
+          "type": "string"
+        },
+        "output": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "repositoryRootRelative": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "resolvedBranch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "historyDepth": {
+          "type": "integer",
+          "default": 1
+        },
+        "fetchAllBranches": {
+          "type": "boolean",
+          "default": false
+        },
+        "tagFetchMode": {
+          "type": "string",
+          "default": "none"
+        },
+        "success": {
+          "type": "boolean",
+          "default": true
+        },
+        "error_code": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "error_message": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "default": null
+        },
+        "ok": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "repositoryRoot",
+        "remoteUrl",
+        "branch",
+        "projectRootRelative"
+      ]
+    },
+    "fixedInput": {},
+    "requestBindings": [],
+    "effectKind": "write",
+    "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+    "composition": null,
+    "artifactContract": {
+      "version": 1,
+      "produces": [
+        {
+          "kind": "workspace.directory",
+          "pointer": "/projectRootRelative",
+          "mode": "materialize",
+          "encoding": null
+        }
+      ],
+      "consumes": []
+    }
+  },
+  "fixture_scope": "Exact original prompt, faulty accepted clone and original contract schemas; runtime configuration and unrelated tasks excluded. Controlled regression, never execution evidence."
+}

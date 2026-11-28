@@ -1,0 +1,312 @@
+{
+  "version": 2,
+  "source": "afc8861e4931fb94acde255d0a8eb0ebe12dd6ac",
+  "recorded_at_utc": "2026-10-24T21:54:34.627828+00:00",
+  "scope": "Independent source and root-exported bounded witness review only; no original encrypted reads, compilation, mutation, runtime or paid calls.",
+  "safe_witnesses": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4amz20v5/amazon-continuation-state-witness-safe.json",
+      "sha256": "5debaf374bd752a7f461d79be844d2f759de5ff301b3294e07efacdebf592988"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4amz20v5/amazon-final-selection-witness-safe.json",
+      "sha256": "94816c8e4128d7ef5847cf59870a1012306f85ca887504fed25b0c94b2800813"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrafc8861e4amz20v5/amazon-continuation-request-witness-safe.json",
+      "sha256": "7ee54dd4d20365ffa2992a00cabfdc7d5ad9f701b009035726b93e0490cd05be"
+    }
+  ],
+  "source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Continuations.cs",
+      "sha256": "f8ac8306780bb3b2d07b75c44cf376b4bc44016575797c851fe323ec8c9791f8",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "46d04d211e6a030dec8c5ebd7409447931906fc312014d92fd0d2cddf02d4ca5",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Validation.cs",
+      "sha256": "1d0eec0ce75727547683aa6951b50d3e44f20a97290566197f4dfbc5a28702df",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidence.cs",
+      "sha256": "e01570bf001cdc1a85b6611e489bfc8d14f37df4baa8d81e2d5845aecbcf54e9",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "b623cda87a1f0ece57eb073daf35bdf9577a2787e27d07d442fcc81e0f7db735",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.cs",
+      "sha256": "8bad618fc065498d04dc4354ac262298fe489eaf591d8815f6f8b6f8c7ac7236",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningContractCompatibility.cs",
+      "sha256": "ba8e5ba087e031ea2d3c64493c644dbc96de433318dda75c2a7c52e1f45158ab",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "src/GnOuGo.Browser.Mcp/BrowserTools.cs",
+      "sha256": "8cdf2ea36ab048a929d8cb83bf234d3b6d7b4562226842fe2ae3de035574994d",
+      "exact_committed_source_verified": true
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs",
+      "sha256": "8d7f7a5d7783e7efa2cda64ad4c2631273e6a6787399a23040a611cd5ac3028a",
+      "exact_committed_source_verified": true
+    }
+  ],
+  "confirmed": [
+    {
+      "finding": "Resume readiness overstates the available deterministic proof.",
+      "source_lines": [
+        "PlanningCompactConstruction.Continuations.cs:179",
+        "PlanningCompactConstruction.Continuations.cs:195",
+        "PlanningCompactConstruction.Continuations.cs:231",
+        "PlanningCompactConstruction.cs:216"
+      ],
+      "basis": "canResume requires waiting/current lineage and any later accepted checkpoint. AcceptContinuation updates every active continuation after accepted work. Neither condition proves a scope-available producer with a compatible prerequisite type; selection exposes resumeStep under this weaker condition. The final witness shows true while every displayed producer has a different shape."
+    },
+    {
+      "finding": "The final type rejection is correct; optional expected fields do not make its closed object compatible with arbitrary differently named fields.",
+      "source_lines": [
+        "PlanningCompactConstruction.Continuations.cs:144",
+        "TaskPlanCompiler.cs:168",
+        "PlanningContractCompatibility.cs:124"
+      ],
+      "basis": "continuation_2 retains a model-authored object of capability/boolean fields. step5 and step6 expose string URL ports; step7 exposes an object with different named fields. TypeSchema sets additionalProperties=false and Fits rejects produced properties absent from the target closed schema. No typecheck relaxation is warranted."
+    },
+    {
+      "finding": "The retained expectation is an implementation choice, not the exact MCP argument contract.",
+      "source_lines": [
+        "PlanningCompactConstruction.Continuations.cs:84",
+        "PlanningCompactConstruction.Continuations.cs:108",
+        "BrowserTools.cs:37"
+      ],
+      "basis": "Suspension validates that the model-authored TaskType is well formed and evidence exists/current; it does not derive the expected type from the cited operation argument. The frozen url contract is optional string/null with URL constraints. An intermediate object can be legitimate, so an evidence citation alone cannot authorize replacing the authored type with that argument type."
+    },
+    {
+      "finding": "Waiting continuation replacement has no direct selection action.",
+      "source_lines": [
+        "PlanningCompactConstruction.Continuations.cs:69",
+        "PlanningCompactConstruction.Continuations.cs:118",
+        "PlanningCompactConstruction.cs:205",
+        "PlanningCompactConstruction.Validation.cs:16"
+      ],
+      "basis": "Structured reselection requires a current tentative step. Abandon changes a retained continuation only when that continuation is already resuming. The selection grammar offers step/resume/evidence/clarifications, not cancellation or revision of the waiting record. The last active child also hides its waiting parent from resume. Ordinary step selection remains legal, so this is not a claim that all progress was impossible."
+    },
+    {
+      "finding": "The retained typed prerequisite is missing from the relevant generation and business-review context, while later resume enforces it.",
+      "source_lines": [
+        "PlanningCompactConstruction.cs:339",
+        "PlanningCompactConstruction.cs:398",
+        "PlanningCompactConstruction.Continuations.cs:145"
+      ],
+      "basis": "Generation31/35/42 and Judges32/36/43 have no continuation context key. Generation interfaces only describe the public input; selected expectedOutputs are names, not the retained expectedType. Selection37/38/44 does carry the exact retained type. The complete Judge projections explicitly have evidence=null. Draft witness projections omit evidence, so absence of every possible text occurrence within that omitted evidence is not asserted."
+    }
+  ],
+  "existing_routes": [
+    "Retrieve the exact accepted task/output and select an ordinary consumer importing its URL port under the original operation contract. This does not require asserting the incompatible suspended object has been satisfied. Final binding validation and scoped review remain mandatory.",
+    "Use existing targeted evidence or clarification where a prerequisite actually lacks original business information. Do not manufacture proof of browser capabilities/cleanup by producing booleans.",
+    "A valid resumed tentative consumer may use existing bounded abandon/resuspend. That route does not currently let an unresumable waiting consumer revise its retained type."
+  ],
+  "minimal_candidate_changes_for_parent_review": [
+    "First carry the existing bounded, exact active continuation consumer/need/expectedType into relevant fresh generation/review context. Identify it as a model-authored implementation prerequisite, not an original MCP requirement or proof of capability; no new DTO/state graph is needed. Original contract and executable transform objectives retain authority.",
+    "Make readiness truthful. A later checkpoint alone may be described as an available attempt, not proof of a compatible producer. If canResume is to mean valid typed resumption, derive that fact with the same existing compiler availability/checkpoint/Fits checks and bounded exact bindings; keep final ResumeStep validation unchanged. Do not infer semantic suitability from a type match.",
+    "Do not add a broad waiting-continuation action or hard duplicate rule without a separate concrete need. Existing ordinary step/evidence routes remain available; the retained type cannot be silently relaxed or changed. Any later explicit waiting-consumer reselection should reuse existing authority, history and correction accounting rather than auto-canceling it."
+  ],
+  "judge_context_status": {
+    "confirmed_source": "Review neighbor navigation includes same-scope accepted task addresses and bounded objectives (ReviewEvidence.cs14\u201352). Automatic whole task evidence currently selects operation tasks only (Navigation.cs185\u2013187), so transforms ordinarily remain addressable navigation unless explicitly retrieved/imported.",
+    "exact_issued_evidence": [
+      {
+        "request": 32,
+        "candidate": "step_5 URL transform",
+        "prior_task_navigation_count": 0,
+        "full_prior_task_evidence": false,
+        "continuation_context": false,
+        "result": "completed findings[]"
+      },
+      {
+        "request": 36,
+        "candidate": "step_6 second URL transform",
+        "prior_task_navigation_count": 1,
+        "prior_task_ids": [
+          "step_5"
+        ],
+        "prior_objective_complete": false,
+        "exact_retrieval_links_present": true,
+        "full_prior_task_evidence": false,
+        "actual_imports": [
+          "input:query"
+        ],
+        "continuation_context": false,
+        "result": "completed findings[]"
+      },
+      {
+        "request": 43,
+        "candidate": "step_7 differently shaped prerequisite object transform",
+        "prior_task_navigation_count": 2,
+        "prior_task_ids": [
+          "step_5",
+          "step_6"
+        ],
+        "prior_objectives_complete": false,
+        "exact_retrieval_links_present": true,
+        "full_prior_task_evidence": false,
+        "actual_imports": [
+          "input:query"
+        ],
+        "continuation_context": false,
+        "result": "completed findings[]"
+      }
+    ],
+    "classification": "The retained state independently shows redundant URL producers. Judge36 had discoverable prior work and an overlapping truncated purpose, but no full prior transform schema/inputs inline; it did not request those originals. This is not an absence-of-all-context finding or proof that omitted inline details caused its acceptance. Judge43 cannot establish satisfaction of a retained expectedType that its issued context did not carry. Its no-current-business-defect result remains distinct from the deterministic later resume rejection."
+  },
+  "focused_regressions_if_implemented": [
+    "After an accepted wrong-type or differently named closed-object producer, no false ready claim; exact compatible direct port/field can resume with existing scope/checkpoint/source guards.",
+    "Retain direct ResumeStep rejection and no-state-change cases for wrong type, stale source, invalidated or inaccessible producer, and preserved pending historical requests.",
+    "If waiting reselect is extended, verify exact consumer/chain identity, same scope/requirements and correction allowance; no accepted-task mutation or unrelated continuation abandonment.",
+    "An actual generation/review request for a selected prerequisite exposes the exact retained model-authored type and its source/currentness qualification; a new producer with a different closed-object schema must not become a valid resume. Preserve older/pending request bytes and original operation contract semantics."
+  ],
+  "limitations": [
+    "No runtime or business acceptance occurred. This analysis does not attribute the entire failure or duplicate producer choices to the readiness defect.",
+    "No original contract authorizes manufacturing capabilities or guarantees via local descriptive fields. Existing original constraints and execution authority remain unchanged.",
+    "The witness JSON projection hash is not a .NET compiler artifact hash; exact retained record hashes remain those supplied by root."
+  ],
+  "prior_assessment": {
+    "path": "/private/tmp/gnougo-afc-amazon-continuation-assessment-iibrwmno/source-assessment-safe.json",
+    "sha256": "bb3073fdbd010b727e06525f27cac62c7798f171ea2f1d097ab05c905b467522",
+    "preserved": true,
+    "qualification": "Earlier source-only assessment listed possible Judge31; exact witness establishes Judge32 (31 is generation). This version binds the now available issued contexts."
+  },
+  "issued_sequence": [
+    {
+      "request": 28,
+      "phase": "construction_draft",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:28:b41daeed25dd1b75311b93e46db0d442b4feb3215a0e480dce0e391d453f1171",
+      "record_hashes": {
+        "requests": "586f3e574f9ce9b4ec644bb6c043615e7ff422191f3174120876e70adcaf04d6",
+        "http-attempts": "d1781e31c0c0602d4826a2488e357e0da6aa4a78e0b78b54151f7e3870ce77d4",
+        "receipts": "586c5c4d8c48ccba8c19853a75cdac89894e78f1bc46b3e304e59b0a436b572d",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 31,
+      "phase": "construction_draft",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:31:7da05c863a8944e1915e1ab8d2cfdc5edfaa05cb8cbd7ba8843dc59603fc22c0",
+      "record_hashes": {
+        "requests": "f270d89ce5b9d1a4a87a2f2c22df90ea73096ec61540e147cfe9cc6717a3c7d2",
+        "http-attempts": "adeae7595c36bc376eba346807fb9fcbe5ad6beab38bec448ddad89b5046faae",
+        "receipts": "95a76b20d24bbb68d45b0295e1baeb22cba294fe113ce26ed567b2f25c9721b5",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 32,
+      "phase": "construction_local_judge",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:32:a3a5edd9a88b3fc65a729202b98e0565996087a4c13ca3d5838d93e3e7e6c058",
+      "record_hashes": {
+        "requests": "364766781924bfa61c9fcbc08cee04c97fbe7d689a0eb05b532351885b5946c6",
+        "http-attempts": "3007fc9025bebd02d2658d468563e5455f35ed5bf0ec2658a68a9b72a2258783",
+        "receipts": "9cc32518b235462eb01a7e0ac5525922b913ac245b391c99fecb461d17fe1681",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 35,
+      "phase": "construction_draft",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:35:fa73b17c88ed42ea4f4539e82345442e2a1aae0840a2b6ff364a171e63cdbf9e",
+      "record_hashes": {
+        "requests": "693d28a334b702515e34fc0ab9fee03c3afaf4c8764a0506e0e98ab97875cdaf",
+        "http-attempts": "7760e18d5dcd10f7cabf18720e4eec242967f776b711ba52754f5aebfcd6183b",
+        "receipts": "730bc104917718249c1634bba46e5c18ee7909a535227b01fb573f3f20858e3e",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 36,
+      "phase": "construction_local_judge",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:36:7c86f0dff2a85df85e7a7e0a4946eb44b1caf9ebad2fa463adf0f7bf7a377bc2",
+      "record_hashes": {
+        "requests": "f11c9f28fdd3724d3959297ead2e82994f589e8f24e9df673703ed0e414448cc",
+        "http-attempts": "68edc4f0f13ce0c5045731ea440d6755ef51b28c26b9cdee9ab3a8d5ee4eedf9",
+        "receipts": "ec70102a44b8a33a70b1b179ab19334c7b0dee636d9be72144947f76662e0d99",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 37,
+      "phase": "construction_select",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:37:d168b70fe34469c017980721aced2f5c1bae9514a8592c0c2635032ebbfd7f81",
+      "record_hashes": {
+        "requests": "3e207da87957f8b5194649fc0a3f2e80f837b2f31d13a6ec9867bf42e201cbc4",
+        "http-attempts": "7c6ca948ed20da378cb90d819107a72956530d8c5485e1512cba58c7b9d5ab9f",
+        "receipts": "117dbe17218d7cfc06bcd267c2222d52c0e7ddef8d0861466ee9c3b23fc1bec2",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 38,
+      "phase": "construction_select",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:38:ab06a5bd3bbd529a3016a7674f3eee2187fb68b6e8fde9816b226a6ca41e4161",
+      "record_hashes": {
+        "requests": "80cb1e003ad6fbdf28007bbf48268943393a0c44271a4412d76887934cbd1392",
+        "http-attempts": "f4d526cc141b30de5c5b0616d300bb46b14b81e1345099f1cf3c1e16d82d1fde",
+        "receipts": "7dde6310c7982e10fb25f5a7b4c74f23b234b88e972a6b0fa0864d517eabd667",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 42,
+      "phase": "construction_draft",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:42:0c5b289385e2c58b9b9ead55c29dadc96e32ab48c444f45b7e17db84bd4d6df4",
+      "record_hashes": {
+        "requests": "19861f9e43607734c77884f0e3e1d0f595678d6b509aea79958ad536bf20e5d1",
+        "http-attempts": "bcba634786188b08fcd725d4042dbbe586aeefddf932acc29baab8ed7a1cd21e",
+        "receipts": "816be4556016d8dfaad63fac2a17949b21f9e188d1a484dc87e2d91aa67381f3",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 43,
+      "phase": "construction_local_judge",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:43:7b6b146e0e58a2b7dcb09baa558c3f7ec9272f25f41a3b9a2022be5fdd58f7c8",
+      "record_hashes": {
+        "requests": "97a9d8474422f01fdab514cfe327d180fbb886bde8b8c381e95ede2720601836",
+        "http-attempts": "adc8d2503fe131359d3b207b33caf5a2eb99da20802713acd38ef829efef6112",
+        "receipts": "bd2b5d9ddf493ac671c8bb9ac46c74cfe19713a0cd9ca2101e256908cf1b0ad8",
+        "failures": null,
+        "closures": null
+      }
+    },
+    {
+      "request": 44,
+      "phase": "construction_select",
+      "request_id": "compactrafc8861e4amz20v5-amazon-1:44:9c4dff274a9fa886763ffa59fa2e42c1c29bc37aaa65e41226bef0f300496473",
+      "record_hashes": {
+        "requests": "a64180fd33ce3123f86f20d6a0ac23f9173959718be14a995c374aa7a18c5dbf",
+        "http-attempts": "49279346256f7695a73a418d28d7d2432d15a9dac38f15e05818bbfaf4f1abc7",
+        "receipts": "0531cbdecc4f7a359ec811d38e7c59b6ce22e54313380d4c196c0b944269dc33",
+        "failures": null,
+        "closures": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,3 @@
+Existing EF publish policy; no new suppressions. Native AOT exits successfully.
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : Query precompilation is an experimental feature and should be used with caution. [<qualification-repository>/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]
+/Users/a115vc/.nuget/packages/microsoft.entityframeworkcore.tasks/10.0.12/buildTransitive/Microsoft.EntityFrameworkCore.Tasks.targets(98,5): warning : NativeAOT support is experimental and can change in the future. [<qualification-repository>/src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj]

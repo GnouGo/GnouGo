@@ -1,0 +1,1786 @@
+{
+  "source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "harness_source": "a6bd59788bfe769283ba25e6af6bd40585c6a258",
+  "cohort": "compactra6bd5978code20nhv11a",
+  "case": "code",
+  "freeze_sha256": "7a3b331284210533f32f8191e5b91a6541bf6d8c462079b69dfd2c0b852ea447",
+  "status": "stopped",
+  "planning_ms": 932138,
+  "accounting": {
+    "logical_calls": 20,
+    "physical_attempts": 20,
+    "known_input_tokens": 122852,
+    "known_output_tokens": 42178,
+    "known_cost_eur": "1.6774654172244533690316822845",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0
+  },
+  "corrections": 2,
+  "artifact": false,
+  "runtime_status": "not_started",
+  "runtime_success": false,
+  "oracle_success": false,
+  "reasoning_tokens": 33581,
+  "response_metrics": {
+    "compactra6bd5978code20nhv11a-code-1:1:aa64a55c9a2083952f1f6b3f9263308d204fbdbf7389d6ff4f4236f0abca65f3": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 1268,
+      "reasoning_tokens": 1536
+    },
+    "compactra6bd5978code20nhv11a-code-1:2:35f095ee20af9aaf558de4951e27fb60a9958df382571f7e4533d0676f39bd35": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 1222,
+      "reasoning_tokens": 1023
+    },
+    "compactra6bd5978code20nhv11a-code-1:3:dec512d1cfd990b8bf9e6d76ad598bf7cf20b6c7afb6b4489bc268b66d02ebc9": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 537,
+      "reasoning_tokens": 395
+    },
+    "compactra6bd5978code20nhv11a-code-1:4:983c6ee955727be84014082dc549e6fc6ad3613575aed3d8212ecf92f57e5009": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 2436,
+      "reasoning_tokens": 1536
+    },
+    "compactra6bd5978code20nhv11a-code-1:5:a60567e97c71fa110291888892709a947cc89f2f5da399e69138a3dc7b351862": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 731,
+      "reasoning_tokens": 448
+    },
+    "compactra6bd5978code20nhv11a-code-1:6:94a2ac551b14dd0f26ea40fbd043e1285695886ea1264af57775618be5b4e5f2": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 766,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:7:d55aa15c674a2213cbf73189b63587845b2db10bbb8a05a5f4a717672f828050": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 877,
+      "reasoning_tokens": 1536
+    },
+    "compactra6bd5978code20nhv11a-code-1:8:836fe5d63f9187122647541d9a90837a3d1ad7fb6235750ee3f41d8b905a562d": {
+      "purpose": "construction_draft",
+      "completion_status": null,
+      "content_bytes": 457,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:9:d1d505335bae4d0b67d46288d7d3519a749a75146ce5c03401f337c03be5d22c": {
+      "purpose": "construction_local_judge",
+      "completion_status": null,
+      "content_bytes": 2317,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:10:8386b2e60bee27f6f7c4620e2982fd0c4a106866b26ac39dcd2a69c3a7b57bde": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 156,
+      "reasoning_tokens": 5122
+    },
+    "compactra6bd5978code20nhv11a-code-1:11:856620f7ecaeb6c9c0372eac5627c309f454978cae6dfca1ee977aa23b2235dc": {
+      "purpose": "construction_select",
+      "completion_status": null,
+      "content_bytes": 1320,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:12:475ca3d5ee1cb305605b93cc52d95a7df1b49b15132294faf88497f058729634": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 198,
+      "reasoning_tokens": 295
+    },
+    "compactra6bd5978code20nhv11a-code-1:13:080244d6b1e7b8afffc13442bab95d2a307335053109bb92689557ead499dda0": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 214,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:14:2a92e158b4a380244a90da4d3b3c2255a6ab8cfa41196c30f17dcccedd7c8ede": {
+      "purpose": "construction_discovery",
+      "completion_status": null,
+      "content_bytes": 205,
+      "reasoning_tokens": 3071
+    },
+    "compactra6bd5978code20nhv11a-code-1:15:9efd8d4f2ba1ed0121c6d10fcdebcf0ed1cfd64fd159e70d40d1364bd75bada1": {
+      "purpose": "construction_draft",
+      "completion_status": null,
+      "content_bytes": 393,
+      "reasoning_tokens": 512
+    },
+    "compactra6bd5978code20nhv11a-code-1:16:741a4f4d13bfea9294d14577e2864564adcc2557c68501b8ea3f41bcabc8d51e": {
+      "purpose": "construction_draft",
+      "completion_status": null,
+      "content_bytes": 1666,
+      "reasoning_tokens": 1023
+    },
+    "compactra6bd5978code20nhv11a-code-1:17:7111b4ecaf741c0d1d79d965a59351a051a8ea482df9c7508837775eaed722cb": {
+      "purpose": "construction_local_judge",
+      "completion_status": null,
+      "content_bytes": 3252,
+      "reasoning_tokens": 6085
+    },
+    "compactra6bd5978code20nhv11a-code-1:18:63811db0f1208a154e5d1e2869d969a32bbc1ddd52112a21b07eb0e2b43b835e": {
+      "purpose": "replan",
+      "completion_status": null,
+      "content_bytes": 1638,
+      "reasoning_tokens": 3318
+    },
+    "compactra6bd5978code20nhv11a-code-1:19:26a40e44e012a6c11c15f4789edef6b18c59b95982ead5ee0c4dca7c5810ab2a": {
+      "purpose": "construction_local_judge",
+      "completion_status": null,
+      "content_bytes": 3870,
+      "reasoning_tokens": 4609
+    },
+    "compactra6bd5978code20nhv11a-code-1:20:314669aa503ff9ff4182a025edd45ec975775d410f1f75a65c5bed77b1bb6bb2": {
+      "purpose": "replan",
+      "completion_status": null,
+      "content_bytes": 1666,
+      "reasoning_tokens": 512
+    }
+  },
+  "request_counts": {
+    "admitted": 20,
+    "prepared": 1
+  },
+  "phase_rows": [
+    {
+      "phase": "construction_discovery",
+      "constructed_identities": 3,
+      "admitted_logical": 3,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 3,
+      "receipts": 3,
+      "known_provider_input_tokens": 16872,
+      "known_provider_output_tokens": 4166,
+      "known_provider_reasoning_tokens": 3878,
+      "known_cost_eur": "0.1868273092369477911646586345",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "106053.45070000002",
+      "admitted_complete_request_bytes": {
+        "count": 3,
+        "total": 76130,
+        "p50": "27182",
+        "p95": "28345",
+        "max": 28345
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 3,
+        "total": 26146,
+        "p50": "9317",
+        "p95": "9705",
+        "max": 9705
+      },
+      "constructed_complete_request_bytes": {
+        "count": 3,
+        "total": 76130,
+        "p50": "27182",
+        "p95": "28345",
+        "max": 28345
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 4461,
+        "envelope": 1306,
+        "evidence": 928,
+        "instructions": 8073,
+        "interfaces": 1044,
+        "mcp_descriptors": 10052,
+        "objective": 1101,
+        "requirements": 27069,
+        "response_schema": 22096
+      }
+    },
+    {
+      "phase": "construction_draft",
+      "constructed_identities": 4,
+      "admitted_logical": 3,
+      "prepared_only": 1,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 3,
+      "receipts": 3,
+      "known_provider_input_tokens": 26218,
+      "known_provider_output_tokens": 2923,
+      "known_provider_reasoning_tokens": 2047,
+      "known_cost_eur": "0.1952521195894689870593485051",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "86380.40229999999",
+      "admitted_complete_request_bytes": {
+        "count": 3,
+        "total": 109822,
+        "p50": "41846",
+        "p95": "44244",
+        "max": 44244
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 3,
+        "total": 37376,
+        "p50": "14205",
+        "p95": "15004",
+        "max": 15004
+      },
+      "constructed_complete_request_bytes": {
+        "count": 4,
+        "total": 151329,
+        "p50": "41676.5",
+        "p95": "44244",
+        "max": 44244
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 9763,
+        "diagnostics": 78,
+        "envelope": 1336,
+        "evidence": 2455,
+        "fragment": 66,
+        "instructions": 3819,
+        "interfaces": 1364,
+        "mcp_contracts": 16246,
+        "objective": 944,
+        "requirements": 24585,
+        "response_schema": 49166
+      }
+    },
+    {
+      "phase": "construction_intent",
+      "constructed_identities": 6,
+      "admitted_logical": 6,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 6,
+      "receipts": 6,
+      "known_provider_input_tokens": 8745,
+      "known_provider_output_tokens": 7488,
+      "known_provider_reasoning_tokens": 5450,
+      "known_cost_eur": "0.2395046854082998661311914324",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "192476.17750000002",
+      "admitted_complete_request_bytes": {
+        "count": 6,
+        "total": 43272,
+        "p50": "7115.5",
+        "p95": "11987",
+        "max": 11987
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 6,
+        "total": 15962,
+        "p50": "2628",
+        "p95": "4252",
+        "max": 4252
+      },
+      "constructed_complete_request_bytes": {
+        "count": 6,
+        "total": 43272,
+        "p50": "7115.5",
+        "p95": "11987",
+        "max": 11987
+      },
+      "admitted_component_utf8_bytes": {
+        "diagnostics": 156,
+        "envelope": 2574,
+        "evidence": 69,
+        "instructions": 7101,
+        "intent": 14557,
+        "interfaces": 315,
+        "response_schema": 18500
+      }
+    },
+    {
+      "phase": "construction_local_judge",
+      "constructed_identities": 3,
+      "admitted_logical": 3,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 3,
+      "receipts": 3,
+      "known_provider_input_tokens": 32925,
+      "known_provider_output_tokens": 14715,
+      "known_provider_reasoning_tokens": 11206,
+      "known_cost_eur": "0.5408969210174029451137884872",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "208670.69400000002",
+      "admitted_complete_request_bytes": {
+        "count": 3,
+        "total": 135680,
+        "p50": "50141",
+        "p95": "57146",
+        "max": 57146
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 3,
+        "total": 45996,
+        "p50": "16970",
+        "p95": "19305",
+        "max": 19305
+      },
+      "constructed_complete_request_bytes": {
+        "count": 3,
+        "total": 135680,
+        "p50": "50141",
+        "p95": "57146",
+        "max": 57146
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 33594,
+        "diagnostics": 78,
+        "envelope": 1350,
+        "evidence": 75,
+        "fragment": 3197,
+        "instructions": 18260,
+        "interfaces": 4266,
+        "mcp_contracts": 25573,
+        "objective": 944,
+        "requirements": 24585,
+        "response_schema": 23758
+      }
+    },
+    {
+      "phase": "construction_select",
+      "constructed_identities": 3,
+      "admitted_logical": 3,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 3,
+      "receipts": 3,
+      "known_provider_input_tokens": 13098,
+      "known_provider_output_tokens": 7919,
+      "known_provider_reasoning_tokens": 7170,
+      "known_cost_eur": "0.2704685408299866131191432396",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "151874.0656",
+      "admitted_complete_request_bytes": {
+        "count": 3,
+        "total": 62044,
+        "p50": "20850",
+        "p95": "22794",
+        "max": 22794
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 3,
+        "total": 21450,
+        "p50": "7206",
+        "p95": "7854",
+        "max": 7854
+      },
+      "constructed_complete_request_bytes": {
+        "count": 3,
+        "total": 62044,
+        "p50": "20850",
+        "p95": "22794",
+        "max": 22794
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 4216,
+        "envelope": 1308,
+        "evidence": 1767,
+        "instructions": 11292,
+        "interfaces": 1110,
+        "requirements": 24585,
+        "response_schema": 17766
+      }
+    },
+    {
+      "phase": "replan",
+      "constructed_identities": 2,
+      "admitted_logical": 2,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 2,
+      "receipts": 2,
+      "known_provider_input_tokens": 24994,
+      "known_provider_output_tokens": 4967,
+      "known_provider_reasoning_tokens": 3830,
+      "known_cost_eur": "0.2445158411423471664435519857",
+      "unknown_reserved_cost_eur": 0,
+      "usage_complete": true,
+      "recorded_call_stage_ms": "90683.9001",
+      "admitted_complete_request_bytes": {
+        "count": 2,
+        "total": 101690,
+        "p50": "50845",
+        "p95": "51117",
+        "max": 51117
+      },
+      "admitted_estimated_input_tokens": {
+        "count": 2,
+        "total": 34409,
+        "p50": "17204.5",
+        "p95": "17295",
+        "max": 17295
+      },
+      "constructed_complete_request_bytes": {
+        "count": 2,
+        "total": 101690,
+        "p50": "50845",
+        "p95": "51117",
+        "max": 51117
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 19060,
+        "diagnostics": 2332,
+        "envelope": 894,
+        "evidence": 50,
+        "fragment": 2930,
+        "instructions": 2784,
+        "interfaces": 696,
+        "mcp_contracts": 17086,
+        "objective": 734,
+        "requirements": 18046,
+        "response_schema": 37078
+      }
+    }
+  ],
+  "request_measurements": [
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:1:aa64a55c9a2083952f1f6b3f9263308d204fbdbf7389d6ff4f4236f0abca65f3",
+      "requestHash": "ee0a2e8cfb9495187b92dee290f73b0259eace6d730202f308199b0eae4d6e40",
+      "schemaHash": "ffc6edf758d296cd10dd919fba663202bba859c667cea78dd8934d3398b1bebe",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 3139,
+      "estimatedInputTokens": 1303,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 427,
+          "estimatedTokens": 399
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1105,
+          "estimatedTokens": 369
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 699,
+          "estimatedTokens": 233
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:2:35f095ee20af9aaf558de4951e27fb60a9958df382571f7e4533d0676f39bd35",
+      "requestHash": "e3d37cd8dd91eed2daa3d8b1f09775048f238d1811ba74fffbe6971d5c6b1755",
+      "schemaHash": "77664fc80bbd0628dfb1f01190524559b40f20d571d682d4094e33e9b96cb3c8",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 3174,
+      "estimatedInputTokens": 1314,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 427,
+          "estimatedTokens": 399
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1138,
+          "estimatedTokens": 380
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 701,
+          "estimatedTokens": 234
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:3:dec512d1cfd990b8bf9e6d76ad598bf7cf20b6c7afb6b4489bc268b66d02ebc9",
+      "requestHash": "b300a2a38705f0279964aba671bb5cc8f62a840288455c25280424d93881e796",
+      "schemaHash": "0a876ee02653c5de398b2af3612b0c094ddb672172d64acf811eca6765588e21",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 2630,
+      "estimatedInputTokens": 1133,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 427,
+          "estimatedTokens": 399
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 882,
+          "estimatedTokens": 294
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 593,
+          "estimatedTokens": 198
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 702,
+          "estimatedTokens": 234
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:4:983c6ee955727be84014082dc549e6fc6ad3613575aed3d8212ecf92f57e5009",
+      "requestHash": "d97981c17d259116a3bdeb998bc1f50633e97af8a4a4ea0a73881cadd49d9a10",
+      "schemaHash": "c10dd13b2bf3e72e170660c06da56e9316b5e0c258586d14cf421e4341f7abf2",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 11987,
+      "estimatedInputTokens": 4252,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 431,
+          "estimatedTokens": 400
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 23,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1485,
+          "estimatedTokens": 495
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 4127,
+          "estimatedTokens": 1376
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5836,
+          "estimatedTokens": 1946
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:5:a60567e97c71fa110291888892709a947cc89f2f5da399e69138a3dc7b351862",
+      "requestHash": "a941ba6621d722e74148a6026b9b41ddb09ed9573df773f09e22308d8b1ad22e",
+      "schemaHash": "461fe75a63cc302662a30192fa1c35d062cbfb514a96dd669c22accfbf69faea",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 11285,
+      "estimatedInputTokens": 4018,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 431,
+          "estimatedTokens": 400
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 23,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1485,
+          "estimatedTokens": 495
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 3912,
+          "estimatedTokens": 1304
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 128,
+          "estimatedTokens": 43
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5280,
+          "estimatedTokens": 1760
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:6:94a2ac551b14dd0f26ea40fbd043e1285695886ea1264af57775618be5b4e5f2",
+      "requestHash": "457eda54be5d3cb24c9e4733297d082658e425bc91945202f9b5b7eafb19227f",
+      "schemaHash": "d69e3d055b3411279a3d0e3e9267775926b274c4a78e1fb07f59f4749e1e81e1",
+      "contracts": [],
+      "phase": "construction_intent",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 11057,
+      "estimatedInputTokens": 3942,
+      "components": [
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 431,
+          "estimatedTokens": 400
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 23,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1485,
+          "estimatedTokens": 495
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 3682,
+          "estimatedTokens": 1228
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 128,
+          "estimatedTokens": 43
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5282,
+          "estimatedTokens": 1761
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:7:d55aa15c674a2213cbf73189b63587845b2db10bbb8a05a5f4a717672f828050",
+      "requestHash": "049e5be47103cfde927394d755c27017592f7dcdd3cec122e978fd041bbaff06",
+      "schemaHash": "5346f9ef5be9afe4a698e3a4f6104909bfb5b3620b2ab2bf4a87dbd20cbca802",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [],
+      "phase": "construction_select",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 18400,
+      "estimatedInputTokens": 6390,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1405,
+          "estimatedTokens": 469
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 435,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3764,
+          "estimatedTokens": 1255
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 370,
+          "estimatedTokens": 124
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 6539,
+          "estimatedTokens": 2180
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5887,
+          "estimatedTokens": 1963
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:8:836fe5d63f9187122647541d9a90837a3d1ad7fb6235750ee3f41d8b905a562d",
+      "requestHash": "580206f4e0d196aa6717bb1a63844ff8a1c9cff2cbdc02eed2f6bd21fb47b3ce",
+      "schemaHash": "b332abc2f60057a446412e355b21fa9f211ef3ee811a39256d553eb604b89d50",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [],
+      "phase": "construction_draft",
+      "stepId": "step_1",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 23732,
+      "estimatedInputTokens": 8167,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1920,
+          "estimatedTokens": 640
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 444,
+          "estimatedTokens": 404
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1273,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 668,
+          "estimatedTokens": 223
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 210,
+          "estimatedTokens": 70
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 6539,
+          "estimatedTokens": 2180
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 12580,
+          "estimatedTokens": 4194
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:9:d1d505335bae4d0b67d46288d7d3519a749a75146ce5c03401f337c03be5d22c",
+      "requestHash": "8d67fc2bb902c15dedfe3194f43f65a156fa127fd429d5c7c132f5e75569a995",
+      "schemaHash": "eb425976778347aef9a2c414690d189e836a168ddb04fe7501854a3b59c09dc6",
+      "baselineHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "contracts": [],
+      "phase": "construction_local_judge",
+      "stepId": "step_1",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 28393,
+      "estimatedInputTokens": 9721,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 7955,
+          "estimatedTokens": 2652
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 449,
+          "estimatedTokens": 406
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 267,
+          "estimatedTokens": 89
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 5970,
+          "estimatedTokens": 1990
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 1313,
+          "estimatedTokens": 438
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 210,
+          "estimatedTokens": 70
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 6539,
+          "estimatedTokens": 2180
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5614,
+          "estimatedTokens": 1872
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:10:8386b2e60bee27f6f7c4620e2982fd0c4a106866b26ac39dcd2a69c3a7b57bde",
+      "requestHash": "ba0948d0ffe80aa2ffc93ff7bc481445604980adea6a7f76d23f0e3764fa7a5b",
+      "schemaHash": "90a89ddb587f02d9a7c68a5be36a71f3509931a3a02c570aecd052b9bf9a2149",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [],
+      "phase": "construction_select",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 20850,
+      "estimatedInputTokens": 7206,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1405,
+          "estimatedTokens": 469
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 436,
+          "estimatedTokens": 402
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3764,
+          "estimatedTokens": 1255
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 370,
+          "estimatedTokens": 124
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 5852,
+          "estimatedTokens": 1951
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:11:856620f7ecaeb6c9c0372eac5627c309f454978cae6dfca1ee977aa23b2235dc",
+      "requestHash": "1f344189958d95a77aa129eb2bf02e5cbe7bcdb3b8ea74c14456ccdb6ce35b36",
+      "schemaHash": "2101d1760ab7a9a1cc1d6c0583388161426415af5b1f4f9ca928573907ac231b",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [],
+      "phase": "construction_select",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 22794,
+      "estimatedInputTokens": 7854,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1406,
+          "estimatedTokens": 469
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 437,
+          "estimatedTokens": 402
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 1767,
+          "estimatedTokens": 589
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3764,
+          "estimatedTokens": 1255
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 370,
+          "estimatedTokens": 124
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 6027,
+          "estimatedTokens": 2009
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:12:475ca3d5ee1cb305605b93cc52d95a7df1b49b15132294faf88497f058729634",
+      "requestHash": "8b361d22f0753e5ad8c7a2fa0c916641713fa472d68d865805094605fb093221",
+      "schemaHash": "9a0847b87d57fb234d35473863a6ddd2a0798803398f30fd4652bc8c36668935",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 20603,
+      "estimatedInputTokens": 7124,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1427,
+          "estimatedTokens": 476
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 434,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2691,
+          "estimatedTokens": 897
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 2179,
+          "estimatedTokens": 727
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 4134,
+          "estimatedTokens": 1378
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:13:080244d6b1e7b8afffc13442bab95d2a307335053109bb92689557ead499dda0",
+      "requestHash": "21f70b23f93c40775ce010da2c46bfaa3a9e6b8ebdb3de8c93dc2b35cdec69bb",
+      "schemaHash": "7b15d21ae3fed8301254c6acf94833c5959fa99ca4d178f34149ea8cbfb2186f",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 27182,
+      "estimatedInputTokens": 9317,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1517,
+          "estimatedTokens": 506
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 435,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2691,
+          "estimatedTokens": 897
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 3820,
+          "estimatedTokens": 1274
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 8981,
+          "estimatedTokens": 2994
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:14:2a92e158b4a380244a90da4d3b3c2255a6ab8cfa41196c30f17dcccedd7c8ede",
+      "requestHash": "ff2c2987e6a79d2d229b7fb5cea2372aebb14711bc8f9b26cf94ba5c7e510531",
+      "schemaHash": "7ac5889f6892f0590c753e9f41a60e3d5026aa1dfed402481115a849e06c14ad",
+      "contracts": [],
+      "phase": "construction_discovery",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 18000,
+      "completeRequestBytes": 28345,
+      "estimatedInputTokens": 9705,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 1517,
+          "estimatedTokens": 506
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 437,
+          "estimatedTokens": 402
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 928,
+          "estimatedTokens": 310
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2691,
+          "estimatedTokens": 897
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 4053,
+          "estimatedTokens": 1351
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 8981,
+          "estimatedTokens": 2994
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:15:9efd8d4f2ba1ed0121c6d10fcdebcf0ed1cfd64fd159e70d40d1364bd75bada1",
+      "requestHash": "3e02e6ea1ddf109024e13a4ba8879f435031886fa0c2f8e53be098a2c0ae719f",
+      "schemaHash": "edc1cb9b2e999cd7743ae97eb4d4e5e1f5f38da49a10ca4834a8ce4564e289c3",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "construction_draft",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 41846,
+      "estimatedInputTokens": 14205,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3853,
+          "estimatedTokens": 1285
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 446,
+          "estimatedTokens": 405
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1273,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 8150,
+          "estimatedTokens": 2717
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 18313,
+          "estimatedTokens": 6105
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:16:741a4f4d13bfea9294d14577e2864564adcc2557c68501b8ea3f41bcabc8d51e",
+      "requestHash": "74682c044f2c802cb14a7dd26b0db71cbca9791b6b5faaf8bd7126eba895c087",
+      "schemaHash": "ffbaf2f1c1a4d6e7babf12b9eeb5c805387c7fa301667c77bc9f06b1b2242c4d",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "construction_draft",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 44244,
+      "estimatedInputTokens": 15004,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3990,
+          "estimatedTokens": 1330
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 446,
+          "estimatedTokens": 405
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 2405,
+          "estimatedTokens": 802
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1273,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 8071,
+          "estimatedTokens": 2691
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 18273,
+          "estimatedTokens": 6091
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:17:7111b4ecaf741c0d1d79d965a59351a051a8ea482df9c7508837775eaed722cb",
+      "requestHash": "7389a0dfb9ef3553b4c094daebb8c80f7f6ec14cf6ab6966a2001db12de1ddeb",
+      "schemaHash": "3a7feef64711b6473734a7f92f62370a263bd7a900b142468c1bb425f9b8f8f2",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "construction_local_judge",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 50141,
+      "estimatedInputTokens": 16970,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 9962,
+          "estimatedTokens": 3321
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 450,
+          "estimatedTokens": 406
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 1479,
+          "estimatedTokens": 493
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 6145,
+          "estimatedTokens": 2049
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 1313,
+          "estimatedTokens": 438
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 12774,
+          "estimatedTokens": 4258
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 8577,
+          "estimatedTokens": 2859
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:18:63811db0f1208a154e5d1e2869d969a32bbc1ddd52112a21b07eb0e2b43b835e",
+      "requestHash": "70f5eb2c5db0597ffae7ded0092a56e92c7caa1aa52e88f4dfdb8f723c01d8de",
+      "schemaHash": "d6a3c96887c87bed24b782464c074655a5ee9cc95b35ef5d03282e3ab7b27e94",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "replan",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 51117,
+      "estimatedInputTokens": 17295,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 9808,
+          "estimatedTokens": 3270
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 1146,
+          "estimatedTokens": 382
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 447,
+          "estimatedTokens": 405
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 1479,
+          "estimatedTokens": 493
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1392,
+          "estimatedTokens": 464
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 8543,
+          "estimatedTokens": 2848
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 18539,
+          "estimatedTokens": 6180
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:19:26a40e44e012a6c11c15f4789edef6b18c59b95982ead5ee0c4dca7c5810ab2a",
+      "requestHash": "dc7545cfad37da0a6dd275aad3201ef34a2a837e3060efb27a19c2e2b5380395",
+      "schemaHash": "6d1e4e504cab2726d2771e18f09c841f5c221e7e361626132cfb744704a96073",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "construction_local_judge",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 57146,
+      "estimatedInputTokens": 19305,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 15677,
+          "estimatedTokens": 5226
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 451,
+          "estimatedTokens": 407
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 1451,
+          "estimatedTokens": 484
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 6145,
+          "estimatedTokens": 2049
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 1640,
+          "estimatedTokens": 547
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 12774,
+          "estimatedTokens": 4258
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 9567,
+          "estimatedTokens": 3189
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:20:314669aa503ff9ff4182a025edd45ec975775d410f1f75a65c5bed77b1bb6bb2",
+      "requestHash": "efbfd6ab147d5c8404ff5830801b93d50ad9d5e2210b39b151d11e970dd212c9",
+      "schemaHash": "d6a3c96887c87bed24b782464c074655a5ee9cc95b35ef5d03282e3ab7b27e94",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "replan",
+      "stepId": "step_2",
+      "admission": "admitted",
+      "inputLimit": 20000,
+      "completeRequestBytes": 50573,
+      "estimatedInputTokens": 17114,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 9252,
+          "estimatedTokens": 3084
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 1186,
+          "estimatedTokens": 396
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 447,
+          "estimatedTokens": 405
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 1451,
+          "estimatedTokens": 484
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1392,
+          "estimatedTokens": 464
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 8543,
+          "estimatedTokens": 2848
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 18539,
+          "estimatedTokens": 6180
+        }
+      ]
+    },
+    {
+      "version": 1,
+      "estimator": "serialized_utf8_div3_plus256_v1",
+      "requestId": "compactra6bd5978code20nhv11a-code-1:15:b64fd3e60c1610ed970a914172c5c538cf6797ff09fd04f1140e4d6660146507",
+      "requestHash": "ef093bb433599511b78c78c60d8b711bc0f28afab71df1e481e4afa040395ef0",
+      "schemaHash": "edc1cb9b2e999cd7743ae97eb4d4e5e1f5f38da49a10ca4834a8ce4564e289c3",
+      "baselineHash": "6880e0c069a0f1db3b9a0d59d92cf03ff0a4ec36229ae0ae73a006784adeff2e",
+      "contracts": [
+        {
+          "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+          "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+          "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+        }
+      ],
+      "phase": "construction_draft",
+      "stepId": "step_2",
+      "admission": "prepared",
+      "inputLimit": 20000,
+      "completeRequestBytes": 41507,
+      "estimatedInputTokens": 14092,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 3514,
+          "estimatedTokens": 1172
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 446,
+          "estimatedTokens": 405
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1273,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 348,
+          "estimatedTokens": 116
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 8150,
+          "estimatedTokens": 2717
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 367,
+          "estimatedTokens": 123
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 9023,
+          "estimatedTokens": 3008
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 18313,
+          "estimatedTokens": 6105
+        }
+      ]
+    }
+  ],
+  "inspection_stdout_sha256": "db2d420b8add5df2b30731ce15bfd2894fd61da676e28af4dbf1751ecd7d264a",
+  "measurement_components_reconcile": true,
+  "provider_component_usage_claimed": false,
+  "raw_payload_persisted": false,
+  "provider_calls": 0,
+  "inspected_at": "2026-10-28T04:52:42.051091+00:00",
+  "terminal_diagnostics": [
+    "CONSTRUCTION_BUSINESS_REVIEW",
+    "REPLAN_NO_PROGRESS"
+  ],
+  "candidate_repair_cycle": {
+    "requests": [
+      {
+        "ordinal": 16,
+        "request_hash": "74682c044f2c802cb14a7dd26b0db71cbca9791b6b5faaf8bd7126eba895c087",
+        "schema_hash": "ffbaf2f1c1a4d6e7babf12b9eeb5c805387c7fa301667c77bc9f06b1b2242c4d",
+        "complete_bytes": 44244,
+        "estimated_input_tokens": 15004
+      },
+      {
+        "ordinal": 17,
+        "request_hash": "7389a0dfb9ef3553b4c094daebb8c80f7f6ec14cf6ab6966a2001db12de1ddeb",
+        "schema_hash": "3a7feef64711b6473734a7f92f62370a263bd7a900b142468c1bb425f9b8f8f2",
+        "complete_bytes": 50141,
+        "estimated_input_tokens": 16970
+      },
+      {
+        "ordinal": 18,
+        "request_hash": "70f5eb2c5db0597ffae7ded0092a56e92c7caa1aa52e88f4dfdb8f723c01d8de",
+        "schema_hash": "d6a3c96887c87bed24b782464c074655a5ee9cc95b35ef5d03282e3ab7b27e94",
+        "complete_bytes": 51117,
+        "estimated_input_tokens": 17295
+      },
+      {
+        "ordinal": 19,
+        "request_hash": "dc7545cfad37da0a6dd275aad3201ef34a2a837e3060efb27a19c2e2b5380395",
+        "schema_hash": "6d1e4e504cab2726d2771e18f09c841f5c221e7e361626132cfb744704a96073",
+        "complete_bytes": 57146,
+        "estimated_input_tokens": 19305
+      },
+      {
+        "ordinal": 20,
+        "request_hash": "efbfd6ab147d5c8404ff5830801b93d50ad9d5e2210b39b151d11e970dd212c9",
+        "schema_hash": "d6a3c96887c87bed24b782464c074655a5ee9cc95b35ef5d03282e3ab7b27e94",
+        "complete_bytes": 50573,
+        "estimated_input_tokens": 17114
+      }
+    ],
+    "extension_16_equals_20": true,
+    "old_finding_id": "a68b61ffa4085e231a384dfa78128d52585607563917842499b03f09d34e66e2",
+    "new_finding_id": "b2674131c7564e79eb41ee24dd9b5b330eab534a9cc1332caef5f22e82f1af8e",
+    "old_resolution_in_19": "resolved",
+    "correction_20_active_ids": [
+      "b2674131c7564e79eb41ee24dd9b5b330eab534a9cc1332caef5f22e82f1af8e"
+    ],
+    "old_rejected_value_absent_from_active_progress": true,
+    "accepted_clone": false,
+    "interpretation": "Required-source finding is advisory; direct PR locator versus repository locator mismatch and the repeated rejected candidate are separate observations. No claim that history alone resolves either semantic issue.",
+    "production_correction_evaluated_live": false
+  },
+  "private_trace_file_hashes": {
+    "code-repair-044813-safe.json": "e3a128fb8f198896df1bb95130352fb11396e06bc2b7530734a4feacce536dce",
+    "code-terminal-20-safe.json": "ba4df6589c6c0f48e741414d2a542a153fdcd474809205155207be93b661c36e"
+  }
+}

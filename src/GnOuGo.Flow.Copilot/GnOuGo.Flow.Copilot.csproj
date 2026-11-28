@@ -1,15 +1,27 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>15.0</LangVersion><ImplicitUsings>enable</ImplicitUsings><Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible><IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Copilot</PackageId><Authors>GnOuGo</Authors>
-    <PackageReleaseNotes>Bounded agent tasks with statically approved scope. Compatible with planning format 10 TaskPlan compilation; execution journals remain schema 9. Regenerate and approve previous planning sessions.</PackageReleaseNotes>
-    <Description>Bounded Copilot agent tasks through injected MCP transport and managed Copilot execution.</Description>
+    <PackageReleaseNotes>Preserve Copilot numeric MCP contracts and exact permission boundaries. Planning consumers now use internal format 11 with mandatory business review; retired planning sessions are rejected unchanged and encrypted historical accounting remains retained.</PackageReleaseNotes>
+    <Description>Bounded workflow agent adapters for direct Copilot SDK execution and scoped business tools.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/GnouGo/GnouGo/</PackageProjectUrl>
     <RepositoryUrl>https://github.com/GnouGo/GnouGo/</RepositoryUrl><RepositoryType>git</RepositoryType>
     <PackageReadmeFile>README.md</PackageReadmeFile><PackageTags>gnougo;flow;copilot;agent;mcp;nativeaot</PackageTags>
   </PropertyGroup>
-  <ItemGroup><ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.AI.Core/GnOuGo.AI.Core.csproj" />
+    <ProjectReference Include="../GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="11.0.0" />
+    <PackageReference Include="ModelContextProtocol.Core" Version="2.4.0" />
+    <InternalsVisibleTo Include="GnOuGo.GithubCopilot.Mcp" />
+    <InternalsVisibleTo Include="GnOuGo.GithubCopilot.Mcp.Tests" />
+  </ItemGroup>
   <ItemGroup><None Include="README.md" Pack="true" PackagePath="/" /></ItemGroup>
 </Project>

@@ -1,0 +1,131 @@
+{
+  "source": "2ac3432557611b258439bbd7f5dfe3cabd616b00",
+  "run": "code-qualification-20261108-07",
+  "session_id": "3a834942329147eda61ad712df32eb76",
+  "logical_calls": 16,
+  "physical_attempts": 15,
+  "accepted_checkpoints": 0,
+  "resolved_contracts": 0,
+  "stopped_through_protected_operator": true,
+  "same_useful_state_calls": [
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14"
+  ],
+  "permanent_retention": {
+    "evidence": {
+      "version": 1,
+      "campaign": "pr120-live-20261107-400",
+      "tenant": "benchmark",
+      "run_collection": "planning-evaluation-runs",
+      "run_key": "code-qualification-20261108-07",
+      "session_id": "3a834942329147eda61ad712df32eb76",
+      "revision": 54,
+      "request_id": "3a834942329147eda61ad712df32eb76:16:ec5f89547fc01499973b761e58fe27cd025fe26b06064123305600e545bc08db:41ad85cfa31e75dea14746239b14f6bde5f01f706b4b0163e25d411bb0261032",
+      "phase": "construction_discovery",
+      "source": "2ac3432557611b258439bbd7f5dfe3cabd616b00",
+      "run_hash": "b45612ef49c1a32103ee96e76c5832df03a432c42dfcfba0e7e2b28593f70872",
+      "request_hash": "39ce8d604e69f7f1e0183e9c80c875809ede0a4abfbf14977d8bf9dd377707fb",
+      "http_journal_hash": "8618d421a2f180217064726ec3f95d6edc243cb311d7f10fe0ba66c9e00b008a",
+      "session_policy_hash": "02e7a823c2b8a7cc518f6d12a8de08a32de357350d667518ab50651f6e6bf635",
+      "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+      "configuration_hash": "1295f38c9a73411541b5a6e8ac7c53d80cd9bc9916e0a8812f7d31ab6b66299b",
+      "retention_kind": "cancelled-planning-request",
+      "source_evidence": "server_session_and_frozen_configuration",
+      "outcome_evidence": "cancelled_reserved_attempt_without_persisted_outcome",
+      "dispatch_certainty": "unknown",
+      "server_session_hash": "45e23e6c3693d3e1d37e674bad092e623c7ec8586e87104042daa172587d4c94",
+      "server_http_hash": "79278aa1c09379c868af7e4d0efde78f8685100c1afed70d80b6aacda292e645",
+      "server_budget_hash": "6226cd3215b2af9fcec1e88231f4e5b6586cc6c9efe31f8994a589cd33a16dd0",
+      "cancellation_failure_hash": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba",
+      "retained_application_reservation_eur": "2.0312404836542767577250335871",
+      "application_reservation_in_campaign_http": false,
+      "accounting": {
+        "calls": 907,
+        "session_calls": 15,
+        "known_input_tokens": 13290170,
+        "known_output_tokens": 386430,
+        "known_cost_eur": "419.40214957456336766681594611",
+        "reserved_input_tokens": 5603214,
+        "reserved_output_tokens": 951296,
+        "reserved_cost_eur": "303.92270488132557098074339461",
+        "cost_upper_bound_eur": "723.32485445588893864755934072",
+        "unknown_attempts": 30
+      },
+      "failure_hash": "832ec4635daa899d05584cdfbace41fc2acb6f4539dcb12b7845603eae0b24ba"
+    },
+    "evidence_hash": "f2087b3dc68cad1dc68d1f1faf5683adb13e58abddeb498d7e9e3c81268ae83b",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reason": "operator_retained_uncertain_planning",
+    "operator": "Codex local operator",
+    "authorization": "User standing authorization for conservative tool-free incident handling; PR120 continuation 2026-11-08.",
+    "authorization_hash": "4ba7647fb046d9644dc919bb4af77d8ad58a6be0ff90e5d7bf6d0bc1cb3947e9",
+    "retained_at": "2026-11-08T20:47:10.0957590+00:00"
+  },
+  "probe": {
+    "source": "2ac3432557611b258439bbd7f5dfe3cabd616b00",
+    "run": "code07-materialization-20261108-01",
+    "requested_output_tokens": 4096,
+    "requested_reasoning": "medium",
+    "materialization_guidance": null,
+    "contract_materialization_guidance": {
+      "active": true,
+      "schema_unchanged": true,
+      "added_utf8_bytes": 717
+    },
+    "independent_probe": {
+      "source_request": "3a834942329147eda61ad712df32eb76:16:ec5f89547fc01499973b761e58fe27cd025fe26b06064123305600e545bc08db:41ad85cfa31e75dea14746239b14f6bde5f01f706b4b0163e25d411bb0261032",
+      "source_request_hash": "39ce8d604e69f7f1e0183e9c80c875809ede0a4abfbf14977d8bf9dd377707fb",
+      "prompt_hash": "cf8825f310ba35335aa96c5faea5ae3cacd5f416a2b0187ad5db6cd3285b0e3e",
+      "schema_hash": "8c4bbfa3375c81f4fd6d790efb0a3aeac91d1ae4a6b3c4bdfae9fbee4b5464ec",
+      "applies_candidate": false,
+      "executes_business_tools": false
+    },
+    "schema_valid": true,
+    "usage": {
+      "input_tokens": 11172,
+      "output_tokens": 217,
+      "total_tokens": 11389,
+      "benchmark_cost_eur": "0.3351724137931034482758620690",
+      "reasoning_tokens": 77,
+      "transport_attempts": 1,
+      "uncertain_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0,
+      "benchmark_usage_bounded": true
+    },
+    "physical_http_attempts": 1
+  },
+  "probe_response": {
+    "discoveryRequests": null,
+    "evidenceRequests": null,
+    "reselectStep": null,
+    "clarifications": null,
+    "binding": {
+      "kind": "operation",
+      "operationIds": [
+        "cap_e87238bc6035a17954299a78",
+        "cap_fa8aa0024ff2ec0a4f9e61ad",
+        "cap_4deef917cf9cb153c91e657a",
+        "cap_37c513d225bb1b870053c5d3",
+        "cap_5c01f9aa688163d23a30ff8b"
+      ],
+      "groupId": null,
+      "closeScopes": null
+    }
+  },
+  "retained_external_reservations_eur": "5.7033587102552619793999104343",
+  "limitations": [
+    "Code07 has no accepted contribution; format improvement is not business convergence.",
+    "The pending call had a separate application hold and no HTTP attempt; retain it exactly once in external reservations.",
+    "The probe applies no candidate and executes no business effect.",
+    "The cancelled run must never resume."
+  ]
+}

@@ -1,0 +1,215 @@
+{
+  "source": "cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+  "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+  "run": "improve40-amazon-20261127-234035",
+  "session": "299ee94971e54cee989050f13ebd40ce",
+  "form_attempt": "improve40-amazon-20261127-234035-form-72addb0028c95c337b92e5f7320d2487",
+  "scenario": "amazon",
+  "tool_source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "model": "gpt-6.1-terra",
+  "phases": {},
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "planning_session_cost_eur": 0,
+  "wall_seconds": 327.62,
+  "execution_seconds": 21.773043,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "opening_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "closing_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "build": {
+    "source": "cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+    "sha256": "029a7f96a3f7e2f27cb2112504a2fb6b5a4448d066026e8957ca643921d8ada1",
+    "dependencies": [
+      {
+        "assembly": "GnOuGo.Flow.Core.dll",
+        "version": "1.0.0+cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+        "sha256": "45dd6722debde2c052585396544345900961bc5901d7ac109fa24a1b8a7b9ff5"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.dll",
+        "version": "1.0.0+cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+        "sha256": "91c727e020885f75e0a8d2cdc82ba698d7eb313bbe9d7fab3c3af86e06fdfef4"
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.dll",
+        "version": "0.0.0-dev+cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+        "sha256": "273211c6f4889814b96aa87ec4272f8f53d0b97aaeb9495ea9c7e1ae9ab4026f"
+      }
+    ]
+  },
+  "preflight": [
+    {
+      "tag": "cd6e2795-validation",
+      "opening_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "closing_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "seconds": 301.46,
+      "evidence": {
+        "verified_predecessor": "72addb0028c95c337b92e5f7320d2487",
+        "journal_revision": 10,
+        "saved_agent_id": "42d421bf-80ce-4211-80ce-0b3863ed7112",
+        "artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+        "catalog_findings": 0,
+        "execution_started": false,
+        "provider_dispatches": 0,
+        "producers": {
+          "GnOuGo.Browser.Mcp": {
+            "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "informational_version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "sha256": "5d2f97e66686d4846755836da4418430718f72f29b17cfc641024fc1f89f3731"
+          },
+          "GnOuGo.Document.Mcp": {
+            "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "informational_version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "sha256": "4a5be40f2ee8d67dd4c8698e53d2e83aa85f07e04004744fb1cadb053c7ab371"
+          }
+        }
+      }
+    },
+    {
+      "tag": "cd6e2795-execution",
+      "opening_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "closing_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "seconds": 43.86,
+      "evidence": {
+        "code": "stale_local_assemblies",
+        "execution_started": false,
+        "provider_dispatches": 0,
+        "stale_assembly_source": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+        "expected_source": "cd6e279591d9e6fc16d9803505bb5376c1e4742f"
+      }
+    },
+    {
+      "tag": "cd6e2795-synced-validation",
+      "opening_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "closing_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+      "seconds": 298.84,
+      "evidence": {
+        "verified_predecessor": "72addb0028c95c337b92e5f7320d2487",
+        "journal_revision": 10,
+        "saved_agent_id": "42d421bf-80ce-4211-80ce-0b3863ed7112",
+        "artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+        "catalog_findings": 0,
+        "execution_started": false,
+        "provider_dispatches": 0,
+        "producers": {
+          "GnOuGo.Browser.Mcp": {
+            "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "informational_version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "sha256": "5d2f97e66686d4846755836da4418430718f72f29b17cfc641024fc1f89f3731"
+          },
+          "GnOuGo.Document.Mcp": {
+            "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "informational_version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+            "sha256": "4a5be40f2ee8d67dd4c8698e53d2e83aa85f07e04004744fb1cadb053c7ab371"
+          }
+        }
+      }
+    }
+  ],
+  "form": {
+    "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+    "execution_source": "cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+    "tool_source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+    "parent_session": "299ee94971e54cee989050f13ebd40ce",
+    "previous_execution": "72addb0028c95c337b92e5f7320d2487",
+    "predecessor_journal_revision": 10,
+    "new_execution": "a74e6e93ed84b5a1cfb640f572be4ef4",
+    "approved_artifact": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+    "run": "improve40-amazon-20261127-234035",
+    "attempt_record": "improve40-amazon-20261127-234035-form-72addb0028c95c337b92e5f7320d2487",
+    "execution": {
+      "success": false,
+      "status": "failed",
+      "finalization_completed": true
+    },
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "public_workbook_outcome_missing_or_different",
+        "independent_workflow_workbook_read_missing",
+        "workbook_missing"
+      ]
+    },
+    "workbook_exists": false,
+    "workbook_sha256": null,
+    "browser_reads": [
+      {
+        "event_index": 0,
+        "requested_href_sha256": "bc369121bd89f7d6a40c7693dcc5a57072ff2ec470e9435a392afcb52d74557c",
+        "status": 200,
+        "success": false,
+        "capture": null,
+        "records": null,
+        "pages": null,
+        "complete": null
+      }
+    ],
+    "document_calls": [],
+    "workflow_form_invocation_sha256": "4c88c2d9646aefc911a681253837eed39da011e93bc999f7a7182ee46251fe63",
+    "form_answer_sha256": "e6e529569799a94518ec98580d6097a1f31a76ec1b17d0dac42769bca545ea47",
+    "passed": false,
+    "caller_text_present": false,
+    "source_verification": null,
+    "row_verification": null
+  },
+  "business": {
+    "physical_attempts": 0,
+    "measured_eur": "0E-27",
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "tools": {
+      "browser_close": 2,
+      "browser_get_content": 2
+    }
+  },
+  "failed_search": {
+    "status": 200,
+    "tool_error": "INVALID_INPUT",
+    "message": "No element matched selector 'body' within 115135,195ms. selector resolved but no elements were found",
+    "timings": {
+      "startup": 2926,
+      "navigation": 1392,
+      "readiness": 546,
+      "selector": 1248
+    },
+    "elapsed_ms": 6112,
+    "journal_error": "MCP_CALL_ERROR",
+    "journal_finalized": true,
+    "same_arguments_and_error_in_journal": true,
+    "searches": 1,
+    "product_visits": 0,
+    "browser_closed": true
+  },
+  "locator_regression": {
+    "original": {
+      "outcome": "Failed",
+      "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.LocatorRemainsUsableWhenAnAttachedElementBrieflyDisappears",
+      "trx_sha256": "4023bc04d20f0b51f7ad375233b9fa823360baa5b78c54c6a7bc3d006e5ed478"
+    },
+    "corrected": {
+      "outcome": "Passed",
+      "test": "GnOuGo.Browser.Mcp.Tests.BrowserCompleteObservationTests.LocatorRemainsUsableWhenAnAttachedElementBrieflyDisappears",
+      "trx_sha256": "67e7809b18f07c06cb9376b5b6b262968c0aa3e047051ec3ce30eb9377f70bfd"
+    }
+  }
+}

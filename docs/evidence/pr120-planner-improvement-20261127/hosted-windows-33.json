@@ -1,0 +1,179 @@
+{
+  "46052030316": {
+    "cases": {
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:05.0100000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:53.1110000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"null_href\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:39.1620000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:56.1730000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:19.0920000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:30.8860000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:48.6540000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"null_href\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:31.9419999"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:39.8780000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:44.6210000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:10.2630000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:57.8380000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V13CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:46.0180000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"null_href\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:44.7140000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"one\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:16.8480000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.NormalHostBudgetSupportsExactWorkbookAndCommittedRecovery(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:07.6590000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup-indexed\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:14.7780000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:15.6889999"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:38.2210000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:35.8590000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCorrectedBindingsProduceIndependentlyVerifiedLocalWorkbook(defect: \"choice\", variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:41.6920000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerApprovalCompositionWritesExactThreeColumnWorkbook(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:43.3080000"
+      },
+      "GnOuGo.Agent.Server.Tests.DiscoveryRestartHostTests.EncryptedPaginationSurvivesActualProcessExitWithoutRefetch": {
+        "outcome": "Passed",
+        "elapsed": "00:00:18.5250000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:55.3150000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.StaticCommittedWriterProducesAnIndependentlyInspectedWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:43.3200000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V12CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:40.8289999"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.GuardCompositionPreservesOriginalDataAndWritesExactWorkbook(variant: \"empty_selection\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:14.2940000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:46.3319999"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:14.0420000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.DesignerCompositionExecutesExactWorkbookAndNullableVisits(variant: \"repeated\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:45.8480000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V11CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"missing\")": {
+        "outcome": "Passed",
+        "elapsed": "00:01:46.7610000"
+      },
+      "GnOuGo.Agent.Server.Tests.GenericProofBenchmarkTests.ExactReadAuthorityCannotBeForgedOrTransferredToAnotherArtifactOrWorkspace": {
+        "outcome": "Passed",
+        "elapsed": "00:00:03.8910000"
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RealStdioContractsAndLocalBrowserExecutionProduceIndependentlyVerifiedWorkbook(variant: \"pages-compact-complete-flat-lookup\")": {
+        "outcome": "Passed",
+        "elapsed": "00:00:14.8490000"
+      }
+    },
+    "historical_cases": 33,
+    "all_selected": 33,
+    "outcomes": {
+      "Passed": 33
+    },
+    "trx_sha256": "8228115a6718e5330609852abd2c30d170905776ff5e505b99e2fdd12fb4fdb3",
+    "started": "2026-11-27T18:52:06.1248092+00:00",
+    "finished": "2026-11-27T19:30:14.5881779+00:00",
+    "actions_url": "https://github.com/GnouGo/GnouGo/actions/runs/46052030316",
+    "binaries": [
+      {
+        "name": "GnOuGo.Agent.Server.dll",
+        "version": "0.0.0-dev+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "81E22E2A7D0088F983F36FA2B1EF2759A03CEDE5008D74B77855F0CBAC10830D"
+      },
+      {
+        "name": "GnOuGo.Agent.Server.Tests.dll",
+        "version": "1.0.0+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "415ECE7BF48E2B3255ADD222C2E1A556D4819476639D12396E7FE014537BAE20"
+      },
+      {
+        "name": "GnOuGo.Browser.Mcp.dll",
+        "version": "1.0.0+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "D5AE832BFE4ABAFB945F60F905E149A500E4698428EF260E7FD055C41453BCF7"
+      },
+      {
+        "name": "GnOuGo.Document.Mcp.dll",
+        "version": "1.0.0+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "A434D231FBA1B91B87035987F4F3C43A700293F297A566E4397F74F0F409E14E"
+      },
+      {
+        "name": "GnOuGo.Flow.Persistence.dll",
+        "version": "1.0.0+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "6809ECBDEE00DEFB7BB704C8A285DC4A9D6F3ED6CCB082273E3A7F12C0B7A675"
+      },
+      {
+        "name": "GnOuGo.Flow.Planning.dll",
+        "version": "1.0.0+284bf783c5200d85d0120153eac85af62ea86f6b",
+        "sha256": "0D5FF4CF9A8FF84C49FE569A13883C7111A5E2CB75414117D40EC6DD3387BCEC"
+      }
+    ]
+  }
+}

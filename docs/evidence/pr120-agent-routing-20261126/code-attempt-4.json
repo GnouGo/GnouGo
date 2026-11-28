@@ -1,0 +1,199 @@
+{
+  "source": "94ab0dc9fbe648bc5038ce702e70fbf38f8743d1",
+  "run": "routing30-code-20261127-005454",
+  "session_id": "030a9f7c7d624adf8892cd297db8a477",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v1",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261127-005454",
+  "planning_passed": false,
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 51,
+    "repairs": 8,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_draft": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "known_input_tokens": 240143,
+      "known_output_tokens": 5558,
+      "cost_eur": "0.5723439635535307517084282461"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 7124,
+      "known_output_tokens": 1682,
+      "cost_eur": "0.0238906605922551252847380409"
+    },
+    "construction_discovery": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "known_input_tokens": 130627,
+      "known_output_tokens": 3925,
+      "cost_eur": "0.3154373576309794988610478360"
+    },
+    "construction_local_judge": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "known_input_tokens": 46581,
+      "known_output_tokens": 2251,
+      "cost_eur": "0.1163621867881548974943052392"
+    },
+    "construction_implementation": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "known_input_tokens": 65540,
+      "known_output_tokens": 4725,
+      "cost_eur": "0.1708200455580865603644646925"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 8529,
+      "known_output_tokens": 287,
+      "cost_eur": "0.0207357630979498861047835991"
+    },
+    "construction_intent": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "known_input_tokens": 10720,
+      "known_output_tokens": 4384,
+      "cost_eur": "0.0443917995444191343963553530"
+    },
+    "replan": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "known_input_tokens": 103271,
+      "known_output_tokens": 552,
+      "cost_eur": "0.2377562642369020501138952164"
+    }
+  },
+  "logical_planning_calls": 51,
+  "campaign_delta": {
+    "calls": 51,
+    "known_input_tokens": 612535,
+    "known_output_tokens": 23364,
+    "known_cost_eur": "1.501738041002277904328018236",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "1.501738041002277904328018236"
+  },
+  "campaign_after": {
+    "calls": 304,
+    "session_calls": 0,
+    "known_input_tokens": 4692285,
+    "known_output_tokens": 162893,
+    "known_cost_eur": "11.430685649202733485193621903",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "11.430685649202733485193621903",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "030a9f7c7d624adf8892cd297db8a477",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5017380410022779043280182232",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8e8df1d69bd463ba4180929d5c945d9",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7150842824601366742596810934",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "abbd18f3dca04c229c59c7a3881b668e",
+        "httpAttempts": 44,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6792801822323462414578587702",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e0d3f70a3ba3465ca8d5fd3c6f972bfa",
+        "httpAttempts": 79,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.5321230068337129840546697044",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "18.56931435079726651480637810",
+  "diagnostics": [
+    {
+      "code": "REQUIREMENTS_CHANGED",
+      "location": "/outputs"
+    },
+    {
+      "code": "CONSTRUCTION_CORRECTION_ALLOWANCE",
+      "location": "/"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-27T00:55:20.2106779+00:00",
+  "finished_utc": "2026-11-27T01:10:53.6467239+00:00",
+  "wall_seconds": 933.436,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "REQUIREMENTS_CHANGED",
+      "location": "/outputs",
+      "message": "Changing an accepted interface requires explicit revision."
+    },
+    {
+      "code": "CONSTRUCTION_CORRECTION_ALLOWANCE",
+      "location": "/",
+      "message": "The captured correction allowance cannot retry this rejected navigation action."
+    }
+  ]
+}

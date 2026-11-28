@@ -1,0 +1,12 @@
+{
+  "run": "routing30-code-20261127-002821",
+  "source": "3daa2ce01e75cc46bd1d6f89eba4336625e46209",
+  "scenario": "code",
+  "stage": "campaign_admission",
+  "failed_check": "host_fingerprint_matches",
+  "session_created": false,
+  "physical_model_calls": 0,
+  "workflow_tool_receipts": 0,
+  "cost_eur": 0,
+  "cause": "The Server appsettings tool description changed the captured deployment fingerprint. Restored the original configuration in 45bbeb3f."
+}

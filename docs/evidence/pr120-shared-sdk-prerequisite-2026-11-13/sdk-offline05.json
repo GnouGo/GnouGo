@@ -1,0 +1,88 @@
+{
+  "identity": "code-offline-dependencies-20261112-05",
+  "source": "71342c8e9c6a78566e3fd48e1f9f24eb25f54f0c",
+  "provider": "OpenAi from KeyVault",
+  "transport": "gnougo-structured-tools-v1",
+  "reference_sdk05_unchanged": true,
+  "provider_model_endpoint_changed": false,
+  "sdk_network_or_bypass_expanded": false,
+  "actual_http_attempts": [
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true,
+      "http_elapsed_ms": null,
+      "utc_timing_available": false
+    },
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true,
+      "http_elapsed_ms": null,
+      "utc_timing_available": false
+    },
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true,
+      "http_elapsed_ms": null,
+      "utc_timing_available": false
+    }
+  ],
+  "completed_receipts": 3,
+  "captured_tariff_receipt_sum_eur": "1.2382546701561230935836115874",
+  "execution_and_verification_ms": 207315,
+  "command_count": 1,
+  "probe_script_unchanged": true,
+  "terminal_report_verified": true,
+  "durable_receipt_cold_reloaded": true,
+  "cleanup": true,
+  "toolchains": {
+    "node": "v24.20.0",
+    "pnpm": "10.34.5",
+    "python": "Python 3.11.13",
+    "python3": "Python 3.11.13"
+  },
+  "pinned_head_verified": true,
+  "requirements_unchanged": true,
+  "commands": [
+    {
+      "command": "uv sync --group tests",
+      "exit_code": 0,
+      "timed_out": false,
+      "started_utc": "2026-11-13T01:27:29.213329+00:00",
+      "finished_utc": "2026-11-13T01:27:34.992201+00:00",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "5dd3367b27c2216ab81a8df4adf74e8e72ef4dd3b2ac0a52244f7e437e98c496"
+    },
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exit_code": 1,
+      "timed_out": false,
+      "started_utc": "2026-11-13T01:27:34.992559+00:00",
+      "finished_utc": "2026-11-13T01:27:36.406978+00:00",
+      "stdout_sha256": "caf3c2fb8812daf7b53a00593c51bc29060a2d88ebc6d51bf26d832da9801a7d",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "dependency_prerequisite_qualified": false,
+  "passed": false,
+  "first_remaining_failure": {
+    "code": "ERR_PNPM_NO_OFFLINE_TARBALL",
+    "package": "@chromatic-com/storybook",
+    "version": "5.0.1",
+    "host_offline_reproduction": "same error and exact tarball; no model calls",
+    "cache_loss_origin": "not established"
+  },
+  "full_code_workflow_qualified": false,
+  "private_retained_proof_sha256": "0fc56dde19db0bdb6448393d61132fc1777940d627572a863b757c9a9419c86e"
+}

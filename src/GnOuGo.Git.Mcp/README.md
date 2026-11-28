@@ -4,13 +4,13 @@ MCP stdio server for safe Git repository operations on local projects.
 
 ## MCP protocol compatibility
 
-This stdio server uses the stable C# MCP SDK `2.2.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+This stdio server uses the stable C# MCP SDK `2.4.0` with automatic protocol negotiation: clients prefer `2026-07-28` discovery and can initialize with stable `2025-11-25`. Launch the built apphost, or use `dotnet GnOuGo.Git.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 ## Features
 
 - Inspect the active policy with `git_get_policy`.
 - Read repository metadata with `git_repository_info`.
-- Inspect working tree status, diffs, branches, and logs with `git_status`, `git_diff`, `git_branches`, and `git_log`.
+- Inspect working tree status, branches, and logs with `git_status`, `git_branches`, and `git_log`. Use `git_diff` for unstaged changes or pass `staged=true` for the staged index patch.
 - Perform guarded local mutations with `git_stage`, `git_unstage`, `git_commit`, `git_create_branch`, `git_delete_branch`, `git_checkout`, `git_switch_branch`, `git_merge`, and `git_resolve_conflict` when `Git:AllowMutations=true`.
 - Perform guarded network operations with `git_clone`, `git_fetch`, `git_pull`, `git_push`, and `git_delete_remote_branch` when `Git:AllowNetworkOperations=true`.
 - Compare exact PR revisions with `git_compare_refs`. It resolves base/head/merge-base SHAs, detects renames, reports binaries and submodules, paginates files, and includes per-file truncation metadata without consulting the working tree.
@@ -21,11 +21,22 @@ The packaged default remains read/write capable (`AllowMutations=true`, `AllowNe
 
 Set `Git:ReviewReadOnly=true`, `Git:AllowMutations=false`, and `Git:AllowNetworkOperations=true` for a dedicated review server. In this mode `git_clone` and `git_fetch` are permitted only below the visible `workflows/` root; checkout, stage, commit, push, pull/merge, and branch deletion remain denied. `git_clone` advertises `response.projectRootRelative` as a materialized `workspace.directory` artifact, while Git operations taking `projectRoot` advertise the matching consumer contract. This policy protects user checkouts while still allowing exact remote revision comparison.
 
-`git_compare_refs` defaults to merge-base-to-head semantics. Follow `nextCursor` until null and preserve every page's `baseSha`, `headSha`, and `mergeBaseSha`. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.
+For a known small change set, supply `expectedCompleteFileCount` with a suitable `pageSize`. Success guarantees a first page containing every expected path. Per-file patch truncation is still reported.
+
+`git_compare_refs` defaults to merge-base-to-head semantics. Preserve the resolved `baseSha`, `headSha`, comparison mode and `pageSize` when fetching more pages. Each item in `remainingPageCursors` addresses one remaining page in order. An empty array marks the last page. Set `requirePageDirectory=true` for a bounded loop. Every successful response in that mode supplies the complete cursor list. If the list exceeds `Git:MaxComparePageSize`, the tool returns a structured failure with zero file records. The default streaming mode continues large comparisons through `nextCursor`. Preserve each page's `mergeBaseSha` for coverage checks. Treat `truncated`, binary, and submodule entries as explicit coverage gaps.
 
 When `git_stage` is called without explicit paths, it stages all current changes except the repository-root `.GnOuGo/` directory. This keeps temporary Copilot SDK working files out of commits by default. Passing explicit paths still stages only the requested paths.
 
-`git_clone` defaults to a minimal clone: one branch, one commit of history, and no tags. Use `branch` to select a plain branch name, a full 40- or 64-hex commit object ID, or a fully qualified remote `refs/...` value; use `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. A full object ID or fully qualified ref is fetched exactly and checked out detached. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch; if that cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
+`git_clone` defaults to one branch, one commit of history and no tags. Use `branch` to select a plain branch name, a full 40- or 64-hex commit object ID, or a fully qualified remote `refs/...` value. Use `historyDepth: 0` to fetch full history, `fetchAllBranches: true` to fetch every remote branch, and `tagFetchMode: "auto"` or `"all"` when tags are required. With full history and all branches, the checkout can immediately compare commits reachable from those branches. A full object ID or fully qualified ref is fetched exactly and checked out detached. When `branch` is omitted with `fetchAllBranches: false`, the tool resolves the remote default branch. If that branch cannot be determined, pass `branch` explicitly or set `fetchAllBranches: true`.
+
+For one checkout comparing revisions from different branches or repositories,
+select an authorized remote that publishes both histories. A host may expose
+a contributed head under a non-branch ref in the receiving repository.
+Pin the checkout to its resolved head object ID. Set `historyDepth` to zero
+when the comparison needs complete ancestry. Subsequent `git_fetch` calls
+use an existing named remote. Acquire the required base history there and
+pass the original base and head object IDs to `git_compare_refs`, including
+when the source branch has since advanced.
 
 Git tool failures return structured content in the advertised result type with `success: false`, `ok: false`, `error_code`, and `error_message`.
 
@@ -44,7 +55,9 @@ The tool resolves project roots under `Git:DefaultWorkingDirectory` and `Git:All
 
 Every `git_clone.targetDirectory` must be a purpose-specific, workspace-relative child below `workflows/`, for example `workflows/github-review-123`. **Breaking change:** absolute targets are rejected, including absolute paths inside the workspace. Use forward slashes and nonempty segments; dot/parent segments, backslashes, wildcards and control characters are invalid. Values are not silently normalized or prefixed. Existing repositories used as `projectRoot` may live elsewhere in the visible workspace, but paths under the reserved `.GnOuGo/` internal subtree are rejected. The legacy `.GnOuGo/data/reviews/` location is no longer a valid Git workflow workspace.
 
-The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. An absent or empty destination is accepted; creating it first is unnecessary. `git_get_policy` is optional inspection, not a required preliminary operation.
+The producer publishes `pattern` and `minLength` in `tools/list` and enforces the same syntax before clone. Filesystem checks remain authoritative: a matching string does not prove that a destination is available or accessible. Pass an absent or empty destination directly. The clone checks occupancy before writing and refuses a nonempty target with its contents intact. `git_get_policy` is optional inspection, not a required preliminary operation.
+
+When `branch` is a full commit ID, a successful clone has already checked out that commit in the worktree.
 
 Declare a creation location once and reuse the same business binding for clone and cleanup. A failed clone may leave partial content, so cleanup must retain that location without depending on clone success. Use the returned `projectRootRelative` for subsequent repository operations. Do not independently regenerate a path in an inference task or hardcode a different cleanup directory. Choose a location owned by this workflow; these checks do not allocate concurrent run directories.
 
@@ -61,7 +74,7 @@ Do not commit real tokens.
 
 ```powershell
 dotnet build .\src\GnOuGo.Git.Mcp\GnOuGo.Git.Mcp.csproj
-.\src\GnOuGo.Git.Mcp\bin\Debug\net10.0\GnOuGo.Git.Mcp.exe
+.\src\GnOuGo.Git.Mcp\bin\Debug\net11.0\GnOuGo.Git.Mcp.exe
 ```
 
 ## Build

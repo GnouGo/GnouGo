@@ -66,7 +66,7 @@ public static class PlanningReviewFormatter
         _ => type.Kind
     }) + (type.Nullable ? "?" : "");
 
-    private static string Describe(TaskValue value) => value.Kind switch
+    internal static string Describe(TaskValue value) => value.Kind switch
     {
         "input" => "input " + value.Source,
         "output" => value.Source + (value.Port is null ? "" : "." + value.Port),
@@ -75,12 +75,14 @@ public static class PlanningReviewFormatter
         "object" => "{" + string.Join(", ", value.Members.Select(m => m.Name + ": " + Describe(m.Value))) + "}",
         "array" => "[" + string.Join(", ", value.Items.Select(Describe)) + "]",
         "json" => "json(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "array_length" => "number of items in " + Describe(value.Items.Single()),
         "flatten" => "flatten one level(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "at_index" => Describe(value.Items[0]) + "[" + Describe(value.Items[1]) + "]",
         "lookup" => "lookup by " + value.Port + "(" + string.Join(", ", value.Items.Select(Describe)) + "; retain order and repeats)",
         "boolean" => value.Boolean == true ? "true" : "false",
         "null" => "null", "string" => "\"" + value.Text + "\"",
         "predicate" => value.Predicate + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
-        "arithmetic" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
+        "arithmetic" or "string_operation" => value.Text + "(" + string.Join(", ", value.Items.Select(Describe)) + ")",
         "number" => value.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "invalid number",
         _ => value.Kind
     };

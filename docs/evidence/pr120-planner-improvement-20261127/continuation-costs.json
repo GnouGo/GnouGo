@@ -1,0 +1,351 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "starting_after": "server-amazon-8.json",
+  "units": "EUR tariff estimates, observed provider tokens, host invocation milliseconds. Workflow elapsed time in each run can include human review, host setup and local verification. Business inference duration, where available, is reported in the individual business-phase receipt.",
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "36.947979498861047835990888731",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "32.7683257403189066059225509043",
+    "physical_attempts": 975,
+    "input_tokens": 15199395,
+    "output_tokens": 510384
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "physical_attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666
+  },
+  "incremental_measured_eur": "25.051794988610478359908884135",
+  "incremental_physical_attempts": 701,
+  "incremental_input_tokens": 10325174,
+  "incremental_output_tokens": 336282,
+  "by_phase": {
+    "construction_discovery": {
+      "logical_calls": 154,
+      "physical_attempts": 154,
+      "input_tokens": 1862378,
+      "output_tokens": 37230,
+      "duration_ms": "2317523.0243",
+      "measured_eur": "4.4119316628701594533029612763"
+    },
+    "construction_draft": {
+      "logical_calls": 196,
+      "physical_attempts": 196,
+      "input_tokens": 3621748,
+      "output_tokens": 112410,
+      "duration_ms": "3672375.6069",
+      "measured_eur": "8.7621138952164009111617312074"
+    },
+    "construction_implementation": {
+      "logical_calls": 187,
+      "physical_attempts": 187,
+      "input_tokens": 2645497,
+      "output_tokens": 103007,
+      "duration_ms": "3552796.4269",
+      "measured_eur": "6.4954692482915717539863325740"
+    },
+    "construction_intent": {
+      "logical_calls": 18,
+      "physical_attempts": 18,
+      "input_tokens": 40734,
+      "output_tokens": 27905,
+      "duration_ms": "3119260.6819",
+      "measured_eur": "0.2199179954441913439635535309"
+    },
+    "construction_select": {
+      "logical_calls": 39,
+      "physical_attempts": 39,
+      "input_tokens": 115569,
+      "output_tokens": 21713,
+      "duration_ms": "745750.0620",
+      "measured_eur": "0.3621753986332574031890660594"
+    },
+    "construction_local_judge": {
+      "logical_calls": 37,
+      "physical_attempts": 37,
+      "input_tokens": 476606,
+      "output_tokens": 13179,
+      "duration_ms": "730727.0275",
+      "measured_eur": "1.1457038724373576309794988610"
+    },
+    "construction_global_judge": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 102250,
+      "output_tokens": 3156,
+      "duration_ms": "126407.0192",
+      "measured_eur": "0.2472938496583143507972665148"
+    },
+    "business_inference": {
+      "physical_attempts": 20,
+      "measured_eur": "1.5063940774487471526195900245",
+      "input_tokens": 652179,
+      "output_tokens": 4564
+    },
+    "replan": {
+      "logical_calls": 40,
+      "physical_attempts": 40,
+      "input_tokens": 796230,
+      "output_tokens": 12844,
+      "duration_ms": "764056.1697",
+      "measured_eur": "1.8722505694760820045558086562"
+    },
+    "operator_revision_after_observer_deadline": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 11983,
+      "output_tokens": 274,
+      "duration_ms": "7122",
+      "measured_eur": "0.0285444191343963553530751708"
+    }
+  },
+  "by_run_in_execution_order": [
+    {
+      "receipt": "server-amazon-9.json",
+      "source": "daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "run": "improve40-amazon-20261127-175353",
+      "elapsed_seconds": "759.922411",
+      "planning_calls": 13,
+      "planning_input": 180467,
+      "planning_output": 7354,
+      "planning_eur": "0.4445899772209567198177676537",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-10.json",
+      "source": "970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "run": "improve40-amazon-20261127-182713",
+      "elapsed_seconds": "1254.506025",
+      "planning_calls": 36,
+      "planning_input": 466421,
+      "planning_output": 23961,
+      "planning_eur": "1.1716241457858769931662870160",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-11.json",
+      "source": "f554478910e14f3482c1384deac1f306b6700fab",
+      "run": "improve40-amazon-20261127-190417",
+      "elapsed_seconds": "519.981934",
+      "planning_calls": 14,
+      "planning_input": 183978,
+      "planning_output": 11260,
+      "planning_eur": "0.4703826879271070615034168566",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-6.json",
+      "source": "f554478910e14f3482c1384deac1f306b6700fab",
+      "run": "improve40-code-20261127-191616",
+      "elapsed_seconds": "1315.578396",
+      "planning_calls": 30,
+      "planning_input": 285982,
+      "planning_output": 9339,
+      "planning_eur": "0.6939863325740318906605922552",
+      "business_calls": 2,
+      "business_eur": "0.0370660592255125284738041128"
+    },
+    {
+      "receipt": "server-amazon-12.json",
+      "source": "64b2f26998af70122b833b5898fba25982ba3113",
+      "run": "improve40-amazon-20261127-195137",
+      "elapsed_seconds": "1266.031012",
+      "planning_calls": 46,
+      "planning_input": 603055,
+      "planning_output": 21794,
+      "planning_eur": "1.4729908883826879271070615036",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-13.json",
+      "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "run": "improve40-amazon-20261127-202710",
+      "elapsed_seconds": "871.502322",
+      "planning_calls": 47,
+      "planning_input": 575702,
+      "planning_output": 21943,
+      "planning_eur": "1.4113621867881548974943052393",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-7.json",
+      "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+      "run": "improve40-code-20261127-204426",
+      "elapsed_seconds": "979.618279",
+      "planning_calls": 34,
+      "planning_input": 302799,
+      "planning_output": 9639,
+      "planning_eur": "0.7336605922551252847380410026",
+      "business_calls": 4,
+      "business_eur": "0.2474236902050113895216401044"
+    },
+    {
+      "receipt": "server-amazon-14.json",
+      "source": "eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+      "run": "improve40-amazon-20261127-210723",
+      "elapsed_seconds": "937.891098",
+      "planning_calls": 46,
+      "planning_input": 690715,
+      "planning_output": 22497,
+      "planning_eur": "1.6758747152619589977220956722",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-15.json",
+      "source": "b52f32acbbd487082995422363f2c44d64abcf40",
+      "run": "improve40-amazon-20261127-213233",
+      "elapsed_seconds": "867.343582",
+      "planning_calls": 47,
+      "planning_input": 644716,
+      "planning_output": 24148,
+      "planning_eur": "1.5786150341685649202733485193",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-16.json",
+      "source": "bdd668e7fd5230bfdae8e051f9f3167cf3eee25f",
+      "run": "improve40-amazon-20261127-220802",
+      "elapsed_seconds": "1011.89882",
+      "planning_calls": 39,
+      "planning_input": 511503,
+      "planning_output": 20208,
+      "planning_eur": "1.2572186788154897494305239181",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-8.json",
+      "source": "7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+      "run": "improve40-code-20261127-224019",
+      "elapsed_seconds": "692.689523",
+      "planning_calls": 15,
+      "planning_input": 135718,
+      "planning_output": 7040,
+      "planning_eur": "0.3412255125284738041002277903",
+      "business_calls": 7,
+      "business_eur": "0.6053280182232346241457858877"
+    },
+    {
+      "receipt": "server-amazon-17.json",
+      "source": "3052c649160beb3b5315a443f71a741f766ba6f4",
+      "run": "improve40-amazon-20261127-230314",
+      "elapsed_seconds": "1462.498789",
+      "planning_calls": 59,
+      "planning_input": 928460,
+      "planning_output": 31994,
+      "planning_eur": "2.2607015945330296127562642369",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-18.json",
+      "source": "2c7699f019598def8513140301edc51e00ef142e",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "2278.531283",
+      "planning_calls": 106,
+      "planning_input": 1789011,
+      "planning_output": 51556,
+      "planning_eur": "4.3100751708428246013667425971",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-9.json",
+      "source": "2c7699f019598def8513140301edc51e00ef142e",
+      "run": "improve40-code-20261128-002746",
+      "elapsed_seconds": "891.265367",
+      "planning_calls": 13,
+      "planning_input": 123156,
+      "planning_output": 8876,
+      "planning_eur": "0.3209749430523917995444191344",
+      "business_calls": 7,
+      "business_eur": "0.6165763097949886104783599196"
+    },
+    {
+      "receipt": "server-amazon-18-execution.json",
+      "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "598.308376",
+      "planning_calls": 0,
+      "planning_input": 0,
+      "planning_output": 0,
+      "planning_eur": 0,
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-19.json",
+      "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "run": "improve40-amazon-20261128-010738",
+      "elapsed_seconds": "1135.944125",
+      "planning_calls": 55,
+      "planning_input": 916522,
+      "planning_output": 24697,
+      "planning_eur": "2.2002642369020501138952164008",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-19-resume-139.json",
+      "source": "3053ec3b94cb3f9b03a5b2fd047ea77a1381ada5",
+      "run": "improve40-amazon-20261128-010738",
+      "elapsed_seconds": "1778.6192696094513",
+      "planning_calls": 30,
+      "planning_input": 425412,
+      "planning_output": 10877,
+      "planning_eur": "1.0186013667425968109339407745",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-19-resume-207.json",
+      "source": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+      "run": "improve40-amazon-20261128-010738",
+      "elapsed_seconds": "1676.0235211849213",
+      "planning_calls": 51,
+      "planning_input": 909378,
+      "planning_output": 24535,
+      "planning_eur": "2.1832528473804100227790432802",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-18-saved-form.json",
+      "source": "cd6e279591d9e6fc16d9803505bb5376c1e4742f",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "327.62",
+      "planning_calls": 0,
+      "planning_input": 0,
+      "planning_output": 0,
+      "planning_eur": 0,
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-amazon-18-token-refusal.json",
+      "source": "8d6e97a3a7bad8bb4678ca2c6ba87f608305c6d0",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "367.28",
+      "planning_calls": 0,
+      "planning_input": 0,
+      "planning_output": 0,
+      "planning_eur": 0,
+      "business_calls": 0,
+      "business_eur": 0
+    }
+  ]
+}

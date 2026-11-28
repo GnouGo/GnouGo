@@ -1,0 +1,141 @@
+{
+  "source": "64b2f26998af70122b833b5898fba25982ba3113",
+  "run": "improve40-amazon-20261127-195137",
+  "session": "dca90ceb8aa34842816f3b47c691e41a",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T19:52:46.3505411+00:00",
+  "finished_utc": "2026-11-27T20:13:52.3815538+00:00",
+  "wall_seconds": 1266.031012,
+  "phases": {
+    "construction_draft": {
+      "logical_calls": 15,
+      "physical_attempts": 15,
+      "input_tokens": 264832,
+      "output_tokens": 6329,
+      "measured_eur": "0.6320956719817767653758542142",
+      "duration_ms": "341344.9542"
+    },
+    "replan": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 46841,
+      "output_tokens": 2364,
+      "measured_eur": "0.1174692482915717539863325741",
+      "duration_ms": "59298.0971"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2272,
+      "output_tokens": 2228,
+      "measured_eur": "0.0153257403189066059225512528",
+      "duration_ms": "143646.44"
+    },
+    "construction_discovery": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "input_tokens": 163300,
+      "output_tokens": 2949,
+      "measured_eur": "0.3854168564920273348519362187",
+      "duration_ms": "264585.7879"
+    },
+    "construction_implementation": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "input_tokens": 111760,
+      "output_tokens": 6220,
+      "measured_eur": "0.2829157175398633257403189066",
+      "duration_ms": "305322.0003"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 5096,
+      "output_tokens": 1295,
+      "measured_eur": "0.0175079726651480637813211846",
+      "duration_ms": "53228.5658"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 8954,
+      "output_tokens": 409,
+      "measured_eur": "0.0222596810933940774487471526",
+      "duration_ms": "21228.5005"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "1.4729908883826879271070615036",
+  "input_tokens": 603055,
+  "output_tokens": 21794,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_ALLOWANCE",
+      "path": "/",
+      "message": "The remaining allowance cannot admit this navigation call, a draft and mandatory reviews."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "search_url"
+    ],
+    [
+      "capture_assessment",
+      "close_browser",
+      "search_capture"
+    ],
+    [],
+    [],
+    [
+      "prefix_selection",
+      "select_prefix"
+    ],
+    [
+      "resolve_ambiguous",
+      "resolved_selection"
+    ],
+    [],
+    [
+      "visit_selection"
+    ],
+    [
+      "detail",
+      "evidence_available",
+      "extract_row",
+      "href_match",
+      "in_range",
+      "visits"
+    ],
+    []
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 46,
+    "repairs": 2,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "39.765628701594533029612756651",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "29.9506765375854214123006829843",
+    "physical_attempts": 1070,
+    "input_tokens": 16331975,
+    "output_tokens": 562568
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "41.238619589977220956719818174",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "28.4776856492027334851936214613",
+    "physical_attempts": 1116,
+    "input_tokens": 16935030,
+    "output_tokens": 584362
+  }
+}

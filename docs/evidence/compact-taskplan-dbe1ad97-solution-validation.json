@@ -1,0 +1,41 @@
+{
+  "production_source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+  "harness_source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+  "execution_snapshot_base": "41cde0843f35bb18c755c9f7d4ec98b3ee062c7e",
+  "validation_only_commit": "086f71cfeaad8caaa5ad23c8f3658abe5fca4e64",
+  "attribution": "Actual execution on a documentation-only descendant, verified against all production/test/build postimages of the frozen dbe1ad97 source. Not attributed to changed a6bd5978 source.",
+  "result": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 9019,
+      "NotExecuted": 13
+    },
+    "elapsed_seconds": 5384.1439776250045,
+    "source_unchanged": true,
+    "log_sha256": "5b02ccab12bb23c5338603474bdf6bc44da3312328ff786027bf4091db1fc623"
+  },
+  "command": [
+    "/usr/bin/sandbox-exec",
+    "-f",
+    "/Users/a115vc/.codex/tmp/gnougo-final-validation-yl2o73dz/validation.sb",
+    "dotnet",
+    "test",
+    "GnOuGo.Agent.sln",
+    "-m:1",
+    "-warnaserror",
+    "-p:UseSharedCompilation=false",
+    "-nodeReuse:false",
+    "-p:SkipClientBuild=true",
+    "-p:SourceRevisionId=41cde0843f35bb18c755c9f7d4ec98b3ee062c7e",
+    "--logger",
+    "trx;LogFilePrefix=tests",
+    "--results-directory",
+    "/Users/a115vc/.codex/tmp/gnougo-final-validation-yl2o73dz/results"
+  ],
+  "source_manifest_sha256": "ccd4de91bf1559bca72977485170dd7a7878a18399c76bb56f7b55a27d3dadce",
+  "postimages_checked": 1971,
+  "warning_as_error": true,
+  "test_totals": "3,685 Planning and earlier focused tests are included, not added to 9,019 passes.",
+  "business_acceptance": false,
+  "new_source_full_solution": "A separate final-source run started after this run completed; not run concurrently or relabeled."
+}

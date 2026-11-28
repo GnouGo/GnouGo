@@ -20,6 +20,10 @@ public sealed class SecureWorkflowRuntimeFactory
     private readonly ILocalLLMRuntime? _localRuntime;
     private readonly LlmTraceCapture? _capture;
     private readonly IReadOnlyDictionary<string, string> _copilotRunners;
+    private readonly IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? _copilotTools;
+    private readonly LlmDefaultsResolver? _defaults;
+    private readonly IConfiguration? _agentConfiguration;
+    private readonly IAgentTaskRunner? _codeRunner;
 
     internal bool UsesLiveMcpConfiguration => _mcpClientFactoryOverride is null;
 
@@ -33,7 +37,9 @@ public sealed class SecureWorkflowRuntimeFactory
         IHumanInputProvider? humanInputProvider = null,
         ILocalLLMRuntime? localRuntime = null,
         LlmTraceCapture? capture = null,
-        IReadOnlyDictionary<string, string>? copilotRunners = null)
+        IReadOnlyDictionary<string, string>? copilotRunners = null,
+        LlmDefaultsResolver? defaults = null,
+        IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? copilotTools = null, IConfiguration? agentConfiguration = null, IAgentTaskRunner? codeRunner = null)
     {
         _optionsStore = optionsStore;
         _keyVaultStore = keyVaultStore;
@@ -45,16 +51,23 @@ public sealed class SecureWorkflowRuntimeFactory
         _localRuntime = localRuntime;
         _capture = capture;
         _copilotRunners = copilotRunners ?? new Dictionary<string, string>();
+        _defaults = defaults;
+        _copilotTools = copilotTools;
+        _agentConfiguration = agentConfiguration;
+        _codeRunner = codeRunner;
     }
 
-    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct)
+    internal async Task<SecureWorkflowRuntimeSession> CreateAsync(CancellationToken ct, GnOuGo.Flow.Core.Planning.PlanningRequest? planning = null)
     {
-        var options = await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct);
+        var options = _defaults is null ? await _keyVaultStore.BuildEffectiveOptionsAsync(_optionsStore.Current, ct)
+            : await _defaults.ResolveAsync(ct);
+        options = GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Restore(options, planning);
         var sslLogger = _loggerFactory.CreateLogger("GnOuGo.AI.Core.SSL");
         var http = LLMHttpClientFactory.Create(options.DangerousAcceptAnyServerCertificate, LLMHttpClientDefaults.MinimumTimeout, sslLogger);
-        IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (options.McpServers.Count > 0
+        var workflowServers = CopilotRunnerConfiguration.WorkflowMcpServers(options.McpServers);
+        IMcpClientFactory mcpFactory = _mcpClientFactoryOverride ?? (workflowServers.Count > 0
             ? new ConfiguredMcpClientFactory(
-                options.McpServers,
+                workflowServers,
                 _humanInputProvider,
                 options.DefaultProvider,
                 options.DefaultModel)
@@ -66,9 +79,10 @@ public sealed class SecureWorkflowRuntimeFactory
         return new SecureWorkflowRuntimeSession(
             llmClient,
             mcpFactory,
-            _llmCapabilityResolver,
+            planning?.Options[GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.OptionName] is not null
+                ? GnOuGo.Flow.Integrations.Planning.CapturedPlanningModel.Capabilities(options) : _llmCapabilityResolver,
             options,
-            http) { CopilotRunners = _copilotRunners };
+            http) { CopilotRunners = _copilotRunners, CopilotTools = _copilotTools, AgentConfiguration = _agentConfiguration, CodeRunner = _codeRunner };
     }
 }
 
@@ -98,7 +112,10 @@ internal sealed class SecureWorkflowRuntimeSession : IAsyncDisposable
 
     public LLMOptions Options { get; }
     public IReadOnlyDictionary<string, string> CopilotRunners { get; init; } = new Dictionary<string, string>();
-    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners);
+    public IReadOnlyDictionary<string, IReadOnlyList<CopilotToolBinding>>? CopilotTools { get; init; }
+    public IConfiguration? AgentConfiguration { get; init; }
+    internal IAgentTaskRunner? CodeRunner { get; init; }
+    public WorkflowEngine ConfigureAgentRunners(WorkflowEngine engine) => engine.WithCopilotRunners(CopilotRunners, CopilotTools, AgentConfiguration, CodeRunner);
 
     public async ValueTask DisposeAsync()
     {

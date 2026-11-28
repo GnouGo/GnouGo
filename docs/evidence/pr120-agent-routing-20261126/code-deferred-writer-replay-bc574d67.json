@@ -1,0 +1,15 @@
+{
+  "reference_session": "17eb38fe03644268b532ba9abefdaca3",
+  "request_id": "17eb38fe03644268b532ba9abefdaca3:47:01e5ac81d5f9a58ce31de0e3dd62798a49d0bc66d97a771eb1212fb56cd826e0:7779f93386a6eb62e20ceb07e043ca9751ce1df1d7e5be70f4d007a2c43a79e0",
+  "selected_method": "document_write",
+  "extension_tasks": [
+    "write_report",
+    "verified_report"
+  ],
+  "deferred_output": "report",
+  "original_fragment_validated": true,
+  "accepted_catalog_unchanged": true,
+  "workflow_execution": false,
+  "model_calls": 0,
+  "source": "bc574d6730f351dbbeed77a1a7d923000692ecfd"
+}

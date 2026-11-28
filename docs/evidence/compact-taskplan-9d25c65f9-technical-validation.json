@@ -1,0 +1,83 @@
+{
+  "revision": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+  "full_solution": {
+    "status": "incomplete",
+    "command": "dotnet test GnOuGo.Agent.sln --no-restore -m:1 -warnaserror",
+    "started_utc": "2026-10-26T08:14:21.873800+00:00",
+    "stopped_utc": "2026-10-26T09:36:03.646023+00:00",
+    "elapsed_seconds": 4901.761,
+    "completed_trx_projects": 28,
+    "completed_trx_outcomes": {
+      "passed": 4983,
+      "failed": 49,
+      "skipped": 13
+    },
+    "unfinished_projects": [
+      "GnOuGo.Flow.Planning.Tests",
+      "GnOuGo.ProxyCopilot.Server.Tests",
+      "GnOuGo.Auth.Core.Tests",
+      "GnOuGo.Flow.Persistence.Tests",
+      "GnOuGo.Flow.Copilot.Tests"
+    ],
+    "failures": {
+      "direct_default_directory_confinement": 45,
+      "stdio_transport_closures": 4,
+      "stdio_qualification": "Same binaries separately reproduced default-directory startup failure with network denied and explicit empty private KeyVault. Original child stderr was unavailable."
+    },
+    "stop_reason": "The original sandbox denied Desktop/GnOuGo but allowed the HOME/GnOuGo fallback; the run was stopped when that boundary was discovered. No full-suite pass is claimed."
+  },
+  "boundary": {
+    "original_fallback_logged": 23,
+    "fallback_path": "/Users/a115vc/GnOuGo",
+    "fallback_data_not_inspected_or_deleted_by_agent": true,
+    "corrected_policy": "Both real workspace roots denied for reads/writes; main repository writes denied; HOME unchanged; private TMPDIR fallback verified.",
+    "metadata_exception_used": false,
+    "broad_full_rerun": false,
+    "root_reconciliation": {
+      "authority": "Reported by parent root after its metadata/birth/no-symlink checks; this agent did not inspect fallback contents.",
+      "fallback_root_birth_utc": "2026-10-26T08:15 during the full run",
+      "action": "Reversible atomic move of unchanged fallback tree into the private validation archive",
+      "destination": "/private/tmp/gnougo-9d25-full-validation-2oufveyg/boundary-artifacts/GnOuGo",
+      "all_10_file_hashes_verified_by_root": true,
+      "files_deleted": false,
+      "database_contents_decoded": false,
+      "main_real_campaign_unchanged_per_root": true,
+      "move_safe_sha256": "9a3824ce0db66009da2e5567806f1147a20b3ae7e768d8cc01ceb3817dbafa69"
+    }
+  },
+  "publication": {
+    "all_12_stages_passed": true,
+    "six_packages_passed": true,
+    "planning_native_aot_smoke_passed": true,
+    "published_format10_encrypted_storage_smoke_passed": true,
+    "git_native_aot_published_contract_passed": true,
+    "published_contract_test_count": 1,
+    "source_unchanged": true
+  },
+  "business_acceptance_claimed": false,
+  "evidence": {
+    "evidence/full/stopped-boundary-safe.json": "5675ddd14e7194e591f63068920bc5bd7ca0aae1a9a39e4e8b0a6aa9914c6906",
+    "evidence/full/failure-causes-safe.json": "f7ba963a13eb389c1083dd53b9b08b454e21135cd433f4cd0910d23bf1703131",
+    "confinement-proof/terminal-safe.json": "010f9cda33b1ed047327e658c27fee01ff2120515cc6fe6446401e015e06fd0f",
+    "evidence/publish/terminal-safe.json": "05c74b849a85ec2f2f0a2a190b10d9f93f52cc32173835de98c44b7dbdf32a09"
+  },
+  "owning_planning": {
+    "passed": 3279,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+    "validation_sha256": "2e7ef5d3a32f6603f32b9883f91dbe95154cee5b6c1e2f048c57589a80f050ac"
+  },
+  "separate_instruction_arm": {
+    "base_source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+    "patch_sha256": "08aabb16fc63a8340132613f1405bcf398dcc39efa9ce4220dfc33181ce2b59e",
+    "focused_passed": 237,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true,
+    "nonadditive": true,
+    "validation_sha256": "ed7d2c13e9097a95c68f7ec653f24fa5831b735c676228539769fc9214b7c096",
+    "live_efficacy_verified": false
+  }
+}

@@ -13,9 +13,11 @@ using ModelContextProtocol.Server;
 
 namespace GnOuGo.Agent.Server.Tests;
 
-public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
+public sealed class RecordedWorkspaceContractTests
 {
     internal const string Location = "workflows/github-pr-auto-review/project";
+    private const string FixtureBase = "1111111111111111111111111111111111111111";
+    private const string FixtureHead = "2222222222222222222222222222222222222222";
     internal static JsonObject Recording() => JsonNode.Parse(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "WorkspaceContracts", "retained-workspace.json")))!.AsObject();
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
@@ -33,43 +35,30 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task ExplicitRevisionUsesCurrentProducerContractsAndOneApprovedWorkspace()
+    public void StaticPlanUsesCurrentProducerContractsAndExactWorkspace()
     {
         using var current = new CurrentContracts();
-        var replay = new Replay(); var state = replay.State(replay.Recording["responses"]![4]!["pendingSession"]!);
-        var oldRequest = state.PendingCall!.Request;
-        // A separately identified offline revision, never a replay or modification of a saved approval.
-        state.IntentVersion = 2; if (state.Requirements is not null) state.Requirements.Inputs ??= state.Plan?.Inputs ?? []; state.PendingCall = null; state.ModelCalls--; state.Request.SessionId = "synthetic-shared-workspace";
-        state.Plan = null; state.Graph = null; state.Yaml = null; state.ApprovedHash = null;
-        if (state.Usage is not null) state.Usage = state.Usage with { Calls = state.ModelCalls };
-        foreach (var contract in replay.Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!.Resolved.Concat(replay.Recording["catalog"]!.Deserialize(PlanningJsonContext.Default.PlanningCatalog)!.Capabilities).DistinctBy(c => c.Id))
-            if (current.Replace(contract) is { } replacement) replay.Replacements.Add(replacement.Id, replacement);
-        replay.Update(state);
-        replay.Proposal = Corrected(replay.State(replay.Recording["finalSession"]!).Plan!); state.Requirements!.Inputs = replay.Proposal.Inputs;
-        RecordedPlanCompilation.InspectSelected(state, replay.Proposal);
-        state.Request.Generation.MaxInputTokensPerRequest = 96000;
-        var result = await new HybridWorkflowPlanner().AdvanceAsync(state, new() { ExpectedRevision = state.Revision }, replay, Ct);
-        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join("; ", result.Diagnostics.Select(d => d.Code + " " + d.Location + " " + d.Message)));
-        Assert.Equal(5, result.ModelCalls); Assert.Equal(0, result.ReplanAttempts); Assert.Equal(1, replay.Calls);
+        var replay = new Replay(); var state = replay.State(replay.Recording["finalSession"]!);
+        var plan = Corrected(state.Plan!);
+        var catalog = state.Catalog!;
+        current.Update(catalog);
+        var retired = new TaskPlanCompiler().Compile(state.Plan!, catalog);
+        Assert.Contains(retired.Diagnostics, d => d.Code == "TASK_OPERATION_UNKNOWN" && d.Location.Contains("copilot_review", StringComparison.Ordinal));
+        var result = RecordedPlanCompilation.CompileStatic(new() { Plan = plan, Requirements = state.Requirements }, catalog, state.Request);
+        Assert.True(result.Status == PlanningStatus.FinalReview, string.Join(';', result.Diagnostics));
         Assert.DoesNotContain(result.Plan!.Inputs, i => i.Name == "tenantId");
-        PlanningArtifactApproval.Verify(result);
-        var recovered = JsonSerializer.Deserialize(JsonSerializer.Serialize(result, PlanningJsonContext.Default.PlanningSession), PlanningJsonContext.Default.PlanningSession)!;
-        PlanningArtifactApproval.Verify(recovered);
-        var scope = result.Graph!.Workflows.SelectMany(w => w.Steps).Single(n => n.Type == "agent.run");
-        Assert.Equal(Location, scope.Input.Members.Single(m => m.Name == "workspace").Value.Text);
-        Assert.Equal("string", scope.Input.Members.Single(m => m.Name == "workspace").Value.Kind);
-        var hash = recovered.ComputeArtifactHash(); recovered.Plan!.Root.Tasks.Single(t => t.Id == "paths").Outputs[0].Value.Text = "workflows/different";
-        Assert.NotEqual(hash, recovered.ComputeArtifactHash()); Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(recovered));
-        output.WriteLine($"Original request={Estimate(oldRequest)} tokens; current request={Estimate(replay.Request!)} tokens; scripted calls={replay.Calls}; fresh typed-contract allowance=96000/32768.");
-        Assert.InRange(Estimate(replay.Request!), 1, 96000);
+        var agents = result.Graph!.Workflows.SelectMany(w => w.Steps).Where(n => n.Type == "agent.run").ToList();
+        Assert.Equal(2, agents.Count);
+        Assert.All(agents, step => Assert.Equal(Location, step.Input.Members.Single(m => m.Name == "workspace").Value.Text));
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.Verify(result));
     }
 
     [Fact]
     public void CurrentCmdContractRejectsInventedNestedParametersBeforeGraphEmission()
     {
         using var current = new CurrentContracts(); var replay = new Replay(); var state = replay.State(replay.Recording["finalSession"]!);
+        current.Update(state.Catalog!);
         var cmd = state.Catalog!.Capabilities.Single(c => c.Method == "cmd_run");
-        state.Catalog.Capabilities[state.Catalog.Capabilities.IndexOf(cmd)] = current.Replace(cmd)!;
         var parameterPort = TaskOperations.Describe(state.Catalog.Capabilities.Single(c => c.Id == cmd.Id)).Inputs.Single(i => i.Name == "parameters");
         Assert.NotEmpty(PlanningContractValidation.ValidateInstance(new JsonObject { ["recursive"] = true }, parameterPort.Schema));
         var plan = Corrected(state.Plan!);
@@ -86,10 +75,53 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
         plan.Inputs.RemoveAll(i => i.Name == "tenantId");
         var agent = plan.Root.Tasks.Single(t => t.Id == "validate_project");
         agent.Inputs[agent.Inputs.FindIndex(i => i.Name == "workspace")] = new("workspace", new() { Kind = "output", Source = "paths", Port = "targetDirectory" });
-        plan.Root.Tasks.Single(t => t.Id == "copilot_review").Inputs.RemoveAll(i => i.Name == "tenantId");
+        plan.Root.Tasks.RemoveAll(t => t.Id == "code_policy");
+        agent.DependsOn.Remove("code_policy");
+        var review = plan.Root.Tasks.Single(t => t.Id == "copilot_review");
+        review.Id = "review_changed_files";
+        review.Operation = agent.Operation;
+        review.DependsOn.Remove("code_policy");
+        var compare = plan.Root.Tasks.Single(t => t.Id == "compare_pr");
+        compare.Inputs[compare.Inputs.FindIndex(i => i.Name == "baseRef")] = new("baseRef", new() { Kind = "string", Text = FixtureBase });
+        compare.Inputs[compare.Inputs.FindIndex(i => i.Name == "headRef")] = new("headRef", new() { Kind = "string", Text = FixtureHead });
+        review.Requires = new() { Kind = "predicate", Predicate = "and", Items = [MatchesRevision("baseSha", FixtureBase), MatchesRevision("headSha", FixtureHead)] };
+        review.Inputs = ReviewInputs(agent);
+        var delivery = plan.Root.Tasks.Single(t => t.Id == "final_review");
+        delivery.DependsOn[delivery.DependsOn.IndexOf("copilot_review")] = review.Id;
+        delivery.Inputs[delivery.Inputs.FindIndex(i => i.Name == "review")] = new("review", new() { Kind = "output", Source = review.Id, Port = "output" });
         var cleanup = plan.Root.Always.Single(t => t.Id == "cleanup_clone");
         cleanup.Inputs[cleanup.Inputs.FindIndex(i => i.Name == "parametersJson")] = new("parameters", new() { Kind = "object", Members = [new("path", new() { Kind = "output", Source = "paths", Port = "targetDirectory" })] });
         return plan;
+
+        static TaskValue MatchesRevision(string port, string expected) => new() { Kind = "predicate", Predicate = "equal",
+            Items = [new() { Kind = "output", Source = "compare_pr", Port = port }, new() { Kind = "string", Text = expected }] };
+    }
+
+    private static List<TaskOutput> ReviewInputs(PlanTask agent)
+    {
+        static TaskValue Text(string value) => new() { Kind = "string", Text = value };
+        static TaskValue Fields(params TaskOutput[] fields) => new() { Kind = "object", Members = [.. fields] };
+        static TaskValue Items(params TaskValue[] values) => new() { Kind = "array", Items = [.. values] };
+        static TaskValue Type(string type) => Fields(new TaskOutput("type", Text(type)));
+        static TaskValue ArrayOf(TaskValue item) => Fields(new("type", Text("array")), new("items", item));
+        static TaskValue Shape(params TaskOutput[] fields) => Fields(new("type", Text("object")),
+            new("properties", Fields(fields)), new("required", Items(fields.Select(f => Text(f.Name)).ToArray())),
+            new("additionalProperties", new() { Kind = "boolean", Boolean = false }));
+        static TaskValue Output(string source, string port) => new() { Kind = "output", Source = source, Port = port };
+        var finding = Shape(new("path", Type("string")), new("side", Type("string")), new("severity", Type("string")),
+            new("category", Type("string")), new("explanation", Type("string")), new("evidence", Type("string")),
+            new("startLine", Type("integer")), new("endLine", Type("integer")), new("confidence", Type("number")));
+        var report = Shape(new("base", Type("string")), new("head", Type("string")), new("findings", ArrayOf(finding)),
+            new("reviewed_files", ArrayOf(Type("string"))), new("limitations", ArrayOf(Type("string"))));
+        var compared = Fields(new("base", Output("compare_pr", "baseSha")), new("head", Output("compare_pr", "headSha")),
+            new("files", Output("compare_pr", "files")));
+        return [agent.Inputs.Single(i => i.Name == "workspace"), agent.Inputs.Single(i => i.Name == "budget"),
+            new("capabilities", Items(Text("project.read"))),
+            new("objective", Text("Choose changed files to read from the comparison and report anchored findings, observed coverage and limitations.")),
+            new("inputs", Fields(new("review", compared), new("instructions", Output("review_prompt", "instructions")),
+                new("existingComments", new() { Kind = "output", Source = "read_existing_review_comments" }))),
+            new("output_schema", report), new("verification", Items(Fields(new("id", Text("observed_review")),
+                new("kind", Text("review.diff")), new("subject", Text(FixtureHead)), new("facts_schema", Type("object")))))];
     }
 
     private static int Estimate(LLMRequest r) => (System.Text.Encoding.UTF8.GetByteCount(r.Prompt) + System.Text.Encoding.UTF8.GetByteCount(r.StructuredOutputSchema!.ToJsonString()) + 2) / 3 + 256;
@@ -107,8 +139,6 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
             ((IConfigureOptions<CmdServerSettings>)Activator.CreateInstance(typeof(CmdTools).Assembly.GetType("GnOuGo.Cmd.Mcp.CmdServerSettingsOptionsConfigurator")!, configuration)!).Configure(settings);
             Policy = new(settings, Root);
             Capture(typeof(CmdTools), "GnOuGo.Cmd.Mcp.CmdMcpJson");
-            var assembly = typeof(GnOuGo.GithubCopilot.Mcp.CodePolicy).Assembly;
-            Capture(assembly.GetType("GnOuGo.GithubCopilot.Mcp.CopilotTools")!, "GnOuGo.GithubCopilot.Mcp.CodeMcpJson");
         }
         private void Capture(Type type, string serializer)
         {
@@ -117,12 +147,17 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
             using var provider = services.BuildServiceProvider();
             foreach (var tool in provider.GetServices<McpServerTool>()) tools.Add(tool.ProtocolTool.Name, tool.ProtocolTool);
         }
-        internal PlanningCapability? Replace(PlanningCapability old)
+        internal void Update(PlanningCatalog catalog) => catalog.Capabilities = catalog.Capabilities
+            .Where(c => c.Server != "GnOuGo.GithubCopilot.Mcp").Select(Replace).ToList();
+
+        private PlanningCapability Replace(PlanningCapability old)
         {
-            if (old.Method is null || !tools.TryGetValue(old.Method, out var tool)) return null;
+            var agent = old.Kind == "agent";
+            tools.TryGetValue(old.Method ?? "", out var tool);
+            if (!agent && tool is null) return old;
             var c = JsonSerializer.Deserialize(JsonSerializer.Serialize(old, PlanningJsonContext.Default.PlanningCapability), PlanningJsonContext.Default.PlanningCapability)!;
-            c.InputSchema = JsonNode.Parse((old.Method == "cmd_run" ? Policy.BuildCmdRunInputSchema(tool.InputSchema) : tool.InputSchema).GetRawText())!.AsObject();
-            c.Description = old.Method == "cmd_run" ? Policy.BuildCmdRunToolDescription() : tool.Description!;
+            c.InputSchema = agent ? AgentTaskContracts.InputSchema : JsonNode.Parse((old.Method == "cmd_run" ? Policy.BuildCmdRunInputSchema(tool!.InputSchema) : tool!.InputSchema).GetRawText())!.AsObject();
+            if (tool is not null) c.Description = old.Method == "cmd_run" ? Policy.BuildCmdRunToolDescription() : tool.Description!;
             c.Operation = null; c.Version = PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(c, PlanningJsonContext.Default.PlanningCapability));
             return c;
         }
@@ -138,9 +173,7 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
         internal readonly JsonObject Recording = RecordedWorkspaceContractTests.Recording();
         internal readonly Dictionary<string, PlanningCapability> Replacements = [];
         internal JsonNode? Expected;
-        internal TaskPlan? Proposal;
-        internal int Calls;
-        internal LLMRequest? Request;
+        internal int Calls => 0;
         private readonly WorkflowPlanningRuntime actual = new(new(), (_, _) => Task.CompletedTask);
         public ICapabilityCatalog Capabilities => this;
         internal PlanningSession State(JsonNode compact)
@@ -173,18 +206,8 @@ public sealed class RecordedWorkspaceContractTests(ITestOutputHelper output)
             return Task.FromResult(page with { Capabilities = page.Capabilities.Select(Replace).ToList() });
         }
         public Task<PlanningCapability> ResolveAsync(CapabilitySummary s, CancellationToken ct) => Task.FromResult(Replacements.GetValueOrDefault(s.Id) ?? Recording["discovery"]!.Deserialize(PlanningJsonContext.Default.CapabilityDiscoveryState)!.Resolved.Single(c => c.Id == s.Id && c.Version == s.Version));
-        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct)
-        {
-            Calls++; Request = request;
-            if (Expected is not null)
-            {
-                Assert.Equal(Expected["pendingSession"]!["pendingCall"]!["id"]!.ToString(), request.ClientRequestId);
-                Assert.True(JsonNode.DeepEquals(Expected["pendingSession"]!["pendingCall"]!["request"]!["structuredOutputSchema"], request.StructuredOutputSchema));
-                return Task.FromResult(Expected["response"]!.Deserialize(PlanningJsonContext.Default.LLMResponse)!);
-            }
-            var response = JsonSerializer.SerializeToNode(new PlanningProposal { Plan = Proposal }, PlanningJsonContext.Default.PlanningProposal);
-            return Task.FromResult(new LLMResponse { Json = PlanningCorpus.Transport(response, request.StructuredOutputSchema!.AsObject(), request.StructuredOutputSchema.AsObject()) });
-        }
+        public Task<LLMResponse> CallAsync(LLMRequest request, string purpose, CancellationToken ct) =>
+            throw new InvalidOperationException("Retired planning recordings are read-only fixtures and cannot dispatch.");
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateAsync(PlanningArtifactValidationRequest request, CancellationToken ct) => actual.ValidateAsync(request, ct);
         public Task<IReadOnlyList<PlanningDiagnostic>> ValidateCatalogAsync(PlanningCatalog catalog, CancellationToken ct) => throw new InvalidOperationException("No execution approval");
         public Task CheckpointAsync(PlanningSession state, CancellationToken ct) => Task.CompletedTask;

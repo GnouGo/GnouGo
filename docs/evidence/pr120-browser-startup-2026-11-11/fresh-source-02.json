@@ -1,0 +1,60 @@
+{
+  "identity": "amazon-v12-source-20261111-02",
+  "source": "6cda7c8409a34e3e9cfb32c30c3fb6c4641b8109",
+  "model_calls": 0,
+  "tool_calls": [
+    "browser_get_content",
+    "browser_close"
+  ],
+  "success": false,
+  "error_code": "SNAPSHOT_EXPIRED",
+  "snapshot_attempts": 3,
+  "invalidations": [
+    {
+      "snapshotId": "96f2c00242c24a13b5a6622a450cfc3b",
+      "generation": 3,
+      "reason": "navigation",
+      "atUtc": "2026-11-11T18:54:22.068449+00:00"
+    },
+    {
+      "snapshotId": "b91a1b434d02455d89a3c1e4d37d13ab",
+      "generation": 6,
+      "reason": "navigation",
+      "atUtc": "2026-11-11T18:54:25.881625+00:00"
+    },
+    {
+      "snapshotId": "e71aab95e3054682ac5bfaed06760539",
+      "generation": 9,
+      "reason": "navigation",
+      "atUtc": "2026-11-11T18:54:29.672391+00:00"
+    }
+  ],
+  "acquisition_phase": "readiness",
+  "elapsed_ms": 13329,
+  "observed_main_frame_kind": "Amazon product page",
+  "observed_main_frame_method": "GET",
+  "observed_main_frame_status": 200,
+  "last_response_method": "GET",
+  "last_response_status": 200,
+  "complete_snapshot_published": false,
+  "navigation_evidence": null,
+  "source_qualified": false,
+  "cold_reload_identical": true,
+  "cleanup": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "underlying_navigation_initiator": "Unknown; user interaction queried separately, no attribution inferred.",
+  "new_interruption_diagnostic_exercised": false,
+  "business_workflow_executed": false,
+  "business_oracle_qualified": false,
+  "no_replay_or_favorable_source_hunt": true,
+  "evidence_sha256": {
+    "admission.json": "5cc7d1ada466e7b9127aa43e5e2028ac80dc60ff9606163de9a243d2c99c67c7",
+    "events.json": "dc144ce595e3ed22b8caec8d865759305c08a94c9bcea7fd3bdcc9055a338f10",
+    "selection.json": "d67e1b6a3232dc098cc4434f6e4f11703300223131d141f6df491fc43ee848ef",
+    "cold-selection.json": "d67e1b6a3232dc098cc4434f6e4f11703300223131d141f6df491fc43ee848ef",
+    "close.json": "bc039087349d1633f080975af570b5ba5076b9ba9ced91d03991fc4f0a6610bb"
+  }
+}

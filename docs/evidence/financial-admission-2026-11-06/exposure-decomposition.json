@@ -1,0 +1,21 @@
+{
+  "currency": "EUR",
+  "capturedCeiling": "740.0301038327063045424449473",
+  "ceilingOwner": "existing benchmark campaign spending authorizations, not provider balance or ordinary Server session allowance",
+  "knownCampaignTariffEstimate": "475.28093332377412455040481684",
+  "unresolvedCampaignReservations": "222.7236032944974286315167358",
+  "campaignExposure": "698.00453661827155318192155264",
+  "campaignHeadroomBeforeExternalSessions": "42.02556721443475136052339466",
+  "externalProvisionalHoldRoundedUp": "733.8902769679137437881016912",
+  "proposedProbeCurrentReservation": "2.74113963681903569192235446",
+  "proposedProbeFutureReviewForecast": "0",
+  "originalRefusedExposure": "1434.6359532230043326619455983",
+  "shortfallUsingProvisionalHold": "694.6058493902980281195006510",
+  "verifiedGloballyAvailableFunding": null,
+  "providerInvoicedCost": null,
+  "completedExternalReceiptsWithoutCacheWriteTariff": 325,
+  "legacyCampaignBudgetPresent": false,
+  "externalHoldIsVerifiedLiabilityUpperBound": false,
+  "sourceRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "note": "All monetary figures are decimal strings. Provisional holds are original nominal estimates, not invoices or proof of complete billing. No historical repricing, ceiling increase or reservation release."
+}

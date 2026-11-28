@@ -1,0 +1,45 @@
+{
+  "run": "win-amazon-first-ten-20261126-195751",
+  "session": "cdd1b1178ec24fe084398b8252b9bcbf",
+  "source": "8cf5d9f476c801abcb4eb5aade073ec86a42714a",
+  "terminal_revision": 65,
+  "physical_calls": 24,
+  "counted_repairs": 5,
+  "measured_tariff_eur": "1.268810933940774487471526196",
+  "final_approval": false,
+  "business_execution": false,
+  "observations": [
+    "The planner retained two distinct failure branches, for source publication and for the selected prefix. Both exported null selection and runnerStatus. The caller could not distinguish the outcomes.",
+    "The operator answered the planner's branch_exports clarification at revision 60. The Server accepted the answer at revision 61. The answer recorded the operator's intent. The earlier construction edits still had their original scope.",
+    "The next local review stopped at revision 65. The benchmark then terminated its temporary Server."
+  ],
+  "offline_explicit_revision": {
+    "input_revision": 65,
+    "output_revision": 66,
+    "status": "generating",
+    "preserved_accepted_plan": true,
+    "preserved_requirements": true,
+    "preserved_repair_counters": true,
+    "physical_calls": 0,
+    "issued_paths": [
+      "/tasks/prefix_guard/otherwise/outputs/selection",
+      "/tasks/prefix_guard/otherwise/outputs/runnerStatus",
+      "/tasks/select_products/otherwise/outputs/selection",
+      "/tasks/select_products/otherwise/outputs/runnerStatus"
+    ]
+  },
+  "harness_change": {
+    "source": "90a5773777da31a9ace11f2e0de754cc3ae89a61",
+    "opt_in": "--await-scoped-revision",
+    "max_windows": 2,
+    "seconds_per_window": 180,
+    "focused_windows_tests_passed": 66
+  },
+  "closing_campaign": {
+    "calls": 196,
+    "measured_tariff_eur": "8.193635535307517084282460143",
+    "reserved_eur": "0",
+    "unknown_attempts": 0,
+    "available_eur": "6.806364464692482915717539857"
+  }
+}

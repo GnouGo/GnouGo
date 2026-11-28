@@ -13,6 +13,18 @@ produce a substitute output. The compiler checks the condition's type, dependenc
 and availability, then emits an existing checked `set` before inputs, runtime
 inference or effects. Predicates remain structured until final YAML lowering.
 Selected-field checks on the right of `and`/`or` retain short-circuit behavior.
+For an affirmative prerequisite on a nullable Boolean, `equal(flag, true)`
+accepts only an observed true value. A type diagnostic identifies the rejected
+operand and its contract. When that operand comes from a conditional export,
+the diagnostic also shows the relevant alternative contracts.
+An ordering predicate accepts a union when every alternative supplies a number.
+For example, an integer output from one branch and a nonnegative integer from
+another can both supply the same bounds check.
+When a conditional exports a record on one branch and null on the other,
+`and(not_equal(record, null), record.more)` can read the declared Boolean
+field. The right operand and the selected branch inherit the non-null check.
+An alternative that can still contain a scalar, or an object missing the
+requested field, fails validation.
 
 For example, a publication sequence may require observed completeness and return
 its actual written path. Ordinary `conditional` tasks still need matching explicit
@@ -55,7 +67,7 @@ dotnet pack src/GnOuGo.Flow.Core -c Release -m:1 -warnaserror
 dotnet pack src/GnOuGo.Flow.Planning -c Release -m:1 -warnaserror
 dotnet publish tests/GnOuGo.Flow.Planning.Smoke -c Release -r osx-arm64 \
   --self-contained true -m:1 -warnaserror
-tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net10.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke
+tests/GnOuGo.Flow.Planning.Smoke/bin/Release/net11.0/osx-arm64/publish/GnOuGo.Flow.Planning.Smoke
 ```
 
 `TaskPreconditionTests` and `FinalizerCaptureTests` exercise real Flow execution with

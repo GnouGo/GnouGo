@@ -2,22 +2,42 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Expressions;
 using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime.Executors;
 
 /// <summary>Executes one bounded adaptive stage through injected, provider-neutral contracts.</summary>
 public sealed class AgentRunExecutor : IStepExecutor
 {
+    public const string ResultGuarantee = "A dependent step receives output only after the runner completed, the output matched output_schema, and the host passed every requested verification. Failure or missing evidence stops this step.";
+
     public string StepType => "agent.run";
     public StepContract Contract => new(
         AgentTaskContracts.InputSchema,
-        JsonNode.Parse("""{"type":"object","properties":{"status":{"type":"string"},"output":{},"evidence":{"type":"array"},"artifacts":{"type":"array"},"usage":{"type":"object"},"verification":{"type":"array"}},"required":["status","output","evidence","artifacts","usage","verification"]}""")!.AsObject(),
+        JsonNode.Parse("""
+            {
+              "type":"object",
+              "properties":{
+                "status":{"type":"string","enum":["completed"]},
+                "output":{},
+                "evidence":{"type":"array"},
+                "artifacts":{"type":"array"},
+                "usage":{"type":"object"},
+                "verification":{"type":"array","minItems":1,"items":{
+                  "type":"object","required":["requirement_id","passed","message"],"properties":{
+                    "requirement_id":{"type":"string"},"passed":{"type":"boolean","enum":[true]},"message":{"type":["string","null"]}
+                  },"additionalProperties":false
+                }}
+              },
+              "required":["status","output","evidence","artifacts","usage","verification"]
+            }
+            """)!.AsObject(),
         InputRequired: true);
 
     public string DslSnippet => """
         ### agent.run — Bounded adaptive work
         Input declares runner, objective, inputs, output_schema, workspace, capabilities,
-        budget (max_elapsed_milliseconds, max_model_calls, max_total_tokens), and verification
+        budget (max_elapsed_milliseconds, max_model_calls, max_total_tokens, optional max_actions), and verification
         requirements (id, kind, subject, facts_schema). The host supplies the runner.
         Successful output requires observed evidence for every approved requirement.
         """;
@@ -33,9 +53,11 @@ public sealed class AgentRunExecutor : IStepExecutor
                 throw Failure(ErrorCodes.InputValidation, "Agent execution requires tenant and run identities.");
             if (!ctx.Engine.AgentTaskRunners.TryGetValue(taskDefinition.Runner, out runner!))
                 throw Failure("AGENT_RUNNER_UNAVAILABLE", "The configured agent runner is unavailable.");
+            if (taskDefinition.Budget.MaxActions.HasValue && !runner.SupportsActionLimit)
+                throw Failure("AGENT_SCOPE_UNSUPPORTED", "The runner cannot enforce the approved tool action limit.");
             context = new(ctx.Limits.TenantId, ctx.Limits.RunId, ctx.InvocationId, taskDefinition)
             {
-                ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName,
+                ExecutionId = ctx.Limits.ExecutionId, AgentId = ctx.Limits.AgentId, AgentName = ctx.Limits.AgentName, Execution = ctx,
                 HumanInput = (request, phase) => ctx.AddTelemetryEvent(phase == "Waiting" ? "gnougo-flow.step.waiting_for_human" : "gnougo-flow.step.human_input_resumed",
                     [new("gnougo-flow.human.prompt", request.Prompt), new("gnougo-flow.human.request", HumanInputContract.BuildRequestPayload(request).ToJsonString()),
                      new("gnougo-flow.human.run_id", request.RunId), new("gnougo-flow.human.step_id", request.StepId), new("gnougo-flow.human.phase", phase.ToLowerInvariant())]),
@@ -65,10 +87,12 @@ public sealed class AgentRunExecutor : IStepExecutor
             await ctx.RecordExternalObservationAsync(observation, CancellationToken.None);
         else await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
         return await ValidateResultAsync(context, result, ctx.Engine.AgentTaskVerifier, ct,
-            verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None));
+            verified => ctx.RecordExternalCompletionAsync(JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), CancellationToken.None),
+            advisoryTokenThresholds: ctx.LLMUsageBudget?.AdvisoryTokenThresholds == true);
     }
 
-    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null)
+    internal static async Task<JsonNode?> ValidateResultAsync(AgentTaskContext context, AgentTaskResult result, IAgentTaskVerifier verifier, CancellationToken ct, Func<AgentTaskResult, Task>? persistVerified = null,
+        bool advisoryTokenThresholds = false)
     {
         var task = context.Task;
         if (result.Status == "completed" && result.Failure is not null)
@@ -83,9 +107,12 @@ public sealed class AgentRunExecutor : IStepExecutor
                 { ["cause"] = JsonSerializer.SerializeToNode(cause, WorkflowRunJsonContext.Default.WorkflowError) } : null);
         if (result.Status != "completed")
             throw Failure("AGENT_TASK_FAILED", "The agent did not complete the approved task.");
+        if (advisoryTokenThresholds && result.Usage.TotalTokens > task.Budget.MaxTotalTokens)
+            PlanningTokenThresholds.Warn("agent.run", "total_tokens", result.Usage.TotalTokens, task.Budget.MaxTotalTokens);
         if (result.Usage.ModelCalls < 0 || result.Usage.TotalTokens < 0 || !double.IsFinite(result.Usage.ElapsedMilliseconds) ||
             result.Usage.ElapsedMilliseconds < 0 || result.Usage.ModelCalls > task.Budget.MaxModelCalls ||
-            result.Usage.TotalTokens > task.Budget.MaxTotalTokens || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)
+            task.Budget.MaxActions is { } limit && (result.Usage.Actions is not { } count || count < 0 || count > limit) ||
+            result.Usage.TotalTokens > task.Budget.MaxTotalTokens && !advisoryTokenThresholds || result.Usage.ElapsedMilliseconds > task.Budget.MaxElapsedMilliseconds)
             throw Failure("AGENT_BUDGET_EXCEEDED", "Observed agent usage violates the approved budget.");
         if (JsonSchemaContractValidator.ValidateInstance(result.Output, task.OutputSchema).Count > 0)
             throw Failure("AGENT_OUTPUT_INVALID", "The agent result does not satisfy its approved output contract.");

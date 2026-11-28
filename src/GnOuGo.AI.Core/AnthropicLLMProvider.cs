@@ -1,4 +1,4 @@
-﻿
+
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
@@ -46,6 +46,8 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 	public async Task<LLMClientResponse> CallAsync(
 		string model, ModelProviderOptions provider, LLMClientRequest request, CancellationToken ct)
 	{
+		request = LocalLLMProvider.CloneRequest(request);
+		request.ResolvedTransport ??= LLMTransportResolver.ForRequest(model, provider, request);
 		if (request.UseBackgroundMode)
 			return await CallBatchBackgroundAsync(model, provider, request, ct);
 
@@ -66,12 +68,13 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.Reasoning,
 			request.MaxOutputTokens,
 			request.StructuredOutputSchema,
-			request.StructuredOutputStrict);
+			request.StructuredOutputStrict, request.Images);
 
 		HttpRequestMessage CreateMessageRequest()
 		{
 			var requestMessage = HttpRequestHelper.CreateJsonPost(url, payload);
 			ApplyHeaders(requestMessage, auth);
+			LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
 			return requestMessage;
 		}
 
@@ -113,7 +116,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.Reasoning,
 			request.MaxOutputTokens,
 			request.StructuredOutputSchema,
-			request.StructuredOutputStrict);
+			request.StructuredOutputStrict, request.Images);
 
 		HttpRequestMessage CreateBatchRequest()
 		{
@@ -351,7 +354,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string? reasoning = null,
 		int? maxOutputTokens = null,
 		JsonNode? structuredOutputSchema = null,
-		bool? structuredOutputStrict = null)
+		bool? structuredOutputStrict = null, IReadOnlyList<LLMImageInput>? images = null)
 	{
 		const int DefaultMaxTokens = 16384;
 		var forceStructuredOutputTool = structuredOutputSchema != null;
@@ -374,7 +377,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteStartArray("messages");
 			w.WriteStartObject();
 			w.WriteString("role", "user");
-			w.WriteString("content", prompt);
+			VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Anthropic);
 			w.WriteEndObject();
 			w.WriteEndArray();
 
@@ -484,7 +487,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string? reasoning = null,
 		int? maxOutputTokens = null,
 		JsonNode? structuredOutputSchema = null,
-		bool? structuredOutputStrict = null)
+		bool? structuredOutputStrict = null, IReadOnlyList<LLMImageInput>? images = null)
 	{
 		const int DefaultMaxTokens = 16384;
 		var forceStructuredOutputTool = structuredOutputSchema != null;
@@ -515,7 +518,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteStartArray("messages");
 			w.WriteStartObject();
 			w.WriteString("role", "user");
-			w.WriteString("content", prompt);
+			VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Anthropic);
 			w.WriteEndObject();
 			w.WriteEndArray();
 

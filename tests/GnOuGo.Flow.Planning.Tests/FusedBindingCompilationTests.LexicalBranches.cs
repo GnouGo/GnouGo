@@ -50,4 +50,58 @@ public sealed partial class FusedBindingCompilationTests
         File.WriteAllText(Path.Combine(folder, name + "-v13.yaml"), before);
         File.WriteAllText(Path.Combine(folder, name + "-v14.yaml"), after);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task BranchOutputCanShareItsNameWithAnIntermediateField(bool enabled)
+    {
+        var catalog = await Catalog();
+        TaskValue ObservedMessage() => new()
+        {
+            Kind = "field", Port = "message",
+            Items = [new() { Kind = "at_index", Items = [
+                new() { Kind = "input", Source = "records" }, new() { Kind = "number", Number = 0 }] }]
+        };
+        var plan = new TaskPlan
+        {
+            Inputs = [
+                new() { Name = "enabled", Type = new() { Kind = "boolean" } },
+                new() { Name = "records", Type = new() { Kind = "array", MinItems = 1,
+                    Items = new() { Kind = "object", Fields = [new() { Name = "message", Type = new() { Kind = "string" } }] } } }
+            ],
+            Root = new()
+            {
+                Tasks = [new()
+                {
+                    Id = "choose", Kind = "conditional", Objective = "Report the selected outcome",
+                    Condition = new() { Kind = "input", Source = "enabled" },
+                    Body = new() { Outputs = [new("outcome", new() { Kind = "string", Text = "accepted" })] },
+                    Otherwise = new()
+                    {
+                        Outputs = [new("outcome", new()
+                        {
+                            Kind = "json", Items = [new() { Kind = "object", Members = [
+                                new("enabled", new() { Kind = "input", Source = "enabled" }), new("message", ObservedMessage())] }]
+                        })]
+                    }
+                }],
+                Outputs = [new("result", new() { Kind = "output", Source = "choose", Port = "outcome" })]
+            }
+        };
+        var request = PlannerFixture.Session().Request;
+        request.Options["compilation_profile"] = TaskPlanCompiler.CompactProfile;
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog, request);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog, "branch outputs",
+            descriptions: true, fuseBindings: true, consumerBindings: true, directProjections: true, nativeMappings: true,
+            readableMappings: true, leanMappings: true, compactProjections: true, inlineConsumers: true, directValues: true,
+            checkedControls: true, readableBranches: true, simplifiedLocals: true);
+        var result = await LookupCompilationTests.Execute(yaml, new() { ["enabled"] = enabled,
+            ["records"] = new JsonArray(new JsonObject { ["message"] = "observed" }) }, new());
+        Assert.True(result.Success, result.Error?.Message);
+        var value = result.Outputs!["result"]!.GetValue<string>();
+        if (enabled) Assert.Equal("accepted", value);
+        else Assert.Equal("observed", JsonNode.Parse(value)!["message"]!.GetValue<string>());
+    }
 }

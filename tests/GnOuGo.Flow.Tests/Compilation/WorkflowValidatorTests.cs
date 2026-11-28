@@ -14,6 +14,24 @@ public class WorkflowValidatorTests
 
     private static WorkflowDocument ParseDoc(string yaml) => WorkflowParser.Parse(yaml);
 
+    [Theory]
+    [InlineData("chat_history.get", false)]
+    [InlineData("chat_history.append", false)]
+    [InlineData("workflow.route", true)]
+    public void DefaultCatalogAgreesWithExecutableStepTypes(string type, bool supported)
+    {
+        var document = ParseDoc($$"""
+            version: 1
+            skill: { description: Routing test, tags: [test], inputs: {}, outputs: {} }
+            workflows:
+              main:
+                steps:
+                  - {id: operation, type: {{type}}}
+            """);
+        foreach (var validator in new[] { _validator, new WorkflowValidator(new WorkflowEngine().Registry) })
+            Assert.Equal(supported, !validator.Validate(document).Any(error => error.Code == ErrorCodes.StepTypeUnknown));
+    }
+
     [Fact]
     public void Validate_ValidDocument_NoErrors()
     {

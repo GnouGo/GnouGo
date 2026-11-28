@@ -4,7 +4,7 @@ MCP (Model Context Protocol) stdio server for reading and writing document files
 
 ## MCP protocol compatibility
 
-This stdio server uses the C# MCP SDK `2.2.0` with automatic protocol negotiation. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
+This stdio server uses the C# MCP SDK `2.4.0` with automatic protocol negotiation. Launch the built apphost, or use `dotnet GnOuGo.Document.Mcp.dll`; do not put `dotnet run` on an MCP stdio transport because CLI output can corrupt the JSONL stream.
 
 `document_write` publishes a successful structured-output schema: `success` is true,
 `filePath` and `filePathAbsolute` are nonempty strings, and `bytesWritten` is a
@@ -21,9 +21,19 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 |--------|------|-------|
 | PDF    | ✅ (text extraction via PdfPig) | ✅ (plain text or auto-detected Markdown) |
 | DOCX   | ✅ (paragraphs, tables, headings) | ✅ (plain text or auto-detected Markdown) |
-| XLSX   | ✅ (sheets → markdown tables) | ✅ (from TSV/CSV text) |
+| XLSX   | ✅ (worksheet cells, markdown tables or plain text) | ✅ (ordered rows or legacy delimited text) |
 | PPTX   | ✅ (slides → markdown) | ❌ |
 | TXT, MD, CSV, JSON, XML, YAML | ✅ | ✅ |
+
+For exact workbook readback, call `document_read` with `format="cells"`.
+Each worksheet section has an ordered `rows` matrix of stored cell values.
+Strings retain whitespace and line breaks. Empty strings stay empty, absent
+cells are null, and omitted worksheet rows appear as empty arrays. The read
+and write tool schemas both accept a string or null at each cell position. Numeric
+and formula cells expose their stored value, including any cached formula
+result. Formulas run only in spreadsheet software. The reader returns an
+error if a worksheet exceeds 500 rows or the workbook exceeds 100,000 cell
+positions. The markdown and plain formats continue to return section text.
 
 ## MCP Tools
 
@@ -31,16 +41,16 @@ workflows and approvals are not rewritten; changed contract fingerprints require
 |------|-------------|
 | `document_get_policy` | Returns active policy (roots, extensions, limits) |
 | `document_list` | Lists allowed files in a directory |
-| `document_read` | Reads a document, returns structured sections (markdown or plain) |
+| `document_read` | Reads document sections as markdown or plain text, or returns ordered XLSX cells |
 | `document_write` | Writes or appends content to a file, creating missing parent directories inside allowed roots (generates DOCX/XLSX for Office formats) |
 
-`document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. This lets clients choose valid target paths without a separate hardcoded allowlist.
+`document_write` includes the current `document_get_policy` values in its MCP tool description when clients list tools: allowed roots, allowed extensions, default working directory, and max file size. Use those values when selecting a target. Read policy separately when the workflow needs additional or refreshed settings. For XLSX, pass ordered arrays of exact strings or null cells to `rows`, with any requested header as the first row.
 
 Document paths may target normal visible content below the configured workspace, including workflow-owned output below `workflows/<purpose-specific-name>`. The `.GnOuGo/` subtree is reserved for GnOuGo-managed state and is rejected for reads and writes. Recursive `document_list` results omit that reserved tree.
 
 ### Incremental writes for LLM workflows
 
-`document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. For long MCP workflows, prefer this pattern:
+`document_write` has an `append` parameter. The default is `false`, which preserves the existing overwrite/create behavior. When sections become available incrementally, use the following sequence. If all rows are ready, submit them in one write.
 
 1. Call `document_write` once with `append=false` to initialize the target document.
 2. Call `document_write` repeatedly with `append=true` as each section is produced.
@@ -52,7 +62,7 @@ Append support by format:
 | Format | Append behavior |
 |--------|-----------------|
 | DOCX | Appends new Markdown/plain-text content to the existing document body |
-| XLSX | Appends parsed rows to the first worksheet |
+| XLSX | Appends rows to the first worksheet |
 | PDF | Regenerates a readable PDF from existing extracted text plus new content |
 | TXT, MD, CSV, JSON, XML, YAML | Appends text exactly as provided |
 
@@ -93,7 +103,7 @@ dotnet test tests/GnOuGo.Document.Mcp.Tests/
 ## Run
 
 ```bash
-dotnet src/GnOuGo.Document.Mcp/bin/Debug/net10.0/GnOuGo.Document.Mcp.dll
+dotnet src/GnOuGo.Document.Mcp/bin/Debug/net11.0/GnOuGo.Document.Mcp.dll
 ```
 
 ## Native AOT Publish (win-x64)

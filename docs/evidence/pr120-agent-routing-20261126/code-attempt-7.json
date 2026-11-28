@@ -1,0 +1,216 @@
+{
+  "source": "bc574d6730f351dbbeed77a1a7d923000692ecfd",
+  "run": "routing30-code-20261127-024452",
+  "session_id": "78d4578065d9433996d354c5bf66b46e",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261127-024452",
+  "planning_passed": false,
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 47,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_select": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "known_input_tokens": 36716,
+      "known_output_tokens": 7604,
+      "cost_eur": "0.1182779043280182232346241458"
+    },
+    "construction_implementation": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "known_input_tokens": 187001,
+      "known_output_tokens": 5640,
+      "cost_eur": "0.4516651480637813211845102506"
+    },
+    "construction_local_judge": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "known_input_tokens": 36538,
+      "known_output_tokens": 1153,
+      "cost_eur": "0.0884829157175398633257403189"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 1749,
+      "known_output_tokens": 1769,
+      "cost_eur": "0.0120432801822323462414578588"
+    },
+    "construction_draft": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "known_input_tokens": 137220,
+      "known_output_tokens": 3353,
+      "cost_eur": "0.3278496583143507972665148065"
+    },
+    "construction_discovery": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "known_input_tokens": 75555,
+      "known_output_tokens": 2083,
+      "cost_eur": "0.1815968109339407744874715262"
+    }
+  },
+  "logical_planning_calls": 47,
+  "campaign_delta": {
+    "calls": 47,
+    "known_input_tokens": 474779,
+    "known_output_tokens": 21602,
+    "known_cost_eur": "1.179915717539863325740318919",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "1.179915717539863325740318919"
+  },
+  "campaign_after": {
+    "calls": 505,
+    "session_calls": 0,
+    "known_input_tokens": 7703685,
+    "known_output_tokens": 262043,
+    "known_cost_eur": "18.742075170842824601366742721",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "18.742075170842824601366742721",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "030a9f7c7d624adf8892cd297db8a477",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5017380410022779043280182232",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "17eb38fe03644268b532ba9abefdaca3",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7238792710706150341685649203",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "22776588c0bc4545a1ba6588c3d8149b",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9240706150341685649202733485",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "58590fa82d5d4ec0a064637eb54b8aac",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0884601366742596810933940776",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "78d4578065d9433996d354c5bf66b46e",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1799157175398633257403189068",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8e8df1d69bd463ba4180929d5c945d9",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7150842824601366742596810934",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "abbd18f3dca04c229c59c7a3881b668e",
+        "httpAttempts": 44,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6792801822323462414578587702",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "db68062abe534f9aa3bfcbe06cdea2fa",
+        "httpAttempts": 67,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.3950637813211845102505694767",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e0d3f70a3ba3465ca8d5fd3c6f972bfa",
+        "httpAttempts": 79,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.5321230068337129840546697044",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "11.25792482915717539863325728",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/root"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-27T02:45:43.4653718+00:00",
+  "finished_utc": "2026-11-27T02:57:39.4104142+00:00",
+  "wall_seconds": 715.945,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/root",
+      "message": "An extension must add work, declare an output or close an existing obligation."
+    }
+  ]
+}

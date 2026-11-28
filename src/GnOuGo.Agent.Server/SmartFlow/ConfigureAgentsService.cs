@@ -238,6 +238,7 @@ public sealed class ConfigureAgentsService
             Logger = _logger,
             Limits = new ExecutionLimits
             {
+                FinalizationTimeoutSeconds = _executionSettings.FinalizationTimeoutSeconds,
                 MaxMappingInputTokens = _executionSettings.MaxMappingInputTokens,
                 LogStepContent = true,
                 RunId = Guid.NewGuid().ToString("N"),

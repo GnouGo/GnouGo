@@ -1,0 +1,25 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "images": [
+    {
+      "file": "screenshots/controlled-active-phase.png",
+      "sha256": "4fee36c55e0b79215ffec17a487a41e86ece7ab5bfe00177f067403de8873e5b",
+      "evidence": "Controlled provider / actual Agent.Server browser; not live-provider evidence"
+    },
+    {
+      "file": "screenshots/controlled-shared-exchange.png",
+      "sha256": "e3ed23665d60f3eed9e6adddcf9d88e3927a3cac9d92d31b0dc7f43cbba41801",
+      "evidence": "Controlled provider / actual Agent.Server browser; not live-provider evidence"
+    },
+    {
+      "file": "screenshots/controlled-warning-continues.png",
+      "sha256": "712fbfa5199d3ea5d7c496f1eeeded85935b5e8fbae9db1b3b4444daafc22d17",
+      "evidence": "Controlled provider / actual Agent.Server browser; not live-provider evidence"
+    },
+    {
+      "file": "screenshots/controlled-required-contract-recovery.png",
+      "sha256": "8d422f4fdf1194426ea5cb774db34b28731b4b6e56ae390894a33402bfbda23c",
+      "evidence": "Controlled provider / actual Agent.Server browser; not live-provider evidence"
+    }
+  ]
+}

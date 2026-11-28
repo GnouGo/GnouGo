@@ -1,0 +1,16 @@
+{
+  "reference_session": "81c83cd17de8440ab879cde086af58a4",
+  "candidate_revision": 98,
+  "original_url_diagnostic": "TASK_INPUT_TYPE",
+  "source_position_url_diagnostics": 0,
+  "source_and_selected_href_equality_diagnostics": 0,
+  "other_diagnostics": [
+    "TASK_IDENTITY_INVALID",
+    "TASK_INPUT_TYPE",
+    "TASK_BRANCH_OUTPUTS"
+  ],
+  "probe": "Isolated variation of captured draft. A zero-based link position and equality assertion bind the exact Browser href.",
+  "model_calls": 0,
+  "workflow_executed": false,
+  "source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae"
+}

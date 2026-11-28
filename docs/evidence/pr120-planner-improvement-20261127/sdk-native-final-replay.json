@@ -1,0 +1,42 @@
+{
+  "original_session": "18eaa435484d4b18977c1f08860e8b06",
+  "captured_source": "4cb2c264364b04fd50f941330c376357481c1e56",
+  "method": "Four retained native Chat provider request bodies, replayed in order through the revised production inference admission method. No network, tools or provider calls. The campaign proxy applied its hosted model and output limit before retention.",
+  "replay_provider_calls": 0,
+  "replay_binary_sha256": "743c1a5cb1fe5474c161fb7dc4b005e81434cd9742ae53e09fba81d30a9ca271",
+  "requests": [
+    {
+      "call": 1,
+      "source_request_sha256": "dfdf231e0596411fc38661faa89d26688e359d040a5522c1b526344f89074f2c",
+      "source_request_bytes": 28335,
+      "retained_tool_messages": 0,
+      "restricts_to_final_answer": false,
+      "replay_cumulative_reserved_tokens": 36527
+    },
+    {
+      "call": 2,
+      "source_request_sha256": "9274ecd3f8e19476fb22942b79190799f469091d15ba38d0009bd3476d9708dd",
+      "source_request_bytes": 78078,
+      "retained_tool_messages": 11,
+      "restricts_to_final_answer": false,
+      "replay_cumulative_reserved_tokens": 122797
+    },
+    {
+      "call": 3,
+      "source_request_sha256": "c778969845a0fb79148c720620ef1b8053e8205d202fe9f902047a252b530507",
+      "source_request_bytes": 150565,
+      "retained_tool_messages": 21,
+      "restricts_to_final_answer": false,
+      "replay_cumulative_reserved_tokens": 281554
+    },
+    {
+      "call": 4,
+      "source_request_sha256": "0285bd7fbb65f3a9a3b29f4c1b75418268ccaa596b519b14074136de6cd7850f",
+      "source_request_bytes": 178030,
+      "retained_tool_messages": 26,
+      "restricts_to_final_answer": true,
+      "replay_cumulative_reserved_tokens": 467797
+    }
+  ],
+  "replay_source": "e219a2463bec0cf500bd68bb9a4badb1862554c3"
+}

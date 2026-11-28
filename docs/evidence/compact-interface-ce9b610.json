@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "control_revision": "ce9b610bfc101232c7e9a727fa02136059fdd552",
+  "scope": "Offline synthetic extraction experiments; no model calls or execution. Arms remain separate from the active v4 implementation.",
+  "manifest_sha256": "2f1d1c304c26fe23d5818098f09b6cf7f03ba89048d2d7ac1f43f04b5095316d",
+  "retained_evidence_directory": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/interface-experiments",
+  "arms": {
+    "control": "ce9b610 compact JSON instructions and existing double-compacted schema",
+    "single_compaction": "Only shared raw builder and final compaction; guidance unchanged. Recursive schema graphs equivalent, same byte counts, different serialized reference/order hashes. Code cleanup, no demonstrated model-complexity reduction.",
+    "guidance_only": "Only v3 guidance consolidated; double compaction/schema unchanged. 1618 to 1426 UTF-8 instruction bytes. No LLM efficacy claim."
+  },
+  "validation": [
+    {
+      "stage": "control",
+      "passed": 6,
+      "failed": 0,
+      "trx_sha256": "e67c7d555f5949cd5351b66cec0ee869844d652aa152e3d90cfeb418d24f9e4a"
+    },
+    {
+      "stage": "single-compaction",
+      "passed": 73,
+      "failed": 0,
+      "trx_sha256": "2c5a6be70dfbbfe2697b58ee699575ac170df053da82c3e4edaf8ea1eaf9f58b"
+    },
+    {
+      "stage": "schema-equivalence",
+      "passed": 6,
+      "failed": 0,
+      "trx_sha256": "4ea8399eb3873a2e56391a5394200bfc75a79976447d4a62e6f8f7d32f6e37b3"
+    },
+    {
+      "stage": "guidance-only",
+      "passed": 73,
+      "failed": 0,
+      "trx_sha256": "f1056300034663f45d07c488f1d85bb76234f105462554dca60ddca3951d7dc2"
+    }
+  ],
+  "representative_measurements": [
+    {
+      "case": "both-directory",
+      "control_schema_bytes": 5283,
+      "single_compaction_schema_bytes": 5283,
+      "control_request_bytes": 8621,
+      "single_compaction_request_bytes": 8621,
+      "guidance_request_bytes": 8424,
+      "control_estimated_input": 3130,
+      "guidance_estimated_input": 3064,
+      "single_compaction_schema_byte_identical": false,
+      "single_compaction_graph_equivalent": true,
+      "historical_standalone_byte_identical": true,
+      "golden_accepted_per_schema": 4,
+      "golden_rejected_per_schema": 8
+    },
+    {
+      "case": "both-single",
+      "control_schema_bytes": 4995,
+      "single_compaction_schema_bytes": 4995,
+      "control_request_bytes": 7913,
+      "single_compaction_request_bytes": 7913,
+      "guidance_request_bytes": 7716,
+      "control_estimated_input": 2894,
+      "guidance_estimated_input": 2828,
+      "single_compaction_schema_byte_identical": false,
+      "single_compaction_graph_equivalent": true,
+      "historical_standalone_byte_identical": true,
+      "golden_accepted_per_schema": 3,
+      "golden_rejected_per_schema": 8
+    }
+  ],
+  "patches": [
+    {
+      "file": "single-compaction.patch",
+      "sha256": "ebcbffc747f74eef5b70eaf964f5729a4e5b089d1b16953c78ce2b2f7b855005"
+    },
+    {
+      "file": "guidance-only.patch",
+      "sha256": "d984a00142f242bd1596bf2a93418ce1713929725895b3c94989cd6c30998e60"
+    },
+    {
+      "file": "experiment-tests.patch",
+      "sha256": "d314bf09dd78f355cfac64dedf5637546f0f7d046c63a226e35777bdf0d25686"
+    }
+  ],
+  "limitations": [
+    "No paid/model experiment performed; reasoning exhaustion/convergence not measured.",
+    "No full solution, publishing/AOT or live runtime validation performed for these optional arms.",
+    "Synthetic complete-request measurements reconcile components but are conservative estimates, not billed usage.",
+    "Single compaction changes fresh schema serialized hashes while preserving graph semantics; issued requests remain untouched; broader compatibility remains required before any integration."
+  ]
+}

@@ -32,6 +32,8 @@ workflows:
       history: { type: array, required: false }
       files_ids: { type: array, required: false }
       filesIds: { type: array, required: false }
+      attachments: { type: array, required: false }
+      images: { type: array, required: false }
       correlation_id: { type: string, required: false }
 
     steps:

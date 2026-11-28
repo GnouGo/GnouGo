@@ -22,7 +22,12 @@ public static class LLMProviderFailureMapper
             failure.SafeProviderCode,
             failure.AttemptCount,
             failure.RetryExhausted,
-            failure.RetryAfterMilliseconds);
+            failure.RetryAfterMilliseconds)
+        {
+            RetryNotBeforeUtc = failure.RetryNotBeforeUtc, FailurePhase = failure.FailurePhase,
+            PhysicalRequestId = failure.PhysicalRequestId, ProviderRequestIdHash = failure.ProviderRequestIdHash,
+            Stage = failure.Stage == LLMProviderFailureStage.Authentication ? LLMClientFailureStage.Authentication : null
+        };
     }
 
     public static LLMClientFailureKind MapKind(LLMProviderFailureKind kind)

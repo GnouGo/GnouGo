@@ -15,6 +15,7 @@ public interface IKeyVaultRuntimeConfigStore
     Task SaveSecretValueAsync(string key, string value, CancellationToken ct);
     Task<bool> DeleteSecretAsync(string key, CancellationToken ct);
     Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct);
+    Task<string?> GetConfiguredModelAsync(string provider, CancellationToken ct) => Task.FromResult<string?>(null);
 }
 
 public sealed record KeyVaultSecretSummary(string Key, string CreatedAt, int LatestVersion);
@@ -80,6 +81,24 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
     public Task<bool> DeleteSecretAsync(string key, CancellationToken ct)
         => DeleteSecretValueAsync(key, ct);
 
+    public async Task<string?> GetConfiguredModelAsync(string provider, CancellationToken ct)
+    {
+        string? configured = null;
+        foreach (var secret in KeyVaultConfigNaming.SelectPreferredSecrets(await ListSecretsAsync(ct), KeyVaultConfigSecretKind.LlmProvider))
+        {
+            var config = await LoadSecretJsonAsync(secret.Key, ct);
+            if (config is null) continue;
+            if (string.IsNullOrWhiteSpace(ReadConfigString(config, "url"))) continue;
+            var name = ReadConfigString(config, "provider") ?? KeyVaultConfigNaming.TryGetLogicalName(KeyVaultConfigSecretKind.LlmProvider, secret.Key);
+            if (string.Equals(name, provider, StringComparison.OrdinalIgnoreCase))
+            {
+                var model = ReadConfigString(config, "model");
+                if (!string.IsNullOrWhiteSpace(model)) configured = model;
+            }
+        }
+        return configured;
+    }
+
     public async Task<LLMOptions> BuildEffectiveOptionsAsync(LLMOptions baseOptions, CancellationToken ct)
     {
         var effective = CloneOptions(baseOptions);
@@ -120,11 +139,14 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
                 RequestPolicy = existingProvider is null
                     ? new LLMProviderRequestPolicyOptions()
                     : CloneRequestPolicy(existingProvider.RequestPolicy),
+                ModelTransportOverrides = LLMTransportResolver.CloneOverrides(existingProvider?.ModelTransportOverrides),
                 RetryPolicy = config.TryGetPropertyValue("retryPolicy", out var retryPolicy)
                     ? JsonSerializer.Deserialize(retryPolicy, LLMHttpRetryJsonContext.Default.LLMProviderRetryPolicyOptions)
                         ?? throw new InvalidOperationException("The provider retry policy must be an object.")
                     : existingProvider?.RetryPolicy.Clone() ?? new LLMProviderRetryPolicyOptions()
             };
+
+            LlmTransportConfiguration.Apply(config, effective.Models[provider]);
 
             if (LlmGenerationProtocol.Read(config) is { } protocol)
                 effective.Models[provider].RequestPolicy.BackgroundProtocol = protocol;
@@ -427,14 +449,7 @@ public sealed class KeyVaultRuntimeConfigStore : IKeyVaultRuntimeConfigStore
         return clone;
     }
 
-    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source)
-        => new()
-        {
-            BackgroundProtocol = source.BackgroundProtocol,
-            UnspecifiedOutputTokens = source.UnspecifiedOutputTokens,
-            DefaultMaxOutputTokens = source.DefaultMaxOutputTokens,
-            MaxOutputTokensCap = source.MaxOutputTokensCap
-        };
+    private static LLMProviderRequestPolicyOptions CloneRequestPolicy(LLMProviderRequestPolicyOptions source) => source.Clone();
 
 
 }

@@ -141,29 +141,37 @@ builder.Services.AddSingleton<ILLMClient>(sp =>
 builder.Services.AddSingleton<IMcpClientFactory>(sp =>
 {
     var llmOptions = builder.Configuration.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-    if (llmOptions.McpServers.Count > 0)
+    var servers = CopilotRunnerConfiguration.WorkflowMcpServers(llmOptions.McpServers);
+    if (servers.Count > 0)
         return new ConfiguredMcpClientFactory(
-            llmOptions.McpServers,
+            servers,
             sp.GetService<IHumanInputProvider>(),
             llmOptions.DefaultProvider,
             llmOptions.DefaultModel);
     return new InMemoryMcpClientFactory();
 });
 
-builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(
-    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"]));
+var retention = OwnerRetentionPolicy.Parse(builder.Configuration[OwnerRetentionPolicy.ConfigurationKey]);
+builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(retention,
+    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"], filesPath: builder.Configuration["Files:StorageRootPath"]));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ServerHumanInputProvider>();
 builder.Services.AddSingleton<IHumanInputProvider>(sp => sp.GetRequiredService<ServerHumanInputProvider>());
-builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspace(
+builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(retention,
     builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Execution:IndexPath"],
-    logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"]));
+    logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"], filesPath: builder.Configuration["Files:StorageRootPath"]));
+
+builder.Services.AddHostedService(sp => new GnOuGo.Flow.Persistence.OwnerRetentionWorker(async ct =>
+{
+    var tenant = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
+    await ((EncryptedWorkflowRunStore)sp.GetRequiredService<IWorkflowRunStore>()).SweepAsync(tenant, ct);
+    await ((GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory)sp.GetRequiredService<IPlanningRuntimeFactory>()).SweepAsync(tenant, ct);
+}, sp.GetRequiredService<ILogger<GnOuGo.Flow.Persistence.OwnerRetentionWorker>>()));
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
-var copilotRunners = builder.Configuration.GetSection("Flow:CopilotRunners").GetChildren()
-    .ToDictionary(c => c.Key, c => c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."), StringComparer.Ordinal);
+var copilotRunners = CopilotRunnerConfiguration.Read(builder.Configuration);
 var app = builder.Build();
 
 app.UseCors();
@@ -421,14 +429,14 @@ static Task<RunResult> ExecuteWorkflowAsync(
     ILogger logger,
     string? runId,
     CancellationToken ct,
-    IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
+    IWorkflowRunStore? runStore, string? tenantId, CopilotRunnerConfiguration copilotRunners, IPlanningRuntimeFactory planningFactory)
 {
     return CreateWorkflowEngine(telemetry, llm, mcpFactory, mcpCache, hitlProvider, logger, runId, runStore, tenantId, copilotRunners, planningFactory)
         .ExecuteAsync(workflow, inputs, ct);
 }
 
 static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMClient llm, IMcpClientFactory mcpFactory,
-    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, IReadOnlyDictionary<string, string>? copilotRunners, IPlanningRuntimeFactory planningFactory)
+    IMemoryCache mcpCache, IHumanInputProvider hitlProvider, ILogger logger, string? runId, IWorkflowRunStore? runStore, string? tenantId, CopilotRunnerConfiguration copilotRunners, IPlanningRuntimeFactory planningFactory)
     => new WorkflowEngine
     {
         WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
@@ -442,7 +450,7 @@ static WorkflowEngine CreateWorkflowEngine(IWorkflowTelemetry telemetry, ILLMCli
         Telemetry = telemetry,
         Logger = logger,
         Limits = new ExecutionLimits { LogStepContent = true, RunId = runId, TenantId = string.IsNullOrWhiteSpace(tenantId) ? "default" : tenantId.Trim() }
-    }.WithCopilotRunners(copilotRunners ?? new Dictionary<string, string>());
+    }.WithCopilotRunners(copilotRunners);
 
 static WorkflowRunResponse ToWorkflowRunResponse(RunResult result) => new()
 {

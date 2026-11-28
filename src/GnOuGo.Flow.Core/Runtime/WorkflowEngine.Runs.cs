@@ -27,13 +27,23 @@ public sealed partial class WorkflowEngine
         var definitionHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(workflow.Name + "\n" + definition)));
         if (revision is null)
         {
-            await RunStore!.CreateAsync(new WorkflowRun
+            var initial = new WorkflowRun
             {
                 TenantId = Limits.TenantId, RunId = Limits.RunId, WorkflowName = workflow.Name,
                 WorkflowYaml = workflow.Document.Source.RawYaml ?? "", DefinitionHash = definitionHash,
-                Inputs = inputs?.DeepClone(), Limits = Limits, ModelBudget = LLMUsageBudget?.Limits,
+                Inputs = inputs?.DeepClone(), Limits = Limits, ModelBudget = LLMUsageBudget?.IsTrackingOnly == true ? null : LLMUsageBudget?.Limits,
+                ApplicationLlmBudgetMode = LLMUsageBudget?.IsTrackingOnly == true ? "unlimited" : LLMUsageBudget is null ? null : "limited",
+                ApplicationLlmBudgetOrigin = LLMUsageBudget?.PolicyOrigin,
+                ApplicationLlmBudgetVersion = LLMUsageBudget is null ? null : 1,
                 ModelUsage = LLMUsageBudget?.Snapshot
-            }, ct);
+            };
+            if (UploadIds is { Count: > 0 } || SavedAgentName is not null && RunStore is IWorkflowAttachmentRunStore)
+            {
+                if (RunStore is not IWorkflowAttachmentRunStore attachments)
+                    throw new InvalidOperationException("The workflow store cannot acquire uploaded files.");
+                await attachments.CreateWithUploadsAsync(initial, UploadIds ?? [], SavedAgentName, ct);
+            }
+            else await RunStore!.CreateAsync(initial, ct);
         }
         await using var lease = await RunStore!.AcquireAsync(Limits.TenantId, Limits.RunId, revision ?? 0, ct);
         var run = lease.Run;
@@ -44,15 +54,26 @@ public sealed partial class WorkflowEngine
         Limits = run.Limits;
         var inheritedBudget = LLMUsageBudget;
         Journal = new WorkflowRunJournal(lease);
-        if (run.ModelBudget is { } budget)
-            LLMUsageBudget = new LLMUsageBudgetScope(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
+        if (run.ApplicationLlmBudgetMode == "unlimited")
+        {
+            if (run.ModelBudget is not null || run.ModelUsage is null || string.IsNullOrWhiteSpace(run.ApplicationLlmBudgetOrigin))
+                throw new WorkflowRunConflictException("The captured tracking-only budget is invalid.");
+            LLMUsageBudget = LLMUsageBudgetScope.CreateTrackingOnly(run.ModelUsage, sink: Journal,
+                exchangeRateProvider: ExchangeRateProvider, currency: run.ModelUsage.EstimatedCostCurrency, origin: run.ApplicationLlmBudgetOrigin);
+        }
+        else if (run.ApplicationLlmBudgetMode is not (null or "limited"))
+            throw new WorkflowRunConflictException("The captured application budget mode is invalid.");
+        else if (run.ModelBudget is { } budget)
+            LLMUsageBudget = inheritedBudget?.RestoreSnapshot(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider)
+                ?? new LLMUsageBudgetScope(budget, run.ModelUsage, sink: Journal, exchangeRateProvider: ExchangeRateProvider);
+        else LLMUsageBudget = null; // Historical absence never inherits today's application defaults.
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct);
         using var polling = new CancellationTokenSource();
         var monitor = MonitorCancellationAsync(lease, linked, polling.Token);
         try
         {
             var result = await ExecuteCoreAsync(workflow, run.Inputs, linked.Token);
-            await Journal.FinishAsync(result, CancellationToken.None);
+            await Journal.FinishAsync(result, CancellationToken.None, LLMUsageBudget?.Snapshot);
             return result;
         }
         finally
@@ -99,7 +120,11 @@ public sealed partial class WorkflowEngine
             if (!AgentTaskRunners.TryGetValue(task.Runner, out var runner))
                 throw new WorkflowRunConflictException("The approved agent adapter is unavailable.");
             var context = new AgentTaskContext(tenantId, runId, invocationId, task)
-            { ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName };
+            {
+                ExecutionId = lease.Run.Limits.ExecutionId, AgentId = lease.Run.Limits.AgentId, AgentName = lease.Run.Limits.AgentName,
+                LastObservation = invocation.Observation?["status"]?.ToString() == "needs_reconciliation"
+                    ? invocation.Observation.Deserialize(AgentTaskJsonContext.Default.AgentTaskResult) : null
+            };
             var observed = invocation.Observation is null || invocation.Observation["status"]?.ToString() == "needs_reconciliation" ? await runner.ReconcileAsync(context, ct) :
                 JsonSerializer.Deserialize(invocation.Observation, AgentTaskJsonContext.Default.AgentTaskResult)!;
             if (observed.Status == "needs_reconciliation")
@@ -108,12 +133,20 @@ public sealed partial class WorkflowEngine
                 return WorkflowRunStorage.Clone(lease.Run);
             }
             await journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(observed, AgentTaskJsonContext.Default.AgentTaskResult), ct);
+            var usage = lease.Run.ApplicationLlmBudgetMode == "unlimited"
+                ? LLMUsageBudgetScope.CreateTrackingOnly(lease.Run.ModelUsage, currency: lease.Run.ModelUsage?.EstimatedCostCurrency ?? "USD")
+                : lease.Run.ModelBudget is { } limits
+                ? LLMUsageBudget?.RestoreSnapshot(limits, lease.Run.ModelUsage) ?? new LLMUsageBudgetScope(limits, lease.Run.ModelUsage)
+                : LLMUsageBudget;
+            using var warnings = usage?.ObserveTokenWarnings();
             try
             {
-                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct, verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct));
-                await journal.ResolveOutputAsync(invocationId, output, ct);
+                var output = await AgentRunExecutor.ValidateResultAsync(context, observed, AgentTaskVerifier, ct,
+                    verified => journal.ObserveAsync(invocationId, JsonSerializer.SerializeToNode(verified, AgentTaskJsonContext.Default.AgentTaskResult), ct),
+                    advisoryTokenThresholds: LLMUsageBudget?.AdvisoryTokenThresholds == true);
+                await journal.ResolveOutputAsync(invocationId, output, ct, usage?.Snapshot);
             }
-            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct); }
+            catch (WorkflowRuntimeException ex) { await journal.ResolveAsFailedAsync(invocationId, ex.ToWorkflowError(), ct, usage?.Snapshot); }
         }
         else throw new WorkflowRunConflictException("This adapter cannot reconcile the effect. Confirm that the external operation has stopped, with an audit reason; it will remain a failed invocation.");
         return WorkflowRunStorage.Clone(lease.Run);

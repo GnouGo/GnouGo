@@ -39,6 +39,7 @@ namespace GnOuGo.GithubCopilot.Core;
 [JsonSerializable(typeof(CopilotFileReadResult))]
 [JsonSerializable(typeof(IReadOnlyList<CopilotDirectoryEntry>))]
 [JsonSerializable(typeof(JsonElement))]
+[JsonSerializable(typeof(System.Text.Json.Nodes.JsonObject))]
 [JsonSerializable(typeof(CopilotPermissionGrant))]
 [JsonSerializable(typeof(IReadOnlyList<CopilotPermissionGrant>))]
 [JsonSerializable(typeof(CopilotPermissionGrantListResult))]
@@ -56,9 +57,7 @@ namespace GnOuGo.GithubCopilot.Core;
 [JsonSerializable(typeof(ReviewFinding))]
 [JsonSerializable(typeof(IReadOnlyList<ReviewFinding>))]
 [JsonSerializable(typeof(ReviewCoverage))]
-[JsonSerializable(typeof(CopilotReviewSession))]
+[JsonSerializable(typeof(ObservedReview))]
 [JsonSerializable(typeof(CopilotReviewBatch))]
 [JsonSerializable(typeof(IReadOnlyList<CopilotReviewBatch>))]
-[JsonSerializable(typeof(CopilotReviewAnalyzeResult))]
-[JsonSerializable(typeof(CopilotReviewResult))]
 public partial class CopilotCoreJsonContext : JsonSerializerContext;

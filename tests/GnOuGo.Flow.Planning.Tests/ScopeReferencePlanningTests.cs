@@ -41,7 +41,7 @@ public sealed class ScopeReferencePlanningTests
     [Theory]
     [InlineData("alpha_", "record")]
     [InlineData("beta_", "résultat")]
-    public async Task RetainedHiddenTaskNeedsRevisionDespiteExistingDataExports(string prefix, string port)
+    public void RetainedHiddenTaskNeedsRevisionDespiteExistingDataExports(string prefix, string port)
     {
         var plan = Fixture("existing-export-hidden-task", prefix, port);
         var state = State(plan);
@@ -53,16 +53,14 @@ public sealed class ScopeReferencePlanningTests
         Assert.DoesNotContain(state.Diagnostics, d => d.Code is "TASK_REFERENCE_UNKNOWN" or "TASK_EXPORT_REQUIRED");
         Assert.Empty(TaskPlanRevisions.Exports(plan, state.RevisionScope).Additions);
 
-        var runtime = new TestRuntime { Proposal = new() { Requirements = PlannerFixture.Requirements(), Plan = plan } };
-        var stopped = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.Stopped, stopped.Status); Assert.Single(runtime.Calls); Assert.Equal(0, stopped.ReplanAttempts);
-        Assert.Contains(stopped.Diagnostics, d => d.Code == "REVISION_REQUIRED" && d.Location == $"/tasks/{prefix}consume/requires");
-        var before = JsonSerializer.Serialize(stopped, PlanningJsonContext.Default.PlanningSession);
-        var restored = PlannerFixture.Clone(stopped);
-        restored = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Single(runtime.Calls); Assert.Equal(before, JsonSerializer.Serialize(stopped, PlanningJsonContext.Default.PlanningSession));
-        Assert.Equal(stopped.ModelCalls, restored.ModelCalls); Assert.Equal(stopped.ReplanAttempts, restored.ReplanAttempts);
-        Assert.Equal(JsonSerializer.Serialize(stopped.Plan, PlanningJsonContext.Default.TaskPlan), JsonSerializer.Serialize(restored.Plan, PlanningJsonContext.Default.TaskPlan));
+        Assert.Contains(TaskPlanRevisions.UnrepairableRequirements(state),
+            diagnostic => diagnostic.Location == $"/tasks/{prefix}consume/requires");
+        var before = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var restored = PlannerFixture.Clone(state);
+        Assert.Equal(before, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal(0, restored.ModelCalls);
+        Assert.Equal(0, restored.ReplanAttempts);
+        Assert.Null(restored.ApprovedHash);
     }
 
     [Theory]
@@ -80,8 +78,20 @@ public sealed class ScopeReferencePlanningTests
         { consumer.DependsOn = [boundary.Id]; consumer.Outputs[0] = consumer.Outputs[0] with { Value = Output(boundary.Id, port) }; }
         Assert.Empty(TaskPlanRevisions.Validate(state.Plan, fixedPlan, state.RevisionScope, state.Catalog));
         var request = RepairPatchTests.Request(state);
-        var response = TestRuntime.PatchResponse(request, state, fixedPlan).Deserialize(RepairJsonContext.Default.PlanningRepairResponse)!;
-        var applied = PlanningRepairPatch.Apply(state, response.Patch!, request);
+        var edits = new List<JsonObject>
+        {
+            RepairPatchTests.Edit(state, $"/tasks/{choice.Id}/otherwise/outputs/{port}", "add",
+                JsonSerializer.SerializeToNode(choice.Otherwise.Outputs[0].Value, PlanningJsonContext.Default.TaskValue)),
+            RepairPatchTests.Edit(state, $"/tasks/{boundary.Id}/body/outputs/{port}", "add",
+                JsonSerializer.SerializeToNode(boundary.Body.Outputs[0].Value, PlanningJsonContext.Default.TaskValue))
+        };
+        foreach (var consumer in fixedPlan.Root.Always.Skip(1))
+        {
+            edits.Add(RepairPatchTests.Edit(state, $"/tasks/{consumer.Id}/dependsOn", "replace", new JsonArray(boundary.Id)));
+            edits.Add(RepairPatchTests.Edit(state, $"/tasks/{consumer.Id}/outputs/result", "replace",
+                JsonSerializer.SerializeToNode(consumer.Outputs[0].Value, PlanningJsonContext.Default.TaskValue)));
+        }
+        var applied = OutputBindingRoutingTests.Apply(state, request, edits.ToArray());
         Assert.Empty(new TaskPlanCompiler().Compile(applied, state.Catalog!).Diagnostics);
         Assert.Equal(state.Plan!.Root.Always.Select(t => t.Id), applied.Root.Always.Select(t => t.Id));
         Assert.Empty(state.Plan.Root.Always[0].Body!.Outputs);
@@ -202,19 +212,4 @@ public sealed class ScopeReferencePlanningTests
         Assert.Empty(PlanningContractValidation.ValidateInstance(new JsonArray(), slot.ValueSchema));
     }
 
-    [Fact]
-    public void HistoricalVersionSevenRequestKeepsItsOriginalAuthorityAfterRestart()
-    {
-        var retained = Retained("issued-v7");
-        var state = retained["state"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
-        var request = new LLMRequest { Prompt = retained["prompt"]!.ToString(), StructuredOutputSchema = retained["schema"]!.DeepClone() };
-        var schema = request.StructuredOutputSchema.ToJsonString(); var prompt = request.Prompt;
-        Assert.False(PlanningRepairPatch.Verify(PlannerFixture.Clone(state), request));
-        var repaired = PlanningRepairPatch.Apply(state, new() { Edits = [new() { Slot = "s0", Action = "replace", Value = new JsonArray("source") }] }, request);
-        Assert.Empty(new TaskPlanCompiler().Compile(repaired, state.Catalog!).Diagnostics);
-        Assert.Equal(schema, request.StructuredOutputSchema.ToJsonString()); Assert.Equal(prompt, request.Prompt);
-        Assert.True(PlanningRepairPatch.Verify(state, RepairPatchTests.Request(state)));
-        state.Request.TenantId = "another-tenant";
-        Assert.Throws<PlanningConflictException>(() => PlanningRepairPatch.Verify(state, request));
-    }
 }

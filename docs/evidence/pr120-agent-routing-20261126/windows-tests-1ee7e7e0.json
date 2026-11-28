@@ -1,0 +1,55 @@
+{
+  "source": "1ee7e7e06661d5af0ffdb70947dadd33761c538e",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "tests": [
+    {
+      "trx": "TestResults/agent-routing-qualification/normal-review-1ee7e7e0.trx",
+      "sha256": "cdc24003dbcd360ce8937ec09202c1c9d65b3aaa8956d85464b438f25fff47df",
+      "result": "Completed",
+      "counts": {
+        "total": 188,
+        "executed": 188,
+        "passed": 188,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/normal-server-1ee7e7e0.trx",
+      "sha256": "06c1fb0416aab55fe21ea01a985a823bf7d2559db158abbfcdd7c6b7c69817b8",
+      "result": "Failed",
+      "counts": {
+        "total": 577,
+        "executed": 577,
+        "passed": 574,
+        "failed": 3,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/shared-sdk-1ee7e7e0.trx",
+      "sha256": "307f7d08ee2bbea7c0748900d799d3720ad75b83f42078708ec21968fa84381b",
+      "result": "Completed",
+      "counts": {
+        "total": 446,
+        "executed": 446,
+        "passed": 446,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.copilot.tests.dll",
+        "gnougo.githubcopilot.core.tests.dll",
+        "gnougo.githubcopilot.mcp.tests.dll"
+      ]
+    }
+  ],
+  "unfiltered_server": "Interrupted after 574 passes and three failures. A mixed legacy/modern runner configuration was missing, the absent-row fixture timed out starting a browser, and the repeated-row fixture reached its elapsed-time ceiling during concurrent qualification. No full-suite pass is claimed."
+}

@@ -1,0 +1,400 @@
+{
+  "source": "168805e7e70d2e977875112580160237c15c37cd",
+  "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+  "steps": [
+    {
+      "name": "solution-build",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "build",
+        "GnOuGo.Agent.sln",
+        "-c",
+        "Release",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "--verbosity",
+        "quiet"
+      ],
+      "started_utc": "2026-11-06T11:40:33.407484+00:00",
+      "log": "solution-build.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:41:02.983664+00:00",
+      "log_sha256": "9dc6ee42de38249eef18b5917a0e6780021b82dc919edb01381f187e0ab3fd7b",
+      "evidence_log": "final-solution-build.log.gz",
+      "evidence_uncompressed_sha256": "9dc6ee42de38249eef18b5917a0e6780021b82dc919edb01381f187e0ab3fd7b",
+      "evidence_file_sha256": "43529036de4c40251f81c082335275bc47a0c25963e2e335f7186b5c4122600c"
+    },
+    {
+      "name": "frontend",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "pnpm",
+        "--dir",
+        "src/GnOuGo.Agent.Server/ClientApp",
+        "run",
+        "build"
+      ],
+      "started_utc": "2026-11-06T11:41:02.986466+00:00",
+      "log": "frontend.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:41:04.187865+00:00",
+      "log_sha256": "0b9065c61a4b3cdc8eb967a1240edbb09cab01fa40d0c6e036e725942f5c8358",
+      "evidence_log": "final-frontend.log.gz",
+      "evidence_uncompressed_sha256": "b47359b2633250246a399f0a1bd873c9404e51514177f8bcc0a73cc938bc0930",
+      "evidence_file_sha256": "23c54aab6625cd326110cc690a01d15fa4219db2626b0e0cf08145e794864cd8"
+    },
+    {
+      "name": "planning-tests",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Planning.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "--logger",
+        "console;verbosity=normal",
+        "--logger",
+        "trx;LogFileName=planning.trx",
+        "--results-directory",
+        "artifacts/focused-discovery-latest/planning",
+        "--verbosity",
+        "quiet"
+      ],
+      "started_utc": "2026-11-06T11:41:04.189212+00:00",
+      "log": "planning-tests.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:33.542384+00:00",
+      "log_sha256": "c58ac171656f39646ccce60a9d878541a8926b0df71116b859a6d4fb7b433c5a",
+      "evidence_log": "final-planning-tests.log.gz",
+      "evidence_uncompressed_sha256": "9986213c72eed4eb91b3ba62e66c1d506639c90e4b519091d679a8eaaca824b8",
+      "evidence_file_sha256": "df913a8c168607321fc1541e6f9273a3e3389c4f89f790002a60cedbc845ef94"
+    },
+    {
+      "name": "server-recovery-browser",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Agent.Server.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "--filter",
+        "FullyQualifiedName~DiscoveryRecoveryTests|FullyQualifiedName~ActualHostRecoversDiscoveryWithoutInference",
+        "--logger",
+        "console;verbosity=normal",
+        "--logger",
+        "trx;LogFileName=server.trx",
+        "--results-directory",
+        "artifacts/focused-discovery-latest/server",
+        "--verbosity",
+        "quiet"
+      ],
+      "started_utc": "2026-11-06T11:43:33.544114+00:00",
+      "log": "server-recovery-browser.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:43.225861+00:00",
+      "log_sha256": "b380b65a77f52cde8a752f11788c7339ae69623838280c9993eb98b4e05d1105",
+      "evidence_log": "final-server-recovery-browser.log.gz",
+      "evidence_uncompressed_sha256": "87cef52fb96b351537647516bd6b53a6095a2da8c06d1f1db3bd621e7872d1b6",
+      "evidence_file_sha256": "e5245f1e624477a14c61d8fe174d241dbe92d22759d0bc6ffdf88c7ede36177c"
+    },
+    {
+      "name": "integration-tests",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "test",
+        "tests/GnOuGo.Flow.Integrations.Tests",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-m:1",
+        "-warnaserror",
+        "--logger",
+        "trx;LogFileName=integrations.trx",
+        "--results-directory",
+        "artifacts/focused-discovery-latest/integrations",
+        "--verbosity",
+        "quiet"
+      ],
+      "started_utc": "2026-11-06T11:43:43.226772+00:00",
+      "log": "integration-tests.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:46.386499+00:00",
+      "log_sha256": "821639054178b2b82c89585e4187fc751fdad682833d239818f298cb69ce1081",
+      "evidence_log": "final-integration-tests.log.gz",
+      "evidence_uncompressed_sha256": "5a8b3b7eb9bed9fe4e87e845b47ff35698b184a816715fe08cb6184cc0f2a54c",
+      "evidence_file_sha256": "ec7c3040508c3e0655bae8e3b38fce4db518a107dd2239cfd0c44e1012ac32a5"
+    },
+    {
+      "name": "core-pack",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Core",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-warnaserror",
+        "-o",
+        "artifacts/focused-discovery-latest/packages"
+      ],
+      "started_utc": "2026-11-06T11:43:46.387432+00:00",
+      "log": "core-pack.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:46.985026+00:00",
+      "log_sha256": "8dd8a6a6de46bdfe55a6c66102b4dfcdd7f223e115cf54a0fc52b636641fd8b1",
+      "evidence_log": "final-core-pack.log.gz",
+      "evidence_uncompressed_sha256": "b3d82e059f97b5c9befcb68948437e637cd83d4c5bdbede83dfa61b3b414d23a",
+      "evidence_file_sha256": "26209efeab7067cc5744bffe81eac68100e48d8bc06a996e9be37f840e7620fe"
+    },
+    {
+      "name": "integrations-pack",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Integrations",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-warnaserror",
+        "-o",
+        "artifacts/focused-discovery-latest/packages"
+      ],
+      "started_utc": "2026-11-06T11:43:46.987805+00:00",
+      "log": "integrations-pack.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:47.987443+00:00",
+      "log_sha256": "876c7b94325a697425c7a894e3acec048ff955fe1534acaa4d62cadb9a0f75c5",
+      "evidence_log": "final-integrations-pack.log.gz",
+      "evidence_uncompressed_sha256": "878ba1efc6af0419a515e6d5d73d77a2416386f6e1f51734a2c181a1aa7690a5",
+      "evidence_file_sha256": "161716bb28949c8dcd49dec499a6df88f17e3112a41cae800ab9d2b89def8b35"
+    },
+    {
+      "name": "planning-pack",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "pack",
+        "src/GnOuGo.Flow.Planning",
+        "-c",
+        "Release",
+        "--no-build",
+        "--no-restore",
+        "-warnaserror",
+        "-o",
+        "artifacts/focused-discovery-latest/packages"
+      ],
+      "started_utc": "2026-11-06T11:43:47.988650+00:00",
+      "log": "planning-pack.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:43:48.620311+00:00",
+      "log_sha256": "cd5824d0fdeb0d6f0cb2e777c25c7101ac15287b1cb4e5eaabe40eb135f53ed6",
+      "evidence_log": "final-planning-pack.log.gz",
+      "evidence_uncompressed_sha256": "6fcc63ca244608d46c8d2ee9d9b7c4b5a5bb65087b952fc4e6f6d7307d3f6034",
+      "evidence_file_sha256": "e7563d0a5b0e3fe2568af9bdaf5b18f663a3d280217abfefba477e74bf643da1"
+    },
+    {
+      "name": "cli-native-aot",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "dotnet",
+        "publish",
+        "src/GnOuGo.Flow.Cli",
+        "-c",
+        "Release",
+        "-r",
+        "osx-arm64",
+        "--self-contained",
+        "true",
+        "-m:1",
+        "-p:PublishTrimmed=true",
+        "-p:PublishAot=true",
+        "-p:SkipClientBuild=true",
+        "-p:SkipModelMetadataGeneration=true",
+        "-o",
+        "artifacts/focused-discovery-latest/cli"
+      ],
+      "started_utc": "2026-11-06T11:43:48.621487+00:00",
+      "log": "cli-native-aot.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:44:47.618415+00:00",
+      "log_sha256": "318637f9b0c2c1fe9a90999a698e8a52c989cb1004f64cca6f2f544b6ca3c060",
+      "evidence_log": "final-cli-native-aot.log.gz",
+      "evidence_uncompressed_sha256": "71447bc99cebc52a7cb1a35bf69e677825366b0dcc9fbf42dfd55064242fd29d",
+      "evidence_file_sha256": "0c4314ae3e279c50066549228ca1a91c5f73bb5066a9b6b132355e3b8328d2c8"
+    },
+    {
+      "name": "published-storage",
+      "source": "168805e7e70d2e977875112580160237c15c37cd",
+      "solution_sha256": "3b3d9b39a7f330a4e05d8269ca399477fe9fc3f4f955a005ae3ad3c11e8d95dd",
+      "command": [
+        "python3",
+        "scripts/verify-flow-v9-published.py",
+        "--cli",
+        "<qualification-repository>/artifacts/focused-discovery-latest/cli/GnOuGo.Flow.Cli",
+        "--data-directory",
+        "<qualification-repository>/artifacts/focused-discovery-latest/storage"
+      ],
+      "started_utc": "2026-11-06T11:44:47.619936+00:00",
+      "log": "published-storage.log",
+      "exit_code": 0,
+      "finished_utc": "2026-11-06T11:44:49.229737+00:00",
+      "log_sha256": "be8330f7c0a83264ebb20a718697c2e578d86eb3e01c8af1da9f91eccaba3fe3",
+      "evidence_log": "final-published-storage.log.gz",
+      "evidence_uncompressed_sha256": "0583a81c0ff4900815c5430e87959d72f80b6e37dd323029f8a57f4e3df6cbf7",
+      "evidence_file_sha256": "8495adc6a4f0d24891ea680ca8dec37b5d55cd50472addaaa0809096a9c005c3"
+    }
+  ],
+  "test_projects": [
+    {
+      "trx": "integrations.trx",
+      "trx_sha256": "d55dcdd4f83282b6d43f59c173f5759e618df4af4c1993def52ce14240553510",
+      "assembly": "GnOuGo.Flow.Integrations.Tests.dll",
+      "outcomes": {
+        "Passed": 116
+      },
+      "nonpassing": []
+    },
+    {
+      "trx": "planning.trx",
+      "trx_sha256": "2284f29038a0610bf2c2bf3bf63249a8653ab8333621d7eeae8d6efadc73745a",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Passed": 2731
+      },
+      "nonpassing": []
+    },
+    {
+      "trx": "server.trx",
+      "trx_sha256": "1782317f1c30d2dcfae262695f95c9791e3c45ae764007baf371ddcaa8c43f64",
+      "assembly": "GnOuGo.Agent.Server.Tests.dll",
+      "outcomes": {
+        "Passed": 13
+      },
+      "nonpassing": []
+    }
+  ],
+  "limitations": [
+    "Full-solution regression run is bound separately to frozen source 5e6698c8. Final source has the affected suites below, not a second full-solution test claim.",
+    "Native Windows/PowerShell and the PowerShell publish matrix are unavailable on this macOS host.",
+    "ClientApp provides build, dev and preview scripts; no separate test, lint or type-check scripts exist. Actual-host browser behavior is checked by Server tests.",
+    "Restart coverage uses recreated Server services, encrypted-store reopen and an interrupted metadata checkpoint. The controlled browser checks reload; no claim of restarting the native Desktop GUI.",
+    "No paid model continuation was dispatched; funding proof is separate.",
+    "Full frozen regression retains one older opt-in clarification browser smoke and five paid/live Copilot fixtures as skipped; exact names and reasons are in full-solution-validation.json. The new discovery browser case passed."
+  ],
+  "intermediate_regressions": [
+    {
+      "source": "5e6698c8 plus new Unicode regression",
+      "fix": "49edec69",
+      "trx": "before.trx",
+      "trx_sha256": "69c811d344f2e89a897ee384d44f7de2a74768186308203be38b93a8f885fb14",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Failed": 1
+      },
+      "nonpassing": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.SourceJustificationUsesTheIssuedUnicodeCodePointLimit",
+          "outcome": "Failed",
+          "reason": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = DISCOVERY_SCOPE_INVALID, Location = /discoveryRequests, Message = Justify each issued source against its selected focus., Required = True, ValidationStage = , Rule = , BudgetFailure = , Prerequisite =  }]\n             at GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.SourceJustificationUsesTheIssuedUnicodeCodePointLimit() in <qualification-repository>/tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs:line 86\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "source": "49edec69 plus new ownership regression",
+      "fix": "97f3ff77",
+      "trx": "ownership-before.trx",
+      "trx_sha256": "a62edd4686eb874d2706b07c4d335d5132d5c401660a1dd2dddda30f85253ecc",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Failed": 1
+      },
+      "nonpassing": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RecoveryRejectsFailuresOwnedByAnotherRetainedStepOrFocus",
+          "outcome": "Failed",
+          "reason": "Assert.Empty() Failure: Collection was not empty\nCollection: [CapabilityDiscoveryFailure { Id = other-step, SourceId = source_87288d68ed71bf8fa35e531a, FocusId = focus_f5f549d09fa9d617198f24c7, Query = Produce the requested exact record without external changes., Cursor = , Category = transport_unavailable, Message = Unavailable, SnapshotVersion = , RequestId = , Justification = , TimestampUtc = 06/11/2026 10:59:35 +00:00, StepId = another-step }, CapabilityDiscoveryFailure { Id = other-focus, SourceId = source_87288d68ed71bf8fa35e531a, FocusId = another-focus, Query = Produce the requested exact record without external changes., Cursor = , Category = transport_unavailable, Message = Unavailable, SnapshotVersion = , RequestId = , Justification = , TimestampUtc = 06/11/2026 10:59:35 +00:00, StepId = selected }, CapabilityDiscoveryFailure { Id = historical_2384b330c08d0f774362b757a63b79780fe5a2895aed56155bb29ca14dc257d2, SourceId = source_87288d68ed71bf8fa35e531a, FocusId = , Query = Another retained objective, Cursor = , Category = historical_unavailable, Message = Historical source failure; original technical cause unavailable., SnapshotVersion = , RequestId = , Justification = , TimestampUtc = 06/11/2026 10:59:35 +00:00, StepId = selected }]\n             at GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RecoveryRejectsFailuresOwnedByAnotherRetainedStepOrFocus() in <qualification-repository>/tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs:line 184\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "source": "97f3ff77 plus new interruption regression",
+      "fix": "6df96126",
+      "trx": "interruption-before.trx",
+      "trx_sha256": "b63f7b7b7e7c5832a9a618294d5dbebd84bcd203ca1ddf372d3c222ca9b600ec",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Failed": 1
+      },
+      "nonpassing": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.InterruptedRecoveryRetainsItsExactMetadataActionAndSnapshotForExplicitContinuation",
+          "outcome": "Failed",
+          "reason": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"discovery_recovery\"\nActual:   \"stopped\"\n           \u2191 (pos 0)\n             at GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.InterruptedRecoveryRetainsItsExactMetadataActionAndSnapshotForExplicitContinuation() in <qualification-repository>/tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs:line 145\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "source": "6df96126 plus exact-focus regression",
+      "fix": "65c546a7",
+      "trx": "focus-before.trx",
+      "trx_sha256": "6e2c6a65657be6ab0a004a5cf21b51e11791d778ccd42e8cd2fdab5fc41e69d2",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Failed": 1
+      },
+      "nonpassing": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RefreshKeepsTheExactPrerequisiteFocusWhenItsTextEqualsTheObjective",
+          "outcome": "Failed",
+          "reason": "Assert.Equal() Failure: Strings differ\n                 \u2193 (pos 6)\nExpected: \"focus_9c8f4dc4156cd11e77c2bed3\"\nActual:   \"focus_52fc409955462329b18d3950\"\n                 \u2191 (pos 6)\n             at GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RefreshKeepsTheExactPrerequisiteFocusWhenItsTextEqualsTheObjective() in <qualification-repository>/tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs:line 143\n--- End of stack trace from previous location ---"
+        }
+      ]
+    },
+    {
+      "source": "65c546a7 plus idle-warning regression",
+      "fix": "168805e7",
+      "trx": "idle-before.trx",
+      "trx_sha256": "d87d27367cbfe1e99814da49f275f1fdaa51be3d2725c8ca267b4b746a3a9b9f",
+      "assembly": "GnOuGo.Flow.Planning.Tests.dll",
+      "outcomes": {
+        "Failed": 1
+      },
+      "nonpassing": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.IdleExploratoryWarningCanBeExplicitlyRefreshedWithoutNewInference",
+          "outcome": "Failed",
+          "reason": "Assert.True() Failure\nExpected: True\nActual:   False\n             at GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.IdleExploratoryWarningCanBeExplicitlyRefreshedWithoutNewInference() in <qualification-repository>/tests/GnOuGo.Flow.Planning.Tests/FocusedDiscoveryTests.cs:line 137\n--- End of stack trace from previous location ---"
+        }
+      ]
+    }
+  ]
+}

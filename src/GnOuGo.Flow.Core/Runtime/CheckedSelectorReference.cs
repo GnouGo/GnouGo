@@ -21,7 +21,10 @@ internal static class CheckedSelectorReference
                 if (name is null) return false;
                 path.Insert(0, name); expression = member.Object;
             }
-            if (expression is not Identifier { Name: "data" } || path.Count < 3 || path[0] != "steps" || !symbols.TryGetCheckedStepOutput(path[1], out var descriptor)) return false;
+            if (expression is not Identifier { Name: "data" } || path.Count < 2) return false;
+            if (path is ["inputs", var inputName] && symbols.CheckedInputNames?.Contains(inputName) == true &&
+                symbols.WorkflowInputs.TryGetValue(inputName, out var input)) return Proven(input, []);
+            if (path.Count < 3 || path[0] != "steps" || !symbols.TryGetCheckedStepOutput(path[1], out var descriptor)) return false;
             return Proven(descriptor, path.Skip(2).ToArray());
         }
         catch (Exception ex) when (ex is Acornima.ParseErrorException or ExpressionParseException or InvalidOperationException or ArgumentException) { return false; }

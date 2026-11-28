@@ -1,0 +1,38 @@
+{
+  "run": "sdk-provider-default-20261109-01",
+  "source": "794163d1fcb39673b368a5a0640384b3126de5e8",
+  "explicit_profile": "provider-default",
+  "actual_wire": {
+    "model": "gpt-6.1-sol-2026-09-29",
+    "tool_count": 17,
+    "reasoning_effort_present": false,
+    "max_completion_tokens": 8192,
+    "endpoint": "unchanged pinned Chat Completions route"
+  },
+  "physical_attempts": 1,
+  "actual_status": 400,
+  "provider_message": "Function tools with reasoning_effort are not supported for this model in /v1/chat/completions; use /v1/responses or none.",
+  "provider_usage": null,
+  "unpriced_reservation_retained_eur": "3.9001880877742946708463949842",
+  "commands": 0,
+  "completion_verified": true,
+  "receipt_reloaded": true,
+  "cleanup": true,
+  "passed": false,
+  "never_replay_execution": true,
+  "compatibility_boundary": "Medium and none tool profiles were rejected previously; the pinned native Responses route returned actual HTTP404. Removing the reasoning field still receives HTTP400. No successful Code execution established.",
+  "external_action": "Provide a function-tool-compatible endpoint/model and explicitly authorize its new immutable configuration amendment before changing the pin. An asynchronous configuration question is pending; other cases continue.",
+  "closed_funding": {
+    "ceiling_eur": "1200",
+    "available_eur": "141.155306762203313927451851988",
+    "application_holds_eur": "44.588114643976712942230183612",
+    "all_old_holds_preserved": true,
+    "global_funding": "unavailable"
+  },
+  "private_evidence_sha256": {
+    "sdk-provider-default-01-final.json": "03a3664962528f9ba268f35d543cfd835e41b4ef88dafc2e68d04255199a4254",
+    "sdk-provider-default-01-requests.json": "16aacf3fd422eafa5586c887814703d891ce81916b34fd7db4e75eebcd379658",
+    "sdk-provider-default-01-http-current.json": "e64e6c113cee399dbb57d5e8d63ec82a4dd8725ccefe737c400affefbf7b02a8",
+    "sdk-provider-default01-closed-audit.json": "15bd554234199edb51fc254a03af26774fa3edb5eeb0dae9a7176f2f26791cfb"
+  }
+}

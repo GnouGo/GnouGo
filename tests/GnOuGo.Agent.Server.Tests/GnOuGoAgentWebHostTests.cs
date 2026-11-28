@@ -22,6 +22,69 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class GnOuGoAgentWebHostTests
 {
+    [Theory]
+    [InlineData("AgentRunners", "AgentTools", "business")]
+    [InlineData("CopilotRunners", "CopilotTools", "GnOuGo.GithubCopilot.Mcp")]
+    public async Task OneRunnerKeepsItsConfiguredToolsFromBothServers(string profiles, string scopes, string profile)
+    {
+        var args = TelemetryTestHostArgs.Create().Concat(new[] {
+            $"--Flow:{profiles}:collect={profile}",
+            $"--Flow:{scopes}:collect:catalog:0=observe",
+            $"--Flow:{scopes}:collect:documents:0=read"
+        }).ToArray();
+        await using var app = TelemetryTestHostArgs.Build(args, urls: "http://127.0.0.1:0",
+            contentRoot: GetServerContentRoot(), enableHttpsRedirection: false);
+        var factory = app.Services.GetRequiredService<SecureWorkflowRuntimeFactory>();
+        await using var runtime = await factory.CreateAsync(TestContext.Current.CancellationToken);
+        var engine = runtime.ConfigureAgentRunners(new GnOuGo.Flow.Core.Runtime.WorkflowEngine { McpClientFactory = runtime.McpClientFactory });
+        Assert.IsType<GnOuGo.Flow.Core.Runtime.BusinessAgentTaskRunner>(engine.AgentTaskRunners["collect"]);
+        Assert.Equal([new("catalog", "observe"), new("documents", "read")], runtime.CopilotTools!["collect"]);
+    }
+
+    [Fact]
+    public async Task Build_DisposingBeforeStartReleasesCollectorSockets()
+    {
+        var app = TelemetryTestHostArgs.Build(
+            TelemetryTestHostArgs.Create(),
+            urls: "http://127.0.0.1:0",
+            contentRoot: GetServerContentRoot(),
+            enableHttpsRedirection: false);
+        var settings = app.Services.GetRequiredService<IOptions<OtlpCollectorEndpointSettings>>().Value;
+        await app.DisposeAsync();
+
+        foreach (var port in new[] { settings.GrpcPort, settings.HttpPort })
+        {
+            using var released = Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions
+                .CreateDefaultBoundListenSocket(new IPEndPoint(IPAddress.Loopback, port));
+        }
+    }
+
+    [Fact]
+    public async Task Build_KeepsCollectorPortsBoundUntilKestrelTakesOwnership()
+    {
+        await using var app = TelemetryTestHostArgs.Build(
+            TelemetryTestHostArgs.Create(),
+            urls: "http://127.0.0.1:0",
+            contentRoot: GetServerContentRoot(),
+            enableHttpsRedirection: false);
+        var settings = app.Services.GetRequiredService<IOptions<OtlpCollectorEndpointSettings>>().Value;
+        Assert.NotEqual(settings.GrpcPort, settings.HttpPort);
+        foreach (var port in new[] { settings.GrpcPort, settings.HttpPort })
+        {
+            Assert.Throws<System.Net.Sockets.SocketException>(() =>
+            {
+                using var competing = Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions
+                    .CreateDefaultBoundListenSocket(new IPEndPoint(IPAddress.Loopback, port));
+            });
+        }
+
+        await app.StartAsync(TestContext.Current.CancellationToken);
+        var endpoints = GnOuGoAgentWebHost.ResolvePublishedEndpoints(app);
+        Assert.Equal(settings.GrpcPort, new Uri(endpoints.TelemetryGrpcBaseAddress!).Port);
+        Assert.Equal(settings.HttpPort, new Uri(endpoints.TelemetryHttpBaseAddress!).Port);
+        await app.StopAsync(TestContext.Current.CancellationToken);
+    }
+
     private static string GetServerContentRoot()
     {
         var contentRoot = Path.GetFullPath(Path.Combine(
@@ -40,7 +103,7 @@ public sealed class GnOuGoAgentWebHostTests
         var contentRoot = GetServerContentRoot();
         var args = TelemetryTestHostArgs.Create();
 
-        using var app = GnOuGoAgentWebHost.Build(
+        using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -64,7 +127,7 @@ public sealed class GnOuGoAgentWebHostTests
                 ["github"] = new() { Type = "http", Url = "http://127.0.0.1:65530/mcp" }
             }
         };
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             TelemetryTestHostArgs.Create(),
             urls: "http://127.0.0.1:0",
             contentRoot: GetServerContentRoot(),
@@ -84,7 +147,7 @@ public sealed class GnOuGoAgentWebHostTests
     public async Task RuntimeFactory_UsesMcpServerSavedAfterFactoryResolution()
     {
         var contentRoot = GetServerContentRoot();
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             TelemetryTestHostArgs.Create(),
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -171,7 +234,7 @@ public sealed class GnOuGoAgentWebHostTests
         {
             var args = TelemetryTestHostArgs.Create();
 
-            using var app = GnOuGoAgentWebHost.Build(
+            using var app = TelemetryTestHostArgs.Build(
                 args,
                 urls: "http://127.0.0.1:0",
                 contentRoot: tempContentRoot,
@@ -238,7 +301,7 @@ public sealed class GnOuGoAgentWebHostTests
         {
             var args = TelemetryTestHostArgs.Create();
 
-            using var app = GnOuGoAgentWebHost.Build(
+            using var app = TelemetryTestHostArgs.Build(
                 args,
                 urls: "http://127.0.0.1:0",
                 contentRoot: tempContentRoot,
@@ -289,7 +352,7 @@ public sealed class GnOuGoAgentWebHostTests
 
             var args = TelemetryTestHostArgs.Create();
 
-            using var app = GnOuGoAgentWebHost.Build(
+            using var app = TelemetryTestHostArgs.Build(
                 args,
                 urls: "http://127.0.0.1:0",
                 contentRoot: tempContentRoot,
@@ -324,7 +387,7 @@ public sealed class GnOuGoAgentWebHostTests
         var contentRoot = GetServerContentRoot();
         var args = TelemetryTestHostArgs.Create();
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -358,7 +421,7 @@ public sealed class GnOuGoAgentWebHostTests
         var contentRoot = GetServerContentRoot();
         var args = TelemetryTestHostArgs.Create();
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -401,7 +464,7 @@ public sealed class GnOuGoAgentWebHostTests
         var contentRoot = GetServerContentRoot();
         var args = TelemetryTestHostArgs.Create();
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -470,7 +533,7 @@ public sealed class GnOuGoAgentWebHostTests
 
         var args = TelemetryTestHostArgs.Create();
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: tempContentRoot,
@@ -522,7 +585,7 @@ public sealed class GnOuGoAgentWebHostTests
             "--OpenTelemetry:Protocol=HttpProtobuf",
             $"--OpenTelemetry:ServiceName=GnOuGo.Agent.Server.Tests.{Guid.NewGuid():N}");
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -650,7 +713,7 @@ public sealed class GnOuGoAgentWebHostTests
             $"--Agent:DatabasePath={agentDbPath}",
             $"--KeyVault:DatabasePath={keyVaultDbPath}");
 
-        await using var app = GnOuGoAgentWebHost.Build(
+        await using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,
@@ -681,15 +744,16 @@ public sealed class GnOuGoAgentWebHostTests
     [Fact]
     public void ResolveDatabasePath_WhenUsingAgentDefaultTelemetryPath_UsesDefaultWorkingDirectoryGnOuGoDataDirectory()
     {
+        var baseDirectory = Path.GetTempPath();
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: baseDirectory),
             ".GnOuGo",
             "data",
             "gnougo-telemetry.db");
 
         var actual = OtlpCollectorHostingExtensions.ResolveDatabasePath(
             ".GnOuGo/data/gnougo-telemetry.db",
-            AppContext.BaseDirectory);
+            baseDirectory);
 
         Assert.Equal(expected, actual);
     }

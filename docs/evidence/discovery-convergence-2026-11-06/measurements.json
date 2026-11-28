@@ -1,0 +1,85 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "comparability": "No post-fix paid trial was admitted; no live convergence, speed or cost-saving comparison is established.",
+  "controlled_host": {
+    "logical_model_calls": 0,
+    "llm_http_attempts": 0,
+    "catalog_captures_before_restart": 1,
+    "catalog_captures_after_restart": 0,
+    "pages": 6,
+    "capabilities": 48,
+    "accepted_checkpoints_seeded": 2,
+    "new_accepted_checkpoints": 0,
+    "repeated_strategies": 0,
+    "measured_tokens": null,
+    "captured_tariff_cost": null,
+    "usage_note": "No inference. Fixture checkpoints are preserved evidence, not newly accepted work."
+  },
+  "live_metadata": {
+    "logical_model_calls": 0,
+    "llm_http_attempts": 0,
+    "metadata_pages": 7,
+    "capabilities": 52,
+    "runtime_recreations": 1,
+    "elapsed_seconds": "2.136614",
+    "physical_mcp_http_attempts": null,
+    "accepted_checkpoints": 0,
+    "measured_llm_tokens": null,
+    "captured_tariff_cost": null,
+    "note": "Metadata transport counts are not measured by this reader; no inference usage is invented."
+  },
+  "retained_operator_loop": {
+    "session": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+    "inspected_revision": 526,
+    "last_saved_status": "generating",
+    "logical_calls": 258,
+    "completed_receipts": 257,
+    "unresolved_reserved_calls": 1,
+    "accepted_checkpoints": 2,
+    "corrections": 45,
+    "nonproductive_count_at_call_246": 207,
+    "rejected_value_steps_at_first_snapshot": 34,
+    "base_plan_hash_unchanged_in_calls_247_250_257": true,
+    "loop_example": [
+      {
+        "call": 247,
+        "phase": "implementation",
+        "rejection_reason_present": true
+      },
+      {
+        "call": 248,
+        "phase": "discovery",
+        "same_rejection_reason_present": false,
+        "selected_kind": "value"
+      },
+      {
+        "call": 249,
+        "phase": "draft",
+        "disposition": "abandon"
+      }
+    ],
+    "app_process_stopped": true,
+    "agent_cancelled_or_resumed": false,
+    "agent_model_dispatches": 0
+  },
+  "real_llm_controlled_mcp": {
+    "dispatched": false,
+    "reason": "global accounting preflight incomplete",
+    "logical_model_calls": 0,
+    "http_attempts": 0,
+    "accepted_checkpoints": 0,
+    "measured_tokens": null,
+    "captured_tariff_cost": null,
+    "oracle": "not run"
+  },
+  "real_amazon": {
+    "dispatched": false,
+    "reason": "global accounting preflight incomplete",
+    "logical_model_calls": 0,
+    "http_attempts": 0,
+    "accepted_checkpoints": 0,
+    "measured_tokens": null,
+    "captured_tariff_cost": null,
+    "oracle": "not run"
+  }
+}

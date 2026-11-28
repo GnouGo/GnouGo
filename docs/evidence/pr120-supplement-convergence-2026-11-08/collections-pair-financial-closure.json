@@ -1,0 +1,46 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceiling_eur": "1200",
+  "ceiling_history": [
+    {
+      "previousCeilingEur": 0,
+      "ceilingEur": 400,
+      "authorizedAtUtc": "2026-11-07T02:52:01.556586+00:00",
+      "authorizationHash": "4e9fc12805717dda09b2d3c902b82311c25f651c209c55d6b74a46e721ac9e59"
+    },
+    {
+      "previousCeilingEur": 400,
+      "ceilingEur": 800,
+      "authorizedAtUtc": "2026-11-08T14:55:33.4677310+00:00",
+      "authorizationHash": "5110eabf0fed2b3ba3a0d8f6bd7258d6941c4cf4a5f8d54c079ad304bcadc3a7"
+    },
+    {
+      "previousCeilingEur": 800,
+      "ceilingEur": 900,
+      "authorizedAtUtc": "2026-11-09T00:21:36.6702580+00:00",
+      "authorizationHash": "21730aebb1fd9d28e5a78605163063faad51cfe0abcfadf5f3a70fe79f17e4ce"
+    },
+    {
+      "previousCeilingEur": 900,
+      "ceilingEur": 1200,
+      "authorizedAtUtc": "2026-11-09T05:57:55.8874730+00:00",
+      "authorizationHash": "d72da6f1c5cb2ea7ed23cfa7a25cda7d30acbe22653e417924a644ccedd3f777"
+    }
+  ],
+  "known_usage_tariff_eur": "682.65544111061352440662786152",
+  "retained_http_reservations_eur": "370.35216300940438871473354247",
+  "cost_upper_bound_eur": "1053.007604120017913121361404",
+  "retained_application_reservations_eur": "44.588114643976712942230183612",
+  "available_after_collections_pair_eur": "102.404281236005373936408412388",
+  "unresolved_physical_attempts": 43,
+  "latest_supplement_reference": "pr120-supplement-20261109-300-01",
+  "latest_supplement_applied_once": true,
+  "no_paid_run_active_after_pair": true,
+  "audit_sha256": "a3e43cd5d06c25eebad43049a256869200319121c2f8afa8a4106b19dfcf4a13",
+  "limitations": [
+    "Closed-run campaign allocation, not provider invoicing or global funding.",
+    "All prior uncertain HTTP and application holds remain; no reset, replay, new campaign or Unlimited."
+  ],
+  "globally_available_funding": null,
+  "funding_limitation": "External session pricing and lost historical ledger evidence are not established by this campaign-only read."
+}

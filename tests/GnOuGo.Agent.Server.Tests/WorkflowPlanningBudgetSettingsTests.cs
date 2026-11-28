@@ -77,7 +77,7 @@ public sealed class WorkflowPlanningBudgetSettingsTests
             ])
             .ToArray();
 
-        using var app = GnOuGoAgentWebHost.Build(
+        using var app = TelemetryTestHostArgs.Build(
             args,
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,

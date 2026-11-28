@@ -7,6 +7,32 @@ namespace GnOuGo.GithubCopilot.Core;
 
 public static partial class ReviewValidation
 {
+    public static string FindingFieldContract { get; } =
+        $"Use one of {string.Join(", ", Enum.GetNames<ReviewSeverity>())} for severity and one of {string.Join(", ", Enum.GetNames<ReviewDiffSide>())} for side.";
+
+    public static ObservedReview ValidateObserved(IReadOnlyDictionary<string, ReviewFilePatch> files,
+        IEnumerable<string> readPaths, IReadOnlyList<string> reportedPaths, IReadOnlyList<string> limitations,
+        IReadOnlyList<ReviewFindingCandidate> candidates)
+    {
+        var observed = readPaths.Where(files.ContainsKey).ToHashSet(StringComparer.Ordinal);
+        var unobserved = files.Keys.Except(observed, StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var errors = new List<string>();
+        if (observed.Count == 0) errors.Add("No changed file has an observed read.");
+        if (reportedPaths.Count != observed.Count || !observed.SetEquals(reportedPaths))
+            errors.Add("Reported file coverage differs from the observed reads.");
+        if ((unobserved.Length > 0 || files.Values.Any(file => file.Truncated)) && !limitations.Any(s => !string.IsNullOrWhiteSpace(s)))
+            errors.Add("Partial coverage requires an explicit limitation.");
+        var findings = new List<ReviewFinding>();
+        foreach (var candidate in candidates)
+        {
+            if (candidate is null || !observed.Contains(candidate.Path))
+                errors.Add("A finding lacks an observed read of its file.");
+            else if (!TryValidate(candidate, files, out var finding, out var error)) errors.Add(error!);
+            else findings.Add(finding!);
+        }
+        return new(observed.Order(StringComparer.Ordinal).ToArray(), unobserved, Deduplicate(findings), errors);
+    }
+
     public static IReadOnlyList<CopilotReviewBatch> CreateBatches(
         IReadOnlyList<ReviewFilePatch> files,
         int maxBatchCharacters)
@@ -73,7 +99,8 @@ public static partial class ReviewValidation
         }
 
         var validLines = ParseDiffLines(file.Patch, candidate.Side);
-        if (!Enumerable.Range(candidate.StartLine, candidate.EndLine - candidate.StartLine + 1).All(validLines.Contains))
+        var lineCount = candidate.EndLine - candidate.StartLine + 1;
+        if (lineCount > validLines.Count || !Enumerable.Range(candidate.StartLine, lineCount).All(validLines.Contains))
         {
             rejection = $"Line range {candidate.StartLine}-{candidate.EndLine} is not present on the {candidate.Side} side of '{candidate.Path}'.";
             return false;

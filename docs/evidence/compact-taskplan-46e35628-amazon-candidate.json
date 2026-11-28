@@ -1,0 +1,429 @@
+{
+  "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+  "presentation_version": 10,
+  "cohort": "compactr46e356283amz22j20v10a",
+  "run": "compactr46e356283amz22j20v10a-amazon-1",
+  "case": "amazon",
+  "role": "Frozen candidate diagnostic; no complete business acceptance or runtime credit.",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "e29381617a95846ad610677fbc1282bdca5049acc32435655fb3e70f59e23de6",
+  "command_sha256": "8283808651622a5288b3c5f6b12a6eb03f3ff452a08b49614b6f66377df1168b",
+  "benchmark_binary_sha256": "f7777fb76640b17f8c31c7dd3928580291763b4226f15c0d02ac963116c12cd5",
+  "source_manifest_sha256": "fb36f47872bccd7576d5f98b079199600694d9be1772dee96e269649272448e4",
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "observation_utc": "2026-10-27T18:40:47.334258+00:00",
+  "status": "stopped",
+  "revision": 47,
+  "planning": {
+    "logical_calls": 45,
+    "physical_attempts": 47,
+    "known_input_tokens": 243184,
+    "known_output_tokens": 71832,
+    "known_cost_eur": "3.0083712628290941543953592149",
+    "unknown_attempts": 2,
+    "reserved_input_tokens": 52315,
+    "reserved_output_tokens": 49152,
+    "reserved_cost_eur": "1.5494288264167782240071396698",
+    "receipts": 45,
+    "automatic_corrections": 3,
+    "known_reasoning_tokens": 59998,
+    "planning_ms": 1896920,
+    "provider_discovery_reads": 2
+  },
+  "classification": {
+    "terminal_code": "MODEL_INPUT_LIMIT",
+    "terminal_phase": "construction_select",
+    "complete_request_bytes": 38762,
+    "estimated_input_tokens": 13177,
+    "captured_input_limit": 12000,
+    "next_request_dispatched": false,
+    "all_admitted_receipts_present": true,
+    "provider_failure_records": 0,
+    "run_unknown_physical_attempts": 2,
+    "pending_logical_receipt_uncertainty": false,
+    "retention_needed_for_this_stop": false,
+    "runtime_output_exhaustion_established": false,
+    "boundary": "Business planning stopped on prospective request admission. Two historical attempts within this run retain unknown usage reserves despite eventual logical receipts. No per-attempt HTTP status or full response-format claim is inferred."
+  },
+  "trajectory": [
+    {
+      "requests": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "observation": "Captured original clauses/interfaces, explicitly selected query-input-only closure, retrieved its exact evidence, submitted an empty extension and received clean scoped findings; no root completion."
+    },
+    {
+      "requests": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12
+      ],
+      "observation": "Selected work, read provider/description evidence, chose and accepted an empty outer sequence."
+    },
+    {
+      "requests": [
+        13,
+        14,
+        15,
+        16,
+        17,
+        18
+      ],
+      "observation": "Selected inside the outer sequence, repeated provider/description navigation, chose and accepted empty group step_3."
+    },
+    {
+      "requests": [
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "observation": "Selected in the same body, repeated provider/description navigation, chose and accepted a second empty group."
+    },
+    {
+      "requests": [
+        25,
+        26,
+        27,
+        28,
+        29,
+        30
+      ],
+      "observation": "Bound one original operation and requested exact input/output schemas. The q30 response requested suspension for an evidenced prerequisite with expected type any; no task was recorded from that response. The compiler permits any, so this field alone establishes no type-validation defect."
+    },
+    {
+      "requests": [
+        31,
+        32,
+        33,
+        34,
+        35,
+        36
+      ],
+      "observation": "Selected again, repeated provider/original-contract navigation, bound the same operation and requested eight schema addresses. The q36 response requested suspension for an evidenced string prerequisite. Both q30 and q36 cite the same four original evidence addresses; their need and reason texts differ."
+    },
+    {
+      "requests": [
+        37,
+        38
+      ],
+      "observation": "The selected requirement list changed from req_0,req_1,req_1 to req_0,req_1,req_4. Full issued diagnostics and individual correction charges are not exposed by this projection."
+    },
+    {
+      "requests": [
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45
+      ],
+      "observation": "Two discovery requests led to a transform binding/draft with an explicit continuation association, followed by clean Judge, operation draft and clean Judge. No intervening semantic selection/discovery occurred between q43 and q44."
+    },
+    {
+      "requests": [
+        46
+      ],
+      "observation": "The next selection request was constructed but rejected before dispatch at13,177 estimated input tokens against12,000."
+    }
+  ],
+  "accepted_progress": {
+    "required_public_input": "query:string, required; no default.",
+    "outer_sequences": 1,
+    "nested_transform_tasks": 1,
+    "nested_operation_tasks": 1,
+    "empty_reusable_groups": 2,
+    "public_outputs": 0,
+    "product_iteration_tasks": 0,
+    "workbook_tasks": 0,
+    "completed_business_obligations": 0,
+    "logical_calls_per_completed_obligation": null,
+    "physical_calls_per_completed_obligation": null,
+    "authority_boundary": "The partial graph has no complete artifact or runtime. Empty groups and clean scoped reviews are not completed business obligations. The supplemental exact typed projection confirms the transform-to-operation binding. It does not qualify original operation-contract semantics or authorize execution.",
+    "typed_dataflow": {
+      "producer": {
+        "id": "step_7",
+        "kind": "transform",
+        "mode": "interpret",
+        "input": "input:query",
+        "result_type": {
+          "kind": "object",
+          "nullable": false,
+          "items": null,
+          "fields": [
+            {
+              "name": "amazon_fr_search_url",
+              "type": {
+                "kind": "string",
+                "nullable": false,
+                "items": null,
+                "fields": []
+              },
+              "required": true,
+              "default": null
+            }
+          ]
+        },
+        "objective_sha256": "f52384c1eb2c428c2f196006063d88fb2aea7eb175caf3fe0df9a3edb1b64442"
+      },
+      "consumer": {
+        "id": "step_8",
+        "operation": "cap_490d9e16075cbdca5954ec27",
+        "depends_on": [
+          "step_7"
+        ],
+        "arguments": {
+          "url": {
+            "kind": "output",
+            "source": "step_7",
+            "port": "amazon_fr_search_url"
+          },
+          "waitUntil": "domcontentloaded",
+          "format": "observation_complete"
+        },
+        "maxCharacters_argument_present": false
+      },
+      "continuation_binding": {
+        "continuationId": "continuation_1",
+        "binding": {
+          "kind": "output",
+          "source": "step_7",
+          "port": "amazon_fr_search_url"
+        },
+        "dischargedContinuationIds": null
+      },
+      "accepted_plan_sha256": "9d0ec5190e07fdeb6eef891a37202c669f9dff12d500452d9395cac081467626"
+    }
+  },
+  "review_observations": {
+    "clean_scoped_judge_requests": [
+      6,
+      12,
+      18,
+      24,
+      43,
+      45
+    ],
+    "request_acknowledgment_pairs": 50,
+    "broad_acknowledgments": 50,
+    "subject_acknowledgments": 0,
+    "authored_continuation_association_requests": [
+      42
+    ],
+    "authored_boundary_transition_requests": [],
+    "retained_reuse_events": null,
+    "retained_transition_events": null,
+    "checkpoint_count": null,
+    "observed_phase_adjacency": [
+      43,
+      44
+    ],
+    "boundary": "Public inspect lacks construction/proof/transition journals. Phase adjacency and a received continuation association do not independently authenticate a mechanical transition or avoided-call counterfactual."
+  },
+  "repetition": {
+    "identical_normalized_discovery_request_batches": [
+      8,
+      14,
+      20,
+      26,
+      32,
+      39
+    ],
+    "recorded_actual_provider_discovery_reads": 2,
+    "same_two_original_description_address_batches": [
+      9,
+      15,
+      21
+    ],
+    "same_operation_bound_requests": [
+      28,
+      34
+    ],
+    "interpretation": "Navigation repeats across distinct tentative selections. Two empty accepted groups add scaffolding, but no duplicated completed business operation or generic host defect is established."
+  },
+  "correction_boundary": {
+    "total_charges": 3,
+    "visible_requirement_list_change": [
+      37,
+      38
+    ],
+    "complete_charge_attribution": false,
+    "received_reselections": [
+      {
+        "request": 30,
+        "disposition": "suspend",
+        "expected_type": {
+          "kind": "any",
+          "nullable": false
+        },
+        "evidence_addresses": [
+          "requirement:req_0",
+          "requirement:req_1",
+          "source:request:0:clause:0",
+          "source:request:0:clause:1"
+        ],
+        "response_sha256": "14fff706bfcfc90ea39c74501422e907de96e3413988b4742d97d98ceb7d2fa2"
+      },
+      {
+        "request": 36,
+        "disposition": "suspend",
+        "expected_type": {
+          "kind": "string",
+          "nullable": false
+        },
+        "evidence_addresses": [
+          "requirement:req_0",
+          "requirement:req_1",
+          "source:request:0:clause:0",
+          "source:request:0:clause:1"
+        ],
+        "response_sha256": "1e2a38fd0aada7d0601048673a144a0eda4289c2036389897f2f0c9f1e54e512"
+      }
+    ],
+    "reason": "Exact received suspension bodies and requirement-list changes are retained. The public API does not expose issued diagnostic contexts or the correction charging journal; their exact per-charge mapping is not inferred."
+  },
+  "context_limit_analysis": {
+    "largest_components_utf8_bytes": {
+      "response_schema": 13720,
+      "requirements": 7362,
+      "interfaces": 5259,
+      "construction_context": 4896,
+      "instructions": 3764,
+      "intent": 2125,
+      "evidence": 1193,
+      "envelope": 443
+    },
+    "selected_contract_pins": [],
+    "full_unissued_payload_retained": false,
+    "byte_identical_contract_duplication_proven": false,
+    "interpretation": "The rejected phase is selection, not drafting or Judge. Its measurement has no mcp_contracts component. Component sizes alone do not prove removable duplication or an equivalent request fitting12k; no new correction or ceiling change follows.",
+    "preceding_selection_to_rejected_selection": {
+      "requests": [
+        38,
+        46
+      ],
+      "response_schema_bytes": [
+        7331,
+        13720
+      ],
+      "interfaces_bytes": [
+        183,
+        5259
+      ],
+      "requirements_bytes": [
+        6271,
+        7362
+      ],
+      "interpretation": "Accepted interfaces and selection-navigation domains grew between these requests. The safe measurements do not retain the complete payload and do not establish byte-identical duplication."
+    }
+  },
+  "response_anomalies": {
+    "normalized_objects_received": 45,
+    "recorded_content_bytes_total": 35893,
+    "received_zero_content_byte_count": 0,
+    "completion_status_missing_count": 45,
+    "original_finish_reason_counts": null,
+    "original_whitespace_metrics": null,
+    "http_status_codes": null,
+    "boundary": "These public response measurements do not contain original formatting, ordinary finish reasons or attempt HTTP statuses. Missing metrics are unknown, not zero."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "model_calls": 0,
+    "independent_oracle_pass": false,
+    "complete_business_units": 0
+  },
+  "campaign_after": {
+    "captured_utc": "2026-10-27T18:40:47.334258+00:00",
+    "inspection_sha256": "98b55cca0087f3576b8e928cf4e2e0e54da2f86a44d235e3920d80e18482edce",
+    "campaign": "schema-portability-20261019-incremental",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "reserved_requests": 4951,
+    "completed_receipts": 4914,
+    "transport_accounting": {
+      "calls": 5013,
+      "session_calls": 0,
+      "known_input_tokens": 17018339,
+      "known_output_tokens": 6454041,
+      "known_cost_eur": "248.57345454569247100074220869",
+      "reserved_input_tokens": 1509590,
+      "reserved_output_tokens": 2719744,
+      "reserved_cost_eur": "79.53228681068062052410001390",
+      "cost_upper_bound_eur": "328.10574135637309152484222259",
+      "unknown_attempts": 98
+    },
+    "receiptless_count": 37,
+    "retained_closed_count": 37,
+    "unresolved_count": 0,
+    "available_eur": "211.92436247633321301760272471",
+    "boundary": "Single dated post-terminal campaign read. Stored System.Decimal accounting totals are copied; no funds released, retention mutation or later-admission claim."
+  },
+  "comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_record_sha256": "0bd6b946428aac4895f532b412123932d5a20587c7661846e08672cd9ee5824c",
+    "control_freeze_sha256": "db687b1d5cf51c319605d306d805ac11a47478a68ab556889e64988e1e6e9290",
+    "control_calls_receipts": [
+      26,
+      26,
+      26
+    ],
+    "candidate_calls_receipts": [
+      45,
+      47,
+      45
+    ],
+    "same_frozen_phase_policy": true,
+    "interpretation": "Control stopped at the independently demonstrated fifth-prerequisite/repeat defect; this candidate stopped later at selection input admission. Neither completed the business obligation. Different partial accepted states and longer trajectory establish no cost, dispatch-savings or convergence benefit."
+  },
+  "measurements": {
+    "file": "compact-taskplan-46e35628-amazon-measurements.json",
+    "sha256": "bfcb22483a6fc2b8ad2d72760a3052427f9925de5da8d560e91eb6f8b293ba1f",
+    "bytes": 10732
+  },
+  "evidence": {
+    "reduction_sha256": "f902601e6487f2a1da4c0739e006c5ec02fd7bb3c1e40d3e7437cba17ae50982",
+    "supplement_sha256": "c523be8e90a5e0da1b43f4c2761e3c469cb2602d6f2f0cd10f3d371fec00a1bd",
+    "inspection_stdout_sha256": "8f955a0339a01c5bf9e5c6db8dcebaf8015878ec7257e3e664c6289d42cc20d4",
+    "reader_terminal_sha256": "6d5299721f599ae1f79e1ccee9cb437f1d90e25115c792415e8b91f2d35564fb",
+    "prepared_reader_peer_sha256": "dc87fa8732ec70ca8fa80c2a0b0367a43202020be156349bbdd7bac1f556d59a"
+  },
+  "limitations": [
+    "Both authorized stopped-read leases were released before the next Code run. This report uses only the saved safe projections.",
+    "Raw inspection remained RAM-only. Complete issued requests, raw provider receipts and full continuation/review journals were not fetched.",
+    "The supplement repairs the first projection's omitted typed task and reselection fields. Original operation-contract text, complete issued contexts and per-charge diagnostic history remain unavailable here.",
+    "All original run records and reserved unknown usage remain unchanged. No execution, approval, continuation, replay or abandonment was performed."
+  ]
+}

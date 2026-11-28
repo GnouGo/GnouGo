@@ -1,7 +1,7 @@
 # GnOuGo.Assets.Bears
 
 <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Bears.svg" alt="NuGet version"></a>
-<a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt=".NET 11.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Bears.svg" alt="NuGet downloads"></a>
 
 Dependency-free deterministic SVG generator for the GnOuGo mascot, GnouGnou,

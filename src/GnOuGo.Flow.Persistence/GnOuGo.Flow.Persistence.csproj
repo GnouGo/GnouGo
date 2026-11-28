@@ -1,12 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk" TreatAsLocalProperty="PublishSingleFile">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>15.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Persistence</PackageId>
-    <PackageReleaseNotes>Encrypted tenant execution journals remain schema 9. Planning consumers use format 10 TaskPlan sessions; regenerate and approve previous planning sessions without migrating old encrypted records.</PackageReleaseNotes>
+    <PackageReleaseNotes>Capture two-day operational retention, store run-owned images in encrypted Files and fence expired owners before collection.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Tenant-owned encrypted workflow execution journals with rebuildable EF Core and SQLite indexes.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -15,15 +16,21 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <InterceptorsNamespaces>$(InterceptorsNamespaces);Microsoft.EntityFrameworkCore.GeneratedInterceptors</InterceptorsNamespaces>
     <EFScaffoldModelStage>disabled</EFScaffoldModelStage>
+    <GnOuGoEfNeedsDesignHost>true</GnOuGoEfNeedsDesignHost>
     <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Files.Core/GnOuGo.Files.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="../GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Workspace/GnOuGo.Workspace.csproj" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.12" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="10.0.12" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="11.0.0" PrivateAssets="all" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Planning.Benchmark" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Server.Tests" />
+    <InternalsVisibleTo Include="GnOuGo.Flow.Persistence.Tests" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
+  <Import Project="../../build/GnOuGo.EfDesignTime.targets" />
 </Project>

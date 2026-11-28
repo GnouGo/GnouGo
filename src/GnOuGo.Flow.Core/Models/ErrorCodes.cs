@@ -33,6 +33,9 @@ public static class ErrorCodes
     public const string LlmBudgetExceeded = "LLM_BUDGET_EXCEEDED";
     public const string LlmBudgetUnverifiable = "LLM_BUDGET_UNVERIFIABLE";
     public const string LlmSchema = "LLM_SCHEMA";
+    public const string ModelOutputLimit = "MODEL_OUTPUT_LIMIT";
+    public const string ModelOutputStalled = "MODEL_OUTPUT_STALLED";
+    public const string ModelCompletionRejected = "MODEL_COMPLETION_REJECTED";
     public const string WorkflowFetchPolicy = "WORKFLOW_FETCH_POLICY";
     public const string WorkflowFetchNetwork = "WORKFLOW_FETCH_NETWORK";
     public const string WorkflowFetchIntegrity = "WORKFLOW_FETCH_INTEGRITY";

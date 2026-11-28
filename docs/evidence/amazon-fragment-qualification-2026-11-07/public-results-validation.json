@@ -1,0 +1,305 @@
+{
+  "source": "bdd145cd",
+  "focused": [
+    {
+      "selection": "public-results-planning-tests",
+      "counters": {
+        "total": "2774",
+        "executed": "2774",
+        "passed": "2774",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    },
+    {
+      "selection": "public-results-server-tests",
+      "counters": {
+        "total": "228",
+        "executed": "228",
+        "passed": "228",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      }
+    }
+  ],
+  "countsOverlap": true,
+  "releaseBuild": "passed",
+  "planningReleasePack": "passed",
+  "fullSolution": {
+    "status": "interrupted_after_fixture_failure",
+    "source": "bdd145cd",
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror -p:SkipModelMetadataGeneration=true -p:SkipClientBuild=true --logger trx",
+    "exitCode": 1,
+    "reason": "The HTTP test assumed a single published listener; the full run was stopped before its remaining long matrix completed.",
+    "log": "public-results-full-solution.log.gz"
+  },
+  "fixtureCorrection": {
+    "source": "70ad476d",
+    "reason": "Isolate the test content root and select a Kestrel-owned published HTTP loopback address. Exercise two separately named 127.0.0.1 port-zero listeners.",
+    "selections": [
+      {
+        "selection": "public-results-full-tests",
+        "reports": 10,
+        "outcomes": {
+          "Passed": 2444,
+          "NotExecuted": 7
+        }
+      },
+      {
+        "selection": "http-multiple-listeners-tests",
+        "reports": 1,
+        "outcomes": {
+          "Passed": 5,
+          "Failed": 1
+        }
+      },
+      {
+        "selection": "http-owned-listeners-tests",
+        "reports": 1,
+        "outcomes": {
+          "Passed": 6
+        }
+      }
+    ],
+    "reports": "interrupted-validation-results.tar.gz"
+  },
+  "finalFullSolution": {
+    "source": "70ad476dfeef9cb9996ec6c54c918fc63caf59bc",
+    "exitCode": 0,
+    "assemblies": 33,
+    "outcomes": {
+      "Passed": 8038,
+      "NotExecuted": 13
+    },
+    "reports": [
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_17_48_net10.0.trx",
+        "outcomes": {
+          "Passed": 89
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_17_55_net10.0.trx",
+        "outcomes": {
+          "Passed": 52
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_17_58_net10.0.trx",
+        "outcomes": {
+          "Passed": 23
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_15_net10.0.trx",
+        "outcomes": {
+          "Passed": 1529
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_24_net10.0.trx",
+        "outcomes": {
+          "Passed": 116
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_27_net10.0.trx",
+        "outcomes": {
+          "Passed": 283
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_30_net10.0.trx",
+        "outcomes": {
+          "Passed": 14
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_32_net10.0.trx",
+        "outcomes": {
+          "Passed": 103
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_35_net10.0.trx",
+        "outcomes": {
+          "Passed": 93,
+          "NotExecuted": 7
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_18_54_net10.0.trx",
+        "outcomes": {
+          "Passed": 142
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_13_19_18_net10.0.trx",
+        "outcomes": {
+          "Passed": 1723,
+          "NotExecuted": 1
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_08_net10.0.trx",
+        "outcomes": {
+          "Passed": 73
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_17_net10.0.trx",
+        "outcomes": {
+          "Passed": 9
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_19_net10.0.trx",
+        "outcomes": {
+          "Passed": 10
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_22_net10.0.trx",
+        "outcomes": {
+          "Passed": 7
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_25_net10.0.trx",
+        "outcomes": {
+          "Passed": 7
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_32_26_net10.0.trx",
+        "outcomes": {
+          "Passed": 243
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_11_net10.0.trx",
+        "outcomes": {
+          "Passed": 173
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_13_net10.0.trx",
+        "outcomes": {
+          "Passed": 7,
+          "NotExecuted": 5
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_15_net10.0.trx",
+        "outcomes": {
+          "Passed": 3
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_18_net10.0.trx",
+        "outcomes": {
+          "Passed": 84
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_27_net10.0.trx",
+        "outcomes": {
+          "Passed": 30
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_29_net10.0.trx",
+        "outcomes": {
+          "Passed": 49
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_30_net10.0.trx",
+        "outcomes": {
+          "Passed": 12
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_31_net10.0.trx",
+        "outcomes": {
+          "Passed": 91
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_43_net10.0.trx",
+        "outcomes": {
+          "Passed": 42
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_45_net10.0.trx",
+        "outcomes": {
+          "Passed": 13
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_51_net10.0.trx",
+        "outcomes": {
+          "Passed": 28
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_33_53_net10.0.trx",
+        "outcomes": {
+          "Passed": 2774
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_36_55_net10.0.trx",
+        "outcomes": {
+          "Passed": 177
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_37_08_net10.0.trx",
+        "outcomes": {
+          "Passed": 8
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_37_10_net10.0.trx",
+        "outcomes": {
+          "Passed": 26
+        }
+      },
+      {
+        "file": "_a115vcCX1PXQ575D_2026-11-07_14_37_17_net10.0.trx",
+        "outcomes": {
+          "Passed": 5
+        }
+      }
+    ],
+    "compilerDiagnostics": 0,
+    "checkoutUnchanged": true,
+    "log": "public-results-final-full-solution.log.gz",
+    "reportsArchive": "public-results-final-full-tests.tar.gz",
+    "status": "passed"
+  }
+}

@@ -1,8 +1,12 @@
-﻿namespace GnOuGo.Files.Server.Options;
+namespace GnOuGo.Files.Server.Options;
 
 public sealed class FilesServerOptions
 {
     public const string SectionName = "Files";
+
+    public Uri? PublicBaseUrl { get; set; }
+
+    public string TenantId { get; set; } = "default";
 
     public double DefaultTtlHours { get; set; } = 12;
 
@@ -11,8 +15,6 @@ public sealed class FilesServerOptions
     public string? StorageRootPath { get; set; }
 
     public string? DatabasePath { get; set; }
-
-    public int StreamBufferSizeBytes { get; set; } = 1024 * 128;
 
     public TimeSpan GetDefaultTtl()
     {
@@ -29,10 +31,4 @@ public sealed class FilesServerOptions
 
         return TimeSpan.FromSeconds(PurgeIntervalSeconds);
     }
-
-    public int GetStreamBufferSize()
-    {
-        return StreamBufferSizeBytes < 81920 ? 81920 : StreamBufferSizeBytes;
-    }
 }
-

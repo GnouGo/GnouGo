@@ -1,0 +1,61 @@
+{
+  "captured_source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+  "run": "improve40-amazon-20261127-125435",
+  "session": "559d246045e9443492efab791ee8270b",
+  "validation_source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+  "before_assembly_sha256": "6e86b2644081cdbfbf90e025222734005b8077ad5f2915db6ddd0f2bcb2b9da8",
+  "after_assembly_sha256": "301cf54645022f9bf5388ccda39fc8292977a8715285ad644d05309940d4dc8d",
+  "new_physical_attempts": 0,
+  "basis": "UTF-8 bytes of the logical prompt, using the same captured prompt on both production presentation versions. Each new pointer was independently dereferenced. Reconstructing the original preserved every other context value, including ancestor constraints and reference closures. Wire response schemas, provider tokenization and live savings are outside this replay.",
+  "by_phase": {
+    "construction_intent": {
+      "requests": 1,
+      "changed": 0,
+      "before_bytes": 7809,
+      "after_bytes": 7809,
+      "verified_pointers": 0
+    },
+    "construction_select": {
+      "requests": 2,
+      "changed": 0,
+      "before_bytes": 23502,
+      "after_bytes": 23502,
+      "verified_pointers": 0
+    },
+    "construction_implementation": {
+      "requests": 7,
+      "changed": 0,
+      "before_bytes": 335295,
+      "after_bytes": 335295,
+      "verified_pointers": 0
+    },
+    "construction_discovery": {
+      "requests": 13,
+      "changed": 0,
+      "before_bytes": 668210,
+      "after_bytes": 668210,
+      "verified_pointers": 0
+    },
+    "construction_draft": {
+      "requests": 12,
+      "changed": 0,
+      "before_bytes": 841561,
+      "after_bytes": 841561,
+      "verified_pointers": 0
+    },
+    "construction_local_judge": {
+      "requests": 1,
+      "changed": 0,
+      "before_bytes": 44777,
+      "after_bytes": 44777,
+      "verified_pointers": 0
+    },
+    "replan": {
+      "requests": 10,
+      "changed": 8,
+      "before_bytes": 1495372,
+      "after_bytes": 1452828,
+      "verified_pointers": 8
+    }
+  }
+}

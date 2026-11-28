@@ -1,0 +1,100 @@
+{
+  "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "windows_browser_tests": {
+    "executed": 237,
+    "passed": 237,
+    "failed": 0,
+    "times": {
+      "creation": "2026-11-28T02:00:58.1065481+01:00",
+      "queuing": "2026-11-28T02:00:58.1065486+01:00",
+      "start": "2026-11-28T02:00:55.0308193+01:00",
+      "finish": "2026-11-28T02:04:46.8658566+01:00"
+    },
+    "trx_sha256": "dd470caee0b0ee9d9e67b8114f43bb47d140cdbd04fa3d4d675b6119a4596a91",
+    "tested_binary_sha256": "1341829d010fd017212ac82e3eb05727ea780f9109c948299af07e28b3135d8e",
+    "build_context": "Browser suite and original-capture replay on the patched checkout before the source-stamped Release build."
+  },
+  "runtime_readiness": {
+    "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+    "binary_sha256": "5d2f97e66686d4846755836da4418430718f72f29b17cfc641024fc1f89f3731",
+    "model_calls": 0,
+    "time_utc": "2026-11-28T01:07:15.920233+00:00",
+    "http_status": 200,
+    "record_count": 1162,
+    "pages": 50,
+    "capture_complete": true,
+    "null_hrefs": 126,
+    "original_hrefs": 11,
+    "validated_schema": true,
+    "workspace_writable": true,
+    "browser_closed": true
+  },
+  "published_stdio_smoke": {
+    "tool_count": 9,
+    "exit": 0,
+    "required_nullable_href": true,
+    "binary_sha256": "5d2f97e66686d4846755836da4418430718f72f29b17cfc641024fc1f89f3731"
+  },
+  "production_manifest": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "45ab6e25711cd1aca121b12e93b5f9f835020dc953603d0507e2fd990698e7a0"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "95e3d42dd26428182120e9415c2d3d7074f6c8b9ea4519309bfe809416bb32af"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "cffa98c95bee02cb6d6d0232c9a1a8725928aea66790a7e9ae844c0d4573a56b"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "5311e9bd3e44a7f92a3c2f74cf41553136f9d5c3beb5e0cc6a3b87958c4008bd"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Copilot.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "15bb2aed45daef9cacb03b7cfced89c49af58245543aec1afb8c4096864174c2"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "657437c9bb111dd3692f83fc5543f4f7f799b46a6bf6a728829a5fa6095dd9e8"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "5d2f97e66686d4846755836da4418430718f72f29b17cfc641024fc1f89f3731"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "4a5be40f2ee8d67dd4c8698e53d2e83aa85f07e04004744fb1cadb053c7ab371"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "5dd8def68eb7f4156e9285178cf0103e2f0e2d3cfaa1ab80c88addddff7a4e66"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "3ca7228f6395ab6923a957f2ad17391e124fb592e8fde4a4beff417c4099f1ee"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "9ee99c5cd3b4eab7a34aa479cd54d87cae1249221fd2d4f68d6b0397d32d9340"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "3e7596212f4820b760eebbfb346090b9bb536ffd8ec6bb1fbbe5b83d97df1530"
+    }
+  ]
+}

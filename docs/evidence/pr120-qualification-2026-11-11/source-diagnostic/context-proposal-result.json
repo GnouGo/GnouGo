@@ -1,0 +1,65 @@
+{
+  "version": "amazon-resolved-store-context-v1-proposal",
+  "active": false,
+  "source_analysis_complete": true,
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false,
+  "findings": [],
+  "resolved_store_references": [
+    "d2f9fa0ddfad40f58690d877fda66f68:record:60",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:61",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:62",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:65",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:450",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:451",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:452",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:457",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1252",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1253",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1254",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1255",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1256",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1257",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1258",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1259",
+    "d2f9fa0ddfad40f58690d877fda66f68:record:1260"
+  ],
+  "product_occurrence_count": 82,
+  "first_products": [
+    {
+      "identity": "B09897279N",
+      "source_url_sha256": [
+        "603ea0c5dd3fd6c5543c8fa1075c3bfa91ac229e47371f0da287a91687fc8d86",
+        "2a67efa9a01ec2c50a9aecc2ed100506792c24858317114f28eba87b5a5de32e",
+        "a1614d6fd97011252b78872201aca92b1806891b554b1cf214ec6a4e02810014"
+      ]
+    },
+    {
+      "identity": "B0HDC2RK3T",
+      "source_url_sha256": [
+        "9167597f479ba411d4c0987c174515785587359f8172985a9cfa00b2a393ad02",
+        "11d78e9263528e2eb3dd239697cc96f01941e44d3df920caef4d7482f61e52c2",
+        "498ae6ff5dc33b89c501f00e67621d5b176042208995024357a88407406ac475"
+      ]
+    },
+    {
+      "identity": "B0H1CCV6ZG",
+      "source_url_sha256": [
+        "61e38db7182bd05941cad86e569786d63092a40a52340b3d7830d9b3260f263f",
+        "3cc7e00170cea1309fb704f37215fdb997d442297510d495684cc9e279232321",
+        "6db09d4a5a41d0f9f0450f17895af5ad99ea6a403c0af42aea13829b59902eb5"
+      ]
+    }
+  ],
+  "qualification": "Offline analysis of real source and redirect evidence; no new navigation, execution, policy capture or business-oracle activation.",
+  "controlled_tests": {
+    "amazon_passed": 172,
+    "failed": 0,
+    "new_cases": 11,
+    "warnings_as_errors": true
+  },
+  "evidence_sha256": {
+    "source-context-cold-verification.json": "73693f4e99da004657c982add3b2989c2bcc2ae94d5487570c9476e05784868d",
+    "source-context-proposal-tests-verified.log": "dcf710bf8afe2165e8e4eb4ec5eb09b884ea64a4ec969869b311c1cce8b2f3b1"
+  }
+}

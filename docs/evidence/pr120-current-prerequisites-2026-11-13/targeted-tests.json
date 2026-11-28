@@ -1,0 +1,10 @@
+{
+  "configuration": "Release",
+  "warnaserror": true,
+  "passed": 434,
+  "skipped": 0,
+  "failed": 0,
+  "new_negative_case": "EmptyAsinProductCardRetainsItsUnprovedDealsNavigationAsABlocker",
+  "runtime_policy_changed": false,
+  "trx_sha256": "4cbfe6f509000e8efaed94b1353aae4cc51ce1365e9d298d99b986c7ac30c3e0"
+}

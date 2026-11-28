@@ -1,0 +1,358 @@
+{
+  "schema": "gnougo_safe_live_evidence_v1",
+  "classification": "received_semantic_nonprogress_then_inadmissible_evidence_and_fallback",
+  "tested_public_production_source": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "tested_private_source": "d66f4843224e94212416d93dfe02d03e1d1c4e6b",
+  "source_mapping_sha256": "f451457dfcf3b36812031e91fca116b2b712eda74973511ce2a0ff403651f2bd",
+  "cohort": "compactfd66f4843amz11a",
+  "scenario": "amazon",
+  "planning_format": 11,
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_files": 568,
+  "status": "stopped",
+  "artifact_generated": false,
+  "runtime_status": "not_started",
+  "runtime_success": false,
+  "business_oracle_success": false,
+  "planning_ms": 1732017,
+  "logical_requests": 25,
+  "physical_attempts": 26,
+  "corrections": 3,
+  "judges": 0,
+  "provider_input_tokens": 104098,
+  "provider_output_tokens_including_reasoning": 56338,
+  "provider_reasoning_tokens": 50477,
+  "provider_visible_nonreasoning_tokens": 5861,
+  "provider_empty_responses": 0,
+  "provider_whitespace_only_responses": 0,
+  "provider_whitespace_utf8_bytes": 1018,
+  "provider_total_visible_utf8_bytes": 18273,
+  "received_output_exhaustion": 0,
+  "new_unknown_attempts": 1,
+  "known_cost_eur": "1.9728960285586791610887996430",
+  "retained_total_unknown_reservations_eur": "99.34238498114023676684878679",
+  "new_unknown_reservations_eur": "0.9308701472556894243641231593",
+  "phases": {
+    "construction_intent": {
+      "prepared_requests": 2,
+      "logical_requests": 2,
+      "rejected_before_dispatch": 0,
+      "admitted_complete_request_bytes": {
+        "p50_nearest_rank": 3162,
+        "p95_nearest_rank": 9497,
+        "max": 9497
+      },
+      "peak_prepared_complete_request_bytes": 9497,
+      "components": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 850,
+          "estimated_tokens": 796
+        },
+        "instructions": {
+          "serialized_bytes": 2367,
+          "estimated_tokens": 789
+        },
+        "intent": {
+          "serialized_bytes": 3318,
+          "estimated_tokens": 1107
+        },
+        "response_schema": {
+          "serialized_bytes": 5990,
+          "estimated_tokens": 1997
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "component_bytes_reconcile": true,
+      "provider_usage": {
+        "input_tokens": null,
+        "output_tokens": null,
+        "known_input_tokens": 2338,
+        "known_output_tokens": 3318,
+        "estimated_cost_eur": null,
+        "known_cost_eur": "0.0992681838464970995091477019",
+        "usage_complete": false,
+        "usage_bounded": true,
+        "reserved_input_tokens": 12000,
+        "reserved_output_tokens": 32768,
+        "reserved_cost_eur": "0.9308701472556894243641231593",
+        "logical_calls": 2,
+        "elapsed_ms": "392703.5179",
+        "physical_attempts": 3
+      }
+    },
+    "construction_select": {
+      "prepared_requests": 4,
+      "logical_requests": 4,
+      "rejected_before_dispatch": 0,
+      "admitted_complete_request_bytes": {
+        "p50_nearest_rank": 16230,
+        "p95_nearest_rank": 16324,
+        "max": 16324
+      },
+      "peak_prepared_complete_request_bytes": 16324,
+      "components": {
+        "construction_context": {
+          "serialized_bytes": 11142,
+          "estimated_tokens": 3716
+        },
+        "envelope": {
+          "serialized_bytes": 1728,
+          "estimated_tokens": 1602
+        },
+        "instructions": {
+          "serialized_bytes": 11160,
+          "estimated_tokens": 3720
+        },
+        "interfaces": {
+          "serialized_bytes": 1176,
+          "estimated_tokens": 392
+        },
+        "requirements": {
+          "serialized_bytes": 11284,
+          "estimated_tokens": 3764
+        },
+        "response_schema": {
+          "serialized_bytes": 20745,
+          "estimated_tokens": 6916
+        },
+        "intent": {
+          "serialized_bytes": 4094,
+          "estimated_tokens": 1366
+        }
+      },
+      "component_bytes_reconcile": true,
+      "provider_usage": {
+        "input_tokens": 12155,
+        "output_tokens": 12453,
+        "known_input_tokens": 12155,
+        "known_output_tokens": 12453,
+        "estimated_cost_eur": "0.3876528335564480142793395806",
+        "known_cost_eur": "0.3876528335564480142793395806",
+        "usage_complete": true,
+        "usage_bounded": true,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "logical_calls": 4,
+        "elapsed_ms": "236941.54940000002",
+        "physical_attempts": 4
+      }
+    },
+    "construction_discovery": {
+      "prepared_requests": 23,
+      "logical_requests": 19,
+      "rejected_before_dispatch": 2,
+      "admitted_complete_request_bytes": {
+        "p50_nearest_rank": 22043,
+        "p95_nearest_rank": 35181,
+        "max": 35181
+      },
+      "peak_prepared_complete_request_bytes": 36764,
+      "components": {
+        "construction_context": {
+          "serialized_bytes": 36664,
+          "estimated_tokens": 12226
+        },
+        "envelope": {
+          "serialized_bytes": 9913,
+          "estimated_tokens": 9201
+        },
+        "instructions": {
+          "serialized_bytes": 48484,
+          "estimated_tokens": 16169
+        },
+        "mcp_descriptors": {
+          "serialized_bytes": 60090,
+          "estimated_tokens": 20036
+        },
+        "objective": {
+          "serialized_bytes": 13848,
+          "estimated_tokens": 4625
+        },
+        "requirements": {
+          "serialized_bytes": 63151,
+          "estimated_tokens": 21063
+        },
+        "response_schema": {
+          "serialized_bytes": 108803,
+          "estimated_tokens": 36277
+        },
+        "evidence": {
+          "serialized_bytes": 149074,
+          "estimated_tokens": 49696
+        },
+        "intent": {
+          "serialized_bytes": 53997,
+          "estimated_tokens": 18004
+        },
+        "diagnostics": {
+          "serialized_bytes": 377,
+          "estimated_tokens": 126
+        }
+      },
+      "component_bytes_reconcile": true,
+      "provider_usage": {
+        "input_tokens": 89605,
+        "output_tokens": 40567,
+        "known_input_tokens": 89605,
+        "known_output_tokens": 40567,
+        "estimated_cost_eur": "1.4859750111557340473003123605",
+        "known_cost_eur": "1.4859750111557340473003123605",
+        "usage_complete": true,
+        "usage_bounded": true,
+        "reserved_input_tokens": 0,
+        "reserved_output_tokens": 0,
+        "reserved_cost_eur": 0,
+        "logical_calls": 19,
+        "elapsed_ms": "927921.9500000001",
+        "physical_attempts": 19
+      }
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_EVIDENCE_LIMIT",
+      "location": "/evidenceRequests",
+      "message": "The complete prospective construction_discovery request needs 12511 estimated input tokens; its captured ceiling is 12000. Request a smaller coherent batch or exact separable view.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "MODEL_INPUT_LIMIT",
+      "location": "/phases/construction_discovery",
+      "message": "The conservative input estimate for the complete construction_discovery request (prompt and response schema) is 12015 tokens; the captured limit is 12000. Planning stopped before dispatch without consuming another model call or repair. Required context must fit the captured phase allowance; retained requests and cumulative budgets remain unchanged.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "accepted_structure": {
+    "sequence": 0,
+    "group": 0,
+    "operation": 0,
+    "call": 0,
+    "foreach": 0,
+    "open_scopes": 1
+  },
+  "business_obligations_satisfied": null,
+  "calls_per_satisfied_business_obligation": null,
+  "usefulness_note": "No complete artifact or runtime execution; indexed requirements and structural checkpoints are not independent business results.",
+  "comparison_note": "This source-bound diagnostic is not final qualification and cannot establish architecture-only causality.",
+  "raw_evidence_files_sha256": {
+    "freeze.json": "7bba17185496d4cc6688a4119c766687fa0190708247346c8cdc8fac63f7cfa1",
+    "amazon-live.log": "3b1eaa67eb402f8a759ac2b14bec59726c8ff8234edc1a865171782feb93ebfe",
+    "monitor-20261028T174312Z-raw.json": "c8648f852c479d0b603e7a0b237ed5e4cd1ca4b7ed5363b7a42964708f4b621b"
+  },
+  "source_attribution": "Private frozen d66 execution. Separate later provenance verifies executable production/harness equivalence to public664895d7; one package README differs. The original freeze was not rewritten.",
+  "source_mapping": {
+    "public_production_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+    "private_execution_source": "d66f4843224e94212416d93dfe02d03e1d1c4e6b",
+    "recorded_at": "2026-10-28T17:33:16.608178+00:00",
+    "inventory_file_count": 1182,
+    "exact_inventory_file_set": true,
+    "byte_identical_files": 1181,
+    "all_inventory_bytes_equal": false,
+    "executable_production_and_harness_bytes_equal": true,
+    "documentation_differences": {
+      "src/GnOuGo.Flow.Planning/README.md": {
+        "private_sha256": "40fe268039f29323d59796023e01ca617ff617d49dbe19b55434fa1c63755c0c",
+        "public_sha256": "2ec65205903f2ac5c50b5a09ce7fe9b25ad49a4d1578647e2ccd5d6eb40585d2",
+        "private_git_blob": "c0550365a09f737bdc2b75305ebb8888183eded6",
+        "public_git_blob": "cc08edbca81baaf5286b2621e0ece38c61014322",
+        "classification": "Package readme only; csproj None/Pack item, absent from frozen benchmark runtime inputs."
+      }
+    },
+    "pending_requests_reconstructed": false,
+    "active_freeze_sha256": "7bba17185496d4cc6688a4119c766687fa0190708247346c8cdc8fac63f7cfa1",
+    "freeze_unchanged": true,
+    "runtime_files_unchanged": true,
+    "qualification_note": "Execution-source equivalence only; the private freeze retains its original identity and null public attribution. This separate later proof does not rewrite requests, authority, artifacts or package content."
+  },
+  "provider_errors": 1,
+  "transport_incidents": [
+    {
+      "logical_request": 2,
+      "statuses": [
+        500,
+        200
+      ],
+      "failed_attempt_has_complete_saved_body": true,
+      "failed_attempt_verified_usage": false,
+      "failed_attempt_reservation_eur": "0.9308701472556894243641231593",
+      "unknown_request_replay": false,
+      "interpretation": "Journaled retry after a fully received eligible HTTP500, followed by a successful receipt. The full failed-attempt reservation remains retained."
+    }
+  ],
+  "receiptless_logical_requests": 0,
+  "last_evidence_request_addresses": [
+    "source:request:0:clause:0",
+    "source:request:0:clause:1",
+    "source:request:0:clause:2",
+    "source:request:0:clause:4",
+    "source:request:0:clause:5",
+    "source:request:0:clause:6"
+  ],
+  "recovery_fallback": {
+    "requested_followup_input_estimate": 12511,
+    "fallback_input_estimate": 12015,
+    "captured_input_ceiling": 12000,
+    "extra_dispatches": 0,
+    "extra_repairs": 0
+  },
+  "read_only_audit_conclusion": "Exact Browser descriptions, supported URL navigation, required typed query, native interpret eligibility and cached operation links are present. The trace establishes no omitted authorized capability; the model repeatedly chooses a contract/mechanism prerequisite rather than constructing executable business work. Search routes and selectors remain unobserved and must not be fabricated.",
+  "cache_benefit_demonstrated": false,
+  "business_review_false_positives": null,
+  "business_review_defect_resolution": null,
+  "no_new_source_or_model_tuning_during_run": true,
+  "final_campaign_inspection": {
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "known_cost_eur": "296.41089318915521084902422559",
+    "retained_unknown_reservations_eur": "99.34238498114023676684878679",
+    "cost_upper_bound_eur": "395.75327817029544761587301238",
+    "available_eur": "144.27682566241085692657193492",
+    "permanent_closures": 44,
+    "unresolved_requests": 0,
+    "unknown_attempts": 119,
+    "reservations_released": false,
+    "supplement_reapplied": false,
+    "uncertain_calls_replayed": false,
+    "financial_evidence_hash": "8dc768c28ab9f80e1b322bfbc6b981f6e398accd5769b1b6a621c2fead779d24",
+    "note": "Post-Amazon, pre-Review-PR inspection under the campaign lease; not a future balance guarantee."
+  },
+  "captured_date": "2026-10-28"
+}

@@ -1,0 +1,100 @@
+{
+  "source": "a140d71e74f5cfc4c96debc24ad65612b2ed2b5d",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "tests": [
+    {
+      "trx": "TestResults/agent-routing-qualification/deterministic-tools-a140d71e.trx",
+      "sha256": "6fef76c79fbd7460b122ee63b185c5d1fa2daf0e684853c2836b1d19f909c4c5",
+      "result": "Completed",
+      "counts": {
+        "total": 192,
+        "executed": 192,
+        "passed": 192,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.cmd.mcp.tests.dll",
+        "gnougo.git.mcp.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/normal-review-a140d71e.trx",
+      "sha256": "d07013da460c7cf1d9bcf71aa27b14b4a5f80a28b9147746a0b101b732689ded",
+      "result": "Completed",
+      "counts": {
+        "total": 188,
+        "executed": 188,
+        "passed": 188,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/ordered-source-a140d71e.trx",
+      "sha256": "a00a8fd24e6ff03f8b4e34161bd1f0273ce604ca5f78f2dbf524055f4bc42894",
+      "result": "Failed",
+      "counts": {
+        "total": 21,
+        "executed": 21,
+        "passed": 20,
+        "failed": 1,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.browser.mcp.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/ordered-source-rerun-a140d71e.trx",
+      "sha256": "45ee5abb10ab5439a2d1fb96e73b8373e7ce4aa45c6bb195a8c8d99fed17c595",
+      "result": "Completed",
+      "counts": {
+        "total": 21,
+        "executed": 21,
+        "passed": 21,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.browser.mcp.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/repair-progress-a140d71e.trx",
+      "sha256": "6d1b102dad11ea29a1400d5c2b3a1d7e0690d7ec230e04f11a99071c2346ed73",
+      "result": "Completed",
+      "counts": {
+        "total": 114,
+        "executed": 114,
+        "passed": 114,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/shared-sdk-a140d71e.trx",
+      "sha256": "d6daf3b96b69b3fabf8638333c1d285a6fbde7764fb3a533fa2762c9f540d738",
+      "result": "Completed",
+      "counts": {
+        "total": 446,
+        "executed": 446,
+        "passed": 446,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.copilot.tests.dll",
+        "gnougo.githubcopilot.core.tests.dll",
+        "gnougo.githubcopilot.mcp.tests.dll"
+      ]
+    }
+  ]
+}

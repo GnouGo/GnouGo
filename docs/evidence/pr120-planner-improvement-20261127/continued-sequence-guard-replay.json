@@ -1,0 +1,54 @@
+{
+  "source": "324b52293169378ecb50fbcdabd2816f7aef4b3d",
+  "validation_source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "run": "improve40-amazon-20261127-143825",
+  "call": 12,
+  "exchange_sha256": "99caddfeb1c8b389bdf0495cba8920286c603c95522a0fd2b98daf89e2bd14f7",
+  "wire_request_sha256": "bf22923ea0dfc8fd159e7d08f2db2b173f47d30fcaecc8eb596eee079d6dbfe7",
+  "response_content_sha256": "2e9ee6f31409021ca65a3eb803e5a22f26106988bf334978a4dbad4746d62d2f",
+  "prefix_characters": 786,
+  "trailing_structural_whitespace_characters": 17494,
+  "prefix_sha256": "6943e892ea194066ba19ee1f6deaae708b7365a2ac2349a893aa8969e252c53c",
+  "original": {
+    "regenerated_schema_equals_issued": false,
+    "schema_bytes": 34955,
+    "wrapped_response_bytes": 1174,
+    "direct_response_bytes": 915,
+    "issued_schema_accepts_direct": false,
+    "original_schema_accepts_wrapped": true,
+    "current_schema_accepts_direct": false,
+    "current_schema_accepts_wrapped": true,
+    "planner_sha256": "c3cc23040192001c17b7e27d47b8254a4665276a4db11ffa3811298f9e014680",
+    "regenerated_schema_matches_except_ephemeral_evidence_namespace": true
+  },
+  "corrected": {
+    "regenerated_schema_equals_issued": false,
+    "schema_bytes": 35169,
+    "wrapped_response_bytes": 1174,
+    "direct_response_bytes": 915,
+    "issued_schema_accepts_direct": false,
+    "original_schema_accepts_wrapped": true,
+    "current_schema_accepts_direct": true,
+    "current_schema_accepts_wrapped": true,
+    "host_findings": [],
+    "next_scope": "/tasks/capture_gate/body",
+    "authorized_operations": [
+      "cap_490d9e16075cbdca5954ec27",
+      "cap_424f1c176056398813db293a",
+      "cap_bdb7ba9ab04b18783883fa86"
+    ],
+    "planner_sha256": "79d28a3d3f3785d10bb97b31f25236b598c71413e935397ec104445e40800596"
+  },
+  "new_physical_attempts": 0,
+  "scope": "The provider stopped before completing the condition. The local fixture appends a schema-valid synthetic suffix, then removes only the enclosing sequence. The baseline reproduces the stored schema except for its request-scoped evidence alias prefix. Both versions generate their strict schema from the persisted accepted work. The recorded condition reads the same preceding outputs. No fixture was submitted to the Server.",
+  "measured_provider_request": {
+    "strict_wire_schema_matches_issued": true,
+    "provider_completion_status": "output_limit",
+    "planning_diagnosis": "MODEL_OUTPUT_STALLED",
+    "max_output_tokens": 4096,
+    "input_tokens": 24996,
+    "output_tokens": 4096,
+    "reported_reasoning_tokens": 405,
+    "measured_eur": "0.0755990888382687927107061503"
+  }
+}

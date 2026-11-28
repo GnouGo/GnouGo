@@ -1,0 +1,69 @@
+{
+  "source": "94ab0dc9fbe648bc5038ce702e70fbf38f8743d1",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "tests": [
+    {
+      "trx": "TestResults/agent-routing-qualification/normal-qualification-94ab0dc9.trx",
+      "sha256": "38e1225dae492ca3f72c355e09b9da508ed0731842336a5b266deb90323067ae",
+      "result": "Completed",
+      "counts": {
+        "total": 54,
+        "executed": 54,
+        "passed": 54,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/reviewed-closure-94ab0dc9.trx",
+      "sha256": "8bf45354c8d723fa969ead6544f0d47d7ee52ef0cb7be5c96aeb5fe39582d7e3",
+      "result": "Completed",
+      "counts": {
+        "total": 170,
+        "executed": 170,
+        "passed": 170,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/shared-sdk-94ab0dc9.trx",
+      "sha256": "e741d55d997a486a693c1c2d348b0b7ae8f263c14d51e09a14e6c3e4165cc04f",
+      "result": "Completed",
+      "counts": {
+        "total": 446,
+        "executed": 446,
+        "passed": 446,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.copilot.tests.dll",
+        "gnougo.githubcopilot.core.tests.dll",
+        "gnougo.githubcopilot.mcp.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/structured-interpretation-94ab0dc9.trx",
+      "sha256": "6386dc1d9f8de10becb286f85334bf93bf609cfdaa5b5a9ee86fa5379d3d9420",
+      "result": "Completed",
+      "counts": {
+        "total": 23,
+        "executed": 23,
+        "passed": 23,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    }
+  ]
+}

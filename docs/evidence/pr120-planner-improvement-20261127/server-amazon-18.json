@@ -1,0 +1,228 @@
+{
+  "source": "2c7699f019598def8513140301edc51e00ef142e",
+  "run": "improve40-amazon-20261127-234035",
+  "session": "299ee94971e54cee989050f13ebd40ce",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T23:42:04.0317216+00:00",
+  "finished_utc": "2026-11-28T00:20:02.563004+00:00",
+  "wall_seconds": 2278.531283,
+  "phases": {
+    "construction_intent": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 7667,
+      "output_tokens": 3131,
+      "measured_eur": "0.0317289293849658314350797267",
+      "duration_ms": "214056.6081"
+    },
+    "construction_select": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 14176,
+      "output_tokens": 2499,
+      "measured_eur": "0.0436765375854214123006833714",
+      "duration_ms": "76599.9267"
+    },
+    "construction_implementation": {
+      "logical_calls": 42,
+      "physical_attempts": 42,
+      "input_tokens": 772385,
+      "output_tokens": 22459,
+      "measured_eur": "1.8617380410022779043280182231",
+      "duration_ms": "720920.8063"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 125588,
+      "output_tokens": 2631,
+      "measured_eur": "0.2980637813211845102505694761",
+      "duration_ms": "133778.4672"
+    },
+    "construction_draft": {
+      "logical_calls": 30,
+      "physical_attempts": 30,
+      "input_tokens": 604317,
+      "output_tokens": 12875,
+      "measured_eur": "1.4352323462414578587699316631",
+      "duration_ms": "460275.9808"
+    },
+    "construction_local_judge": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 111777,
+      "output_tokens": 4401,
+      "measured_eur": "0.2746674259681093394077448748",
+      "duration_ms": "140550.2647"
+    },
+    "replan": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 134417,
+      "output_tokens": 2832,
+      "measured_eur": "0.3190911161731207289293849658",
+      "duration_ms": "113744.4778"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 18684,
+      "output_tokens": 728,
+      "measured_eur": "0.0458769931662870159453302961",
+      "duration_ms": "20308.5863"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "4.3100751708428246013667425971",
+  "input_tokens": 1789011,
+  "output_tokens": 51556,
+  "planning_status": "final_review",
+  "diagnostics": [],
+  "accepted_tasks": [
+    [
+      "assess",
+      "close_browser",
+      "search"
+    ],
+    [
+      "failed_prefix",
+      "prefix_decision",
+      "select_prefix"
+    ],
+    [
+      "navigate_ambiguous",
+      "navigation_branch",
+      "resolve_selection"
+    ],
+    [
+      "selection_gate"
+    ],
+    [
+      "selected_occurrence",
+      "visit_products"
+    ],
+    [
+      "selected_occurrence",
+      "visit_products"
+    ],
+    [
+      "source_index_check"
+    ],
+    [
+      "detail_get",
+      "href_match"
+    ],
+    [
+      "detail_evidence_gate",
+      "extract_detail",
+      "missing_detail_evidence"
+    ],
+    [],
+    [],
+    [
+      "selection_gate"
+    ],
+    [],
+    [
+      "href_match"
+    ],
+    [],
+    [
+      "visit_eligibilities"
+    ],
+    [
+      "comparison",
+      "delivery_gate",
+      "expected_matrix",
+      "read_gate",
+      "read_workbook",
+      "visit_rows",
+      "write_gate",
+      "write_workbook"
+    ],
+    []
+  ],
+  "result": {
+    "status": "final_review",
+    "calls": 106,
+    "repairs": 8,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "51.350029612756264236902050643",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "18.1285831435079726651480632523",
+    "physical_attempts": 1414,
+    "input_tokens": 21093825,
+    "output_tokens": 724419
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "55.660104783599088838268793298",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "13.8185079726651480637813205973",
+    "physical_attempts": 1520,
+    "input_tokens": 22882836,
+    "output_tokens": 775975
+  },
+  "approval_attempt": {
+    "reviewed_revision": 267,
+    "artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+    "reviewed_tasks": 27,
+    "reviewed_requirements": 11,
+    "normal_server_returned_http": 409,
+    "command": "approve",
+    "original_artifact_replay": "Construction checkpoint identities or completion claims are inconsistent.",
+    "invalidated_checkpoint": 5,
+    "following_checkpoint": 6,
+    "recorded_rollback_before": "2aa2d3cdbd0558a7867b4a56806a9e622b10b83e603ce473d2ade34672754afa",
+    "recorded_rollback_after": "4b4bc031aa93e92a96de4d9c831e365192dcc88df9d41bb65789931401e4df4d",
+    "affected_tasks": [
+      "selected_occurrence",
+      "visit_products"
+    ],
+    "stored_plan_yaml_characters": 1002930,
+    "stored_yaml_sha256": "85c746f9ae2f972a52a236c9f5deb3829ac6576c04e4b0f724fae034387c87eb",
+    "checkpoints": 18,
+    "normal_operator_commands": [
+      {
+        "revision": 142,
+        "kind": "answer",
+        "purpose": "Allow the incomplete branch to return empty visit outcomes."
+      },
+      {
+        "revision": 149,
+        "kind": "revise",
+        "purpose": "Bind the observed decision and outcomes in the two existing conditional outputs."
+      },
+      {
+        "revision": 181,
+        "kind": "answer",
+        "purpose": "Accept the existing selection envelope as the public interface between the blocks."
+      },
+      {
+        "revision": 196,
+        "kind": "revise",
+        "purpose": "Expose mutually exclusive reasons for index or original href discrepancies."
+      }
+    ],
+    "workflow_started": false,
+    "business_searches": 0,
+    "detail_visits": 0,
+    "workbook": false
+  },
+  "local_approval_replay": {
+    "provider_calls": 0,
+    "verified": true,
+    "reviewed_artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+    "validation": "Original production verifier reproduces the HTTP conflict. The corrected verifier accepts the encrypted session export, recompiles to the same graph and exact YAML, and requires the ordered rollback receipt and task-region fingerprint.",
+    "windows_tests": 163,
+    "trx_sha256": "8c4b84a27899f38f85a6b2c88521c0e2e157b32437a80692eb099ba62d44a228"
+  }
+}

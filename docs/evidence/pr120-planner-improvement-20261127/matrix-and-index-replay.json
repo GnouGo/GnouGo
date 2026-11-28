@@ -1,0 +1,54 @@
+{
+  "source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+  "session": "559d246045e9443492efab791ee8270b",
+  "run": "improve40-amazon-20261127-125435",
+  "captured_revision": 95,
+  "captured_candidate_hash": "22d0dcc954a415fed4f11d59930dd559b8923c9206bc3b19f973b2be142593a7",
+  "captured_plan_bytes_sha256": "138c85bb7f7a7d2b9b43ed332034baea9472cb3787126aa5f5bcbdc502603bfb",
+  "original_planner_sha256": "6e86b2644081cdbfbf90e025222734005b8077ad5f2915db6ddd0f2bcb2b9da8",
+  "original_diagnostics": [
+    {
+      "code": "TASK_PREDICATE_TYPE",
+      "location": "/tasks/index_check/condition",
+      "message": "Ordering predicates require numeric operands."
+    },
+    {
+      "code": "TASK_INPUT_TYPE",
+      "location": "/tasks/write_workbook/inputs/rows",
+      "message": "Produced \"array\" items anyOf(anyOf(\"string\") | anyOf(anyOf(anyOf(...) | \"array\" items ...) | \"array\" items \"string\")); expected [\"array\",\"null\"] items [\"array\",\"null\"] items [\"string\",\"null\"]. The business value does not satisfy its authoritative contract. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission."
+    }
+  ],
+  "corrected_planner_sha256": "301cf54645022f9bf5388ccda39fc8292977a8715285ad644d05309940d4dc8d",
+  "unchanged_candidate_diagnostics": [
+    {
+      "code": "TASK_FLATTEN_GROUP_SHAPE",
+      "location": "/tasks/matrix/outputs/rows",
+      "message": "Flatten emits scalar elements from group 0. The complete group satisfies the array element contract at /tasks/write_workbook/inputs/rows. To retain that row, wrap it in a one-element batch before flatten."
+    },
+    {
+      "code": "TASK_INPUT_TYPE",
+      "location": "/tasks/write_workbook/inputs/rows",
+      "message": "Produced \"array\" items anyOf(anyOf(\"string\") | anyOf(anyOf(anyOf(...) | \"array\" items ...) | \"array\" items \"string\")); expected [\"array\",\"null\"] items [\"array\",\"null\"] items [\"string\",\"null\"]. The business value does not satisfy its authoritative contract. The incompatible flattened group is at /tasks/matrix/outputs/rows. This argument may be omitted; if supplied it must satisfy the contract. Null is not omission."
+    }
+  ],
+  "single_header_row_batch_plan_sha256": "d8830e694f6cc4c43b2a1645c1e324d7e41681b74d39a93d4a9640c48e4a3a9e",
+  "with_header_as_single_row_batch": [],
+  "new_physical_attempts": 0,
+  "validation": "Production construction preflight on the captured pending candidate, including its open scope. The second check preserves the entire plan. The third wraps the observed three-cell header in one row batch before the existing ordered flatten.",
+  "validation_source": "6818ed90287878b61d15b124445b6a8e7381ac69",
+  "scoped_repair_slots_of_original_request": [
+    "/tasks/index_check/condition",
+    "/tasks/write_workbook/inputs/rows"
+  ],
+  "original_evidence_only_repair_responses": [
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39
+  ]
+}

@@ -53,10 +53,21 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      - name: Setup .NET 10
+      - name: Verify Windows model catalog generation
+        if: matrix.rid == 'win-x64'
+        shell: powershell
+        run: |
+          $output = Join-Path $env:RUNNER_TEMP 'ModelMetadataCatalog.Generated.cs'
+          ./scripts/update-model-metadata.ps1 -OutputPath $output
+          $expected = git rev-parse HEAD:src/GnOuGo.AI.Core/ModelMetadataCatalog.Generated.cs
+          if ((git hash-object --no-filters $output) -ne $expected) {
+            throw 'Windows model catalog differs from the checked-in catalog.'
+          }
+
+      - name: Set up the .NET SDK
         uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "11.0.100"
 
       - name: Ensure OTLP proto files
         uses: ./.github/actions/ensure-otlp-protos

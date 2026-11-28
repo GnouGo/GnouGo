@@ -1,0 +1,43 @@
+{
+  "observed_at_utc": "2026-11-04T09:38:14.418592+00:00",
+  "source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+  "request_id": "biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03",
+  "evidence_hash": "47694dc51fd18f0b740972eee348e798e6bed75735ea084bb9f9f6f8dca6ffca",
+  "operator": "Codex",
+  "authorization": "The user attachment section 13 and the explicit 2026-11-04 implement-this-plan instruction authorize permanent retention only of biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03, after evidence 47694dc51fd18f0b740972eee348e798e6bed75735ea084bb9f9f6f8dca6ffca matches unstarted-planning-request / no_reserved_physical_attempt. Preserve original records and all reservations; permanently forbid request replay and run continuation. This grants no supplement and no authority for other requests.",
+  "retained_at_utc": "2026-11-04T09:37:49.7015200+00:00",
+  "authorization_hash": "67cd755dae2e8121d0f517ec467eb52777d343636f9bc7cfdce1b500200215c1",
+  "original_records_and_timestamps_unchanged": true,
+  "accounting_unchanged": true,
+  "reservation_retained": true,
+  "replay_forbidden": true,
+  "continuation_forbidden": true,
+  "already_retained_on_reinspection": true,
+  "ledger": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "known_cost_eur": "396.03699826697119047758968677",
+    "reserved_cost_eur": "126.62395663558339338686157849",
+    "cost_upper_bound_eur": "522.66095490255458386445126526",
+    "available_eur": "217.36914893015172067799368204",
+    "physical_calls": 6849,
+    "unknown_attempts": 148,
+    "closures": 62,
+    "unresolved": [],
+    "evidence_hash": "dd7d5f4bd2395f48fb2ceed7ae2a6b2e62c407b46a4af3dbb48f08e3c5f33ae6"
+  },
+  "captures": {
+    "recovery-ledger-before.private.json": "d97bd04d000bc69fc6585852140599706f295f5d87294b0e4adf13ff461efcc7",
+    "recovery-inspection-after.private.json": "2f305974ad3b50a8e8c659a93076e45513c96d5dd8b3002563b10025467b7700",
+    "recovery-applied.private.json": "b43be5900ca9dd3d6b551a54ad5484a45aea73bd942cade795f6fb7fb432474c",
+    "recovery-inspection-before.private.json": "b056f4f03a20b5baf236bbf4927be6efccbe3e4c5f72e8a40a20c6684422d070",
+    "recovery-originals-before.private.json": "6f3a3ec8558eb5591a90f165b5e59858c800470e9def4393709b46c78647e146",
+    "recovery-ledger-after.private.json": "116d0b049a5bb387b3b1fed152f10c8094bd472e5b70499962974ec0ba3b3dec",
+    "recovery-originals-after.private.json": "6f3a3ec8558eb5591a90f165b5e59858c800470e9def4393709b46c78647e146"
+  },
+  "kind": "exact_authorized_request_retention",
+  "version": 1,
+  "campaign": "schema-portability-20261019-incremental",
+  "production_code_changed": false,
+  "supplement_applied": false,
+  "provider_requests": 0
+}

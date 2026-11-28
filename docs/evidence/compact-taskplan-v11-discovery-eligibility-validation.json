@@ -1,0 +1,30 @@
+{
+  "exit_code": 0,
+  "counts": {
+    "Passed": 392
+  },
+  "elapsed_seconds": 25.042622624954674,
+  "source_unchanged": true,
+  "log_sha256": "e8762e46303c154e213b53a9feb4c4854a1a11bdb0acb9bc93fa27f865cf0c7d",
+  "base": "163133cc568b6b6ceed8a67caaac1e0d6ea7be94",
+  "source_manifest_sha256": "1b9a0c8cf024cdcb009a44dba6e8b1e7a91a265982081de9bb819b0dfc1bf57b",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Closure.cs": "f87954b19158062171f2da7d1842b139cf06632365875dfaeb82ab5bc91c2ade",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "12aa70f4900c7baeaf8bcef9c9e38beeb51775f99c1b5fdee38f12ac05a220f9",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs": "83c63c6e42d25a4d7dd3c40d56e587548c96a88bf8db268096af299e7c626b1b"
+  },
+  "reproduction": {
+    "passed": 1,
+    "failed": 3,
+    "log_sha256": "bb39dc2a8a5fd68da403683ff7962930ccd27c8d22572f17e3a5e2477077bab9"
+  },
+  "correction": "Reuse the existing captured local-computation eligibility renderer in deferred discovery as well as selection.",
+  "boundaries": [
+    "No assigned implementation, binding, resumption or execution authority",
+    "No response-schema or model-setting change",
+    "No new persisted metadata or public API",
+    "Historical versions2-10 and exact issued requests retain their paths"
+  ],
+  "live_benefit": "unverified; separate fresh frozen cohort required",
+  "overlap": "Focused cases overlap broader suites; do not sum."
+}

@@ -1,6 +1,6 @@
 # GnOuGo.ProxyCopilot.Server
 
-A standalone .NET 10 loopback proxy for VS Code Chat and Agent mode. Configure LLM endpoints in a typed, ignored `appsettings.Development.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
+A standalone .NET 11 loopback proxy for VS Code Chat and Agent mode. Configure LLM endpoints in a typed, ignored `appsettings.Development.json`, supply credentials through environment overrides, and inspect live traffic in the React dashboard.
 
 ![Live traffic with synthetic providers](docs/screenshots/live-traffic.png)
 
@@ -75,7 +75,37 @@ The native Anthropic adapter explicitly sends `thinking: {"type": "disabled"}`. 
 
 OpenAI-compatible and Copilot providers send output limits as `max_completion_tokens`, including when the client supplies `max_tokens` or the proxy supplies a configured default. Only one field is forwarded; conflicting client limits are rejected. This follows the [OpenAI Chat Completions contract](https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create), where `max_tokens` is deprecated and the completion limit includes reasoning tokens. For a legacy endpoint that accepts only `max_tokens`, add `"max_completion_tokens"` to that model's `Metadata.Capabilities.UnsupportedRequestParameters`. The proxy then translates either client field to `max_tokens`. If both fields are declared unsupported, a request requiring an output limit fails before dispatch. No model-name detection or retry after HTTP 400 is involved.
 
-Retries default to one attempt. Set `RetryPolicy.MaxAttempts` to enable bounded retries of HTTP **429** or **503** rejections. `Retry-After` is honored within `MaxTotalDelayMilliseconds`; exceeding that budget returns the rejection. `MaxUncertainRetries` must remain zero. Connection failures and started streams are never replayed. `AttemptTimeoutMilliseconds` covers authentication, sending, and reading an attempt; client cancellation cancels the upstream request.
+Retries default to one attempt. The examples enable up to **10 total attempts** and **30 minutes of cumulative waiting** per client request, using `Connection.RetryPolicy`:
+
+```json
+"RetryPolicy": {
+  "MaxAttempts": 10,
+  "MaxUncertainRetries": 0,
+  "AttemptTimeoutMilliseconds": 600000,
+  "MaxTotalDelayMilliseconds": 1800000
+}
+```
+
+Only explicit upstream HTTP **429** and **503** rejections are retried. `Retry-After: 150` waits at least 150 seconds; HTTP dates are supported too. Missing or malformed headers use exponential backoff with jitter (`BaseDelayMilliseconds`, capped by `MaxDelayMilliseconds`). That cap never shortens a valid provider delay. If the next delay would exceed `MaxTotalDelayMilliseconds`, or all attempts have been used, the request fails explicitly. These limits do not guarantee that the provider's quota will recover. Defaults remain unchanged when these settings are omitted.
+
+`AttemptTimeoutMilliseconds` covers authentication, sending, and reading each attempt, independently of retry waits. Authentication is reapplied on every attempt, allowing expired OIDC tokens to refresh. Cancellation or shutdown interrupts waiting immediately. `MaxUncertainRetries` must remain zero: uncertain connection failures and interrupted generation streams are never replayed. Waiting requests count toward the existing concurrent-request limit; one model's quota rejection does not pause unrelated requests.
+
+For streaming clients, the proxy starts SSE keep-alive comments when a retry is scheduled and repeats them every 15 seconds through waits and subsequent connection attempts. VS Code ignores these comments; they do not create assistant text, tools, usage, or first-token timing. Once headers have started, a terminal failure is an SSE `data: {"error": ...}` envelope, followed by closure without `[DONE]`, because HTTP 200 can no longer be changed. Failures before streaming starts retain their HTTP error status. Non-streaming clients wait for the eventual JSON response and must configure a sufficiently long client timeout.
+
+The dashboard keeps one traffic record per client request and shows **Waiting to retry**, the next attempt/countdown, last rejection status, and accumulated waiting time. Retry information remains visible after completion. Intermediate rejection bodies appear separately under **Rejected attempts**; the final upstream response remains separate. All captures retain the usual redaction, truncation, and memory limits. Operational telemetry includes `gnougo.proxy.retries`, `gnougo.proxy.retry_wait`, and `upstream.retry_wait` trace events, without prompt or response bodies.
+
+To validate a real VS Code Agent session after a controlled rate limit, start a real configured proxy on an alternate port and a separate published binary with no private configuration:
+
+```bash
+python3 scripts/smoke-proxy-copilot-retry.py \
+  --binary /path/to/published/GnOuGo.ProxyCopilot.Server \
+  --target http://127.0.0.1:5098 --model-id '<provider>/<model-alias>' \
+  --retry-after 150 --port 5099
+PROXY_SMOKE_URL=http://127.0.0.1:5099 PROXY_AGENT_MODEL_ID=retry/model \
+  node scripts/smoke-proxy-copilot-agent.mjs
+```
+
+The first command stays running until Ctrl+C. It injects exactly one rejection, verifies that the retry is not early, then forwards to the real local proxy; it never fabricates model output or executes Agent tools. Credentials remain in the real proxy. Use the Agent smoke's isolated window for its scoped approvals, inspect the waiting countdown at `http://127.0.0.1:5099/ui/`, and stop the harness afterward. The harness records wait/forwarding evidence in its printed temporary directory. The Agent script additionally saves tool execution evidence and a screenshot.
 
 ## Estimated costs
 
@@ -100,7 +130,13 @@ The generated entries include full URLs, such as `http://127.0.0.1:5087/v1/chat/
 
 For OpenAI-compatible and Copilot models, set `Metadata.Capabilities.SupportsReasoningEffort: true` and `SupportedReasoningEfforts` to the exact levels accepted by your upstream. `/api/setup` exports them as the model's `supportsReasoningEffort` array with `reasoningEffortFormat: "chat-completions"`. Optional model-level `DefaultReasoningEffort` must belong to that list and is exported as `defaultReasoningEffort`. After updating `chatLanguageModels.json` in each profile you use, set `"chat.experimentalModelPicker": false` in that profile's settings and reload VS Code. Use the arrow beside the model in its picker to select **Thinking Effort**. The selected value is forwarded as `reasoning_effort`. The default level may appear without a suffix in the model label; this does not mean the choices are missing. Existing chat sessions remember their selected level. No levels are invented for missing metadata, models that reject `reasoning_effort`, or the native Anthropic/Ollama adapters, which do not implement reasoning translation. All configured models remain listed regardless of reasoning support.
 
-Verify reasoning levels with function tools present, not just a plain chat prompt. Some gateways accept higher reasoning levels for text-only Chat Completions but require `reasoning_effort: "none"` when function tools are supplied; they require the Responses API to combine tools and reasoning. For those deployments, retain the supported plain-chat levels, set `DefaultReasoningEffort: "none"`, and select **None** for Agent tool sessions. This includes the [documented GPT-5.6 restriction](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-56). The proxy does not implement Responses or silently downgrade a selected effort. Requests outside explicitly configured levels fail locally with instructions to refresh the client configuration; unknown capability metadata remains transparent. Provider restrictions must be verified against the actual endpoint, even when its model catalog lists reasoning and tools separately.
+Verify reasoning levels with function tools present, not just a plain chat prompt. Some gateways accept higher reasoning levels for text-only Chat Completions and require `reasoning_effort: "none"` with native function tools. Such deployments can require the Responses API for native tools with reasoning. When using native Chat Completions on those deployments, retain the supported plain-chat levels, set `DefaultReasoningEffort: "none"`, and select **None** for Agent tool sessions. This includes the [documented GPT-5.6 restriction](https://learn.microsoft.com/en-us/azure/foundry/foundry-models/concepts/models-sold-directly-by-azure#gpt-56). The proxy does not implement Responses or silently downgrade a selected effort. Requests outside explicitly configured levels fail locally with instructions to refresh the client configuration; unknown capability metadata remains transparent. Provider restrictions must be verified against the actual endpoint, even when its model catalog lists reasoning and tools separately.
+
+When switching to a text-only model in an existing Copilot chat, the editor can include earlier tool calls and their results in `messages`. The OpenAI-compatible and Copilot adapters forward these completed exchanges with the selected reasoning effort. Each call must have a matching result. For a text-only model, omit tool definitions for the current turn.
+
+For an OpenAI-compatible Chat Completions deployment that accepts strict JSON schema with reasoning, set the model's `ToolTransport` to `gnougo-structured-tools-v1` and `Metadata.Capabilities.SupportsStructuredOutput` to `true`. Keep `SupportsTools` set to the deployment's **native** function-calling capability. Restart the proxy and refresh the model entry in VS Code from `/api/setup`. The entry now advertises tool calling through the adapter. Omitting `ToolTransport` keeps native behavior.
+
+For turns with function tools, the adapter sends the complete tool declarations, conversation and selected reasoning effort in one Chat Completions request. It receives a complete JSON decision, checks the selected tool names against that turn's declarations and returns the calls to VS Code. VS Code handles argument validation, approvals and execution, then supplies the results on the next turn. A streaming client receives its first content after the upstream decision completes. Text-only turns keep native streaming. A tool turn with its own output schema fails before dispatch because both features need the provider's response format.
 
 There is no separate Agent endpoint or server-side tool runner. VS Code sends its tool schemas with the conversation; the model returns `tool_calls`; VS Code executes them and sends `role: "tool"` messages with matching `tool_call_id` values on the next turn. The proxy preserves that loop, including parallel calls and their identities. Selecting Agent does not force a model to call tools: inspect the dashboard for incoming `tools`, outgoing `tool_calls`, and subsequent tool results if a model only replies with prose. The built-in editor and terminal tools do not require a GnOuGo MCP server.
 
@@ -134,6 +170,57 @@ Only loopback listen addresses and same-origin browser requests are accepted. Co
 `ProxyCopilot.TenantId` defaults to `local`. Enable optional OpenTelemetry through the shared `OpenTelemetry` section. The proxy emits request status, duration, model/provider, and tenant metadata, without prompt/response bodies or authentication HTTP traces. Nothing is persisted by the application.
 
 ## Test and publish
+
+### Homebrew (macOS)
+
+Install the standalone server on Apple Silicon or Intel Macs (macOS Monterey 12
+or later), without installing the desktop application or a .NET SDK/runtime:
+
+```bash
+brew update
+brew install gnougo/tap/gnougo-proxy-copilot
+# To run ProxyCopilot (foreground; Ctrl+C to stop)
+gnougo-proxy-copilot
+```
+
+If Homebrew asks you to trust the third-party formula, review
+[`Formula/gnougo-proxy-copilot.rb`](https://github.com/GnouGo/homebrew-tap/blob/main/Formula/gnougo-proxy-copilot.rb)
+and run `brew trust --formula gnougo/tap/gnougo-proxy-copilot` before retrying.
+
+If macOS blocks the executable because it is quarantined, first verify that it
+came from the official tap, then remove the quarantine attribute from that
+installed binary only and run it again:
+
+```bash
+xattr -d com.apple.quarantine "$(brew --prefix gnougo-proxy-copilot)/libexec/GnOuGo.ProxyCopilot.Server"
+gnougo-proxy-copilot
+```
+
+No `sudo` is needed. From another terminal, open the dashboard:
+
+```bash
+open http://127.0.0.1:5087/ui/
+```
+
+The server runs in the foreground and listens only on loopback; no service starts
+automatically. Stop it with Ctrl+C.
+It starts with no configured providers. Supply provider settings using
+`ProxyCopilot__Providers__...` environment variables, as described in
+[Configure providers](#configure-providers). Included examples are under
+`$(brew --prefix gnougo-proxy-copilot)/libexec/examples`.
+Do not edit the installed `appsettings.json` or place private settings in the
+Homebrew Cellar: upgrades replace the versioned installation directory.
+
+```bash
+brew update
+brew upgrade gnougo/tap/gnougo-proxy-copilot
+# Remove the package when no longer needed:
+brew uninstall gnougo-proxy-copilot
+```
+
+The stable GitHub release workflow updates this formula and the existing desktop
+cask together, using separate SHA-256 checksums for the ARM64 and x64 archives.
+Alpha, beta, and development builds do not update the formula.
 
 ### GitHub release binaries
 

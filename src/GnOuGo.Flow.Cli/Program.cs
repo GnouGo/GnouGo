@@ -194,9 +194,10 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             var llmLoggerFactory = LoggerFactory.Create(logging => logging.AddSimpleConsole());
             var routingClient = new RoutingLLMClient(http, llmOptions, llmLoggerFactory);
             llmClient = new RoutingLLMClientAdapter(routingClient);
-            mcpFactory = llmOptions.McpServers.Count > 0
+            var servers = CopilotRunnerConfiguration.WorkflowMcpServers(llmOptions.McpServers);
+            mcpFactory = servers.Count > 0
                 ? new ConfiguredMcpClientFactory(
-                    llmOptions.McpServers,
+                    servers,
                     humanInputProvider: humanInput,
                     defaultLlmProvider: llmOptions.DefaultProvider,
                     defaultLlmModel: llmOptions.DefaultModel)
@@ -208,6 +209,8 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         var otelServiceName = appConfig["OpenTelemetry:ServiceName"] ?? "GnOuGo.Flow.Cli";
         var otelProtocolStr = appConfig["OpenTelemetry:Protocol"] ?? "HttpProtobuf";
         var otelTenantId = appConfig["OpenTelemetry:TenantId"];
+        var ownerTenant = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim();
+        await runStore.SweepAsync(ownerTenant, cancellationToken);
 
         var otelProtocol = otelProtocolStr.Equals("Grpc", StringComparison.OrdinalIgnoreCase)
             ? OtlpExportProtocol.Grpc
@@ -276,7 +279,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             RunStore = runStore,
             Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
             WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
-            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(appConfig["KeyVault:DatabasePath"], appConfig["Flow:Planning:OwnerPath"]),
+            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(OwnerRetentionPolicy.Parse(appConfig[OwnerRetentionPolicy.ConfigurationKey]), appConfig["KeyVault:DatabasePath"], appConfig["Flow:Planning:OwnerPath"], filesPath: appConfig["Files:StorageRootPath"]),
             LLMClient = llmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
@@ -286,8 +289,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             Logger = loggerFactory.CreateLogger("GnOuGo.Flow.WorkflowEngine"),
         };
 
-        engine.WithCopilotRunners(appConfig.GetSection("Flow:CopilotRunners").GetChildren()
-            .Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new InvalidOperationException("A Copilot runner requires an MCP server name."))));
+        engine.WithCopilotRunners(CopilotRunnerConfiguration.Read(appConfig));
 
         var workflow = compiled.Workflows[entrypoint];
         inputObj = WorkflowInputDefaults.Apply(workflow.Source, inputObj);
@@ -437,6 +439,7 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
         var config = LoadHostConfiguration();
         var store = CreateRunStore(config);
         var tenant = parsed.GetValue(tenantOption)!;
+        await store.SweepAsync(tenant, ct);
         var id = parsed.GetValue(inspectIdOption);
         var command = parsed.GetValue(commandOption);
         if (command == "cancel")
@@ -449,9 +452,8 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
             if (id is null || parsed.GetValue(revisionOption) is not { } revision || parsed.GetValue(invocationOption) is not { } invocation)
                 throw new ArgumentException("Reconciliation requires --id, --revision and --invocation.");
             var options = config.GetSection(LLMOptions.SectionName).Get<LLMOptions>() ?? new LLMOptions();
-            await using var transport = new ConfiguredMcpClientFactory(options.McpServers, new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
-            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(
-                config.GetSection("Flow:CopilotRunners").GetChildren().Select(c => new KeyValuePair<string, string>(c.Key, c.Value ?? throw new ArgumentException("A Copilot runner requires a server name."))));
+            await using var transport = new ConfiguredMcpClientFactory(CopilotRunnerConfiguration.WorkflowMcpServers(options.McpServers), new ConsoleHumanInputProvider(store, tenant), options.DefaultProvider, options.DefaultModel);
+            var engine = new WorkflowEngine { RunStore = store, McpClientFactory = transport }.WithCopilotRunners(CopilotRunnerConfiguration.Read(config));
             var reconciled = await engine.ReconcileAsync(tenant, id, revision, invocation, parsed.GetValue(stoppedOption), ct);
             Console.WriteLine(JsonSerializer.Serialize(reconciled, WorkflowRunJsonContext.Default.WorkflowRun));
         }
@@ -474,8 +476,8 @@ static IConfiguration LoadHostConfiguration()
     var directory = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json")) ? Directory.GetCurrentDirectory() : AppContext.BaseDirectory;
     return new ConfigurationBuilder().SetBasePath(directory).AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
 }
-static IWorkflowRunStore CreateRunStore(IConfiguration configuration) => EncryptedWorkflowRunStore.CreateWorkspace(
-    configuration["KeyVault:DatabasePath"], configuration["Flow:Execution:IndexPath"], ownerPath: configuration["Flow:Execution:OwnerPath"]);
+static EncryptedWorkflowRunStore CreateRunStore(IConfiguration configuration) => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(
+    OwnerRetentionPolicy.Parse(configuration[OwnerRetentionPolicy.ConfigurationKey]), configuration["KeyVault:DatabasePath"], configuration["Flow:Execution:IndexPath"], ownerPath: configuration["Flow:Execution:OwnerPath"], filesPath: configuration["Files:StorageRootPath"]);
 
 
 static void PrintSteps(List<GnOuGo.Flow.Core.Models.StepDef> steps, string indent)

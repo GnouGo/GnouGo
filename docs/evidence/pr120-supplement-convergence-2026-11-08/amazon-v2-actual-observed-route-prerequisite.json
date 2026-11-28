@@ -1,0 +1,47 @@
+{
+  "source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+  "operator_authority": "user-strict-amazon-sponsored-host-extension-20261109",
+  "kind": "direct isolated Browser MCP prerequisite; no TaskPlan generation or execution qualification",
+  "fresh_complete_search": {
+    "success": true,
+    "pages": 70,
+    "records": 1525,
+    "capture_truncated": false,
+    "manifest_truncated": false,
+    "source_snapshot": "6723602266ec456780db8214ee4364e6",
+    "source_record": "6723602266ec456780db8214ee4364e6:record:64",
+    "occurrence_present": true,
+    "heading_present": false
+  },
+  "exact_literal_observed_entry_used": true,
+  "advertising_query_decoded_or_target_substituted": false,
+  "every_redirect_hop_explicitly_allowed": true,
+  "actual_hops": [
+    {
+      "host": "sponsored-ads.amazon.fr",
+      "path": "/clk/",
+      "method": "GET",
+      "status": 302
+    },
+    {
+      "host": "www.amazon.fr",
+      "path": "/gp/aw/d/B0B24WL2WK",
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "navigation_complete": true,
+  "product_observation_success": true,
+  "model_generation_dispatches": 0,
+  "taskplan_execution_qualification": false,
+  "browser_close_attempted_in_finally": true,
+  "private_evidence_sha256": {
+    "amazon-v2-occurrence-prerequisite.observation.json": "1fab4bea01f6b98806060328eb69660256a3119205b644f132a95a0d0b7a4302",
+    "amazon-v2-occurrence-prerequisite.redirect.json": "b00339e1bbf62256b6c7dc74d7644d0311804d334fe26d0bab80ea2108b08ab0"
+  },
+  "limitations": [
+    "Reachability/redirect prerequisite only; no workbook or complete business workflow success.",
+    "The first heading-only probe made no advertising request; occurrence evidence is required for this prerequisite.",
+    "Search observations include other advertising links without product occurrence context; their classification requires further source-context evidence before a paid relaunch."
+  ]
+}

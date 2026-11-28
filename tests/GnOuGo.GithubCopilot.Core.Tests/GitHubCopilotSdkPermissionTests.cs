@@ -7,6 +7,23 @@ namespace GnOuGo.GithubCopilot.Core.Tests;
 public sealed class GitHubCopilotSdkPermissionTests
 {
     [Theory]
+    [InlineData("project_read", true)]
+    [InlineData("project_stat", false)]
+    public async Task InteractiveBoundedReadCarriesOnlyAnAdmittedToolAndItsExactPath(string tool, bool admitted)
+    {
+        var human = new QueueHumanInputProvider("Refuse");
+        var source = CreateSource(human, new MemoryPermissionGrantStore(), new RecordingPermissionEventSink(), enableApproveAll: false);
+        var bounds = new CopilotExecutionBounds(2, 10000, DateTimeOffset.UtcNow.AddMinutes(1),
+            new HashSet<string>(StringComparer.Ordinal) { "project_read" }, (_, _, _) => Task.CompletedTask);
+        source = source with { Request = source.Request with { Configuration = source.Request.Configuration with { ExecutionBounds = bounds } } };
+        using var arguments = JsonDocument.Parse("""{"path":"src/approved.cs"}""");
+        var request = new PermissionRequestCustomTool { ToolName = tool, ToolDescription = "read", Args = arguments.RootElement };
+        var decision = await GitHubCopilotSdkClient.RequestInteractivePermissionAsync(request, source, new());
+        Assert.IsType<PermissionDecisionReject>(decision);
+        Assert.Equal(admitted ? new CopilotProjectReadPermission(tool, "src/approved.cs") : null, Assert.Single(human.Requests).ProjectRead);
+    }
+
+    [Theory]
     [InlineData(CopilotPermissionGrantScope.CurrentTask, "\"current_task\"")]
     [InlineData(CopilotPermissionGrantScope.WorkflowRun, "\"workflow_run\"")]
     [InlineData(CopilotPermissionGrantScope.FutureAgentRuns, "\"future_agent_runs\"")]

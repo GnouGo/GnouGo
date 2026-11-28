@@ -18,30 +18,55 @@ on:
       - 'tests/GnOuGo.GithubCopilot.Mcp.Tests/**'
       - 'src/GnOuGo.Agent.Server/**'
       - 'src/GnOuGo.Agent.Shared/**'
+      - 'src/GnOuGo.Assets.Animation/Runtime/**'
+      - 'src/GnOuGo.Assets.Bears/Runtime/**'
       - 'tests/GnOuGo.Flow.*/**'
       - 'tests/GnOuGo.Agent.Server.Tests/**'
       - 'tests/GnOuGo.Agent.Planning.Benchmark/**'
       - '.github/workflows/test-flow-planning.yml'
+      - '.github/scripts/test_server_partitions*.py'
       - 'GnOuGo.Agent.sln'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - 'docs/workflow-planning-v9.md'
   workflow_dispatch:
+    inputs:
+      windows_server_filter:
+        description: VSTest filter for a Windows Server qualification
+        type: string
+        required: false
 
 permissions:
   contents: read
 
 jobs:
   validate:
+    if: github.event_name != 'workflow_dispatch' || inputs.windows_server_filter == ''
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: '11.0.100'
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.14.0
+          run_install: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
       - uses: ./.github/actions/ensure-otlp-protos
+      - name: Build Agent.Server frontend before browser tests
+        run: |
+          pnpm install --frozen-lockfile --strict-peer-dependencies
+          pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build
       - name: Prepare local browser execution
         run: |
           dotnet build src/GnOuGo.Browser.Mcp -m:1 -warnaserror
-          node src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/.playwright/package/cli.js install --with-deps chromium
+          node src/GnOuGo.Browser.Mcp/bin/Debug/net11.0/.playwright/package/cli.js install --with-deps chromium
       - name: Test planner, runtime and host integration
         run: |
           dotnet test tests/GnOuGo.Mcp.Core.Tests -m:1 -warnaserror
@@ -55,7 +80,18 @@ jobs:
           dotnet test tests/GnOuGo.GithubCopilot.Core.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.GithubCopilot.Mcp.Tests -m:1 -warnaserror
           dotnet test tests/GnOuGo.Flow.Tests/GnOuGo.Flow.Tests.csproj -m:1 -warnaserror
-          dotnet test tests/GnOuGo.Agent.Server.Tests/GnOuGo.Agent.Server.Tests.csproj -m:1 -warnaserror /p:SkipClientBuild=true
+          python3 -m unittest discover -s .github/scripts -p 'test_server_partitions_test.py'
+          python3 .github/scripts/test_server_partitions.py
+      - name: Retain Server test progress and hang diagnostics
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: server-test-diagnostics
+          path: |
+            artifacts/server-tests/**/*.trx
+            artifacts/server-tests/**/*_Sequence.xml
+            artifacts/server-tests/server-test-coverage.json
+          if-no-files-found: ignore
       - name: Pack independently publishable Flow libraries
         run: |
           for component in Core Planning Integrations Copilot Persistence; do
@@ -71,3 +107,47 @@ jobs:
         run: |
           dotnet publish src/GnOuGo.Git.Mcp -c Release -r linux-x64 --self-contained true -warnaserror -o artifacts/git-contract-smoke
           GNOU_GO_GIT_MCP_TEST_EXECUTABLE="$PWD/artifacts/git-contract-smoke/GnOuGo.Git.Mcp" dotnet test tests/GnOuGo.Git.Mcp.Tests --no-build --filter FullyQualifiedName~ActualStdioDiscoveryPublishesTheSameDotNetAndJavaScriptContract
+
+  windows-server:
+    if: github.event_name == 'workflow_dispatch' && inputs.windows_server_filter != ''
+    runs-on: windows-2025
+    timeout-minutes: 240
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: '11.0.100'
+      - uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 10.14.0
+          run_install: false
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+      - uses: ./.github/actions/ensure-otlp-protos
+      - run: pnpm install --frozen-lockfile --strict-peer-dependencies
+      - run: pnpm --dir src/GnOuGo.Agent.Server/ClientApp run build
+      - name: Build Windows Server tests
+        run: dotnet build tests/GnOuGo.Agent.Server.Tests -c Release -m:1 -warnaserror -p:SkipClientBuild=true
+      - name: Record tested assemblies
+        run: |
+          New-Item -ItemType Directory -Force artifacts/windows-server | Out-Null
+          Get-ChildItem tests/GnOuGo.Agent.Server.Tests/bin/Release/net11.0/GnOuGo*.dll |
+            ForEach-Object {
+              [pscustomobject]@{ name = $_.Name; version = $_.VersionInfo.ProductVersion; sha256 = (Get-FileHash -LiteralPath $_.FullName).Hash }
+            } | ConvertTo-Json | Set-Content artifacts/windows-server/assemblies.json
+      - name: Run selected Server cases
+        env:
+          SERVER_TEST_FILTER: ${{ inputs.windows_server_filter }}
+        run: dotnet vstest tests/GnOuGo.Agent.Server.Tests/bin/Release/net11.0/GnOuGo.Agent.Server.Tests.dll "--TestCaseFilter:$env:SERVER_TEST_FILTER" --ResultsDirectory:artifacts/windows-server '--Logger:trx;LogFileName=server.trx'
+      - name: Retain Windows results
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: windows-server-results
+          path: |
+            artifacts/windows-server/*.trx
+            artifacts/windows-server/assemblies.json
+          if-no-files-found: warn

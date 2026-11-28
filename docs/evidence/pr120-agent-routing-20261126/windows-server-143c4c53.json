@@ -1,0 +1,13 @@
+{
+  "source": "143c4c53630492f312baaabff9a92c0659675792",
+  "product_version": "0.0.0-dev+143c4c53630492f312baaabff9a92c0659675792",
+  "published_exe": "artifacts\\agent-routing\\server-verified-win-x64\\GnOuGo.Agent.Server.exe",
+  "sha256": "04a9f8b11ea33e57860ca1dc67e170727b76924f8ef5d5451bc43212febf0879",
+  "sidecar_bytes": {
+    "copilot-runtime.exe": 784160,
+    "runtime.node": 160714528,
+    "ripgrep/bin/win32-x64/rg.exe": 5445408
+  },
+  "persistence_exit": 0,
+  "output": "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged."
+}

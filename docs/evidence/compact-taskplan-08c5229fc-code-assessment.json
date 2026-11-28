@@ -1,0 +1,539 @@
+{
+  "version": 1,
+  "source": "08c5229fc65f2dedb8e8caf8c7d2627591a0473b",
+  "cohort": "compactr08c5229fccode20v5",
+  "prepared_utc": "2026-10-25T00:16:07.944141+00:00",
+  "scope": "Independent static semantic/source assessment of bounded root-exported originals, separate from measured terminal accounting. No campaign store or runtime access.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/code-terminal-state-witness.json",
+      "sha256": "d71f380fff38a396d3316c1cad792d6d0a47fa550275e386e48649232fc15f48",
+      "bytes": 69271
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/code-author-review-requests-witness.json",
+      "sha256": "a661fd177dc3b286344c3becebeb05894d213ce698038239386c0f0ac5e61c89",
+      "bytes": 809005
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/freeze.json",
+      "sha256": "0464f03b35365bd2da765a3b316afc2fc9ac266543b495ddae02be6ad9566a04",
+      "bytes": 19483
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr08c5229fccode20v5/code-terminal-safe-metrics.json",
+      "sha256": "066f6ec56d2d48dd719ee61b9cc9e10b56b61dbf5bab7f4b1e5d919f9e8804a4",
+      "bytes": 202606
+    }
+  ],
+  "source_files": [
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "01c400b742e57fcc2772344e5ec1903b7903a5ec5c1ff0fa432b72f5b71b58c8",
+      "line_anchors": [
+        193
+      ]
+    },
+    {
+      "path": "tests/GnOuGo.Agent.Planning.Benchmark/DelegatedTestReview.cs",
+      "sha256": "ca4ba29f9d18413fbf513eaf0fa63bff1a1c2aeda048f8b3bfaf38f03bc67659",
+      "line_anchors": [
+        130,
+        156,
+        160
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Git.Mcp/GitRepositoryService.cs",
+      "sha256": "ca9c079bcb6e7ee39dd4590c7415c91e312e0b0460abf41de3953c16e188b0e0",
+      "line_anchors": [
+        433,
+        448,
+        454,
+        484,
+        550
+      ]
+    },
+    {
+      "path": "src/GnOuGo.GithubCopilot.Mcp/CopilotCodeService.cs",
+      "sha256": "9e7f27fc511d3e010831af429dc8c8acf590598937cf706a8c7257a8de7a2d4e",
+      "line_anchors": [
+        36,
+        45,
+        113,
+        126
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs",
+      "sha256": "95760efd7ecbbcc33a43332236b375a8994b0b22ec6cdddb8e1bbf891ee712c6",
+      "line_anchors": [
+        243,
+        260,
+        270,
+        284,
+        394,
+        397,
+        566
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "sha256": "6f249c5466be9cdebfa98ded9625a166ba12b2fb3a7de66f02a19aadc9ccd2bd",
+      "line_anchors": [
+        16
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Transform.cs",
+      "sha256": "582143cde55e0400506e14360bb15ea09beb36b9c678d92971f4b668427149dc",
+      "line_anchors": [
+        130
+      ]
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/TaskPlanCompiler.Validation.cs",
+      "sha256": "3e9678a44c0c8fbfc7f7f61efaab0ca4be060ad85956b30c26d71226c92308d3",
+      "line_anchors": [
+        29,
+        35
+      ]
+    }
+  ],
+  "request_record_joins": [
+    {
+      "number": 1,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:1:816f74e842d7f7039e3fa0238fd16de60f14536ed105a0b2b309d7327fac0a9b",
+      "record_hashes": {
+        "requests": "454b2ae8f80b7c07872013c8ab160055317536f647aba6c1688741160a290d0c",
+        "http-attempts": "9b9dfece9386e6f95e5f32a53d218b65b4ab641e1816cb519ac4135b5380105e",
+        "receipts": "1d688ab26e17a07a9890fdc97b48577a908592971d277f376d00ba72c6bdba09",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "71266a9cc8a9f8330fa757cf0af65cee2234718f59378c636895c26b4b553f27",
+      "normalized_response_content_sha256_from_metrics": "c9c76e927e509ac3f18ef304a7e46f9fa42d4e88357d35aa0c2c5b113d73bc81"
+    },
+    {
+      "number": 2,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:2:496c997e56693aabd1fa88d91e2bcb04d2e240e2638d157fd48568b4b82cbb85",
+      "record_hashes": {
+        "requests": "d0da364906b1db2c5b0c42e247f68d089ae1350b804582db1a5d228cb41e2e8d",
+        "http-attempts": "6987954a7af0cc3884942018b53a33dfe56612ac28a4780cee0b9b6c7a8c552f",
+        "receipts": "bfce0c1a298533d6efe3f0a6c9bfd01a15f0c0315379a8a0ca78f59a3c52b690",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "32f18c18cb34ef6668bbcefb504aab728181495e8580737c38bfc1c1660270d6",
+      "normalized_response_content_sha256_from_metrics": "0f11e2f17309ae0560ab184dfe3d0df5274a560e48adbe65c865bed2d3700bca"
+    },
+    {
+      "number": 3,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:3:731349be94d5097db3a72a0353f89e924eb7123f2ac506b169165286af6b4b3e",
+      "record_hashes": {
+        "requests": "7bc1f424f40ef674c14ce9a1900d0885b9d472206d4032f13753960bf7f1e4e2",
+        "http-attempts": "511e7cc9cfcd1147462f9efd1d8ede80824df8b568e507d0f2a850ff989c6594",
+        "receipts": "623a25c012ce65cc2b85615a93df7656fd4bd60ff3007665056e87b362ed8888",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "4490e52cdd7c96e212f1eb479bf79dc09b7d9f24b44082397f5c1e4f17772a2a",
+      "normalized_response_content_sha256_from_metrics": "52162263f7f17f8e964fb6f7fb3a582f81d937d2b8560c82decee9fe854c14be"
+    },
+    {
+      "number": 4,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:4:e7760c2a6dff1c38001110a9f6c3f0bc4e515b09b29a056335a0c02b066b366e",
+      "record_hashes": {
+        "requests": "669b13c452e166c748b557a156e9376e337c449747f96252d141496942bf7320",
+        "http-attempts": "591fc4782dad158a0d1cf5eb09de1d3f5664a4dbf236623dbfeec1ec90016bc6",
+        "receipts": "f644364fa3019d61ba404457709d045907c476f47dbc124c5a328ef175c129fd",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "e86b32ec50083654fae88d088ddf143973ba34c58a842b6382f3f63e621737aa",
+      "normalized_response_content_sha256_from_metrics": "fa8f7be1e401f6bbad28e672240cf820c1dae9f73296bae72bb6d005cc692fa6"
+    },
+    {
+      "number": 5,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:5:437f06e6fd64a63255e97a4c51d3f4b40ae281012147f5a074fb724955c63524",
+      "record_hashes": {
+        "requests": "098ac04c362053723b3d72035423755172606602f385750edfce81118822b056",
+        "http-attempts": "4d8525881860799687cd82c988958cd6cabd725619422d3e0dfc3769285647a7",
+        "receipts": "742b0a733abac46e39bb7d81bff55fa74b3b3a51d5285755ab726a5a51aa713b",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "247419f623e9f63b69aefa5f8025f3bec59dbd03eb16f6fb61ed3eff57d8766a",
+      "normalized_response_content_sha256_from_metrics": "ed6c5b1f86e37436b9a895c016e8e53fed5e329c3f38b4797054c13bae5de79e"
+    },
+    {
+      "number": 6,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:6:8493ede5153455eb237b9541df0e9bc312364ba56d834729a45447932a7c54f4",
+      "record_hashes": {
+        "requests": "b3a0f13c100ced6317409184f2c3553372388b3116fd5070ef176f3f99096020",
+        "http-attempts": "54ff24b1e99ff557477ba6d632d8f7d7abbb56652def546edc71447814215573",
+        "receipts": "60a3da8a4e6c6bcffda8a86f4be1a7b06afde71374e044a25218d25e0b432e3a",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "d43a117715fcf508f80e393d524adde14399dc559025f2f12bcf7f690a058d67",
+      "normalized_response_content_sha256_from_metrics": "3fade277ed1de3a9621ee9ee66141b025688d33867bace45feb0c8d28ae3c5b9"
+    },
+    {
+      "number": 7,
+      "phase": "construction_intent",
+      "request_id": "compactr08c5229fccode20v5-code-1:7:7bca7614be0b8f93f7451b83cc6fd3d06adca7562c2cc66fe9a8c5ae059318b3",
+      "record_hashes": {
+        "requests": "b02b2f4a91f90c89f8ebfbaa3515796954537fed06eed81e42537610faf2efd8",
+        "http-attempts": "4e98a909d48577bea1f2bb6b15e8e261c8d29892ad1d177d910128e848c957e9",
+        "receipts": "f1139d4532c95fed4d85a8b47809eb2f6b85b6a077c6fd9f8935479638327be6",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "ef82f31669ae469503404718cccd4612d4795a205ad51b7390b729fe746c2dff",
+      "normalized_response_content_sha256_from_metrics": "88801d90f1415ab20e9b41d69a5075480fdff66f8004fb55845f9f8d8a82aad5"
+    },
+    {
+      "number": 8,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:8:11b725e0428347f45da6d78f01377d923631aea81b6c0f43ea49a4acaab5fdd3",
+      "record_hashes": {
+        "requests": "e1a694169b09a2edaa19515b4534261c2344f645adefa8e58802233c52955e7f",
+        "http-attempts": "eac4aad6293901b72307119d26c29c52dfba68f0f87b07eb64a40b969f2cebdf",
+        "receipts": "a3b6357c44a7a79780e32eaba36bb30f6fe6542008a97cc8aebc126e9311701f",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "c04274fee94b96cfe6eb3fbbfb2b6fda8fd5ee4e41a219b76663574dda599986",
+      "normalized_response_content_sha256_from_metrics": "e938f4ed19ab960c5cf114db4f581386306c6687da5467901c36baa06a08164d"
+    },
+    {
+      "number": 15,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:15:a1996c541d80a79bacce37fa190e308ad0e2422cdb7bb2f5a5c8afb3ac2ced8a",
+      "record_hashes": {
+        "requests": "8ad5652e70a5e808d80970a347f14a352fe64045b05524d85225a75ffa661e1b",
+        "http-attempts": "adc383f531714388c835c4845b824a9f9ce7ebbeb176b06df10c75872f25e5d9",
+        "receipts": "bebf5aebbbcbe894fca0f99e7ba3bb6026496bbd21811a029fffa252339963ef",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "058cb38e0634bdb3bff7a7c184ec61c8badf71dd3f753acf1f06d57ee41b513c",
+      "normalized_response_content_sha256_from_metrics": "21e250cce2c0f4dad32c7ba2ddc825ff72e8057dfe741079f3f086d3eb55233a"
+    },
+    {
+      "number": 16,
+      "phase": "construction_local_judge",
+      "request_id": "compactr08c5229fccode20v5-code-1:16:44cae4ee92dd6a567f51da6e12b4ede9c6972c64e6f9a6795d34e2c6c91de305",
+      "record_hashes": {
+        "requests": "2cbefcfbe63c0f0de97ac02947ba2979fe77b549a2895d04ff099168a4a37c2c",
+        "http-attempts": "7913b5b9536111008c5fc400d866bea9474a842765104b41bc22b9c246ba9b6c",
+        "receipts": "a7ecc85e20cb6590fe660e580576c594192527070dc882f5e5059598e4d0d673",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "6d9026eac6c1fad63ffc898cb53517eacdbe32ce5c445008cce560912e7b9110",
+      "normalized_response_content_sha256_from_metrics": "ec274ae0fc9d936331811b1aa30739e2d3c3d82503c227c5e81a1e3b64c7e899"
+    },
+    {
+      "number": 17,
+      "phase": "construction_local_judge",
+      "request_id": "compactr08c5229fccode20v5-code-1:17:d9b76dd29788f3466d7bd3429fc47f2e70629f030c8a6726f008fbbe2340254e",
+      "record_hashes": {
+        "requests": "e1b45ef880c9672fdce351463afeffc77bc98917103d500a700b3e8bd284923c",
+        "http-attempts": "13a9abec4bc801637590e43703361d6e31ee6a8e3e4a4c90e9bed9f8cb3a505d",
+        "receipts": "143711c61cdde68b859a989648970bc417378462f40165a2574e6645574258f6",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "d95c04e03d27be2979415afe33c75565088f8478ef7a0c17eff77232f2684de1",
+      "normalized_response_content_sha256_from_metrics": "8508caf3d14767e3b90b91a6a7f7a5f76555bdcece77ee0c5b053ff8e0f72b75"
+    },
+    {
+      "number": 18,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:18:1da827cecde9ec6e49c76513a8a65af8702bd5940fb6a81821577df8b3008b37",
+      "record_hashes": {
+        "requests": "ce2015a252d677425a75a77b01ed3c0425fe2d1726e898b0663678d0a9aff785",
+        "http-attempts": "fc7419d882ae9797b0d80945f05e1375de649237fed7645d6a750f34288b1313",
+        "receipts": "ab18aafb3941168050b6ff4c8766362e1356b793136e46f7c6bf4c1e8ec23e32",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "b1444dc5dd873d5469382ed1cc714be42ad90c9695f9d9daf18f9c68faecf2bc",
+      "normalized_response_content_sha256_from_metrics": "93b9ef91240ad1833cc104ab49f6378122abc03e412d0e99ef054e23933bbda4"
+    },
+    {
+      "number": 19,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:19:ba4cab8c02670468f050d5156ef599c36fcbdf7c300a2b3115b31c7b544a2a72",
+      "record_hashes": {
+        "requests": "59bf3abdac74075956fc963442f3b170b294dc5c3dd159a592a92ca8774b635d",
+        "http-attempts": "178e32578f584c536329de6b858acbe10d1b2282b6f8a439d981878be91d4d90",
+        "receipts": "44b7bbd3916e3bbbceb29f0b87e365e16fcd9edd0ce378f939df93aca892b4d3",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "0ba5d12b1bea7bf1e58e0b9229f451ddd25cafa3b33c08fed0d26bfef51902e5",
+      "normalized_response_content_sha256_from_metrics": "0ba5d12b1bea7bf1e58e0b9229f451ddd25cafa3b33c08fed0d26bfef51902e5"
+    },
+    {
+      "number": 20,
+      "phase": "construction_local_judge",
+      "request_id": "compactr08c5229fccode20v5-code-1:20:028a082bfff16c04903ab725b084febf70f2570f496e1922211e65d31bbae42d",
+      "record_hashes": {
+        "requests": "47705acaad36745efd3ae96d60eb4e809845dc91c5ec1c40c6fd1780f6e46e98",
+        "http-attempts": "4455466d00df7fa0f328694a0baedcd61c1d85e8e0ca5f6d50e458137a1b3995",
+        "receipts": "0b35877f7e99893bf7c84d3892fefa60ec659a12d60567fa1d8ad63ab890a35d",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "85b90c0bdda4c0948349a0aee51edaf6a4438fa9eb1245c25371773b24f2913f",
+      "normalized_response_content_sha256_from_metrics": "85b90c0bdda4c0948349a0aee51edaf6a4438fa9eb1245c25371773b24f2913f"
+    },
+    {
+      "number": 21,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:21:00a70315316aba699d82ed30a4da2cbb5d8431bcd36ffa1c65ac93aeca4484f7",
+      "record_hashes": {
+        "requests": "740ce03d66c2a9b4eb91a9029ddcce5e68fc5ab707880b157758fcee88d5c094",
+        "http-attempts": "b46b7df28a4c7efd4f19931e2a9d6699ce68ef058310a2fa70b1bd148866461b",
+        "receipts": "7d116a25b1736be37775aab9b079c8f337d01813dfe0978051fb171867dd2bbb",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "b88a1820dfcf88eb9ee0769534a932de5e3c621cc237b284b33e9b10f84f60bb",
+      "normalized_response_content_sha256_from_metrics": "2bfb9eba8249a0c854f1a96c824531c631328a908be015f24facaef9daa30654"
+    },
+    {
+      "number": 28,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:28:3f463305a8350e6c6ac75a13d0d3c841fda85f1a4d4903dcea1b26e73f4569a1",
+      "record_hashes": {
+        "requests": "9ce30bb800fa79df6940cb62a9f45fd251a48442e917288107e6dd11b7b9732a",
+        "http-attempts": "391a64f9b6c37201fc140c43c485a44a8b9c2fca7e39ce5bc79bb62f43d0b5ac",
+        "receipts": "a7090911d747d0368fd151a1177ad55d7be0de24e815dc7e8c21b86b7f9b0e69",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "3afde95ed9f518e492d4f6a09956099975039c19fa6629f13da13c84c503bc1e",
+      "normalized_response_content_sha256_from_metrics": "36f39f19eeccfaab9b478ede06ada771f6ed6907dc58e6ab3bd4d104fa04d424"
+    },
+    {
+      "number": 29,
+      "phase": "construction_local_judge",
+      "request_id": "compactr08c5229fccode20v5-code-1:29:36d4492cf2951d00055ae75d045a71f3f8d926a2b28d563c8bfe749dcfabce0d",
+      "record_hashes": {
+        "requests": "37f800f4b872920450fa4cde1a6ca8c5561b59af7ee445a5a41e9e1f5cadfa65",
+        "http-attempts": "a94cdfb1c6379f2bf736138f981e99374f4d749602e184b66bb59c5f580b8768",
+        "receipts": "9a8321067477b76b285b6e16a6b09c0411e92cbd0d45429511e975516b103c8f",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "0236df4f980902467bf091519f418029086d55474957d6da64253afdca6ba441",
+      "normalized_response_content_sha256_from_metrics": "dd1c592dcf22c52e85cb00353c2740af97ec7206311fea8f01a3674cbd51b294"
+    },
+    {
+      "number": 30,
+      "phase": "replan",
+      "request_id": "compactr08c5229fccode20v5-code-1:30:761cfae390304949b6b5e8b38f831515f05218d9e88a0b9db569b2a08c83f81a",
+      "record_hashes": {
+        "requests": "bae05ed73cb835d886d52a307462024bc7043928b83015ea5a9345bd01ffae14",
+        "http-attempts": "3a7bddc393cf7c0837f56e9a84cc053175c3dc1c37f50805dfb4484d38b4bf3a",
+        "receipts": "f95e1f1d9d6c2707d0ac6ecfe554d1152f132c6568bfda2ff3887381cdf189c6",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "0ff576c2b67f05f13142c55e0faadfd471473de77111eb25e62c159923c5be57",
+      "normalized_response_content_sha256_from_metrics": "ad5d5fc53186de51c6d8d478e319e8ce9981218935594ec7fb5fe8ef88c06cc5"
+    },
+    {
+      "number": 31,
+      "phase": "construction_local_judge",
+      "request_id": "compactr08c5229fccode20v5-code-1:31:5a5bccb3460436082b4c8bd5282f5b8d31c2b1f20984db2c05e80fff239002b7",
+      "record_hashes": {
+        "requests": "17caaca9c65b5df96e4fae8de37e9f8d48c8064498d5861fb22e2a8f61ac670e",
+        "http-attempts": "3d743320b8a9c7bf11725f2f8dc3622c67882b5535dc1c496c8eeb8db9dc2233",
+        "receipts": "4796949fba6bafe048c9559f9b015a13140550a3a9bff235a1e1f6c952fea026",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "8381ff84fbc9f3d08fd2cb14b669298b998f454df7113bee6d31a057d15567a8",
+      "normalized_response_content_sha256_from_metrics": "714212a319f2126c0ea613b99c54ec3587739edabd0076b52517485295d6fcf0"
+    },
+    {
+      "number": 32,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:32:e288863e48524dda6aefd54cb4127a3942c83f6ef0c143a321ee077b8ec2de43",
+      "record_hashes": {
+        "requests": "80c9875aaa5342f69f7b96b8bad7fb3e0258825578f7778d2f882d6f742c2220",
+        "http-attempts": "80bbb89292e659810b97aafef36b41503343499c554affc2de0ac924ece3f0e8",
+        "receipts": "27448a65b3515d2ce30856d87847eaf2adc68ade976feafa310d2eac7668d79c",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "1424717ce80a5f48b8f20cb57aaf2549003f8b04d51c1d545fe0b0cfcb016894",
+      "normalized_response_content_sha256_from_metrics": "c9adc14bfaebd25aaf8d1ae7fe597cd1d0a5999fc1cf37c8e942e441acc4fc31"
+    },
+    {
+      "number": 36,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:36:286c6efed05bc12cd34cdba8c91dc841c882cc8da3aa013ab37d76e751c77f5c",
+      "record_hashes": {
+        "requests": "70d4c249589cd8e09102502e4417c10b9da55028d6fdf19e3ef1b3ac77722656",
+        "http-attempts": "27023e7280c86ab81037266a08537b4224086354dc6030dc409ba8b069e1c2c8",
+        "receipts": "4f79d8ef80385e857d056a5d443df0d38b6497f408b94f981fb0d0259794d134",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "f5fd8c4f0c83e0904508848201989abfe6764cbba7dff2834b003ddce447fe2d",
+      "normalized_response_content_sha256_from_metrics": "f5fd8c4f0c83e0904508848201989abfe6764cbba7dff2834b003ddce447fe2d"
+    },
+    {
+      "number": 37,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:37:19019babeb8be4e1ea0e69c0fc70504268c993fbe2bdd226b2e982b3fdf173ce",
+      "record_hashes": {
+        "requests": "0106046e3c93a921b3cc2c738258785a8fd7533f7a90f37286832d1540f9ffab",
+        "http-attempts": "fa1cbfe982541322b379b26f31734bad26680cc01fa80984f8331cc891ee78f4",
+        "receipts": "6d85f646ed142b74efad4b81bc6251a1ca1266a818224c9307befe90db5963f7",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "182705195de7ef5793f2e6b7693bc155aff30d188f3085cf6516ececd51b7a1c",
+      "normalized_response_content_sha256_from_metrics": "2ed4951db85b7b1d77d46df12a83b67d2f861b7b11caf0816c0723dd8f2ee9c6"
+    },
+    {
+      "number": 42,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:42:de0b536b5a0f8afeac0132c3a3c05657d6c5a3872e2ecb9cd314407aadab5cbc",
+      "record_hashes": {
+        "requests": "b301858bb9bcc2f779245fce2457e913737a3a831e41eee9107881fed719b5b4",
+        "http-attempts": "fa65dd70efc0111496f351d71639002ea78fd168aaa1ed7471e575e5b93cb98f",
+        "receipts": "a4156e10303c1a9c0135b462f5103d41ba5b723c151a51c6945649bcef5f58f4",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "84d00692f934aba8d6027b95eb99e55ee55cab8f759986c1331e4ab1f90453da",
+      "normalized_response_content_sha256_from_metrics": "5cbe337bb3b652385d4e47a338a89a06f4218003119258d45c9e13816b6797f0"
+    },
+    {
+      "number": 43,
+      "phase": "construction_select",
+      "request_id": "compactr08c5229fccode20v5-code-1:43:4a10f3d0368faabb5bd418db0456949983e098f69cd7c80b6a3b913c5d18f04e",
+      "record_hashes": {
+        "requests": "9227203cb8b845686399f633e61e5aae5cb3db245e8b692b8a0b1bcf96f5c74c",
+        "http-attempts": "6d70b829a0dc24c2666f30b0f6d05da5ae0a8d34bb897b49b890db15ab50bd32",
+        "receipts": "ca0283a4d5a7520356cfadc52c3161a4cfabd8e1ca0448d25b297d95dd525c93",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "70f113f4b9b6f8fba6700b9c6ac5cabba99dfa2f68c549b7e46f3b54c7b094fe",
+      "normalized_response_content_sha256_from_metrics": "b36257bcdb5f14c107b2c33d00d4cca52b0a98d8efb3f57e3224308ad0d8f45a"
+    },
+    {
+      "number": 47,
+      "phase": "construction_draft",
+      "request_id": "compactr08c5229fccode20v5-code-1:47:8a68a88c84897958d657ff2a813ddde1c9231358ec14c36907bbc91e3411209d",
+      "record_hashes": {
+        "requests": "c000a1bae834f29fabbb515a63054a7b3e305b54fecff90422e027f12d4423e0",
+        "http-attempts": "26f7e028195e439fd2aafea0a454bf0c17cbdb8165e1f1c9e9d30e8a016c1196",
+        "receipts": "a2b7b87b05b92a42ffb45054b191634f1d9d330223923202ab7847f2c44e1d02",
+        "failures": null,
+        "closures": null
+      },
+      "original_response_text_sha256_from_root": "f075ebe002c31ca6ba5afeec39cbbf4c9f1f206fffa9f4619919cc8ce6df47e4",
+      "normalized_response_content_sha256_from_metrics": "3bfc59e80837015a625e033fabe4e00a1e166d924e76131fb01d96540a48e8b1"
+    }
+  ],
+  "findings": [
+    {
+      "id": "accepted_clone_conflicts_with_exact_frozen_authority",
+      "classification": "confirmed_static_business_and_authority_mismatch_not_observed_runtime_failure",
+      "accepted_task": "clone_smartguide_pr_610",
+      "checkpoint": 1,
+      "original_requirement": "req_7",
+      "original_source": "request:755:clause:0",
+      "original_text_sha256_utf8": "e2381f58fbefe59fa2508a6276c2cd228ba3f0081ff86136ca37490e2752f804",
+      "implementation": "Accepted clone has only remoteUrl and targetDirectory; branch is absent. The chosen workspace-relative target differs from the original authorized target.",
+      "actual_target": "workflows/smartguide-pr-610",
+      "expected_target": "workflows/schema-portability-20261019-incremental/compactr08c5229fccode20v5-code-1/repository",
+      "authority": "RequireTool requires the exact pinned head as branch and exact authorized workspace-relative repository target. General Git contract path validity does not grant that delegated authority.",
+      "qualification": "No absolute filesystem path is required. No invocation occurred, and no authorization or oracle was bypassed. A later checkout does not satisfy the explicit original no-default-clone-then-checkout clause."
+    },
+    {
+      "id": "req7_not_in_initial_clone_review",
+      "classification": "confirmed_issued_context_coverage_gap_with_original_retained_and_retrievable",
+      "lineage": "Intent request2 classifies the exact clone authorization clause as requirement, yielding req7. Selection8 displays req0–6 plus page:requirements:7. Selected step1 associates req0/1/2/4; its prerequisite fetches req6 target/head/base only. Draft15 and Judge17 lack req7 original text.",
+      "judge16": "Requests exact req6 and its source before deciding; this is supported evidence retrieval.",
+      "judge17": "Returns empty findings and defers checkout while scope remains open. That deferral conflicts with full req7, but the explicit req7 prohibition is absent from the issued context. Do not classify it as an adequate-context false negative.",
+      "limits": "All original requirements remain retained; the next page was offered. This proves what was omitted from these requests, not why the model declined retrieval or that a particular future context fix would prevent the miss."
+    },
+    {
+      "id": "review_text_really_consumed",
+      "classification": "confirmed_executable_binding_present_not_runtime_success",
+      "accepted_task": "review_smartguide_pr_610_with_copilot",
+      "checkpoint": 3,
+      "binding_pointer": "/session/plan/root/tasks/1/inputs/1/value/items/0/members/7/value",
+      "binding": "kind=input, source=reviewText inside JSON passed to code_agent_edit.task; projectRoot consumes clone.projectRootRelative.",
+      "source_basis": "Compiler EncodeJson lowers an actual value to JSON text; CopilotCodeService places the task string into the agent prompt. This is not merely an operation objective mentioning reviewText.",
+      "limits": "The invalid upstream clone authority remains. No dependencies/checks/review output or cleanup were executed or independently verified."
+    },
+    {
+      "id": "judge29_dependency_scope_ambiguity",
+      "classification": "grounded_advisory_semantic_ambiguity_not_proven_runtime_omission_or_false_positive",
+      "obligation_pointer": "/requirements/2",
+      "implementation_pointer": "/draft/tasks/0",
+      "basis": "Original asks all dependencies; executable agent task asks necessary dependencies. The Judge treats this as potentially narrower and explicitly concedes it could be interpreted as a complete project installation.",
+      "assessment": "The record supports a contestable interpretation difference in an executable argument, not proof that a dependency was omitted. No independent false-positive or avoided-correction count is assigned.",
+      "repair30": {
+        "exact_changed_paths": [
+          "/extension/tasks/0/inputs/1/value/items/0/members/0/value/text"
+        ],
+        "meaning": "Replaces the mission instruction with an explicit all-project-dependencies instruction; no other response field changes."
+      },
+      "judge31": "Empty findings resolves that specific ambiguity; no completion claim or runtime result follows."
+    },
+    {
+      "id": "repeated_clone_selection_with_feedback_present",
+      "classification": "confirmed_repeated_model_action_despite_available_concrete_accepted_work_and_reselection_feedback",
+      "requests": [
+        32,
+        36,
+        37,
+        42,
+        43,
+        47
+      ],
+      "basis": "Selection32 chooses another clone despite accepted task evidence. Responses36 and42 explicitly abandon that duplicate. Selection37/43 receives the exact immediately preceding reason plus full accepted clone evidence, yet chooses cloning again.",
+      "mapping_qualification": "req6 is remaining with no checkpoints because accepted clone/agent steps associate other requirement IDs; citing req6 as prerequisite does not close or credit it. A remaining requirement does not assert its producer is absent or require another clone. No semantic completion is inferred from an operation commitment.",
+      "terminal47": "The entire proposed clone task structurally equals the accepted request15 task, including ID and arguments. TASK_IDENTITY_INVALID at /tasks/clone_smartguide_pr_610/id is justified. Only one clone is accepted; the repeated proposal never executed.",
+      "limits": "No lost-reselection-feedback claim, no automatic semantic duplicate ban, and no causal inference from labels alone."
+    },
+    {
+      "id": "judge20_input_declaration_closure",
+      "classification": "supported_narrow_declared_interface_assessment",
+      "basis": "Only req5 closes; both exact caller inputs pullRequestUrl and reviewText are present. No root or business-workflow completion was claimed."
+    }
+  ],
+  "outcome": {
+    "accepted_checkpoints": 3,
+    "accepted_tasks": 2,
+    "artifact": null,
+    "runtime_started": false,
+    "business_acceptance": false,
+    "terminal": "TASK_IDENTITY_INVALID",
+    "remaining_work": "Other unclosed obligations and eventual runtime/oracle outcomes are not inferred from accepted local fragments. No blanket review of all clauses or correction-cause classification is claimed."
+  },
+  "limitations": [
+    "All semantic observations bind to source08c and the named root-exported witness files; no raw store replay or original payload export.",
+    "Normalized JSON content hashes and original receipt-text hashes are separate representations and are not compared as if identical.",
+    "No keyword classifier, permission/type weakening, new semantic dedup rule, architecture causality or live-fix benefit is proposed or claimed."
+  ]
+}

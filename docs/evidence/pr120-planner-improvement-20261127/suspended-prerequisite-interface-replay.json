@@ -1,0 +1,206 @@
+{
+  "source": "bf2666cf47aac7b8b596385ebf634b540ceab784",
+  "validation_source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+  "run": "improve40-amazon-20261127-152507",
+  "original_planner_sha256": "79d28a3d3f3785d10bb97b31f25236b598c71413e935397ec104445e40800596",
+  "corrected_planner_sha256": "fcda66f19e7f78597ea1ef4c1ab28df025d9c43959d23dfda6452b5a38458cc8",
+  "session": "305fa4b27cf042b8b26433eb1d15c3c3",
+  "new_physical_attempts": 0,
+  "validation": "Each original logical request and response was normalized on its own captured pending session. Both implementations checked the exact provider binding using the normal extension validator. The local partial variant keeps every search and cleanup argument and the original obligations, omits the unproved association and explicitly continues at the existing scope. It was never submitted to the Server.",
+  "calls": [
+    {
+      "call": 14,
+      "exchange_sha256": "929ea1c483c30d26077d30ca58899cc9f8395bbd2bcef204b95894b76879f2df",
+      "pending_session_report_sha256": "3ef41d1482b461802c025af842f0e2e35d2961e2cb435b1b30d9883e70e39a46",
+      "input_tokens": 18313,
+      "output_tokens": 348,
+      "measured_eur": "0.0433006833712984054669703872",
+      "original": {
+        "recorded": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "1e3bc446c4052e8f68c9be8f5494c3f918eaa0f4c94e4bebf6c2e1421968c478",
+          "consumer_status": "waiting",
+          "host_diagnostics": [
+            {
+              "code": "CONSTRUCTION_CONTINUATION_INVALID",
+              "location": "/extension/continuationBinding/binding",
+              "message": "The proposed producer must provide the prerequisite's exact accessible typed interface."
+            }
+          ],
+          "whole_result_witnesses_before_proposal": []
+        },
+        "unbound_partial_fixture": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "1e3bc446c4052e8f68c9be8f5494c3f918eaa0f4c94e4bebf6c2e1421968c478",
+          "consumer_status": "waiting",
+          "host_diagnostics": [],
+          "compiler_diagnostics": [],
+          "closed_requirements": 0
+        }
+      },
+      "corrected": {
+        "recorded": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "1e3bc446c4052e8f68c9be8f5494c3f918eaa0f4c94e4bebf6c2e1421968c478",
+          "consumer_status": "waiting",
+          "host_diagnostics": [
+            {
+              "code": "CONSTRUCTION_CONTINUATION_INVALID",
+              "location": "/extension/continuationBinding/binding",
+              "message": "The proposed producer must provide the prerequisite's exact accessible typed interface. The bound object requires \"url\", which the prerequisite's closed object omits. Preserve the original producer. Bind a compatible field or construct the requested typed view if the original requirement permits it."
+            }
+          ],
+          "whole_result_witnesses_before_proposal": [
+            {
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "wholeResultMismatch": {
+                "continuationId": "continuation_0",
+                "requiredFieldOutsideExpectedType": "url"
+              }
+            },
+            {
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "wholeResultMismatch": {
+                "continuationId": "continuation_0",
+                "requiredFieldOutsideExpectedType": "closed"
+              }
+            }
+          ]
+        },
+        "unbound_partial_fixture": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "1e3bc446c4052e8f68c9be8f5494c3f918eaa0f4c94e4bebf6c2e1421968c478",
+          "consumer_status": "waiting",
+          "host_diagnostics": [],
+          "compiler_diagnostics": [],
+          "closed_requirements": 0
+        }
+      }
+    },
+    {
+      "call": 15,
+      "exchange_sha256": "f3bcbdd0ba741828544766ecc5a706a4a465264118cf179280365acf467ea8fe",
+      "pending_session_report_sha256": "bd795a85b7422d1cd74d138aa23e259d1fd82a2bdf51e1a7028af1033bd86690",
+      "input_tokens": 18112,
+      "output_tokens": 374,
+      "measured_eur": "0.0429612756264236902050113895",
+      "original": {
+        "recorded": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search_capture"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "2abf2cb04a66cbabec48a4e46d0de0dd8b07d4b230f7e5467257e50ecf2db8de",
+          "consumer_status": "waiting",
+          "host_diagnostics": [
+            {
+              "code": "CONSTRUCTION_CONTINUATION_INVALID",
+              "location": "/extension/continuationBinding/binding",
+              "message": "The proposed producer must provide the prerequisite's exact accessible typed interface."
+            }
+          ],
+          "whole_result_witnesses_before_proposal": []
+        },
+        "unbound_partial_fixture": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search_capture"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "2abf2cb04a66cbabec48a4e46d0de0dd8b07d4b230f7e5467257e50ecf2db8de",
+          "consumer_status": "waiting",
+          "host_diagnostics": [],
+          "compiler_diagnostics": [],
+          "closed_requirements": 0
+        }
+      },
+      "corrected": {
+        "recorded": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search_capture"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "2abf2cb04a66cbabec48a4e46d0de0dd8b07d4b230f7e5467257e50ecf2db8de",
+          "consumer_status": "waiting",
+          "host_diagnostics": [
+            {
+              "code": "CONSTRUCTION_CONTINUATION_INVALID",
+              "location": "/extension/continuationBinding/binding",
+              "message": "The proposed producer must provide the prerequisite's exact accessible typed interface. The bound object requires \"url\", which the prerequisite's closed object omits. Preserve the original producer. Bind a compatible field or construct the requested typed view if the original requirement permits it."
+            }
+          ],
+          "whole_result_witnesses_before_proposal": [
+            {
+              "operation": "cap_490d9e16075cbdca5954ec27",
+              "wholeResultMismatch": {
+                "continuationId": "continuation_0",
+                "requiredFieldOutsideExpectedType": "url"
+              }
+            },
+            {
+              "operation": "cap_bdb7ba9ab04b18783883fa86",
+              "wholeResultMismatch": {
+                "continuationId": "continuation_0",
+                "requiredFieldOutsideExpectedType": "closed"
+              }
+            }
+          ]
+        },
+        "unbound_partial_fixture": {
+          "strict_schema_valid": true,
+          "tasks": [
+            "search_capture"
+          ],
+          "cleanup": [
+            "close_browser"
+          ],
+          "retained_plan_hash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+          "candidate_plan_hash": "2abf2cb04a66cbabec48a4e46d0de0dd8b07d4b230f7e5467257e50ecf2db8de",
+          "consumer_status": "waiting",
+          "host_diagnostics": [],
+          "compiler_diagnostics": [],
+          "closed_requirements": 0
+        }
+      }
+    }
+  ]
+}

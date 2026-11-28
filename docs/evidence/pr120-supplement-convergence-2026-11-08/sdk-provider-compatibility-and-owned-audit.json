@@ -1,0 +1,57 @@
+{
+  "probe": "sdk-tools-none-20261109-01",
+  "source": "631149210e130181a1802c20dd27c0ba6b366d77",
+  "profile_factor": "Explicit Chat Completions SDK function-tool reasoning none; all other normalization unchanged.",
+  "provider_status": 400,
+  "provider_error_code": "unsupported_value",
+  "provider_error_parameter": "reasoning_effort",
+  "provider_supported_values_in_response": [
+    "low",
+    "medium",
+    "high",
+    "xhigh"
+  ],
+  "conclusion": "The Code18 error recommendation to use none is contradicted by the actual new none request. This profile does not establish SDK compatibility.",
+  "physical_requests": 1,
+  "model_usage_received": false,
+  "full_uncertain_usage_hold_eur": "3.9001880877742946708463949842",
+  "external_completion_verified": true,
+  "durable_receipt_reloaded": true,
+  "observed_commands": 0,
+  "cleanup": true,
+  "passed": false,
+  "execution_replay_forbidden": true,
+  "planning_oracle_unchanged": true,
+  "closed_available_before_native01_eur": "176.667810120913569189431252288",
+  "global_funding_and_invoices": null,
+  "audit_defect": {
+    "cause": "Legacy campaign InspectAsync hydrated tenant payload history through ListAsync before filtering the campaign.",
+    "fix": "Use existing bounded owned metadata pagination and exact owned budget read, with the same canonical evidence hash and accounting.",
+    "regression": "203 owned requests over multiple pages, unrelated malformed payloads, tenant ListAsync forbidden, exact prior/after inspection equality."
+  },
+  "next_explicit_sdk_protocol_profile": {
+    "option": "--sdk-wire-api responses",
+    "sdk_support": "Existing GitHub.Copilot.SDK1.0.29 native WireApi Responses support; no transport translator added.",
+    "reasoning": "Existing medium",
+    "route_guard": "Actual upstream must end /responses below the unchanged provider prefix before reservation or dispatch. Conflicting saved KeyVault selection fails closed.",
+    "keyvault_precedence_preserved": true,
+    "historical_default_preserved": true,
+    "live_gateway_support_verified": false,
+    "read_only_404_is_inconclusive": true
+  },
+  "validation": {
+    "focused_passed": 261,
+    "focused_failed": 0,
+    "new_cases": 8,
+    "red_scoped_audit": "Tenant-wide history hydration forbidden before fix; expected same hash/accounting afterward.",
+    "wire_protocol_cases": "Matching actual route allowed; mismatched actual route refused before HTTP journal or provider request; configuration selection preserves other environment values and rejects ambiguous provider names."
+  },
+  "private_evidence_sha256": {
+    "sdk-tools-none-01-final-state.json": "f298c720ac8ea366fded1d28229cef8572ed79a70634f878762109ff65d75378",
+    "sdk-tools-none-01-http.json": "f527cf3ba861363bf05733ee3a18f44496c48991acf555c28f247895d2ae2716",
+    "sdk-tools-none-01-receipts.json": "cb72be7dc324ceb9dc9fdf3a57adffa675aadacbcf63c32856cf3cb3c2344f4c",
+    "sdk-tools-none-01-closed-audit.json": "d75e05d8f79868be8d368c41b9f9e2df3e3703ac17c5e1b649e39ebf2b75a4f2",
+    "sdk-probe-audit-scope-real-red.log": "d7491f7d3507f347e33b7bb9b50d44840e76d7d2facc120a90c202ebe3cc75b5",
+    "sdk-probe-bounded-wire-green.log": "3b43513c24a950aea449a9cf0982d1dcb34073b06f7bbe16ff6ca3657523b179"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "evidence": "read-only campaign inspection after guarded metadata readiness; no new LLM dispatch",
+  "campaign": "schema-portability-20261019-incremental",
+  "currency": "EUR",
+  "ceiling": "740.0301038327063045424449473",
+  "cost_origin": "Captured-tariff conservative estimates, not provider invoices. Historical reservations unchanged.",
+  "accounting": {
+    "calls": 7190,
+    "session_calls": 0,
+    "known_input_tokens": 28637874,
+    "known_output_tokens": 10909439,
+    "known_cost_eur": "475.28093332377412455040481684",
+    "reserved_input_tokens": 5287130,
+    "reserved_output_tokens": 4718592,
+    "reserved_cost_eur": "222.7236032944974286315167358",
+    "cost_upper_bound_eur": "698.00453661827155318192155264",
+    "unknown_attempts": 162
+  },
+  "retained_external_server_reservation": "1.9552387740555951532430506058",
+  "external_hold_evidence": "../live-server-restart-2026-11-06/funding.json",
+  "available_campaign_upper_bound": "40.0703284403791562072803440542",
+  "next_complex_attempt_and_mandatory_review_required": "61.851686197334287503354503981",
+  "shortfall": "21.7813577569551312960741599268",
+  "budget_delta_for_this_task": {
+    "physical_attempts": 0,
+    "known_cost_eur": "0",
+    "reserved_cost_eur": "0",
+    "unknown_attempts": 0
+  },
+  "provider_reported_cost": null,
+  "ledger_evidence_hash": "8ea5d11c54beb9f066a384611afb3418c2fc788789e513d6436084cd3c65b98e",
+  "raw_inspection_sha256": "401135da2a241319b05182656ae4f270c5da9531f18e25522172e191c92c9712",
+  "no_ceiling_increase": true,
+  "no_unlimited": true,
+  "no_reservation_release": true,
+  "limitation": "Latest independent operator-app session costs were not freshly inspected after that app went offline; available campaign amount is an upper bound, already insufficient for the next complex attempt.",
+  "inspection": {
+    "source": "168805e7e70d2e977875112580160237c15c37cd",
+    "command": [
+      "dotnet",
+      "tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "--schema-portability",
+      "inspect",
+      "--workspace",
+      "<application-workspace>",
+      "--campaign",
+      "schema-portability-20261019-incremental"
+    ],
+    "started_utc": "2026-11-06T11:46:51.008273+00:00",
+    "exit_code": 0,
+    "finished_utc": "2026-11-06T11:47:23.440234+00:00"
+  }
+}

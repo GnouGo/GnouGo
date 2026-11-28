@@ -1,0 +1,44 @@
+{
+  "classification": "Structural reconstruction of a stopped run on private clones, not original issued payload replay or business acceptance",
+  "control_source": "e44e08fd04a4f50b3bc89824d3bc3821def7f864",
+  "retained_original_rejection_estimated_tokens": 24519,
+  "reconstruction_before": {
+    "name": "reconstructed",
+    "bytes": 70979,
+    "tokens": 23916,
+    "schema_hash": "3f524c0a8cec1cc6ba8bf32f3413043d31c90011da17a5a3beadb7d3782147e8",
+    "request_hash": "f76ccd3d217ac32bf83a5890339b6ef9d86e4a4899ca240ec8d16c23dfa15e8d"
+  },
+  "normal_admission_callback_after": {
+    "name": "reconstructed",
+    "bytes": 64149,
+    "tokens": 21639,
+    "schema_hash": "0ac7dbe1d91483225628f7574751b70385af36aa9363f3201daaf8f7c4f31264",
+    "request_hash": "e7df8a501b070f65d9c9d1cf4fe8e0f610090cd21485d0196a0a08d482182029"
+  },
+  "input_ceiling": 22000,
+  "settings_changed": false,
+  "instructions_changed": false,
+  "selected_schema_closures_preserved": true,
+  "explicit_evidence_preserved": true,
+  "consumed_producer_directories_preserved": true,
+  "response_domains_derived_from_display": true,
+  "application_writes": 0,
+  "provider_calls": 0,
+  "production_postimage_sha256": "5a421995cc01392426779702af477bc4ee713896ef8457c2ef05282effca0428",
+  "focused_validation": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 288
+    },
+    "elapsed_seconds": 30.017464583041146,
+    "source_unchanged": true,
+    "log_sha256": "3240b694db1247eb174a3637acbc2a7e758b790b20597cdf4735e56a0af36939"
+  },
+  "validation_source_manifest_sha256": "0872f16e02539b13345638860511c9ab619fc3fb22f137eba49c8a4fa270fa66",
+  "limitations": [
+    "Repeated semantic selection remains uncorrected by this presentation-only change.",
+    "Live diagnostics on this source have not yet run.",
+    "Historical failed logical requests and reservations are unchanged."
+  ]
+}

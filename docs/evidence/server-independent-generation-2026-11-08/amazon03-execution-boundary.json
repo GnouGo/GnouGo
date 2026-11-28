@@ -1,0 +1,53 @@
+{
+  "source": "44c12c3c9fca0f6e879d48c9f6e9772cf31bc473",
+  "run": "convergence-amazon-20261108-03",
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "phase_policy_sha256": "f41151449ddee6e2decc39bfb527591db0b97c9cf166efd82871be5ec1811f41",
+  "session_id": "10cd642214c0493d852d1a3a3902cd76",
+  "execution_artifact_hash": "5729eeffa85cc59e33850032d0290d2e90e90c4823805bd35f2b9c7003d78c7d",
+  "review_origin": "delegated_test_reviewed",
+  "execution_started": "2026-11-08T07:53:16.866432+00:00",
+  "oracle_version": "amazon-business-v4",
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "workbook_missing"
+    ]
+  },
+  "progress": {
+    "validated": true,
+    "favorable_global_review": true,
+    "artifact_bound_approval": true,
+    "real_execution_started": true,
+    "execution_succeeded": false,
+    "qualifying_amazon_runs": 0,
+    "planning_calls": 47,
+    "runtime_model_calls": 1
+  },
+  "first_execution_failure": {
+    "code": "DELEGATED_PERMISSION_DENIED",
+    "path": "/sspa/click",
+    "dispatched": false,
+    "result": "No workbook; real search and both applicable browser cleanups completed."
+  },
+  "secondary_finalization_failure": {
+    "code": "CONTRACT_UNSATISFIED",
+    "resource": "materialized_memory",
+    "nested_limit_bytes": 50000000,
+    "shared_limit_bytes": 1000000000
+  },
+  "known_usage_tariff_estimates_eur": {
+    "10cd642214c0493d852d1a3a3902cd76": "13.93786833855799373040752352",
+    "10cd642214c0493d852d1a3a3902cd76-execution": "16.11549484997760859829825347"
+  },
+  "raw_evidence_sha256": {
+    "amazon03-run.json": "8eebb29d8ebdd9b446f1cfc1286c776baee236acde8a274c3a6127d10a933b8b",
+    "amazon03-execution-journal.json": "e540802861683ea931a2e20b2dde80b40a5612521f077f9cf4def211e3a4b3c0",
+    "amazon03-finalizer-data.json": "1f6417faa49f9e61fb6ddb975594981db06bb6888d4d2b67dc2cb56256c31ed4",
+    "amazon03-workflow.yaml": "9efd65d97d1af08e9f1088e261613a6fd6878a01151f62e9cf2e5aa3f4009d2b"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "source": "82b1902b9a3fc830f79080f345c66c00ab6307ba",
+  "identity": "amazon-proxy-source-20261111-03",
+  "record_count": 1431,
+  "capture_truncated": false,
+  "model_calls": 0,
+  "resolution_reads": 0,
+  "active_policy": "amazon-observed-review-proof-context-v6",
+  "active_oracle": "amazon-business-v10",
+  "source_prerequisite_qualified": false,
+  "findings": [
+    "search_product_redirect_route_unapproved",
+    "source_resolutions_incomplete",
+    "first_product_visits_incomplete"
+  ],
+  "cold_active_verifier_identical": true,
+  "close": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "fragment_review_records": 24,
+  "empty_asin_with_inherited_occurrence": 3,
+  "empty_asin_without_occurrence": 1,
+  "known_asin_records": 20,
+  "known_asin_without_exact_http_twin": 3,
+  "original_events_sha256": "51e952a12ccf1816d67b5e6097b6e2ea449933718e09c1f81454499e41a8f8b9",
+  "proposed_relationship_counts": {
+    "exact_empty_card_redirect_reference_proposal": 4,
+    "known_source_card_membership_proposal": 20
+  },
+  "proposed_relations_do_not_qualify_source": true
+}

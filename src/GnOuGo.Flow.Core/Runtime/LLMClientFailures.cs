@@ -15,6 +15,11 @@ public enum LLMClientFailureKind
     Unknown
 }
 
+public enum LLMClientFailureStage
+{
+    Authentication
+}
+
 /// <summary>
 /// Redacted LLM failure contract. Implementations must not include provider response bodies,
 /// credentials, prompts, or user answers in the exception message or properties.
@@ -78,4 +83,10 @@ public sealed class LLMClientException : Exception
     public bool RetryExhausted { get; }
 
     public int? RetryAfterMilliseconds { get; }
+    public DateTimeOffset? RetryNotBeforeUtc { get; init; }
+    public string? FailurePhase { get; init; }
+    public string? PhysicalRequestId { get; init; }
+    public string? ProviderRequestIdHash { get; init; }
+
+    public LLMClientFailureStage? Stage { get; init; }
 }

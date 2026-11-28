@@ -1,0 +1,254 @@
+{
+  "target": "https://github.com/AxaFrance/SmartGuide/pull/718",
+  "head": "107c86fc87fcd89b529f6589736d27a09acb4206",
+  "source_execution": "1f7dca9a4c9cdb58ca7b6c5f10a51b14",
+  "model_calls": 0,
+  "repository_clones": 0,
+  "repository_checks_run": 0,
+  "compressed_wheel_bytes": 279955016,
+  "method": "Compared the staged lockfile blob with the exact remote tree. Matched the wheel URL from each failed command receipt and verified its lockfile SHA-256 using uv with --require-hashes, --only-binary :all:, --no-deps and the existing Python 3.11.13. Each probe used a fresh target. Only host provisioning contacted the public registry.",
+  "packages": [
+    {
+      "lock": "uv.lock",
+      "gitBlob": "fae94807fc44ed483231d0b9ddcb78aee6cb96c3",
+      "package": "griffelib==2.3.0",
+      "wheel": "griffelib-2.3.0-py3-none-any.whl",
+      "hash": "sha256:1b8f9cd525681c26b1d6d574faa1371651e8459ca51d209684f50b8096ae06e0",
+      "size": 169423,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "75e7b47b05b7d20c58ea4eda61570109ca1b7167e6c825d9e3ff80abe2e3324a"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "46b19df82cca11df87bd901002c53ce2f29a5ac3257ce20afebd8a045f0eee71"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "5e1e99e2562e1a1a5f568497db7b6c925da3dc660083b84dbcb83c8754a59faa"
+        }
+      }
+    },
+    {
+      "lock": "production/invoke_loadtest/uv.lock",
+      "gitBlob": "2160030f996a727ad2b7c9d1ee9a1d58d91c8efc",
+      "package": "pandas==2.3.2",
+      "wheel": "pandas-2.3.2-cp311-cp311-macosx_11_0_arm64.whl",
+      "hash": "sha256:76972bcbd7de8e91ad5f0ca884a9f2c477a2125354af624e022c49e5bd0dfff4",
+      "size": 10820319,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "a1aea59248e9e005fb76e24015897679386d056c9dd3ababa7617ce4fa716475"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "b52b893e9815add2f53098748a9e34511b27dc2efa285113beb34e301244f067"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "ad85120782936eedf5448d4948856bfd7debea652cde180a8311ce3debb7087f"
+        }
+      }
+    },
+    {
+      "lock": "production/api_data/uv.lock",
+      "gitBlob": "8dbd784cd02d1a1c3520c73d82bfa797a0810991",
+      "package": "onnxruntime==1.31.0",
+      "wheel": "onnxruntime-1.31.0-cp311-cp311-macosx_14_0_arm64.whl",
+      "hash": "sha256:cbf1a7f6470ddfe9dbc781966af8ce4a10e1858d75a93f93cc6b9367c9587870",
+      "size": 20871717,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "a927918a543b527cd4b27b9e06aca14c2f732be3f21c132b25e60d6b0002d1ca"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "ce30eaeace68d06f6c62f2ca9b7f0bca9e43ff651222111e4b2f1daf41f081b3"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "6a9d047be20e6b4de5bc2a50fee00ab497a563ea090ae50760209140826a69c8"
+        }
+      }
+    },
+    {
+      "lock": "production/api_text_to_speech/uv.lock",
+      "gitBlob": "df160b45d1faea1e9a7b664ed68754985c74207f",
+      "package": "onnxruntime==1.22.0",
+      "wheel": "onnxruntime-1.22.0-cp311-cp311-macosx_13_0_universal2.whl",
+      "hash": "sha256:8d6725c5b9a681d8fe72f2960c191a96c256367887d076b08466f52b4e0991df",
+      "size": 34282151,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "78d2cbdd1f41909f2f116fda42cb19ffbca71b716e772977155eab8c400ffc33"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "d093b1eb8bbc56e05aea5039c4ca5cb2bb366bc16f79a0ee68f12f50c4698fdf"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "bbc0e0a23fa7b52fecc376aaaaaffe861158880daa89c370eb5d0d083d37999d"
+        }
+      }
+    },
+    {
+      "lock": "packages/axa-fr-smartguide-dsl/uv.lock",
+      "gitBlob": "b3b48671806850e18f08537eade393c88de48028",
+      "package": "sqlalchemy==2.0.47",
+      "wheel": "sqlalchemy-2.0.47-cp311-cp311-macosx_11_0_arm64.whl",
+      "hash": "sha256:3a1dbf0913879c443617d6b64403cf2801c941651db8c60e96d204ed9388d6b0",
+      "size": 2157124,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "0a3afd7f0ac4770ba7e4d0f7fafd49cdd32038e04f6233ec7afa404c061f97d4"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "352073d7ff2c98e8cc7a3a158c94813e9e928831d8af64ff19005863bce2d2d2"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "535f21e4ded8e5c3e49174b5be0ee5ab24e720e1bb473fec794e1765a8637070"
+        }
+      }
+    },
+    {
+      "lock": "packages/axa-fr-smartguide-production/uv.lock",
+      "gitBlob": "58c815a7e6f9d2422225016b923f2f83e8a33510",
+      "package": "torch==2.14.0",
+      "wheel": "torch-2.14.0-cp311-cp311-macosx_14_0_arm64.whl",
+      "hash": "sha256:ae530ddd3f3b94248b77f1fd3313c4f3405bd0d17283d505b81574816767133a",
+      "size": 127277244,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "2d8ad4e6ea719206dc47d3ecb812c4ac2cac128dc17a031f49fe1a5c2ae8a4bd"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "df982140f4a9a0234c1e31b65f3c9e7c85ebaa83b5666f8051400c7975d2ebbd"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "9896f9027f693b7e2b1b0a954b51174c9db69bdc3adbff051bdc671364470feb"
+        }
+      }
+    },
+    {
+      "lock": "production/api/uv.lock",
+      "gitBlob": "24c934b581d275305f6229a99384f2dcd02596ac",
+      "package": "pydantic-core==2.46.1",
+      "wheel": "pydantic_core-2.46.1-cp311-cp311-macosx_11_0_arm64.whl",
+      "hash": "sha256:a05f60b36549f59ab585924410187276ec17a94bae939273a213cea252c8471e",
+      "size": 1946541,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "5bb896419542ad91d1477ede3fa1173350417f0c3eae6d1c32e6d6efd1093e29"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "fb6f4608d5afae879e2fc4bf6b56046f5c11d95ee15a69254bdae63f2fc01c2a"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "d9fa8cae8c94a11eb49d4b738f32388b569573ae4501a8200ba08f32d537fe1c"
+        }
+      }
+    },
+    {
+      "lock": "production/job/uv.lock",
+      "gitBlob": "2557e4806a7a9931782bcbcb8934bea75a2ab131",
+      "package": "torch==2.11.0",
+      "wheel": "torch-2.11.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "hash": "sha256:7b6a60d48062809f58595509c524b88e6ddec3ebe25833d6462eeab81e5f2ce4",
+      "size": 80529712,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "c3a377a1f414e0adea9395d1604932af93d7bf41b5e5fe4c2aad07776ef228e4"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "3ba1a412aa9539c2ee2dbbe4a411f86dd0c923a1b69e103ac022a05f6c1f5acf"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "6b465093652aa0d47c7bcaa30498399c271381c7562fbfb80788b9554f8fd0cf"
+        }
+      }
+    },
+    {
+      "lock": "production/api_dynamic_ingestion/uv.lock",
+      "gitBlob": "1aa270c8fbadb737e305470c145f8ca41c8a4e3b",
+      "package": "markdownify==1.2.2",
+      "wheel": "markdownify-1.2.2-py3-none-any.whl",
+      "hash": "sha256:3f02d3cc52714084d6e589f70397b6fc9f2f3a8531481bf35e8cc39f975e186a",
+      "size": 15724,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "92aa87527d0ca927b218d45d42e8d596d9a44b885c39bbf08fbe42d84d45ff53"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "05ac78971f5b238a5eaf7329d682d9e757813c9816466049ff9b2ea2f2c83538"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "d20be128f4e23ca3d52613fcc07c7dda6bcc0c03c1b4f1447b5afc978a5b957a"
+        }
+      }
+    },
+    {
+      "lock": "production/api_mcp/uv.lock",
+      "gitBlob": "d0b8eb740564cbdbdb67a8664e660039cd0a1be5",
+      "package": "rpds-py==0.30.0",
+      "wheel": "rpds_py-0.30.0-cp311-cp311-macosx_11_0_arm64.whl",
+      "hash": "sha256:dc4f992dfe1e2bc3ebc7444f6c7051b4bc13cd8e33e43511e8ffd13bf407010d",
+      "size": 359676,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "ea8ac68d15a5c43f586ae5f88540a3d2ce4eeadf4143144166d9e0caeff64e5a"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "a5043bd760b8028cec8a727ffab15dfc06a1a244d3058ecb0be2ac3a45822ecb"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "405d00017d7632fa17837cb4b930f97a65c74b252aed25d048106dc8f70d4dca"
+        }
+      }
+    },
+    {
+      "lock": "production/api_prompt_compressor/uv.lock",
+      "gitBlob": "aa02c946ee93334511c56cd08b7b9610c4a77e04",
+      "package": "nltk==3.9.3",
+      "wheel": "nltk-3.9.3-py3-none-any.whl",
+      "hash": "sha256:60b3db6e9995b3dd976b1f0fa7dec22069b2677e759c28eb69b62ddd44870522",
+      "size": 1525385,
+      "receipts": {
+        "cold-offline": {
+          "exit": 1,
+          "sha256": "8d3f30ab59a310a55da97d1becd1969cf3168476671128a12013399744ecadf0"
+        },
+        "pinned-host-provisioning": {
+          "exit": 0,
+          "sha256": "116ee5572e6ad54b04d06d815e7e6a474788a6e137b87f423fc6cc70c22fc0b5"
+        },
+        "fresh-offline": {
+          "exit": 0,
+          "sha256": "38f856fe3bea21f5d655a878929032b1983c546a34cb51f15a05594d0fbeaa36"
+        }
+      }
+    }
+  ]
+}

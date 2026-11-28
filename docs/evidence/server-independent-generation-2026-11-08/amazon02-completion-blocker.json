@@ -1,0 +1,888 @@
+{
+  "run": "convergence-amazon-20261108-02",
+  "source": "8ab8fd1d6df039152b4c0f68c39c0327ee9a3ce6",
+  "session_id": "1eb158fe40ea4baeab3c42eef95f7005",
+  "campaign": "pr120-live-20261107-400",
+  "campaign_configuration": "140db3a53f380129b11a5395a367bfa4efc2d0898a41a36caee599675e2aab5f",
+  "transport_policy": {
+    "version": 2,
+    "maxAttempts": 3,
+    "maxUncertainRetries": 1,
+    "attemptTimeoutMilliseconds": 600000,
+    "baseDelayMilliseconds": 1000,
+    "maxDelayMilliseconds": 30000,
+    "maxTotalDelayMilliseconds": 60000,
+    "independentGenerationMaxElapsedMilliseconds": 1260000
+  },
+  "phase_policy_sha256": "f41151449ddee6e2decc39bfb527591db0b97c9cf166efd82871be5ec1811f41",
+  "started_utc": "2026-11-08T07:24:14.177345+00:00",
+  "finished_utc": "2026-11-08T07:30:27.285934+00:00",
+  "status": "cancelled",
+  "operator_stop_reason": "Stop repeated completed selection reads after two locally accepted business contributions; retain the cancelled current generation and fix the demonstrated compiler contract mismatch. No user cancellation of the overall campaign.",
+  "logical_calls": 47,
+  "physical_attempts": 47,
+  "independent_retries_used": 0,
+  "accepted_checkpoints": [
+    {
+      "sequence": 1,
+      "task_ids": [
+        "amazon_search",
+        "close_search_browser",
+        "search_results"
+      ],
+      "block_id": "block_1",
+      "reviews": [
+        {
+          "request_id": "1eb158fe40ea4baeab3c42eef95f7005:15:59d484dc21f211a8a79eafbf97da34d5d64126cda6652f32d3d33571399b9e7e:5131071062e593364c21d7980fda73454966e2b831e6cc08eace5ea58039b6a3",
+          "outcome": "ok"
+        }
+      ]
+    },
+    {
+      "sequence": 2,
+      "task_ids": [
+        "build_excel_rows",
+        "close_product_browser",
+        "extract_product",
+        "product_consultation",
+        "products_report",
+        "read_product",
+        "save_products",
+        "visit_available_link",
+        "visit_products"
+      ],
+      "block_id": "block_2",
+      "reviews": [
+        {
+          "request_id": "1eb158fe40ea4baeab3c42eef95f7005:27:31856024c195ba382979b1daf7d3c5d88a5213296f8a41aa230744a9b54a8f20:5faaff30768325958a66e783d0a63fcc89dd6884d4fd64dfcd78cdf4527d9a58",
+          "outcome": "ok"
+        }
+      ]
+    }
+  ],
+  "first_failure_boundary": "technical_validation",
+  "diagnostic": {
+    "code": "TASK_COMPILER_VALIDATION",
+    "location": "/tasks/product_consultation/body/outputs/observations",
+    "message": "OUTPUT_TYPE_MISMATCH: The boundary type is not established by its producer contract."
+  },
+  "cause": "Graph validation builds an open workflow.call result object; the compiler establishes the same declared exports as a closed object. This false mismatch removes the final completion action. Selection then repeatedly requests already-loaded original sources.",
+  "root_cause_fix": "Describe declared workflow exports as closed at the call boundary, retaining every nested original contract. Exclude already-loaded original source addresses from new retrieval choices without removing retained evidence.",
+  "global_review": false,
+  "approval": false,
+  "execution": false,
+  "oracle": false,
+  "pending_request_id": "1eb158fe40ea4baeab3c42eef95f7005:47:c57c2618e1d5a668c4ca0bceb01fa867da3a99f8ce9042da24f5a8f81e1882fc:3d1df147572877002941c8b18aa18e87ad83a0053294700e816ed09e16354bea",
+  "accepted_plan_hash": "68d9e301ffb73cb921e394eef7b7031502f569a63a1e91c783c1892664e97fdc",
+  "phase_measurements": [
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:1:fab6405db59108d38f86fd63f35ef571c8a901782ed66df9469f0997f272e2de",
+      "phase": "construction_intent",
+      "completeRequestBytes": 7066,
+      "estimatedInputTokens": 2612,
+      "durationMilliseconds": 13369.4447,
+      "inputTokens": 1207,
+      "outputTokens": 486,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:2:3acdae43654cab33605784c72d89ddd81ab94fbe5fcdb8748e639799eed83863:49575296f6c3433cb92c86ff26824b68f1df90be36d53d761658ae3d8c5bdf20",
+      "phase": "construction_select",
+      "completeRequestBytes": 6975,
+      "estimatedInputTokens": 2581,
+      "durationMilliseconds": 13600.4958,
+      "inputTokens": 1123,
+      "outputTokens": 550,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:3:8802548e582e2e65d8f66247d8274e56e817b02c9dbc4cdedfc7f1d8b40ef58d:b90b7ecb0b4e25add3926e6fa104fdb6634bcae847a9c2f867ce599273d5d4dc",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 12753,
+      "estimatedInputTokens": 4507,
+      "durationMilliseconds": 9615.1959,
+      "inputTokens": 2457,
+      "outputTokens": 352,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:4:0b1885d688b2952b65545881b33dcca38b0881e31d4364572bc14350d6ed0710:d0719fe362051fd6b24fbc7ad215c05f9a669085c63f470996e725407d87dc06",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 13940,
+      "estimatedInputTokens": 4903,
+      "durationMilliseconds": 5103.1413,
+      "inputTokens": 2532,
+      "outputTokens": 173,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:5:531e1ad78baa648b099a79284cd6047f36626cff7a3a494b4df677eb129a68e4:85051636cc4a6cf343b0fbf1890cd0348d2451b571ca1fea8196e6748013ba8c",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 18120,
+      "estimatedInputTokens": 6296,
+      "durationMilliseconds": 3149.832,
+      "inputTokens": 3357,
+      "outputTokens": 53,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:6:3803a9bff084cf247e003525d6d0974e9f093db5fc8108ed08d567076de6fa58:ee04af9adde58c873bf8d426e000b295610906c764e41f6fb58f2a933500d6a0",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 21240,
+      "estimatedInputTokens": 7336,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:6:005538f3c70fa2030e6db813182f44b68bd5b36fb05d32eea6d98c240853f834:481a5a1a6629a12b7b8eb1128eb61cf84ab47aecc75aad0eb4d823e5a41a93a4",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 23011,
+      "estimatedInputTokens": 7927,
+      "durationMilliseconds": 9237.1013,
+      "inputTokens": 4308,
+      "outputTokens": 292,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:7:e055576882e2b8c53e4890b961e4034a4d050580c98f22555344393030721720:e29bcb3923e2ab612b42c9bc1fc22c0b79a51df73fc680a4baa7f1ef88785de0",
+      "phase": "construction_draft",
+      "completeRequestBytes": 36373,
+      "estimatedInputTokens": 12381,
+      "durationMilliseconds": 5789.5494,
+      "inputTokens": 6923,
+      "outputTokens": 212,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:8:63c32132f7cb3aa4bb578c0fcae4bdb50a30f906c0def714887b3454780a219e:298046a5a5eb07c7aaf70f0a958ba54bc1e43e3e1b1e7a04d147fd026975dd25",
+      "phase": "construction_draft",
+      "completeRequestBytes": 70966,
+      "estimatedInputTokens": 23912,
+      "durationMilliseconds": 6718.1469,
+      "inputTokens": 14092,
+      "outputTokens": 199,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:9:3fddc13206d0c3f3dff4a7a9f36971411c5bf0f7f7e33a9e94dfabcc0d515651:bcd47d88e59e7062e2077c54b1f1f7ccf227076f4c27c09fc76ae79d7dd06a60",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 15082,
+      "estimatedInputTokens": 5284,
+      "durationMilliseconds": 6701.7104,
+      "inputTokens": 2902,
+      "outputTokens": 174,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:10:b860c5ed2788b9945fc9faae5acadbb170a0f6ae9bdcc2e9a19fd1eea742eb1c:130afda3d4f736fbf7eff3968796798176e94d0afaa73c1608092d12f33b2451",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 50726,
+      "estimatedInputTokens": 17165,
+      "durationMilliseconds": 9156.4667,
+      "inputTokens": 11252,
+      "outputTokens": 282,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:11:cf021d07e9d737dbea9df4e77f1908f1ea213235299b8f6e280f61402797b0cc:14b1851842db0eafc917b7ff28a4578e2dcf0dccce50989f03c3269b16eedd47",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 18995,
+      "estimatedInputTokens": 6588,
+      "durationMilliseconds": 4649.5748,
+      "inputTokens": 3486,
+      "outputTokens": 112,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:12:fba90006367ceae549e4b5289389c5e68bfb7f347c23e49c692b60a2befd2c95:3f50a049d45e9be5823fbef8d1e794d9c046d2ede6ac2ae2016cf211658f04b6",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 22115,
+      "estimatedInputTokens": 7628,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:12:f38bf3ae77a6ce070b17c186e3f653e6a8f42c71e16a13d7b212b80e1e72db9c:f502ca41482e4fb64633450c3370040b5469e5829e40b3f1fd1c79695680a140",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 23886,
+      "estimatedInputTokens": 8218,
+      "durationMilliseconds": 5098.0051,
+      "inputTokens": 4425,
+      "outputTokens": 136,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:13:116cb0988148169c5450a34fef5c9967195421fdbe337d8afd5ebf1ebd7ceeb5:7c8789aae5912e9bb7ffef407de3217edd835b620ae09abe44677ef233be33b7",
+      "phase": "construction_draft",
+      "completeRequestBytes": 39592,
+      "estimatedInputTokens": 13454,
+      "durationMilliseconds": 5572.649,
+      "inputTokens": 7506,
+      "outputTokens": 208,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:14:1a74461e91a319fe586c50656859d56c203a215e175483e6025fafcf9142a14c:bcef7346535b5e729638c5d6baae5ba1b9b09d77327b499c3e7e740fd89d8afb",
+      "phase": "construction_draft",
+      "completeRequestBytes": 79447,
+      "estimatedInputTokens": 26739,
+      "durationMilliseconds": 17828.8522,
+      "inputTokens": 16094,
+      "outputTokens": 946,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:15:59d484dc21f211a8a79eafbf97da34d5d64126cda6652f32d3d33571399b9e7e:5131071062e593364c21d7980fda73454966e2b831e6cc08eace5ea58039b6a3",
+      "phase": "construction_local_judge",
+      "completeRequestBytes": 21295,
+      "estimatedInputTokens": 7355,
+      "durationMilliseconds": 6671.8914,
+      "inputTokens": 3578,
+      "outputTokens": 191,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:16:6d3c81978dd23ff88b1121f6914ced6b7a9fe25cf74eeba934cbdb7dc4c04d91:445d6372f2b93efe5da342f2b15120df80ba6b134482c2f4f0f790f4d09ed5c5",
+      "phase": "construction_select",
+      "completeRequestBytes": 9642,
+      "estimatedInputTokens": 3470,
+      "durationMilliseconds": 11476.7255,
+      "inputTokens": 1570,
+      "outputTokens": 569,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:17:5c3353de48f3e8b3012047155efae665a9cb3de1c51a4d8b350a08f91b63540d:871457da781ab6f64822d312c528ec77fc3aa9fc80b86c9efe10dd386a098daa",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 29311,
+      "estimatedInputTokens": 10027,
+      "durationMilliseconds": 5129.82,
+      "inputTokens": 5640,
+      "outputTokens": 136,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:18:87d772924552f54402157c96687804e1a5b86705a266827625b9fa58270c1a7e:050bd0f1ad83e3e37cf78b5906152907d017b06c625b8c6762f97735403e1777",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 37674,
+      "estimatedInputTokens": 12814,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:18:ea0139697c86517ac0ab7a0d5c332f5bb0035ff0295f527453aff171fc03f83c:ba4bb6af6bfc5a61e67b9bdc0d677a000bf9d62300483c3289bd58a77cc0b385",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 39550,
+      "estimatedInputTokens": 13440,
+      "durationMilliseconds": 7621.2315,
+      "inputTokens": 7487,
+      "outputTokens": 255,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:19:def1cc71d0e73e3534f1a62c8f8d840ad82d52e586e0446aacfa86692cf4002d:f7da77d715dbd7ca856e4c5c9b3360d5da395dc2f0577bc6b99d169c48ad086e",
+      "phase": "construction_draft",
+      "completeRequestBytes": 41712,
+      "estimatedInputTokens": 14160,
+      "durationMilliseconds": 6848.4833,
+      "inputTokens": 7509,
+      "outputTokens": 207,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:20:471c5a74cb67747fe2e573d60c68c2d5c372f26c68255f04edef938571a7b92d:bdd8c0363798398e034f2f163c7705e38b631799540d77f6dca1cbae289d06e5",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 30250,
+      "estimatedInputTokens": 10340,
+      "durationMilliseconds": 6468.4821,
+      "inputTokens": 5525,
+      "outputTokens": 202,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:21:a44607f753c1ccfa7169c5894c643f5158f24e4c35bade3273057eac4b394d39:35b3cdb418c638271d0f4570b5a8134844ddbbca290f246c20e2753f701df35e",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 47400,
+      "estimatedInputTokens": 16056,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:21:ae6d74fd03498f59f2fb19cf8d52a1ffbe8abc8dc129dc844bca6f7a9220418d:f81f5097b1440cdb079f5b15b1211a6b1b44cc25a08324d812bc6fb3dbdb6269",
+      "phase": "construction_implementation",
+      "completeRequestBytes": 49276,
+      "estimatedInputTokens": 16682,
+      "durationMilliseconds": 7723.6945,
+      "inputTokens": 9298,
+      "outputTokens": 274,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:22:8783c348e2ca171fe8cb5057f98aea5b0b6fdd5ea60158b455f13273e91ec47d:5d6042008f912ddc4fa092949a9aa32af8fd201fab73d0b4f71d0f7376e1c1bb",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 26698,
+      "estimatedInputTokens": 9156,
+      "durationMilliseconds": 7721.171,
+      "inputTokens": 4672,
+      "outputTokens": 327,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:23:34fdc1a799c4b553a1d94f20201aa36dc0d41f52c559fda1eef12c4ff9402cc5:7835f9ff7785a81b015505c03d60d631e2e6856f3566104a89e2a80ed5dc6ede",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 30717,
+      "estimatedInputTokens": 10495,
+      "durationMilliseconds": 3246.1473,
+      "inputTokens": 5464,
+      "outputTokens": 60,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:24:04622edaf6fc78bdc90679be5572212e9824468b5df702bb241b95a6516559ab:86437c8d33b6c601eb3df072f2cb5bc90d81cfc561b07f76a05504a1588858d1",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 35738,
+      "estimatedInputTokens": 12169,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:24:ab9b3f501d2ffef8f6ce38f4184bbe228a1d9ebed8e1fe374ddba4adab9c7820:6fce20ff34c8b033a40833de42ed71607df64cf9ba647f6303309a638dfbd01b",
+      "phase": "construction_discovery",
+      "completeRequestBytes": 37509,
+      "estimatedInputTokens": 12759,
+      "durationMilliseconds": 7732.0742,
+      "inputTokens": 6926,
+      "outputTokens": 259,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:25:c8333e6bd0b1e6e65a0ec82763520279d35b76742b12055648533c29ee348815:503cae52de78f92cbac013df78a853fd6e49951ce3b7c97781452aa6955777d1",
+      "phase": "construction_draft",
+      "completeRequestBytes": 66533,
+      "estimatedInputTokens": 22434,
+      "durationMilliseconds": 4130.3283,
+      "inputTokens": 12739,
+      "outputTokens": 78,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:26:24df7d88740e601986e6d47cc78daff4f1389417175311dd1add480a93ffca21:8a4040ed058de2e89360aed06e1257c326dbb185f296102a66a5d04870501657",
+      "phase": "construction_draft",
+      "completeRequestBytes": 78598,
+      "estimatedInputTokens": 26456,
+      "durationMilliseconds": 34941.2258,
+      "inputTokens": 15054,
+      "outputTokens": 1879,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:27:31856024c195ba382979b1daf7d3c5d88a5213296f8a41aa230744a9b54a8f20:5faaff30768325958a66e783d0a63fcc89dd6884d4fd64dfcd78cdf4527d9a58",
+      "phase": "construction_local_judge",
+      "completeRequestBytes": 45716,
+      "estimatedInputTokens": 15495,
+      "durationMilliseconds": 9183.2777,
+      "inputTokens": 7772,
+      "outputTokens": 287,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:28:8a785e91896afa3a56852b0587db11e025d08ce4e534a23f79a25c1df0d548d8:055a69d6b9dc2cccd997d5c36c0a5d270fa2fa40e8f66b4d2f1fd256364f688a",
+      "phase": "construction_select",
+      "completeRequestBytes": 12369,
+      "estimatedInputTokens": 4379,
+      "durationMilliseconds": 5579.3524,
+      "inputTokens": 2014,
+      "outputTokens": 133,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:29:df064b1218d20ad5bca6e9b590b5e17167650b1c3278e119f4edf2ec882aa55a:2cd9fd6e6f127975dd9d917ceb169b865f9d2b10f7cdd9675b240768f877b518",
+      "phase": "construction_select",
+      "completeRequestBytes": 12355,
+      "estimatedInputTokens": 4375,
+      "durationMilliseconds": 6327.0735,
+      "inputTokens": 1990,
+      "outputTokens": 184,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:30:c2032adf48b3ba3965650274adad62a6d0d893d09784189aaf9030b44377b1b2:530db56f961c3f6fb8d5a2b030af6c809df934ca297620cd705a55b6c158ba32",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 4464.0057,
+      "inputTokens": 2389,
+      "outputTokens": 90,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:31:b4dc5a2a03d3f0233e6b9d731ea86f6ab9410f45b7717dbbdb32a007449b2b2d:6028abb2a8d7f243792f3bc50f05e6dc355d1dc7a8de639476068d19d125137b",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 7588.6398,
+      "inputTokens": 2355,
+      "outputTokens": 236,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:32:c5643d1767065f72b843e84788420b5b7cb0afadc043eaa932546b878191aac8:255753ef33d38fffe178d0e2bdd8dc710f39d69e396df726dc8f868ca1fb5cf4",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 6678.5638,
+      "inputTokens": 2372,
+      "outputTokens": 165,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:33:a0aa0c42360f9ae6fa1134f91d1babad90d5da77c11b0c14b493431250a73207:5d35850d0629fe8993c15928d99fd883c6949baafe6d88bb45143ec242918232",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5605.2192,
+      "inputTokens": 2338,
+      "outputTokens": 124,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:34:b6083e2467f338bdfff919e564c031fa5bbdc89111f3136140abe4c25fab11a6:06bba362f53d53eb1aa83c36cc7c548fa6080d255adaaf0931730a915db4a372",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5558.2697,
+      "inputTokens": 2372,
+      "outputTokens": 142,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:35:6832d0de545beb5af8d8cff33d69eed0cc3974e253c2a3be66fe5a04cd2f3e75:6ecfa4cc0da333798b907b1980486fc3e56648f2bff267061cad5336ba6cac9a",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5305.0889,
+      "inputTokens": 2321,
+      "outputTokens": 135,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:36:c57c69d494c196e86d523da331f9952b41a22b89f71ed122b87e05bae5f8325c:8c2c4f62860325d2ebab86edc71d72fefc739db39f4d6b55b17aa0245203a71b",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 7974.0731,
+      "inputTokens": 2389,
+      "outputTokens": 234,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:37:e4d32e63a556756cd5ece3982d91074b6d0cf024a5229800fb831cf97fe33b1b:dc03026d5420b276dca1f9e7f55b33affcd92c127791bb22687221d86ae0dab7",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 8220.0044,
+      "inputTokens": 2372,
+      "outputTokens": 250,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:38:6af5b5c3ced8cbf39a989ef2eb03e75e81996e589f0e869c214161d1329d10c6:787ec0d6cc4b86222d53d9dc2757792735dd702dc318e1f0b0596a099b9d4fdf",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5549.4665,
+      "inputTokens": 2372,
+      "outputTokens": 129,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:39:5503228ae3f2abc278679518fa381260f01962cb7bea2eb0e7f5a24ca357e733:6b47433fd4f613320579feffff9a1e3077b32c60b62ab79bc85c1a9905bd3d25",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 8941.448,
+      "inputTokens": 2355,
+      "outputTokens": 137,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:40:8d7e3ef3ab15dfe807ebc149cee7d4909b1673d600cd1118bff0d5c9b2c983f2:b41bc7135732368cc1242b13991052d3f0e140732e4b7aad1f1791df94b09ace",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5321.9525,
+      "inputTokens": 2372,
+      "outputTokens": 142,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:41:b509d2449e18064ae8508b55a8891f1f317ac631fa943b0910e25c82a3d3cbcc:62b90dfb843f9ca90522b071487f1cd17cf7aa5abff512019f2e4f4b028b4939",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5634.7972,
+      "inputTokens": 2406,
+      "outputTokens": 149,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:42:eb9c8d122f152af7570b22088313b98476f33e76e5524a92ef933505e6c38161:941e0609920e11afd3260b8214e6a343811595acf8c134064562161398ea5eb5",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5655.4529,
+      "inputTokens": 2355,
+      "outputTokens": 132,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:43:c5134729c2fcfb8f221ca251b32661533c6afa9e5b3190ce1c0f5ac7ffd9e7be:37be40d905cc166b21dab24ad19dee5a325e23a5a1994ca65fec5deb474317ea",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5588.6785,
+      "inputTokens": 2355,
+      "outputTokens": 152,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:44:d5024a4024d09b93908e4a7e925cea41446d3c60bc0d3437f990329bd5db905e:300344ae26338ce386d96b4fe43cb65474232e79696ba1a2813527a40c8fbe97",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 3980.4657,
+      "inputTokens": 2355,
+      "outputTokens": 74,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:45:fa281c461b8a925fb102f5fcccaab588a2470fee5d5295e385ac48cca99660df:dc0f87afe5ea9b6e8f5e84628e6f7e2b31a3250e6655a4e8e90b316496a1cb3f",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 5481.799,
+      "inputTokens": 2338,
+      "outputTokens": 141,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:46:ba7c1c86d3a6a15a5ec821194597498c8ecb1d11256be619cddaf5d91aa32b12:3a2c44b4fc910db122d7bb198fa7fd7e27bcd8df6e94e5af65d51a05b56b67dc",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": 6324.9395,
+      "inputTokens": 2372,
+      "outputTokens": 157,
+      "result": "complete"
+    },
+    {
+      "requestId": "1eb158fe40ea4baeab3c42eef95f7005:47:c57c2618e1d5a668c4ca0bceb01fa867da3a99f8ce9042da24f5a8f81e1882fc:3d1df147572877002941c8b18aa18e87ad83a0053294700e816ed09e16354bea",
+      "phase": "construction_select",
+      "completeRequestBytes": 14076,
+      "estimatedInputTokens": 4948,
+      "durationMilliseconds": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "result": null
+    }
+  ],
+  "largest_request_components": {
+    "construction_intent": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:1:fab6405db59108d38f86fd63f35ef571c8a901782ed66df9469f0997f272e2de",
+      "complete_request_bytes": 7066,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 29,
+          "estimatedTokens": 10
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 435,
+          "estimatedTokens": 401
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1404,
+          "estimatedTokens": 468
+        },
+        {
+          "component": "intent",
+          "serializedBytes": 1177,
+          "estimatedTokens": 393
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 59,
+          "estimatedTokens": 20
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3936,
+          "estimatedTokens": 1312
+        }
+      ]
+    },
+    "construction_select": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:30:c2032adf48b3ba3965650274adad62a6d0d893d09784189aaf9030b44377b1b2:530db56f961c3f6fb8d5a2b030af6c809df934ca297620cd705a55b6c158ba32",
+      "complete_request_bytes": 14076,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 5963,
+          "estimatedTokens": 1988
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 500,
+          "estimatedTokens": 423
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 1980,
+          "estimatedTokens": 660
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2387,
+          "estimatedTokens": 796
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1149,
+          "estimatedTokens": 383
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 2097,
+          "estimatedTokens": 699
+        }
+      ]
+    },
+    "construction_implementation": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:10:b860c5ed2788b9945fc9faae5acadbb170a0f6ae9bdcc2e9a19fd1eea742eb1c:130afda3d4f736fbf7eff3968796798176e94d0afaa73c1608092d12f33b2451",
+      "complete_request_bytes": 50726,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 5326,
+          "estimatedTokens": 1776
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 509,
+          "estimatedTokens": 426
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 36734,
+          "estimatedTokens": 12245
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 2893,
+          "estimatedTokens": 965
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 294,
+          "estimatedTokens": 98
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 725,
+          "estimatedTokens": 242
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 4245,
+          "estimatedTokens": 1415
+        }
+      ]
+    },
+    "construction_discovery": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:24:ab9b3f501d2ffef8f6ce38f4184bbe228a1d9ebed8e1fe374ddba4adab9c7820:6fce20ff34c8b033a40833de42ed71607df64cf9ba647f6303309a638dfbd01b",
+      "complete_request_bytes": 37509,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 6375,
+          "estimatedTokens": 2125
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 507,
+          "estimatedTokens": 425
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 6635,
+          "estimatedTokens": 2212
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3262,
+          "estimatedTokens": 1088
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 5770,
+          "estimatedTokens": 1924
+        },
+        {
+          "component": "mcp_descriptors",
+          "serializedBytes": 3325,
+          "estimatedTokens": 1109
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 271,
+          "estimatedTokens": 91
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 4590,
+          "estimatedTokens": 1530
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 6774,
+          "estimatedTokens": 2258
+        }
+      ]
+    },
+    "construction_draft": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:14:1a74461e91a319fe586c50656859d56c203a215e175483e6025fafcf9142a14c:bcef7346535b5e729638c5d6baae5ba1b9b09d77327b499c3e7e740fd89d8afb",
+      "complete_request_bytes": 79447,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 8080,
+          "estimatedTokens": 2694
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 508,
+          "estimatedTokens": 426
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 22236,
+          "estimatedTokens": 7412
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 22,
+          "estimatedTokens": 8
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 3392,
+          "estimatedTokens": 1131
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 339,
+          "estimatedTokens": 113
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 22066,
+          "estimatedTokens": 7356
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 212,
+          "estimatedTokens": 71
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 1763,
+          "estimatedTokens": 588
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 20803,
+          "estimatedTokens": 6935
+        }
+      ]
+    },
+    "construction_local_judge": {
+      "request_id": "1eb158fe40ea4baeab3c42eef95f7005:27:31856024c195ba382979b1daf7d3c5d88a5213296f8a41aa230744a9b54a8f20:5faaff30768325958a66e783d0a63fcc89dd6884d4fd64dfcd78cdf4527d9a58",
+      "complete_request_bytes": 45716,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 5933,
+          "estimatedTokens": 1978
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 502,
+          "estimatedTokens": 424
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 33119,
+          "estimatedTokens": 11040
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 1986,
+          "estimatedTokens": 662
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 302,
+          "estimatedTokens": 101
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 2089,
+          "estimatedTokens": 697
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 1785,
+          "estimatedTokens": 595
+        }
+      ]
+    }
+  },
+  "contribution_metrics": [
+    {
+      "business_checkpoint": 1,
+      "through_logical_call": 15,
+      "elapsed_through_review_receipt_seconds": 129.680594,
+      "known_usage_tariff_estimate_eur": "2.9943036274070756829377519033"
+    },
+    {
+      "business_checkpoint": 2,
+      "through_logical_call": 27,
+      "elapsed_through_review_receipt_seconds": 244.985547,
+      "known_usage_tariff_estimate_eur": "6.1341334527541424093148231077"
+    }
+  ],
+  "known_usage_tariff_estimate_eur": "7.7900582176444245409762651140",
+  "cancelled_request_retained_reservation_eur": "5.6678907299596954769368562471"
+}

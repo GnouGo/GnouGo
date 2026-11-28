@@ -99,7 +99,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         {
             Provider = provider,
             Model = model,
-            Prompt = prompt,
+            Prompt = prompt
         };
 
         // ── Telemetry: record request attributes ──
@@ -155,6 +155,16 @@ public sealed class LlmCallExecutor : IStepExecutor
             ctx.SetTelemetryAttribute("gen_ai.request.max_tokens", request.MaxTokens);
         }
 
+        try
+        {
+            request.Images = await WorkflowImages.LoadAsync(ctx, input["images"], ct);
+        }
+        catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.InputValidation)
+        {
+            await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch", ["code"] = ex.Code }, CancellationToken.None);
+            throw;
+        }
+
         // ── Thinking: signal that we are calling the LLM ──
         ctx.AddTelemetryEvent("gnougo-flow.step.thinking", new[]
         {
@@ -165,8 +175,12 @@ public sealed class LlmCallExecutor : IStepExecutor
         try
         {
             var response = await ctx.CallLLMAsync(llmClient, request, "llm.call", ct);
-            await ctx.RecordExternalCompletionAsync(new JsonObject { ["text"] = response.Text,
-                ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() }, CancellationToken.None);
+            var observation = new JsonObject { ["text"] = response.Text,
+                ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() };
+            if (request.Images is { } seen)
+                observation["images"] = new JsonArray(seen.Select(i => (JsonNode)i.Reference()).ToArray());
+            if (response.CompletionStatus is { } status) observation["completion_status"] = status;
+            await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
 
 
             // ── Thinking: preview first 120 chars of the LLM response ──
@@ -183,7 +197,7 @@ public sealed class LlmCallExecutor : IStepExecutor
             }
 
             // ── Telemetry: record response attributes ──
-            var finishReason = response.ToolCalls?.Count > 0 ? "tool_calls" : "stop";
+            var finishReason = response.CompletionStatus ?? (response.ToolCalls?.Count > 0 ? "tool_calls" : "stop");
             ctx.SetTelemetryAttribute("gen_ai.response.model", model);
             ctx.SetTelemetryAttribute("gen_ai.response.finish_reason", finishReason);
             long? inputTokens = null;
@@ -213,6 +227,14 @@ public sealed class LlmCallExecutor : IStepExecutor
                     ctx.SetTelemetryAttribute("gen_ai.usage.cost", (double)estimatedCost.Value);
             }
 
+            if (response.CompletionStatus is "output_limit" or "incomplete" or "refused" or "failed")
+            {
+                var code = response.CompletionStatus == "output_limit" ? ErrorCodes.ModelOutputLimit : ErrorCodes.ModelCompletionRejected;
+                throw new WorkflowRuntimeException(code, $"Provider reported {response.CompletionStatus} for llm.call.",
+                    details: new JsonObject { ["completion_status"] = response.CompletionStatus, ["limit"] = request.MaxTokens,
+                        ["output_tokens"] = outputTokens, ["request_id"] = request.ClientRequestId, ["replay_allowed"] = false });
+            }
+
             if (ctx.Limits.LogStepContent && (!string.IsNullOrWhiteSpace(response.Text) || response.Json != null))
             {
                 ctx.AddTelemetryEvent("gen_ai.content.completion", new[]
@@ -230,6 +252,9 @@ public sealed class LlmCallExecutor : IStepExecutor
                 ["text"] = response.Text,
                 ["meta"] = new JsonObject { ["model"] = model }
             };
+
+            if (request.Images is { } inspected)
+                result["meta"]!["images"] = new JsonArray(inspected.Select(i => (JsonNode)i.Reference()).ToArray());
 
             // Structured output: fallback parse response.Text as JSON (parity with Python)
             JsonNode? structuredJson = response.Json;
@@ -270,7 +295,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         {
             // Budget accounting can also fail after dispatch. Only an explicit
             // host-owned pre-dispatch disposition establishes a known rejection.
-            if ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable) &&
+            if ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable or "MODEL_REQUEST_INCOMPATIBLE") &&
                 ex.Details is JsonObject details && details["dispatch_status"]?.ToString() == "not_started")
                 await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch", ["code"] = ex.Code }, CancellationToken.None);
             var classified = LlmFailureClassifier.Classify(ex);

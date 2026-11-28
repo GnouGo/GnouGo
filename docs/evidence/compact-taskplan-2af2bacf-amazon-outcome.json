@@ -1,0 +1,206 @@
+{
+  "evaluated_public_production_source": "2af2bacfe01951241bd38a457dc8a1b10714e959",
+  "private_byte_identical_execution_source": "46c023bb10b11061835409a9044a33f95a272580",
+  "source_tree": "bdc80b251f1a3dc12cc74e95f28a4736cefb0ff6",
+  "run": "compactm2af2bacfamz11a-amazon-1",
+  "profile": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "token_threshold_policy": "advisory",
+  "model": "gpt-5.5-2026-04-24",
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "status": "clarification",
+  "logical_requests": 34,
+  "physical_attempts": 34,
+  "charged_corrections_or_reselections": 4,
+  "judges": 0,
+  "planning_ms": 1987518,
+  "accepted_tasks": [
+    {
+      "kind": "sequence",
+      "child_task_count": 1
+    },
+    {
+      "kind": "sequence",
+      "child_task_count": 0
+    }
+  ],
+  "accepted_executable_business_tasks": 0,
+  "artifact": false,
+  "runtime_started": false,
+  "runtime_oracle_passed": false,
+  "independently_satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "accounting": {
+    "planning": {
+      "logical_calls": 34,
+      "physical_attempts": 34,
+      "known_input_tokens": 147994,
+      "known_output_tokens": 82846,
+      "known_cost_eur": "2.8971076978352645288781101232",
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 5982,
+      "session_calls": 0,
+      "known_input_tokens": 21321755,
+      "known_output_tokens": 8353169,
+      "known_cost_eur": "318.68940552467351689454827823",
+      "reserved_input_tokens": 1949386,
+      "reserved_output_tokens": 3604480,
+      "reserved_cost_eur": "105.19499768471660096792687982",
+      "cost_upper_bound_eur": "423.88440320939011786247515805",
+      "unknown_attempts": 125
+    }
+  },
+  "planning_stages": {
+    "construction_intent": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 2338,
+      "output_tokens": 6447,
+      "known_cost_eur": "0.1842270726668463127638552053",
+      "reserved_cost_eur": 0,
+      "elapsed_ms": "113212.5877"
+    },
+    "construction_select": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 24071,
+      "output_tokens": 21840,
+      "known_cost_eur": "0.6966271445252851881792868050",
+      "reserved_cost_eur": 0,
+      "elapsed_ms": "408809.63529999997"
+    },
+    "construction_discovery": {
+      "logical_calls": 19,
+      "physical_attempts": 19,
+      "input_tokens": 69357,
+      "output_tokens": 43224,
+      "known_cost_eur": "1.4762462947992454863918081381",
+      "reserved_cost_eur": 0,
+      "elapsed_ms": "959526.3204"
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 52228,
+      "output_tokens": 11335,
+      "known_cost_eur": "0.5400071858438875415431599748",
+      "reserved_cost_eur": 0,
+      "elapsed_ms": "281876.23850000004"
+    }
+  },
+  "request_sizes": {
+    "construction_intent": {
+      "requests": 2,
+      "prepared_requests": 2,
+      "peak_complete_request_bytes": 9557,
+      "peak_estimated_input_tokens": 3442,
+      "above_target_warnings": 1,
+      "rejected_before_dispatch": 0
+    },
+    "construction_select": {
+      "requests": 7,
+      "prepared_requests": 7,
+      "peak_complete_request_bytes": 23011,
+      "peak_estimated_input_tokens": 7927,
+      "above_target_warnings": 7,
+      "rejected_before_dispatch": 0
+    },
+    "construction_discovery": {
+      "requests": 19,
+      "prepared_requests": 25,
+      "peak_complete_request_bytes": 25665,
+      "peak_estimated_input_tokens": 8811,
+      "above_target_warnings": 25,
+      "rejected_before_dispatch": 0
+    },
+    "construction_draft": {
+      "requests": 6,
+      "prepared_requests": 9,
+      "peak_complete_request_bytes": 73988,
+      "peak_estimated_input_tokens": 24919,
+      "above_target_warnings": 7,
+      "rejected_before_dispatch": 0
+    }
+  },
+  "received_empty_responses": 0,
+  "stop_reason": "Received clarification: no selected mechanism converting the required runtime text to a navigation URL. Existing eligible local interpretation was displayed but not used. Two empty sequence scopes were accepted. No new progression rule is justified by this result alone.",
+  "unknown_request_abandonment_needed": false,
+  "scope_presentation_fix_exercised": true,
+  "whole_result_and_later_port_page_fix_included": false,
+  "interpretation": "No artifact or execution. Fewer calls than the incomplete 9fe control is not an efficiency success.",
+  "private_evidence_hashes": {
+    "state_sha256": "9653fea48b938fb231cf21beaad9b472c0574b19110ff0fd7718915018c25af0",
+    "freeze_sha256": "92c6bf756c1ca695ae9a0f545f20b8d9ef7304d5c8d24e4a28363edd57bbe137",
+    "log_sha256": "e198a8aafce079f8629167d642c3a2d0683442772ea6eee6dcc889bd214eb768"
+  },
+  "all_constructed_component_bytes_reconcile": true,
+  "admitted_estimate_provider_input_calibration": {
+    "construction_intent": {
+      "matched_measurements": 2,
+      "median_estimate_over_actual": 2.1718559372811734,
+      "min_estimate_over_actual": 1.9132851584213453,
+      "max_estimate_over_actual": 2.430426716141002,
+      "billed_component_tokens_claimed": false
+    },
+    "construction_select": {
+      "matched_measurements": 7,
+      "median_estimate_over_actual": 1.7088404868673928,
+      "min_estimate_over_actual": 1.6167652457678972,
+      "max_estimate_over_actual": 1.7413843888070693,
+      "billed_component_tokens_claimed": false
+    },
+    "construction_discovery": {
+      "matched_measurements": 19,
+      "median_estimate_over_actual": 1.7911060433295325,
+      "min_estimate_over_actual": 1.6911180773249739,
+      "max_estimate_over_actual": 1.849955869373345,
+      "billed_component_tokens_claimed": false
+    },
+    "construction_draft": {
+      "matched_measurements": 6,
+      "median_estimate_over_actual": 1.7315199357129938,
+      "min_estimate_over_actual": 1.6590100913022585,
+      "max_estimate_over_actual": 1.7743782076589025,
+      "billed_component_tokens_claimed": false
+    }
+  },
+  "received_response_count": 34,
+  "confirmed_received_output_exhaustions": 0,
+  "above_captured_input_maximum_dispatched": true,
+  "criterion_live_threshold_exceedance": "Targets exceeded and warnings retained; no request exceeded the captured phase maximum, so a live above-maximum dispatch remains unproven."
+}

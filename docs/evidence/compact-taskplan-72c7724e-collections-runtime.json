@@ -1,0 +1,154 @@
+{
+  "production_and_harness_source": "72c7724eaa320de074ed054d5dfbaa0e482d1ee6",
+  "cohort": "compactm72c7724ecol11a",
+  "artifact_hash": "9df864c42cd45892a02daa9ae366d13fba1b23195733b8cfc0d2d4a0df599e05",
+  "reviewed_revision": 19,
+  "logical_requests": 15,
+  "physical_attempts": 15,
+  "judge_calls": 2,
+  "judge_request_bytes": [
+    7397,
+    8488
+  ],
+  "actual_correction_charges": 0,
+  "operator_planning_interventions": 0,
+  "approval_kind": "delegated_test",
+  "independent_static_review": "Exact required numeric array -> parallel per-item group call -> item multiplied by2 -> ordered public result. All four original clauses acknowledged; frozen business-obligation denominator unchanged. No operations or runtime inference.",
+  "runtime_variants": [
+    {
+      "variant": "nominal",
+      "correct": true,
+      "success": true,
+      "elapsed_ms": 319.9192,
+      "expected_output": [
+        2,
+        4,
+        8
+      ],
+      "oracle_verified_expected_output": true,
+      "effects": [],
+      "violations": []
+    },
+    {
+      "variant": "alternate",
+      "correct": true,
+      "success": true,
+      "elapsed_ms": 2.2549,
+      "expected_output": [
+        6,
+        6,
+        -4
+      ],
+      "oracle_verified_expected_output": true,
+      "effects": [],
+      "violations": []
+    }
+  ],
+  "known_cost_eur": "1.1262058744273780652115332794",
+  "unknown_reservation_eur": "0",
+  "provider_tokens": {
+    "input_tokens": 45663,
+    "output_tokens": 34183,
+    "reasoning_tokens": 31508
+  },
+  "planning_ms": 817393,
+  "intent_calls": 1,
+  "intent_provider_latency_ms": "32823.1422",
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 6656,
+      "p95_bytes": 6656,
+      "maximum_bytes": 6656
+    },
+    "construction_select": {
+      "logical_calls": 6,
+      "p50_bytes": 14041,
+      "p95_bytes": 18905,
+      "maximum_bytes": 18905
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "p50_bytes": 20812,
+      "p95_bytes": 22181,
+      "maximum_bytes": 22181
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "p50_bytes": 7397,
+      "p95_bytes": 7397,
+      "maximum_bytes": 7397
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488
+    }
+  },
+  "peak_request_components_by_phase": {
+    "construction_intent": {
+      "construction_context": 29,
+      "diagnostics": 26,
+      "envelope": 439,
+      "instructions": 1404,
+      "intent": 544,
+      "interfaces": 59,
+      "response_schema": 4155
+    },
+    "construction_select": {
+      "construction_context": 931,
+      "envelope": 507,
+      "instructions": 2968,
+      "interfaces": 2023,
+      "requirements": 6322,
+      "response_schema": 6154
+    },
+    "construction_draft": {
+      "construction_context": 3706,
+      "diagnostics": 26,
+      "envelope": 514,
+      "evidence": 25,
+      "fragment": 22,
+      "instructions": 1144,
+      "interfaces": 2022,
+      "mcp_contracts": 25,
+      "objective": 203,
+      "requirements": 7213,
+      "response_schema": 7281
+    },
+    "construction_local_judge": {
+      "construction_context": 1220,
+      "envelope": 507,
+      "fragment": 1195,
+      "instructions": 1456,
+      "interfaces": 682,
+      "requirements": 870,
+      "response_schema": 1467
+    },
+    "construction_global_judge": {
+      "construction_context": 1640,
+      "envelope": 507,
+      "fragment": 1634,
+      "instructions": 1456,
+      "interfaces": 849,
+      "requirements": 871,
+      "response_schema": 1531
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "received_empty_or_output_exhausted_responses": 0,
+  "extra_alias_tasks": 1,
+  "alias_interpretation": "Retained pass-through, no independently established redundant effect.",
+  "business_obligation_set_hash": "6ab079dce2f8e688b76d83445cbd16ff19772683c53d3b4b0a6af3012b77dd65",
+  "independently_defined_business_obligations": 3,
+  "logical_calls_per_runtime_accepted_business_obligation": 5,
+  "efficiency_indicators": {
+    "fewer_than26_calls": true,
+    "at_most4_judges": true,
+    "peak_judge_bytes_at_most13197": true
+  },
+  "phase_policy_sha256": "0f8566ddb5f847a98fb5d91f3f5f9422c5d7ab047e8425dc954f43b65af12074",
+  "qualifies_current_90e78f7b_source": false,
+  "comparison_limitation": "One genuine success on source72. Source68 had20 calls/two Judges and a different generated trajectory under the same profile; source72 changes do not establish a causal efficiency effect for this pure case. Two consecutive successes on the final source remain required."
+}

@@ -7,8 +7,8 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
 {
     private readonly HashSet<(TaskValue Value, TaskPlanSymbols.Scope Scope, string Kind)> _visiting = [];
 
-    internal bool Proves(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string> path, string kind) =>
-        Trace(value, scope, path.Cast<string?>().ToArray(), kind);
+    internal bool Proves(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string> path, string kind, bool checkedNonNull = false) =>
+        Trace(value, scope, path.Cast<string?>().ToArray(), kind, checkedNonNull && path.Count == 0);
 
     internal bool MissingProducer(string kind)
     {
@@ -24,14 +24,17 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
         return !resolved.Any(c => c.ArtifactContract?.Produces.Any(p => p.Kind == kind) == true);
     }
 
-    private bool Trace(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind)
+    private bool Trace(TaskValue value, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind, bool checkedNonNull = false)
     {
+        if (value.SelectedFields is { } fields && !PlanningObjectView.CopiesPath(fields, path)) return false;
         var key = (value, scope, kind);
         if (!_visiting.Add(key)) return false;
         try
         {
             switch (value.Kind)
             {
+                case "at_index":
+                    return value.Items.Count == 2 && Trace(value.Items[0], scope, new string?[] { null }.Concat(path).ToArray(), kind);
                 case "lookup":
                     // Any selected position can originate from any source record.
                     // Selected IDs establish no artifact authority.
@@ -82,15 +85,23 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
                         return selected.All(p => p is not null) && contract.Produces.Any(p => p.Kind == kind &&
                             Decode(p.Pointer).SequenceEqual(selected, StringComparer.Ordinal));
                     }
-                    if (task.Kind == "value") return Export(task.Outputs, source.Scope, selection, kind);
+                    if (task.Kind == "value") return Export(task.Outputs, source.Scope, selection, kind, checkedNonNull);
                     if (task.Kind == "call")
                     {
                         var target = plan.Groups.SingleOrDefault(g => g.Id == task.Group);
                         return target is not null && ScopeExport(target.Body, selection, kind);
                     }
-                    if (task.Kind == "sequence") return task.Body is not null && ScopeExport(task.Body, selection, kind);
-                    if (task.Kind == "conditional") return task.Body is not null && task.Otherwise is not null &&
-                        ScopeExport(task.Body, selection, kind) && ScopeExport(task.Otherwise, selection, kind);
+                    if (task.Kind == "sequence") return task.Body is not null && ScopeExport(task.Body, selection, kind, checkedNonNull);
+                    if (task.Kind == "conditional" && task.Body is not null && task.Otherwise is not null)
+                    {
+                        // Only the exact guarded port can exclude its literal-null alternative.
+                        // The other alternative must still trace to a registered artifact.
+                        bool Absent(TaskScope branch) => checkedNonNull && selection.Count == 1 &&
+                            branch.Outputs.Where(o => o.Name == selection[0]).ToArray() is [{ Value.Kind: "null" }];
+                        if (Absent(task.Body)) return ScopeExport(task.Otherwise, selection, kind, checkedNonNull);
+                        if (Absent(task.Otherwise)) return ScopeExport(task.Body, selection, kind, checkedNonNull);
+                        return ScopeExport(task.Body, selection, kind, checkedNonNull) && ScopeExport(task.Otherwise, selection, kind, checkedNonNull);
+                    }
                     if (task.Kind == "parallel")
                     {
                         var branches = task.Branches.Where(b => selection.Count > 0 && b.Outputs.Any(o => o.Name == selection[0])).ToArray();
@@ -105,15 +116,15 @@ internal sealed class TaskArtifactBindings(TaskPlan plan, PlanningCatalog catalo
         finally { _visiting.Remove(key); }
     }
 
-    private bool ScopeExport(TaskScope source, IReadOnlyList<string?> path, string kind)
+    private bool ScopeExport(TaskScope source, IReadOnlyList<string?> path, string kind, bool checkedNonNull = false)
     {
         var scopes = symbols.Scopes.Where(s => ReferenceEquals(s.Source, source)).ToArray();
-        return scopes.Length == 1 && Export(source.Outputs, scopes[0], path, kind);
+        return scopes.Length == 1 && Export(source.Outputs, scopes[0], path, kind, checkedNonNull);
     }
 
-    private bool Export(List<TaskOutput> outputs, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind) =>
+    private bool Export(List<TaskOutput> outputs, TaskPlanSymbols.Scope scope, IReadOnlyList<string?> path, string kind, bool checkedNonNull = false) =>
         path.Count > 0 && outputs.Count(o => o.Name == path[0]) == 1 &&
-        Trace(outputs.Single(o => o.Name == path[0]).Value, scope, path.Skip(1).ToArray(), kind);
+        Trace(outputs.Single(o => o.Name == path[0]).Value, scope, path.Skip(1).ToArray(), kind, checkedNonNull);
 
     internal static string[] Decode(string pointer) => pointer.Length == 0 ? [] : pointer[1..].Split('/').Select(p => p.Replace("~1", "/", StringComparison.Ordinal).Replace("~0", "~", StringComparison.Ordinal)).ToArray();
 

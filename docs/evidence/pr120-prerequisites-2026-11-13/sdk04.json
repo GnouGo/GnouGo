@@ -1,0 +1,108 @@
+{
+  "identity": "code-offline-dependencies-20261112-04",
+  "production_source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "input_harness_committed_before_dispatch": false,
+  "exact_input_harness_retained_before_dispatch": true,
+  "evidence_sha256": "6f80356976515f1bc4e49658f89925a5ed5d4df332f404ccb0762f0b54071172",
+  "passed": false,
+  "execution_success": true,
+  "completion_verified": true,
+  "receipt_reloaded": true,
+  "cleanup": true,
+  "pinned_toolchains_verified": true,
+  "terminal_report_verified": true,
+  "probe_script_unchanged": true,
+  "command_count": 1,
+  "transport_verified": true,
+  "dependency_installs_verified": false,
+  "full_code_prerequisite_qualified": false,
+  "execution_ms": 215311,
+  "error": null,
+  "failure_type": null,
+  "failure": null,
+  "report": {
+    "observed": "observed-code-offline-dependencies-20261112-04",
+    "exit_code": 0,
+    "toolchains": [
+      {
+        "name": "node",
+        "exit_code": 0,
+        "stdout": "v24.20.0\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "pnpm",
+        "exit_code": 0,
+        "stdout": "10.34.5\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "python",
+        "exit_code": 0,
+        "stdout": "Python 3.11.13\n",
+        "timed_out": false,
+        "stderr": ""
+      },
+      {
+        "name": "python3",
+        "exit_code": 0,
+        "stdout": "Python 3.11.13\n",
+        "timed_out": false,
+        "stderr": ""
+      }
+    ],
+    "pinned_head_verified": true,
+    "requirements_unchanged": true,
+    "commands": [
+      {
+        "command": "uv sync --group tests",
+        "exit_code": 1,
+        "timed_out": false,
+        "started_utc": "2026-11-12T22:43:54.859144+00:00",
+        "finished_utc": "2026-11-12T22:43:56.311410+00:00",
+        "stdout_file": "uv.stdout.log",
+        "stderr_file": "uv.stderr.log",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "21e313369511525efa9e610ed0af631984faf3423291fd50a9562ffec21e1437",
+        "failure_tail": [
+          "      cache.",
+          "",
+          "      hint: While the active Python version is 3.11, the resolution failed for",
+          "      other Python versions supported by your project. Consider limiting your",
+          "      project's supported Python versions using `requires-python`."
+        ]
+      },
+      {
+        "command": "pnpm install --frozen-lockfile",
+        "exit_code": 0,
+        "timed_out": false,
+        "started_utc": "2026-11-12T22:43:56.311754+00:00",
+        "finished_utc": "2026-11-12T22:44:21.212200+00:00",
+        "stdout_file": "pnpm.stdout.log",
+        "stderr_file": "pnpm.stderr.log",
+        "stdout_sha256": "208c6b08249de160a08711292dc32747bdf722561d65c61eab665fdea5bcb52c",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "failure_tail": []
+      }
+    ],
+    "dependency_installs_verified": false,
+    "network_requested": false,
+    "sandbox_bypass_requested": false,
+    "full_workflow_qualified": false
+  },
+  "sdk_outbound_network": false,
+  "sdk_local_network": false,
+  "sandbox_bypass": false,
+  "full_workflow_qualified": false,
+  "first_cause": "Registry metadata lookup succeeded after prefill; unchanged universal resolver then required uncached registry distribution metadata for langdetect. The raw pinned lock omits a declared dependency group, so ordinary uv sync re-resolves.",
+  "cache_correction": "Native registry metadata and four hash-pinned third-party builds provisioned. Complete zero-model offline manifest-only checks pass with local builds prohibited. Native-only cache retains all 384 package/version/registry identities.",
+  "receipt_status": [
+    {
+      "status": "completed",
+      "completion_verified": true,
+      "inference_transport": "gnougo-structured-tools-v1"
+    }
+  ]
+}

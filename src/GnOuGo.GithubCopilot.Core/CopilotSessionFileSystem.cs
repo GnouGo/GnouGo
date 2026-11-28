@@ -4,6 +4,8 @@ namespace GnOuGo.GithubCopilot.Core;
 public interface ICopilotFileAccessPolicy
 {
     void ValidateRead(string path);
+    void ValidateNativeFileRead(string path) => throw new UnauthorizedAccessException("Native file access requires a host file policy.");
+    bool IsReadableNativeDirectory(string path) => false;
     void ValidateWrite(string path, string? content = null);
     void ValidateDirectoryWrite(string path) => ValidateWrite(path);
     void ValidateRename(string source, string destination) { ValidateWrite(source); ValidateWrite(destination); }

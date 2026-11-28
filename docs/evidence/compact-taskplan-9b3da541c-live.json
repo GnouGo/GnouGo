@@ -1,0 +1,253 @@
+{
+  "schema": "gnougo.source_bound_live_summary.v1",
+  "source": "9b3da541c38c348f64dac700b2492d678d9b4ee4",
+  "scope": "Single fresh frozen diagnostics; no paired trial, avoided-correction or broad convergence claim. Technical/source validation is separate.",
+  "collections": {
+    "cohort": "compactr9b3da541ccolv5",
+    "logical_calls": 31,
+    "physical_attempts": 31,
+    "receipts": 31,
+    "corrections": 0,
+    "checkpoints": 9,
+    "artifact_sha256": "9dad7d4d0cc6e5fb227ed1b10871a67b0096c33d3a60dbc978c48ad15614a239",
+    "runtime_variants_passed": 2,
+    "runtime_variants_total": 2,
+    "runtime_ms": {
+      "nominal": "356.3307",
+      "alternate": "2.3367"
+    },
+    "planning_ms": 822106,
+    "accepted_frozen_obligations": 3,
+    "logical_calls_per_accepted_obligation": {
+      "numerator": 31,
+      "denominator": 3
+    },
+    "known_cost_eur": "1.5068630075858991521642124051",
+    "reserved_cost_eur": "0",
+    "raw_response_utf8_bytes": 18062,
+    "outside_string_whitespace_bytes": 11,
+    "oracle_and_execution_authority_unchanged": true,
+    "frozen_obligation_ids": [
+      "cleanup",
+      "declared_effects",
+      "exact_outputs"
+    ],
+    "obligation_denominator_basis": "Three frozen independent oracle obligations, not generated task count or extracted user-requirement count."
+  },
+  "amazon": {
+    "cohort": "compactr9b3da541camzv5",
+    "logical_calls": 2,
+    "physical_attempts": 2,
+    "receipts": 1,
+    "corrections": 0,
+    "checkpoints": 0,
+    "final_artifact": false,
+    "execution_started": false,
+    "recorded_failure": "Transport without HTTP response; outcome unknown",
+    "empty_response_or_output_exhaustion_claimed": false,
+    "known_cost_eur": "0.0509772423025435073627844712",
+    "reserved_cost_eur": "0.9308701472556894243641231593",
+    "retention": {
+      "version": 1,
+      "source": "9b3da541c38c348f64dac700b2492d678d9b4ee4",
+      "campaign": "schema-portability-20261019-incremental",
+      "run_key": "run:compactr9b3da541camzv5-amazon-1",
+      "request_id": "compactr9b3da541camzv5-amazon-1:2:72a9815f5c902f71df69f2840e2aa62df2a2fd5e3d0982a4ce376b26d11a2ccb",
+      "evidence_hash": "5ca59a713c1e5d86ea96bdeaf8501f7d8f573533f4cacc187e695ecf5db645e2",
+      "authorization_hash": "803bbb622f8b392462967ff970fe591818de3fde4d0db73a022edf75d84e1152",
+      "authorization_reference": "call_bcacf2932c144999a46fe762143b4868: Authorize exact abandonment and fresh tests",
+      "original_inspection_sha256": "dda67408186e0ab6f8a58acceaf8545397c0d2d18142871732d37bf963cd9159",
+      "application_sha256": "003f1985d4cd11000334caae158c8170ff400eae84bc693c2b1f38f17c46822a",
+      "readback_sha256": "01dc4a611b80530bf1c6412858fb0f16c76f0729454700a343f9c606d21e6a6c",
+      "readback_exact_closure_equal_excluding_inspection_metadata": true,
+      "unknown_usage_reservation_eur": "0.9308701472556894243641231593",
+      "reservation_retained": true,
+      "request_replay_forbidden": true,
+      "run_continuation_forbidden": true,
+      "provider_completion_or_termination_claimed": false,
+      "receipt_created": false,
+      "source_records_preserved": true,
+      "new_paid_dispatch_requires_normal_admission": true,
+      "retained_at": "2026-10-24T10:33:59.4031470+00:00"
+    },
+    "pending_archive_preserved_as_historical": true
+  },
+  "code": {
+    "cohort": "compactr9b3da541ccodev5",
+    "constructed_request_identities": 41,
+    "logical_calls": 37,
+    "physical_attempts": 37,
+    "receipts": 37,
+    "prepared_only_identities": 4,
+    "recorded_admission_rejections": 0,
+    "corrections": 3,
+    "checkpoints": 3,
+    "final_artifact": false,
+    "execution_started": false,
+    "planning_ms": 887150,
+    "diagnostic_codes": [
+      "REVISION_SCOPE_CHANGED",
+      "REPLAN_NO_PROGRESS"
+    ],
+    "known_cost_eur": "1.7608835341365461847389558231",
+    "reserved_cost_eur": "0",
+    "unknown_attempts": 0,
+    "empty_completed_responses": 0,
+    "raw_response_utf8_bytes": 24576,
+    "outside_string_whitespace_bytes": 2,
+    "normalized_response_content_bytes": 25277,
+    "separate_original_evidence_assessment": {
+      "provenance": "Root independently inspected exact retained originals; the terminal measurement archive itself deliberately does not classify semantic cause.",
+      "observations": [
+        "Two accepted tasks used the same clone operation and arguments; their local Judges returned empty finding sets.",
+        "Later invalidation required rebuilding the accepted work; changing an original literal was rejected.",
+        "No Code task executed."
+      ],
+      "qualification": "These observations identify the retained planning failure; they do not establish general source-level success or an avoided correction.",
+      "context_gap": {
+        "judge_request_ordinal": 22,
+        "prior_task_in_navigation": true,
+        "prior_arguments_in_navigation": false,
+        "prior_exact_task_in_evidence": false,
+        "consumed_import_count": 0,
+        "provenance": "Root inspected the exact retained context; safe request/receipt/raw-text and checkpoint joins independently verified. This does not establish that added context would prevent the failure."
+      }
+    }
+  },
+  "post_code_audit": {
+    "captured_at": "2026-10-24T10:59:16.798344+00:00",
+    "campaign": "schema-portability-20261019-incremental",
+    "known_eur": "100.77739921325159639119290038",
+    "reserved_eur": "17.991331879846171617361950542",
+    "upper_eur": "118.76873109309776800855485092",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "121.26137273960853653389009638",
+    "unknown_attempts": 29,
+    "closed_receiptless": 24,
+    "unresolved": 0,
+    "model_calls": 0,
+    "original_sha256": "f147b175585e06c2c2e3fbcb9b83efaeb4f510a238ead931a48e0b360b4a03cf"
+  },
+  "accounting_precision": {
+    "independent_known_plus_reserved_minus_recorded_upper_eur": "2E-27",
+    "prior_historical_exposure_eur": "159.96989616729369545755505266",
+    "independent_cumulative_spending_and_reservations_eur": "278.73862726039146346610990358",
+    "original_user_ceiling_eur": "400",
+    "original_ceiling_minus_campaign_and_prior_eur": "4E-26",
+    "qualification": "Original recorded CLR decimal values are preserved; independent Decimal80 arithmetic discloses rounding differences rather than altering the ledger."
+  },
+  "references": {
+    "collections_terminal": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccolv5/terminal-safe-archive-v2/compact-taskplan-9b3da541c-collections.json",
+      "sha256": "579d420f247d8123b176e4b8265d9048b53185fe46cf597603fa8d3bb696e582",
+      "bytes": 17504
+    },
+    "collections_formatting": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccolv5/terminal-safe-archive-v2/compact-taskplan-9b3da541c-collections-v2.json",
+      "sha256": "41a8c051eb94b1a7caf6225eb1386626d0ce4260a14d70cd4c6062aea188f48f",
+      "bytes": 2960
+    },
+    "collections_peer": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccolv5/terminal-safe-archive-v2/independent-review-safe.json",
+      "sha256": "a8270c038195cc777f9b49520707a75275dd8f5c7f0cd7658c61f6535e17f0e2",
+      "bytes": 1736
+    },
+    "collections_formatting_peer": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccolv5/terminal-safe-archive-v2/formatting-independent-review-safe.json",
+      "sha256": "baf59b8a6a65f9750f0846fcb18e0a3545a2e942291f7beef27c7b84a4a9df31",
+      "bytes": 2200
+    },
+    "amazon_pending_historical": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541camzv5/pending-safe-archive/compact-taskplan-9b3da541c-amazon-pending.json",
+      "sha256": "8c5c88dd774fea17022af5b2ae9be082116ce4e53b2d196aa25fe9e4c802fc6c",
+      "bytes": 10019
+    },
+    "amazon_pending_peer": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541camzv5/pending-safe-archive/independent-review-safe.json",
+      "sha256": "cea2450f6fa46ace5ae5ab37b6200c1a169cfbcf044fc48691367c889eed40ab",
+      "bytes": 2484
+    },
+    "amazon_applied_closure": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541camzv5/retention-verification-safe.json",
+      "sha256": "9c6a25d648b8821be78d340c29233c21409786a2776adbe9e6721ebf75f78328",
+      "bytes": 1350
+    },
+    "code_terminal": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/terminal-safe-archive/compact-taskplan-9b3da541c-code.json",
+      "sha256": "5df16e713f0ec8f25ea1e7d9fd80770f0bd73f2ec4617f11478044e87452b959",
+      "bytes": 25120
+    },
+    "code_peer": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/terminal-safe-archive/independent-review-safe.json",
+      "sha256": "9501e704953c1372af02df2266ab573b12812ea01ed81fb526c3c726b561ae5b",
+      "bytes": 3204
+    },
+    "code_formatting_supplement": {
+      "path": "/private/tmp/gnougo-9b-live-index-7iguffa0/compact-taskplan-9b3da541c-code-formatting.json",
+      "sha256": "1c4bd6e82b6f36ca2f2cf62997b44c571cb134126bedea5f7364ba0948b637ad",
+      "bytes": 2714
+    },
+    "post_code_campaign_audit": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/post-run-campaign-audit/audit-safe.json",
+      "sha256": "174ca2189992543566fc65736b54e637d19f51df5e0ebdee85d36bd940b4b7e0",
+      "bytes": 548
+    },
+    "four_source_observations": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccolv5/comparison-safe-archive/comparison-safe.json",
+      "sha256": "bb82821f273339f1a190a399202c0efabc537cc820ec1eee9eb4e2663c21fd6f",
+      "bytes": 16533
+    },
+    "full_361_terminal": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/full-solution-361bb713/full/full-solution-safe.json",
+      "sha256": "d53f4685e5bdcd1327906d10d5525ac8142140ce40a48920790c964842a6227b",
+      "bytes": 21617
+    },
+    "full_361_verification": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/full-solution-361bb713/full/terminal-verification-safe.json",
+      "sha256": "e9509410367bc88e1141a1dd13224c8cd205e98c0ac3780d974c5381c09f3d06",
+      "bytes": 787
+    },
+    "publication_9b_terminal": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-9b3da541/publish/publication-safe.json",
+      "sha256": "f027e529301c996c412ae2a7f38c2b0c8a3174b9ee807509ae9865c67822f3f2",
+      "bytes": 12439
+    },
+    "publication_9b_verification": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v4-validation-20261023/publication-9b3da541/publish/publication-terminal-verification-safe.json",
+      "sha256": "027689eb38960c637fc352842768fe72d42b883b6c5d9980f6d7cae449f8839d",
+      "bytes": 959
+    },
+    "accepted_operation_failure": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/accepted-operation-failure-safe.json",
+      "sha256": "19fb64e856b270aa527d2946ccb0c8f5adca037148c98f194ed09fd9ff4243f7",
+      "bytes": 2974
+    }
+  },
+  "archive_preparer_store_access": false,
+  "source_edits_or_paid_actions_for_archive": false,
+  "retained_source_scope": "These observations belong to retained source9b. A later source must establish its own live acceptance; the existing success is not transferred.",
+  "separate_technical_validation": {
+    "retained_361": {
+      "source": "361bb7139ee9e12acb699e97c88c667252587187",
+      "passed": 7950,
+      "failed": 0,
+      "skipped": 13,
+      "projects": 33,
+      "compiler_diagnostics": 0,
+      "warnings_as_errors": true
+    },
+    "retained_9b": {
+      "publication_stages_passed": 12,
+      "publication_stages_total": 12,
+      "compiler_diagnostics": 0,
+      "warnings_as_errors": true,
+      "full_solution_status": "running_at_summary_preparation"
+    },
+    "interpretation": "Technical passes retain their exact source attribution and are not business acceptance."
+  },
+  "supersedes_private_preparation": {
+    "path": "/private/tmp/gnougo-9b-live-index-final-i8anx8px/compact-taskplan-9b3da541c-live.json",
+    "sha256": "98146e96ba0f310c143ff4709acad75c45bc2e5089bda182256ff6ecd51b12b9",
+    "reason": "Adds only the exact accepted-operation witness and bounded Judge22 context gap; all previous terminal archives and measurements are unchanged."
+  }
+}

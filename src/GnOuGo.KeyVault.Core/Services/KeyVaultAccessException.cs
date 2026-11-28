@@ -6,8 +6,17 @@ namespace GnOuGo.KeyVault.Core.Services;
 /// </summary>
 public sealed class KeyVaultAccessException : Exception
 {
+    /// <summary>The bounded contention retries were exhausted; callers must retain durable work for recovery.</summary>
+    public bool IsTransient { get; }
+
     public KeyVaultAccessException(string message, Exception innerException)
+        : this(message, innerException, false)
+    {
+    }
+
+    public KeyVaultAccessException(string message, Exception innerException, bool isTransient)
         : base(message, innerException)
     {
+        IsTransient = isTransient;
     }
 }

@@ -1,0 +1,106 @@
+{
+  "run": "improve40-amazon-20261127-125435",
+  "source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+  "candidate_hash": "22d0dcc954a415fed4f11d59930dd559b8923c9206bc3b19f973b2be142593a7",
+  "issued_slots": [
+    "/tasks/index_check/condition",
+    "/tasks/write_workbook/inputs/rows"
+  ],
+  "calls": [
+    {
+      "call": 31,
+      "evidence_handles_requested": 5,
+      "physical_attempts": 1,
+      "input_tokens": 30037,
+      "output_tokens": 138,
+      "measured_eur": "0.0690501138952164009111617312",
+      "duration_ms": "10665.0882",
+      "exchange_sha256": "feb9daf00843bc8444010f3d582de9cbe9c011f9cff2277e95d85819d7fca5f5"
+    },
+    {
+      "call": 32,
+      "evidence_handles_requested": 5,
+      "physical_attempts": 1,
+      "input_tokens": 31705,
+      "output_tokens": 172,
+      "measured_eur": "0.0730045558086560364464692483",
+      "duration_ms": "11769.4456",
+      "exchange_sha256": "3f1688c8f930340a735fd56f110ec3d9d0a46c55b216dd0d5fd55dd928ba43d0"
+    },
+    {
+      "call": 33,
+      "evidence_handles_requested": 8,
+      "physical_attempts": 1,
+      "input_tokens": 34799,
+      "output_tokens": 171,
+      "measured_eur": "0.0800478359908883826879271071",
+      "duration_ms": "13605.506",
+      "exchange_sha256": "33d755e4f2c2bb5109330e460a353707998038239c4226baf04e6d97c7211457"
+    },
+    {
+      "call": 34,
+      "evidence_handles_requested": 4,
+      "physical_attempts": 1,
+      "input_tokens": 37371,
+      "output_tokens": 321,
+      "measured_eur": "0.0865899772209567198177676538",
+      "duration_ms": "15089.6479",
+      "exchange_sha256": "d16cb25c645d6c316fb86583c0d2ca43cabc4ab69b3aa44e65929e32adfa4b53"
+    },
+    {
+      "call": 35,
+      "evidence_handles_requested": 4,
+      "physical_attempts": 1,
+      "input_tokens": 39909,
+      "output_tokens": 188,
+      "measured_eur": "0.0917653758542141230068337130",
+      "duration_ms": "19070.6353",
+      "exchange_sha256": "acc506c0dd9ab00fe50453d3239522882f08294174a967addc6f852460c3c13b"
+    },
+    {
+      "call": 36,
+      "evidence_handles_requested": 4,
+      "physical_attempts": 1,
+      "input_tokens": 42044,
+      "output_tokens": 212,
+      "measured_eur": "0.0967380410022779043280182232",
+      "duration_ms": "23081.5972",
+      "exchange_sha256": "4681e55eb3c44cc69a9c4a1334615363beae021f2cfd71639bc624edf1d96186"
+    },
+    {
+      "call": 37,
+      "evidence_handles_requested": 4,
+      "physical_attempts": 1,
+      "input_tokens": 44731,
+      "output_tokens": 276,
+      "measured_eur": "0.1031503416856492027334851936",
+      "duration_ms": "19859.1995",
+      "exchange_sha256": "b0cb46e78fbfc4246f12b414012c8ae40d7a582fac32d2b77ec542fae8f8d30a"
+    },
+    {
+      "call": 38,
+      "evidence_handles_requested": 4,
+      "physical_attempts": 1,
+      "input_tokens": 46167,
+      "output_tokens": 226,
+      "measured_eur": "0.1061936218678815489749430524",
+      "duration_ms": "83694.8611",
+      "exchange_sha256": "21a4f002a9e12fdedf82e3ee837d4ee77fbf401c95288c10e1105cf3089a303a"
+    },
+    {
+      "call": 39,
+      "evidence_handles_requested": 3,
+      "physical_attempts": 1,
+      "input_tokens": 47716,
+      "output_tokens": 292,
+      "measured_eur": "0.1100227790432801822323462415",
+      "duration_ms": "37524.3474",
+      "exchange_sha256": "97b851c16870cccbdd4c403f684841d214bbe8fe77cbf2262fe123832ea753e3"
+    }
+  ],
+  "physical_attempts": 9,
+  "input_tokens": 354479,
+  "output_tokens": 1996,
+  "measured_eur": "0.8165626423690205011389521641",
+  "duration_ms": "234360.3282"
+}

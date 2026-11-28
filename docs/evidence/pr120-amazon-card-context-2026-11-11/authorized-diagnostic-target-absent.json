@@ -1,0 +1,20 @@
+{
+  "identity": "amazon-proxy-alias-diagnostic-20261111-01",
+  "source_only_approval": "user-amazon-source-only-slashless-20261111",
+  "hypothesis": "Determine whether an observed shared empty-ASIN container contains distinct native semantic card occurrences whose exact literal slashless links independently resolve to consistent product identities within each card.",
+  "record_count": 1414,
+  "reads": 1,
+  "sponsored_reads": 0,
+  "model_calls": 0,
+  "target_present": false,
+  "findings": [
+    "no_slashless_source_links_observed"
+  ],
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false,
+  "close_error": false,
+  "probe_error": true,
+  "searched_again": false,
+  "workflow_or_verifier_changed": false,
+  "events_sha256": "8e84183a6c6f698651591f8ea1ee05990c710e5314b61b4bc16c9b2c45c2a836"
+}

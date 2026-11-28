@@ -21,19 +21,22 @@ public sealed class TaskJsonEncodingTests
     [InlineData("\"a\\\"b\\\\c\\n東京 {{value}} ${data.secret}\"")]
     [InlineData("[]")]
     [InlineData("{\"path\":\"a\\\"b\",\"nested\":[null,false,1,{\"unicode\":\"é\"}]}")]
-    public async Task EncodesWholeValuesWithoutInferenceOrEvaluation(string json)
+    [InlineData("""[{"command":"check","exit":1}]""", true)]
+    public async Task EncodesObservedValuesWithoutInferenceOrEvaluation(string json, bool selectFields = false)
     {
         var input = JsonNode.Parse(json);
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("observations", new() { Tools = [new() { Name = "read", EffectKind = "read", InputSchema = new JsonObject { ["type"] = "object" },
-            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"payload":{}},"required":["payload"]}""") }],
-            ToolHandlers = new() { ["read"] = _ => new() { Content = new JsonObject { ["payload"] = input?.DeepClone() } } } });
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"payload":{},"complete":{"type":"boolean"},"progress":{"type":"string"}},"required":["payload","complete","progress"]}""") }],
+            ToolHandlers = new() { ["read"] = _ => new() { Content = new JsonObject { ["payload"] = input?.DeepClone(), ["complete"] = false, ["progress"] = "intermediate stream" } } } });
         var engine = new WorkflowEngine { McpClientFactory = factory }; // No LLM client or external transport exists.
         var runtime = new WorkflowPlanningRuntime(engine, (_, _) => Task.CompletedTask);
         var catalog = await TaskPlanCompilerTests.Catalog(runtime); catalog.Policy.RequireExternalConfirmation = false;
         var plan = Plan(); plan.Inputs.Clear();
         plan.Root.Tasks.Add(new() { Id = "observe", Objective = "Read observed data", Operation = catalog.Capabilities.Single(c => c.Method == "read").Id });
-        plan.Root.Outputs[0].Value.Items[0] = new() { Kind = "output", Source = "observe", Port = "payload" };
+        var payload = new TaskValue { Kind = "output", Source = "observe", Port = "payload" };
+        plan.Root.Outputs[0].Value.Items[0] = selectFields ? new() { Kind = "object", Members = [
+            new("observations", payload), new("complete", new() { Kind = "output", Source = "observe", Port = "complete" })] } : payload;
         var result = new TaskPlanCompiler().Compile(plan, catalog);
         Assert.Empty(result.Diagnostics);
         Assert.Empty(PlanningGeneratedGraph.Validate(result.Graph!, catalog));
@@ -44,7 +47,8 @@ public sealed class TaskJsonEncodingTests
         var execution = await engine.ExecuteAsync(document.Workflows["main"], new JsonObject(), PlannerFixture.Ct);
         Assert.True(execution.Success, execution.Error?.Message);
         var text = execution.Outputs!["encoded"]!.GetValue<string>();
-        Assert.True(JsonNode.DeepEquals(input, JsonNode.Parse(text)), text);
+        var expected = selectFields ? new JsonObject { ["observations"] = input?.DeepClone(), ["complete"] = false } : input;
+        Assert.True(JsonNode.DeepEquals(expected, JsonNode.Parse(text)), text);
     }
 
     [Theory]

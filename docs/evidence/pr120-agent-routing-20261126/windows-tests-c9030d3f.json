@@ -1,0 +1,52 @@
+{
+  "source": "c9030d3f9825c8d58566c18d770024f5c115b994",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "tests": [
+    {
+      "trx": "TestResults/agent-routing-qualification/full-planner-c9030d3f.trx",
+      "sha256": "9d1f67d2f87ba6e69437420a14aac5137d5951d892f6ab50fe7d9bf9ccf77193",
+      "result": "Completed",
+      "counts": {
+        "total": 3348,
+        "executed": 3348,
+        "passed": 3348,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/planner-c9030d3f.trx",
+      "sha256": "df4d7dd3a2ab7b2456b4e5b3560037824394b6d49b71f5b9886db2019817e811",
+      "result": "Completed",
+      "counts": {
+        "total": 127,
+        "executed": 127,
+        "passed": 127,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.flow.planning.tests.dll"
+      ]
+    },
+    {
+      "trx": "TestResults/agent-routing-qualification/server-c9030d3f.trx",
+      "sha256": "969b6f0d852b862d34351d9c409c67b85e3b47d2b4d4d7527083856d5ce2368b",
+      "result": "Completed",
+      "counts": {
+        "total": 45,
+        "executed": 45,
+        "passed": 45,
+        "failed": 0,
+        "notExecuted": 0
+      },
+      "assemblies": [
+        "gnougo.agent.server.tests.dll"
+      ]
+    }
+  ]
+}

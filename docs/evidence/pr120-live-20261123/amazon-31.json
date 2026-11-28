@@ -1,0 +1,127 @@
+{
+  "run": "amazon-adaptive-20261123-31",
+  "source": "2d7619d947bbb5bc3ddbb31b3c0339a4e7a1c284",
+  "host": "GnOuGo.Agent.Server",
+  "session": "45dec634e74d434d8f46acb18eca9437",
+  "terminal_revision": 89,
+  "status": "cancelled",
+  "accepted_checkpoint_tasks": [
+    "amazon_search",
+    "close_browser"
+  ],
+  "business_execution_started": false,
+  "product_detail_visits": 0,
+  "workbook_delivered": false,
+  "issued_drafts": [
+    {
+      "step": "step_1",
+      "request": "45dec634e74d434d8f46acb18eca9437:10:2c31ffcb83bd2eb72fe8ed03ea6375a6f9b1b44c1352bad8fea437db6c0607fe:8bdf82e138cbbfec7e8764dd7af4b748bd2307e9e63561a4f97628447f468201",
+      "contract": "cap_424f1c176056398813db293a",
+      "stored_version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+      "wire_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+      "method": "observe",
+      "catalog_supplies_runner": true,
+      "wire_original_requires_runner": true,
+      "wire_editable_runner": false,
+      "wire_explains_ownership": false,
+      "receipt_exists": true
+    },
+    {
+      "step": "step_3",
+      "request": "45dec634e74d434d8f46acb18eca9437:23:3c144ef8772bdb0ebc9f435ec6fc8ddb5acac690312e4eca12660b256d3a894e:fce69ed55129c851160c275c2393d24407ee8da789516d0a35423faf688b424b",
+      "contract": "cap_424f1c176056398813db293a",
+      "stored_version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+      "wire_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+      "method": "observe",
+      "catalog_supplies_runner": true,
+      "wire_original_requires_runner": true,
+      "wire_editable_runner": false,
+      "wire_explains_ownership": false,
+      "receipt_exists": true
+    },
+    {
+      "step": "step_5",
+      "request": "45dec634e74d434d8f46acb18eca9437:33:8bde595457e0916bfdc7d25bea4837489085c8cacbc56436fd79beb72e9b7682:4e3bcf592a0e607a30b83ada8d12f42593135b4b9fb188c8c603977cf34a4e1f",
+      "contract": "cap_424f1c176056398813db293a",
+      "stored_version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+      "wire_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+      "method": "observe",
+      "catalog_supplies_runner": true,
+      "wire_original_requires_runner": true,
+      "wire_editable_runner": false,
+      "wire_explains_ownership": false,
+      "receipt_exists": true
+    }
+  ],
+  "controlled_replay": {
+    "source": "ceecf5b1",
+    "reconstructed_selection_views": [
+      {
+        "step": "step_1",
+        "contract_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+        "version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+        "supplied_paths": [
+          "/runner"
+        ],
+        "original_required": true,
+        "editable": false,
+        "same_task_plan": true
+      },
+      {
+        "step": "step_3",
+        "contract_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+        "version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+        "supplied_paths": [
+          "/runner"
+        ],
+        "original_required": true,
+        "editable": false,
+        "same_task_plan": true
+      },
+      {
+        "step": "step_5",
+        "contract_hash": "1d6303726fa238dc1cfa3f2512d92739e057343129aeb54452ce842ff517b683",
+        "version": "json-v1:66009274ef3baef94f13814061800d5fe319694c73039247baa29543c9f2530b",
+        "supplied_paths": [
+          "/runner"
+        ],
+        "original_required": true,
+        "editable": false,
+        "same_task_plan": true
+      }
+    ],
+    "model_calls": 0,
+    "planning_tests_passed": 3322
+  },
+  "logical_requests": 36,
+  "physical_attempts": 35,
+  "measured_usage_eur": "17.254175764192139737991266388",
+  "attempts_without_usage": 0,
+  "last_request": {
+    "id": "45dec634e74d434d8f46acb18eca9437:36:07d9fbee8232cb044c99c5ecbf1f1e47c6c3c3c5f38767f1928287f6252bfe58:7a62d69212b67feaada57d354eb8f8cf6d6417c6b240d3c7fe40f90ce6f86795",
+    "campaign_envelope_absent": true,
+    "dispatch_certainty": "unknown",
+    "retention_preview_hash": "6828a1f1f2e75766847efff005fa13e1472ce24dd0410462c670b8315aa3e61a"
+  },
+  "accounting": {
+    "campaign_ceiling_eur": 3600,
+    "campaign_physical_through_run": 4883,
+    "campaign_measured_eur_through_run": "2523.4246797727710941705479371",
+    "http_holds_eur": "495.81437180601547344334618",
+    "historical_application_holds_eur": "171.63356950311035727717154657",
+    "pending_application_hold_eur": "3.5406527104854191425175975866",
+    "arithmetic_headroom_eur_including_all_holds": "405.58672620761765596641673874",
+    "admission_at_preview": "unretained_server_application_hold_before_campaign_envelope"
+  },
+  "authorized_closure": {
+    "authorization_hash": "f5c4e584f12c901883a2480f0fc4b84f996dd3b1357cb12b1885db60f288ab7d",
+    "evidence_hash": "6828a1f1f2e75766847efff005fa13e1472ce24dd0410462c670b8315aa3e61a",
+    "retained_at": "2026-11-23T17:36:16.1637170+00:00",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "retained_application_reservations_eur": "175.17422221359577641968914416",
+    "same_http_ledger_and_ceiling_history": true
+  }
+}

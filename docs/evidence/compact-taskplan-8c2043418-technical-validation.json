@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "source": "8c2043418ace12a283b66ffad69c1063021c389a",
+  "source_tree": "104a0db1d2a0f5d88f94eaf0bf6aa9867859ee74",
+  "original_execution": {
+    "parent": "66360362da0845513137178ff51752f61b4249ef",
+    "overlay_sha256": "c21a7c360b5339e2deaba8d2b6c2932a6d244daecce0eb21a300d4acf6889342",
+    "files": 4618
+  },
+  "source_qualification": {
+    "committed_files": 4636,
+    "inert_documentation_differences": 19,
+    "implementation_tests_fixtures_authority_exact": true,
+    "qualification_sha256": "0c87fb718200c064ba323c18067276b91d2784b4c6f3acc76eca36924bf7d26b",
+    "verification_sha256": "558bb03ef8030c770a4d16358816d6ab5990993baa8a92d1fc16dcc027b45974",
+    "independent_peer_sha256": "c03c05aee7725c4173957d7d0e56d3fb89f1e7fba46d921a61f198a44e51b377"
+  },
+  "owning_projects": [
+    {
+      "name": "Planning",
+      "passed": 3263,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "name": "Server",
+      "passed": 1846,
+      "failed": 0,
+      "skipped": 1,
+      "skipped_test": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+    }
+  ],
+  "warnings_as_errors": true,
+  "compiler_diagnostics": [],
+  "separate_prior_evidence": {
+    "focused_schema_passed": 128,
+    "focused_schema_overlaps_Planning": true,
+    "baseline_source_linked_distinct_passed": 475,
+    "baseline_qualification_separate_and_nonadditive": true
+  },
+  "remote_ci_snapshot": {
+    "source": "8c2043418ace12a283b66ffad69c1063021c389a",
+    "recorded_utc": "2026-10-25T23:27:20.798894+00:00",
+    "runs": [
+      {
+        "id": 40238892725,
+        "workflow": "Deterministic planner validation",
+        "status": "in_progress",
+        "conclusion": null,
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40238892725"
+      },
+      {
+        "id": 40238892671,
+        "workflow": "ProxyCopilot standalone validation",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40238892671"
+      },
+      {
+        "id": 40238892663,
+        "workflow": "Build ProxyCopilot Native AOT",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/GnouGo/GnouGo/actions/runs/40238892663"
+      }
+    ],
+    "method": "One read-only gh run list for exact head; no rerun or new watcher. An initial incorrect repository slug returned404 before the configured remote was used."
+  },
+  "limits": [
+    "No full8c solution, publication or Native AOT validation is claimed by these owning results.",
+    "Earlier full8471pass/13skip and sixfresh/sixreused publication remain qualified to663 only.",
+    "Original execution and prior pending-at-capture qualification are unchanged; no test counts are summed across overlapping evidence.",
+    "No live acceptance or causal source benefit follows from technical validation."
+  ]
+}

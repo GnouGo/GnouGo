@@ -1,0 +1,11 @@
+{
+  "reference_session": "78d4578065d9433996d354c5bf66b46e",
+  "probe": "Captured local review graph before and after closing only the two result object schemas in an isolated fixture.",
+  "captured_graph_diagnostic": "REQUIREMENTS_OUTPUTS_CHANGED",
+  "early_location": "/root/outputs/report/value",
+  "fixture_early_diagnostics": 0,
+  "fixture_final_technical_diagnostics": 0,
+  "execution_or_business_review_claimed": false,
+  "model_calls": 0,
+  "source": "c9030d3f9825c8d58566c18d770024f5c115b994"
+}

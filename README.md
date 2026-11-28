@@ -2,6 +2,8 @@
 
 # 🐻 GnouGo : The Friendly Bear Agent
 
+Build with .NET SDK 11.0.100 and C# 15. Framework-dependent applications and NuGet consumers require .NET 11. [Dependency audit](DEPENDENCY_AUDIT.md)
+
 > [!WARNING]
 > **WORK IN PROGRESS** — features, APIs, and project structure may still change.
 
@@ -56,6 +58,36 @@ sudo apt install ./gnougo_*_amd64.deb
 ```
 
 You can also download the Windows, macOS, and Linux archives from the GitHub Releases page.
+
+### Standalone ProxyCopilot on macOS
+
+Install the local VS Code Chat/Agent proxy independently of the desktop application
+on Apple Silicon or Intel Macs:
+
+```bash
+brew update
+brew install gnougo/tap/gnougo-proxy-copilot
+# To run ProxyCopilot (foreground; Ctrl+C to stop)
+gnougo-proxy-copilot
+```
+
+If macOS blocks the executable because it is quarantined, first verify that it
+came from the official tap, then remove the quarantine attribute from that
+installed binary only and run it again:
+
+```bash
+xattr -d com.apple.quarantine "$(brew --prefix gnougo-proxy-copilot)/libexec/GnOuGo.ProxyCopilot.Server"
+gnougo-proxy-copilot
+```
+
+No `sudo` or .NET runtime is required. From another terminal, open the dashboard:
+
+```bash
+open http://127.0.0.1:5087/ui/
+```
+
+Follow the
+[ProxyCopilot configuration instructions](src/GnOuGo.ProxyCopilot.Server/README.md#homebrew-macos).
 
 ## Downloads
 
@@ -146,13 +178,13 @@ The current GnOuGo release publishes these reusable libraries and packages:
 
 | Library | Package | Version | Runtime | Total downloads | Usage |
 |---|---|---:|---:|---:|---|
-| **GnOuGo.Auth.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Auth.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core total downloads"></a> | Authentication abstractions and provider credential helpers for GnOuGo components. |
-| **GnOuGo.AI.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.AI.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core total downloads"></a> | Low-level, AOT-friendly provider routing for LLM integrations. See [`src/GnOuGo.AI.Core/README.md`](src/GnOuGo.AI.Core/README.md). |
-| **GnOuGo.Assets.Bears** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Bears.svg" alt="GnOuGo.Assets.Bears version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Assets.Bears .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Bears.svg" alt="GnOuGo.Assets.Bears total downloads"></a> | Dependency-free, deterministic GnOuGo mascot SVGs, including script-free animation presets such as AI thinking. See [`src/GnOuGo.Assets.Bears/README.md`](src/GnOuGo.Assets.Bears/README.md). |
-| **GnOuGo.Assets.Animation** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Animation.svg" alt="GnOuGo.Assets.Animation version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Assets.Animation .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Animation.svg" alt="GnOuGo.Assets.Animation total downloads"></a> | AOT-friendly semantic SVG renderer and autonomous workflow-preview simulator built on GnOuGo.Assets.Bears. See [`src/GnOuGo.Assets.Animation/README.md`](src/GnOuGo.Assets.Animation/README.md). |
-| **GnOuGo.Flow.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Flow.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core total downloads"></a> | NativeAOT-compatible .NET workflow DSL engine. See [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md). |
-| **GnOuGo.Flow.Integrations** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Integrations.svg" alt="GnOuGo.Flow.Integrations version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Flow.Integrations .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Integrations"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Integrations.svg" alt="GnOuGo.Flow.Integrations total downloads"></a> | AI provider and MCP transport implementations for the autonomous Flow.Core contracts. See [`src/GnOuGo.Flow.Integrations/README.md`](src/GnOuGo.Flow.Integrations/README.md). |
-| **GnOuGo.Mcp.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Mcp.Core.svg" alt="GnOuGo.Mcp.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt="GnOuGo.Mcp.Core .NET 10.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Mcp.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Mcp.Core.svg" alt="GnOuGo.Mcp.Core total downloads"></a> | AOT-compatible MCP protocol contracts, artifact metadata, and server helpers. See [`src/GnOuGo.Mcp.Core/README.md`](src/GnOuGo.Mcp.Core/README.md). |
+| **GnOuGo.Auth.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Auth.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Auth.Core .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Auth.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Auth.Core.svg" alt="GnOuGo.Auth.Core total downloads"></a> | Authentication abstractions and provider credential helpers for GnOuGo components. |
+| **GnOuGo.AI.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.AI.Core .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="GnOuGo.AI.Core total downloads"></a> | Low-level, AOT-friendly provider routing for LLM integrations. See [`src/GnOuGo.AI.Core/README.md`](src/GnOuGo.AI.Core/README.md). |
+| **GnOuGo.Assets.Bears** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Bears.svg" alt="GnOuGo.Assets.Bears version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Bears"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Assets.Bears .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Bears"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Bears.svg" alt="GnOuGo.Assets.Bears total downloads"></a> | Dependency-free, deterministic GnOuGo mascot SVGs, including script-free animation presets such as AI thinking. See [`src/GnOuGo.Assets.Bears/README.md`](src/GnOuGo.Assets.Bears/README.md). |
+| **GnOuGo.Assets.Animation** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/v/GnOuGo.Assets.Animation.svg" alt="GnOuGo.Assets.Animation version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Assets.Animation"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Assets.Animation .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Assets.Animation"><img src="https://img.shields.io/nuget/dt/GnOuGo.Assets.Animation.svg" alt="GnOuGo.Assets.Animation total downloads"></a> | AOT-friendly semantic SVG renderer and autonomous workflow-preview simulator built on GnOuGo.Assets.Bears. See [`src/GnOuGo.Assets.Animation/README.md`](src/GnOuGo.Assets.Animation/README.md). |
+| **GnOuGo.Flow.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Flow.Core .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Core.svg" alt="GnOuGo.Flow.Core total downloads"></a> | NativeAOT-compatible .NET workflow DSL engine. See [`src/GnOuGo.Flow.Core/README.md`](src/GnOuGo.Flow.Core/README.md). |
+| **GnOuGo.Flow.Integrations** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations"><img src="https://img.shields.io/nuget/v/GnOuGo.Flow.Integrations.svg" alt="GnOuGo.Flow.Integrations version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Flow.Integrations"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Flow.Integrations .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Flow.Integrations"><img src="https://img.shields.io/nuget/dt/GnOuGo.Flow.Integrations.svg" alt="GnOuGo.Flow.Integrations total downloads"></a> | AI provider and MCP transport implementations for the autonomous Flow.Core contracts. See [`src/GnOuGo.Flow.Integrations/README.md`](src/GnOuGo.Flow.Integrations/README.md). |
+| **GnOuGo.Mcp.Core** (.NET) | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core">NuGet</a> | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.Mcp.Core.svg" alt="GnOuGo.Mcp.Core version"></a> | <a href="https://www.nuget.org/packages/GnOuGo.Mcp.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt="GnOuGo.Mcp.Core .NET 11.0"></a> | <a href="https://nugettrends.com/packages?ids=GnOuGo.Mcp.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.Mcp.Core.svg" alt="GnOuGo.Mcp.Core total downloads"></a> | AOT-compatible MCP protocol contracts, artifact metadata, and server helpers. See [`src/GnOuGo.Mcp.Core/README.md`](src/GnOuGo.Mcp.Core/README.md). |
 | **gnougo-flow-core** (Python) | <a href="https://pypi.org/project/gnougo-flow-core/">PyPI</a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/v/gnougo-flow-core.svg" alt="gnougo-flow-core version"></a> | <a href="https://pypi.org/project/gnougo-flow-core/"><img src="https://img.shields.io/pypi/pyversions/gnougo-flow-core.svg" alt="gnougo-flow-core Python versions"></a> | <a href="https://pepy.tech/projects/gnougo-flow-core"><img src="https://static.pepy.tech/badge/gnougo-flow-core" alt="gnougo-flow-core total downloads"></a> | Python port of the YAML workflow DSL engine. See [`librairies/python/gnougo-flow-core/README.md`](librairies/python/gnougo-flow-core/README.md). |
 
 ---

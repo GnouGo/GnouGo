@@ -1,0 +1,673 @@
+{
+  "version": "amazon-card-review-relations-proposal-v1",
+  "inactive": true,
+  "records_examined": 1431,
+  "metadata_consistent": true,
+  "relations": [
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:65",
+      "proposed_relationship": "exact_empty_card_redirect_reference_proposal",
+      "known_source_identity": null,
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:62",
+        "28a1503ae6894d85b669e0532041368f:record:65",
+        "28a1503ae6894d85b669e0532041368f:record:67"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:62",
+        "28a1503ae6894d85b669e0532041368f:record:67"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:62",
+        "28a1503ae6894d85b669e0532041368f:record:67"
+      ],
+      "required_own_redirect_source_records": [
+        "28a1503ae6894d85b669e0532041368f:record:62",
+        "28a1503ae6894d85b669e0532041368f:record:67"
+      ],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:76",
+      "proposed_relationship": "exact_empty_card_redirect_reference_proposal",
+      "known_source_identity": null,
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:73",
+        "28a1503ae6894d85b669e0532041368f:record:76",
+        "28a1503ae6894d85b669e0532041368f:record:79"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:73",
+        "28a1503ae6894d85b669e0532041368f:record:79"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:73",
+        "28a1503ae6894d85b669e0532041368f:record:79"
+      ],
+      "required_own_redirect_source_records": [
+        "28a1503ae6894d85b669e0532041368f:record:73",
+        "28a1503ae6894d85b669e0532041368f:record:79"
+      ],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:88",
+      "proposed_relationship": "exact_empty_card_redirect_reference_proposal",
+      "known_source_identity": null,
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:85",
+        "28a1503ae6894d85b669e0532041368f:record:88",
+        "28a1503ae6894d85b669e0532041368f:record:90"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:85",
+        "28a1503ae6894d85b669e0532041368f:record:90"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:85",
+        "28a1503ae6894d85b669e0532041368f:record:90"
+      ],
+      "required_own_redirect_source_records": [
+        "28a1503ae6894d85b669e0532041368f:record:85",
+        "28a1503ae6894d85b669e0532041368f:record:90"
+      ],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:355",
+      "proposed_relationship": "exact_empty_card_redirect_reference_proposal",
+      "known_source_identity": null,
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": false,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:350",
+        "28a1503ae6894d85b669e0532041368f:record:352",
+        "28a1503ae6894d85b669e0532041368f:record:355",
+        "28a1503ae6894d85b669e0532041368f:record:357"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:350",
+        "28a1503ae6894d85b669e0532041368f:record:352",
+        "28a1503ae6894d85b669e0532041368f:record:357"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:352",
+        "28a1503ae6894d85b669e0532041368f:record:357"
+      ],
+      "required_own_redirect_source_records": [
+        "28a1503ae6894d85b669e0532041368f:record:350",
+        "28a1503ae6894d85b669e0532041368f:record:352",
+        "28a1503ae6894d85b669e0532041368f:record:357"
+      ],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:368",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0CFXD921L",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:366",
+        "28a1503ae6894d85b669e0532041368f:record:367",
+        "28a1503ae6894d85b669e0532041368f:record:368",
+        "28a1503ae6894d85b669e0532041368f:record:369"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:366",
+        "28a1503ae6894d85b669e0532041368f:record:367",
+        "28a1503ae6894d85b669e0532041368f:record:369"
+      ],
+      "exact_http_sibling_references": [],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:372",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0B36DWCQ9",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:370",
+        "28a1503ae6894d85b669e0532041368f:record:371",
+        "28a1503ae6894d85b669e0532041368f:record:372",
+        "28a1503ae6894d85b669e0532041368f:record:373",
+        "28a1503ae6894d85b669e0532041368f:record:374"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:370",
+        "28a1503ae6894d85b669e0532041368f:record:371",
+        "28a1503ae6894d85b669e0532041368f:record:373",
+        "28a1503ae6894d85b669e0532041368f:record:374"
+      ],
+      "exact_http_sibling_references": [],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:379",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0C7C4ZXQM",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:377",
+        "28a1503ae6894d85b669e0532041368f:record:378",
+        "28a1503ae6894d85b669e0532041368f:record:379",
+        "28a1503ae6894d85b669e0532041368f:record:380"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:377",
+        "28a1503ae6894d85b669e0532041368f:record:378",
+        "28a1503ae6894d85b669e0532041368f:record:380"
+      ],
+      "exact_http_sibling_references": [],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:419",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0DWDDN56P",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:413",
+        "28a1503ae6894d85b669e0532041368f:record:416",
+        "28a1503ae6894d85b669e0532041368f:record:419",
+        "28a1503ae6894d85b669e0532041368f:record:421"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:413",
+        "28a1503ae6894d85b669e0532041368f:record:416",
+        "28a1503ae6894d85b669e0532041368f:record:421"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:413",
+        "28a1503ae6894d85b669e0532041368f:record:416",
+        "28a1503ae6894d85b669e0532041368f:record:421"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:430",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0HHDQRS5T",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:427",
+        "28a1503ae6894d85b669e0532041368f:record:430",
+        "28a1503ae6894d85b669e0532041368f:record:433"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:427",
+        "28a1503ae6894d85b669e0532041368f:record:433"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:427",
+        "28a1503ae6894d85b669e0532041368f:record:433"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:445",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B09Y57DYQ2",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:439",
+        "28a1503ae6894d85b669e0532041368f:record:442",
+        "28a1503ae6894d85b669e0532041368f:record:445",
+        "28a1503ae6894d85b669e0532041368f:record:447"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:439",
+        "28a1503ae6894d85b669e0532041368f:record:442",
+        "28a1503ae6894d85b669e0532041368f:record:447"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:439",
+        "28a1503ae6894d85b669e0532041368f:record:442",
+        "28a1503ae6894d85b669e0532041368f:record:447"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:657",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0F541YM2K",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:651",
+        "28a1503ae6894d85b669e0532041368f:record:654",
+        "28a1503ae6894d85b669e0532041368f:record:657",
+        "28a1503ae6894d85b669e0532041368f:record:659"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:651",
+        "28a1503ae6894d85b669e0532041368f:record:654",
+        "28a1503ae6894d85b669e0532041368f:record:659"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:651",
+        "28a1503ae6894d85b669e0532041368f:record:654",
+        "28a1503ae6894d85b669e0532041368f:record:659"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:671",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0F4R36PFM",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:665",
+        "28a1503ae6894d85b669e0532041368f:record:668",
+        "28a1503ae6894d85b669e0532041368f:record:671",
+        "28a1503ae6894d85b669e0532041368f:record:673"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:665",
+        "28a1503ae6894d85b669e0532041368f:record:668",
+        "28a1503ae6894d85b669e0532041368f:record:673"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:665",
+        "28a1503ae6894d85b669e0532041368f:record:668",
+        "28a1503ae6894d85b669e0532041368f:record:673"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:685",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0D4LNSYT1",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:679",
+        "28a1503ae6894d85b669e0532041368f:record:682",
+        "28a1503ae6894d85b669e0532041368f:record:685",
+        "28a1503ae6894d85b669e0532041368f:record:686",
+        "28a1503ae6894d85b669e0532041368f:record:688"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:679",
+        "28a1503ae6894d85b669e0532041368f:record:682",
+        "28a1503ae6894d85b669e0532041368f:record:688"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:679",
+        "28a1503ae6894d85b669e0532041368f:record:682",
+        "28a1503ae6894d85b669e0532041368f:record:688"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:698",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B09XM4NQB4",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:692",
+        "28a1503ae6894d85b669e0532041368f:record:695",
+        "28a1503ae6894d85b669e0532041368f:record:698",
+        "28a1503ae6894d85b669e0532041368f:record:700"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:692",
+        "28a1503ae6894d85b669e0532041368f:record:695",
+        "28a1503ae6894d85b669e0532041368f:record:700"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:692",
+        "28a1503ae6894d85b669e0532041368f:record:695",
+        "28a1503ae6894d85b669e0532041368f:record:700"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1018",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B083V3HJK6",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1015",
+        "28a1503ae6894d85b669e0532041368f:record:1018",
+        "28a1503ae6894d85b669e0532041368f:record:1020"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1015",
+        "28a1503ae6894d85b669e0532041368f:record:1020"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1015",
+        "28a1503ae6894d85b669e0532041368f:record:1020"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1031",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B09N7MTFG7",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1025",
+        "28a1503ae6894d85b669e0532041368f:record:1028",
+        "28a1503ae6894d85b669e0532041368f:record:1031",
+        "28a1503ae6894d85b669e0532041368f:record:1033"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1025",
+        "28a1503ae6894d85b669e0532041368f:record:1028",
+        "28a1503ae6894d85b669e0532041368f:record:1033"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1025",
+        "28a1503ae6894d85b669e0532041368f:record:1028",
+        "28a1503ae6894d85b669e0532041368f:record:1033"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1044",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0CK2SNT7K",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1038",
+        "28a1503ae6894d85b669e0532041368f:record:1041",
+        "28a1503ae6894d85b669e0532041368f:record:1044",
+        "28a1503ae6894d85b669e0532041368f:record:1046"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1038",
+        "28a1503ae6894d85b669e0532041368f:record:1041",
+        "28a1503ae6894d85b669e0532041368f:record:1046"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1038",
+        "28a1503ae6894d85b669e0532041368f:record:1041",
+        "28a1503ae6894d85b669e0532041368f:record:1046"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1056",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0FXM8MJKW",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1050",
+        "28a1503ae6894d85b669e0532041368f:record:1053",
+        "28a1503ae6894d85b669e0532041368f:record:1056",
+        "28a1503ae6894d85b669e0532041368f:record:1058"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1050",
+        "28a1503ae6894d85b669e0532041368f:record:1053",
+        "28a1503ae6894d85b669e0532041368f:record:1058"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1050",
+        "28a1503ae6894d85b669e0532041368f:record:1053",
+        "28a1503ae6894d85b669e0532041368f:record:1058"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1069",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B07FNN8GKM",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1064",
+        "28a1503ae6894d85b669e0532041368f:record:1066",
+        "28a1503ae6894d85b669e0532041368f:record:1069",
+        "28a1503ae6894d85b669e0532041368f:record:1071"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1064",
+        "28a1503ae6894d85b669e0532041368f:record:1066",
+        "28a1503ae6894d85b669e0532041368f:record:1071"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1064",
+        "28a1503ae6894d85b669e0532041368f:record:1066",
+        "28a1503ae6894d85b669e0532041368f:record:1071"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1084",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0FXM8MJKW",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1079",
+        "28a1503ae6894d85b669e0532041368f:record:1081",
+        "28a1503ae6894d85b669e0532041368f:record:1084",
+        "28a1503ae6894d85b669e0532041368f:record:1086"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1079",
+        "28a1503ae6894d85b669e0532041368f:record:1081",
+        "28a1503ae6894d85b669e0532041368f:record:1086"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1079",
+        "28a1503ae6894d85b669e0532041368f:record:1081",
+        "28a1503ae6894d85b669e0532041368f:record:1086"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1097",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0D4LK5M87",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1092",
+        "28a1503ae6894d85b669e0532041368f:record:1094",
+        "28a1503ae6894d85b669e0532041368f:record:1097",
+        "28a1503ae6894d85b669e0532041368f:record:1098",
+        "28a1503ae6894d85b669e0532041368f:record:1100"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1092",
+        "28a1503ae6894d85b669e0532041368f:record:1094",
+        "28a1503ae6894d85b669e0532041368f:record:1100"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1092",
+        "28a1503ae6894d85b669e0532041368f:record:1094",
+        "28a1503ae6894d85b669e0532041368f:record:1100"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1111",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0D6FNNYK8",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1106",
+        "28a1503ae6894d85b669e0532041368f:record:1108",
+        "28a1503ae6894d85b669e0532041368f:record:1111",
+        "28a1503ae6894d85b669e0532041368f:record:1113"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1106",
+        "28a1503ae6894d85b669e0532041368f:record:1108",
+        "28a1503ae6894d85b669e0532041368f:record:1113"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1106",
+        "28a1503ae6894d85b669e0532041368f:record:1108",
+        "28a1503ae6894d85b669e0532041368f:record:1113"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1124",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0DKGCB7BX",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1119",
+        "28a1503ae6894d85b669e0532041368f:record:1121",
+        "28a1503ae6894d85b669e0532041368f:record:1124",
+        "28a1503ae6894d85b669e0532041368f:record:1126"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1119",
+        "28a1503ae6894d85b669e0532041368f:record:1121",
+        "28a1503ae6894d85b669e0532041368f:record:1126"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1119",
+        "28a1503ae6894d85b669e0532041368f:record:1121",
+        "28a1503ae6894d85b669e0532041368f:record:1126"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    },
+    {
+      "source_record": "28a1503ae6894d85b669e0532041368f:record:1137",
+      "proposed_relationship": "known_source_card_membership_proposal",
+      "known_source_identity": "B0F4R4LL4K",
+      "conflicting_direct_identity": false,
+      "inherited_semantic_occurrence": true,
+      "card_record_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1132",
+        "28a1503ae6894d85b669e0532041368f:record:1134",
+        "28a1503ae6894d85b669e0532041368f:record:1137",
+        "28a1503ae6894d85b669e0532041368f:record:1139"
+      ],
+      "permitted_entry_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1132",
+        "28a1503ae6894d85b669e0532041368f:record:1134",
+        "28a1503ae6894d85b669e0532041368f:record:1139"
+      ],
+      "exact_http_sibling_references": [
+        "28a1503ae6894d85b669e0532041368f:record:1132",
+        "28a1503ae6894d85b669e0532041368f:record:1134",
+        "28a1503ae6894d85b669e0532041368f:record:1139"
+      ],
+      "required_own_redirect_source_records": [],
+      "redirect_proof_verified": false,
+      "navigation_target_returned": false,
+      "http_call_created": false,
+      "business_visit": false
+    }
+  ],
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false,
+  "workflow_policy_modified": false,
+  "navigation_authority_added": false
+}

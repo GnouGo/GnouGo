@@ -20,7 +20,7 @@ public sealed class DocumentTools
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_get_policy", UseStructuredContent = true, OutputSchemaType = typeof(DocumentPolicyInfo)), Description(
-        "Returns the active document server policy: allowed file extensions, working roots, max file size. Call this first to discover the default workspace.")]
+        "Returns the active document server policy: allowed file extensions, working roots, max file size. Use when the caller needs current settings beyond the facts already supplied by the selected tool.")]
     public DocumentPolicyInfo GetPolicy() => _host.GetPolicy();
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
@@ -50,13 +50,12 @@ public sealed class DocumentTools
 
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Read)]
     [McpServerTool(Name = "document_read", UseStructuredContent = true, OutputSchemaType = typeof(DocumentReadResult)), Description(
-        "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) " +
-        "and returns its text content. For Office/PDF formats, extracts text and optionally " +
-        "formats it as markdown. Returns structured sections (pages, sheets, slides). " +
+        "Reads document text or exact XLSX cells. For XLSX, format=cells returns each worksheet's ordered cell matrix in sections[].rows. " +
+        "PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML and YAML support text extraction. Office and PDF text can be formatted as markdown, with sections for pages, sheets or slides. " +
         "Use a relative path only from the workspace root.")]
     public DocumentReadResult Read(
         [Description("Relative file path only inside the workspace root, for example 'docs/report.pdf'.")] string filePath,
-        [Description("Output format: 'markdown' (default) or 'plain'.")] string? format = null)
+        [Description("Output format: 'markdown' (default), 'plain', or 'cells' for exact XLSX worksheet values and positions.")] string? format = null)
     {
         try
         {
@@ -77,16 +76,16 @@ public sealed class DocumentTools
     public DocumentWriteResult Write(string filePath, string content, string? encoding = null, bool append = false)
         => WriteDocument(filePath, content, encoding, append, null);
 
+    internal const string WriteDescription =
+        "Writes a file and creates missing parent directories. For .xlsx, bind ordered rows directly from the source fields. " +
+        "Each row is an array of exact strings or null cells. Headers are ordinary rows. Whitespace and cell boundaries are preserved, null cells are blank, and strings are never converted to numbers or formulas. " +
+        "Supply exactly one of rows or content. Legacy XLSX content splits nonblank lines on tabs when present, otherwise commas, trims cells and treats quotes literally. " +
+        "For .docx and .pdf, content supports Markdown headings, lists, emphasis, code, links, tables and separators. Other allowed extensions receive plain text. " +
+        "Use relative paths only from the workspace root, inside allowed roots and outside the reserved .GnOuGo directory. Every write enforces the current policy. " +
+        "Write all available rows in one call. For incremental content, create the file with append=false and append subsequent sections with append=true.";
+
     [McpMeta("gnougo", JsonValue = McpEffectMetadata.Write)]
-    [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(
-        "Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures. " +
-        "For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators. " +
-        "For .xlsx, generates a spreadsheet from tab/comma-separated text: each nonblank line is a row; tabs separate cells when present, otherwise commas do. Cells are trimmed. Quotes are literal, not CSV escaping. Use optional structured rows instead to preserve exact strings, whitespace and cell boundaries; null cells are blank. Supply exactly one of content or rows. " +
-        "For other allowed extensions, writes plain text. " +
-        "Allowed targets come from document_get_policy: paths must be relative to the workspace root, resolve inside AllowedRoots, and use an extension from AllowedExtensions. " +
-        "Use relative paths only; only workspace paths are authorized. " +
-        "For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready. " +
-        "This avoids sending one very large final save payload that can exceed the model context window.")]
+    [McpServerTool(Name = "document_write", UseStructuredContent = true, OutputSchemaType = typeof(DocumentWriteResult)), Description(WriteDescription)]
     public DocumentWriteResult WriteDocument(
         [Description("Relative file path only inside the workspace root, for example 'output/result.md'. The target must match document_get_policy.AllowedRoots and document_get_policy.AllowedExtensions.")] string filePath,
         [Description("Legacy text content; mutually exclusive with rows. XLSX text is split and trimmed; use rows for exact values.")] string? content = null,

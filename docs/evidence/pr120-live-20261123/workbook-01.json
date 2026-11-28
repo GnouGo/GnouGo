@@ -1,0 +1,85 @@
+{
+  "source": "b6aa74c14f5dd6e8e91b7b974faebb3d774d6693",
+  "run": "browser-document-20261123-01",
+  "phase": "observed_workbook",
+  "started_utc": "2026-11-23T15:57:42.896116+00:00",
+  "finished_utc": "2026-11-23T16:00:22.776974+00:00",
+  "passed": false,
+  "durable_receipt": true,
+  "browser_observation_sha256": "70e9f32d3ea0c9fc8516d8f437de8690261cb01dfd2a7536e3cf2752dfb4fc41",
+  "diagnostic": "Browser cleanup did not release its active page.",
+  "usage": {
+    "input_tokens": 271,
+    "output_tokens": 32,
+    "total_tokens": 303,
+    "benchmark_cost_eur": "0.0126364628820960698689956332",
+    "reasoning_tokens": 0,
+    "transport_attempts": 1,
+    "uncertain_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "benchmark_usage_bounded": true
+  },
+  "attempts": [
+    {
+      "physical_id_sha256": "a986714bcc484cbc706c1eac393dbc2591de9ad2f7cd16efdc975d8ea371098d",
+      "provider_request_id_sha256": "c18e635a5dbc973a535d4b29e89f572acd96f36a376b9e7c004c6fcb7964e9d3",
+      "status": 200,
+      "started_utc": "2026-11-23T15:58:40.647493+00:00",
+      "completed_utc": "2026-11-23T16:00:19.781339+00:00",
+      "failure_phase": null,
+      "retry_header": null,
+      "requested_delay_ms": null,
+      "retry_not_before_utc": null,
+      "observed_status": 200,
+      "protocol_complete": true,
+      "usage_known": true,
+      "response_id_available": true,
+      "body_available": true,
+      "partial_body_available": false,
+      "receipt_retrievals": []
+    }
+  ],
+  "controlled_browser_observations": [
+    {
+      "method": "browser_get_content",
+      "IsError": false,
+      "content": {
+        "statusCode": 200,
+        "format": "text",
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "kind": "Object"
+    },
+    {
+      "method": "browser_close",
+      "IsError": false,
+      "content": {
+        "closed": false,
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "kind": "Object"
+    },
+    {
+      "method": "browser_get_content",
+      "IsError": false,
+      "content": {
+        "statusCode": null,
+        "format": "html",
+        "success": true,
+        "error_code": null,
+        "error_message": null,
+        "ok": true
+      },
+      "kind": "Object"
+    }
+  ],
+  "profile_regression": "WorkbookProfileClosesItsRealPageEvenWhenDesktopKeepsBrowsersOpen"
+}

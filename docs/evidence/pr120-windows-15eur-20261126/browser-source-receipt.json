@@ -1,0 +1,25 @@
+{
+  "source": "feed56b53c2a01e9bcdf884acfd4e5f8e7bab3d7",
+  "real_diagnostic_captures": [
+    "amazon-one-20261126-172311",
+    "amazon-ten-20261126-175800"
+  ],
+  "ordered_source_decisions_in_each_capture": [
+    "source_changed_during_acquisition",
+    "complete_owned_source"
+  ],
+  "refresh_decision_sha256_in_each_capture": "570b445ae70ec0e6f6cbfd180e99df6b17f9667557f8b86845b9661f45673612",
+  "native_permission_tests_passed": 20,
+  "profile_tests_source": "eac0b8a0a0f22c9436210bcc18ecb74a34c41e7e",
+  "profile_tests_passed": 49,
+  "published_loopback_tool": {
+    "browser_dll_sha256": "f52aebe7ee6e7b6ee1ccc95eb2d150718a398a1600559e9b85b602c38135e18f",
+    "source_accepted_returned_true": true,
+    "output_schema_exposes_boolean": true,
+    "original_link_positions_verified": 4,
+    "signed_query_preserved": true,
+    "compact_text_and_source_reference_verified": true,
+    "close_succeeded": true,
+    "provider_calls": 0
+  }
+}

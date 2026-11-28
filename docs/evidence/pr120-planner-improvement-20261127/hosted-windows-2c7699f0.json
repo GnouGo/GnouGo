@@ -1,0 +1,67 @@
+{
+  "source": "2c7699f019598def8513140301edc51e00ef142e",
+  "actions_url": "https://github.com/GnouGo/GnouGo/actions/runs/46083729059",
+  "conclusion": "success",
+  "selection": "441 previously discovered historical and expanded cases plus 22 cases for the qualification host, revision checks and one-time permissions.",
+  "matched_expected_exactly": false,
+  "cases": 464,
+  "outcomes": {
+    "Passed": 464
+  },
+  "missing": [],
+  "extra": [
+    "GnOuGo.Agent.Server.Tests.DelegatedTestReviewTests.SignedDecisionSurvivesReopeningOnlyForTheExactReviewedArtifact"
+  ],
+  "nonpassing": [],
+  "times": {
+    "creation": "2026-11-27T23:44:16.3460916+00:00",
+    "queuing": "2026-11-27T23:44:16.3460918+00:00",
+    "start": "2026-11-27T23:44:11.3033278+00:00",
+    "finish": "2026-11-28T00:17:27.6731313+00:00"
+  },
+  "trx_sha256": "e972bb5bcb50dbb51455255e8537d4df0a28c3d138a0ae251fa73d2fe70b59bc",
+  "assembly_manifest_sha256": "6751087f1faf3a6009002fa1f68addb100a9414910daea23099a2e79bf8e6f99",
+  "case_list_sha256": "f44ce8e33a80cc3d9760b53ba0a1866d72b4ee5d3d82d08594a6bd354cc59e4e",
+  "binaries": [
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "813C6444CE97AE6881F1CB91EF53DC398DAB0EBB180DA186C5276FC3B8D9ABB1"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "6EAA9CD203C541DF81CEA5E2CD66B231A8CB6E28A8C96417348484A9BDCB7696"
+    },
+    {
+      "name": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "EDBB28538C91B0A80262FF159C9D83506F556E0FD8257344299A0741C4BCDA77"
+    },
+    {
+      "name": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "D10BF501960E1540AB6C0A8123FD7B5A8FAA8A166FB0AF8DB37309AEAB97F0ED"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "CE3BF2021C5FBBFD058386D627FFE1725661041E0D2D58FCD751F860C0414092"
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "6F8820CA6C23439DA361A73F6571DE6B1168E805869D274F8FF46F0EC71B2CE4"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "4DE1215EB3BB6AA4A5FAD95B97EBA735E7363BA4AB8E1113FA399D192CB9BF54"
+    },
+    {
+      "name": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+2c7699f019598def8513140301edc51e00ef142e",
+      "sha256": "3438C580FE7E24B702E4EDE2033814EF98C77E01BA40C845AF2CBB65FE70EEEF"
+    }
+  ]
+}

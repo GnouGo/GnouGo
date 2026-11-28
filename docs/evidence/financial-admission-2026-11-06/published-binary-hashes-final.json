@@ -1,0 +1,25 @@
+{
+  "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "binaries": [
+    {
+      "file": "cli/GnOuGo.Flow.Cli",
+      "sha256": "886d92a60ab054818ca6d6717d991c28c49e739a48f21fe7bd1b0d3cfdf7fbb1"
+    },
+    {
+      "file": "server/GnOuGo.Agent.Server",
+      "sha256": "6f85d623639bde1a0bb210da6aa2de602225f63dabee5a0ce3a70394a4a1ca0e"
+    },
+    {
+      "file": "packages/GnOuGo.Flow.Core.1.0.0.nupkg",
+      "sha256": "8d6ce5fa0c0eddb07a49a5be3b5e4b72e746f30225cb5b591a0e19bd06658ee9"
+    },
+    {
+      "file": "packages/GnOuGo.Flow.Integrations.1.0.0.nupkg",
+      "sha256": "79e58211c84ad33a2d19fb072aefd400cefdabf60b3ba1f07865d29f585fc612"
+    },
+    {
+      "file": "packages/GnOuGo.Flow.Planning.1.0.0.nupkg",
+      "sha256": "f224193e04b0c49d707e6716ea94cc771f58050c8d8bb39ea4c23583bb98bf36"
+    }
+  ]
+}

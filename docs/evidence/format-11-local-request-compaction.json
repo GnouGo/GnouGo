@@ -1,0 +1,231 @@
+{
+  "schema": "format11_offline_request_compaction_v1",
+  "scenario": "review_pr",
+  "status": "offline_unissued_reconstruction",
+  "candidate_production_commit": null,
+  "candidate_source": {
+    "working_tree_base": "26340bf59dcc76a5c78683dc68b69d859dfd5115",
+    "tested_source": "prospective working-tree implementation captured before and after successful warnings-as-errors build20; not the unmodified base commit",
+    "core_planning_source_files": 216,
+    "source_manifest_sha256": "5e59b549bf13d6042211e9c053226d648c01d6b6d59184bf5270034e2e1ac464",
+    "source_and_library_attribution_sha256": "7f1e10803f0f74a1401bea548c746a7704435d1a6aa26938a4c410162526229b",
+    "planning_assembly_sha256": "9b36baf637581d9bd983f1467577187abd3de062b5cf21f99385bfb1a58601b0",
+    "source_unchanged_during_build": true,
+    "manifest_files_including_global_json": 217
+  },
+  "control": {
+    "live_evidence_production_commit": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+    "original_request_number": 23,
+    "issued": false,
+    "basis": "Retained22-call state reconstructed offline with the previously validated exact port-directory compaction; baseline is not a dispatched664895d7 request.",
+    "baseline_complete_bytes": 59095,
+    "baseline_schema_bytes": 18242,
+    "baseline_request_hash": "988aae3e4bfb22d66262eeabdbe8bc80298db76f437d50c409809741f463f0f1"
+  },
+  "harness": {
+    "program_sha256": "8225797f89e1f77d31fcb7071373671c19cca2b9753cd712f817b19de044b0e7",
+    "project_sha256": "75db1906368c8d0e8eb5da92275cac3934662271f6ef23a085a979b68d622062",
+    "build_warnings": 0,
+    "build_errors": 0,
+    "build_log_sha256": "b019a38535ab79d676d50a58dfa641cc7f793533f721d750db97ebc08e888cb6",
+    "run_log_sha256": "7cbe2ea8279ade1912609fc42102f5bc96e169868982f8fd16a14e67e8e0b865",
+    "private_result_sha256": "16030f6d8dda1d1744e149d0dc316d67ea75370f3ff1f40347b3942b0fa519c1"
+  },
+  "captured_draft_ceiling": 20000,
+  "estimator": "serialized_utf8_div3_plus256_v1",
+  "arms": {
+    "baseline": {
+      "bytes": 59095,
+      "schemaBytes": 18242,
+      "estimate": 19955,
+      "requestHash": "988aae3e4bfb22d66262eeabdbe8bc80298db76f437d50c409809741f463f0f1",
+      "schemaHash": "da5d5871228bd1c6f97cfb7db7ead00ab2871b0be9bc0247009e9bfe99ffeac3",
+      "mappedAddresses": 0
+    },
+    "hostFactsAndGuidanceOnly": {
+      "bytes": 58257,
+      "schemaBytes": 17404,
+      "estimate": 19675,
+      "requestHash": "dea80b053eba75bebdf25decc06a62afea88e968df9f5318fb596cb170ffc076",
+      "schemaHash": "34a325b5438cfe9d246776a6995f586e2997deca2828016cae8a943ed73be57c",
+      "mappedAddresses": 0
+    },
+    "evidenceIdsAndFinalFactoringOnly": {
+      "bytes": 51656,
+      "schemaBytes": 14808,
+      "estimate": 17475,
+      "requestHash": "c062c50ef8c4527da2e3eda8ce99bbc2a064002a66124ab9d0cbf8435d6ad35f",
+      "schemaHash": "6e42d6a3cb26d63c5a71f5c82665bc6d4f86da151816faa80f830ed5bed89810",
+      "mappedAddresses": 47
+    },
+    "combinedSameContext": {
+      "bytes": 50818,
+      "schemaBytes": 13970,
+      "estimate": 17196,
+      "requestHash": "d4c5209f40e9933e584c89239b78d83cf2abcb27d68c936ed74c7e8d57bc00df",
+      "schemaHash": "a61d08fb1318e50d221af8542246292d86c950917d3848805a9c5227d1f7b50f",
+      "mappedAddresses": 47
+    },
+    "currentFullConstruction": {
+      "bytes": 49381,
+      "schemaBytes": 13910,
+      "estimate": 16717,
+      "requestHash": "19b19d2b402cd6082c353aac7321b03aaad82dbc5c5e47705676546852ffa191",
+      "schemaHash": "49aeef4e855bf9aceabe999b85e5406be4182e7c11be52df5f16e69f8f623e89",
+      "mappedAddresses": 43
+    }
+  },
+  "comparison": {
+    "same_context_complete_bytes_saved": 8277,
+    "same_context_schema_bytes_saved": 4272,
+    "full_current_complete_bytes_saved": 9714,
+    "full_current_schema_bytes_saved": 4332,
+    "host_request_identity_integration_bytes": 65
+  },
+  "preservation": {
+    "host_only_original_context_byte_identical": true,
+    "same_context_inverse_navigation_mapping_exact": true,
+    "actual_producer_arguments_and_behavior_exact": true,
+    "original_port_directories": [
+      {
+        "operation": "code_agent_edit",
+        "ports": 16,
+        "displayed": 2,
+        "exact_reconstruction": true
+      },
+      {
+        "operation": "git_clone",
+        "ports": 14,
+        "displayed": 1,
+        "exact_reconstruction": true
+      }
+    ],
+    "selected_contract_versions_and_hashes_unchanged": [
+      {
+        "id": "cap_e87238bc6035a17954299a78",
+        "version": "c3054449c9350b0f59c43bc3e5f164932eac812f9e3d9c705d4d6e2a4ddd1f7a",
+        "hash": "02d62f95bcd35d7c37080532610e52be3f29703f127fa28b95f112e5f3d59eb2"
+      },
+      {
+        "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+        "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+        "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+      }
+    ],
+    "taskplan_reference_and_literal_preservation": "Covered separately by owning evidence-address and fixed-fact regressions; no new TaskPlan aliases.",
+    "required_contract_fields_exact": 39,
+    "contract_context_entries_exact": 3,
+    "contract_assertion_harness_sha256": "8225797f89e1f77d31fcb7071373671c19cca2b9753cd712f817b19de044b0e7",
+    "contract_assertion_result_sha256": "16030f6d8dda1d1744e149d0dc316d67ea75370f3ff1f40347b3942b0fa519c1",
+    "contract_assertion_scope": "Every non-directory contract field in all three selected/consumed context entries equals control after inverse address mapping, including original descriptions, exact selected input/output closures, arguments metadata, normative constraints, references and permissions. The omitted directory entries reconstruct through their complete exact pages."
+  },
+  "remaining_context": {
+    "current_complete_bytes": 49381,
+    "current_schema_bytes": 13910,
+    "selected_contract_component_bytes": 13072,
+    "actual_interfaces_component_bytes": 5360,
+    "original_requirements_component_bytes": 8786,
+    "strict_mandatory_only_floor_bytes": null,
+    "limitation": "Component sizes are truthful serialized categories, not a proof that every remaining byte is mandatory. Original constraints and consumed bindings are retained; optional directory material remains reachable through exact links."
+  },
+  "usage_and_business_limits": {
+    "paid_calls": 0,
+    "physical_attempts": 0,
+    "provider_receipt_for_prospective_request": false,
+    "provider_tokens": null,
+    "billed_cost": null,
+    "live_call_savings_demonstrated": false,
+    "runtime_success_demonstrated": false,
+    "statement": "These are offline request-size measurements. Rejected or unissued requests are not provider usage, and fitting admission does not establish business convergence."
+  },
+  "supplementary_amazon_reconstruction": {
+    "status": "structural_unissued_reconstruction",
+    "paidCalls": 0,
+    "originalPayloadsStored": false,
+    "oldProspectiveBytes": 37551,
+    "oldFallbackBytes": 35261,
+    "oldProspectiveEstimate": 12773,
+    "oldFallbackEstimate": 12010,
+    "currentFallback": {
+      "bytes": 32231,
+      "schemaBytes": 7276,
+      "estimate": 11000,
+      "requestHash": "578dd890ef257b222d69d86d761596941ceb2690f70b2fa0ef15029aa065dae2",
+      "schemaHash": "2503b193ea4401c5382e904f4f82c876cb67a3e473684514a238e48b9b5f27a5"
+    },
+    "currentExplicitEvidenceFollowup": {
+      "bytes": 33704,
+      "schemaBytes": 7291,
+      "estimate": 11491,
+      "requestHash": "d79e5e7585da6eca05e248ccf5c037db9de0e7247572cf994ea916f36b16ea64",
+      "schemaHash": "d5d5931d22a1aab6e46c20cd8a085929c0d05c6fff01a71e1fd10c4c1bbeb3b8"
+    },
+    "automaticContinuationAttempts": 1,
+    "lastAutomaticProspectiveFollowup": {
+      "bytes": 35475,
+      "schemaBytes": 7291,
+      "estimate": 12081,
+      "requestHash": "399acd423a38842263cd7ebecaf64e804632a272bc1963d0f5c16b7f2cb1a1b4",
+      "schemaHash": "f6282dd0d3b829a6d59f0a2443fff4f526efcc1a7ac131d84b2e00f4f6721078"
+    },
+    "newEvidencePagesCommitted": 1,
+    "automaticFollowupAboveLimitNotCommitted": true,
+    "offlineAdmissionOutcome": "admitted_offline",
+    "originalTerminalStateUnchanged": true,
+    "liveContinuationOrReplay": false,
+    "original_evidence_production_commit": "34a891391fdf5151fcd545564b3134075fb3f87f",
+    "captured_navigation_ceiling": 12000,
+    "production_libraries_attribution_sha256": "4d0c06221c2289f97da3910d6195ea1145127ee635334929954cfdf6048453ad",
+    "harness_sha256": "6d75d8f644b56bcf9964f84e783d4f1a7ed3b16eb5501cb422050a823e408eb5",
+    "private_result_sha256": "7fef7992d62452fce63b52bbb444e40322c33b5f101c153d7f1075bb4a68a636",
+    "limitation": "Original prospective48 payloads were not stored or issued. This replays no model call: it clones retained terminal planning data to construct structural prospective requests offline. The first exact description page fits; its larger automatically attempted continuation remains rejected and uncommitted under12k. This is not live convergence or a causal call-savings measurement.",
+    "source_arm": "Intermediate post-slot build13 reconstruction, preserved separately; not a final15 runtime or continuation."
+  },
+  "archival_measurements": [
+    {
+      "source_and_library_attribution_sha256": "08b6aafc65acfc75c39faada6d5ac174b923d6b9ac68cd9ab84d6b81644c5ea2",
+      "planning_assembly_sha256": "c87cfe2069697ee85c6e159c287d73305d4db11c02782667ff97b6ecfab9d139",
+      "private_result_sha256": "d36d64dfdae864bad8c9c42c24090bba43f949f06603a775e1adafc5af160fd4",
+      "complete_bytes": 49316,
+      "schema_bytes": 13910,
+      "status": "Build15 before exact host request-ID integration. Private records retained; not final source."
+    }
+  ],
+  "evidence_choice_schema": {
+    "control_property_bytes": 4117,
+    "same_context_property_bytes": 801,
+    "current_full_property_bytes": 741,
+    "control_enum_bytes": 4013,
+    "same_context_enum_bytes": 697,
+    "current_full_enum_bytes": 637,
+    "same_context_offered_addresses": 47,
+    "current_full_offered_addresses": 43,
+    "inline_not_shared": true,
+    "proof_sha256": "7b61f956b939807034850a09340dc63f07ac246553e11ebe0f5cbfc7d0d0abac"
+  },
+  "request_components_reconcile": true,
+  "request_envelope_comparison": {
+    "baseline": {
+      "components_reconcile": true,
+      "other_request_envelope_differences": {}
+    },
+    "host-fixed": {
+      "components_reconcile": true,
+      "other_request_envelope_differences": {}
+    },
+    "evidence-only": {
+      "components_reconcile": true,
+      "other_request_envelope_differences": {}
+    },
+    "combined": {
+      "components_reconcile": true,
+      "other_request_envelope_differences": {}
+    },
+    "current-full": {
+      "components_reconcile": true,
+      "other_request_envelope_differences": {}
+    }
+  },
+  "request_reconciliation_proof_sha256": "1cce876b811423f4db68ba143cd7a8ed24833b32ee6d09492f6e489ffaadb005",
+  "scope_cursor_fix_changes_this_frozen_draft_request": false
+}

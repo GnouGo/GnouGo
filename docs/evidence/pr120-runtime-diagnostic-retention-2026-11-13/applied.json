@@ -1,0 +1,33 @@
+{
+  "source": "b501dc14dcfef600d45d5db8ebd1602c2666b39f",
+  "evidence_hash": "5414e42ac9704ca82c9feb23e6a1d7c3003cfadf6ec248d65aea94df4e320473",
+  "retained_at": "2026-11-13T03:41:36.0514970+00:00",
+  "retention_kind": "tool-free-runtime-diagnostic",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "cold_closure_exactly_matches_applied_record": true,
+  "unretained_missing_receipts": 0,
+  "physical_transport_totals_unchanged": true,
+  "accounting": {
+    "calls": "2175",
+    "known_input_tokens": "29789415",
+    "known_output_tokens": "844010",
+    "known_cost_eur": "936.5203402531204391487137338",
+    "reserved_input_tokens": "9552607",
+    "reserved_output_tokens": "1373184",
+    "reserved_cost_eur": "478.50045259204167431670862539",
+    "cost_upper_bound_eur": "1415.0207928451621134654223592",
+    "unknown_attempts": "51"
+  },
+  "retained_application_reservations_eur": "89.39466414694980587609060346",
+  "retained_diagnostic_http_reservation_eur": "58.860157025539211262521433082",
+  "ceiling_eur": "1700",
+  "headroom_before_new_calls_eur": "195.58454300788808065848703735",
+  "new_model_calls": 0,
+  "original_records_changed": false,
+  "budget_grants_added": 0,
+  "source_inspection_sha256": "6583a7884e007f780f0d13f167f6145b46f5d6c66d1502bbb52f169978fb4032",
+  "cold_read_sha256": "6e8468508b53f59379ae2049bb36a0ee12d7d6c8f2139dd74289ea1327114dbf"
+}

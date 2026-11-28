@@ -1,0 +1,3014 @@
+{
+  "campaign": "schema-portability-20261019-incremental",
+  "ceilingEur": "740.0301038327063045424449473",
+  "ceilingSource": "persisted_spending_authorizations",
+  "ceilingHistory": [
+    {
+      "previousCeilingEur": 50,
+      "ceilingEur": "240.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-19T08:39:51.7505920+00:00",
+      "authorizationHash": "0d6c8c90a01108d3297675a6b36152dd9204349aa52c5eca23adca243b0ffb77"
+    },
+    {
+      "previousCeilingEur": "240.0301038327063045424449473",
+      "ceilingEur": "440.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-25T11:08:48.1254490+00:00",
+      "authorizationHash": "65c92ab74ef297bc45a3da69d9301d4841c9ee61c0fcbf4f8877bdc830b4b5d9"
+    },
+    {
+      "previousCeilingEur": "440.0301038327063045424449473",
+      "ceilingEur": "540.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-27T12:20:07.1756420+00:00",
+      "authorizationHash": "2363ab91f9d7ed5db6df842aeb49e1e90b21fe9904a3d65daa5959553f32046f"
+    },
+    {
+      "previousCeilingEur": "540.0301038327063045424449473",
+      "ceilingEur": "640.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-29T07:38:11.5091250+00:00",
+      "authorizationHash": "16f9985034ae25f5fc01bea1ed929317a6eaead966b53bfca267bfc30e7b1945"
+    },
+    {
+      "previousCeilingEur": "640.0301038327063045424449473",
+      "ceilingEur": "740.0301038327063045424449473",
+      "authorizedAtUtc": "2026-10-30T14:01:44.6897060+00:00",
+      "authorizationHash": "fcd03cd7ede1e1a3ccc900b94df3c9de2f6d82a48a3a85889e74e085f1427109"
+    }
+  ],
+  "accounting": {
+    "calls": 7190,
+    "session_calls": 0,
+    "known_input_tokens": 28637874,
+    "known_output_tokens": 10909439,
+    "known_cost_eur": "475.28093332377412455040481684",
+    "reserved_input_tokens": 5287130,
+    "reserved_output_tokens": 4718592,
+    "reserved_cost_eur": "222.7236032944974286315167358",
+    "cost_upper_bound_eur": "698.00453661827155318192155264",
+    "unknown_attempts": 162,
+    "sessions": [
+      {
+        "sessionId": "0043d19976a90080e3645a542ed2ebfbbbb88ce7b3832f8aaaf77017c63d7bcf",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.4424230254350736278447121815",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "00adff330c83efe649a0efb42a3dc403424daa85d2bbd125c869509e0d71ead8",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3626544032702390473651470718",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "041949b16a40e579e8ef3bf2955ba0959200ac60f64285848224651f5e8639a5",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2917177641517817470896649781",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "057738776a1c84ccb3b58c3f3211dd3e85792271ebd8a63816929e6f5b129dcc",
+        "httpAttempts": 36,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.8437929495760821062025881305",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "0840c148c1a53a7730372dbab751049626c081e5cf3b648336fa784b7e3989bf",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7190171509819603661245889983",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "0880d487f7c7c33dc9af9af146e8c79e66d2c23d558237c116dce6086d98db7a",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0130054207766817737492224296",
+        "unresolvedReservationEur": "0.4901093041855505198613703012",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "0cf5835a0683201328d5058e53434bf3c2808aff3162b6eef9c1a9234551be9a",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2688130298973672467648371265",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "11386753f6ce4c4eb456deb20376e057",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af"
+        ]
+      },
+      {
+        "sessionId": "12116850d933becbefb3642ef9a403eacc6d054a5418d7b5412f23c407bea152",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2839892904953145917001338688",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "150196ac6ad39cfa7f785ea8383215de72a0d06847e394c8875e90399b8471d3",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.8781838464970995091477019188",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "1a0d04a7dfee0a7109c2e9a90edc4bcfcfc19380c4e5eb41822dbacbf03d116a",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2291077934772949435706033945",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "1a2a399621f64acf49ae308951962d5f7d749421b0becd2aad251f3cca0cbe58",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2408868746112147871678663467",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "1babfb895d103531e827af6886ac511a28de4be558c2af46571ba098cc9ec7e4",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "1babfb895d103531e827af6886ac511a28de4be558c2af46571ba098cc9ec7e4:1:bc5ea1e54bfa2c9872a4c3a8c828034233304dd293a1eea28df8b02bec2d6e08"
+        ]
+      },
+      {
+        "sessionId": "1f0ad8687fdc9ac1595945920cfdd7a0f7687d93812a0b8c237c35f964993979",
+        "httpAttempts": 5,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.120745578956722651737314494",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "21bd4fe7a1cc25b243bf9b3da42f43ab2f0880137bbd4605bc5b18a96bc930ca",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1372611747978316893272905003",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "24017a070d6fdf876bdb4af4f75c179df4971a442431d024c37408266e1a6812",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.1115961555735201652744094136",
+        "unresolvedReservationEur": "1.8737806521153327943950417678",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2712779be6a77ecc0941aa36d2fa0cc574a5dcb9dd155f06553ac414ff696568",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2047389558232931726907630522",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2b32920c7d9e47bab3be23ccf116a9e8",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "31.864701672779318364791126233",
+        "unresolvedReservationEur": "32.574648895250022363359871187",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2eb8d949e74fde9d248f7392505bfe29953cdcadb29cc7c891f3747da317f167",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.4011108148938060961521372077",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2f09f5bd4bce93fb9e8993e09309c6a920927538fe2e14957317613ef23f1a1c",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0176441837732160312805474096",
+        "unresolvedReservationEur": "0.4634497467342042122100773127",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2f9880b259a09109f57aca6419e2b564ff308cb65854d91e238b5b149ec185e8",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.4040562248995983935742971886",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2f9d5b6100c065b4023bf4c70e29e68a8d2836da37e8c6bfd26d14d4516d1c34",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1262058744273780652115332794",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "2fb987a2c39c7cdaa0e72a337f00f7903b144c0583ce1937d6f18970572fb4bc",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.41224899598393574297188755",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "30bf7eacfb95af598b855429eb7ed39adb8efad4b8f79b08e518f99a829cc2f8",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.8997188755020080321285140564",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "3155add585f553c011d8fa43226c374fffaa869dcaba7890ab7b2dac53c00af9",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0142659526996876394466755913",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "339b0e4d1cd35bec49f367eb6970d2d7383eaa66b41f67b7727c5eec243337b6",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.4273984828201695671575189647",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "36632bd69a7a4ed3a116245a70a703c1",
+        "httpAttempts": 16,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9594328651936666964844798281",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "371723ddde30b49f04acc28144f6bcd1ed6e1e0a753b83a03e9766f1a5cb0ff2",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.7093797411869701026327532352",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "385144571beea463827722c8dbe065e6b7f1f171e28b31d3267d1abd735674a9",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0131950022311468094600624721",
+        "unresolvedReservationEur": "0.4922088353413654618473895582",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "3c82058a66a601a954eee4b875ae2375dfe29897fd56ddf73c1671eaf0b140a7",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5204105310129406514948683623",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "3d1f253f1f0c415b16f05067573015408483fbd63f41571ea238ba4085bec1dc",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6811958946898705934850513164",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "3ebe0d5936c1755160d4b80011ec78b4bb1ece35808f87db1487cf3b6aa010d2",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3977286925479696564033913433",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "4b4d5f388f1f0d889b45a4c1ca7605ddce005ab6d70d16804421a08fde315486",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.4219410977242302543507362788",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "4c246b587ab6fcd548c5c17a0b9322f09cc3882b57bd00ed50eb3fc2ffbc9f59",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4320492313160934861814627211",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "4eb052aab9d772c867f92ea3684e241d4647acc3785342a184e09313467dcebe",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0180174175775348795876655114",
+        "unresolvedReservationEur": "0.4634497467342042122100773127",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "4f13bbdf8d70c4654cdd60e01736ca190afb93bce13889c5b3761f009ee3f1f7",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6587176752865902426019728072",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "524f68e751c6826de102a9a54c43d4a0f8bd6563d9125b7c91573e9bc65f90d5",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.2951584114234716644355198573",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "5cd04af9dfb9f31aeedb19c5e642eeef76e9487742fc94bea935f0536ead17d0",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0099395716697769483693237359",
+        "unresolvedReservationEur": "0.4901093041855505198613703012",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "5d8057097b132c1daf39c25f328b26a73cc586684907e5d95cad56d0e672f22f",
+        "httpAttempts": 40,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8976361859059806273882520214",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "5db683cffd604b9a9e658dc7d81a694a",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "8.221540388227927363807138385",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "60a9b1b9369170e414fc7ecc8483e42b44c933a37e0b67377d8b723fbe574a5e",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0111066488174921909861668898",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "60c8da7a0f091152b0c6e75141d19562dc956a5c74d580b2dc16139319f50047",
+        "httpAttempts": 35,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2391628898960277259397494006",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "61f232d52445a16462b84876005e9ccd068b0ad686f257573fcb2fabf6801c25",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.461676886163689682751266329",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "667b6c2f6563481b8270c43766b7e8ec",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3470882905447714464621164684",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "678af13659effc8e98c477ac79a5011227b13614dbe4127cadfd0a7d4905d0f1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0263765382197071768615826821",
+        "unresolvedReservationEur": "0.9368903260576663971975208839",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "6ac1a35e8593cffb2eafc00f93ae292e8029e23569bd8cb9d0d22991b9965ae5",
+        "httpAttempts": 49,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.223144939127343819425930863",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "6cd68bafcf7c99ede46bb0ddaa410eec5ed75dd9ac90a7f4e6344d45767bd7ad",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.20412762159750111557340473",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "701f69ca134906c066fd4ab2c23a98d9e72f8b7615f116a6d49897992d8ce641",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.2607541276215975011155734048",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "719c18dc26aa4744fd69ff85e0d971d30cbba9025362eef94693e04ed97a1512",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4681773749222429574335732694",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "75037700fdd790501821386430efedd6eb79f5cac98c9fad34a98a85e645d982",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.5626863007585899152164212407",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "758e3e1e579e5d3476dbf8a507e24c2da66163869883c7d547eaa1a5129b556a",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.916858545292280232039268184",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "76c060be7feca5c03729f8ebb461c376006d62344da4b764668e3c71b7f63fb4",
+        "httpAttempts": 32,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9262739848282016956715751895",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "776902dfafe4732838ac806892f226a624589c0bc477e67547cbae328e24db84",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6112147871678663467519772506",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "7d11bcf6a17d4fa687902b141cd7c7b7",
+        "httpAttempts": 43,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "11.600008945343948474818856794",
+        "unresolvedReservationEur": "32.574648895250022363359871187",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "7dbb0f26adbd534930c1c08c639517465917af49a848b2f42d289f835712971a",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2553265067816401688673313573",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "7dc4ce7624a2e9da276965372e491eaa440c9bb6dafa671839cba464c514be87",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2369057140318137385586065938",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "7fc0d968290691fd47897f3152b8451dc9eb25965aef6af284c7e62dea89775d",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.2702479338842975206611570247",
+        "unresolvedReservationEur": "0.2894872478450191060161734648",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "80d69db411299d18f60940bd7de644ce2f5f5ed737c5bd5757b8a6df2e5955a8",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7687996430165104863900044625",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "83190809ad9c65a970393b950e7478c400711649444dd9fc8ad6d1f002ad87a1",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0818875502008032128514056228",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "8b9ac5e003d506734602bd9fa78c9dcf98d649389cfab06d859f36d2eeb6aa19",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0150959393128067826863007586",
+        "unresolvedReservationEur": "0.4922088353413654618473895582",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "8f9b63c12610ea78c7c84998683be30bd20a7527e1b4f1d12e8da0b480b396ba",
+        "httpAttempts": 41,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.4186836233824185631414547077",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "92078c45ec0b8ee4a4087898375b5b1dacd5c2e8c9f744f743bcf23757afec1d",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9499553770638107987505577865",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "925236f0b32617c8f3e71cced6534b6c9bd56ea84fae8e473acb540f5d0208a4",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0163275323516287371709058456",
+        "unresolvedReservationEur": "0.4922088353413654618473895582",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "959fd2cdb679c6e3f6a563e0be96e4d6495e7c2bfe8a07957fa2a97de6eae8e4",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2349329067804141117924109127",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "962ebc6e3dd1eeb18c978ffb7b00e49062ce2fed09126de017eb5ee33250e09d",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "0.0159526996876394466755912539",
+        "unresolvedReservationEur": "2.7926104417670682730923694779",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "97ae5cdf28ea877c3f4bfec25fa9c977359b006921d1a4b9fd9450287b5d9bc1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2506113342257920571173583223",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "97b7da931636fb33c13591596eb1d97ac8beae67f082c33c77c4a195596e7cf3",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.7858500669344042838018741634",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "9b42878921450d4f386c0283cd9dabaa64f2271e2ad43528e97302edf359b8f4",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9791385969639809575136980148",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "9f1563085f5fb409f04b7369c1c7f59c7695e9dd617da7b179d168e3e047e981",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.3493306559571619812583668006",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a4e2278384adafbd57ebf1fdacd85b405f7aab4ebfdf23d379a1aee2ecaa6818",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3858393317337598862525548743",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a5cdb0fbf686936873bc1ffa54ffd76272e7accff2a432429c87801194a52ecb",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2393050742024349062472229626",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a6306aa42f9124df0548c9e53bfd0997a714434a8e1568ffab3ef38bd8466fff",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0150691655510932619366354306",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8358ba7f3dfb93e2b0533a2cc56ef2f482a6ca2571ddaf5fd9138cc3efb071c",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6081578245801119701412956545",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "aabe3212413bd18ef238c02693094140cb7d79a9292b3dacfff728175a2e144e",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5068630075858991521642124051",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "aad1b74934aa5a263098af29bf5db7f600de699e63bf69c4646782caf44a06da",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.937590361445783132530120482",
+        "unresolvedReservationEur": "1.2442124051762605979473449353",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "ae393cfa6eb953c800f7dfed0b88c0fcf86f39b16484c78bdaf8a697230df039",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.8987460954930834448906738061",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "b0c02ef40d50ad20299ee452a1d8d88ac66855ecd2561c4aabf52ed5b06b198c",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.585238732708612226684515841",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "b3175b879d2e4e95b24643be9b58f8725be5cf92753f386949f4a06b02db6f6a",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0577712609970674486803519061",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "b38ca16c3be5d4f533bc44c7ffb2ece2c0283d98503928bcba1bebfc6d0b3d21",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.54593931280678268630075859",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "b61b68bfee68d839826bf15d6427cf5c179b11602d61a476a24c16127082b6be",
+        "httpAttempts": 24,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.7595760821062025881302989735",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "b919500d8f32131545eb4eecd4fdbc07594fbacf9e7103e536c1655caca9f693",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.6770771976796073181615350287",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bb591cd549a9e890478996df16e8be821fe96934a74dbf326ad0ba61c3c5732e",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0562960988180929529903136941",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bb67753d15a84f569158bb4175af6613790c6852eec6eec3452edfb5941fa027",
+        "httpAttempts": 22,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.9105310129406514948683623385",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bc2b8126865c1200ce04d98d9eea9e9adac955bf5811bf1b0c87ed4951c6a90f",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0883320003554607660179507687",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz1bb59305amz32a-amazon-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.960828338849628768226138295",
+        "unresolvedReservationEur": "1.1341041238035602468914929779",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz1d6632c5amz01-amazon-1",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "biz1d6632c5amz01-amazon-1:1:0dbd5f7248c379ec62dbe658741d2d7687df5931817446d13ba6ae6ce25cbd03"
+        ]
+      },
+      {
+        "sessionId": "biz1d6632c5amz02-amazon-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.8793630915108685928973969048",
+        "unresolvedReservationEur": "0.6910457107075767063243581716",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz3b8d087camz01-amazon-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7887406808587083445612144076",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz56fd623camz01-amazon-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9909548190065570825473816583",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz65b1a0d4amz32a-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.5468333482422399141246980946",
+        "unresolvedReservationEur": "2.2408802218445299221755076482",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz65b1a0d4amz32b-amazon-1",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.3147732355309061633419804992",
+        "unresolvedReservationEur": "1.2637355756328830843545934341",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz6f063c51amz01-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0132444085152250067367286446",
+        "unresolvedReservationEur": "0.9368903260576663971975208839",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz6f063c51amz01-amazon-2",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5054836971166801401239558071",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biz7c92fb38amz01-amazon-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7319455672325518728105631907",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biza23cbbb2amz01-amazon-1",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6502739602982125213329740412",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biza84fc50damz01-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.935691922354414527238572323",
+        "unresolvedReservationEur": "0.6846095357366490741569013329",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "biza84fc50damz32a-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8805528222560157438053493156",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizafe43f4aamz01-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7721368903260576663971975209",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizb043e027amz01-amazon-1",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": "0.9368903260576663971975208839",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizb043e027amz01-amazon-2",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3470897332255456750202101858",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "bizb043e027amz01-amazon-2:7:4fe1600d931eb82ebeaade9453fb2fd3a810dc0e8bab2696da1d69a83c184137:e0cdbcaa6e76f42240c83ae2b9d6f1dafaaa32aea1f1e9670f7bc7becf245242"
+        ]
+      },
+      {
+        "sessionId": "bizb613426eamz01-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9572994006619554521871365955",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizbd4169c8amz01-amazon-1",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "bizbd4169c8amz01-amazon-1:1:d0e0d9e44f8279deb7c8389f2ef6ae19fdec3b3a992f6af0855803c9bad52c40"
+        ]
+      },
+      {
+        "sessionId": "bizbd4169c8amz02-amazon-1",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "bizbd4169c8amz02-amazon-1:1:6356bb20532590269079461c5ea3d56efd914b934ba6b725e772a2bd896fa1ac"
+        ]
+      },
+      {
+        "sessionId": "bizc89f2e5camz32a-amazon-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.1598622417031934877896055103",
+        "unresolvedReservationEur": "1.1279228911351641470614545129",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizc89f2e5camz32b-amazon-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.0083817872797209052688075856",
+        "unresolvedReservationEur": "1.1322211289024062975221397263",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizc89f2e5camz32c-amazon-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.1847168798640307719831827535",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizcd864165amz01-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.0917926469272743536988997226",
+        "unresolvedReservationEur": "0.6889882815994274979872976116",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizebf01483amz01-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.4386912781819814964519895803",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "bizf5789246amz01-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3832274800966097146435280436",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c14eb5f8565a00626f0b0659ba4c1f0a04f1f1ad6798ae58d10ad3bfb686b22b",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5629183400267737617135207495",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c2fb4dd8a95ea236888d19596f44b5b637c6f13030e4ee403bbdfe58d051ba97",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4682840131520483426641784412",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c5f30cf4087f4894ad8a2e7f82e9ec77",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8805707129439126934430628858",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c642754008faf52d39246d9f2bdd51878395f98e8d937b226017d73782612e2e",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1009995537706381079875055776",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c71ed7948a58e22315d8c97306b25af79b49d5300f385d7f7f1be493171bec24",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4232871234337509997334044253",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c8a9bb18e5d54d594470f0344fc64f28f6c39d1708601ae69094299452f9b9ad",
+        "httpAttempts": 16,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.8199196787148594377510040161",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c935241801e86ea95120d0b164ab20feaefd73496a1ea956a31575214393020b",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2336088154269972451790633609",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c9376fc338f2f26a2179959305964951c09d9cab7e6adc4bf70c97db7acdb643",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0138643462739848282016956716",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "cd48d8313d0d5a686e1383ce9af3e1240ffb65a6ae6c64a7565660b8ed780324",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0129521016617790811339198436",
+        "unresolvedReservationEur": "0.4901093041855505198613703012",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "ce34894824af2ef1290e8fddabe4a1d90d4e80c22cbedae7fc6c669512fe393e",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.5408879964301651048639000446",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "cf2f6a6e9676478eb61e8bcbd48f87dd",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.2126576616870918686823508364",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta0b44557f-code-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2196340919232485497545738511",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta131801d4bamz-amazon-1",
+        "httpAttempts": 32,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3590406068719321731369924141",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta131801d4bcode-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5939268183846497099509147702",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta1a236234-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0756671128960285586791610888",
+        "unresolvedReservationEur": "0.4922088353413654618473895582",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta1b749a129amz-amazon-1",
+        "httpAttempts": 37,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.8004863900044622936189201251",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta29ffd813-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4099617879676530702923664801",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta29ffd813-code-1",
+        "httpAttempts": 46,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5187683284457478005865102636",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta2d0485d0-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4699643016510486390004462293",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta2d0485d0-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0497902721999107541276215975",
+        "unresolvedReservationEur": "0.4922088353413654618473895582",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta2d6cbceamz-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5766354306113342257920571174",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta2d6cbcecode-code-1",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.681124497991967871485943775",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta2e5b3a0d-code-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3104283801874163319946452476",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta3adc335-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0353105838443081844841375633",
+        "unresolvedReservationEur": "0.4901093041855505198613703012",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta56783741-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5227621597501115573404730031",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta56783741-code-1",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6278670236501561802766622045",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta615dd0e96-code-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.502949576082106202588130299",
+        "unresolvedReservationEur": "0.547916108879964301651048639",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta61d9f0fb-code-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2414547077197679607318161535",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta9246376d-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4766622043730477465417224453",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta9246376d-code-1",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3641365461847389558232931728",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacta92d8813-code-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5453390207055896205456322758",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaae1d50aa-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4768897813476126729138777331",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaae1d50aa-code-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6773003123605533244087460953",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactad0413d2a4amz-amazon-1",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.7975680499776885319053993752",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactad0413d2a4code-code-1",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9379562695225345827755466312",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactad488720a-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4638674131342753043632809029",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactad488720a-code-1",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1350928641251221896383186704",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaefcb1d7a-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2197858348884741846618679463",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaefcb1d7a-code-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5174797831689327290500311027",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaf05d07c2a-amazon-1",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8101918786256135653726015171",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaf3cb064f8amz-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9324721106648817492190986167",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaf3cb064f8amzhi-amazon-1",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5219366354306113342257920569",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactaf3cb064f8code-code-1",
+        "httpAttempts": 49,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.098969210174029451137884873",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactb1a236234-code-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.42432842481035252119589469",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactbbbd900d9-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4814849373500399893361770194",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactbbbd900d9-code-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5511508042299831156136141475",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactc1a236234-code-1",
+        "httpAttempts": 24,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1673360107095046854082998662",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd08ad5db-amazon-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4750244379276637341153470186",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd08ad5db-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0875011108148938060961521372",
+        "unresolvedReservationEur": "0.4634497467342042122100773127",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd0e76414-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3047542877454900915311472497",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd0e76414-code-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3391006842619745845552297166",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd1984bdc-amazon-1",
+        "httpAttempts": 5,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0853550164400604283302230517",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd1984bdc-code-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2103483515506975917533102284",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd2a25e1e-amazon-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2686172576201901715098196037",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd3513ccd-amazon-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.114231760419443703901181907",
+        "unresolvedReservationEur": "0.2473740335910423886963476406",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd41077d0-amazon-1",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7589842708611037056784857372",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd435d093-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2452101661779081133919843597",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd4a43ea1-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7773926952812583311117035456",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd4a43ea1-code-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4171954145561183684350839774",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd585203a-code-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5398293788323113836310317247",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5bc25f4-amazon-1",
+        "httpAttempts": 8,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3596063272016351195236825735",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5bc25f4-code-1",
+        "httpAttempts": 5,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.132968986048164933795432329",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5c01f98-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2789478361325868657246956367",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5c01f98-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2856260552741491157913445303",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5c01n16-amazon-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2987647738380876210788234248",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd5faf5a1-amazon-1",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1524748955833999822269616991",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd630ec1a-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2365458100062205634053141386",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd630ec1a-code-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1493290678041411179241091264",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd663cf72-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3213187594419265973518172931",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd663cf72-code-1",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.130862881009508575490980183",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd7206ca2-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2451746201013063183151159691",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd7206ca2-code-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2582777925886430285257264731",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd72964ab-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0090064871589798276015284813",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd743e4a3-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0236603572380698480405225273",
+        "unresolvedReservationEur": "0.4723362658846529814271749755",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd7cb6f29-amazon-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0878432418021860837110103972",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd8952a0a-code-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2417222074113569714742735272",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd9345dc8-amazon-1",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4599706744868035190615835776",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactd9345dc8-code-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3471829734293077401581800409",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdaa0915f-amazon-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3224340175953079178885630499",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdafc342c-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4552252732604638762996534255",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdba4ed26-amazon-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0268372878343552830356349416",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdc082c39-amazon-1",
+        "httpAttempts": 24,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4277614858260019550342130984",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdc082c39-code-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.272536212565538078734559673",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdc9cbaf6-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.257273615924642317604194437",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdcd174ea-amazon-1",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": "0.4634497467342042122100773127",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdde5ec55-amazon-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2762641073491513374211321425",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdde5ec55-code-1",
+        "httpAttempts": 5,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.139349506798187150093308451",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactde3f3c4f-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6099795610059539678308006757",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactde3f3c4f-code-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1378965609170887763263129831",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdef351ca-amazon-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1864791611125921976361859059",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdef351ca-code-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1532169199324624544565893538",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdf457292-amazon-1",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1594774726739536123700346574",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdfd7c41a-amazon-1",
+        "httpAttempts": 9,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2030925086643561716875499867",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdfd7c41a-code-1",
+        "httpAttempts": 8,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1780458544388163156491602239",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag1ea-amazon-1",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2225406558251133031191682218",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag1ea-code-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0392695281258331111703545721",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag673-amazon-1",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": "0.2479472140762463343108504399",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag707-amazon-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0580334133120056873722562872",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag707-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0650582067004354394383719897",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag88-amazon-1",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2222340709144228205811783524",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactdiag88-code-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2510397227406025059984004265",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactf26340bf5amz11a-amazon-1",
+        "httpAttempts": 16,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.5638821954484605087014725569",
+        "unresolvedReservationEur": "0.9566622043730477465417224453",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactf34a89139amz11a-amazon-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "4.7302052655064703257474341812",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactf664895d7code11a-code-1",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.7055287817938420348058902277",
+        "unresolvedReservationEur": "1.0887193217313699241410084784",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactfa7653f78amz11a-amazon-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3872556894243641231593038822",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactfd2aa76f7amz11a-amazon-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.981325301204819277108433735",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactfd66f4843amz11a-amazon-1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.972896028558679161088799643",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacti8952a0a-amazon-1",
+        "httpAttempts": 15,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5484048698124944459255309694",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compacti8952a0a-code-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7069092686394739180662934326",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactl9fe879ccamz11a-amazon-1",
+        "httpAttempts": 37,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "3.527957423874966316356777149",
+        "unresolvedReservationEur": "1.945490882960567681667115782",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactld99cb6c7amz11a-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.019150273960298212521332974",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactle880124eamz11a-amazon-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0638107987505577867023650157",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactle880124ecode11a-code-1",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.6818245586315440509906327907",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm0801e3d3amz11a-amazon-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.625334590856013653103386329",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm0881cf87code11a-code-1",
+        "httpAttempts": 49,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "4.9313617174166891224288152338",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm11eac1adamz11a-amazon-1",
+        "httpAttempts": 49,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.7317928680499416150184137246",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm2af2bacfamz11a-amazon-1",
+        "httpAttempts": 34,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.8971076978352645288781101232",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm2d09aaeecode11a-code-1",
+        "httpAttempts": 41,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "4.1318332884218090361986885836",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm36cc35f7amz11a-amazon-1",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9444489355968741579089194287",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm491d580eamz11out32b-amazon-1",
+        "httpAttempts": 10,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.6028788287074463307284649241",
+        "unresolvedReservationEur": "0.9979834725590586544507320578",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm5e0bc6d8amz11a-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.7913051288960747327764304322",
+        "unresolvedReservationEur": "0.9874562112638102937213689033",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm5e0bc6d8code11a-code-1",
+        "httpAttempts": 46,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "5.0563998922123416868768526005",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm68dba9afamz11a-amazon-1",
+        "httpAttempts": 12,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.6566199586813976466361268301",
+        "unresolvedReservationEur": "1.0158717326866073834545944489",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm68dba9afamz11b-amazon-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.7650408694871103925267223567",
+        "unresolvedReservationEur": "0.9786849905685798976017246025",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm68dba9afcode11a-code-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.2669181712027306206772657864",
+        "unresolvedReservationEur": "0.5481182071319500583849815863",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm72c7724eamz11a-amazon-1",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.868350848827809215844785772",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm72c7724eamz11out32a-amazon-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "2.419743106081020389832030899",
+        "unresolvedReservationEur": "2.0336117847839755681307823587",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm72c7724ecode11a-code-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.7522006646905595975927422979",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm8d9a936eamz11a-amazon-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.0797224467798437078954459714",
+        "unresolvedReservationEur": "1.8737806521153327943950417678",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm90e78f7bcode11a-code-1",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.9907482259947902631815323813",
+        "unresolvedReservationEur": "0.5860235336387316985538489176",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm9c1d9303amz11a-amazon-1",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.6432228509835623821072487201",
+        "unresolvedReservationEur": "1.0061349142189885924728285278",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactm9c1d9303code11a-code-1",
+        "httpAttempts": 28,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "2.1586634330369172729722446783",
+        "unresolvedReservationEur": "1.7010554208209826641516213061",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactma3ccf16bamz11q1-amazon-1",
+        "httpAttempts": 61,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "6.2972738704751639270636845414",
+        "unresolvedReservationEur": "0.9950507500224557621485673224",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactma3ccf16bcode11q1-code-1",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.2528923021647354711218898768",
+        "unresolvedReservationEur": "1.0914039342495284289948800862",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactmb6a220d5code11a-code-1",
+        "httpAttempts": 22,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.909593101589867960118566424",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactmbb24cbe5code11a-code-1",
+        "httpAttempts": 53,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "6.1831761429982933620767088836",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactmed004934code11a-code-1",
+        "httpAttempts": 63,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "5.8962498877211892571633881254",
+        "unresolvedReservationEur": "1.9924413904607922392886014552",
+        "zeroAttemptRequests": [
+          "compactmed004934code11a-code-1:62:5de44fde0f1f6bf7d6ef5632353aa4108339c7fd9eeb72b9af66231b7c9a0af5:ef35ccac059463411e33328c51126e01af21cbd8426084b7370a8feee1572008"
+        ]
+      },
+      {
+        "sessionId": "compactr08c5229fcamz20v5-amazon-1",
+        "httpAttempts": 51,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "3.1615127175368139223560910309",
+        "unresolvedReservationEur": "2.0496296296296296296296296297",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr08c5229fccode20v5-code-1",
+        "httpAttempts": 48,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.4397456492637215528781793844",
+        "unresolvedReservationEur": "0.9487193217313699241410084784",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr09ac9ff5amz22j20v11a-amazon-1",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.4053235162873717090584560464",
+        "unresolvedReservationEur": "0.991204819277108433734939759",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr09ac9ff5code20nhv11a-code-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "0.0820883534136546184738955824",
+        "unresolvedReservationEur": "2.8729317269076305220883534137",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr2188f836famz20v5-amazon-1",
+        "httpAttempts": 49,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.0662427487728692547969656402",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr2188f836fcode20navhigh-code-1",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.7477376171352074966532797859",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr232a4f229amz20v5-amazon-1",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.5400981704596162427487728693",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr232a4f229code20v5-code-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1826015171798304328424810353",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr40bd4a048code20v5-code-1",
+        "httpAttempts": 36,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.8705443998215082552431950022",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr42757cf76amz22j20v6-amazon-1",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.8807139669790272199910754129",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr42757cf76code20j20v6-code-1",
+        "httpAttempts": 45,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.7162516733601070950468540828",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr42757cf76code20nhv6-code-1",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.5520838911200356983489513608",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr46e356283amz22j20v10a-amazon-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "3.0083712628290941543953592149",
+        "unresolvedReservationEur": "1.5494288264167782240071396698",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr46e356283code20nhv10a-code-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.2844578313253012048192771082",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr47c08b428amz12v5-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.1678134761267291387773315484",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr47c08b428code12v5-code-1",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3840383757251227130745203034",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4857d5558amzv5-amazon-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 4,
+        "measuredUsageTariffEstimateEur": "2.687005800981704596162427488",
+        "unresolvedReservationEur": "3.7234805890227576974564926372",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4857d5558codev5-code-1",
+        "httpAttempts": 37,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "1.6009415439535921463632307006",
+        "unresolvedReservationEur": "1.0154975457385095939312806783",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4d486d1acamz20v6j16-amazon-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "2.6357251227130745203034359663",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4d486d1accode20v6j16-code-1",
+        "httpAttempts": 34,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.0260240963855421686746987952",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4d486d1accode20v6jh1-code-1",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.7763409192324854975457385096",
+        "unresolvedReservationEur": "1.8974386434627398482820169568",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4d486d1accode20v6jh8-code-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.3481392235609103078982597055",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr4d486d1accode20v6nv18-code-1",
+        "httpAttempts": 35,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.1997947344935296742525658191",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr504a557ddamz-amazon-1",
+        "httpAttempts": 13,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.8039446675591253904506916556",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr60e85c9fcamz22j20v7p7a-amazon-1",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.1171976796073181615350290051",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr60e85c9fccode20nhv7p7a-code-1",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.7377867023650156180276662204",
+        "unresolvedReservationEur": "0.9576439089692101740294511379",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr6469a1a38amz22j20v11a-amazon-1",
+        "httpAttempts": 57,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "4.556831771530566711289602856",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr6469a1a38code20nhv11a-code-1",
+        "httpAttempts": 7,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.394207942882641677822400714",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "compactr6469a1a38code20nhv11a-code-1:8:fdb99c3a7cb63c11f3624bbdb990e5c6054a0a989c107cdee3d4ce790fb927df"
+        ]
+      },
+      {
+        "sessionId": "compactr65db90d9bamz22j20v9a-amazon-1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.506546184738955823293172691",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr65db90d9bcode20nhv9a-code-1",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6085408299866131191432396251",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr66360362damz20v6j16-amazon-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.1045247657295850066934404286",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr66360362damz22v6j16-amazon-1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.8112672913877733154841588576",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr66360362damz22v6o16-amazon-1",
+        "httpAttempts": 22,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6885720660419455600178491745",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr66360362dcode20v6nv18-code-1",
+        "httpAttempts": 6,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.267969656403391343150379295",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr686c2964damz20v6-amazon-1",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5315082552431950022311468093",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr686c2964damz20v6j16-amazon-1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6059259259259259259259259261",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr686c2964dcode20v6-code-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.8066354306113342257920571174",
+        "unresolvedReservationEur": "0.9487193217313699241410084784",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr686c2964dcode20v6j16-code-1",
+        "httpAttempts": 24,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2749888442659526996876394466",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr727b27bdaamz20v5-amazon-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.7126907630522088353413654618",
+        "unresolvedReservationEur": "1.8998884426595269968763944668",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr727b27bdacode20v5-code-1",
+        "httpAttempts": 63,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.9431146809460062472110664879",
+        "unresolvedReservationEur": "1.018755020080321285140562249",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7697449ceamz-amazon-1",
+        "httpAttempts": 40,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.0205310129406514948683623382",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7697449ceamz9-amazon-1",
+        "httpAttempts": 31,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.5096340919232485497545738509",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7697449cecode9-code-1",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6618652387327086122266845156",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7e19f7f82amz-amazon-1",
+        "httpAttempts": 32,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.881070950468540829986613119",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7e19f7f82code-code-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.0383623382418563141454707721",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7f962b410amz20v5-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1292771084337349397590361446",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr7f962b410code20v5-code-1",
+        "httpAttempts": 50,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.5507585899152164212405176262",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr821f16a6amz22j20v11a-amazon-1",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.0790316822846943328871039715",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr88f338bf3amz22j20v8p8a-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.1033511825078090138331102187",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr8c2043418amz22v6o16-amazon-1",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2281793842034805890227576974",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr8c2043418code20v6nv18-code-1",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "3.1367157518964747880410531013",
+        "unresolvedReservationEur": "0.9576439089692101740294511379",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr93d3e1c27amz22j20v9p9a-amazon-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "0.0657429718875502008032128514",
+        "unresolvedReservationEur": "2.7926104417670682730923694779",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr93d3e1c27code20nhv9p9a-code-1",
+        "httpAttempts": 27,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.394408746095493083444890674",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr975fd04f8code9-code-1",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9388041053101294065149486836",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9824b7628amz22j20v10a-amazon-1",
+        "httpAttempts": 19,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.8280142793395805443998215082",
+        "unresolvedReservationEur": "1.16335564480142793395805444",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9b3da541camzv5-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0509772423025435073627844712",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9b3da541ccodev5-code-1",
+        "httpAttempts": 37,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7608835341365461847389558231",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9d25c65f9amz22j20v6-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0518830879071842927264614012",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9d25c65f9amz22v6o16-amazon-1",
+        "httpAttempts": 37,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.6300267737617135207496653281",
+        "unresolvedReservationEur": "0.6402588130298973672467648371",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactr9d25c65f9code20j20v6-code-1",
+        "httpAttempts": 16,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9743864346273984828201695671",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactra6bd5978amz22j20v11a-amazon-1",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.0517269076305220883534136546",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactra6bd5978code20nhv11a-code-1",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6774654172244533690316822845",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactra93486695code9-code-1",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "2.7922579205711735832217759928",
+        "unresolvedReservationEur": "1.5331593038821954484605087015",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrafc8861e4amz20v5-amazon-1",
+        "httpAttempts": 45,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.8833868808567603748326639894",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrafc8861e4code20v5-code-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.4283578759482373940205265507",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrb2ee37324amz22j20v11a-amazon-1",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.1172378402498884426595269966",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrb2ee37324code20nhv11a-code-1",
+        "httpAttempts": 30,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.2814725568942436412315930387",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrba86cf874amz20v5-amazon-1",
+        "httpAttempts": 35,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6127710843373493975903614458",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrba86cf874code20v5-code-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "0.3714502454261490406068719322",
+        "unresolvedReservationEur": "2.8461579651941097724230254352",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrc17ee8a42amzv5-amazon-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.6682507809013833110218652388",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrc17ee8a42code12v5-code-1",
+        "httpAttempts": 23,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2553369031682284694332887102",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrcb1d9899bcode20nhv8p8a-code-1",
+        "httpAttempts": 42,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "3.6075992860330209727800089245",
+        "unresolvedReservationEur": "3.005818830879071842927264614",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrd5a4cac23amz22j20v8p9a-amazon-1",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.9907764390896921017402945115",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrd5a4cac23code20nhv8p9a-code-1",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.5889915216421240517626059799",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrdbe1ad97amz22j20v11a-amazon-1",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.4896073181615350290049085228",
+        "unresolvedReservationEur": "0.9984917447568049977688531905",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrdbe1ad97code20nhv11a-code-1",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.220379294957608210620258813",
+        "unresolvedReservationEur": "0.9576439089692101740294511379",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre0c057b15amz22j20v6p7a-amazon-1",
+        "httpAttempts": 44,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.9654529228023203926818384653",
+        "unresolvedReservationEur": "0.6197278000892458723784024989",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre0c057b15code20nhv6p7a-code-1",
+        "httpAttempts": 5,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.2253369031682284694332887104",
+        "unresolvedReservationEur": "1.9152878179384203480589022758",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre3df8d62camz22j20v8p8b-amazon-1",
+        "httpAttempts": 33,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.1189825970548862115127175363",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre3df8d62ccode20nhv8p8b-code-1",
+        "httpAttempts": 24,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.2733913431503792949576082107",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre44e08fdamz22j20v11a-amazon-1",
+        "httpAttempts": 40,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "3.3445247657295850066934404285",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre44e08fdcode20nhv11a-code-1",
+        "httpAttempts": 32,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "2.8814323962516733601070950469",
+        "unresolvedReservationEur": "0.9576439089692101740294511379",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactre6b24bb77amz20v5-amazon-1",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "2.6069790272199910754127621594",
+        "unresolvedReservationEur": "1.4897054886211512717536813922",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "compactrf0644826bcode20v5-code-1",
+        "httpAttempts": 47,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.2625925925925925925925925928",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d1699d8e12cbf6b3bcc66a72eddef9f226315c36f7e362dc48c47567cf0f141f",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3068159601883942059895139075",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d1efb68ddada209414e4ac70177d8cab6749b3037989dcf5412499d446c59834",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.627037234515240380343019639",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d3ea97e279b16a90dbec42bfa1be139bb51c0976662f27708b7bbedc9a141da2",
+        "httpAttempts": 16,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4557072735385988398036590807",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d43ed189e25344cc141a7c894ada73e4f306968ab80b9e9104b3a9ad3a07d87b",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.8970593485051316376617581437",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d690f70b2545c47eb695f049f3eac320fea5c3cdc94c47c49979bb3f91822be5",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.123302097278000892458723784",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d795c8e19725bc251f5a6b067cbf39926e3525df59958830b50f0d254ef594e6",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.9953413654618473895582329317",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "d96f3c14ce804bf28895a5ec52342e71",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "2.6705608730655693711423204222",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "da4c5c4245d7949b5a5ac8e5316b10dc0d6e99e5f96f473a4d740532c1fc71a3",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.0183891120035698348951361",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "dc8ef00e82ffa71d9cc63d02b43eebba0cc6591f18772bc50937a812dd2002fa",
+        "httpAttempts": 2,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4638063364569388665774207943",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "dd4bfd1a02e7e6dc8c12ec85fc925fe738fd68bcdfaa691e4d4b0895b8250cc3",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "0.0163275323516287371709058456",
+        "unresolvedReservationEur": "2.7926104417670682730923694779",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e0313b66172484ccf44d165e690980418732b743ee19af62b54e494014e6fb19",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.9111646586345381526104417671",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e119e99a05a7b51a63e86cf1ba94e2b3cb1ea927adaf19d7926ffd5e9d7c7cc8",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6640919232485497545738509593",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e25d877baba419e40ade3c69ed7359f4d61cb2c222a883537de9df65753c37fa",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.1785143267762507859516752001",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e284003016826577d513b0e1eff7bab1e301f503202cce77305db7c0dab08421",
+        "httpAttempts": 29,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "1.1615796519410977242302543507",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e33cfadfc199d70de53bf5bf2824006a38ccf2fe1e9f5fb48b60369ca18c2349",
+        "httpAttempts": 20,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.654616904697745441480283841",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e5624a102aec439d9ebf44e92ee9ffc5",
+        "httpAttempts": 4,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5256373557563288308435459345",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e575c1eed6ebdd815d805dfd4b96f6f383a32b4e3b6e17952738b6d62e894039",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": "0.7262739848282016956715751897",
+        "unresolvedReservationEur": "0.9308701472556894243641231593",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7585988398036590807675145025",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "e7d1b6a4a3ed299230f00fdbbb099bae33f49b2c1a1d33fd3537d45fa135e6c1:19:8c7284f7f0b9306b3d3ce428174cb2059591f02fe2ff539c76adf2521e52d16d"
+        ]
+      },
+      {
+        "sessionId": "ec1954123f6d34919928f33aa68796dad6b1006cef044173ab3d9f03c4989fa2",
+        "httpAttempts": 25,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.4871589798276015284812938771",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "f25d897e6c507d9131894e0fb23b0aa02c41ded8a7036e09a3146fabba2db2ce",
+        "httpAttempts": 22,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.9897367246764837126282909416",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "f6afec4453f655e65a2a3f794a2e74c2f33ba21ede10ad69993d3a0260a6f22c",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 1,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": "0.9368903260576663971975208839",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "f8bfa2fc7da2a8996d88d57687052c01cd687b7a56baaf2ff871b56c982d5395",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.031947036345863325335466098",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "f92d690471003d85818e7695fc3dbb91deb91aabe28cf3318827868b2169f1a1",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.5899138007642406469385941528",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "fa806aae674eab23be62952e9c6ec756fe44500042ce9560fffcbd070fff997e",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.506439089692101740294511379",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "fa89e4fbb99abd986c0b9f5f06472c169247e7c8b20cfa698546a92c2b23cf07",
+        "httpAttempts": 17,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3992135430551852839242868569",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "fc0b18ded02345894b5e0167b8ee4cfdf759cda7994055accafdd4fd2f45762e",
+        "httpAttempts": 26,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.2186702365015618027666220436",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 2,
+        "measuredUsageTariffEstimateEur": "0.0153904506916555109326193664",
+        "unresolvedReservationEur": "1.8617402945113788487282463186",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "ff59fddfdb21fd92689390ea9411b2f76c3acbe0228b8ef80395fbc62d7aeb15",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.1933706567137652181640451435",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "g611f801c40amz32a-amazon-1",
+        "httpAttempts": 14,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "3.2307630378388049020484837641",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "g615656ccddamz32a-amazon-1",
+        "httpAttempts": 11,
+        "unresolvedAttempts": 3,
+        "measuredUsageTariffEstimateEur": "1.4110653904642633509258430987",
+        "unresolvedReservationEur": "21.986841399051793541461669202",
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "incremental1-amazon-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3779125566515595841109037589",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "incremental1-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.2008442193192926330756242779",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "incremental2-code-1",
+        "httpAttempts": 3,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.3034612992090997956100595397",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "serverlive-20261106-probe-01",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0081849897128544592539583147",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "serverlive-20261106-probe-02",
+        "httpAttempts": 1,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.0083996779676178549065211557",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "startup-qualified-probe-c730-20261106-2149",
+        "httpAttempts": 0,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": 0,
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": [
+          "startup-qualified-probe-c730-20261106-2149:probe:8c84cb225c07a1e0f3f91506033e9021a57806669d43905693f2d0ac633d48dd"
+        ]
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "globallyAvailableFunding": null,
+  "fundingLimitation": "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+  "modelDispatches": 0,
+  "historicalChanges": false,
+  "sourceRevision": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "rawEvidenceSha256": "8aa5a93fa43fcadd3e58944a249d44dada1891f9b7ed413188b51825190362aa"
+}

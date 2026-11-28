@@ -1,0 +1,248 @@
+{
+  "archive_version": 1,
+  "source": "131801d4ba0087f70d9a7d864b4ab8e31c603f50",
+  "cohort": "compacta131801d4b",
+  "campaign": "schema-portability-20261019-incremental",
+  "snapshot_at": "2026-10-23T13:28:59.7911550+00:00",
+  "status": "incomplete",
+  "scope": "Collections only. No artifact, delegated approval or runtime execution. Separate Amazon or Review PR runs are outside this immutable snapshot.",
+  "run": {
+    "run_key": "131801d4ba0087f70d9a7d864b4ab8e31c603f50:fixture:cohort:compacta131801d4b:collections:1",
+    "run_hash": "25744425b0ca0c1d2329b23401edb70c901824ed48cdc650c4f18c30e034f979",
+    "session_status": "stopped",
+    "session_phase": "construction_intent",
+    "diagnostic_codes": [
+      "MODEL_OUTPUT_LIMIT"
+    ],
+    "calls": 2,
+    "corrections": 0,
+    "checkpoints": 0,
+    "planning_ms": 325193,
+    "planning_latency_from_completed_call_stages_ms": "322023.4339",
+    "artifact_hash": null,
+    "construction_complete": false,
+    "execution_started": false,
+    "runtime_ms": null,
+    "scenario": "collections",
+    "receipts": 2,
+    "judge_reviews": 0,
+    "business_acceptance": "incomplete; no artifact or runtime execution",
+    "useful_obligations_satisfied": 0,
+    "calls_per_useful_obligation": null
+  },
+  "frozen_configuration": {
+    "model": "gpt-5.5-2026-04-24",
+    "profile": "medium-navigation-ceiling12000",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "targetInputTokens": 3000,
+        "maxInputTokens": 12000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "draft": {
+        "targetInputTokens": 8000,
+        "maxInputTokens": 16000,
+        "reasoning": "medium",
+        "outputTokens": 16384
+      },
+      "review": {
+        "targetInputTokens": 4000,
+        "maxInputTokens": 8000,
+        "reasoning": "medium",
+        "outputTokens": 4096
+      }
+    },
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "max_input_tokens": 32000,
+    "max_output_tokens": 16384,
+    "construction_preset": "ordinary",
+    "construction_version": 2,
+    "presentation_version": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "benchmark_binary_sha256": "b0ba2f9b85eb309510f19a5b4b1c5417952a0501d977dbc568a5cf80c38ca6e1",
+    "configuration_hash": "e4b187879e34ce4b48999e72941caa81a3fd02a5b0bbc1cf9a8f67ab15bbd078",
+    "metadata_hash": "f37630df13544d2e2d11910560424f2224aeb414d63b3cb924e458e7b742237f",
+    "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+    "mcp_files_verified": 568,
+    "supported_reasoning_efforts": [
+      "medium",
+      "high",
+      "max"
+    ],
+    "low_profile_tested": false
+  },
+  "profile_change": {
+    "from_cohort": "compactab1c29b359",
+    "settings_unchanged": true,
+    "source_change": "Existing one-reassessment exact lookup now admits omitted accepted producers selected by verified consumed bindings and issued task links, excluding already concrete or invalidated evidence. No policy/schema/authority change.",
+    "comparison_limit": "Fresh configuration diagnostic; no causal or business improvement assumed before independently reviewed runtime acceptance."
+  },
+  "measurement_conventions": {
+    "components": "Complete serialized UTF-8 bytes reconcile with component bytes; conservative estimates are not billed usage. Independently rounded component estimates need not sum to the whole-request estimate.",
+    "estimator": "serialized_utf8_div3_plus256_v1",
+    "reasoning": "Provider output includes reasoning; visible output is derived, not additional billed tokens.",
+    "precision": "Monetary amounts remain exact recorded Decimal strings; derived balance uses Decimal precision 80. Recorded ledger totals remain authoritative rather than reconstructed from independently rounded run costs.",
+    "business_denominator": [
+      "exact_outputs",
+      "declared_effects",
+      "cleanup"
+    ]
+  },
+  "phase_aggregates": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_requests": 2,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "5469.5",
+        "p95": 8527,
+        "maximum": 8527,
+        "total": 10939
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": "2079.5",
+        "p95": 3099,
+        "maximum": 3099,
+        "total": 4159
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 824,
+          "estimated_tokens": 787
+        },
+        "instructions": {
+          "serialized_bytes": 2355,
+          "estimated_tokens": 785
+        },
+        "intent": {
+          "serialized_bytes": 1810,
+          "estimated_tokens": 604
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "calls": 2,
+        "receipts": 2,
+        "input_tokens": 1957,
+        "output_tokens_including_reasoning": 16997,
+        "reasoning_tokens": 16896,
+        "visible_output_tokens_derived": 101,
+        "known_receipted_cost_sum_eur": "0.4638063364569388665774207943",
+        "receipted_call_stage_latency_ms": "322023.4339"
+      }
+    }
+  },
+  "provider_usage": {
+    "request_identities": 2,
+    "http_attempts": 2,
+    "receipts": 2,
+    "unknown_attempts": 0,
+    "empty_completed_responses": 1,
+    "known_input_tokens": 1957,
+    "known_output_tokens": 16997,
+    "known_reasoning_tokens": 16896,
+    "reasoning_measured_calls": 2,
+    "known_cost_eur": "0.4638063364569388665774207943",
+    "unknown_usage_reservation_eur": "0",
+    "cost_upper_bound_eur": "0.4638063364569388665774207943"
+  },
+  "response_format": {
+    "receipts": 2,
+    "original_text_bytes": 427,
+    "formatting_whitespace_outside_strings": 0,
+    "maximum_whitespace_run": 0,
+    "empty_completed_responses": 1,
+    "method": "Safe original-receipt measurements; no raw payload copied. This run has an empty output-limit response, not a whitespace-heavy valid response."
+  },
+  "stop_evidence": {
+    "request_number": 2,
+    "request_id": "dc8ef00e82ffa71d9cc63d02b43eebba0cc6591f18772bc50937a812dd2002fa:2:209e06e578cf585d9fea06d16cfa88fa3da982c0241f737a08eb47619e446d7c",
+    "complete_request_bytes": 8527,
+    "estimated_input_tokens": 3099,
+    "captured_input_ceiling": 12000,
+    "http_statuses": [
+      200
+    ],
+    "completion_status": "output_limit",
+    "original_response_text_bytes": 0,
+    "provider_input_tokens": 1580,
+    "provider_output_tokens_including_reasoning": 16384,
+    "provider_reasoning_tokens": 16384,
+    "visible_output_tokens_derived": 0,
+    "elapsed_ms": "307628.4855",
+    "request_hash": "208d00636d467447545ba86d0b73391c8ef4c4eca6334b320148ea233d488af6",
+    "schema_hash": "fd9506061aac3e55b9cadbe42f7931077a4d461546e95be2f55f1175a96893fc",
+    "receipt_hash": "b2ff3145ac3aa42939303c153ce6e2f11fc2c6152d74a4080ce9eccf73a53484",
+    "response_content_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "assessment": "Interface extraction consumed the full captured 16,384 output allowance as reasoning and returned no visible response. Its HTTP 200 receipt and usage are retained. This does not establish why reasoning exhausted the allowance; the producer-reassessment change was not reached."
+  },
+  "campaign_snapshot": {
+    "reserved_requests": 1632,
+    "completed_receipts": 1613,
+    "receiptless_identities": 19,
+    "permanently_closed_identities": 19,
+    "pending_uncertain_identities": 0,
+    "new_uncertain_attempts_in_this_run": 0,
+    "unknown_transport_attempts": 18,
+    "campaign_ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "55.591308182461770420644038278",
+    "unknown_usage_reservation_eur": "8.080341250662771349624333406",
+    "cost_upper_bound_eur": "63.671649433124541770268371684",
+    "available_allowance_eur": "176.358454399581762772176575616",
+    "evidence_hash": "862e0f1c37ad254785ce454fef9afc65395a6165d40289a03ccb1f6370cabad9",
+    "interpretation": "Post-Collections historical snapshot only, before later independent runs. All nineteen prior receiptless identities remain permanently closed with reservations intact. No allowance changed."
+  },
+  "validation_at_freeze": {
+    "focused_planning_passed": 45,
+    "complete_planning_passed": 2632,
+    "warnings_as_errors": true,
+    "planning_rollup_sha256": "a8474499ce735abff18b5ba4ff20e935f9d6a6539ce2b35ea3aeaa9ff1cf51fb",
+    "limitation": "45 focused and2632 complete Planning tests WAE passed on exact production/test snapshot with independent review. Current eleven publication stages and CI running; full solution16d8e83 passed7630tests/13skips but excludes later source. No current business acceptance."
+  },
+  "comparison_limits": [
+    "No current-source business acceptance or paired baseline comparison. Calls per independently satisfied useful obligation are undefined.",
+    "Both constructed requests were admitted within captured ceilings. No generation, Judge, producer reassessment or runtime execution occurred.",
+    "The separate 615dd0e96 whitespace-heavy successful extraction remains separate evidence; it does not explain this empty response."
+  ],
+  "safe_evidence_index": {
+    "freeze.json": {
+      "sha256": "08110e4ba6e1d5e1bbbd121fe07a86b6e505680392c5534000daa47afa62676d",
+      "bytes": 5391
+    },
+    "collections-safe-metrics.json": {
+      "sha256": "802f754bc3f06b786657b18a3ef69a9b24420c25e1e2f7c4c3b5f22723087540",
+      "bytes": 10259
+    },
+    "collections-response-format-metrics.json": {
+      "sha256": "8057438aa4f7201dcb9c44911f53f0626e16a9c67d87959f6ef8f26c8c882944",
+      "bytes": 993
+    },
+    "campaign-post-collections-audit.json": {
+      "sha256": "21ece6599b2e856457dd1ed087a9b5ea6bdad03510e48e99d17a024f5fc18736",
+      "bytes": 5095
+    }
+  }
+}

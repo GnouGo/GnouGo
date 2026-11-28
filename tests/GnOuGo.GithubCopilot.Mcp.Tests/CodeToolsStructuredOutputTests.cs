@@ -16,6 +16,41 @@ namespace GnOuGo.GithubCopilot.Mcp.Tests;
 public sealed class CodeToolsStructuredOutputTests : IDisposable
 {
     [Fact]
+    public void CommandResultsRetainOrderedReceiptsAndLeaveConflictsOrMissingCommandsUnverified()
+    {
+        var terminal = new CopilotTerminalObservation("/repo", 1, new string('x', 50000));
+        var completed = new CopilotToolExecutionObservation("install", null, "shell", """{"command":"npm ci"}""",
+            true, true, false, [terminal], null) { IsShellCommand = true };
+        var conflict = completed with { ToolCallId = "conflict", ConflictingCompletion = true };
+        var waiting = completed with { ToolCallId = "waiting", CompletionObserved = false };
+        var invalid = completed with { ToolCallId = "missing", ArgumentsJson = "{" };
+        var read = completed with { ToolCallId = "read", IsShellCommand = false, ArgumentsJson = """{"path":"file.txt"}""" };
+
+        var rows = CodeCommandResult.FromObservations([completed, read, conflict, waiting, invalid]);
+
+        Assert.Collection(rows,
+            row => Assert.Equal(new CodeCommandResult("install", "npm ci", "/repo", 1, null), row),
+            row => Assert.Equal(new CodeCommandResult("conflict", "npm ci", null, null, null), row),
+            row => Assert.Equal(new CodeCommandResult("waiting", "npm ci", null, null, null), row),
+            row => Assert.Equal(new CodeCommandResult("missing", null, null, null, null), row));
+        Assert.Equal(50000, terminal.Text!.Length);
+    }
+
+    [Fact]
+    public void CompactDeferredExitRequiresOneLaterSourceInTheSameSession()
+    {
+        var terminal = new CopilotTerminalObservation("/repo", 2, "observed") { ShellId = "shell" };
+        var read = new CopilotToolExecutionObservation("read", null, "read_terminal", "{}", true, true, false, [terminal], null)
+            { CopilotSessionId = "s", StartedSequence = 3, CompletedSequence = 4 };
+        var cmd = new CopilotToolExecutionObservation("test", null, "shell", """{"cmd":"run-test"}""", true, true, false,
+            [terminal with { SourceToolCallId = "read" }], null)
+            { IsShellCommand = true, CopilotSessionId = "s", StartedSequence = 1, CompletedSequence = 2 };
+        Assert.Equal(new CodeCommandResult("test", "run-test", "/repo", 2, "read"), Assert.Single(CodeCommandResult.FromObservations([cmd, read])));
+        Assert.Null(Assert.Single(CodeCommandResult.FromObservations([cmd, read, read])).ExitCode);
+        Assert.Null(Assert.Single(CodeCommandResult.FromObservations([cmd, read with { CopilotSessionId = "other" }])).ExitCode);
+    }
+
+    [Fact]
     public void LegacyAgentContract_HidesInjectedContextAndExposesObservations()
     {
         var method = typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!;
@@ -25,10 +60,19 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             Microsoft.Extensions.Logging.Abstractions.NullLogger<CodeTools>.Instance, host.Human);
         var tool = McpServerTool.Create(method, target, new McpServerToolCreateOptions { SerializerOptions = CodeMcpJson.SerializerOptions });
         var schema = JsonNode.Parse(tool.ProtocolTool.InputSchema.GetRawText())!;
+        Assert.Contains("independently verifiable objective", schema["properties"]!["task"]!["description"]!.ToString());
         Assert.Null(schema["properties"]?["requestContext"]);
         Assert.Null(schema["properties"]?["tenantId"]);
         var output = JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText())!;
-        Assert.NotNull(output["properties"]?["toolExecutions"]);
+        Assert.Contains("host-provided package caches",
+            tool.ProtocolTool.InputSchema.GetProperty("properties").GetProperty("task").GetProperty("description").GetString(), StringComparison.Ordinal);
+        var fields = output["properties"]!;
+        Assert.Contains("Original input", fields["task"]?["description"]?.ToString() ?? "");
+        Assert.Contains("returned text", fields["summary"]?["description"]?.ToString() ?? "");
+        Assert.Contains("terminal exit codes", fields["toolExecutions"]?["description"]?.ToString() ?? "");
+        Assert.Contains("Progress stream", fields["progressEvents"]?["description"]?.ToString() ?? "");
+        Assert.NotNull(fields["commandResults"]);
+        Assert.Contains("exitCode", fields["commandResults"]!.ToJsonString());
     }
 
     [Theory]
@@ -200,46 +244,6 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             Assert.Contains("workspace.directory", description, StringComparison.Ordinal);
             Assert.DoesNotContain("git_clone", description, StringComparison.Ordinal);
         }
-    }
-
-    [Fact]
-    public void CompleteCopilotReview_AdvertisesEncapsulatedReviewPhases()
-    {
-        var review = DiscoverCopilotTools()["copilot_review"];
-        var validation = McpCapabilityCompositionParser.ParseAndValidate(review.ProtocolTool.Meta);
-
-        Assert.True(validation.IsValid, string.Join(Environment.NewLine, validation.Errors));
-        Assert.Equal(McpCapabilityCompositionMetadata.CompleteOperationKind, validation.Contract!.Kind);
-        Assert.Equal(
-            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
-            validation.Contract.Encapsulates.Select(static capability => capability.Method).ToArray());
-        var artifactMetadata = Assert.IsType<JsonObject>(
-            review.ProtocolTool.Meta?[McpArtifactContractMetadata.MetaPropertyName]?[McpArtifactContractMetadata.ArtifactsPropertyName]);
-        Assert.Contains(
-            Assert.IsType<JsonArray>(artifactMetadata["consumes"]),
-            item => item is JsonObject consume
-                    && consume["kind"]?.GetValue<string>() == McpArtifactContractMetadata.RevisionComparisonFilesKind
-                    && consume["pointer"]?.GetValue<string>() == "/filesJson"
-                    && consume["required"]?.GetValue<bool>() == true);
-        var artifactValidation = McpArtifactContractParser.ParseAndValidate(
-            review.ProtocolTool.Meta,
-            JsonNode.Parse(review.ProtocolTool.InputSchema.GetRawText()),
-            JsonNode.Parse(review.ProtocolTool.OutputSchema!.Value.GetRawText()));
-        Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
-    }
-
-    [Theory]
-    [InlineData("copilot_review")]
-    [InlineData("copilot_review_start")]
-    public void ReviewToolsDeclareOptionalRuntimeResultsContext(string name)
-    {
-        var schema = JsonNode.Parse(DiscoverCopilotTools()[name].ProtocolTool.InputSchema.GetRawText())!;
-        var context = schema["properties"]!["runtimeContextJson"]!;
-        Assert.Contains("string", context["type"]!.ToJsonString());
-        Assert.Contains("original upstream execution results", context["description"]!.ToString());
-        Assert.DoesNotContain(schema["required"]!.AsArray(), p => p?.ToString() == "runtimeContextJson");
-        Assert.NotNull(schema["properties"]!["reviewInstructions"]);
-        Assert.NotNull(schema["properties"]!["existingCommentsJson"]);
     }
 
     [Fact]
@@ -444,64 +448,22 @@ public sealed class CodeToolsStructuredOutputTests : IDisposable
             artifact.Kind == McpArtifactContractMetadata.WorkspaceDirectoryKind
             && artifact.Pointer == "/projectRoot"
             && artifact.Required);
-        var reviewMetadata = tools["copilot_review"].ProtocolTool.Meta?[McpCapabilityCompositionMetadata.MetaPropertyName];
-        var reviewComposition = Assert.IsType<JsonObject>(
-            reviewMetadata?[McpCapabilityCompositionMetadata.CompositionPropertyName]);
-        Assert.Equal(
-            McpCapabilityCompositionMetadata.CompleteOperationKind,
-            reviewComposition["kind"]?.GetValue<string>());
-        Assert.Equal(
-            ["copilot_review_start", "copilot_review_analyze_batch", "copilot_review_finish"],
-            Assert.IsType<JsonArray>(reviewComposition["encapsulates"])
-                .Select(static item => item!["method"]!.GetValue<string>())
-                .ToArray());
+        var oneShotComposition = Assert.IsType<JsonObject>(interactive.ProtocolTool.Meta?["gnougo"]?["composition"]);
+        foreach (var name in new[] { "code_suggest_change", "code_agent_edit" })
+        {
+            var tool = tools[name].ProtocolTool;
+            Assert.True(JsonNode.DeepEquals(oneShotComposition, tool.Meta?["gnougo"]?["composition"]), name);
+            var artifacts = McpArtifactContractParser.ParseAndValidate(tool.Meta, JsonNode.Parse(tool.InputSchema.GetRawText()),
+                JsonNode.Parse(tool.OutputSchema!.Value.GetRawText()));
+            Assert.True(artifacts.IsValid);
+            var consumed = Assert.Single(artifacts.Contract!.Consumes);
+            Assert.Equal(McpArtifactContractMetadata.WorkspaceDirectoryKind, consumed.Kind);
+            Assert.Equal("/projectRoot", consumed.Pointer);
+            Assert.True(consumed.Required);
+        }
         Assert.Equal(
             "management_only",
             tools["copilot_permission_grants_list"].ProtocolTool.Meta?["gnougo"]?["management"]?["visibility"]?.GetValue<string>());
-    }
-
-    [Fact]
-    public void ExistingReviewComments_AcceptsDirectArraysAndThreadEnvelopes()
-    {
-        var parser = typeof(CopilotTools).GetMethod(
-            "ParseExistingReviewComments",
-            BindingFlags.Static | BindingFlags.NonPublic);
-        Assert.NotNull(parser);
-
-        static IReadOnlyList<ExistingReviewComment> Parse(MethodInfo method, string json) =>
-            Assert.IsAssignableFrom<IReadOnlyList<ExistingReviewComment>>(method.Invoke(null, [json]));
-
-        var direct = Parse(parser!, """
-            [{"path":"src/a.cs","side":"Right","startLine":4,"endLine":5,"body":"Existing issue","fingerprint":"fp-1"}]
-            """);
-        var enveloped = Parse(parser!, """
-            {
-              "review_threads": [
-                {
-                  "path": "src/b.cs",
-                  "side": "RIGHT",
-                  "line": 17,
-                  "comments": [{"body":"Thread comment"}]
-                }
-              ],
-              "totalCount": 1,
-              "pageInfo": {"hasNextPage": false}
-            }
-            """);
-        var emptyEnvelope = Parse(parser!, """
-            {"review_threads":[],"totalCount":0,"pageInfo":{"hasNextPage":false}}
-            """);
-        var absent = Parse(parser!, "null");
-
-        Assert.Single(direct);
-        Assert.Equal("fp-1", direct[0].Fingerprint);
-        var thread = Assert.Single(enveloped);
-        Assert.Equal("src/b.cs", thread.Path);
-        Assert.Equal(17, thread.EndLine);
-        Assert.Equal(ReviewDiffSide.Right, thread.Side);
-        Assert.Equal("Thread comment", thread.Body);
-        Assert.Empty(emptyEnvelope);
-        Assert.Empty(absent);
     }
 
     private static Type UnwrapToolReturnType(Type returnType)

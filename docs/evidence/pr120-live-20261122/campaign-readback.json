@@ -1,0 +1,72 @@
+{
+  "readAtUtc": "2026-11-22T08:50:24+00:00",
+  "campaign": "pr120-live-20261107-400",
+  "funding": {
+    "ceilingEur": 3600,
+    "authorizationCount": 10,
+    "auditSha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+    "paidCallsThisPass": 0,
+    "newChargesEur": 0,
+    "newReservationsEur": 0,
+    "historicalCalls": 4806,
+    "measuredTokenCostEur": "2476.7233424365265526858317768",
+    "retainedHttpReservationsEur": "495.81437180601547344334618",
+    "retainedHttpReservationCount": 56,
+    "retainedApplicationReservationsEur": "171.63356950311035727717154657",
+    "campaignMarginEur": "455.8287162543476165936504964",
+    "providerInvoicedCost": null,
+    "independentAuditReadsThisPass": 3,
+    "lastReadUtc": "2026-11-22T09:22:59+00:00"
+  },
+  "review02": {
+    "run": "slim519-verified-20261121-02",
+    "requestId": "11ff84808e0a45358f5de80b1af5cee0-copilot:24f834efc5515301dfee47481ee30193c08b0530dda462afab18df6809177fc6",
+    "wireSha256": "577d9ceb9a877c71e0cb4df2d6361b1d99c6d72ef62a90e2d21becbc8ae611e0",
+    "physicalAttempts": 1,
+    "retainedEur": "3.2908296943231441048034934498",
+    "receiptId": null,
+    "httpStatus": null,
+    "usage": null,
+    "availableResponseBody": false,
+    "availablePartialBody": false,
+    "originalExecution": {
+      "cloneCount": 1,
+      "requiredChecksExecuted": 0,
+      "requiredCheckCount": 30,
+      "reportDelivered": false,
+      "cleanupSucceeded": true
+    },
+    "independentReadback": {
+      "reviewIds": [
+        5965332934,
+        5965449885,
+        5965450275,
+        5965450631
+      ],
+      "inlineIds": [
+        4620992966,
+        4620992982,
+        4620992998,
+        4621091918,
+        4621092251,
+        4621092563
+      ],
+      "newReviews": 0,
+      "newInlineComments": 0,
+      "cloneAbsent": true,
+      "runKubeconfigAbsent": true,
+      "kindClusterAbsent": true,
+      "podmanClusterContainers": 0,
+      "lastGitHubReadUtc": "2026-11-22T09:21:22+00:00"
+    },
+    "disposition": "awaiting_external_provider_evidence",
+    "replayed": false
+  },
+  "liveQualification": {
+    "providerNetworkCheck": "operator verification pending",
+    "freshRealModelMultiMcpRuns": 0,
+    "amazonVerifiedStreak": 0,
+    "slimFaasVerifiedStreak": 0,
+    "requiredStreakPerScenario": 2
+  }
+}

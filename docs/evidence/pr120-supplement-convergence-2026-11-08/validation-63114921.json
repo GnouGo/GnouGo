@@ -1,0 +1,71 @@
+{
+  "source": "631149210e130181a1802c20dd27c0ba6b366d77",
+  "passed": 8568,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-sdk-full-remainder.log": "3e66502b084fedd2d5975290fd801f4f043bff4bba7d1af6344210e7d0274c96",
+    "post-sdk-fixture-shard1.log": "13c95541124b3df34083a35b937b1e8875ac828fd3430a8dd916289883e63bd8",
+    "post-sdk-fixture-shard2.log": "4bb2f5436db3462eb52489a4fd11552c0833f793f5169833cf96379f30beda23",
+    "post-sdk-fixture-shard3.log": "7ec88e9df3cb67033aef1ed7f97d020d2c39fff4a2615cb240b99b38a1866a66",
+    "post-sdk-fixture-shard4.log": "c1a1d59df899ceb641dc1c107eff8063b88c6aeb104c51d67ee40f5d3f37eac4",
+    "post-sdk-clarification-browser-completion.log": "9b8644381ef500f8dc19da7d3cc90bf4338eeacfee52732cf8fb12b24b92fe5b",
+    "post-sdk-release-build.log": "dfe0fa7f6fcf5853d900297300f32f193ee745a452cc5ca9d0b3ae32494cb585",
+    "post-sdk-server-tests-build.log": "1386be67d986b7e3677081ec091781d49a6ca5fd272094550eff40bdd3ca6a4e",
+    "post-sdk-frontend-build.log": "a067c2023019973cabde72337eb2c2307b097192ecf1b38d208d69d8428d0d29",
+    "post-sdk-core-pack.log": "14fed818485b08113232f23743a7688880c6f6a93fe524d6d72344a5ec0bddc0",
+    "post-sdk-planning-pack.log": "f21d5b88bbea81e0e34dec85f8118578a79deffbbeceaad1097b48a982d4db83",
+    "post-sdk-aot-publish.log": "e2992a822be916e10954e28939c3fbe4c2e53399ca03300af876cc07bb4c33ca",
+    "post-sdk-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification.",
+    "One initially unconfigured browser skip was separately executed with the explicit staged Playwright path; counted once as passed, not as a final skip."
+  ],
+  "completed_initial_skips": [
+    "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+  ]
+}

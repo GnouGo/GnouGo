@@ -8,6 +8,26 @@ namespace GnOuGo.KeyVault.Core.Tests;
 public sealed class KeyVaultSecretReaderTests
 {
     [Fact]
+    public async Task VersionReadIsAuditedAndCannotCrossTenantOrReplaceCurrentValue()
+    {
+        using var database = new TemporaryKeyVaultDatabase();
+        await using var db = database.CreateDbContext();
+        var ct = TestContext.Current.CancellationToken;
+        await KeyVaultDatabaseBootstrap.EnsureCreatedAsync(db, ct);
+        var service = new KeyVaultService(db);
+        var tenant = await service.CreateTenantAsync("owner", "test", ct);
+        await service.SetSecretAsync("credential", "first", tenant.Id, "writer", ct);
+        await service.SetSecretAsync("credential", "second", tenant.Id, "writer", ct);
+        Assert.Null(await service.GetSecretVersionAsync("credential", null, "inspection", 1, ct));
+        Assert.Null(await service.GetSecretVersionAsync("credential", tenant.Id, "inspection", 3, ct));
+        Assert.Equal("first", (await service.GetSecretVersionAsync("credential", tenant.Id, "inspection", 1, ct))?.Value);
+        Assert.Equal("second", (await service.GetSecretAsync("credential", tenant.Id, "current", ct))?.Value);
+        var audit = await db.AuditEntries.SingleAsync(e => e.Author == "inspection", ct);
+        Assert.Equal("Read version 1", audit.Details);
+        Assert.Equal(tenant.Id, audit.TenantId);
+    }
+
+    [Fact]
     public async Task Reader_LoadsServiceWrittenSecretAndRecordsAuditWithoutPlaintextAtRest()
     {
         using var database = new TemporaryKeyVaultDatabase();

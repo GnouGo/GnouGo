@@ -12,7 +12,7 @@ namespace GnOuGo.Agent.Server.SmartFlow;
 public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRuntimeFactory runtimeFactory,
     AgentHumanInputProvider human, AgentOTelTelemetry telemetry, IMemoryCache cache, IServiceScopeFactory scopes,
     IWorkflowCandidateProvider candidates, IOptions<OpenTelemetrySettings> settings, ILogger<WorkflowRunService> logger,
-    IExchangeRateProvider? exchangeRateProvider = null)
+    IExchangeRateProvider? exchangeRateProvider = null, OwnerRetentionPolicy? retention = null, GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? workflowOwners = null)
 {
     public string TenantId { get; } = WorkflowExecutionTenant.Resolve(settings);
     public Task<WorkflowRun?> ReadAsync(string id, CancellationToken ct) => store.ReadAsync(TenantId, id, ct);
@@ -37,7 +37,7 @@ public sealed class WorkflowRunService(IWorkflowRunStore store, SecureWorkflowRu
             McpClientFactory = runtime.McpClientFactory, McpCache = cache, HumanInputProvider = human,
             WorkflowCallResolver = new AgentDatabaseWorkflowCallResolver(scopes), WorkflowCandidateProvider = candidates,
             WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
-            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+            PlanningRuntimeFactory = workflowOwners ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(retention ?? OwnerRetentionPolicy.Default),
             PlanningPolicy = Planning.AgentPlanningPolicy.Create(),
             Telemetry = telemetry, Logger = logger,
             LlmDefaults = new() { Provider = runtime.Options.DefaultProvider, Model = runtime.Options.DefaultModel }

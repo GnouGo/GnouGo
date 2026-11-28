@@ -34,7 +34,21 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     public IWorkflowRunStore? RunStore
     {
         get => _runStore;
-        set { _runStore = value; MappingArtifacts ??= value as IMappingArtifactStore; }
+        set
+        {
+            _runStore = value;
+            MappingArtifacts ??= value as IMappingArtifactStore;
+        }
+    }
+    /// <summary>Identity selected by the host from its saved agent catalog.</summary>
+    public string? SavedAgentName { get; init; }
+    /// <summary>Upload IDs supplied by the trusted chat host for this run creation.</summary>
+    public IReadOnlyList<string>? UploadIds { get; init; }
+    private IWorkflowImageStore? _imageArtifacts;
+    public IWorkflowImageStore? ImageArtifacts
+    {
+        get => _imageArtifacts ?? RunStore as IWorkflowImageStore;
+        set => _imageArtifacts = value;
     }
     public IMappingArtifactStore? MappingArtifacts { get; set; }
     internal string MappingExecutionId { get; private set; } = "";
@@ -97,8 +111,19 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         }
     }
 
+    private static void ValidateEntryInputs(WorkflowDef? definition, JsonNode? value)
+    {
+        if (definition?.Inputs is not { Count: > 0 }) return;
+        if (value is not JsonObject inputs)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, "A workflow with declared inputs requires an input object.");
+        var errors = InputTypeValidator.Validate(definition, inputs);
+        if (errors.Count > 0)
+            throw new WorkflowRuntimeException(ErrorCodes.InputValidation, $"Input validation failed: {string.Join("; ", errors)}");
+    }
+
     private async Task<RunResult> ExecuteCoreAsync(CompiledWorkflow workflow, JsonNode? inputs, CancellationToken ct)
     {
+        using var warnings = LLMUsageBudget?.ObserveTokenWarnings();
         // Before any external work, including an earlier step or workflow, require the
         // explicitly configured cumulative budget disclosed by adaptive artifacts.
         if (LLMUsageBudget is null)
@@ -112,7 +137,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                 if (step.Type == "mapping.dynamic" && step.Source.Input?["adaptive_each"] is { } flag &&
                     !(flag is JsonValue literal && literal.TryGetValue<bool>(out var value) && !value))
                     throw new WorkflowRuntimeException(ErrorCodes.LlmBudgetUnverifiable,
-                        "Adaptive mapping requires an explicit finite cumulative runtime budget before execution.",
+                        "Adaptive mapping requires an explicit finite or tracking-only application usage scope before execution.",
                         details: new JsonObject { ["dispatch_status"] = "not_started" });
                 RequireMappingBudget((step.Steps ?? []).Concat(step.Default ?? []).Concat((step.Branches ?? []).SelectMany(b => b)).Concat((step.Cases ?? []).SelectMany(c => c.Steps)));
             }
@@ -131,13 +156,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
         };
 
         // Validate inputs against rich type schema
-        if (workflow.Source?.Inputs != null && data["inputs"] is JsonObject inputsObj)
-        {
-            var typeErrors = InputTypeValidator.Validate(workflow.Source, inputsObj);
-            if (typeErrors.Count > 0)
-                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                    $"Input validation failed: {string.Join("; ", typeErrors)}");
-        }
+        ValidateEntryInputs(workflow.Source, data["inputs"]);
 
         var result = new RunResult { Success = true };
 
@@ -245,13 +264,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             ["env"] = new JsonObject()
         };
 
-        if (workflow.Source?.Inputs != null && data["inputs"] is JsonObject inputsObj)
-        {
-            var typeErrors = InputTypeValidator.Validate(workflow.Source, inputsObj);
-            if (typeErrors.Count > 0)
-                throw new WorkflowRuntimeException(ErrorCodes.InputValidation,
-                    $"Input validation failed: {string.Join("; ", typeErrors)}");
-        }
+        ValidateEntryInputs(workflow.Source, data["inputs"]);
 
         var result = new RunResult { Success = true };
         var workflowInfo = new WorkflowTelemetryInfo
@@ -530,7 +543,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         new KeyValuePair<string, object?>("gnougo-flow.step.id", step.Id),
                         new KeyValuePair<string, object?>("gnougo-flow.step.type", step.Type),
                         new KeyValuePair<string, object?>("gnougo-flow.step.call_depth", callDepth),
-                        new KeyValuePair<string, object?>("gnougo-flow.content.input", resolvedInput.ToJsonString())
+                        new KeyValuePair<string, object?>("gnougo-flow.content.input", WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedInput))
                     });
                 }
 
@@ -556,7 +569,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         new KeyValuePair<string, object?>("gnougo-flow.step.id", step.Id),
                         new KeyValuePair<string, object?>("gnougo-flow.step.type", step.Type),
                         new KeyValuePair<string, object?>("gnougo-flow.step.call_depth", callDepth),
-                        new KeyValuePair<string, object?>("gnougo-flow.content.output", output.ToJsonString())
+                        new KeyValuePair<string, object?>("gnougo-flow.content.output", WorkflowTelemetryInputAttributes.FormatForTelemetry(output))
                     });
                 }
 

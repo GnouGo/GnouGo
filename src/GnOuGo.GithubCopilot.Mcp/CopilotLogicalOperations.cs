@@ -9,28 +9,13 @@ using ModelContextProtocol.Server;
 
 namespace GnOuGo.GithubCopilot.Mcp;
 
-public sealed class CopilotLogicalLimits
-{
-    public int Sessions { get; set; } = 3;
-    public int Interactions { get; set; } = 64;
-    public int Seconds { get; set; } = 1800;
-    public int InferenceAttempts { get; set; } = 32;
-    public long ReservedTokens { get; set; } = 2_000_000;
-    internal void Validate()
-    {
-        if (Sessions is < 1 or > 3 || Interactions is < 1 or > 64 || Seconds is < 1 or > 1800 ||
-            InferenceAttempts is < 1 or > 32 || ReservedTokens is < 1 or > 2_000_000)
-            throw new InvalidOperationException("Logical Copilot limits must be positive and cannot exceed the host safety ceilings.");
-    }
-}
-
 /// <summary>One task receipt and non-renewable authority across verified SDK continuation boundaries.</summary>
 internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, KeyVaultCopilotTaskStore store,
     McpCopilotHumanInputProvider human, IOptions<CodeServerSettings> settings)
 {
     internal async Task<CopilotSendResult> RunAsync(CopilotSessionCreateRequest original, string objective,
         IReadOnlyList<CopilotAttachment>? attachments, McpServer server, Action<CopilotStreamEvent> progress,
-        IReadOnlyDictionary<string, string>? headers, CancellationToken ct, Func<CopilotSendResult, JsonElement>? receiptPayload = null)
+        IReadOnlyDictionary<string, string>? headers, CancellationToken ct)
     {
         var id = store.CurrentTaskId ?? throw new McpException("Long interactive operations require the negotiated MCP Tasks extension.");
         var limits = settings.Value.Copilot.LogicalLimits; limits.Validate();
@@ -49,6 +34,7 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
             state["tenant"] = original.Context.TenantId; state["objective"] = objective;
             state["workspace"] = original.Configuration.WorkingDirectory; state["deadline"] = deadline;
             state["agentId"] = original.Context.AgentId;
+            if (original.Configuration.InferenceTransport is { } transport) state["inferenceTransport"] = transport;
             state["phase"] = "admitted"; state["sessions"] = 0;
             state["inferenceAttempts"] = 0; state["reservedTokens"] = 0;
             state["denials"] = new JsonArray(); state["evidence"] = new JsonArray();
@@ -59,8 +45,10 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
         using var stopAdmissions = lifetime.Token.Register(budget.CloseAdmissions);
         var permissions = new CopilotLogicalPermissions((key, token) => store.UpdateOwnedOperationAsync(original.Context.TenantId, id,
             state => state["denials"]!.AsArray().Add((JsonNode?)JsonValue.Create(key)), token));
+        var scope = FormattableString.Invariant($"This operation allows at most {limits.Interactions} interactions, {limits.InferenceAttempts} inference requests and {limits.ReservedTokens} reservable tokens across its sessions. Use established project commands and supplied observations first. Read only necessary ranges. Keep room to return verified command outcomes and explain blocked or unfinished work in a complete final response.");
         var request = original with { SessionKind = CopilotSessionKind.Managed, PermissionMode = CopilotPermissionMode.Interactive,
-            Configuration = original.Configuration with { LogicalInferenceBudget = budget, LogicalPermissions = permissions } };
+            Configuration = original.Configuration with { LogicalInferenceBudget = budget, LogicalPermissions = permissions,
+                SystemMessage = string.IsNullOrWhiteSpace(original.Configuration.SystemMessage) ? scope : original.Configuration.SystemMessage + "\n" + scope } };
         var monitor = MonitorCancellationAsync(id, lifetime, monitoring.Token);
         CopilotSendResult? final = null;
         CopilotSessionDescriptor? finalSession = null;
@@ -145,14 +133,21 @@ internal sealed class CopilotLogicalOperations(CopilotSessionManager sessions, K
                 // A partial payload is evidence, not a completion receipt. Fail the
                 // transport task so the caller's journal cannot release cleanup.
                 // The SDK's later SetCompleted is idempotently ignored by the store.
-                using var error = JsonDocument.Parse("""{"code":-32603,"message":"COPILOT_NEEDS_RECONCILIATION: external completion is unknown; partial evidence is retained in the logical task."}""");
+                var incident = new JsonObject { ["code"] = -32603,
+                    ["message"] = "COPILOT_NEEDS_RECONCILIATION: external completion is unknown; partial evidence is retained in the logical task." };
+                if (final.InferenceFailure is { } failure)
+                {
+                    incident["message"] = incident["message"] + " " + failure.Summary;
+                    incident["data"] = JsonSerializer.SerializeToNode(failure, CopilotCoreJsonContext.Default.CopilotInferenceFailure);
+                }
+                using var error = JsonDocument.Parse(incident.ToJsonString());
                 await store.SetFailedAsync(id, error.RootElement, receipt.Token);
             }
             else
             {
                 // Commit the exact MCP receipt before releasing ownership or disposing
                 // the final SDK session. The Tasks extension's subsequent completion is idempotent.
-                var payload = receiptPayload?.Invoke(final) ?? JsonSerializer.SerializeToElement(final, CopilotCoreJsonContext.Default.CopilotSendResult);
+                var payload = JsonSerializer.SerializeToElement(final, CopilotCoreJsonContext.Default.CopilotSendResult);
                 var result = new CallToolResult { IsError = !final.Completed, StructuredContent = payload,
                     Content = [new TextContentBlock { Text = payload.GetRawText() }] };
                 await store.SetCompletedAsync(id, JsonSerializer.SerializeToElement(result,

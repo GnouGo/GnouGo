@@ -29,6 +29,23 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void GetDiffDistinguishesTheWorkingTreeAndStagedIndex()
+    {
+        var service = CreateService();
+        const string file = "diff.txt";
+        WriteCommit(service, file, "committed\n", "base");
+        var path = Path.Combine(_root, file);
+        File.WriteAllText(path, "indexed\n");
+        service.Stage(".", [file]);
+        File.WriteAllText(path, "working\n");
+
+        var workingTree = service.GetDiff(".", file).Patch;
+        Assert.Contains("-indexed\n+working", workingTree, StringComparison.Ordinal);
+        var index = service.GetDiff(".", file, staged: true).Patch;
+        Assert.Contains("-committed\n+indexed", index, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void StageAndCommit_CreatesCommitAndClearsStatus()
     {
         File.WriteAllText(Path.Combine(_root, "README.md"), "hello\n");
@@ -377,6 +394,49 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Assert.NotNull(repository.Refs["refs/remotes/origin/gnougo-requested-ref"]);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void OneCloneCanCompareDivergedRevisionsAdvertisedByItsOrigin(bool allBranches)
+    {
+        var source = CreateService(_root, allowNetwork: true);
+        var common = WriteCommit(source, "common.txt", "original", "common", root: _root);
+        string baseBranch;
+        using (var repo = new Repository(_root))
+        {
+            baseBranch = repo.Head.FriendlyName;
+            Commands.Checkout(repo, repo.CreateBranch("contribution"));
+        }
+        var head = WriteCommit(source, "change.txt", "contribution", "contribution", root: _root);
+        using (var repo = new Repository(_root))
+        {
+            repo.Refs.Add("refs/changes/123/head", head.Sha);
+            Commands.Checkout(repo, baseBranch);
+            repo.Branches.Remove("contribution");
+        }
+        var basis = WriteCommit(source, "base.txt", "base only", "review base", root: _root);
+        WriteCommit(source, "base.txt", "later base change", "move base branch", root: _root);
+        var review = CreateService(allowNetwork: true, allowMutations: false, reviewReadOnly: true);
+        var clone = review.Clone(_root, "workflows/compare-advertised", branch: head.Sha, historyDepth: 0, fetchAllBranches: allBranches);
+        var project = clone.ProjectRootRelative!;
+        if (!allBranches)
+        {
+            var fetch = review.Fetch(project, "origin", $"refs/heads/{baseBranch}:refs/remotes/origin/{baseBranch}");
+            Assert.Equal(project, fetch.RepositoryRootRelative);
+        }
+        Assert.Throws<InvalidOperationException>(() => review.Fetch(".", "origin"));
+        var comparison = review.CompareRefs(project, basis.Sha, head.Sha);
+
+        Assert.Equal(common.Sha, comparison.MergeBaseSha);
+        Assert.Equal(head.Sha, comparison.HeadSha);
+        Assert.Equal(basis.Sha, comparison.BaseSha);
+        Assert.Equal("change.txt", Assert.Single(comparison.Files).Path);
+        using var checkout = new Repository(Path.Combine(_root, project));
+        Assert.True(checkout.Info.IsHeadDetached);
+        Assert.Equal(head.Sha, checkout.Head.Tip.Sha);
+        Assert.Equal(_root, Assert.Single(checkout.Network.Remotes).Url);
+    }
+
     [Fact]
     public void Clone_FullCommitObjectId_FetchesExactlyAndChecksOutDetached()
     {
@@ -475,6 +535,52 @@ public sealed class GitRepositoryServiceTests : IDisposable
     }
 
     [Fact]
+    public void CompareRefsReturnsTheCompleteBoundedPageDirectoryForPinnedRevisions()
+    {
+        var settings = new GitServerSettings { DefaultWorkingDirectory = _root, AllowedWorkingRoots = [_root], AllowMutations = true, MaxComparePageSize = 2 };
+        var policy = new GitPolicy(settings, _root);
+        var service = new GitRepositoryService(policy, Options.Create(settings));
+        var tools = new GitTools(policy, service, Microsoft.Extensions.Logging.Abstractions.NullLogger<GitTools>.Instance);
+        var basis = WriteCommit(service, "base.txt", "base", "base");
+        var files = Enumerable.Range(0, 5).Select(i => $"file-{i}.txt").ToArray();
+        foreach (var file in files) File.WriteAllText(Path.Combine(_root, file), file);
+        service.Stage(".", files);
+        var head = service.Commit(".", "five changes", "Test User", "test@example.local");
+        var followup = WriteCommit(service, "single.txt", "one", "one additional path");
+        var complete = tools.GitCompareRefs(".", head.Sha, followup.Sha, pageSize: 1, expectedCompleteFileCount: 1);
+        Assert.True(complete.Success);
+        Assert.Equal("single.txt", Assert.Single(complete.Files).Path);
+        Assert.True(tools.GitCompareRefs(".", basis.Sha, basis.Sha, expectedCompleteFileCount: 0).Success);
+        var incomplete = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 8, expectedCompleteFileCount: 5);
+        Assert.False(incomplete.Success);
+        Assert.Empty(incomplete.Files);
+        Assert.False(tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 2, expectedCompleteFileCount: 2).Success);
+        Assert.False(tools.GitCompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2, expectedCompleteFileCount: 1).Success);
+        var first = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 8, requirePageDirectory: true);
+        Assert.True(first.Success);
+        Assert.Equal(2, first.PageSize);
+        Assert.Equal(new[] { "2", "4" }, first.RemainingPageCursors);
+        var visited = new List<string>(first.Files.Select(f => f.Path));
+        foreach (var cursor in first.RemainingPageCursors!)
+        {
+            var page = service.CompareRefs(".", first.BaseSha, first.HeadSha, cursor: cursor, pageSize: first.PageSize);
+            visited.AddRange(page.Files.Select(f => f.Path));
+        }
+        Assert.Equal(files, visited);
+        var last = tools.GitCompareRefs(".", basis.Sha, head.Sha, cursor: "4", pageSize: 2, requirePageDirectory: true);
+        Assert.Empty(last.RemainingPageCursors!);
+        var many = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 1);
+        Assert.Null(many.RemainingPageCursors);
+        Assert.Equal("1", many.NextCursor);
+        var overflow = tools.GitCompareRefs(".", basis.Sha, head.Sha, pageSize: 1, requirePageDirectory: true);
+        Assert.False(overflow.Success);
+        Assert.Equal("INVALID_INPUT", overflow.ErrorCode);
+        Assert.Contains("cursor directory", overflow.ErrorMessage, StringComparison.Ordinal);
+        Assert.Empty(overflow.Files);
+        Assert.Null(overflow.NextCursor);
+    }
+
+    [Fact]
     public void CompareRefs_ReportsPerFileTruncation()
     {
         var service = CreateService(maxComparePatchCharactersPerFile: 80);
@@ -499,15 +605,7 @@ public sealed class GitRepositoryServiceTests : IDisposable
         Repository.Init(source);
         var sourceService = CreateService(source, allowNetwork: true);
         WriteCommit(sourceService, "README.md", "fixture\n", "fixture", source);
-        var settings = new GitServerSettings
-        {
-            DefaultWorkingDirectory = _root,
-            AllowedWorkingRoots = [_root],
-            AllowMutations = false,
-            AllowNetworkOperations = true,
-            ReviewReadOnly = true
-        };
-        var reviewService = new GitRepositoryService(new GitPolicy(settings, _root), Options.Create(settings));
+        var reviewService = CreateService(allowMutations: false, allowNetwork: true, reviewReadOnly: true);
 
         var clone = reviewService.Clone(source, "workflows/review-run", historyDepth: 0);
 
@@ -528,15 +626,17 @@ public sealed class GitRepositoryServiceTests : IDisposable
         return service.Commit(".", message, "Test User", "test@example.local");
     }
 
-    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000)
+    private GitRepositoryService CreateService(string? defaultWorkingDirectory = null, bool allowMutations = true, bool allowNetwork = false, int maxComparePatchCharactersPerFile = 40_000, int maxComparePageSize = 100, bool reviewReadOnly = false)
     {
         var settings = new GitServerSettings
         {
             DefaultWorkingDirectory = defaultWorkingDirectory ?? _root,
             AllowedWorkingRoots = [_root],
             AllowMutations = allowMutations,
+            ReviewReadOnly = reviewReadOnly,
             AllowNetworkOperations = allowNetwork,
             MaxComparePatchCharactersPerFile = maxComparePatchCharactersPerFile,
+            MaxComparePageSize = maxComparePageSize,
             RequireCleanWorkingTreeForMerge = true,
             DefaultAuthorName = "Test User",
             DefaultAuthorEmail = "test@example.local"

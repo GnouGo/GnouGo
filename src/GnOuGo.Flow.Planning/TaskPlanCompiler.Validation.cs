@@ -43,11 +43,6 @@ public sealed partial class TaskPlanCompiler
                 for (var i = 0; i < choice.Alternatives.Count; i++) ScanValue(choice.Alternatives[i].Value, "/choices/" + choice.Id + "/alternatives/" + i + "/value");
         }
         return findings.Distinct().OrderBy(d => d.Location, StringComparer.Ordinal).ThenBy(d => d.Code, StringComparer.Ordinal).ToArray();
-
-        void Reference(string? id, string path)
-        {
-            if (!ValidIdentity(id)) findings.Add(new("TASK_IDENTITY_INVALID", path, "Identity references must use a nonempty path-safe ID outside the reserved '__' namespace."));
-        }
         void ScanValue(TaskValue value, string path)
         {
             foreach (var nested in Values(value))
@@ -72,16 +67,22 @@ public sealed partial class TaskPlanCompiler
                 for (var i = 0; i < task.Branches.Count; i++) ScanScope(task.Branches[i], location + "/branches/" + i);
             }
         }
+
+        void Reference(string? id, string path)
+        {
+            if (!ValidIdentity(id)) findings.Add(new("TASK_IDENTITY_INVALID", path, "Identity references must use a nonempty path-safe ID outside the reserved '__' namespace."));
+        }
     }
 
     // Validate business symbols and contracts before emitting any graph node. Bound
     // values reuse the compiler's existing type rules; no executable plan is built here.
-    private IReadOnlyList<PlanningDiagnostic> Preflight(Action<string, Scope>? inspect = null)
+    private IReadOnlyList<PlanningDiagnostic> Preflight(Action<string, Scope>? inspect = null, Action<string, Scope>? inspectFrontier = null)
     {
         var findings = IdentityDiagnostics(_plan).ToList();
         var symbols = _symbols;
         var artifacts = new TaskArtifactBindings(_plan, _catalog, symbols);
         var branchContracts = new Dictionary<(string Task, string Port), List<(string Path, JsonObject Schema)>>();
+        var rejectedOperands = new Dictionary<PlanningDiagnostic, TaskValue>();
         var groups = new Dictionary<string, Scope>(StringComparer.Ordinal);
         var contracts = new Dictionary<string, Dictionary<string, Bound>>(StringComparer.Ordinal);
         var activeGroups = new HashSet<string>(StringComparer.Ordinal);
@@ -92,7 +93,8 @@ public sealed partial class TaskPlanCompiler
             if (invalidChoices.Contains(choice.Id)) continue;
             var before = findings.Count;
             Check("/choices/" + choice.Id, () => ValidateChoice(choice));
-            if (symbols.Values.Values.SelectMany(s => Values(s.Value)).Count(v => v.Kind == "choice" && v.Source == choice.Id) != 1)
+            var uses = symbols.Values.Values.SelectMany(s => Values(s.Value)).Count(v => v.Kind == "choice" && v.Source == choice.Id);
+            if (uses != 1 && !(uses == 0 && _constructionAllowsUnboundChoices))
                 findings.Add(new("CHOICE_SLOT_INVALID", "/choices/" + choice.Id, "A choice must target exactly one business value slot."));
             if (findings.Count != before) invalidChoices.Add(choice.Id);
         }
@@ -111,7 +113,7 @@ public sealed partial class TaskPlanCompiler
                 !symbols.Values.TryGetValue(finding.Location, out var site)) return finding;
             var visited = new HashSet<(string, string?)>();
             var branches = new List<(string Path, JsonObject Schema)>();
-            Visit(site.Value);
+            Visit(rejectedOperands.GetValueOrDefault(finding) ?? site.Value);
             if (branches.Count == 0) return finding;
             return finding with { Message = finding.Message + " Conditional export contracts: " +
                 string.Join("; ", branches.DistinctBy(b => b.Path).Select(b => b.Path + " = " + Interface(b.Schema))) +
@@ -144,26 +146,14 @@ public sealed partial class TaskPlanCompiler
         {
             var saved = _location; _location = location;
             try { action(); }
-            catch (InvalidTask ex) { findings.Add(ex.Diagnostic); }
+            catch (InvalidTask ex)
+            {
+                findings.Add(ex.Diagnostic);
+                if (ex.Operand is { } operand) rejectedOperands[ex.Diagnostic] = operand;
+                if (ex.Producer is { } producer) findings.Add(producer);
+            }
             catch (UnavailableValue) { /* A diagnosed prerequisite has no usable contract. */ }
             finally { _location = saved; }
-        }
-        Bound? Read(TaskValue value, Scope scope, string location)
-        {
-            inspect?.Invoke(location, scope);
-            if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
-            Bound? result = null;
-            var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
-            var valid = true;
-            foreach (var child in children) if (Read(child, scope, location) is null) valid = false;
-            if (!valid) return null;
-            if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
-            Check(location, () => result = Value(value, scope));
-            if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
-                foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
-                    foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
-                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit." + symbols.ReferenceContext(location, producer)));
-            return result;
         }
         void Inputs(Scope scope, List<TaskInput> inputs, string path)
         {
@@ -192,18 +182,42 @@ public sealed partial class TaskPlanCompiler
             InspectScope(group.Body, scope, "/groups/" + id + "/body");
             activeGroups.Remove(id); return scope;
         }
-        Dictionary<string, Bound> Exports(Scope scope) => scope.Workflow.Outputs.ToDictionary(o => o.Name, o => Output("semantic", "workflow.call", [o.Name], o.Schema.Contract!), StringComparer.Ordinal);
         void InspectScope(TaskScope source, Scope scope, string path)
         {
             OutputNames(source.Outputs, path + "/outputs");
-            InspectTasks(source.Tasks, scope); scope.Cleanup = true; InspectTasks(source.Always, scope);
+            InspectTasks(source.Tasks, scope);
+            inspectFrontier?.Invoke(path, scope);
+            scope.Cleanup = true; InspectTasks(source.Always, scope);
+            inspectFrontier?.Invoke(path + "/always", scope);
             foreach (var output in source.Outputs)
             {
                 var value = Read(output.Value, scope, path + "/outputs/" + output.Name);
-                if (value is not null && scope.Workflow.Outputs.All(o => o.Name != output.Name))
+                if (value is not null && scope.Exports.TryAdd(output.Name, value))
                     scope.Workflow.Outputs.Add(new() { Name = output.Name, Value = value.Value, Schema = Contract(value.Schema) });
             }
             inspect?.Invoke(path + "/outputs", scope);
+        }
+        Bound? Read(TaskValue value, Scope scope, string location, bool requireNonNull = false)
+        {
+            inspect?.Invoke(location, scope);
+            if (value.Kind is "output" or "present" or "choice" && symbols.InvalidIds.Contains(value.Source!)) return null;
+            Bound? result = null;
+            var children = value.Members.Select(m => m.Value).Concat(value.Items).ToArray();
+            var valid = true;
+            for (var i = 0; i < children.Length; i++)
+            {
+                using var facts = valid && i == children.Length - 1 && ShortCircuits(value)
+                    ? EnterRequirement(scope, value.Items[0], whenTrue: value.Predicate == "and") : null;
+                if (Read(children[i], scope, location) is null) valid = false;
+            }
+            if (!valid) return null;
+            if (value.Kind == "choice" && invalidChoices.Contains(value.Source ?? "")) return null;
+            Check(location, () => result = Value(value, scope, requireNonNull: requireNonNull));
+            if (result is null && value.Kind == "output" && value.Source is { } producer && symbols.Values.TryGetValue(location, out var site))
+                foreach (var boundary in symbols.ExportRoute(site.Scope, producer))
+                    foreach (var affected in boundary.Owner?.Kind == "conditional" ? symbols.Scopes.Where(s => s.Owner == boundary.Owner) : [boundary])
+                        findings.Add(new("TASK_EXPORT_REQUIRED", affected.Path + "/outputs", "Declare the business outputs needed by consumers outside this scope; exports are never implicit." + symbols.ReferenceContext(location, producer)));
+            return result;
         }
         void OutputNames(List<TaskOutput> outputs, string path)
         {
@@ -258,6 +272,8 @@ public sealed partial class TaskPlanCompiler
             Check(path + "/objective", () => { if (string.IsNullOrWhiteSpace(task.Objective)) Fail("TASK_OBJECTIVE_REQUIRED", "Each task requires an objective."); });
             Check(path + "/dependsOn", () =>
             {
+                var unfinished = task.DependsOn.Where(d => _constructionUnavailable?.Contains(d) == true).Distinct(StringComparer.Ordinal).ToArray();
+                if (unfinished.Length > 0) Fail("TASK_SCOPE_OPEN", "Dependencies cannot observe unfinished construction scopes: " + string.Join(", ", unfinished) + ".");
                 var unknown = task.DependsOn.Where(d => !scope.Tasks.ContainsKey(d)).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
                 if (unknown.Length > 0) Fail("TASK_DEPENDENCY_UNKNOWN", "Dependencies " + string.Join(", ", unknown) +
                     " must name preceding tasks in scope " + symbols.Tasks[task.Id].Scope.Path + ". Ancestor values may be captured without cross-scope dependsOn entries." +
@@ -271,7 +287,7 @@ public sealed partial class TaskPlanCompiler
                 var child = new Scope(new(), scope) { FailurePath = scope.FailurePath || scope.Cleanup, NonNullReferences = task.Kind == "conditional" ? NonNullReferences(task.Condition, role == "body") : null };
                 if (task.Kind == "foreach")
                 {
-                    var items = task.Items is null ? null : Read(task.Items, scope, path + "/items");
+                    var items = task.Items is null ? null : Read(task.Items, scope, path + "/items", requireNonNull: true);
                     if (items is not null && PlanningContractShapes.IterationItems(items.Schema) is { } itemSchema)
                     { child.Item = new(new() { Kind = "loop_item" }, itemSchema, TypeLocation: items.TypeLocation is { } itemType ? itemType + "/items" : null); child.Index = new(Number(0), new() { ["type"] = "integer" }); }
                     else
@@ -286,8 +302,10 @@ public sealed partial class TaskPlanCompiler
                 }
                 InspectScope(body, child, path + "/" + role); return child;
             }
+            TaskValue? provenRequirement = null;
             if (task.Requires is not null && Read(task.Requires, scope, path + "/requires") is { } required)
-                Check(path + "/requires", () => RequireBoolean(required));
+                Check(path + "/requires", () => { RequireBoolean(required, task.Requires); provenRequirement = task.Requires; });
+            using var requirementFacts = EnterRequirement(scope, provenRequirement);
             switch (task.Kind)
             {
                 case "transform":
@@ -321,11 +339,11 @@ public sealed partial class TaskPlanCompiler
                             PlanningContractShapes.IterationItems(collected.Schema) is null)
                             findings.Add(new("TASK_TRANSFORM_EACH", path + "/inputs/" + each.Input, "Independent extraction requires an authoritative array; its contents may be opaque."));
                     }
-                    var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType").ToArray();
+                    var typeFindings = TransformTypeFindings(task.ResultType, path + "/resultType", _advisoryOptimization).ToArray();
                     findings.AddRange(typeFindings);
                     if (typeFindings.Length == 0)
                     {
-                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!)) : StructuredResult(task.Id, TypeSchema(task.ResultType!), path + "/resultType");
+                        ports = task.Mode == "extract" ? Result(task.Id, "set", TypeSchema(task.ResultType!, _advisoryOptimization)) : StructuredResult(task.Id, TypeSchema(task.ResultType!, _advisoryOptimization), path + "/resultType");
                         if (task.Mode == "extract") foreach (var port in ports.Values) port.Value.Path.Insert(0, "value");
                     }
                     else scope.Blocked.Add(("output", task.Id, "*"));
@@ -371,7 +389,8 @@ public sealed partial class TaskPlanCompiler
                                     var relativePath = consumedPath.Skip(port.Path.Count).ToArray();
                                     if (!artifact.Required && TaskArtifactBindings.ExplicitlyAbsent(input.Value, relativePath)) continue;
                                     if (consumedPath.Take(port.Path.Count).SequenceEqual(port.Path, StringComparer.Ordinal) &&
-                                        !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind))
+                                        !artifacts.Proves(input.Value, symbols.Tasks[task.Id].Scope, relativePath, artifact.Kind,
+                                            input.Value.Kind == "output" && relativePath.Length == 0 && IsGuardedNonNull(input.Value, scope, includeRequirement: true)))
                                         findings.Add(artifact.Required && artifacts.MissingProducer(artifact.Kind)
                                             ? new("TASK_ARTIFACT_PREREQUISITE_MISSING", location, "This plan contains no declared producer of artifact kind '" + artifact.Kind + "'. A structural repair requires an exact policy-allowed producer contract and a complete dependency proof; otherwise an explicit semantic revision is required. Types, literals and transforms cannot manufacture provenance.")
                                             : new("TASK_ARTIFACT_BINDING", location, "Bind a declared producer business port of artifact kind '" + artifact.Kind + "'. A matching type or literal does not establish provenance."));
@@ -430,6 +449,8 @@ public sealed partial class TaskPlanCompiler
                     { declared.Add(output.Name); var value = Read(output.Value, scope, path + "/outputs/" + output.Name); if (value is not null) ports.TryAdd(output.Name, value); }
                     break;
                 case "call":
+                    if (_constructionUnavailable?.Contains(task.Id) == true)
+                        findings.Add(new("TASK_SCOPE_OPEN", path + "/group", "Close the reusable group's construction scopes before invoking it."));
                     var group = GroupScope(task.Group ?? "");
                     var definition = _plan.Groups.FirstOrDefault(g => g.Id == task.Group);
                     if (group is null || definition is null) { findings.Add(new("TASK_GROUP_UNKNOWN", path + "/group", "Choose a declared, nonrecursive group.")); scope.Blocked.Add(("output", task.Id, "*")); break; }
@@ -445,23 +466,26 @@ public sealed partial class TaskPlanCompiler
                 case "sequence": case "foreach":
                     if (task.Kind == "foreach")
                     {
-                        Check(path + "/maxItems", () => { if (task.MaxItems is < 1 or > 10000) Fail("TASK_ITERATION_BOUND", "Iteration requires a finite positive item ceiling."); });
+                        Check(path + "/maxItems", () => { if (task.MaxItems is < 1 or > MaximumIterationItems) Fail("TASK_ITERATION_BOUND", "Iteration requires a finite positive item ceiling."); });
                         Check(path + "/maxConcurrency", () => { if (task.MaxConcurrency is < 1 or > 100) Fail("TASK_ITERATION_BOUND", "Iteration requires bounded concurrency."); });
                         if (task.Items is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/items", "Iteration requires items."));
                     }
                     var body = Child(task.Body, "body");
                     if (body is not null) ports = Exports(body);
                     declared.AddRange(task.Body?.Outputs.Select(o => o.Name) ?? []);
-                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() }, TypeLocation = null };
+                    if (task.Kind == "foreach") foreach (var name in ports.Keys.ToArray()) ports[name] = ports[name] with { Schema = new() { ["type"] = "array", ["items"] = ports[name].Schema.DeepClone() }, TypeLocation = null, WholeMcpResult = false, RetainedMembers = null };
                     break;
                 case "conditional":
                     if (task.Condition is null) findings.Add(new("TASK_VALUE_REQUIRED", path + "/condition", "A conditional requires a predicate."));
-                    else if (Read(task.Condition, scope, path + "/condition") is { } predicate) Check(path + "/condition", () => RequireBoolean(predicate));
+                    else if (Read(task.Condition, scope, path + "/condition") is { } predicate) Check(path + "/condition", () => RequireBoolean(predicate, task.Condition));
                     var yes = Child(task.Body, "body"); var no = Child(task.Otherwise, "otherwise");
                     var yesNames = task.Body?.Outputs.Select(o => o.Name).ToArray() ?? [];
                     var noNames = task.Otherwise?.Outputs.Select(o => o.Name).ToArray() ?? [];
-                    foreach (var name in yesNames.Except(noNames)) findings.Add(new("TASK_BRANCH_OUTPUTS", path + "/otherwise/outputs/" + name, "Declare the matching business output explicitly in this alternative."));
-                    foreach (var name in noNames.Except(yesNames)) findings.Add(new("TASK_BRANCH_OUTPUTS", path + "/body/outputs/" + name, "Declare the matching business output explicitly in this alternative."));
+                    if (_constructionUnavailable?.Contains(task.Id) != true)
+                    {
+                        foreach (var name in yesNames.Except(noNames)) findings.Add(new("TASK_BRANCH_OUTPUTS", path + "/otherwise/outputs/" + name, "Declare the matching business output explicitly in this alternative."));
+                        foreach (var name in noNames.Except(yesNames)) findings.Add(new("TASK_BRANCH_OUTPUTS", path + "/body/outputs/" + name, "Declare the matching business output explicitly in this alternative."));
+                    }
                     declared.AddRange(yesNames.Union(noNames));
                     if (yes is not null && no is not null)
                     {
@@ -470,7 +494,9 @@ public sealed partial class TaskPlanCompiler
                             if (alternatives.TryGetValue(name, out var alternative))
                             {
                                 branchContracts[(task.Id, name)] = [(path + "/body/outputs/" + name, value.Schema), (path + "/otherwise/outputs/" + name, alternative.Schema)];
-                                ports[name] = value with { Schema = JsonNode.DeepEquals(value.Schema, alternative.Schema) ? value.Schema : new() { ["anyOf"] = new JsonArray(value.Schema.DeepClone(), alternative.Schema.DeepClone()) }, TypeLocation = null };
+                                var contract = BranchContract(value.Schema, alternative.Schema, value.WholeMcpResult && alternative.WholeMcpResult);
+                                ports[name] = value with { Schema = contract.Schema, TypeLocation = null,
+                                    WholeMcpResult = contract.WholeMcpResult, RetainedMembers = null };
                             }
                     }
                     break;
@@ -499,6 +525,8 @@ public sealed partial class TaskPlanCompiler
             scope.Tasks.TryAdd(task.Id, ports);
             contracts.TryAdd(task.Id, ports);
         }
+        Dictionary<string, Bound> Exports(Scope scope) => scope.Exports.ToDictionary(p => p.Key,
+            p => Output("semantic", "workflow.call", [p.Key], p.Value.Schema).Retaining(p.Value), StringComparer.Ordinal);
     }
 
     private static JsonObject? SelectedInputBranch(JsonObject request, JsonObject contract)
@@ -518,17 +546,63 @@ public sealed partial class TaskPlanCompiler
 
     private void Fits(Bound value, JsonObject schema, string code, bool optional = false)
     {
-        if (PlanningGraphValidation.IsLiteral(value.Value)
-            ? PlanningContractValidation.ValidateInstance(PlanningGraphValidation.Literal(value.Value), schema).Count > 0
+        var literal = PlanningGraphValidation.IsLiteral(value.Value);
+        var instanceFindings = literal
+            ? PlanningContractValidation.ValidateInstanceFindings(PlanningGraphValidation.Literal(value.Value), schema) : [];
+        if (literal
+            ? instanceFindings.Count > 0
             : !PlanningGraphValidation.TypesFit(value.Schema, schema, allowUnresolved: false))
-            Fail(code, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
+        {
+            var producer = FlattenedGroupDiagnostic(schema);
+            var sameSlot = producer?.Location == _location;
+            throw new InvalidTask(code, _location, "Produced " + Describe(value.Schema) + (value.TypeLocation is null ? "" : " from " + value.TypeLocation) +
                 "; expected " + Describe(schema) + ". The business value does not satisfy its authoritative contract." +
-                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""));
+                (instanceFindings.FirstOrDefault() is { } finding ? " Instance " +
+                    (finding.InstancePointer.Length == 0 ? "/" : finding.InstancePointer) + ": " + finding.Message : "") +
+                (producer is null ? "" : sameSlot ? " " + producer.Message : " The incompatible flattened group is at " + producer.Location + ".") +
+                (optional ? " This argument may be omitted; if supplied it must satisfy the contract. Null is not omission." : ""), producer: sameSlot ? null : producer);
+        }
+    }
+
+    private PlanningDiagnostic? FlattenedGroupDiagnostic(JsonObject expected)
+    {
+        if (expected["items"] is not JsonObject item || PlanningContractShapes.WithoutNull(item) is not { } nonNullItem ||
+            !PlanningContractCompatibility.Fits(nonNullItem, PlanningSchemas.Type("array")) ||
+            !_symbols.Values.TryGetValue(_location, out var site)) return null;
+        if (site.Value is { Kind: "output", Source: { } source, Port: { } port } &&
+            _symbols.Tasks.TryGetValue(source, out var producer) && producer.Task.Kind == "value" &&
+            _symbols.Values.TryGetValue("/tasks/" + source + "/outputs/" + port, out var origin)) site = origin;
+        if (site.Value is not { Kind: "flatten", Items: [{ Kind: "array" } groups] }) return null;
+        for (var i = 0; i < groups.Items.Count; i++)
+        {
+            var group = groups.Items[i];
+            if (group.Kind != "array" || !Literal(group) || !group.Items.Any(v => v.Kind is "string" or "number" or "boolean")) continue;
+            var row = PlanningGraphValidation.Literal(Value(group, new Scope(new(), null)).Value);
+            if (PlanningContractValidation.ValidateInstance(row, item).Count == 0)
+                return new("TASK_FLATTEN_GROUP_SHAPE", site.Path, $"Flatten emits scalar elements from group {i}. The complete group satisfies the array element contract at {_location}. To retain that row, wrap it in a one-element batch before flatten.");
+        }
+        return null;
     }
 
     private static string Describe(JsonObject schema) => (schema["type"]?.ToJsonString() ?? "opaque") +
+        (schema["items"] is JsonObject items ? " items " + ItemShape(items, 0) : "") +
         string.Concat(new[] { "enum", "pattern", "minLength", "maxLength", "default" }
             .Where(key => schema[key] is not null).Select(key => " " + key + " " + schema[key]!.ToJsonString()));
+
+    // Presentation only: preserve semantic diagnostic locations and the existing
+    // compatibility rules. Deep schemas remain available as exact evidence.
+    private static string ItemShape(JsonObject schema, int depth)
+    {
+        if (depth == 4) return "...";
+        var shape = schema["type"]?.ToJsonString();
+        foreach (var key in new[] { "anyOf", "oneOf" })
+            if (shape is null && schema[key] is JsonArray alternatives)
+                shape = key + "(" + string.Join(" | ", alternatives.OfType<JsonObject>().Take(4)
+                    .Select(alternative => ItemShape(alternative, depth + 1)).Distinct(StringComparer.Ordinal)) +
+                    (alternatives.Count > 4 ? " | ..." : "") + ")";
+        shape = (shape ?? "opaque") + (schema["items"] is JsonObject items ? " items " + ItemShape(items, depth + 1) : "");
+        return shape.Length > 512 ? shape[..509] + "..." : shape;
+    }
 
     private static IEnumerable<PlanningDiagnostic> ConstraintFindings(Bound value, JsonObject expected, string consumer)
     {

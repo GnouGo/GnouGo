@@ -1,0 +1,120 @@
+{
+  "retained_selections": [
+    {
+      "call": 12,
+      "operation": "observe",
+      "id": "cap_424f1c176056398813db293a",
+      "version": "json-v1:139c88e16064db6eb9e3e2858f3824cf8c15258833f86cea6e6c5b2e1f040dea",
+      "source_metadata_hash": "8416cfc61f4d34535452f4da00694d330337675b32ccce06d2dd6d66ffd96179",
+      "alternative_wire_valid": true,
+      "new_guidance_present": true
+    },
+    {
+      "call": 42,
+      "operation": "document_read",
+      "id": "cap_14c5ec54d0147c07ee2021dc",
+      "version": "json-v1:d3f738e903f7c82349b506c1c044e384f219dd46f479db4984245dbc0d97dfc6",
+      "source_metadata_hash": "afadf1252712486c23395f92a2fd68d1c49810bff9581be81262cde3ec23201e",
+      "alternative_wire_valid": true,
+      "new_guidance_present": true
+    }
+  ],
+  "actual_value_tasks_on_duplicate_nullable_fixture": [
+    {
+      "call": 33,
+      "result": [
+        "Nom",
+        "Description",
+        "Prix"
+      ]
+    },
+    {
+      "call": 39,
+      "result": [
+        [
+          "Nom",
+          "Description",
+          "Prix"
+        ],
+        [
+          "repeat",
+          null,
+          "2€"
+        ],
+        [
+          "repeat",
+          null,
+          "2€"
+        ]
+      ]
+    }
+  ],
+  "matrix_instruction_on_reissued_draft": true,
+  "source_run": "improve40-amazon-20261127-202710",
+  "source_revision": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+  "provider_calls": 0,
+  "document_read_stdio_tools_list": {
+    "previous": {
+      "description_prefix": "Reads a document (PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML, YAML) and returns its text content. For Office/PDF formats, extracts text and optionally formats it as markdown. Returns struc",
+      "input_schema_hash": "df76ae7aae6b22bbc3ee10eada5381bc4b821bdd75800f2075f76f1ec5dfe927",
+      "output_schema_hash": "6e0582b5a3e2d3290d1e1decb54997bd3ceba77e38cf1af1978efa8f28d88e12",
+      "assembly_sha256": "e31a4f114f332ca4a8d22edb457aeebf37ce5e22b24c9d0f7f18733b861f4242"
+    },
+    "revised": {
+      "description_prefix": "Reads document text or exact XLSX cells. For XLSX, format=cells returns each worksheet's ordered cell matrix in sections[].rows. PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, XML and YAML support",
+      "input_schema_hash": "df76ae7aae6b22bbc3ee10eada5381bc4b821bdd75800f2075f76f1ec5dfe927",
+      "output_schema_hash": "6e0582b5a3e2d3290d1e1decb54997bd3ceba77e38cf1af1978efa8f28d88e12",
+      "assembly_sha256": "7c5e5494c23af3649e055701f1cb2ac5d8d2b90215535f92675bb7ae65770702"
+    }
+  },
+  "test_receipts": {
+    "pr120-matrix-guidance.trx": {
+      "executed": "196",
+      "passed": "196",
+      "failed": "0",
+      "sha256": "98859ebbe06e26ee638ef8ac1dc082a1706f9cd7b59f0307c40a62a4bd76d071"
+    },
+    "pr120-document-read-contract.trx": {
+      "executed": "76",
+      "passed": "76",
+      "failed": "0",
+      "sha256": "939b7fcddd275e9cb4867c17c86b5b19b8648b5ee3e28773e507abc2d4a8673e"
+    }
+  },
+  "capture_sha256": {
+    "12": "1b40f70d23650206c8f716854aef75c0c89cb318971c9b5c01437970122de2cc",
+    "46": "1d7bf62046ed014b6721efa398f965eedbdace075f867ec1cd2978dd77aea82a",
+    "39": "3ff4f72dc30f2a31179252a46e3ecf6e9740ac02766856bc735b87fb5573dd2e",
+    "47": "97c1c24b863f0b4d2c3a7294ff4b82db0d32baffc3acd78417210d55c95ed898",
+    "33": "4413f7aab0ede53aaffa6ec7c1ab95d98c0853186d32fcbcfe9c8a05b944fd5f",
+    "42": "3c666a8c832af6a77101dec9349c34882da57f75d5c52c61dac0e18dfa5b619f",
+    "35": "8fbf015645da5073d7da62324292248b049f665e87840053f8b00fcb6d99efc2",
+    "15": "3b2287beb8c914a9dfac76cb545d1955a09e0166d3a940441dee5fff959e11d6"
+  },
+  "full_candidate_checks": {
+    "unaltered": {
+      "status": "stopped",
+      "phase": "construction_draft",
+      "compiled_yaml_characters": null,
+      "findings": [
+        {
+          "code": "REQUIREMENTS_OUTPUTS_CHANGED",
+          "path": "/outputs/finalOutcome",
+          "message": "Preserve the accepted output type, requiredness and nullability. A missing or incompatible result requires a corrected plan or explicit intent revision."
+        }
+      ],
+      "receipt_sha256": "e32574c0571f44952af60e3f63046f1cc1fa3b3d4adab357e1604a4492bea03a",
+      "plan_sha256": "9be72767916fea17b6686e667837ceb8612024c3d1737524ec49c5677ba9573f"
+    },
+    "diagnostic": {
+      "status": "final_review",
+      "phase": "review",
+      "compiled_yaml_characters": 626754,
+      "findings": [],
+      "receipt_sha256": "6b97c4a7da79d72cf2341c1137a255823ca0a58e4a3ed6326ac6773eb3762f09",
+      "plan_sha256": "926a512a149cff0788373dc478042741ae06b08c29fd825d46f7db427ca2659e"
+    }
+  },
+  "diagnostic_edit": "Append finalOutcome from deliverWorkbook.outcome to root outputs; only the isolated copy was edited. Other compatible string outputs exist. The operator issued no business authorization for this session.",
+  "interpretation": "The explicit selected IDs were admissible on both captured schemas. The revised prompts describe that choice and the one-level matrix operator. The duplicate nullable rows are an offline fixture. These checks do not measure provider behavior or visits."
+}

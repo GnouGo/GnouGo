@@ -1,0 +1,423 @@
+using System.Net.Http.Json;
+using System.Text.Json.Nodes;
+using GnOuGo.Agent.Server.Planning;
+using GnOuGo.Agent.Server.SmartFlow;
+using GnOuGo.Flow.Core.Models;
+using GnOuGo.Flow.Core.Planning;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Planning;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
+
+// Test-host dependencies for the ordinary Server approve/save, typed composer, and SmartFlow execution.
+internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewProvider, IMcpClientFactory, IMcpExecutionHooks,
+    IMcpSourceConfigurationFingerprint, IJournaledBudgetClient
+{
+    internal ServerLiveDiagnostics.DelegatedPlanningDiscovery Discovery { private get; set; } = null!;
+    internal ILLMClient PlanningModel { private get; set; } = null!;
+    internal PublishedReviewQualification? Target { get; set; }
+    internal AdaptiveLiveProfile? Adaptive { get; set; }
+    private LiveWorkflowEvaluation.ObservedMcp? _execution;
+    private LiveWorkflowEvaluation.ExecutionModel? _executionModel;
+    private DelegatedTestReviewAuthority? _authority;
+    private PlanningSession? _saving;
+    private string? _savedId;
+    private string? _runId;
+    private string? _agentName;
+    internal bool AllowsAgentCall(string tool, JsonNode? args) =>
+        tool == "agent_list" && _savedId is not null ||
+        tool == "agent_add" && _saving is { } state && args is JsonObject { Count: 3 } &&
+        args["name"]?.ToString() == state.Request.Name && args["workflow"]?.ToString() == state.Yaml &&
+        args["originalPrompt"]?.ToString() == state.Request.Prompt;
+
+    public Task<PlanningApprovalReview> ResolveApprovalReviewAsync(PlanningSession session, string reviewId, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (_authority is not { } authority || authority.Receipt.Id != reviewId ||
+            session.Request.SessionId != authority.Receipt.SessionId || session.Request.TenantId != authority.Receipt.TenantId ||
+            session.ComputeArtifactHash() != authority.Receipt.ArtifactHash)
+            throw new PlanningConflictException("The requested artifact-bound review is unavailable.");
+        return Task.FromResult(authority.Receipt);
+    }
+
+    internal ValueTask DisposeAsync() => Discovery?.DisposeAsync() ?? ValueTask.CompletedTask;
+    public IReadOnlyList<McpServerMetadata> ServerMetadata => Discovery.ServerMetadata;
+    public string SourceConfigurationFingerprint(string serverName) => Discovery.SourceConfigurationFingerprint(serverName);
+    public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) =>
+        _execution is { } active && serverName != "GnOuGo.Agent.Mcp" ? active.GetClientAsync(serverName, ct) : Discovery.GetClientAsync(serverName, ct);
+    private readonly System.Collections.Concurrent.ConcurrentQueue<JsonObject> _visionReceipts = new();
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) =>
+        RecordVisionAsync(request, (_executionModel ?? PlanningModel).CallAsync(request, ct));
+    public Task<LLMResponse> CallWithBudgetAsync(LLMRequest request, JournaledModelBudget budget, CancellationToken ct) =>
+        RecordVisionAsync(request, _executionModel?.CallWithBudgetAsync(request, budget, ct) ?? budget.Scope.CallAsync(PlanningModel, budget.Estimator, request, budget.Stage, ct));
+
+    private async Task<LLMResponse> RecordVisionAsync(LLMRequest request, Task<LLMResponse> pending)
+    {
+        var started = DateTimeOffset.UtcNow;
+        var response = await pending;
+        if (request.Images is { Count: > 0 } images)
+        {
+            var review = new JsonObject { ["started"] = started, ["received"] = DateTimeOffset.UtcNow, ["request"] = request.ClientRequestId,
+                ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
+                ["response"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() };
+            _authority?.PresentationCorrections?.Observe(review);
+            _visionReceipts.Enqueue(review);
+        }
+        return response;
+    }
+    public IDisposable BeginCall(McpCallExecutionContext context)
+    {
+        if (_execution is null || context.Correlation.TenantId != "benchmark" || _savedId is null ||
+            context.Correlation.AgentId != _savedId || context.Correlation.AgentName != _agentName ||
+            context.Correlation.RunId is not { Length: > 0 } runId)
+            throw new PlanningConflictException("Business dispatch requires the saved, reviewed Server agent.");
+        BindRun(runId);
+        return _execution.BeginCall(context);
+    }
+    private void BindRun(string runId)
+    {
+        var previous = Interlocked.CompareExchange(ref _runId, runId, null);
+        if (previous is not null && previous != runId) throw new PlanningConflictException("This artifact already started another run.");
+        _authority!.BindServerRun(runId);
+    }
+    public string FormatFailureDiagnostics(string serverName, Exception error) =>
+        _execution?.FormatFailureDiagnostics(serverName, error) ?? error.GetType().Name;
+
+    internal static async Task ObserveExecutionAsync(Func<CancellationToken, Task> execute, TimeSpan elapsedTarget,
+        Action warn, CancellationToken stopping)
+    {
+        var execution = execute(stopping);
+        try { await execution.WaitAsync(elapsedTarget); }
+        catch (TimeoutException)
+        {
+            if (!execution.IsCompleted) warn();
+            await execution;
+        }
+    }
+
+    internal static bool IsExecutionBudgetOverrun(WorkflowRun journal) =>
+        journal.Status == WorkflowRunStatus.Failed && journal.FinalizationCompleted &&
+        journal.Result is { Success: false, Error.Code: ErrorCodes.LlmBudgetExceeded } result &&
+        result.StepResults.All(s => s.Error is null || s.Error.Code == ErrorCodes.LlmBudgetExceeded) &&
+        journal.Invocations.Values.All(i => i.Error is null || i.Error.Code == ErrorCodes.LlmBudgetExceeded);
+
+    internal static bool ReviewInstructionsObserved(JsonArray events, string instructions) =>
+        !string.IsNullOrWhiteSpace(instructions) && events.OfType<JsonObject>().Any(e =>
+            e["server"]?.ToString() == "GnOuGo.GithubCopilot.Mcp" && e["tool"]?.ToString() == "code_agent_edit" &&
+            e["error"]?.GetValue<bool>() == false && e["result"]?["success"]?.GetValue<bool>() == true && e["arguments"]?["task"]?.ToString()?.Contains(instructions, StringComparison.Ordinal) == true);
+
+    internal static void RequireInputs(TaskPlan? plan, JsonObject inputs)
+    {
+        if (plan is null || plan.Inputs.Count != inputs.Count || plan.Inputs.Any(i => !inputs.ContainsKey(i.Name) ||
+            !i.Required || i.Type.Kind != "string" || i.Type.Nullable || i.Default is not null))
+            throw new PlanningConflictException("The artifact does not accept the required typed caller inputs.");
+        var root = System.Text.Json.JsonSerializer.SerializeToNode(plan.Root, PlanningJsonContext.Default.TaskScope);
+        foreach (var input in inputs)
+        {
+            if (!UsesInput(root, input.Key))
+                throw new PlanningConflictException("The generated root workflow ignores caller input " + input.Key + ".");
+        }
+        static bool UsesInput(JsonNode? node, string name) => node switch
+        {
+            JsonObject obj => obj["kind"]?.ToString() == "input" && obj["source"]?.ToString() == name ||
+                obj.Any(p => UsesInput(p.Value, name)),
+            JsonArray list => list.Any(item => UsesInput(item, name)),
+            _ => false
+        };
+    }
+
+    internal static bool FinalizedBrowserRead(WorkflowRun journal, JsonObject previous, long? executionTokens = null)
+    {
+        if (journal.Status != WorkflowRunStatus.Failed || journal.CancelRequested || journal.Result is not { Success: false } || !journal.FinalizationCompleted ||
+            previous["execution"]?["status"]?.ToString() != WorkflowRunStatus.Failed ||
+            previous["execution"]?["finalization_completed"]?.GetValue<bool>() != true ||
+            previous["events"] is not JsonArray events || events.Count < 4 ||
+            journal.Invocations.Values.Any(i => i.CompletedAt is null || i.Status is not ("completed" or "failed") ||
+                i.Recovery is not (StepRecovery.ReplaySafe or StepRecovery.External))) return false;
+        var effects = journal.Invocations.Values.Where(i => i.Recovery == StepRecovery.External).ToArray();
+        if (executionTokens is { } allowance)
+        {
+            var inference = effects.Where(i => i.StepType == "llm.call").ToArray();
+            if (inference is not [var refused] || refused.Status != "failed" || refused.Error?.Code != ErrorCodes.LlmBudgetExceeded ||
+                journal.Result.Error?.Code != ErrorCodes.LlmBudgetExceeded || refused.Error.Details is not JsonObject details ||
+                details["scope"]?.ToString() != "finite_llm_budget" || details["origin"]?.ToString() != "application_execution_configuration" ||
+                details["stage"]?.ToString() != "llm.call" || details["limit_kind"]?.ToString() != "total_tokens" ||
+                details["dispatch_status"]?.ToString() != "not_started" || details["calls"]?.ToString() != "0" ||
+                !long.TryParse(details["current"]?.ToString(), out var required) || !long.TryParse(details["limit"]?.ToString(), out var previousLimit) ||
+                previousLimit <= 0 || required <= previousLimit || allowance < required) return false;
+            effects = effects.Where(i => i != refused).ToArray();
+        }
+        if (effects.Length < 2 || effects.Any(i => i.StepType != "mcp.call" ||
+            i.ResolvedInput?["server"]?.ToString() != "GnOuGo.Browser.Mcp" ||
+            i.ResolvedInput?["method"]?.ToString() is not ("browser_get_content" or "browser_close"))) return false;
+        // The oracle makes its own empty-page probe and close after the workflow closed the Browser.
+        if (events.Count != effects.Length + 2 || events.Any(e => e?["server"]?.ToString() != "GnOuGo.Browser.Mcp") ||
+            events[^2]?["tool"]?.ToString() != "browser_get_content" || events[^2]?["arguments"] is not JsonObject { Count: 0 } ||
+            events[^2]?["error"]?.GetValue<bool>() != true || events[^2]?["result"]?["success"]?.GetValue<bool>() != false ||
+            events[^2]?["result"]?["error_message"]?.ToString().Contains("No active page", StringComparison.Ordinal) != true ||
+            events[^1]?["tool"]?.ToString() != "browser_close" || events[^1]?["error"]?.GetValue<bool>() != false ||
+            events[^1]?["result"]?["success"]?.GetValue<bool>() != true) return false;
+        var actual = events.Take(effects.Length).ToArray();
+        if (actual[^1]?["tool"]?.ToString() != "browser_close") return false;
+        var unmatched = effects.ToList();
+        foreach (var evt in actual)
+        {
+            var index = unmatched.FindIndex(i => i.ResolvedInput!["method"]!.ToString() == evt?["tool"]?.ToString() &&
+                JsonNode.DeepEquals(i.ResolvedInput["request"], evt?["arguments"]) &&
+                (i.Status == "completed" && evt?["error"]?.GetValue<bool>() == false && evt["result"]?["success"]?.GetValue<bool>() == true ||
+                 i.Status == "failed" && evt?["tool"]?.ToString() == "browser_get_content" && evt["error"]?.GetValue<bool>() == true &&
+                 evt["result"]?["success"]?.GetValue<bool>() == false && i.Error?.Code == ErrorCodes.McpCallError &&
+                 JsonNode.DeepEquals(i.Error.Details?["content"], evt["result"])));
+            if (index < 0) return false;
+            unmatched.RemoveAt(index);
+        }
+        return true;
+    }
+
+    internal async Task ExecuteAsync(WebApplication app, HttpClient client, BenchmarkCampaign campaign, KeyVaultBenchmarkModel model,
+        PlanningSession state, DelegatedTestReviewAuthority authority, JsonObject report, string workspace, string output, CancellationToken ct,
+        PlanningSession? previouslySaved = null)
+    {
+        var scenario = report["scenario"]!.ToString();
+        var localReview = report["oracle_version"]?.ToString() == LocalReviewQualification.Version;
+        var grant = localReview ? LocalReviewQualification.Scenario : scenario == "code" ? PublishedReviewQualification.Scenario : scenario;
+        var source = (report["execution_tool_source"] ?? report["source"])!.ToString();
+        var recordKey = (report["form_attempt"] ?? report["run"])!.ToString();
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, grant, null, "Release",
+            report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null, report["deckcraft_root"]?.ToString());
+        if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, source), report["mcp_builds"]))
+            throw new PlanningConflictException("Execution requires the original tool builds.");
+        var service = app.Services.GetRequiredService<PlanningSessionService>();
+        Task Save() => campaign.SaveAsync("planning-evaluation-runs", recordKey, report, CancellationToken.None);
+        async Task<PlanningSession> CommandAsync(PlanningCommand command)
+        {
+            using var response = await client.PostAsJsonAsync($"/api/planning/{state.Request.SessionId}/commands", new
+            {
+                command.Kind, command.ExpectedRevision, command.ArtifactHash, command.ReviewedRequirementIds, command.ApprovalReviewId
+            }, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw new PlanningConflictException(await response.Content.ReadFromJsonAsync<string>(ct) ?? "The Server rejected the planning command.");
+            response.EnsureSuccessStatusCode();
+            return await service.GetAsync(state.Request.SessionId, ct) ?? throw new PlanningConflictException("The session disappeared.");
+        }
+        var inputs = report["inputs"]!.AsObject();
+        var localKind = report["oracle_version"]?.ToString() == PublishedReviewQualification.LocalKindVersion;
+        var releaseKind = localKind && report["kind_cleanup_profile"]?.ToString() == SlimFaasReviewProfile.CleanupProfile;
+        var relative = report["workspace_relative"]!.ToString();
+        RequireInputs(state.Plan, inputs);
+        _authority = authority;
+        var saved = previouslySaved;
+        if (saved is null)
+        {
+            var approved = await CommandAsync(authority.Command());
+            PlanningArtifactApproval.Verify(approved, authority.Receipt);
+            if (approved.Status != PlanningStatus.Approved) throw new PlanningConflictException("Approval did not complete.");
+            _saving = approved;
+            try { saved = await CommandAsync(new() { Kind = "save", ExpectedRevision = approved.Revision, ArtifactHash = approved.ApprovedHash }); }
+            finally { _saving = null; }
+        }
+        if (saved.Status != PlanningStatus.Saved || saved.SavedAgentId is null || saved.Yaml != state.Yaml)
+            throw new PlanningConflictException("Saving the approved workflow did not complete.");
+        _savedId = saved.SavedAgentId;
+        _agentName = saved.Request.Name;
+        report["saved_agent_id"] = _savedId;
+        report["execution_artifact_hash"] = saved.ApprovedHash;
+        report["review_origin"] = "delegated_test_reviewed";
+        if (Adaptive is not null) authority.PrepareAdaptiveWorkspace(report["run"]!.GetValue<string>());
+        model.CaptureTokenPolicy(state.Request);
+        var outputLimit = report["execution_model_output_limit"]?.GetValue<int>() ?? 32768;
+        var usageKey = previouslySaved is null ? state.Request.SessionId : recordKey;
+        await using var proxy = await CampaignInferenceProxy.StartAsync(model, usageKey,
+            report["sdk_chat_tools_reasoning_effort"]?.ToString(), report["sdk_wire_api"]?.ToString(), outputLimit: outputLimit);
+        if (localReview) ConfigureReviewExecution(proxy.Endpoint, workspace, relative, report);
+        else if (scenario == "code")
+        {
+            if (report["local_kind_toolchain"] is JsonObject toolchain && localKind)
+                SlimFaasReviewProfile.ApplyToolchain(toolchain, configurations["GnOuGo.GithubCopilot.Mcp"]);
+            configurations["GnOuGo.GithubCopilot.Mcp"].EnvironmentVariables!["Code__Copilot__InferenceProxyEndpoint"] = proxy.Endpoint;
+            CampaignInferenceProxy.ConfigureWireApi(configurations["GnOuGo.GithubCopilot.Mcp"], model.Provider, report["sdk_wire_api"]?.ToString());
+        }
+        var human = new DelegatedTestReviewAuthority.Input(campaign, state.Request.SessionId, authority);
+        await using var transport = new ConfiguredMcpClientFactory(configurations, human, model.Provider, model.Model);
+        var events = new JsonArray();
+        report["events"] = events;
+        using var eventLock = new SemaphoreSlim(1);
+        var observed = new LiveWorkflowEvaluation.ObservedMcp(transport, async evt =>
+        {
+            await eventLock.WaitAsync(CancellationToken.None);
+            try
+            {
+                events.Add(evt);
+                try
+                {
+                    if (Target is not null) await Target.ObserveCreatedReviewAsync(evt, ct);
+                    if (scenario == "code") await LiveCodeEvidence.ObserveCheckoutAsync(workspace, report);
+                }
+                finally { await Save(); }
+            }
+            finally { eventLock.Release(); }
+        }, authority, grant, async (server, tool, args, token) =>
+        {
+            if (server == "Github")
+            {
+                if (tool != "pull_request_read" && string.IsNullOrWhiteSpace(_runId))
+                    throw new PlanningConflictException("A publication requires a bound Server execution.");
+                JsonArray githubEvents;
+                var submitting = tool == "pull_request_review_write" && args["method"]?.ToString() == "submit_pending";
+                JsonObject? checks = null;
+                JsonNode? failures = null;
+                await eventLock.WaitAsync(token);
+                try
+                {
+                    githubEvents = new JsonArray(events.OfType<JsonObject>().Where(e => e["server"]?.ToString() == "Github")
+                        .Select(e => e.DeepClone()).ToArray());
+                    if (submitting)
+                    {
+                        if (!ReviewInstructionsObserved(events, inputs["reviewText"]!.GetValue<string>()))
+                            throw new PlanningConflictException("The requested review instructions did not reach a completed Copilot operation.");
+                        var repository = Path.GetFullPath(Path.Combine(workspace, report["workspace_relative"]!.ToString(), "repository"));
+                        checks = LiveCodeEvidence.Verify(report, repository);
+                        if (LiveCodeEvidence.SubmissionFinding(report, args) is { } finding)
+                            throw new PlanningConflictException(finding);
+                        failures = report["required_check_failures"]!.DeepClone();
+                    }
+                }
+                finally { eventLock.Release(); }
+                if (submitting)
+                {
+                    var confirmation = new JsonObject { ["mode"] = "confirm", ["prompt"] = "Submit this exact review for " + inputs["pullRequestUrl"],
+                        ["choices"] = new JsonArray("approve", "reject"), ["review"] = args.DeepClone(), ["head"] = Target!.Head, ["verified_checks"] = checks!.DeepClone(),
+                        ["failed_checks"] = failures,
+                        ["inline"] = new JsonArray(githubEvents.OfType<JsonObject>().Where(e => e["tool"]?.ToString() == "add_comment_to_pending_review" && e["error"]?.GetValue<bool>() == false)
+                            .Select(e => e["arguments"]!.DeepClone()).ToArray()) };
+                    Console.WriteLine(confirmation.ToJsonString());
+                    var answer = await LiveWorkflowEvaluation.ReadHumanAnswerAsync(confirmation, Console.In, Console.Out, token);
+                    if (answer?["response"]?.GetValue<bool>() != true)
+                        throw new PlanningConflictException("The concrete GitHub review was declined.");
+                    await campaign.SaveAsync("planning-evaluation-dialogs", state.Request.SessionId + ":github-submit", new()
+                    { ["payload"] = confirmation, ["answer"] = answer.DeepClone(), ["artifact_hash"] = saved.ApprovedHash, ["execution_id"] = _runId }, token);
+                }
+                await Target!.CheckWriteAsync(tool, args, githubEvents, token);
+            }
+        }, localKindCleanup: releaseKind, releaseCluster: releaseKind ? () =>
+        {
+            if (_runId is null || report["kind_cluster_before"]?["absent"]?.GetValue<bool>() != true)
+                throw new PlanningConflictException("Cluster release requires the bound execution and its fresh resource observation.");
+            return SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None, releaseRemaining: true);
+        } : null);
+        foreach (var name in configurations.Keys) await (await observed.GetClientAsync(name, ct)).ListToolsAsync(ct);
+        if (scenario == "code" && !localReview) proxy.RequireSdkAdmission(configurations);
+        if (localKind)
+        {
+            var before = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
+            report["kind_cluster_before"] = before;
+            await Save();
+            if (!before["absent"]!.GetValue<bool>())
+                throw new PlanningConflictException("The host could not verify a fresh run-owned kind cluster and kubeconfig.");
+        }
+        report["execution_started"] = DateTimeOffset.UtcNow;
+        await Save();
+        proxy.ExecutionEnabled = true;
+        _executionModel = new LiveWorkflowEvaluation.ExecutionModel(model, usageKey, WorkflowOutputLimit(report));
+        _execution = observed;
+        using var browser = ServerLiveDiagnostics.StartObserver(app, report["working_directory"]!.ToString(), client.BaseAddress!.ToString(),
+            state.Request.SessionId, recordKey, _agentName, report["inputs"]!.AsObject());
+        try
+        {
+            var runs = app.Services.GetRequiredService<WorkflowRunService>();
+            var receiptPath = Path.Combine(output, "form-invocation.json");
+            while (!File.Exists(receiptPath) && !browser.HasExited) await Task.Delay(300, ct);
+            if (!File.Exists(receiptPath)) throw new PlanningConflictException("The typed chat form did not start a workflow.");
+            var submit = JsonNode.Parse(await File.ReadAllTextAsync(receiptPath, ct))!;
+            var id = submit["run"]!.GetValue<string>();
+            if (id.Length != 32 || !id.All(char.IsAsciiHexDigit) || submit["agent"]?.ToString() != _agentName)
+                throw new PlanningConflictException("The form submission does not identify the reviewed agent.");
+            BindRun(id);
+            report["execution_run_id"] = id;
+            WorkflowRun? journal;
+            do
+            {
+                journal = await runs.ReadAsync(id, ct);
+                if (journal is not null)
+                {
+                    if (journal.Limits.AgentId != _savedId || journal.WorkflowYaml != saved.Yaml ||
+                        !MatchesSubmittedInputs(report["inputs"], journal.Inputs))
+                        throw new PlanningConflictException("The journal does not match the approved workflow and submitted form inputs.");
+                    if (journal.Status is WorkflowRunStatus.Completed or WorkflowRunStatus.Cancelled or WorkflowRunStatus.NeedsReconciliation or WorkflowRunStatus.Failed) break;
+                    if (localReview)
+                        foreach (var dialog in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is not null))
+                        {
+                            if (authority.FinishedLocalReview(id, dialog.ParentInvocationId)) continue;
+                            try { await AnswerLocalReviewDialogAsync(runs, id, dialog, authority, human, ct); }
+                            catch (PlanningConflictException) when (authority.FinishedLocalReview(id, dialog.ParentInvocationId))
+                            {
+                                // The SDK ended while this snapshot or one-time answer was pending.
+                                // Leave the dialogue unanswered and read the parent's terminal journal.
+                            }
+                        }
+                    foreach (var wait in journal.Invocations.Values.Where(i => i.Status == "waiting_for_human" && i.ParentInvocationId is null))
+                    {
+                        if (wait.ResolvedInput is not JsonObject input || input["fields"] is not null || input["context"] is not null)
+                            throw new PlanningConflictException("The pending prompt differs from the reviewed confirmation.");
+                        var request = new HumanInputRequest { RunId = id, StepId = wait.Id, Mode = input["mode"]?.ToString() ?? "",
+                            Prompt = input["prompt"]?.ToString() ?? "", Choices = input["choices"]?.AsArray().Select(c => c!.ToString()).ToList(),
+                            AllowAbandon = input["allow_abandon"]?.GetValue<bool>() ?? false };
+                        if (!authority.RequireRuntimeRequest(request)) throw new PlanningConflictException("Unexpected confirmation.");
+                        var answer = await human.RequestInputAsync(request, ct);
+                        await runs.CommandAsync(id, "answer", new(journal.Revision, wait.Id, Response: answer), ct);
+                    }
+                }
+                if (browser.HasExited && journal is null) throw new PlanningConflictException("No Server execution journal was created.");
+                await Task.Delay(750, ct);
+            } while (true);
+            await browser.WaitForExitAsync(ct).WaitAsync(TimeSpan.FromSeconds(45), ct);
+            if (browser.ExitCode != 0) throw new PlanningConflictException("The workflow form reported a browser error.");
+            report["finished_utc"] = DateTimeOffset.UtcNow;
+            report["execution"] = new JsonObject { ["success"] = journal.Status == WorkflowRunStatus.Completed && journal.Result?.Success == true,
+                ["status"] = journal.Status, ["finalization_completed"] = journal.FinalizationCompleted };
+            var captureCaller = scenario == "deckcraft" || PublishedReviewQualification.RequiresChatReport(report) ||
+                report["oracle_version"]?.ToString() == LiveWorkflowOracles.AmazonFirstProductsVersion;
+            if (scenario == "deckcraft") report["vision_receipts"] = new JsonArray(_visionReceipts.Select(r => r.DeepClone()).ToArray());
+            if (localReview || captureCaller)
+                report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
+            if (captureCaller)
+            {
+                var answer = Path.Combine(output, "form-response.json");
+                if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));
+            }
+            if (localKind) report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
+            report["oracle"] = scenario == "deckcraft" ? await DeckCraftQualification.VerifyAsync(report, workspace, output, journal, ct) : localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+            report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
+            report["result"]!["execution_status"] = journal.Status;
+            report["passed"] = report["oracle"]!["passed"]!.DeepClone();
+            if (IsExecutionBudgetOverrun(journal))
+            {
+                report["result"]!["budget_blocked"] = true;
+                Console.Error.WriteLine("Warning: the execution budget was exceeded. The run is unqualified.");
+            }
+            else if (!report["passed"]!.GetValue<bool>()) Environment.ExitCode = 1;
+        }
+        finally
+        {
+            proxy.ExecutionEnabled = false;
+            _reviewExecution = null;
+            if (localKind && report["kind_cluster_after"] is null)
+                report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, CancellationToken.None);
+            _execution = null;
+            _executionModel = null;
+            if (!browser.HasExited) browser.Kill(entireProcessTree: true);
+            await Save();
+        }
+    }
+
+    internal static int WorkflowOutputLimit(JsonObject report)
+    {
+        var limit = (report["workflow_model_output_limit"] ?? report["execution_model_output_limit"])?.GetValue<int>() ?? 32768;
+        return limit is >= 1 and <= 32768 ? limit : throw new PlanningConflictException("Invalid captured workflow output allowance.");
+    }
+
+    internal static bool MatchesSubmittedInputs(JsonNode? submitted, JsonNode? actual) =>
+        submitted is JsonObject fields && actual is JsonObject envelope &&
+        fields.All(field => envelope.TryGetPropertyValue(field.Key, out var value) && JsonNode.DeepEquals(value, field.Value));
+}

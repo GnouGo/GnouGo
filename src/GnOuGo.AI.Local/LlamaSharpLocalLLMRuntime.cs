@@ -9,6 +9,7 @@ using GnOuGo.AI.Core;
 using LLama;
 using LLama.Common;
 using LLama.Sampling;
+using LLama.Native;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -16,7 +17,7 @@ using Microsoft.Extensions.Options;
 namespace GnOuGo.AI.Local;
 
 /// <summary>In-process LLamaSharp/llama.cpp implementation of the local runtime contract.</summary>
-public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsyncDisposable
+public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, ILocalLLMStreamingRuntime, IAsyncDisposable
 {
     private static readonly ActivitySource ActivitySource = new("GnOuGo.AI.Local.Inference");
     private static readonly Meter Meter = new("GnOuGo.AI.Local.Inference");
@@ -26,6 +27,8 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
     private static readonly Histogram<double> ModelLoadDuration = Meter.CreateHistogram<double>(
         "gnougo.local_llm.model_load.duration",
         "s");
+
+    public bool SupportsNativeStreaming => true;
 
     private readonly string _modelsDirectory;
     private readonly LocalLLMOptions _options;
@@ -56,6 +59,7 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
         await _gate.WaitAsync(ct).ConfigureAwait(false);
         long startedAt = 0;
         StatelessExecutor? callExecutor = null;
+        var generationStarted = false;
         try
         {
             var (weights, modelParameters) = await GetOrLoadModelAsync(entry, ct).ConfigureAwait(false);
@@ -73,7 +77,7 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
             activity?.SetTag("gen_ai.request.max_tokens", ResolveMaxTokens(request));
             activity?.SetTag("gnougo.local.acceleration", ResolveAccelerationName());
 
-            using var sampling = CreateSamplingPipeline(request);
+            using var sampling = new ObservedSamplingPipeline(CreateSamplingPipeline(request), token => token.IsEndOfGeneration(weights.Vocab));
             var inference = new InferenceParams
             {
                 MaxTokens = ResolveMaxTokens(request),
@@ -81,11 +85,12 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
                 AntiPrompts = ["<|im_end|>", "<|endoftext|>"]
             };
 
-            var output = new StringBuilder();
-            await foreach (var chunk in callExecutor.InferAsync(prompt, inference, ct).ConfigureAwait(false))
-                output.Append(chunk);
-
-            var text = StripThinking(output.ToString()).Trim();
+            var output = await LocalInferenceCompletion.ReadAsync(callExecutor.InferAsync(prompt, inference, ct),
+                text => sampling.EndOfGeneration || inference.AntiPrompts.Any(stop => text.EndsWith(stop, StringComparison.Ordinal))
+                    ? "stop" : sampling.GeneratedTokens >= inference.MaxTokens ? "length" : null,
+                () => { generationStarted = true; activity?.SetTag("gnougo.llm.stream.native_tokens", sampling.GeneratedTokens); }, ct);
+            var termination = output.Reason;
+            var text = StripThinking(output.Text).Trim();
             var toolCalls = ParseToolCalls(text);
             var json = TryParseJson(text);
             if (request.StructuredOutputSchema is not null)
@@ -113,7 +118,11 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
                 Raw = new JsonObject
                 {
                     ["provider"] = LocalLLMProvider.Type,
-                    ["model"] = entry.Id
+                    ["model"] = entry.Id,
+                    ["done_reason"] = termination,
+                    ["protocol_complete"] = true,
+                    ["usage_known"] = false,
+                    ["transport_mode"] = request.ResolvedTransport?.EffectiveMode.ToString()
                 }
             };
         }
@@ -132,7 +141,7 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
                 _weights is null
                     ? "The embedded local model could not be loaded."
                     : "The embedded local model failed during inference.",
-                ex);
+                ex, generationStarted: generationStarted);
         }
         finally
         {
@@ -229,6 +238,23 @@ public sealed partial class LlamaSharpLocalLLMRuntime : ILocalLLMRuntime, IAsync
                 Stopwatch.GetElapsedTime(startedAt).TotalSeconds,
                 new KeyValuePair<string, object?>("model", entry.Id));
         }
+    }
+
+    private sealed class ObservedSamplingPipeline(ISamplingPipeline inner, Func<LLamaToken, bool> isEnd) : ISamplingPipeline
+    {
+        internal int GeneratedTokens { get; private set; }
+        internal bool EndOfGeneration { get; private set; }
+        public LLamaToken Sample(SafeLLamaContextHandle context, int index)
+        {
+            var token = inner.Sample(context, index);
+            EndOfGeneration = isEnd(token);
+            if (!EndOfGeneration) GeneratedTokens++;
+            return token;
+        }
+        public void Apply(SafeLLamaContextHandle context, LLamaTokenDataArray data) => inner.Apply(context, data);
+        public void Accept(LLamaToken token) => inner.Accept(token);
+        public void Reset() { GeneratedTokens = 0; EndOfGeneration = false; inner.Reset(); }
+        public void Dispose() => inner.Dispose();
     }
 
     private ISamplingPipeline CreateSamplingPipeline(LLMClientRequest request)

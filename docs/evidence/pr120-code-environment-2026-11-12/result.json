@@ -1,0 +1,128 @@
+{
+  "source": "d22d8a096a15cd32c21416a89c4a083f48391110",
+  "identity": "code-toolchain-environment-20261112-01",
+  "purpose": "observe actual SDK terminal toolchains without installation or network",
+  "provider_fingerprint_matches_sdk05": true,
+  "sdk05_record_changed": false,
+  "sdk05_receipt_transport": "gnougo-structured-tools-v1",
+  "receipt_transport": "gnougo-structured-tools-v1",
+  "command": "python3 probe.py",
+  "command_count": 1,
+  "probe_observation_passed": true,
+  "execution_success": true,
+  "completion_verified": true,
+  "receipt_reloaded": true,
+  "transport_verified": true,
+  "script_unchanged": true,
+  "terminal_json_matches_report": true,
+  "cleanup": true,
+  "pinned_toolchains_verified": false,
+  "full_code_prerequisite_qualified": false,
+  "full_code_oracle_passed": false,
+  "execution_ms": 187681,
+  "known_cost_eur": "0.9710165696372592924317062248",
+  "attempts": [
+    {
+      "request_id": "code-toolchain-environment-20261112-01-copilot:7446146e678c918e6e94269ae023fe0332d9c52477402de180a930a44a795283",
+      "http_status": 200,
+      "provider_response_id": "chatcmpl-EjERftbU5rf6W8iB7LmSU8zZf0HCR",
+      "provider_created_unix": 1794448995,
+      "finish_reason": "stop",
+      "input_tokens": 10837,
+      "output_tokens": 90,
+      "reasoning_tokens": null,
+      "known_cost_eur": "0.3056963725929243170622480967",
+      "uncertain_attempts": 0,
+      "usage_bounded": true,
+      "http_duration_seconds": null,
+      "first_nonempty_output_seconds": null,
+      "receipt_completion_status": null,
+      "provider_response_json_parsed": true
+    },
+    {
+      "request_id": "code-toolchain-environment-20261112-01-copilot:ad460d4e07b52c83961c1def1996b6e8b1543f4be10726fee14ab3989efc92cf",
+      "http_status": 200,
+      "provider_response_id": "chatcmpl-EjESgnd8kfXEPtMOhnUjQwVnY8Ihv",
+      "provider_created_unix": 1794449058,
+      "finish_reason": "stop",
+      "input_tokens": 11387,
+      "output_tokens": 47,
+      "reasoning_tokens": null,
+      "known_cost_eur": "0.3135423197492163009404388715",
+      "uncertain_attempts": 0,
+      "usage_bounded": true,
+      "http_duration_seconds": null,
+      "first_nonempty_output_seconds": null,
+      "receipt_completion_status": null,
+      "provider_response_json_parsed": true
+    },
+    {
+      "request_id": "code-toolchain-environment-20261112-01-copilot:535530dd96d6be6f8a57a4e28c7d7c0a8471211aad4e8dee7507425a8d8f0e54",
+      "http_status": 200,
+      "provider_response_id": "chatcmpl-EjETnBjKlZQzvch7HO39PloqfHPVs",
+      "provider_created_unix": 1794449127,
+      "finish_reason": "stop",
+      "input_tokens": 11964,
+      "output_tokens": 188,
+      "reasoning_tokens": null,
+      "known_cost_eur": "0.3517778772951186744290192566",
+      "uncertain_attempts": 0,
+      "usage_bounded": true,
+      "http_duration_seconds": null,
+      "first_nonempty_output_seconds": null,
+      "receipt_completion_status": null,
+      "provider_response_json_parsed": true
+    }
+  ],
+  "observed_versions": [
+    {
+      "name": "node",
+      "available": true,
+      "exit_code": 0,
+      "stdout": "v22.20.0\n",
+      "timed_out": false
+    },
+    {
+      "name": "pnpm",
+      "available": true,
+      "exit_code": 1,
+      "stdout": "",
+      "timed_out": false
+    },
+    {
+      "name": "python",
+      "available": false,
+      "exit_code": null,
+      "stdout": "",
+      "timed_out": false
+    },
+    {
+      "name": "python3",
+      "available": true,
+      "exit_code": 0,
+      "stdout": "Python 3.14.4\n",
+      "timed_out": false
+    }
+  ],
+  "pnpm_failure": {
+    "code": "MODULE_NOT_FOUND",
+    "missing_entry": "corepack/v1/pnpm/12.18.0/bin/pnpm.cjs",
+    "host_entry_exists": false
+  },
+  "probe_script_sha256": "bfc566f113733cb0aba1d858b835945e1cc64b249297dfef520a6a2193a69575",
+  "preparation_sha256": "ff194dd3e65c2843a1bbd46b5ce976566040c7081eb8b8af63e3292da3e27cc6",
+  "experiment_assembly_sha256": "772a8c05758ae42a1b014a0ffd809848d47cc17119e1c1bc83b17ec60f3ed7af",
+  "expired_interaction_preflight": {
+    "probe_record_created": false,
+    "sdk_session_created": false,
+    "paid_admission": false,
+    "verified_before_reopening": true
+  },
+  "timing_limitation": "The established SDK capture stores HTTP status/body and complete usage, but no per-attempt start/end/first-output fields. Whole probe execution duration is measured separately; record persistence times are not HTTP timing.",
+  "pre_funding_frozen_build": {
+    "source": "d22d8a096a15cd32c21416a89c4a083f48391110",
+    "warnings": 0,
+    "errors": 0,
+    "log_sha256": "699a8556a8a859f1c6b4bf6ba89ef6e6ea018bd2862cc93552678c4adc14cb6b"
+  }
+}

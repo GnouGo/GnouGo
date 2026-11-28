@@ -1,0 +1,441 @@
+{
+  "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+  "cohort": "compactr46e356283colhighv10a",
+  "scope": {
+    "constructed_identities": 25,
+    "admitted_logical": 23,
+    "prepared_only": 0,
+    "rejected_before_dispatch": 2,
+    "physical_attempts": 23,
+    "received_responses": 23
+  },
+  "estimator": "serialized_utf8_div3_plus256_v1",
+  "definitions": "p50 is median; p95 is nearest rank; maximum and totals are explicit. Constructed identities include two unissued prospective Judge follow-ups. Only admitted requests count as logical dispatches. Provider tokens are observed usage, not request estimates; reasoning tokens are included in output. Component UTF-8 bytes reconcile; separately rounded estimates need not sum.",
+  "phases": [
+    {
+      "phase": "construction_draft",
+      "constructed": 7,
+      "admitted_logical": 7,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 7,
+      "receipts": 7,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 27149,
+      "known_provider_output_tokens": 5479,
+      "known_provider_reasoning_tokens": 4096,
+      "known_cost_eur": "0.2678402498884426595269968764",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "184788.10570000001",
+      "admitted_complete_request_bytes": {
+        "total": 149960,
+        "count": 7,
+        "p50": "21875",
+        "p95": "25864",
+        "max": "25864"
+      },
+      "admitted_estimated_input_tokens": {
+        "total": 51781,
+        "count": 7,
+        "p50": "7548",
+        "p95": "8878",
+        "max": "8878"
+      },
+      "constructed_complete_request_bytes": {
+        "total": 149960,
+        "count": 7,
+        "p50": "21875",
+        "p95": "25864",
+        "max": "25864"
+      },
+      "constructed_estimated_input_tokens": {
+        "total": 51781,
+        "count": 7,
+        "p50": "7548",
+        "p95": "8878",
+        "max": "8878"
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 13228,
+        "diagnostics": 182,
+        "envelope": 3147,
+        "evidence": 175,
+        "fragment": 154,
+        "instructions": 8911,
+        "interfaces": 8563,
+        "mcp_contracts": 175,
+        "objective": 1104,
+        "requirements": 18842,
+        "response_schema": 95479
+      }
+    },
+    {
+      "phase": "construction_intent",
+      "constructed": 2,
+      "admitted_logical": 2,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 2,
+      "receipts": 2,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 1992,
+      "known_provider_output_tokens": 1825,
+      "known_provider_reasoning_tokens": 1313,
+      "known_cost_eur": "0.0577510040160642570281124498",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "55578.7845",
+      "admitted_complete_request_bytes": {
+        "total": 11173,
+        "count": 2,
+        "p50": "5586.5",
+        "p95": "8650",
+        "max": "8650"
+      },
+      "admitted_estimated_input_tokens": {
+        "total": 4237,
+        "count": 2,
+        "p50": "2118.5",
+        "p95": "3140",
+        "max": "3140"
+      },
+      "constructed_complete_request_bytes": {
+        "total": 11173,
+        "count": 2,
+        "p50": "5586.5",
+        "p95": "8650",
+        "max": "8650"
+      },
+      "constructed_estimated_input_tokens": {
+        "total": 4237,
+        "count": 2,
+        "p50": "2118.5",
+        "p95": "3140",
+        "max": "3140"
+      },
+      "admitted_component_utf8_bytes": {
+        "diagnostics": 52,
+        "envelope": 872,
+        "evidence": 23,
+        "instructions": 2367,
+        "intent": 1810,
+        "interfaces": 59,
+        "response_schema": 5990
+      }
+    },
+    {
+      "phase": "construction_local_judge",
+      "constructed": 9,
+      "admitted_logical": 7,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 2,
+      "physical_attempts": 7,
+      "receipts": 7,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 23802,
+      "known_provider_output_tokens": 16165,
+      "known_provider_reasoning_tokens": 14125,
+      "known_cost_eur": "0.5390093708165997322623828649",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "321394.095",
+      "admitted_complete_request_bytes": {
+        "total": 131591,
+        "count": 7,
+        "p50": "18651",
+        "p95": "21584",
+        "max": "21584"
+      },
+      "admitted_estimated_input_tokens": {
+        "total": 45658,
+        "count": 7,
+        "p50": "6473",
+        "p95": "7451",
+        "max": "7451"
+      },
+      "constructed_complete_request_bytes": {
+        "total": 180144,
+        "count": 9,
+        "p50": "20387",
+        "p95": "25164",
+        "max": "25164"
+      },
+      "constructed_estimated_input_tokens": {
+        "total": 62355,
+        "count": 9,
+        "p50": "7052",
+        "p95": "8644",
+        "max": "8644"
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 27743,
+        "diagnostics": 182,
+        "envelope": 3186,
+        "evidence": 175,
+        "fragment": 4211,
+        "instructions": 44373,
+        "interfaces": 10536,
+        "mcp_contracts": 175,
+        "objective": 1104,
+        "requirements": 15186,
+        "response_schema": 24720
+      }
+    },
+    {
+      "phase": "construction_select",
+      "constructed": 7,
+      "admitted_logical": 7,
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "physical_attempts": 7,
+      "receipts": 7,
+      "unknown_attempts": 0,
+      "known_provider_input_tokens": 21097,
+      "known_provider_output_tokens": 9188,
+      "known_provider_reasoning_tokens": 7679,
+      "known_cost_eur": "0.3401383311021865238732708611",
+      "reserved_unknown_cost_eur": 0,
+      "completed_call_stage_ms": "229599.56160000002",
+      "admitted_complete_request_bytes": {
+        "total": 108392,
+        "count": 7,
+        "p50": "15526",
+        "p95": "19254",
+        "max": "19254"
+      },
+      "admitted_estimated_input_tokens": {
+        "total": 37925,
+        "count": 7,
+        "p50": "5432",
+        "p95": "6674",
+        "max": "6674"
+      },
+      "constructed_complete_request_bytes": {
+        "total": 108392,
+        "count": 7,
+        "p50": "15526",
+        "p95": "19254",
+        "max": "19254"
+      },
+      "constructed_estimated_input_tokens": {
+        "total": 37925,
+        "count": 7,
+        "p50": "5432",
+        "p95": "6674",
+        "max": "6674"
+      },
+      "admitted_component_utf8_bytes": {
+        "construction_context": 12541,
+        "envelope": 3091,
+        "instructions": 26348,
+        "interfaces": 4414,
+        "requirements": 18842,
+        "response_schema": 43156
+      }
+    }
+  ],
+  "terminal_requests": [
+    {
+      "role": "last_received_q23",
+      "requestHash": "818efd3a656a823fa3a1277224a55ed4f694b161eda18f280c0db8ae68823102",
+      "schemaHash": "5ceedb1865268e7eb96f69b3731ad872040b8b42495c97bc80c8e1fec9b0e353",
+      "phase": "construction_local_judge",
+      "admission": "admitted",
+      "inputLimit": 8000,
+      "completeRequestBytes": 20387,
+      "estimatedInputTokens": 7052,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 4265,
+          "estimatedTokens": 1422
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 456,
+          "estimatedTokens": 408
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 505,
+          "estimatedTokens": 169
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 6476,
+          "estimatedTokens": 2159
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 3968,
+          "estimatedTokens": 1323
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 238,
+          "estimatedTokens": 80
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 822,
+          "estimatedTokens": 274
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3581,
+          "estimatedTokens": 1194
+        }
+      ]
+    },
+    {
+      "role": "rejected_evidence_batch",
+      "requestHash": "46b8bb35ca2168fd70b6583c2dbb1ff22a9b070fea10db16063464a09efc8fe5",
+      "schemaHash": "2b33685447228991e781069b421bc462d6d896eb89684a6d42b2b46d8ca0d0af",
+      "phase": "construction_local_judge",
+      "admission": "rejected_before_dispatch",
+      "inputLimit": 8000,
+      "completeRequestBytes": 25164,
+      "estimatedInputTokens": 8644,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 4265,
+          "estimatedTokens": 1422
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 26,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 456,
+          "estimatedTokens": 408
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 2098,
+          "estimatedTokens": 700
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 505,
+          "estimatedTokens": 169
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 6476,
+          "estimatedTokens": 2159
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 3968,
+          "estimatedTokens": 1323
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 238,
+          "estimatedTokens": 80
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 3521,
+          "estimatedTokens": 1174
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3586,
+          "estimatedTokens": 1196
+        }
+      ]
+    },
+    {
+      "role": "rejected_single_address_choice_followup",
+      "requestHash": "5a9d74704d49de2950dac881fa07494a36aace3c40c504e95114279813adfdd7",
+      "schemaHash": "6de00d45460023147689ef51ef298bcd01452a30853f8936ea451a9655f34fcf",
+      "phase": "construction_local_judge",
+      "admission": "rejected_before_dispatch",
+      "inputLimit": 8000,
+      "completeRequestBytes": 23389,
+      "estimatedInputTokens": 8053,
+      "components": [
+        {
+          "component": "construction_context",
+          "serializedBytes": 4265,
+          "estimatedTokens": 1422
+        },
+        {
+          "component": "diagnostics",
+          "serializedBytes": 377,
+          "estimatedTokens": 126
+        },
+        {
+          "component": "envelope",
+          "serializedBytes": 456,
+          "estimatedTokens": 408
+        },
+        {
+          "component": "evidence",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "fragment",
+          "serializedBytes": 505,
+          "estimatedTokens": 169
+        },
+        {
+          "component": "instructions",
+          "serializedBytes": 6476,
+          "estimatedTokens": 2159
+        },
+        {
+          "component": "interfaces",
+          "serializedBytes": 3968,
+          "estimatedTokens": 1323
+        },
+        {
+          "component": "mcp_contracts",
+          "serializedBytes": 25,
+          "estimatedTokens": 9
+        },
+        {
+          "component": "objective",
+          "serializedBytes": 238,
+          "estimatedTokens": 80
+        },
+        {
+          "component": "requirements",
+          "serializedBytes": 3521,
+          "estimatedTokens": 1174
+        },
+        {
+          "component": "response_schema",
+          "serializedBytes": 3533,
+          "estimatedTokens": 1178
+        }
+      ]
+    }
+  ],
+  "planning_wall_ms": 860870,
+  "completed_call_stage_ms_sum": "791360.5468",
+  "timing_limit": "Call-stage elapsed sum and planning wall time are distinct observations; neither measures runtime execution."
+}

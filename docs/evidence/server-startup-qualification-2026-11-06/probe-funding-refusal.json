@@ -1,0 +1,82 @@
+{
+  "source": "c73009ba0241a7b2dfa6867ce27c0553d38c67c1",
+  "run": "startup-qualified-probe-c730-20261106-2149",
+  "campaign": "schema-portability-20261019-incremental",
+  "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "host": "GnOuGo.Agent.Server",
+  "budget_mode": "limited",
+  "retained_external_reservations_eur": "733.8902769679137437881016912",
+  "started_utc": "2026-11-06T21:48:41.202456+00:00",
+  "phase": "provider_probe",
+  "working_directory": "<source-root>/artifacts/continuity-live-e673a51e",
+  "launch_arguments": [
+    "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+    "--schema-portability",
+    "server-live-probe",
+    "--run",
+    "startup-qualified-probe-c730-20261106-2149",
+    "--model",
+    "gpt-6.1-sol-2026-09-29",
+    "--campaign-configuration",
+    "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "--workspace",
+    "<application-workspace>",
+    "--campaign",
+    "schema-portability-20261019-incremental",
+    "--retained-external-reservations-eur",
+    "733.8902769679137437881016912"
+  ],
+  "loaded_assemblies": {
+    "entry": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "2e13b010c48a81e4ab66381c840cd3699c7fd21b51d9d53816736c6a3551d13b"
+    },
+    "server": {
+      "path": "<source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "71d6a58b45244df583be0034f6e2094be0a3b6a2d85712ac237aff99f4b000c0"
+    }
+  },
+  "configuration_sources": {
+    "provider": "campaign_provider_pin",
+    "model": "keyvault_provider_configuration",
+    "endpoint": "keyvault_provider_configuration",
+    "metadata": "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+    "environment": "not applied by the campaign loader; Server configuration providers are reported separately",
+    "historical_host_options": "unavailable",
+    "request_policy.BillingServiceTier": "code_default",
+    "request_policy.BillingRegionalProcessing": "code_default",
+    "request_policy.BillingCacheRetention": "code_default",
+    "request_policy.BackgroundProtocol": "keyvault_provider_configuration",
+    "request_policy.UnspecifiedOutputTokens": "code_default",
+    "request_policy.DefaultMaxOutputTokens": "code_default",
+    "request_policy.MaxOutputTokensCap": "code_default"
+  },
+  "server_model_source": "keyvault_provider_configuration",
+  "frontend_ready": true,
+  "request_id": "startup-qualified-probe-c730-20261106-2149:probe:8c84cb225c07a1e0f3f91506033e9021a57806669d43905693f2d0ac633d48dd",
+  "requested_output_tokens": 1024,
+  "passed": false,
+  "exception_type": "System.InvalidOperationException",
+  "exception_stack": "   at BenchmarkHttpJournal.SaveAsync(LLMHttpRetryState state, CancellationToken ct, JsonObject exchangeQuote) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkHttpJournal.cs:line 155\n   at GnOuGo.AI.Core.LLMHttpRetryContext.SaveAsync(LLMHttpRetryState state, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.AI.Core/LLMHttpRetryContext.cs:line 84\n   at GnOuGo.AI.Core.LLMHttpRetryContext.RethrowJournalFailure() in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.AI.Core/LLMHttpRetryContext.cs:line 88\n   at GnOuGo.AI.Core.RoutingLLMClient.CallAsync(LLMClientRequest request, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.AI.Core/RoutingLLMClient.cs:line 99\n   at GnOuGo.Flow.Integrations.RoutingLLMClientAdapter.CallAsync(LLMRequest request, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Flow.Integrations/RoutingLLMClientAdapter.cs:line 54\n   at KeyVaultBenchmarkModel.<>c__DisplayClass61_0.<<DispatchAsync>b__1>d.MoveNext() in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 564\n--- End of stack trace from previous location ---\n   at BenchmarkCampaign.CallAsync(LLMRequest request, Func`2 preflight, Func`2 dispatch, CancellationToken ct, Boolean allowHttpRecovery) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs:line 488\n   at BenchmarkCampaign.CallAsync(LLMRequest request, Func`2 preflight, Func`2 dispatch, CancellationToken ct, Boolean allowHttpRecovery) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/BenchmarkCampaign.cs:line 530\n   at KeyVaultBenchmarkModel.DispatchAsync(LLMRequest request, CancellationToken ct, Boolean execution) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 541\n   at KeyVaultBenchmarkModel.CallBoundedAsync(LLMRequest request, Boolean execution, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 421\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 71\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in <source-root>/artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 115\n   at ServerLiveDiagnostics.<>c__DisplayClass0_1.<<RunAsync>b__5>d.MoveNext() in <source-root>/artifacts/continuity-live-e673a51e/tests/GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs:line 128",
+  "campaign_stop_reason": "campaign_budget",
+  "financial_refusal": {
+    "request_id": "startup-qualified-probe-c730-20261106-2149:probe:8c84cb225c07a1e0f3f91506033e9021a57806669d43905693f2d0ac633d48dd",
+    "scope": "campaign_llm_budget",
+    "origin": "captured_campaign_ceiling",
+    "limit_kind": "estimated_cost",
+    "allowance": "740.0301038327063045424449473",
+    "required_reservation": "1434.6359532230043326619455983",
+    "estimated_cost_currency": "EUR",
+    "dispatch_status": "not_started",
+    "attempt_dispatch_status": "not_started",
+    "denied_attempt_number": 1,
+    "mandatory_review_reserve_eur": 0,
+    "retained_external_reservations_eur": "733.8902769679137437881016912"
+  },
+  "physical_http_attempts": 0,
+  "durable_receipt": false,
+  "finished_utc": "2026-11-06T21:49:15.79741+00:00",
+  "trace_id": "98f0a71ae853d780aacbcfae946174be"
+}

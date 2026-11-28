@@ -1,0 +1,428 @@
+{
+  "version": 1,
+  "source": "4d486d1ac63aafb7893086437164cfd9f23dc26d",
+  "case": "code",
+  "cohort": "compactr4d486d1accode20v6j16",
+  "profile": {
+    "model": "gpt-5.5-2026-04-24",
+    "benchmark_binary_sha256": "6f0ae07a25203df3ea3849d40f40c7eb6fc85e66b7ade416db4b1c0d6de44eb0",
+    "phase_policy": {
+      "version": 1,
+      "navigation": {
+        "reasoning": "medium",
+        "targetInputTokens": 3000,
+        "maxInputTokens": 16000,
+        "outputTokens": 32768
+      },
+      "draft": {
+        "reasoning": "medium",
+        "targetInputTokens": 8000,
+        "maxInputTokens": 20000,
+        "outputTokens": 16384
+      },
+      "review": {
+        "reasoning": "medium",
+        "targetInputTokens": 4000,
+        "maxInputTokens": 16000,
+        "outputTokens": 4096
+      }
+    }
+  },
+  "outcome": {
+    "session_status": "stopped",
+    "session_phase": "construction_local_judge",
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "MODEL_INPUT_LIMIT"
+    ],
+    "termination_reason": null,
+    "corrections": 2,
+    "checkpoints": 3,
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_started": false,
+    "execution_success": false,
+    "execution_status": "not_started",
+    "oracle_passed": null,
+    "planning_ms": 1009880,
+    "elapsed_ms": null,
+    "runtime_ms": null,
+    "logical_dispatched": 34,
+    "physical_attempts": 34,
+    "receipts": 34
+  },
+  "public_terminal_outcome": {
+    "status": "stopped",
+    "execution_success": false,
+    "execution_status": "not_started",
+    "calls": 34
+  },
+  "requests": {
+    "identities_measured": 39,
+    "prepared_but_undispatched": 3,
+    "measured_admission_rejections": 2,
+    "receiptless_dispatched": 0,
+    "provider_http_status_counts": {
+      "200": 34
+    },
+    "provider_failure_kind_counts": {},
+    "prepared_identities": [
+      {
+        "phase": "construction_draft",
+        "admission": "prepared",
+        "request_bytes": 36931,
+        "estimated_input_tokens": 12567,
+        "input_limit": 20000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "logical_ordinal": 15
+      },
+      {
+        "phase": "construction_draft",
+        "admission": "prepared",
+        "request_bytes": 40068,
+        "estimated_input_tokens": 13612,
+        "input_limit": 20000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "logical_ordinal": 22
+      },
+      {
+        "phase": "construction_draft",
+        "admission": "prepared",
+        "request_bytes": 40756,
+        "estimated_input_tokens": 13842,
+        "input_limit": 20000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "logical_ordinal": 30
+      }
+    ],
+    "rejected_identities": [
+      {
+        "phase": "construction_local_judge",
+        "admission": "rejected_before_dispatch",
+        "request_bytes": 51766,
+        "estimated_input_tokens": 17512,
+        "input_limit": 16000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "logical_ordinal": 35
+      },
+      {
+        "phase": "construction_local_judge",
+        "admission": "rejected_before_dispatch",
+        "request_bytes": 47314,
+        "estimated_input_tokens": 16028,
+        "input_limit": 16000,
+        "http_attempts": 0,
+        "receipt_present": false,
+        "statuses": [],
+        "retained_reservation_eur": 0,
+        "logical_ordinal": 35
+      }
+    ],
+    "receiptless_identities": [],
+    "receipted_requests_with_unknown_usage_reservation": [],
+    "all_components_reconcile": true,
+    "admitted_requests_within_input_limits": true,
+    "complete_request_bytes_total": 1117382,
+    "all_constructed_request_bytes": {
+      "count": 39,
+      "p50": "26359",
+      "p95": "51766",
+      "max": "55755"
+    },
+    "estimated_input_tokens_total": 382459,
+    "all_constructed_estimated_input_tokens": {
+      "count": 39,
+      "p50": "9043",
+      "p95": "17512",
+      "max": "18841"
+    },
+    "component_estimate_minus_complete_estimate": 103,
+    "normalized_response_bytes": "25612",
+    "empty_completed_response_projections": 0,
+    "receipted_logical_elapsed_ms": {
+      "count": 34,
+      "p50": "21934.99935",
+      "p95": "48108.3874",
+      "max": "84702.826"
+    }
+  },
+  "usage_and_cost": {
+    "input_tokens": 219930,
+    "output_tokens": 39017,
+    "reasoning_tokens_within_output": 30906,
+    "reasoning_measured_calls": 34,
+    "visible_output_tokens_derived_where_reasoning_measured": "8111",
+    "known_cost_eur": "2.0260240963855421686746987952",
+    "retained_reservation_eur": 0,
+    "run_cost_upper_bound_eur": "2.0260240963855421686746987952",
+    "unknown_usage_attempts": 0,
+    "receiptless_dispatched_requests": 0,
+    "completed_logical_intervals_ms": "898547.7652",
+    "phase_completed_interval_sum_minus_terminal_aggregate_ms": {
+      "construction_intent": "0.0000",
+      "construction_select": "0.0000",
+      "construction_draft": "0.0000",
+      "construction_local_judge": "-1E-11",
+      "construction_discovery": "0.0000",
+      "replan": "0.00"
+    },
+    "exact_money_source": "Original exact safe metrics and public terminal JSONL parsed with Decimal precision 80; original bytes retained."
+  },
+  "phase_statistics": {
+    "construction_intent": {
+      "constructed": 6,
+      "dispatched": 6,
+      "receipts": 6,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "6",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 6,
+        "p50": "7030.5",
+        "p95": "11899",
+        "max": "11899"
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": "2600",
+        "p95": "4223",
+        "max": "4223"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 6,
+        "p50": "20557.52495",
+        "p95": "33383.9636",
+        "max": "33383.9636"
+      },
+      "input_tokens": "8652",
+      "output_tokens": "6261",
+      "reasoning_tokens_within_output": "4232",
+      "known_cost_eur": "0.2062382864792503346720214190",
+      "retained_reservation_eur": "0"
+    },
+    "construction_select": {
+      "constructed": 5,
+      "dispatched": 5,
+      "receipts": 5,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "5",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 5,
+        "p50": "26359",
+        "p95": "33255",
+        "max": "33255"
+      },
+      "estimated_input_tokens": {
+        "count": 5,
+        "p50": "9043",
+        "p95": "11341",
+        "max": "11341"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 5,
+        "p50": "35281.086",
+        "p95": "84702.826",
+        "max": "84702.826"
+      },
+      "input_tokens": "32169",
+      "output_tokens": "13568",
+      "reasoning_tokens_within_output": "11580",
+      "known_cost_eur": "0.5068139223560910307898259706",
+      "retained_reservation_eur": "0"
+    },
+    "construction_draft": {
+      "constructed": 11,
+      "dispatched": 8,
+      "receipts": 8,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "8",
+      "prepared_only": 3,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 11,
+        "p50": "40322",
+        "p95": "55755",
+        "max": "55755"
+      },
+      "estimated_input_tokens": {
+        "count": 11,
+        "p50": "13697",
+        "p95": "18841",
+        "max": "18841"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 8,
+        "p50": "25713.70835",
+        "p95": "42062.4908",
+        "max": "42062.4908"
+      },
+      "input_tokens": "80228",
+      "output_tokens": "10472",
+      "reasoning_tokens_within_output": "8110",
+      "known_cost_eur": "0.6383757251227130745203034360",
+      "retained_reservation_eur": "0"
+    },
+    "construction_local_judge": {
+      "constructed": 6,
+      "dispatched": 4,
+      "receipts": 4,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "4",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 2,
+      "request_bytes": {
+        "count": 6,
+        "p50": "44004",
+        "p95": "51766",
+        "max": "51766"
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": "14924.5",
+        "p95": "17512",
+        "max": "17512"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 4,
+        "p50": "25145.1722",
+        "p95": "26387.4131",
+        "max": "26387.4131"
+      },
+      "input_tokens": "34813",
+      "output_tokens": "3263",
+      "reasoning_tokens_within_output": "2883",
+      "known_cost_eur": "0.2427086122266845158411423471",
+      "retained_reservation_eur": "0"
+    },
+    "construction_discovery": {
+      "constructed": 10,
+      "dispatched": 10,
+      "receipts": 10,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "10",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 10,
+        "p50": "24116.5",
+        "p95": "26608",
+        "max": "26608"
+      },
+      "estimated_input_tokens": {
+        "count": 10,
+        "p50": "8295",
+        "p95": "9126",
+        "max": "9126"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 10,
+        "p50": "18771.7195",
+        "p95": "21376.8043",
+        "max": "21376.8043"
+      },
+      "input_tokens": "53207",
+      "output_tokens": "3915",
+      "reasoning_tokens_within_output": "3077",
+      "known_cost_eur": "0.3422445336903168228469433289",
+      "retained_reservation_eur": "0"
+    },
+    "replan": {
+      "constructed": 1,
+      "dispatched": 1,
+      "receipts": 1,
+      "receiptless_dispatched": 0,
+      "physical_attempts": "1",
+      "prepared_only": 0,
+      "rejected_before_dispatch": 0,
+      "request_bytes": {
+        "count": 1,
+        "p50": "42831",
+        "p95": "42831",
+        "max": "42831"
+      },
+      "estimated_input_tokens": {
+        "count": 1,
+        "p50": "14533",
+        "p95": "14533",
+        "max": "14533"
+      },
+      "receipted_logical_elapsed_ms": {
+        "count": 1,
+        "p50": "30498.72",
+        "p95": "30498.72",
+        "max": "30498.72"
+      },
+      "input_tokens": "10861",
+      "output_tokens": "1538",
+      "reasoning_tokens_within_output": "1024",
+      "known_cost_eur": "0.0896430165104863900044622936",
+      "retained_reservation_eur": "0"
+    }
+  },
+  "statistical_population": "All constructed requests, including prepared-only/rejected, for byte/token quantiles; received logical intervals for latency. Median p50, nearest-rank ceil(.95*n) p95. Empty populations have count0/null quantiles.",
+  "verified_fulfilled_business_obligations": null,
+  "calls_per_fulfilled_obligation": null,
+  "postrun_campaign_accounting": null,
+  "limitations": [
+    "Numeric projections do not establish business fulfillment, source defects, causal effects or a campaign balance. No verified fulfillment ratio is derived here.",
+    "Reasoning is included in output, not additional usage. Component estimates are not billing.",
+    "Prepared/rejected identities are not uncertain dispatched requests; received failed-attempt usage reserves are not receiptless uncertainty.",
+    "Ordinary artifact/execution null projections do not prove absence or failure; reported runtime results remain separately labeled and require independent artifact/oracle evidence.",
+    "No original-text formatting claim is derived from normalized JSON bytes. No reader/store/provider/runtime action by this reducer."
+  ],
+  "process_exit": {
+    "exit_code": 0,
+    "finished_at": "2026-10-25T17:56:27.749471+00:00"
+  },
+  "projection": {
+    "kind": "public_safe_aggregate",
+    "omitted": "Per-phase component maps and full request identities remain in the pinned private source; no prompt, response text, task body or original-format measurement is copied."
+  },
+  "evidence_index": [
+    {
+      "path": "code-terminal-numeric-safe.json",
+      "sha256": "ae450c7921f76b422b643013dd5fdcc3ec330b8977f411c4683f37a0f1473874",
+      "bytes": 20747
+    },
+    {
+      "path": "code-independent-numeric-review-safe.json",
+      "sha256": "ee6a91a2344fa891a5c1de371691f8dbd6a99f5fac835f549fcec4f2f87b57da",
+      "bytes": 3877
+    },
+    {
+      "path": "freeze.json",
+      "sha256": "ac46f6fbc3f9d6f4db0dcc1fbb305ad0aafa7067ddf3331c15db1d6014b03ac4",
+      "bytes": 11712
+    },
+    {
+      "path": "code-terminal-exact-metrics.json",
+      "sha256": "a6c5ab56a1c48486daaf5a8694948a7e831183b99944f8c7cfbe137320203e13",
+      "bytes": 154303
+    },
+    {
+      "path": "code-planning.jsonl",
+      "sha256": "6840d34f1f444d8f93c8ed92a5209dbb16244d54561323aa40a1928d0a9f0641",
+      "bytes": 80066
+    },
+    {
+      "path": "code-exit.json",
+      "sha256": "72496a9f8a13adf313f4fb0dfef8ce685b18b031d49d6f9f05364a31b22dce32",
+      "bytes": 67
+    }
+  ]
+}

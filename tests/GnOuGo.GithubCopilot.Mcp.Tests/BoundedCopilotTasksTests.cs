@@ -8,8 +8,21 @@ using Xunit;
 
 namespace GnOuGo.GithubCopilot.Mcp.Tests;
 
-public sealed class BoundedCopilotTasksTests
+public sealed partial class BoundedCopilotTasksTests
 {
+    [Theory]
+    [InlineData(15_100, 16)]
+    [InlineData(600_000, 600)]
+    public async Task SdkWaitUsesTheApprovedTaskDuration(int milliseconds, int expectedSeconds)
+    {
+        await using var fixture = new Fixture();
+        var task = fixture.Context.Task;
+        var context = fixture.Context with { Task = task with { Budget = task.Budget with { MaxElapsedMilliseconds = milliseconds } } };
+        await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.Equal(1, fixture.Host.Sends);
+        Assert.Equal(expectedSeconds, fixture.Host.Configuration!.Request.Configuration.RequestTimeoutSeconds);
+    }
+
     [Theory]
     [InlineData(CopilotSandboxReadiness.Configured)]
     [InlineData(CopilotSandboxReadiness.NotConfigured)]
@@ -20,7 +33,10 @@ public sealed class BoundedCopilotTasksTests
         await using var fixture = new Fixture(); fixture.Host.Readiness = readiness;
         var contract = await fixture.Tasks.ContractAsync(TestContext.Current.CancellationToken);
         var schema = contract["contract"]!["input_schema"]!;
-        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.execute"));
+        var capabilities = schema["properties"]!["capabilities"]!["items"]!["enum"]!.AsArray().Select(v => v!.ToString()).ToArray();
+        Assert.Contains("project.read", capabilities);
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, capabilities.Contains("project.native_read"));
+        Assert.Equal(readiness == CopilotSandboxReadiness.Configured, capabilities.Contains("command.execute"));
         Assert.Equal(readiness == CopilotSandboxReadiness.Configured, schema["properties"]!["verification"]!["items"]!["properties"]!["kind"]!["enum"]!.AsArray().Any(v => v!.ToString() == "command.exit"));
         Assert.Equal(0, fixture.Host.SessionsCreated); Assert.Equal(0, fixture.Host.Sends); Assert.Equal(1, fixture.Host.PolicyReads);
         fixture.Host.Readiness = CopilotSandboxReadiness.NotConfigured;
@@ -87,15 +103,36 @@ public sealed class BoundedCopilotTasksTests
         await using var fixture = new Fixture();
         var context = fixture.Context with { Task = fixture.Context.Task with { Capabilities = ["command.execute", "project.read", "project.write"],
             Verification = [new("tests", "command.exit", "dotnet test", new() { ["type"] = "object", ["required"] = new JsonArray("exit_code"), ["properties"] = new JsonObject { ["exit_code"] = new JsonObject { ["const"] = 0 } } })] } };
-        static CopilotToolExecutionObservation Command(string id, long start, long exit) => new(id, null, "bash", "{\"command\":\"dotnet test\"}", true, true, false, [new("/project", exit, "observed")], null)
+        CopilotToolExecutionObservation Command(string id, long start, long exit) => new(id, null,
+            OperatingSystem.IsWindows() ? "powershell" : "bash", "{\"command\":\"dotnet test\"}", true, true, false, [new(fixture.Root, exit, "observed")], null)
         { StartedSequence = start, CompletedSequence = start + 1 };
         fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", "{}", "fixture", [])
         { ToolExecutions = [Command("before", 1, 1), new("edit", null, "project_write", "{}", true, true, false, [], null) { StartedSequence = 3, CompletedSequence = 4 }, Command("after", 5, 0)] });
         var result = await fixture.Tasks.RunAsync(context, TestContext.Current.CancellationToken);
+        Assert.True(result.Status == "completed", result.Failure?.Message ?? result.Status);
         var evidence = Assert.Single(result.Evidence);
         Assert.Equal(2, evidence.Facts["attempts"]!.AsArray().Count);
         Assert.Equal(1L, evidence.Facts["attempts"]![0]!["exit_code"]!.GetValue<long>());
         Assert.True(Assert.Single(await new EvidenceAgentTaskVerifier().VerifyAsync(context, result, TestContext.Current.CancellationToken)).Passed);
+    }
+
+    [Theory]
+    [InlineData("{", "failed")]
+    [InlineData("", "failed")]
+    [InlineData("{}", "failed")]
+    [InlineData("null", "completed")]
+    public async Task OnlyCompleteJsonCanSatisfyANullOutputContract(string reply, string status)
+    {
+        await using var fixture = new Fixture();
+        var ct = TestContext.Current.CancellationToken;
+        var context = fixture.Context with { Task = fixture.Context.Task with { OutputSchema = new() { ["type"] = "null" } } };
+        fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", reply, "fixture", []));
+
+        var result = await fixture.Tasks.RunAsync(context, ct);
+        Assert.Equal(status, result.Status);
+        Assert.Equal(status, (await fixture.Tasks.RunAsync(context, ct)).Status);
+        Assert.Equal(1, fixture.Host.Sends);
+        if (status == "failed") Assert.Equal("AGENT_OUTPUT_INVALID", result.Failure?.Code);
     }
 
     [Fact]
@@ -149,6 +186,57 @@ public sealed class BoundedCopilotTasksTests
         Assert.Contains(await fixture.Tasks.ValidateAsync(fixture.Context with { TenantId = "" }, TestContext.Current.CancellationToken), e => e.StartsWith("AGENT_IDENTITY_INVALID:", StringComparison.Ordinal));
         Assert.Contains(await fixture.Tasks.ValidateAsync(fixture.Context with { Task = fixture.Context.Task with { Objective = "" } }, TestContext.Current.CancellationToken), e => e.StartsWith("AGENT_CONTRACT_INVALID:", StringComparison.Ordinal));
         Assert.Equal(0, fixture.Host.Sends);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CompletedTurnWaitsForSessionShutdownWithinTheApprovedDeadline(bool cancelDuringShutdown)
+    {
+        await using var fixture = new Fixture();
+        var context = fixture.Context with { Task = fixture.Context.Task with
+        {
+            Capabilities = ["project.read"],
+            Budget = new() { MaxElapsedMilliseconds = 60000 }
+        } };
+        await File.WriteAllTextAsync(Path.Combine(fixture.Root, "result.txt"), "existing", TestContext.Current.CancellationToken);
+        fixture.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "session", """{"summary":"review completed"}""", null, []));
+        var closing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Host.OnDispose = () =>
+        {
+            closing.TrySetResult();
+            return new ValueTask(closed.Task);
+        };
+        var testToken = TestContext.Current.CancellationToken;
+        using var caller = CancellationTokenSource.CreateLinkedTokenSource(testToken);
+        var run = fixture.Tasks.RunAsync(context, caller.Token);
+        try
+        {
+            await closing.Task.WaitAsync(TimeSpan.FromSeconds(30), testToken);
+            if (cancelDuringShutdown)
+            {
+                await caller.CancelAsync();
+                var interrupted = await run.WaitAsync(TimeSpan.FromSeconds(5), testToken);
+                Assert.Equal("needs_reconciliation", interrupted.Status);
+                Assert.Null(interrupted.Output);
+            }
+            else
+            {
+                await Task.Delay(TimeSpan.FromSeconds(11), testToken);
+                Assert.False(run.IsCompleted);
+                closed.SetResult();
+                var result = await run;
+                Assert.Equal("completed", result.Status);
+                Assert.Equal("review completed", result.Output!["summary"]!.GetValue<string>());
+                Assert.Equal("completed", (await fixture.Tasks.InspectAsync(context, testToken)).Status);
+            }
+        }
+        finally
+        {
+            closed.TrySetResult();
+            await run.WaitAsync(TimeSpan.FromSeconds(30), testToken);
+        }
     }
 
     [Theory]
@@ -220,6 +308,32 @@ public sealed class BoundedCopilotTasksTests
         Assert.Equal(1, fixture.Host.Sends); Assert.Equal(1, inspected.Usage.ModelCalls);
     }
 
+    [Fact]
+    public async Task RecordedActionIntentRemainsInspectableWhenTheSessionEndsWithoutAReceipt()
+    {
+        await using var fixture = new Fixture();
+        var ct = TestContext.Current.CancellationToken;
+        var context = fixture.Context with { Task = fixture.Context.Task with { Budget = new() { MaxActions = 2 } } };
+        fixture.Host.OnSend = async (configuration, _, _, _) =>
+        {
+            var bounds = configuration.Request.Configuration.ExecutionBounds!;
+            Assert.Null(await bounds.AdaptiveActions!.AdmitAsync(bounds, "sdk", "read", "project_read", "input.txt"));
+            await bounds.AdaptiveActions.CompleteAsync(bounds, "sdk", "read", "project_read", "original", true);
+            Assert.Null(await bounds.AdaptiveActions.AdmitAsync(bounds, "sdk", "edit", "project_write", "output.txt"));
+            fixture.Records.FailReceipt = true;
+            throw new IOException("SDK disconnected");
+        };
+        await Assert.ThrowsAsync<IOException>(() => fixture.Tasks.RunAsync(context, ct));
+        fixture.Records.FailReceipt = false;
+        var inspected = await fixture.Tasks.InspectAsync(context, ct);
+        Assert.Equal("needs_reconciliation", inspected.Status);
+        Assert.Equal(2, inspected.Usage.Actions);
+        Assert.Equal("observed", Assert.Single(inspected.Evidence, e => e.Subject == "project_read").Facts["state"]!.ToString());
+        Assert.Equal("admitted", Assert.Single(inspected.Evidence, e => e.Subject == "project_write").Facts["state"]!.ToString());
+        Assert.Equal("needs_reconciliation", (await fixture.Tasks.RunAsync(context, ct)).Status);
+        Assert.Equal(1, fixture.Host.Sends);
+    }
+
     private sealed class Fixture : IAsyncDisposable
     {
         public string Root { get; } = Path.Combine(Path.GetTempPath(), "gnougo-bounded-" + Guid.NewGuid().ToString("N"));
@@ -246,10 +360,21 @@ public sealed class BoundedCopilotTasksTests
         }
         public async ValueTask DisposeAsync() { await Host.Manager.DisposeAsync(); _tenant.Dispose(); Directory.Delete(Root, true); }
     }
-    private sealed class Records : IKeyVaultRecordStore
+    private sealed class Records : IKeyVaultRecordStore, IKeyVaultRecordReader
     {
         private readonly Dictionary<(string, string, string), KeyVaultRecordValue> _values = [];
         public bool FailReceipt { get; set; }
+        public Task<KeyVaultRecordMetadataPage> QueryMetadataAsync(string collection, string tenantId, string prefix, string author,
+            KeyVaultRecordCursor? after = null, int count = 100, CancellationToken ct = default)
+        {
+            var rows = _values.Where(v => v.Key.Item1 == collection && v.Key.Item2 == tenantId && v.Key.Item3.StartsWith(prefix, StringComparison.Ordinal))
+                .Select(v => new KeyVaultRecordMetadata(v.Key.Item3, DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch, null, v.Value.Value.Length)).ToArray();
+            Assert.Null(after); Assert.InRange(rows.Length, 0, count);
+            return Task.FromResult(new KeyVaultRecordMetadataPage(rows, null, false));
+        }
+        public Task<KeyVaultRecordMetadata?> GetMetadataAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) => throw new NotSupportedException();
+        public Task<KeyVaultRecordRange?> ReadRangeAsync(string collection, string tenantId, string key, string author, string? version,
+            int offset, int count, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<KeyVaultRecordValue?> GetAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
             => Task.FromResult(_values.GetValueOrDefault((collection, tenantId, key)));
         public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default)

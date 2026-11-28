@@ -7,7 +7,8 @@ namespace GnOuGo.ProxyCopilot.Server.Traffic;
 
 public sealed record TrafficSummary(string Id, string TenantId, string Provider, string Model, string Protocol,
     DateTimeOffset StartedAt, string Status, int? StatusCode, double DurationMs, double? FirstTokenMs,
-    JsonObject? Usage, string? Error, bool Truncated, CostEstimate Cost);
+    JsonObject? Usage, string? Error, bool Truncated, CostEstimate Cost, TrafficRetry Retry);
+public sealed record TrafficRetry(int Attempt, int MaxAttempts, int? LastStatusCode, DateTimeOffset? NextAttemptAt, double WaitedMs);
 public sealed record CapturedBody(string Text, bool Truncated);
 public sealed record TrafficDetail(TrafficSummary Summary, Dictionary<string, CapturedBody> Bodies);
 public sealed record TrafficSnapshot(long Version, TrafficSummary[] Calls, TrafficCostTotal[] CostTotals, int UnknownCostCalls);
@@ -18,6 +19,7 @@ public interface ITrafficStore
     void AddCredential(string id, string credential);
     void Append(string id, string body, ReadOnlySpan<byte> bytes);
     void Progress(string id, JsonObject chunk);
+    void UpdateRetry(string id, int attempt, int? statusCode = null, DateTimeOffset? nextAttemptAt = null);
     void Complete(string id, string status, int statusCode, string? error = null);
     TrafficSnapshot Snapshot();
     TrafficDetail? Detail(string id);
@@ -31,8 +33,9 @@ public sealed class TrafficSubscription(ChannelReader<long> reader, Action dispo
     public void Dispose() => dispose();
 }
 
-public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redactor) : ITrafficStore
+public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redactor, TimeProvider? clock = null) : ITrafficStore
 {
+    private readonly TimeProvider _clock = clock ?? TimeProvider.System;
     private readonly object _gate = new();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly LinkedList<string> _order = new();
@@ -45,7 +48,7 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
         var id = Guid.NewGuid().ToString("N");
         lock (_gate)
         {
-            _entries.Add(id, new Entry(id, options.TenantId, route));
+            _entries.Add(id, new Entry(id, options.TenantId, route, _clock));
             _order.AddLast(id);
             while (_entries.Count > options.Capture.MaxCalls) EvictOldest();
             Changed();
@@ -100,11 +103,24 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
         }
     }
 
+    public void UpdateRetry(string id, int attempt, int? statusCode = null, DateTimeOffset? nextAttemptAt = null)
+    {
+        lock (_gate)
+        {
+            if (!_entries.TryGetValue(id, out var entry)) return;
+            entry.EndWait();
+            entry.Retry = entry.Retry with { Attempt = attempt, LastStatusCode = statusCode ?? entry.Retry.LastStatusCode, NextAttemptAt = nextAttemptAt };
+            if (nextAttemptAt is not null) entry.WaitStarted = _clock.GetTimestamp();
+            Changed();
+        }
+    }
+
     public void Complete(string id, string status, int statusCode, string? error = null)
     {
         lock (_gate)
         {
             if (!_entries.TryGetValue(id, out var entry)) return;
+            entry.EndWait();
             entry.Status = status; entry.StatusCode = statusCode; entry.Duration = entry.Elapsed;
             entry.Error = error; Changed();
         }
@@ -152,7 +168,7 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
     private TrafficSummary Summary(Entry entry) => new(entry.Id, entry.TenantId, entry.Route.Provider, entry.Route.Id, entry.Route.Type,
         entry.StartedAt, entry.Status, entry.StatusCode, entry.Duration ?? entry.Elapsed, entry.FirstTokenMs,
         entry.Usage?.DeepClone().AsObject(), entry.Error is null ? null : redactor.Redact(entry.Error, entry.Credentials), entry.Bodies.Values.Any(b => b.Truncated),
-        TrafficCost.Estimate(entry.Route.Model, entry.Usage, entry.Status));
+        TrafficCost.Estimate(entry.Route.Model, entry.Usage, entry.Status), entry.Retry with { WaitedMs = entry.WaitedMs });
     private void Changed() { _version++; foreach (var subscriber in _subscribers) subscriber.Writer.TryWrite(_version); }
     private void EnforceBudget() { while (_bytes > options.Capture.MaxTotalBytes && _order.Count > 0) EvictOldest(); }
     private void EvictOldest()
@@ -162,14 +178,22 @@ public sealed class TrafficStore(ProxyOptions options, CredentialRedactor redact
         _entries.Remove(id); _order.RemoveFirst();
     }
 
-    private sealed class Entry(string id, string tenantId, ModelRoute route)
+    private sealed class Entry(string id, string tenantId, ModelRoute route, TimeProvider clock)
     {
         public string Id { get; } = id;
         public string TenantId { get; } = tenantId;
         public ModelRoute Route { get; } = route;
-        public DateTimeOffset StartedAt { get; } = DateTimeOffset.UtcNow;
-        private readonly long _started = System.Diagnostics.Stopwatch.GetTimestamp();
-        public double Elapsed => System.Diagnostics.Stopwatch.GetElapsedTime(_started).TotalMilliseconds;
+        public DateTimeOffset StartedAt { get; } = clock.GetUtcNow();
+        private readonly long _started = clock.GetTimestamp();
+        public double Elapsed => clock.GetElapsedTime(_started).TotalMilliseconds;
+        public TrafficRetry Retry { get; set; } = new(0, route.Options.Connection.RetryPolicy.MaxAttempts, null, null, 0);
+        public long? WaitStarted { get; set; }
+        public double WaitedMs => Retry.WaitedMs + (WaitStarted is { } started ? clock.GetElapsedTime(started).TotalMilliseconds : 0);
+        public void EndWait()
+        {
+            Retry = Retry with { WaitedMs = WaitedMs, NextAttemptAt = null };
+            WaitStarted = null;
+        }
         public string Status { get; set; } = "running";
         public int? StatusCode { get; set; }
         public double? Duration { get; set; }

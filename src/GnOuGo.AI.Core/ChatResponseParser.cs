@@ -13,10 +13,17 @@ public static class ChatResponseParser
     /// Extracts content from an OpenAI Chat Completions response: choices[0].message.content
     /// </summary>
     public static string ExtractOpenAiContent(JsonElement root)
-        => root.GetProperty("choices")[0]
-               .GetProperty("message")
-               .GetProperty("content")
-               .GetString()?.Trim() ?? string.Empty;
+        => ExtractOpenAiContent(root, structured: false);
+
+    internal static string ExtractOpenAiContent(JsonElement root, bool structured)
+    {
+        var choice = root.GetProperty("choices")[0];
+        var content = choice.GetProperty("message").GetProperty("content").GetString() ?? string.Empty;
+        // Incomplete structured output is diagnostic evidence, including any structural padding.
+        return structured && choice.TryGetProperty("finish_reason", out var reason) &&
+            reason.ValueKind == JsonValueKind.String && reason.ValueEquals("length")
+            ? content : content.Trim();
+    }
 
     /// <summary>
     /// Extracts content from an Ollama chat response: message.content
@@ -145,8 +152,16 @@ public static class ChatResponseParser
     public static JsonObject? ExtractUsage(JsonElement root)
     {
         if (!root.TryGetProperty("usage", out var usage))
+        {
+            if (root.TryGetProperty("prompt_eval_count", out var input) && input.TryGetInt64(out var inputCount) && inputCount >= 0 &&
+                root.TryGetProperty("eval_count", out var output) && output.TryGetInt64(out var outputCount) && outputCount >= 0)
+                return new JsonObject { ["prompt_tokens"] = inputCount, ["completion_tokens"] = outputCount };
             return null;
+        }
 
-        return JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        var result = JsonNode.Parse(usage.GetRawText()) as JsonObject;
+        if (result is not null && root.TryGetProperty("service_tier", out var tier) && tier.ValueKind == JsonValueKind.String)
+            result["service_tier"] = tier.GetString();
+        return result;
     }
 }

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "maxAttempts": 3,
+  "maxUncertainRetries": 0,
+  "attemptTimeoutMilliseconds": 270000,
+  "baseDelayMilliseconds": 1000,
+  "maxDelayMilliseconds": 15000,
+  "maxTotalDelayMilliseconds": 60000
+}

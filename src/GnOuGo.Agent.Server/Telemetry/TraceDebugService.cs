@@ -121,7 +121,7 @@ public sealed class TraceDebugService
         var summaries = groups.Values.OrderByDescending(t => t.StartUtc).ThenBy(t => t.TraceId, StringComparer.Ordinal)
             .Select(t => new TraceSummaryDto(t.TraceId, t.StartUtc, t.EndUtc, t.Spans.Count,
                 t.Spans.FirstOrDefault(s => s.ParentSpanId is null)?.Name ?? t.Spans.FirstOrDefault()?.Name, null, null)).ToArray();
-        return new(new(storageAvailable || trace is not null, message), null, trace?.TraceId, trace, logs, false, message, summaries);
+        return new(new(storageAvailable || trace is not null, message), null, trace?.TraceId, trace, logs, false, message, summaries, groups.Values.ToArray());
 
         TraceGroupDto? Select() => selectedTraceId is not null ? groups.GetValueOrDefault(selectedTraceId)
             : groups.Values.OrderByDescending(t => t.StartUtc).ThenBy(t => t.TraceId, StringComparer.Ordinal).FirstOrDefault();

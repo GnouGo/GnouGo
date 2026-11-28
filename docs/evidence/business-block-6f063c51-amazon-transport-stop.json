@@ -1,0 +1,134 @@
+{
+  "schema": 1,
+  "purpose": "Exact source-bound transport stop before drafting; no business convergence claim",
+  "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+  "run": "biz6f063c51amz01-amazon-1",
+  "scenario": "amazon",
+  "prompt_hash": "051bc53dea1fe1f6ca06ebb02ccf801f84744738f1530210db41d55c25593b0c",
+  "oracle_version": "amazon-business-v4",
+  "status": "stopped",
+  "planning_ms": 368776,
+  "logical_requests": 2,
+  "completed_responses": 1,
+  "physical_attempts": 2,
+  "repairs": 0,
+  "accepted_checkpoints": 0,
+  "productive_business_blocks": 0,
+  "global_review_approved": false,
+  "artifact": false,
+  "execution_status": "not_started",
+  "operator_intervention": false,
+  "diagnostics": [
+    {
+      "code": "MODEL_DISPATCH_UNVERIFIABLE",
+      "location": "/",
+      "message": "The model request has no retained completion (Transport; retryable: true). Usage remains unconfirmed.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "accounting": {
+    "planning": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 1203,
+      "known_output_tokens": 291,
+      "known_cost_eur": "0.0132444085152250067367286446",
+      "unknown_attempts": 1,
+      "reserved_input_tokens": 12000,
+      "reserved_output_tokens": 32768,
+      "reserved_cost_eur": "0.9368903260576663971975208839"
+    },
+    "execution": {
+      "logical_calls": 0,
+      "physical_attempts": 0,
+      "known_input_tokens": 0,
+      "known_output_tokens": 0,
+      "known_cost_eur": 0,
+      "unknown_attempts": 0,
+      "reserved_input_tokens": 0,
+      "reserved_output_tokens": 0,
+      "reserved_cost_eur": 0
+    },
+    "campaign": {
+      "calls": 6770,
+      "session_calls": 0,
+      "known_input_tokens": 25489803,
+      "known_output_tokens": 10215166,
+      "known_cost_eur": "387.58381853105095334474139785",
+      "reserved_input_tokens": 2481686,
+      "reserved_output_tokens": 4276224,
+      "reserved_cost_eur": "125.68706630952572698966405760",
+      "cost_upper_bound_eur": "513.27088484057668033440545545",
+      "unknown_attempts": 147
+    }
+  },
+  "response_metrics": {
+    "biz6f063c51amz01-amazon-1:1:b60236ec0183a0416e2e752083f8941160a9d4e20ff8f307f31218efa97a458f": {
+      "purpose": "construction_intent",
+      "completion_status": null,
+      "content_bytes": 1249,
+      "reasoning_tokens": 0
+    }
+  },
+  "pending_request_id": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+  "retention_inspection": {
+    "evidence": {
+      "version": 1,
+      "campaign": "schema-portability-20261019-incremental",
+      "tenant": "benchmark",
+      "run_collection": "planning-schema-portability",
+      "run_key": "run:biz6f063c51amz01-amazon-1",
+      "session_id": "biz6f063c51amz01-amazon-1",
+      "revision": 2,
+      "request_id": "biz6f063c51amz01-amazon-1:2:5d20a425eda6c6ad92eeb1ba35e3b7ccbd58f42d569f68b2094e4a9e984bb83e:291fd9b7a3b534d73587e5ab980230728ed2df5d18f6b6b67519cd1dde685630",
+      "phase": "construction_select",
+      "source": "6f063c515eb3356020fc80bb5018abc56263677e",
+      "run_hash": "bd18e166ca04b46ac1a774417bd2793c3a5a195911976f563061c1c0846fe161",
+      "request_hash": "6af68a8491a80820d435ae654b3f2ab4bbb64abb805878fb8ebfd6c42ec62271",
+      "http_journal_hash": "3ea7313f05c5ab5af1870d486ca9bdd03319606e2877b7e1825b8828257c85a8",
+      "failure_hash": "4e192a8ac55e8ee2598de4e116387da8053cec3bb41914d9352a68413729b7b0",
+      "session_policy_hash": "0f46ad3fddb3a9f055e209c1e382d871c53332d3677296f02d12e52bf7fa7f73",
+      "campaign_retry_policy_hash": "9e0d21f4a5660a5580b9b075d52f72a6531061651577ba6a520b2c02ff21949b",
+      "financial_admission_hash": "d05392076fde5fc465650c6098f51f0ad4641a526876e57bd51ca97ad4da1c4c",
+      "effective_transport_policy_hash": "85ada1e1ce6d24391caa83ee264baf15201f17b3a7fb16b27bb9600df5c47689",
+      "transport_policy_evidence": "captured_effective_request_policy",
+      "accounting": {
+        "calls": 6770,
+        "session_calls": 2,
+        "known_input_tokens": 25489803,
+        "known_output_tokens": 10215166,
+        "known_cost_eur": "387.58381853105095334474139785",
+        "reserved_input_tokens": 2481686,
+        "reserved_output_tokens": 4276224,
+        "reserved_cost_eur": "125.68706630952572698966405760",
+        "cost_upper_bound_eur": "513.27088484057668033440545545",
+        "unknown_attempts": 147
+      },
+      "retention_kind": "exhausted-planning-retries"
+    },
+    "evidence_hash": "ed0c7d1660c1ca800a13da3f1f3561b4baaeb9fe1018752b9a551d04fc0c1005",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true
+  },
+  "retention_authorized": true,
+  "retention_applied": true,
+  "available_eur": "126.75921899212962420803949185",
+  "ledger_hash": "38850f26aa5175049014bb66f99b51251dfd8216c8e54401c8ff426b963f1fbf",
+  "reservation_eur": "0.9368903260576663971975208839",
+  "replay_forbidden": true,
+  "scope_correction_live_verdict": "not_tested: failure occurred during selection before any draft",
+  "independent_checks": "Full Planning2396 pass, affected141 pass; exact saved afe draft evaluates2scopeerrors before/zero after without provider calls. Fullsolution/publication completion recorded separately.",
+  "evidence_hashes": {
+    "retention_inspection_sha256": "6a72ab2ab5ef6fab5d37b606d5028c8d603e887a7fb4f9d6b73a80a012f860ac",
+    "original_records_before_sha256": "a995b42cb384294b22db4020b15f5a772f89a2c31676582c8e9642db84d5763b",
+    "terminal_summary_sha256": "129d7f32fdb86d434c435ae3f738866a575b738ef106d4e3761ba0ea260498e2",
+    "terminal_campaign_sha256": "480525b0719600913dc636356e6117d2986f67627fbb62b313aa4950f426075a"
+  },
+  "retention_evidence_file": "business-block-6f063c51-amazon-request2-retention.json",
+  "terminal_unresolved_requests": 1,
+  "unresolved_requests_after_retention": 0
+}

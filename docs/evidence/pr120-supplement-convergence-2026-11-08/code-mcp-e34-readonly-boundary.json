@@ -1,0 +1,33 @@
+{
+  "source": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+  "mcp": "GnOuGo.GithubCopilot.Mcp",
+  "read_only_tools": [
+    "copilot_auth_status",
+    "copilot_list_models"
+  ],
+  "effective_provider": "OpenAi",
+  "effective_model": "gpt-6.1-sol-2026-09-29",
+  "declared_mcp_provider": "Copilot",
+  "mcp_provider_override_present": false,
+  "mcp_model_override_present": false,
+  "mcp_wire_api_override_present": false,
+  "authenticated": true,
+  "auth_type": "gh-cli",
+  "models_error": true,
+  "corporate_url_block_observed": true,
+  "native_catalog_host": "api.individual.githubcopilot.com",
+  "native_catalog_path": "/meta",
+  "session_created": false,
+  "model_generation_dispatches": 0,
+  "configuration_changed": false,
+  "raw_error_included": false,
+  "private_evidence_sha256": {
+    "code-mcp-e34-readonly.json": "fad4be6a1f06b13fcfd1016b6a9c3f882e2dfe5f2f3d98de8855da92c4282af1",
+    "code-mcp-e34-readonly.json.native-identity.json": "6ab174cbc6acbfbbbf9aad37020ae851a03da9444de359347bc75047e18838bc",
+    "code-mcp-e34-readonly.json.models-error.json": "8d82c2132b21a6247c87b4c1127bdae7e454d50e0ad68bd507d77cf08dcadc49"
+  },
+  "native_http_status": null,
+  "status_limitation": "The fresh tool error establishes the corporate URL-block marker but exposes no structured HTTP status; earlier HTTP403 evidence remains separately retained.",
+  "catalog_host_present_in_error": true,
+  "catalog_path_present_in_error": true
+}

@@ -50,6 +50,19 @@ public class AgentRepositoryTests : IDisposable
         Assert.Contains("originalPrompt: |-", yaml, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("version: 1\n")]
+    [InlineData("version: 1\nsteps: []\n\n")]
+    [InlineData("version: 1\r\nsteps: []\r\n")]
+    [InlineData("version: 1\rsteps: []")]
+    public async Task SavedWorkflowAndPromptKeepTheirExactLineEndings(string source)
+    {
+        await _repo.AddAgentAsync("exact-source", source, source, TestContext.Current.CancellationToken);
+        var loaded = await _repo.GetByNameAsync("exact-source", TestContext.Current.CancellationToken);
+        Assert.Equal(source, loaded!.Workflow);
+        Assert.Equal(source, loaded.OriginalPrompt);
+    }
+
     [Fact]
     public async Task AddAgent_ThrowsOnEmptyName()
     {

@@ -1,0 +1,129 @@
+{
+  "source": "517f21d890f6b2d8eae08bfb15a71dcfbd46cb2a",
+  "run": "routing30-code-20261126-230734",
+  "session_id": "c4fbdf1879494f928cd93fe7b5bd8003",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v1",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261126-230734",
+  "planning_passed": null,
+  "passed": null,
+  "result": {
+    "status": "stopped",
+    "calls": 21,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_implementation": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "known_input_tokens": 44044,
+      "known_output_tokens": 1555,
+      "cost_eur": "0.1074123006833712984054669704"
+    },
+    "construction_draft": {
+      "logical_calls": 9,
+      "physical_attempts": 9,
+      "known_input_tokens": 181121,
+      "known_output_tokens": 3622,
+      "cost_eur": "0.4290774487471526195899772209"
+    },
+    "construction_discovery": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "known_input_tokens": 58376,
+      "known_output_tokens": 2040,
+      "cost_eur": "0.1422687927107061503416856492"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 1489,
+      "known_output_tokens": 1022,
+      "cost_eur": "0.0080478359908883826879271071"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 1752,
+      "known_output_tokens": 670,
+      "cost_eur": "0.0070432801822323462414578588"
+    }
+  },
+  "logical_planning_calls": 21,
+  "campaign_delta": {
+    "calls": 21,
+    "known_input_tokens": 286782,
+    "known_output_tokens": 8909,
+    "known_cost_eur": "0.6938496583143507972665148064",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "0.6938496583143507972665148064"
+  },
+  "campaign_after": {
+    "calls": 60,
+    "session_calls": 0,
+    "known_input_tokens": 926839,
+    "known_output_tokens": 36184,
+    "known_cost_eur": "2.2760979498861047835990888384",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "2.2760979498861047835990888384",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "27.72390205011389521640091116",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/rollbackTask"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-26T23:08:19.9155345+00:00",
+  "finished_utc": "2026-11-26T23:14:07.7527919+00:00",
+  "wall_seconds": 347.837,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/rollbackTask",
+      "message": "This rollback region was already attempted without progress."
+    }
+  ]
+}

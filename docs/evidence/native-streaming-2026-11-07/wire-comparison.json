@@ -1,0 +1,188 @@
+[
+  {
+    "case": "availability",
+    "only_transport_fields_differ": true,
+    "changed_wire_fields": [
+      "stream",
+      "stream_options"
+    ],
+    "endpoint_sha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+    "same_effective_retry_policy": true,
+    "captured_retry_policy": {
+      "MaxAttempts": 1,
+      "MaxUncertainRetries": 0,
+      "AttemptTimeoutMilliseconds": 600000,
+      "BaseDelayMilliseconds": 1000,
+      "MaxDelayMilliseconds": 30000,
+      "MaxTotalDelayMilliseconds": 60000
+    },
+    "same_prompt": true,
+    "same_schema": true,
+    "reasoning_effort": "medium",
+    "max_completion_tokens": 1024,
+    "nonstream_body_sha256": "fb1b9644a930624b77a9ac326ce87b814f6a1f8512844ac743a0e6677d26adf2",
+    "stream_body_sha256": "3144d521cb2ef4055185dae81c2c0691a20100d80841f6bf86af0db6b9355deb",
+    "nonstream_transport": {
+      "RequestedMode": "Auto",
+      "EffectiveMode": "NonStreaming",
+      "Protocol": "ChatCompletions",
+      "CapabilitySource": "unknown",
+      "IsStreaming": false
+    },
+    "stream_transport": {
+      "RequestedMode": "Streaming",
+      "EffectiveMode": "Streaming",
+      "Protocol": "ChatCompletions",
+      "CapabilitySource": "exact deployment declaration",
+      "IsStreaming": true
+    },
+    "nonstream_attempts": [
+      {
+        "Id": "native-nonstream-availability-20261107-01:probe:3a1ea9de0ead415e9d9403ab6d80c9bf:b4515140d834ac84398289d2efe34b31b1173de701aacd9e60a19d7e3d9b92eb:458e23e88f9343bea5a8f53381c6b921",
+        "StartedAtUtc": "2026-11-07T15:34:43.899378+00:00",
+        "FirstByteAtUtc": null,
+        "LastByteAtUtc": null,
+        "CompletedAtUtc": "2026-11-07T15:34:46.602793+00:00",
+        "ObservedStatus": 200,
+        "Status": 200,
+        "ContentType": "application/json",
+        "Failure": null,
+        "ProviderResponseId": null,
+        "ProtocolComplete": null,
+        "TerminationStatus": null,
+        "UsageKnown": null,
+        "elapsed_seconds": 2.703415,
+        "retained_native_body_sha256": "36151320ad6ac468572614b0ad579032242ff992c72a89b2d48b198e18bc6e8e",
+        "partial_bytes": 0
+      }
+    ],
+    "stream_attempts": [
+      {
+        "Id": "native-stream-availability-20261107-02:probe:9eb4493735ff439ba1a92965a3a74d0c:b4515140d834ac84398289d2efe34b31b1173de701aacd9e60a19d7e3d9b92eb:ef9c5a05448f449f8c2c67bb0024d47a",
+        "StartedAtUtc": "2026-11-07T16:25:37.287589+00:00",
+        "FirstByteAtUtc": "2026-11-07T16:25:39.415316+00:00",
+        "LastByteAtUtc": "2026-11-07T16:25:39.80314+00:00",
+        "CompletedAtUtc": "2026-11-07T16:25:39.810343+00:00",
+        "ObservedStatus": 200,
+        "Status": 200,
+        "ContentType": "text/event-stream; charset=utf-8",
+        "Failure": null,
+        "ProviderResponseId": "chatcmpl-EhdWUDgBVVtFuqXAQmqT57OFOFAfw",
+        "ProtocolComplete": true,
+        "TerminationStatus": "stop",
+        "UsageKnown": true,
+        "elapsed_seconds": 2.522754,
+        "seconds_after_last_received_byte": 0.007203,
+        "retained_native_body_sha256": "becf77ae9f7f0c60879d248e558d5922b57f99b8df6e8722140f5ac019af11cd",
+        "partial_bytes": 0
+      }
+    ],
+    "nonstream_wire_transport": {
+      "stream_field_present": false,
+      "stream": null,
+      "stream_options": null,
+      "request_bytes": 521
+    },
+    "stream_wire_transport": {
+      "stream_field_present": true,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "request_bytes": 575
+    }
+  },
+  {
+    "case": "representative_fragment",
+    "only_transport_fields_differ": true,
+    "changed_wire_fields": [
+      "stream",
+      "stream_options"
+    ],
+    "endpoint_sha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+    "same_effective_retry_policy": true,
+    "captured_retry_policy": {
+      "MaxAttempts": 1,
+      "MaxUncertainRetries": 0,
+      "AttemptTimeoutMilliseconds": 600000,
+      "BaseDelayMilliseconds": 1000,
+      "MaxDelayMilliseconds": 30000,
+      "MaxTotalDelayMilliseconds": 60000
+    },
+    "same_prompt": true,
+    "same_schema": true,
+    "reasoning_effort": "medium",
+    "max_completion_tokens": 32768,
+    "nonstream_body_sha256": "377c10209ce9c1368fd92743a4a579ef4a6e0f118b61bcffd510301ec08e4f36",
+    "stream_body_sha256": "84dff65eb1161c31575a51beec8408a60b78e37141798afe459a3442a5a8ed91",
+    "nonstream_transport": {
+      "RequestedMode": "Auto",
+      "EffectiveMode": "NonStreaming",
+      "Protocol": "ChatCompletions",
+      "CapabilitySource": "unknown",
+      "IsStreaming": false
+    },
+    "stream_transport": {
+      "RequestedMode": "Streaming",
+      "EffectiveMode": "Streaming",
+      "Protocol": "ChatCompletions",
+      "CapabilitySource": "exact deployment declaration",
+      "IsStreaming": true
+    },
+    "nonstream_attempts": [
+      {
+        "Id": "native-nonstream-fragment-20261107-01:probe:b584334a60d34971bad760016715349b:cfeba6d948e6104a5485ac68e35072f43588df9281fb0c7568b761ded7c2fe09:b7b87476deba4a589be2afd5cc55af7d",
+        "StartedAtUtc": "2026-11-07T15:36:42.373167+00:00",
+        "FirstByteAtUtc": null,
+        "LastByteAtUtc": null,
+        "CompletedAtUtc": "2026-11-07T15:41:43.622205+00:00",
+        "ObservedStatus": null,
+        "Status": null,
+        "ContentType": null,
+        "Failure": "transport",
+        "ProviderResponseId": null,
+        "ProtocolComplete": null,
+        "TerminationStatus": null,
+        "UsageKnown": null,
+        "elapsed_seconds": 301.249038,
+        "retained_native_body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "partial_bytes": 0
+      }
+    ],
+    "stream_attempts": [
+      {
+        "Id": "native-stream-fragment-20261107-01:probe:bc158370332142218b12ab46a56787f6:cfeba6d948e6104a5485ac68e35072f43588df9281fb0c7568b761ded7c2fe09:5faab8ac85314f459b663e4a6cefe972",
+        "StartedAtUtc": "2026-11-07T16:26:01.775267+00:00",
+        "FirstByteAtUtc": "2026-11-07T16:26:09.452339+00:00",
+        "LastByteAtUtc": "2026-11-07T16:26:09.452339+00:00",
+        "CompletedAtUtc": "2026-11-07T16:31:09.038409+00:00",
+        "ObservedStatus": 200,
+        "Status": null,
+        "ContentType": "text/event-stream; charset=utf-8",
+        "Failure": "transport",
+        "ProviderResponseId": "chatcmpl-EhdWtkAPcaLLOItBKt3tfRRO3ystv",
+        "ProtocolComplete": null,
+        "TerminationStatus": null,
+        "UsageKnown": null,
+        "elapsed_seconds": 307.263142,
+        "seconds_after_last_received_byte": 299.58607,
+        "retained_native_body_sha256": "cbb0677c4bd23a9d60a856b4e33377a2a07224433241a736fbf3f565c867a544",
+        "partial_bytes": 745
+      }
+    ],
+    "nonstream_wire_transport": {
+      "stream_field_present": false,
+      "stream": null,
+      "stream_options": null,
+      "request_bytes": 71313
+    },
+    "stream_wire_transport": {
+      "stream_field_present": true,
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "request_bytes": 71367
+    }
+  }
+]

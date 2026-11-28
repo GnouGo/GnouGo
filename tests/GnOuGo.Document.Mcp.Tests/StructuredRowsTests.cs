@@ -16,6 +16,55 @@ public sealed class StructuredRowsTests : IDisposable
         [" duplicate ", null, "=1+1"], [], [null, "", "  "]];
 
     [Fact]
+    public void CellReadbackPreservesTheEntireWrittenMatrix()
+    {
+        var host = Host();
+        Assert.True(host.Write("exact.xlsx", null, null, false, Values).Success);
+        var read = host.Read("exact.xlsx", "cells");
+        Assert.True(read.Success, read.ErrorMessage);
+        var rows = Assert.Single(read.Sections).Rows!;
+        Assert.Equal(Values.Length, rows.Length);
+        for (var i = 0; i < rows.Length; i++) Assert.Equal(Values[i], rows[i]);
+        Assert.Null(Assert.Single(host.Read("exact.xlsx", "plain").Sections).Rows);
+    }
+
+    [Fact]
+    public void SparseWorksheetRetainsCoordinatesAndRichTextWithoutPhoneticAnnotations()
+    {
+        var host = Host();
+        Assert.True(host.Write("sparse.xlsx", null, null, false, [["first"]]).Success);
+        using (var file = SpreadsheetDocument.Open(Path.Combine(_root, "sparse.xlsx"), true))
+        {
+            var book = file.WorkbookPart!;
+            var strings = book.AddNewPart<SharedStringTablePart>();
+            strings.SharedStringTable = new SharedStringTable(new SharedStringItem(
+                new Run(new Text("one ")), new Run(new Text("two")), new PhoneticRun(new Text("pronunciation"))));
+            var sheet = book.WorksheetParts.Single().Worksheet!;
+            sheet.GetFirstChild<SheetData>()!.Append(new Row(
+                new Cell { CellReference = "B3", DataType = CellValues.SharedString, CellValue = new CellValue("0") },
+                new Cell { CellReference = "D3", DataType = CellValues.InlineString, InlineString = new InlineString(new Text(" detail ")) })
+                { RowIndex = 3 });
+        }
+        var read = host.Read("sparse.xlsx", "cells");
+        Assert.True(read.Success, read.ErrorMessage);
+        var rows = Assert.Single(read.Sections).Rows!;
+        Assert.Equal(3, rows.Length);
+        Assert.Empty(rows[1]);
+        Assert.Equal(new string?[] { null, "one two", null, " detail " }, rows[2]);
+    }
+
+    [Fact]
+    public void CellReadbackRejectsPartialWorkbooks()
+    {
+        var host = Host();
+        Assert.True(host.Write("many.xlsx", null, null, false, Enumerable.Repeat(new string?[] { "x" }, 501).ToArray()).Success);
+        var read = host.Read("many.xlsx", "cells");
+        Assert.False(read.Success);
+        Assert.Equal("READ_LIMIT_EXCEEDED", read.ErrorCode);
+        Assert.Empty(read.Sections);
+    }
+
+    [Fact]
     public void StructuredCellsPreserveExactStringsNullPositionsAndAppendOrder()
     {
         var host = Host(); var result = host.Write("exact.xlsx", null, null, false, Values);
@@ -70,14 +119,35 @@ public sealed class StructuredRowsTests : IDisposable
             WorkingDirectory = _root, Name = "exact-rows",
             EnvironmentVariables = new Dictionary<string, string?> { ["Document__DefaultWorkingDirectory"] = _root, ["OpenTelemetry__Enabled"] = "false" }
         }), cancellationToken: ct);
-        var tool = Assert.Single(await client.ListToolsAsync(cancellationToken: ct), t => t.Name == "document_write");
+        var tools = await client.ListToolsAsync(cancellationToken: ct);
+        var tool = Assert.Single(tools, t => t.Name == "document_write");
+        Assert.Contains("bind ordered rows directly", tool.Description);
+        Assert.Contains(_root, tool.Description);
+        Assert.DoesNotContain("Call this first", Assert.Single(tools, t => t.Name == "document_get_policy").Description);
         Assert.True(tool.JsonSchema.TryGetProperty("oneOf", out var alternatives)); Assert.Equal(2, alternatives.GetArrayLength());
-        Assert.True(tool.JsonSchema.GetProperty("properties").TryGetProperty("rows", out _));
+        var writeRows = tool.JsonSchema.GetProperty("properties").GetProperty("rows");
+        Assert.Equal(new[] { "string", "null" }, writeRows.GetProperty("items").GetProperty("items")
+            .GetProperty("type").EnumerateArray().Select(type => type.GetString()).ToArray());
         var result = await client.CallToolAsync("document_write", new Dictionary<string, object?> { ["filePath"] = "observed.xlsx", ["rows"] = Values }, cancellationToken: ct);
         Assert.NotEqual(true, result.IsError);
         var path = result.StructuredContent!.Value.GetProperty("filePathAbsolute").GetString()!;
         using (var workbook = SpreadsheetDocument.Open(path, false))
             Assert.Equal(Values[1][1], workbook.WorkbookPart!.WorksheetParts.Single().Worksheet!.Descendants<Row>().ElementAt(1).Elements<Cell>().ElementAt(1).CellValue!.Text);
+        var reader = Assert.Single(tools, t => t.Name == "document_read");
+        Assert.Contains("format=cells", reader.Description);
+        var readRows = reader.ProtocolTool.OutputSchema!.Value.GetProperty("properties").GetProperty("sections")
+            .GetProperty("items").GetProperty("properties").GetProperty("rows");
+        Assert.Equal(new[] { "string", "null" }, readRows.GetProperty("items").GetProperty("items")
+            .GetProperty("type").EnumerateArray().Select(type => type.GetString()).ToArray());
+        var read = await client.CallToolAsync("document_read", new Dictionary<string, object?>
+            { ["filePath"] = "observed.xlsx", ["format"] = "cells" }, cancellationToken: ct);
+        Assert.NotEqual(true, read.IsError);
+        var resultBody = read.StructuredContent!.Value;
+        Assert.True(resultBody.GetProperty("success").GetBoolean());
+        var observed = resultBody.GetProperty("sections")[0].GetProperty("rows");
+        Assert.Equal(Values.Length, observed.GetArrayLength());
+        for (var i = 0; i < Values.Length; i++)
+            Assert.Equal(Values[i], observed[i].EnumerateArray().Select(cell => cell.GetString()).ToArray());
         var before = await File.ReadAllBytesAsync(path, ct);
         var invalid = await client.CallToolAsync("document_write", new Dictionary<string, object?> { ["filePath"] = "observed.xlsx", ["content"] = "must not replace", ["rows"] = Values }, cancellationToken: ct);
         Assert.True(invalid.IsError); Assert.Equal(before, await File.ReadAllBytesAsync(path, ct));

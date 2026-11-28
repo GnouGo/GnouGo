@@ -13,12 +13,14 @@ public sealed class LocalFilePlanningTests
     [InlineData("files_read")]
     [InlineData("files_copy")]
     [InlineData("files_loop_cleanup")]
-    public async Task AuthoredFirstProposalExecutesEveryExistingLocalFileVariant(string name)
+    public async Task StaticTaskPlanExecutesEveryExistingLocalFileVariantWithoutPlanningInference(string name)
     {
         var ct = TestContext.Current.CancellationToken;
         var root = Directory.CreateTempSubdirectory("gnougo-file-plan-").FullName;
-        var executable = Path.Combine(AppContext.BaseDirectory, "tools", "GnOuGo.Cmd.Mcp", "GnOuGo.Cmd.Mcp");
-        if (!File.Exists(executable)) executable = Path.Combine(AppContext.BaseDirectory, "GnOuGo.Cmd.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : ""));
+        var tool = "GnOuGo.Cmd.Mcp" + (OperatingSystem.IsWindows() ? ".exe" : "");
+        var executable = Path.Combine(AppContext.BaseDirectory, "tools", "GnOuGo.Cmd.Mcp", tool);
+        if (!File.Exists(executable)) executable = Path.Combine(AppContext.BaseDirectory, tool);
+        Assert.True(File.Exists(executable), executable);
         await using var files = new LocalExecutionCases(root, executable);
         var actual = new WorkflowPlanningRuntime(new() { McpClientFactory = files.Factory }, (_, _) => Task.CompletedTask);
         var catalog = await actual.DiscoverAsync(new(), ct);
@@ -58,16 +60,13 @@ public sealed class LocalFilePlanningTests
                     Otherwise = new() { Outputs = [new("result", new() { Kind = "array", Items = [] })] } }],
                 Outputs = [new("result", Output("route", "result"))], Always = [Command("cleanup", "delete_directory", new TaskOutput("path", Text("workflows/batch")))] };
         }
-        var proposal = new PlanningProposal { Plan = plan, Requirements = new() { Summary = LocalExecutionCases.Prompt(name), Inputs = plan.Inputs,
-            Outcomes = [new("outcome", LocalExecutionCases.Prompt(name))], Outputs = [new() { Name = "result", Type = new() { Kind = "any" } }] } };
-        var runtime = new LocalProductOutcomeExecutionTests.ProposalRuntime(actual, proposal);
-        var planner = new HybridWorkflowPlanner();
-        var state = await planner.AdvanceAsync(new() { Catalog = catalog, Request = new() { TenantId = "fixture", Prompt = LocalExecutionCases.Prompt(name),
-            Generation = new() { MaxInputTokensPerRequest = 96000, MaxOutputTokens = 32768 } } }, new(), runtime, ct);
-        Assert.True(state.Status == PlanningStatus.FinalReview, string.Join(';', state.Diagnostics));
-        Assert.Equal(1, state.ModelCalls); Assert.Equal(0, state.ReplanAttempts); Assert.Empty(files.Calls);
-        state = await planner.AdvanceAsync(state, new() { Kind = "approve", ExpectedRevision = state.Revision, ArtifactHash = state.ComputeArtifactHash(), ReviewedRequirementIds = ["outcome"] }, runtime, ct);
-        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(state.Yaml!));
+        var compilation = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compilation.Diagnostics);
+        Assert.NotNull(compilation.Graph);
+        PlanningConfirmationGuards.Apply(compilation.Graph, catalog);
+        var yaml = new PlanningGraphCompiler().Compile(compilation.Graph, catalog);
+        Assert.Empty(files.Calls);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(yaml));
         foreach (var variant in LocalExecutionCases.Variants(name))
         {
             var inputs = files.Prepare(name, variant);

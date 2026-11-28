@@ -1,0 +1,69 @@
+{
+  "schema": "gnougo.response_formatting_supplement.v1",
+  "source": "9b3da541c38c348f64dac700b2492d678d9b4ee4",
+  "cohort": "compactr9b3da541ccodev5",
+  "base_archive": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/terminal-safe-archive/compact-taskplan-9b3da541c-code.json",
+    "sha256": "5df16e713f0ec8f25ea1e7d9fd80770f0bd73f2ec4617f11478044e87452b959",
+    "bytes": 25120
+  },
+  "original_archive_unchanged": true,
+  "formatting_source": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/response-formatting-safe.json",
+    "sha256": "0e692a250efdb8b430533fdcace5310d00bf528bd663bc78718ce6027f960b5d",
+    "bytes": 13694
+  },
+  "metrics_source": {
+    "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr9b3da541ccodev5/code-terminal-safe-metrics.json",
+    "sha256": "b2c5ed72712fc23a44a1df0cab6ff1d4772364e14d89bccb14cc1d45daac0407",
+    "bytes": 162224
+  },
+  "original_text_measurement": {
+    "receipts": 37,
+    "raw_utf8_bytes": 24576,
+    "outside_string_whitespace_bytes": 2,
+    "empty_responses": 0,
+    "phases": {
+      "construction_intent": {
+        "receipts": 4,
+        "raw_utf8_bytes": 5365,
+        "outside_string_whitespace_bytes": 0,
+        "empty": 0
+      },
+      "construction_select": {
+        "receipts": 7,
+        "raw_utf8_bytes": 5778,
+        "outside_string_whitespace_bytes": 1,
+        "empty": 0
+      },
+      "construction_draft": {
+        "receipts": 6,
+        "raw_utf8_bytes": 5611,
+        "outside_string_whitespace_bytes": 0,
+        "empty": 0
+      },
+      "construction_local_judge": {
+        "receipts": 3,
+        "raw_utf8_bytes": 901,
+        "outside_string_whitespace_bytes": 1,
+        "empty": 0
+      },
+      "construction_discovery": {
+        "receipts": 14,
+        "raw_utf8_bytes": 2855,
+        "outside_string_whitespace_bytes": 0,
+        "empty": 0
+      },
+      "replan": {
+        "receipts": 3,
+        "raw_utf8_bytes": 4066,
+        "outside_string_whitespace_bytes": 0,
+        "empty": 0
+      }
+    }
+  },
+  "normalized_response_content_bytes": 25277,
+  "interpretation": "Append-only measurement: replaces the base snapshot's unmeasured formatting status for this run only. Original UTF-8 text and normalized parsed-response byte counts are different representations. This run has no empty completed response and only two measured JSON-whitespace bytes outside strings; no schema, provider or semantic cause is inferred.",
+  "payload_privacy": "Original texts remained in the root-owned guarded reader process; this verification used safe hashes/counts only.",
+  "store_accessed_for_verification": false
+}

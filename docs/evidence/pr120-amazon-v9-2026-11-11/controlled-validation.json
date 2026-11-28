@@ -1,0 +1,28 @@
+{
+  "base": "23e4ccf03b38b67d10d86a5ac8d67eb7d64df314",
+  "approval": "user-amazon-workflow-product-context-20261111",
+  "explicit_reply": "Authorize this exact workflow amendment",
+  "policy": "amazon-observed-resolved-product-context-v5",
+  "oracle": "amazon-business-v9",
+  "affected_tests": {
+    "passed": 369,
+    "failed": 0,
+    "skipped": 0,
+    "warnings_as_errors": true
+  },
+  "release_build": {
+    "warnings": 0,
+    "errors": 0
+  },
+  "controlled_business_oracle_passed": true,
+  "real_workflow_execution": false,
+  "real_business_oracle_qualified": false,
+  "model_calls_added": 0,
+  "prior_versions_preserved": true,
+  "raw_source_attributes_unchanged": true,
+  "early_product_reads_reported_separately": true,
+  "evidence_sha256": {
+    "v9-guard-tests.log": "45bdff38a06bc6064c2e8709867befc4976e7b2ca6e6db36351dcbc9caf34cbc",
+    "v9-release-build.log": "471ca82fbcf07d8c7b1ee014150ff81b53a623e74c837e8dbe82b13dab48d32a"
+  }
+}

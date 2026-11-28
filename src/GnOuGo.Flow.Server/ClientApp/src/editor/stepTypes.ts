@@ -19,7 +19,7 @@ export interface StepTypeDef {
   type: string
   label: string
   icon: string
-  category: 'control' | 'template' | 'ai' | 'mcp' | 'workflow' | 'chat'
+  category: 'control' | 'template' | 'ai' | 'mcp' | 'workflow'
   color: string
   fields: FieldDef[]
   /** Whether this step type has sub-steps (sequence, loop, switch default, etc.) */
@@ -182,7 +182,7 @@ export const STEP_TYPES: StepTypeDef[] = [
     icon: '📞',
     category: 'mcp',
     color: '#f97316',
-    description: 'Call MCP tool or prompt',
+    description: 'Call an explicitly selected MCP tool, prompt or batch',
     fields: [
       { name: 'server', label: 'Server', type: 'string', required: true, placeholder: 'demo' },
       { name: 'kind', label: 'Kind', type: 'select', options: ['tool', 'prompt'], defaultValue: 'tool' },
@@ -203,6 +203,23 @@ export const STEP_TYPES: StepTypeDef[] = [
     fields: [
       { name: 'ref', label: 'Ref (JSON)', type: 'json', required: true, placeholder: '{ "kind": "local", "name": "helper" }', description: 'kind: "local" or "url", name: workflow name or URL' },
       { name: 'args', label: 'Arguments', type: 'json', placeholder: '{ "key": "${data.inputs.value}" }' },
+    ],
+  },
+  {
+    type: 'workflow.route',
+    label: 'Workflow Route',
+    icon: '🔀',
+    category: 'workflow',
+    color: '#a855f7',
+    description: 'Discover and select workflows, prepare their declared inputs and execute them.',
+    fields: [
+      { name: 'prompt', label: 'Request', type: 'text' },
+      { name: 'history', label: 'Conversation history', type: 'expression' },
+      { name: 'candidates', label: 'Workflow candidates or sources', type: 'json', required: true },
+      { name: 'selection', label: 'Selection rules', type: 'json' },
+      { name: 'args', label: 'Input mapping and clarification', type: 'json' },
+      { name: 'execution', label: 'Execution options', type: 'json' },
+      { name: 'combine', label: 'Result strategy', type: 'json' },
     ],
   },
   {
@@ -235,32 +252,6 @@ export const STEP_TYPES: StepTypeDef[] = [
     ],
   },
 
-  // ── Chat History ──
-  {
-    type: 'chat_history.get',
-    label: 'Chat History Get',
-    icon: '💬',
-    category: 'chat',
-    color: '#14b8a6',
-    description: 'Retrieve chat history messages',
-    fields: [
-      { name: 'conversation_id', label: 'Conversation ID', type: 'expression', required: true, placeholder: '${data.inputs.session}' },
-      { name: 'top_k', label: 'Max messages', type: 'number', placeholder: '50', description: 'Maximum messages to retrieve (default: 50)' },
-    ],
-  },
-  {
-    type: 'chat_history.append',
-    label: 'Chat History Append',
-    icon: '📨',
-    category: 'chat',
-    color: '#14b8a6',
-    description: 'Append messages to chat history',
-    fields: [
-      { name: 'conversation_id', label: 'Conversation ID', type: 'expression', placeholder: '${data.inputs.session}', description: 'Optional — null creates a new conversation' },
-      { name: 'messages', label: 'Messages (JSON)', type: 'json', required: true, placeholder: '[{ "role": "assistant", "content": "${data.steps.llm.text}" }]', description: 'Array of { role, content, meta? }' },
-    ],
-  },
-
   // ── Human-in-the-Loop ──
   {
     type: 'human.input',
@@ -288,5 +279,4 @@ export const CATEGORIES = [
   { key: 'ai', label: 'AI / LLM', icon: '🤖' },
   { key: 'mcp', label: 'MCP', icon: '📡' },
   { key: 'workflow', label: 'Workflow', icon: '🔗' },
-  { key: 'chat', label: 'Chat', icon: '💬' },
 ] as const

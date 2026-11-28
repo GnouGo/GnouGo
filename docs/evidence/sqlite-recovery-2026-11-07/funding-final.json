@@ -1,0 +1,19 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "mode": "Limited",
+  "authorizedNewAllocationEur": "400",
+  "knownCapturedTariffEstimateEur": "14.504711150918047469771607717",
+  "campaignHttpReservationsEur": "29.289888042991491267353336319",
+  "originalRequest9ReservationOutsideHttpEur": "2.4215763546798029556650246305",
+  "remainingNewAllocationEur": "353.7838244514106583072100313335",
+  "providerInvoicedCost": null,
+  "globallyAvailableFunding": null,
+  "grantsReused": false,
+  "supplementsApplied": false,
+  "accountingReset": false,
+  "originalRequest9PermanentlyRetained": true,
+  "thirdTrialRequest11PermanentlyRetained": true,
+  "fourthTrialRequest17PermanentlyRetained": false,
+  "fourthTrialRequest17ReplayAllowed": false,
+  "executionStarted": false
+}

@@ -1,0 +1,116 @@
+{
+  "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+  "control": {
+    "mode": "control",
+    "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+    "stateSha256": "15ea9cfd57f7be8e97f5b6aa5c6eeb3063dceb75b0de01aba7b1528c9a30ad45",
+    "originalStateUnchanged": true,
+    "restoredRenderOrdinal": 16,
+    "terminalDiagnosticsRemovedOnClone": 2,
+    "contextSha256": "8c53276c08f3a98224e0e17eefa4cfa6ec6e99cbc502063f64777e0615ef90fb",
+    "contextBytes": 20496,
+    "promptSha256": "521a58c5958db655e8c1a866f38c45f9b88e90330eaf17a4573584c6e2581673",
+    "promptBytes": 25726,
+    "instructionBytes": 5229,
+    "instructionsSha256": "3e0d0ad59d0beae917e5bf0f93aab935af953d477a1858940791fe7112f5eb49",
+    "schemaHash": "2f00af0c34cf202d44131f9508d9d50a44418e32afb67876f50507316e441427",
+    "requestHash": "98110267ec4e0d49d094d4395925412177fdb3ebf0dbf0c4b5f1c82cc082ec92",
+    "requestId": "compactr9d25c65f9code20j20v6-code-1:16:92cdfc3935eefbe4bf9685e59b39bc8d81df76f819cadb0cdfad4dc93bbd5049",
+    "completeRequestBytes": 39324,
+    "estimatedInputTokens": 13364,
+    "nonPromptSettingsExcludingDerivedClientIdSha256": "2882fff2235aae1b4226fc734d57662129d7b65fa656612ea4603097caf353eb",
+    "requiredReviewCalls": 0,
+    "maxTokens": 8192,
+    "providerStoreAdmissionInvoked": false,
+    "qualification": "Offline rendering only. Pre-issue ordinal recovered from the retained exact request identity on a clone; actual state and accounting remain unchanged. Client request hash suffix naturally differs when prompt differs."
+  },
+  "arm": {
+    "mode": "arm",
+    "source": "9d25c65f9a0af17a49fcb67e5bcdb2d664abfb84",
+    "stateSha256": "15ea9cfd57f7be8e97f5b6aa5c6eeb3063dceb75b0de01aba7b1528c9a30ad45",
+    "originalStateUnchanged": true,
+    "restoredRenderOrdinal": 16,
+    "terminalDiagnosticsRemovedOnClone": 2,
+    "contextSha256": "8c53276c08f3a98224e0e17eefa4cfa6ec6e99cbc502063f64777e0615ef90fb",
+    "contextBytes": 20496,
+    "promptSha256": "d700aeab286a404dadf4ab9e5c3926dfd905c6da2589f6e45d4bbc630a700a31",
+    "promptBytes": 25233,
+    "instructionBytes": 4736,
+    "instructionsSha256": "3f1cf35c7993829eb16d769fe6d735c46a7e329baf756863d59ed789623a244d",
+    "schemaHash": "2f00af0c34cf202d44131f9508d9d50a44418e32afb67876f50507316e441427",
+    "requestHash": "3b491e0545c0ca924fe9d76b53af9759efb1e303b6e296b69bc9bae7e57ba0af",
+    "requestId": "compactr9d25c65f9code20j20v6-code-1:16:d64b9eb0e8cd61140f03d43d279bd661fb5d3e126d6bb6967853ce91268f0bbc",
+    "completeRequestBytes": 38843,
+    "estimatedInputTokens": 13204,
+    "nonPromptSettingsExcludingDerivedClientIdSha256": "2882fff2235aae1b4226fc734d57662129d7b65fa656612ea4603097caf353eb",
+    "requiredReviewCalls": 0,
+    "maxTokens": 8192,
+    "providerStoreAdmissionInvoked": false,
+    "qualification": "Offline rendering only. Pre-issue ordinal recovered from the retained exact request identity on a clone; actual state and accounting remain unchanged. Client request hash suffix naturally differs when prompt differs."
+  },
+  "only_semantic_request_delta": "Fresh-v6 Judge instruction block; derived client request hash suffix changes accordingly.",
+  "schema_context_and_nonprompt_settings_equal": true,
+  "instruction_bytes_delta": -493,
+  "complete_bytes_delta": -481,
+  "estimated_input_delta": -160,
+  "live_efficacy_or_convergence_claim": false,
+  "no_source_or_state_mutation": true,
+  "references": [
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/preparation-safe.json",
+      "sha256": "df4c661583dd84f5413d862d295648b0f8aa0410dcd349c1fae0b03940252bff"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/run.py",
+      "sha256": "94d1b54a67721d176fa7d59650df87aedad3bb3505b1c90789c11dc2256bf9f0"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/run-v2.py",
+      "sha256": "2fd7284464ec7e791d8f1c2eb34392b14c6d043bb808e8cf118afff6a9a6b926"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/checker-addendum-safe.json",
+      "sha256": "b25a3b2a4782dbeed80bea944906c72add858c92281b8c0081a861cd4a539570"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/control-build-safe.json",
+      "sha256": "409851aa60142c02869e26a231357616f22ef982eecd39f5c2af3120cb21750c"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/control-execution-safe.json",
+      "sha256": "3b64ea615515eabcc5287ac2177dcc608b328e05b5149e6028fb4d722f560070"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/control-result-safe.json",
+      "sha256": "b79ca4eeea087afbeef43a14a2debe3df571dae1ccc23a64e36d1f4294b54879"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/control-stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/arm-build-safe.json",
+      "sha256": "6b70e0c697d3820a337748d572deafc81c2d8f61d58b2c5c903fbe5802d86d2f"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/arm-execution-safe.json",
+      "sha256": "b0bf37245298a6e35bc0073db41d47c6a853486431cbe3579bec33bbe589f0f1"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/arm-result-safe.json",
+      "sha256": "5d89a5942bbf87fefe0b6ffb813cf8a7191b6f6c696b692b51ec8cdd5c530c8c"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/arm-stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/logs/control-build.log",
+      "sha256": "568fe8c217bbed4a0f93b975a6c86e547bc43719881a4f230458ede35784aa6c"
+    },
+    {
+      "path": "/private/tmp/gnougo-9d25-code16-arm-comparison-u0e7n1l8/logs/arm-build.log",
+      "sha256": "10ae3d584c96ccbd321e12b5bdb198080f5b8f74805f559b70d5344024d2002c"
+    }
+  ]
+}

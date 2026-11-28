@@ -1,0 +1,19 @@
+{
+  "base": "8f2d02f4ada37ad407382cf6c9ddc8aad5366440",
+  "configuration": "Release",
+  "warnaserror": true,
+  "red_failures": 2,
+  "positive_control_passes_before_fix": 5,
+  "planning_tests_passed": 2981,
+  "planning_tests_failed": 0,
+  "planning_tests_skipped": 0,
+  "red_log_sha256": "44dbd3cd93468d67b6e23baae5f108a832211b0088e422a4e5165d7bfbb2391d",
+  "green_log_sha256": "24350eb43badf45bdfcf49002db57bbd063341b2a69a088c48082d14ec417152",
+  "new_model_calls": 0,
+  "current_shared_checks": "pending",
+  "qualification": {
+    "amazon": 0,
+    "code": 0,
+    "required_consecutive_successes": 2
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "rawPromptCharacters": 197497,
+  "before": 116903,
+  "after": 13057,
+  "reducedPromptCharacters": 93651,
+  "rawToolObservations": 36,
+  "verifiedReceipts": 25,
+  "unknown": 0,
+  "sameCommandCwdExitAndToolId": true,
+  "unchangedSchemaSha256": "2f746ff4ab661c843e276d2fa68ddf5337f837652cc4971c7de9c6190271cdfd",
+  "source_run": "slim519-adaptive-20261123-04",
+  "controlled_model_calls": 0,
+  "controlled_business_effects": 0,
+  "benchmark_tests": {
+    "copilot_core": 185,
+    "copilot_mcp": 276
+  },
+  "native_aot": {
+    "source": "618e30ff",
+    "rid": "osx-arm64",
+    "exe_sha256": "6d71c2ddfccbe144851480f462ab227d08ff0d61031bfe4d86ce0424812abe90",
+    "published_stdio_discovery": true,
+    "command_results_schema": true,
+    "original_tool_execution_schema": true,
+    "provider_calls": 0
+  }
+}

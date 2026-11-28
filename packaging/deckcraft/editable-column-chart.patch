@@ -1,0 +1,164 @@
+diff --git a/crates/pptx/src/chart_workbook.rs b/crates/pptx/src/chart_workbook.rs
+new file mode 100644
+index 0000000..e1531ab
+--- /dev/null
++++ b/crates/pptx/src/chart_workbook.rs
+@@ -0,0 +1,124 @@
++//! Embed the worksheet behind a regenerated native column chart on the export copy.
++use crate::PptxError;
++use craft_drawingml::chart::{Chart, ChartPart, ChartRel, ChartType, write::chart_xml};
++use craft_opc::{PackageOut, RelsOut};
++use craft_xml::Writer;
++use std::sync::Arc;
++
++const SS: &str = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
++const REL: &str = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
++
++pub(super) fn attach(p: &mut craft_pptx::Presentation) -> Result<(), PptxError> {
++    for slide in &mut p.slides {
++        let mut stack = vec![Arc::make_mut(slide).shapes.as_mut_slice()];
++        while let Some(shapes) = stack.pop() {
++            for shape in shapes {
++                match &mut shape.kind {
++                    craft_pptx::ShapeKind::Chart(chart) if chart.kind == ChartType::Column => attach_column(chart)?,
++                    craft_pptx::ShapeKind::Group { children, .. } => stack.push(children),
++                    _ => {}
++                }
++            }
++        }
++    }
++    Ok(())
++}
++
++fn attach_column(c: &mut Chart) -> Result<(), PptxError> {
++    if c.verbatim || !c.category_levels.is_empty() || c.series.is_empty() || c.categories.is_empty() {
++        return Ok(());
++    }
++    if c.raw.is_some() && chart_xml(c).1 {
++        return Ok(());
++    }
++    let rows = c.categories.len();
++    if c.series.len() > 16383 || rows >= 1048576 || rows.saturating_mul(c.series.len()) > 1000000 {
++        return Err(PptxError::Write("column chart exceeds the editable worksheet limit".into()));
++    }
++    if c.series.iter().any(|s| s.values.len() != rows || s.values.iter().flatten().any(|v| !v.is_finite())) {
++        return Err(PptxError::Write("editable column chart requires aligned categories and finite values".into()));
++    }
++    let workbook = workbook(c)?;
++    // The native writer produces Sheet1 formulas and matching caches for these series.
++    c.raw = None;
++    for series in &mut c.series {
++        series.refs = Default::default();
++    }
++    let (generated, _) = chart_xml(c);
++    let xml = String::from_utf8(generated).map_err(|e| PptxError::Write(e.to_string()))?;
++    let prefix = xml.strip_suffix("</c:chartSpace>").ok_or_else(|| PptxError::Write("missing chart root".into()))?;
++    c.raw = Some(format!(r#"{prefix}<c:externalData r:id="rId1"><c:autoUpdate val="0"/></c:externalData></c:chartSpace>"#));
++    let name = "ppt/embeddings/Workbook.xlsx";
++    c.kept.parts = vec![ChartPart {
++        name: name.into(),
++        content_type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet".into(),
++        bytes: workbook,
++        native_entry: None,
++    }];
++    c.kept.rels = vec![ChartRel {
++        id: "rId1".into(),
++        rel_type: format!("{REL}/package"),
++        target: "../embeddings/Workbook.xlsx".into(),
++        part: name.into(),
++        external: false,
++    }];
++    // Only the transient export model carries this prepared part.
++    c.verbatim = true;
++    Ok(())
++}
++
++fn column(mut number: usize) -> String {
++    let mut result = String::new();
++    while number > 0 {
++        number -= 1;
++        result.insert(0, char::from(b'A' + (number % 26) as u8));
++        number /= 26;
++    }
++    result
++}
++
++fn string_cell(w: &mut Writer, reference: &str, value: &str) {
++    w.open("c", &[("r", reference), ("t", "inlineStr")]);
++    w.open("is", &[]);
++    w.tag("t").attr("xml:space", "preserve").text(value);
++    w.close();
++    w.close();
++}
++
++fn workbook(c: &Chart) -> Result<Vec<u8>, PptxError> {
++    let mut sheet = Writer::document();
++    sheet.open("worksheet", &[("xmlns", SS)]);
++    sheet.open("sheetData", &[]);
++    sheet.open("row", &[("r", "1")]);
++    let columns: Vec<String> = (2..c.series.len() + 2).map(column).collect();
++    for (series, col) in c.series.iter().zip(&columns) {
++        string_cell(&mut sheet, &format!("{col}1"), &series.name);
++    }
++    sheet.close();
++    for (index, category) in c.categories.iter().enumerate() {
++        let row = index + 2;
++        sheet.tag("row").attr("r", row).open();
++        string_cell(&mut sheet, &format!("A{row}"), category);
++        for (series, col) in c.series.iter().zip(&columns) {
++            if let Some(value) = series.values[index] {
++                sheet.tag("c").attr("r", format!("{col}{row}")).open();
++                sheet.tag("v").text(&value.to_string());
++                sheet.close();
++            }
++        }
++        sheet.close();
++    }
++    sheet.close();
++    sheet.close();
++    let mut package = PackageOut::default();
++    let mut root = RelsOut::default();
++    root.add_new("officeDocument", "xl/workbook.xml", false);
++    package.rels("", &root);
++    let mut parts = RelsOut::default();
++    let rid = parts.add_new("worksheet", "worksheets/sheet1.xml", false);
++    package.rels("xl/workbook.xml", &parts);
++    let doc = format!(r#"<workbook xmlns="{SS}" xmlns:r="{REL}"><sheets><sheet name="Sheet1" sheetId="1" r:id="{rid}"/></sheets></workbook>"#);
++    package.xml_part("xl/workbook.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml", doc.into_bytes());
++    package.xml_part("xl/worksheets/sheet1.xml", "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml", sheet.into_bytes());
++    package.finish().map_err(|e| PptxError::Write(e.to_string()))
++}
+diff --git a/crates/pptx/src/lib.rs b/crates/pptx/src/lib.rs
+index 941b76e..3f82d5f 100644
+--- a/crates/pptx/src/lib.rs
++++ b/crates/pptx/src/lib.rs
+@@ -8,6 +8,7 @@
+ #![forbid(unsafe_code)]
+ 
+ mod cfb;
++mod chart_workbook;
+ mod convert;
+ mod xml;
+ 
+@@ -851,7 +852,9 @@ fn patch_exported_slides(p: &Presentation, bytes: Vec<u8>) -> Result<Vec<u8>, Pp
+ /// Write a `.pptx` package.
+ pub fn export(p: &Presentation) -> Result<Vec<u8>, PptxError> {
+     check_table_caps(p)?;
+-    let bytes = craft_pptx::export(&convert::pres_to_craft(p), &DeckDefaults)?;
++    let mut model = convert::pres_to_craft(p);
++    chart_workbook::attach(&mut model)?;
++    let bytes = craft_pptx::export(&model, &DeckDefaults)?;
+     patch_exported_slides(p, bytes)
+ }
+ 
+@@ -860,7 +863,9 @@ pub fn export(p: &Presentation) -> Result<Vec<u8>, PptxError> {
+ pub fn export_as(p: &Presentation, ext: &str) -> Result<Vec<u8>, PptxError> {
+     check_table_caps(p)?;
+     let ext = ext.trim_start_matches('.').to_ascii_lowercase();
+-    let bytes = craft_pptx::export_as(&convert::pres_to_craft(p), &DeckDefaults, &ext)?;
++    let mut model = convert::pres_to_craft(p);
++    chart_workbook::attach(&mut model)?;
++    let bytes = craft_pptx::export_as(&model, &DeckDefaults, &ext)?;
+     patch_exported_slides(p, bytes)
+ }
+ 

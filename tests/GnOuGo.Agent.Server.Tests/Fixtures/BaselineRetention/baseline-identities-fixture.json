@@ -1,0 +1,321 @@
+{
+  "kind": "actual_baseline_creation_identity_fixtures",
+  "source": "56942f5bdfad69ee6f05ccd793b712eaf9f33ca5",
+  "benchmark_assembly_sha256": "affc95fb5c900d6deb57fda7c464af803807ac80b5f76653da57776503c2740b",
+  "serializer_assembly_sha256": "8cf2e0e1b08c332ab4e09d0ce2acf87b399410ad54bbf54ff92de16377dfc1cc",
+  "cases": [
+    {
+      "case": "collections",
+      "run_collection": "planning-evaluation-runs",
+      "mode": "fixture",
+      "arm": null,
+      "repetition": 1,
+      "cohort": "baselineproof",
+      "campaign": "offline-identity-fixture",
+      "argv": [
+        "--phase",
+        "fixture",
+        "--case",
+        "collections",
+        "--repetitions",
+        "1",
+        "--campaign",
+        "offline-identity-fixture",
+        "--cohort",
+        "baselineproof"
+      ],
+      "request": {
+        "mode": "interactive",
+        "tenantId": "benchmark",
+        "sessionId": "0b9295dfa766c7b9f7253d31e208775560b62122819de6cc9bec81714e3d2ab4",
+        "name": "collections",
+        "prompt": "Accept a numeric array input named values. Double every element in a reusable subworkflow. Run the per-item calls in parallel and return the ordered numeric array as result. Preserve all items, including duplicates. No external calls.",
+        "baseline": null,
+        "revisionContext": null,
+        "failureEvidence": null,
+        "options": {
+          "construction_version": 1,
+          "construction_preset": "ordinary",
+          "construction_limits": {
+            "maxTasksPerDraft": 8,
+            "maxCheckpoints": 128,
+            "maxCorrectionsPerDraft": 3,
+            "intermediateReviewInterval": 4,
+            "draftOutputTokens": 8192,
+            "reviewOutputTokens": 2048
+          },
+          "llm_budget": {
+            "max_total_tokens": 15000000,
+            "max_elapsed_ms": 18000000
+          }
+        },
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        },
+        "maxReplanAttempts": 4,
+        "maxModelCalls": 12,
+        "generation": {
+          "reasoning": "medium",
+          "maxInputTokensPerRequest": 32000,
+          "maxOutputTokens": 8192
+        }
+      },
+      "request_text": "{\u0022mode\u0022:\u0022interactive\u0022,\u0022tenantId\u0022:\u0022benchmark\u0022,\u0022sessionId\u0022:\u00220b9295dfa766c7b9f7253d31e208775560b62122819de6cc9bec81714e3d2ab4\u0022,\u0022name\u0022:\u0022collections\u0022,\u0022prompt\u0022:\u0022Accept a numeric array input named values. Double every element in a reusable subworkflow. Run the per-item calls in parallel and return the ordered numeric array as result. Preserve all items, including duplicates. No external calls.\u0022,\u0022baseline\u0022:null,\u0022revisionContext\u0022:null,\u0022failureEvidence\u0022:null,\u0022options\u0022:{\u0022construction_version\u0022:1,\u0022construction_preset\u0022:\u0022ordinary\u0022,\u0022construction_limits\u0022:{\u0022maxTasksPerDraft\u0022:8,\u0022maxCheckpoints\u0022:128,\u0022maxCorrectionsPerDraft\u0022:3,\u0022intermediateReviewInterval\u0022:4,\u0022draftOutputTokens\u0022:8192,\u0022reviewOutputTokens\u0022:2048},\u0022llm_budget\u0022:{\u0022max_total_tokens\u0022:15000000,\u0022max_elapsed_ms\u0022:18000000}},\u0022policy\u0022:{\u0022allowedStepTypes\u0022:[],\u0022deniedCapabilityIds\u0022:[],\u0022requireExternalConfirmation\u0022:true,\u0022maxStepsTotal\u0022:300,\u0022instructions\u0022:\u0022\u0022},\u0022maxReplanAttempts\u0022:4,\u0022maxModelCalls\u0022:12,\u0022generation\u0022:{\u0022reasoning\u0022:\u0022medium\u0022,\u0022maxInputTokensPerRequest\u0022:32000,\u0022maxOutputTokens\u0022:8192}}",
+      "request_sha256": "a2e3d4969dbf63987fe13c8be8aaaff876e15789b7fb17c1919e16490c915598",
+      "configuration": {
+        "calls": 12,
+        "repairs": 4,
+        "input_tokens": 32000,
+        "output_tokens": 8192,
+        "reasoning": "medium",
+        "business_judge": false,
+        "construction_version": 1,
+        "construction_preset": "ordinary",
+        "construction_limits": {
+          "maxTasksPerDraft": 8,
+          "maxCheckpoints": 128,
+          "maxCorrectionsPerDraft": 3,
+          "intermediateReviewInterval": 4,
+          "draftOutputTokens": 8192,
+          "reviewOutputTokens": 2048
+        },
+        "llm_budget": {
+          "max_total_tokens": 15000000,
+          "max_elapsed_ms": 18000000
+        },
+        "automatic_correction": null,
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        }
+      },
+      "run_key": "56942f5bdfad69ee6f05ccd793b712eaf9f33ca5:fixture:collections:1",
+      "attribution": "Source-bound exact Program RunKey/request-construction expressions using actual retained baseline ConfigureRequest, Prompt, Fingerprint and serializer; no Program entry-point invocation."
+    },
+    {
+      "case": "amazon",
+      "run_collection": "planning-schema-portability",
+      "mode": "plan",
+      "arm": null,
+      "repetition": 1,
+      "cohort": "baselineproof",
+      "campaign": "offline-identity-fixture",
+      "argv": [
+        "--schema-portability",
+        "plan",
+        "--case",
+        "amazon",
+        "--run",
+        "baselineproof-amazon-1",
+        "--campaign",
+        "offline-identity-fixture",
+        "--cohort",
+        "baselineproof"
+      ],
+      "request": {
+        "mode": "auto",
+        "tenantId": "benchmark",
+        "sessionId": "baselineproof-amazon-1",
+        "name": "Live amazon",
+        "prompt": "Return the supplied test input without external effects.",
+        "baseline": null,
+        "revisionContext": null,
+        "failureEvidence": null,
+        "options": {
+          "generator": {
+            "provider": "fixture",
+            "model": "pinned"
+          },
+          "llm_budget": {
+            "max_elapsed_ms": 18000000,
+            "max_total_tokens": 15000000
+          },
+          "construction_version": 1,
+          "construction_preset": "ordinary",
+          "construction_limits": {
+            "maxTasksPerDraft": 8,
+            "maxCheckpoints": 128,
+            "maxCorrectionsPerDraft": 3,
+            "intermediateReviewInterval": 4,
+            "draftOutputTokens": 8192,
+            "reviewOutputTokens": 2048
+          }
+        },
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        },
+        "maxReplanAttempts": 4,
+        "maxModelCalls": 12,
+        "generation": {
+          "reasoning": "medium",
+          "maxInputTokensPerRequest": 32000,
+          "maxOutputTokens": 8192
+        }
+      },
+      "request_text": "{\u0022mode\u0022:\u0022auto\u0022,\u0022tenantId\u0022:\u0022benchmark\u0022,\u0022sessionId\u0022:\u0022baselineproof-amazon-1\u0022,\u0022name\u0022:\u0022Live amazon\u0022,\u0022prompt\u0022:\u0022Return the supplied test input without external effects.\u0022,\u0022baseline\u0022:null,\u0022revisionContext\u0022:null,\u0022failureEvidence\u0022:null,\u0022options\u0022:{\u0022generator\u0022:{\u0022provider\u0022:\u0022fixture\u0022,\u0022model\u0022:\u0022pinned\u0022},\u0022llm_budget\u0022:{\u0022max_elapsed_ms\u0022:18000000,\u0022max_total_tokens\u0022:15000000},\u0022construction_version\u0022:1,\u0022construction_preset\u0022:\u0022ordinary\u0022,\u0022construction_limits\u0022:{\u0022maxTasksPerDraft\u0022:8,\u0022maxCheckpoints\u0022:128,\u0022maxCorrectionsPerDraft\u0022:3,\u0022intermediateReviewInterval\u0022:4,\u0022draftOutputTokens\u0022:8192,\u0022reviewOutputTokens\u0022:2048}},\u0022policy\u0022:{\u0022allowedStepTypes\u0022:[],\u0022deniedCapabilityIds\u0022:[],\u0022requireExternalConfirmation\u0022:true,\u0022maxStepsTotal\u0022:300,\u0022instructions\u0022:\u0022\u0022},\u0022maxReplanAttempts\u0022:4,\u0022maxModelCalls\u0022:12,\u0022generation\u0022:{\u0022reasoning\u0022:\u0022medium\u0022,\u0022maxInputTokensPerRequest\u0022:32000,\u0022maxOutputTokens\u0022:8192}}",
+      "request_sha256": "53fe5b5c328f8ce4906ba001d5eccda7130065ba1081df57949306d538499ed6",
+      "configuration": {
+        "calls": 12,
+        "repairs": 4,
+        "input_tokens": 32000,
+        "output_tokens": 8192,
+        "reasoning": "medium",
+        "business_judge": false,
+        "construction_version": 1,
+        "construction_preset": "ordinary",
+        "construction_limits": {
+          "maxTasksPerDraft": 8,
+          "maxCheckpoints": 128,
+          "maxCorrectionsPerDraft": 3,
+          "intermediateReviewInterval": 4,
+          "draftOutputTokens": 8192,
+          "reviewOutputTokens": 2048
+        },
+        "llm_budget": {
+          "max_elapsed_ms": 18000000,
+          "max_total_tokens": 15000000
+        },
+        "automatic_correction": null,
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        }
+      },
+      "run_key": "run:baselineproof-amazon-1",
+      "attribution": "Actual retained baseline LiveWorkflowEvaluation.FreshPlanningRequest called once; synthetic prompt/provider/model. RunAsync and host entry point were not called."
+    },
+    {
+      "case": "code",
+      "run_collection": "planning-schema-portability",
+      "mode": "plan",
+      "arm": null,
+      "repetition": 1,
+      "cohort": "baselineproof",
+      "campaign": "offline-identity-fixture",
+      "argv": [
+        "--schema-portability",
+        "plan",
+        "--case",
+        "code",
+        "--run",
+        "baselineproof-code-1",
+        "--campaign",
+        "offline-identity-fixture",
+        "--cohort",
+        "baselineproof"
+      ],
+      "request": {
+        "mode": "auto",
+        "tenantId": "benchmark",
+        "sessionId": "baselineproof-code-1",
+        "name": "Live code",
+        "prompt": "Return the supplied test input without external effects.",
+        "baseline": null,
+        "revisionContext": null,
+        "failureEvidence": null,
+        "options": {
+          "generator": {
+            "provider": "fixture",
+            "model": "pinned"
+          },
+          "llm_budget": {
+            "max_elapsed_ms": 18000000,
+            "max_total_tokens": 15000000
+          },
+          "construction_version": 1,
+          "construction_preset": "ordinary",
+          "construction_limits": {
+            "maxTasksPerDraft": 8,
+            "maxCheckpoints": 128,
+            "maxCorrectionsPerDraft": 3,
+            "intermediateReviewInterval": 4,
+            "draftOutputTokens": 8192,
+            "reviewOutputTokens": 2048
+          }
+        },
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        },
+        "maxReplanAttempts": 4,
+        "maxModelCalls": 12,
+        "generation": {
+          "reasoning": "medium",
+          "maxInputTokensPerRequest": 32000,
+          "maxOutputTokens": 8192
+        }
+      },
+      "request_text": "{\u0022mode\u0022:\u0022auto\u0022,\u0022tenantId\u0022:\u0022benchmark\u0022,\u0022sessionId\u0022:\u0022baselineproof-code-1\u0022,\u0022name\u0022:\u0022Live code\u0022,\u0022prompt\u0022:\u0022Return the supplied test input without external effects.\u0022,\u0022baseline\u0022:null,\u0022revisionContext\u0022:null,\u0022failureEvidence\u0022:null,\u0022options\u0022:{\u0022generator\u0022:{\u0022provider\u0022:\u0022fixture\u0022,\u0022model\u0022:\u0022pinned\u0022},\u0022llm_budget\u0022:{\u0022max_elapsed_ms\u0022:18000000,\u0022max_total_tokens\u0022:15000000},\u0022construction_version\u0022:1,\u0022construction_preset\u0022:\u0022ordinary\u0022,\u0022construction_limits\u0022:{\u0022maxTasksPerDraft\u0022:8,\u0022maxCheckpoints\u0022:128,\u0022maxCorrectionsPerDraft\u0022:3,\u0022intermediateReviewInterval\u0022:4,\u0022draftOutputTokens\u0022:8192,\u0022reviewOutputTokens\u0022:2048}},\u0022policy\u0022:{\u0022allowedStepTypes\u0022:[],\u0022deniedCapabilityIds\u0022:[],\u0022requireExternalConfirmation\u0022:true,\u0022maxStepsTotal\u0022:300,\u0022instructions\u0022:\u0022\u0022},\u0022maxReplanAttempts\u0022:4,\u0022maxModelCalls\u0022:12,\u0022generation\u0022:{\u0022reasoning\u0022:\u0022medium\u0022,\u0022maxInputTokensPerRequest\u0022:32000,\u0022maxOutputTokens\u0022:8192}}",
+      "request_sha256": "dca996b12f7816625ef071347c51757d383932ec8058c1db44d25d8ff32e8f1b",
+      "configuration": {
+        "calls": 12,
+        "repairs": 4,
+        "input_tokens": 32000,
+        "output_tokens": 8192,
+        "reasoning": "medium",
+        "business_judge": false,
+        "construction_version": 1,
+        "construction_preset": "ordinary",
+        "construction_limits": {
+          "maxTasksPerDraft": 8,
+          "maxCheckpoints": 128,
+          "maxCorrectionsPerDraft": 3,
+          "intermediateReviewInterval": 4,
+          "draftOutputTokens": 8192,
+          "reviewOutputTokens": 2048
+        },
+        "llm_budget": {
+          "max_elapsed_ms": 18000000,
+          "max_total_tokens": 15000000
+        },
+        "automatic_correction": null,
+        "policy": {
+          "allowedStepTypes": [],
+          "deniedCapabilityIds": [],
+          "requireExternalConfirmation": true,
+          "maxStepsTotal": 300,
+          "instructions": ""
+        }
+      },
+      "run_key": "run:baselineproof-code-1",
+      "attribution": "Actual retained baseline LiveWorkflowEvaluation.FreshPlanningRequest called once; synthetic prompt/provider/model. RunAsync and host entry point were not called."
+    }
+  ],
+  "checks": [
+    "Exact retained baseline benchmark assembly",
+    "Factory returns the actual baseline PlanningRequest type",
+    "amazon actual factory display name",
+    "amazon literal label and tenant",
+    "amazon synthetic prompt and auto mode",
+    "amazon label satisfies exact RunAsync validation",
+    "amazon actual baseline source-generated round-trip",
+    "code actual factory display name",
+    "code literal label and tenant",
+    "code synthetic prompt and auto mode",
+    "code label satisfies exact RunAsync validation",
+    "code actual baseline source-generated round-trip",
+    "Exact legacy cohort-free corpus key",
+    "Exact corpus session fingerprint",
+    "Corpus name is canonical case",
+    "collections actual baseline source-generated round-trip"
+  ],
+  "check_count": 16,
+  "limitations": "Offline synthetic identities only; exact actual legacy live factory and serializers, source-bound corpus issuer expression. No host entry point, store, provider, network, effects, baseline build, or live eligibility."
+}

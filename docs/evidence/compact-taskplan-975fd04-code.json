@@ -1,0 +1,929 @@
+{
+  "version": 1,
+  "source": "975fd04f8bb4d534364fbf2780120c05deb6ef66",
+  "cohort": "compactr975fd04f8code9",
+  "case": "code",
+  "campaign": "schema-portability-20261019-incremental",
+  "run_hash": "409fa2843ccb976f7f2f0fccc50836f1ffecde12f3180491c149dbdcf7fedbd3",
+  "freeze_sha256": "a2c027a86f3bc23cad6fa88df1e3e68a28eaf77e4728588947ff57093503757e",
+  "benchmark_binary_sha256": "e769b20ef879292265577a8a9503b0e9ce1f3f7a2813ef6e610028e7eb8570e2",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "medium",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 16000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "medium",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 9000,
+      "outputTokens": 4096
+    }
+  },
+  "transport_policy": {
+    "version": 1,
+    "maxAttempts": 3,
+    "maxUncertainRetries": 0,
+    "attemptTimeoutMilliseconds": 600000,
+    "baseDelayMilliseconds": 1000,
+    "maxDelayMilliseconds": 30000,
+    "maxTotalDelayMilliseconds": 60000
+  },
+  "outcome": {
+    "logical_calls": 39,
+    "physical_attempts": 39,
+    "receipts": 39,
+    "corrections": 4,
+    "checkpoints": 3,
+    "diagnostic_codes": [
+      "CONSTRUCTION_REVIEW_INCONCLUSIVE"
+    ],
+    "construction_complete": false,
+    "artifact_hash": null,
+    "execution_started": false,
+    "runtime_ms": null,
+    "business_acceptance": "incomplete; no runtime execution or independent oracle result",
+    "independently_satisfied_useful_obligations": 0,
+    "calls_per_satisfied_obligation": null
+  },
+  "usage": {
+    "request_identities": 42,
+    "http_attempts": 39,
+    "receipts": 39,
+    "unknown_attempts": 0,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 151232,
+    "known_output_tokens": 47209,
+    "known_reasoning_tokens": 36628,
+    "reasoning_measured_calls": 39,
+    "known_cost_eur": "1.9388041053101294065149486836",
+    "unknown_usage_reservation_eur": "0.000000",
+    "cost_upper_bound_eur": "1.9388041053101294065149486836",
+    "visible_output_tokens_derived": 10581,
+    "recorded_known_cost_minus_exact_receipt_sum_eur": "0.0000000000000000000000000000"
+  },
+  "latency": {
+    "planning_ms": 959263,
+    "sum_completed_call_elapsed_ms": "883433.1180",
+    "completed_call_ms": {
+      "count": 39,
+      "p50": "19023.1059",
+      "p95": "53641.4767",
+      "maximum": "55442.3549",
+      "total": "883433.1180"
+    },
+    "provider_only_latency_ms": null,
+    "interpretation": "Logical-call elapsed includes host/provider/transport processing; these measurements do not isolate provider-only latency or total host overhead."
+  },
+  "requests": {
+    "constructed": 42,
+    "received": 39,
+    "prepared_only": 3,
+    "rejected_before_dispatch": 0,
+    "complete_bytes": {
+      "count": 42,
+      "p50": "15870",
+      "p95": "30887",
+      "maximum": "35674",
+      "total": "756369"
+    },
+    "conservative_input_tokens": {
+      "count": 42,
+      "p50": "5546",
+      "p95": "10552",
+      "maximum": "12148",
+      "total": "262888"
+    },
+    "all_components_reconcile": true,
+    "all_constructed_within_ceiling": true,
+    "percentile_method": "p50 median; p95 nearest rank; all constructed measurements retained, including prepared-only",
+    "estimator": "serialized_utf8_div3_plus256_v1"
+  },
+  "phases": {
+    "construction_intent": {
+      "constructed_requests": 4,
+      "admitted_requests": 4,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 4,
+        "p50": 6848,
+        "p95": 10768,
+        "maximum": 10768,
+        "total": 27515
+      },
+      "estimated_input_tokens": {
+        "count": 4,
+        "p50": 2539,
+        "p95": 3846,
+        "maximum": 3846,
+        "total": 10197
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 343,
+          "estimated_tokens": 116
+        },
+        "envelope": {
+          "serialized_bytes": 1700,
+          "estimated_tokens": 1592
+        },
+        "instructions": {
+          "serialized_bytes": 4710,
+          "estimated_tokens": 1570
+        },
+        "intent": {
+          "serialized_bytes": 8390,
+          "estimated_tokens": 2797
+        },
+        "response_schema": {
+          "serialized_bytes": 12208,
+          "estimated_tokens": 4071
+        },
+        "evidence": {
+          "serialized_bytes": 46,
+          "estimated_tokens": 16
+        },
+        "interfaces": {
+          "serialized_bytes": 118,
+          "estimated_tokens": 40
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 4,
+        "physical_attempts": 4,
+        "input_tokens": 5516,
+        "output_tokens": 7605,
+        "reasoning_tokens": 5631,
+        "visible_output_tokens_derived": 1974,
+        "known_cost_eur": "0.2282284694332887103971441321",
+        "completed_call_elapsed_ms": {
+          "count": 4,
+          "p50": "25961.3709",
+          "p95": "43976.1298",
+          "maximum": "43976.1298",
+          "total": "112001.5002"
+        }
+      },
+      "original_response_format": {
+        "receipts": 4,
+        "text_bytes": 6292,
+        "outside_string_whitespace_bytes": 23,
+        "maximum_whitespace_run": 2
+      }
+    },
+    "construction_select": {
+      "constructed_requests": 7,
+      "admitted_requests": 7,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 7,
+        "p50": 12892,
+        "p95": 15147,
+        "maximum": 15147,
+        "total": 92286
+      },
+      "estimated_input_tokens": {
+        "count": 7,
+        "p50": 4554,
+        "p95": 5305,
+        "maximum": 5305,
+        "total": 32556
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 7198,
+          "estimated_tokens": 2404
+        },
+        "envelope": {
+          "serialized_bytes": 3008,
+          "estimated_tokens": 2797
+        },
+        "instructions": {
+          "serialized_bytes": 14987,
+          "estimated_tokens": 4998
+        },
+        "interfaces": {
+          "serialized_bytes": 7050,
+          "estimated_tokens": 2353
+        },
+        "requirements": {
+          "serialized_bytes": 24984,
+          "estimated_tokens": 8330
+        },
+        "response_schema": {
+          "serialized_bytes": 31249,
+          "estimated_tokens": 10418
+        },
+        "evidence": {
+          "serialized_bytes": 3810,
+          "estimated_tokens": 1270
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 7,
+        "physical_attempts": 7,
+        "input_tokens": 19891,
+        "output_tokens": 12265,
+        "reasoning_tokens": 10079,
+        "visible_output_tokens_derived": 2186,
+        "known_cost_eur": "0.4171396697902721999107541276",
+        "completed_call_elapsed_ms": {
+          "count": 7,
+          "p50": "19312.4091",
+          "p95": "53641.4767",
+          "maximum": "53641.4767",
+          "total": "204867.9256"
+        }
+      },
+      "original_response_format": {
+        "receipts": 7,
+        "text_bytes": 7286,
+        "outside_string_whitespace_bytes": 1,
+        "maximum_whitespace_run": 1
+      }
+    },
+    "construction_draft": {
+      "constructed_requests": 8,
+      "admitted_requests": 5,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 8,
+        "p50": "23708.5",
+        "p95": 30887,
+        "maximum": 30887,
+        "total": 191111
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "8159.5",
+        "p95": 10552,
+        "maximum": 10552,
+        "total": 65754
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 30116,
+          "estimated_tokens": 10041
+        },
+        "diagnostics": {
+          "serialized_bytes": 208,
+          "estimated_tokens": 72
+        },
+        "envelope": {
+          "serialized_bytes": 3501,
+          "estimated_tokens": 3215
+        },
+        "evidence": {
+          "serialized_bytes": 4578,
+          "estimated_tokens": 1530
+        },
+        "fragment": {
+          "serialized_bytes": 176,
+          "estimated_tokens": 64
+        },
+        "instructions": {
+          "serialized_bytes": 9056,
+          "estimated_tokens": 3024
+        },
+        "interfaces": {
+          "serialized_bytes": 5680,
+          "estimated_tokens": 1895
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 28532,
+          "estimated_tokens": 9514
+        },
+        "objective": {
+          "serialized_bytes": 2625,
+          "estimated_tokens": 877
+        },
+        "requirements": {
+          "serialized_bytes": 21060,
+          "estimated_tokens": 7024
+        },
+        "response_schema": {
+          "serialized_bytes": 85579,
+          "estimated_tokens": 28528
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 5,
+        "physical_attempts": 5,
+        "input_tokens": 25605,
+        "output_tokens": 5566,
+        "reasoning_tokens": 3548,
+        "visible_output_tokens_derived": 2018,
+        "known_cost_eur": "0.2632797858099062918340026773",
+        "completed_call_elapsed_ms": {
+          "count": 5,
+          "p50": "17143.6065",
+          "p95": "37143.6644",
+          "maximum": "37143.6644",
+          "total": "101811.3301"
+        }
+      },
+      "original_response_format": {
+        "receipts": 5,
+        "text_bytes": 7040,
+        "outside_string_whitespace_bytes": 6,
+        "maximum_whitespace_run": 6
+      }
+    },
+    "construction_local_judge": {
+      "constructed_requests": 6,
+      "admitted_requests": 6,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 6,
+        "p50": 16676,
+        "p95": 25071,
+        "maximum": 25071,
+        "total": 103938
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": 5815,
+        "p95": 8613,
+        "maximum": 8613,
+        "total": 36184
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 24679,
+          "estimated_tokens": 8229
+        },
+        "diagnostics": {
+          "serialized_bytes": 156,
+          "estimated_tokens": 54
+        },
+        "envelope": {
+          "serialized_bytes": 2634,
+          "estimated_tokens": 2417
+        },
+        "evidence": {
+          "serialized_bytes": 150,
+          "estimated_tokens": 54
+        },
+        "fragment": {
+          "serialized_bytes": 13129,
+          "estimated_tokens": 4379
+        },
+        "instructions": {
+          "serialized_bytes": 19389,
+          "estimated_tokens": 6463
+        },
+        "interfaces": {
+          "serialized_bytes": 5222,
+          "estimated_tokens": 1744
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 12506,
+          "estimated_tokens": 4171
+        },
+        "objective": {
+          "serialized_bytes": 1966,
+          "estimated_tokens": 657
+        },
+        "requirements": {
+          "serialized_bytes": 15941,
+          "estimated_tokens": 5317
+        },
+        "response_schema": {
+          "serialized_bytes": 8166,
+          "estimated_tokens": 2724
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 6,
+        "physical_attempts": 6,
+        "input_tokens": 20334,
+        "output_tokens": 5997,
+        "reasoning_tokens": 5360,
+        "visible_output_tokens_derived": 637,
+        "known_cost_eur": "0.2512985274431057563587684071",
+        "completed_call_elapsed_ms": {
+          "count": 6,
+          "p50": "21178.1513",
+          "p95": "29614.0382",
+          "maximum": "29614.0382",
+          "total": "131760.6971"
+        }
+      },
+      "original_response_format": {
+        "receipts": 6,
+        "text_bytes": 2613,
+        "outside_string_whitespace_bytes": 1,
+        "maximum_whitespace_run": 1
+      }
+    },
+    "construction_discovery": {
+      "constructed_requests": 10,
+      "admitted_requests": 10,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 10,
+        "p50": 15339,
+        "p95": 21176,
+        "maximum": 21176,
+        "total": 156560
+      },
+      "estimated_input_tokens": {
+        "count": 10,
+        "p50": "5369.5",
+        "p95": 7315,
+        "maximum": 7315,
+        "total": 54749
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 21714,
+          "estimated_tokens": 7242
+        },
+        "envelope": {
+          "serialized_bytes": 4285,
+          "estimated_tokens": 3994
+        },
+        "instructions": {
+          "serialized_bytes": 16890,
+          "estimated_tokens": 5630
+        },
+        "mcp_descriptors": {
+          "serialized_bytes": 34792,
+          "estimated_tokens": 11601
+        },
+        "objective": {
+          "serialized_bytes": 3237,
+          "estimated_tokens": 1081
+        },
+        "requirements": {
+          "serialized_bytes": 25573,
+          "estimated_tokens": 8529
+        },
+        "response_schema": {
+          "serialized_bytes": 38250,
+          "estimated_tokens": 12754
+        },
+        "evidence": {
+          "serialized_bytes": 11819,
+          "estimated_tokens": 3941
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 10,
+        "physical_attempts": 10,
+        "input_tokens": 38689,
+        "output_tokens": 5034,
+        "reasoning_tokens": 3824,
+        "visible_output_tokens_derived": 1210,
+        "known_cost_eur": "0.3074207942882641677822400714",
+        "completed_call_elapsed_ms": {
+          "count": 10,
+          "p50": "12235.23575",
+          "p95": "22557.6625",
+          "maximum": "22557.6625",
+          "total": "145532.1985"
+        }
+      },
+      "original_response_format": {
+        "receipts": 10,
+        "text_bytes": 2772,
+        "outside_string_whitespace_bytes": 0,
+        "maximum_whitespace_run": 0
+      }
+    },
+    "replan": {
+      "constructed_requests": 4,
+      "admitted_requests": 4,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 4,
+        "p50": "30645.5",
+        "p95": 35674,
+        "maximum": 35674,
+        "total": 120780
+      },
+      "estimated_input_tokens": {
+        "count": 4,
+        "p50": "10471.5",
+        "p95": 12148,
+        "maximum": 12148,
+        "total": 41286
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 18419,
+          "estimated_tokens": 6141
+        },
+        "diagnostics": {
+          "serialized_bytes": 3143,
+          "estimated_tokens": 1049
+        },
+        "envelope": {
+          "serialized_bytes": 1752,
+          "estimated_tokens": 1608
+        },
+        "evidence": {
+          "serialized_bytes": 10437,
+          "estimated_tokens": 3481
+        },
+        "fragment": {
+          "serialized_bytes": 7089,
+          "estimated_tokens": 2364
+        },
+        "instructions": {
+          "serialized_bytes": 5076,
+          "estimated_tokens": 1692
+        },
+        "interfaces": {
+          "serialized_bytes": 2926,
+          "estimated_tokens": 976
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 16911,
+          "estimated_tokens": 5638
+        },
+        "objective": {
+          "serialized_bytes": 1341,
+          "estimated_tokens": 448
+        },
+        "requirements": {
+          "serialized_bytes": 10383,
+          "estimated_tokens": 3463
+        },
+        "response_schema": {
+          "serialized_bytes": 43303,
+          "estimated_tokens": 14436
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 4,
+        "physical_attempts": 4,
+        "input_tokens": 28418,
+        "output_tokens": 4756,
+        "reasoning_tokens": 2663,
+        "visible_output_tokens_derived": 2093,
+        "known_cost_eur": "0.2541454707719767960731816153",
+        "completed_call_elapsed_ms": {
+          "count": 4,
+          "p50": "21792.03085",
+          "p95": "26649.1278",
+          "maximum": "26649.1278",
+          "total": "82990.2970"
+        }
+      },
+      "original_response_format": {
+        "receipts": 4,
+        "text_bytes": 6896,
+        "outside_string_whitespace_bytes": 2,
+        "maximum_whitespace_run": 2
+      }
+    },
+    "construction_intermediate_judge": {
+      "constructed_requests": 3,
+      "admitted_requests": 3,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 3,
+        "p50": 20722,
+        "p95": 24968,
+        "maximum": 24968,
+        "total": 64179
+      },
+      "estimated_input_tokens": {
+        "count": 3,
+        "p50": 7164,
+        "p95": 8579,
+        "maximum": 8579,
+        "total": 22162
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 15717,
+          "estimated_tokens": 5240
+        },
+        "diagnostics": {
+          "serialized_bytes": 78,
+          "estimated_tokens": 27
+        },
+        "envelope": {
+          "serialized_bytes": 1314,
+          "estimated_tokens": 1207
+        },
+        "evidence": {
+          "serialized_bytes": 1905,
+          "estimated_tokens": 637
+        },
+        "fragment": {
+          "serialized_bytes": 7751,
+          "estimated_tokens": 2584
+        },
+        "instructions": {
+          "serialized_bytes": 9738,
+          "estimated_tokens": 3246
+        },
+        "interfaces": {
+          "serialized_bytes": 4195,
+          "estimated_tokens": 1400
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 10060,
+          "estimated_tokens": 3354
+        },
+        "objective": {
+          "serialized_bytes": 1104,
+          "estimated_tokens": 369
+        },
+        "requirements": {
+          "serialized_bytes": 8063,
+          "estimated_tokens": 2689
+        },
+        "response_schema": {
+          "serialized_bytes": 4254,
+          "estimated_tokens": 1419
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "provider_usage": {
+        "receipts": 3,
+        "physical_attempts": 3,
+        "input_tokens": 12779,
+        "output_tokens": 5986,
+        "reasoning_tokens": 5523,
+        "visible_output_tokens_derived": 463,
+        "known_cost_eur": "0.2172913877733154841588576528",
+        "completed_call_elapsed_ms": {
+          "count": 3,
+          "p50": "31252.5365",
+          "p95": "55442.3549",
+          "maximum": "55442.3549",
+          "total": "104469.1695"
+        }
+      },
+      "original_response_format": {
+        "receipts": 3,
+        "text_bytes": 1920,
+        "outside_string_whitespace_bytes": 2,
+        "maximum_whitespace_run": 1
+      }
+    }
+  },
+  "terminal_evidence": {
+    "witness": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-review-stop-safe.json",
+      "sha256": "28c38b7f9383c71edc327b7df01418c8978e678a0ef52fa80068b29a47ac9583",
+      "bytes": 13827
+    },
+    "terminal": {
+      "call": 39,
+      "request_id": "compactr975fd04f8code9-code-1:39:7b6f48bd889b6b70687f34cd8ecaae10e615835c48e005bf09ff7d118862a602",
+      "record_hashes": {
+        "requests": "021e003d49eb51425a816e45904725bed24b96c6b79808ef5844246a90090b79",
+        "http-attempts": "96c6ace3a8cb20178a77fcfb6e6751e783091d2458c6614f332e93dfaf1dd9a2",
+        "receipts": "ef257425c9453624af7bdcd018d77140006285d2d2f5e17516098eae75888c20",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_sha256": "cfbb67ec84c2d0050d0746b582ba77936d4de5693e8ff0bc0002675a6310b9fa",
+      "phase": "construction_local_judge",
+      "all_three_action_fields_null": true,
+      "non_null_action_count": 0,
+      "raw_text_agrees_with_parsed_json": true,
+      "schema_independently_nullable_actions_allow_shape": true,
+      "explicit_one_action_instruction_present": true,
+      "host_diagnosis": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "classification": "Model response violates the existing exactly-one-action contract. Host counting is correct; uncertainty prose is not an acceptance action and is not reinterpreted.",
+      "candidate_hash": "8bd2a5df7422fe12c2efe6738c9562f5193d562caa8d53c306dff3ea1bec27f4",
+      "base_hash": "78ab8e8df109acfa8a928566b299de57608a0861207ce4954e2a2382ec1aad39",
+      "candidate_local_reviewed": false,
+      "candidate_diagnostics_count": 0,
+      "candidate_corrections": 1,
+      "pending_call": null
+    },
+    "correction_trace": [
+      {
+        "call": 4,
+        "kind": "intent source-coverage correction",
+        "preceding_call": 3,
+        "diagnostic": "CONSTRUCTION_SOURCE_COVERAGE"
+      },
+      {
+        "call": 16,
+        "kind": "business-rejected clone step reselection",
+        "preceding_call": 15,
+        "diagnostic": "CONSTRUCTION_BUSINESS_REVIEW"
+      },
+      {
+        "call": 26,
+        "kind": "draft correction for missing selected operation",
+        "preceding_call": 25,
+        "diagnostic": "REQUIREMENT_OPERATION_MISSING"
+      },
+      {
+        "call": 37,
+        "kind": "evidence-only navigation during repair; not an artifact correction",
+        "preceding_call": 36,
+        "diagnostic": "CONSTRUCTION_BUSINESS_REVIEW"
+      },
+      {
+        "call": 38,
+        "kind": "artifact correction adds local export",
+        "preceding_call": 36,
+        "diagnostic": "CONSTRUCTION_BUSINESS_REVIEW"
+      }
+    ],
+    "business_assessments": [
+      {
+        "call": 15,
+        "classification": "Grounded immediate argument defect",
+        "basis": {
+          "call": 15,
+          "request_id": "compactr975fd04f8code9-code-1:15:f2d0fde9b2993836949182ad85533fa7b80668c760b84109b41144f4d90ab71a",
+          "record_hashes": {
+            "requests": "62c0eabe0b9fdf24f23fea25a4b80eb70146185706405b896b123fca5a50bfe8",
+            "http-attempts": "d3dec888fb17bb316e319151eca1951cdfc6b740f02343629fb678040ec9949f",
+            "receipts": "280a3398be41bcb95356cf0adeaacd40417faaefaec3572dff85a574e72a47a5",
+            "failures": null,
+            "closures": null
+          },
+          "original_text_sha256": "cf5be7794cb2b53423e32241d48678b9f8774b0bb25b7ac6ba103b082755a782"
+        },
+        "finding_location": "/draft/tasks/0",
+        "finding_evidence": [
+          "/requirements/0",
+          "/interfaces/0",
+          "/operations/0"
+        ],
+        "reason": "A GitHub pull-request page URL was bound directly as git_clone.remoteUrl. The original Git implementation accepts the supplied remote Git URL without translating a PR page; source and concrete bindings support this finding. Call16 reselected prerequisite production."
+      },
+      {
+        "call": 36,
+        "classification": "Independently demonstrated false premise about same-scope operation-result availability",
+        "basis": {
+          "call": 36,
+          "request_id": "compactr975fd04f8code9-code-1:36:40ecdbd75f46596ea37ea1af3e470d79d4ef9d3eab479f9edd6fe75c490b00c4",
+          "record_hashes": {
+            "requests": "0067f537568a79abe1555074052bdda3339deeffe12e6c30f93c3d1c232e7867",
+            "http-attempts": "dafdd4b4bd9b2520a42ca5076e67d8397fbb0e82374e150b074ed05744321349",
+            "receipts": "f9377737e080ce8917b355565685be3ab2c17368be2d0fbe1a0367d5c096a8c0",
+            "failures": null,
+            "closures": null
+          },
+          "original_text_sha256": "f1a29b2a08b1daa358e9c4ba22a8844df59070f962bbcc74997abfd0408d146b"
+        },
+        "finding_location": "/draft/tasks/0",
+        "finding_evidence": [
+          "/step",
+          "/requirements/0",
+          "/globalConstraints/1"
+        ],
+        "scope": "/tasks/step_1/body",
+        "scope_open": true,
+        "close_requirement_ids": [],
+        "closed_scopes": [],
+        "plan_complete": false,
+        "local_outputs_count": 0,
+        "original_operation_method": "code_agent_edit",
+        "producer": "step_6",
+        "reason": "The report says an operation result is unavailable because no task result alias or scope export was declared. TaskPlanCompiler.OperationResults binds the original output contract under the task id, CompileTask registers those ports in scope.Tasks, and ValueCore resolves later same-scope output bindings. No boundary is closing, so empty scope outputs do not make these operation results unavailable. This conclusion concerns the specific accessibility premise, not successful installation or completeness of the operation result.",
+        "repair_observation": "Call38 adds dependencyInstallationState by directly binding the same step_6 original result ports and adjusts the task instruction. No runtime proof is produced."
+      }
+    ],
+    "accepted_plan_limits": {
+      "checkpoints": 3,
+      "closed_requirement_ids": [
+        "req_4"
+      ],
+      "closed_scopes": [],
+      "pinned_clone_branch_present": false,
+      "comparison_has_explicit_head_and_base": true,
+      "delegated_guard_assessment": "The accepted clone lacks branch=the frozen head. Existing exact delegated clone guard would reject that invocation. A later git_compare_refs call does not change the clone arguments or authorize execution.",
+      "artifact_complete": false,
+      "runtime_executed": false,
+      "business_oracle_result": null
+    },
+    "original_receipt_text_separate_from_normalized_json": true
+  },
+  "review_ceiling": {
+    "target": 4000,
+    "captured_ceiling": 9000,
+    "reasoning": "medium",
+    "output_reservation": 4096,
+    "review_requests": 9,
+    "admitted_above_old_8000": [
+      {
+        "request_id": "compactr975fd04f8code9-code-1:27:e070c541e3fdde740f1fd6eabebb60c221ae9ef42587fd3baa6dc38d44200c9d",
+        "phase": "construction_local_judge",
+        "complete_bytes": 25071,
+        "estimated_input_tokens": 8613,
+        "captured_ceiling": 9000
+      },
+      {
+        "request_id": "compactr975fd04f8code9-code-1:28:a781a751e0cdd17e039c46571e18b616f3ab82164ab0e2edb191a491943cd320",
+        "phase": "construction_intermediate_judge",
+        "complete_bytes": 24968,
+        "estimated_input_tokens": 8579,
+        "captured_ceiling": 9000
+      }
+    ],
+    "all_constructed_components_reconcile": true,
+    "all_constructed_within_phase_ceiling": true,
+    "interpretation": "The two review requests above8000 were actually admitted under the separately frozen9000 ceiling. Context differs from earlier runs; this is not architecture-only causality or business success."
+  },
+  "response_format": {
+    "original_receipt_text": {
+      "receipts": 39,
+      "text_bytes": 34819,
+      "outside_string_whitespace_bytes": 35,
+      "maximum_whitespace_run": 6
+    },
+    "normalized_parsed_response_sizes": "Separate safe metrics fields; not interchangeable with original receipt text.",
+    "full_per_receipt_safe_index": {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-response-format-metrics.json",
+      "sha256": "a519cf183e699fffee29342bc9db966489f7bebad6cfbe3c83922dc255742fcd",
+      "bytes": 44468
+    }
+  },
+  "campaign_after_code": {
+    "audit_evidence_hash": "e19206c07e4c921fb49287bcab28e8747802387c9af9eb6248c76bed8c85cfdd",
+    "requests": 2092,
+    "receipts": 2071,
+    "physical_attempt_records": 2093,
+    "receiptless_requests": 21,
+    "permanently_closed_receiptless_requests": 21,
+    "pending_unclosed_receiptless_requests": 0,
+    "unknown_attempt_records": 21,
+    "ceiling_eur": "240.0301038327063045424449473",
+    "known_cost_eur": "82.84775173444749108106349389",
+    "retained_reservations_eur": "10.872951692429839622716702885",
+    "upper_bound_eur": "93.72070342687733070378019678",
+    "available_eur": "146.30940040582897383866475052",
+    "prior_lost_historical_exposure_eur": "159.96989616729369545755505266",
+    "cumulative_upper_bound_including_prior_exposure_eur": "253.69059959417102616133524944",
+    "recorded_upper_minus_exact_known_plus_reserved_eur": "0.000000000000000000000000005",
+    "accounting_note": "Original CLR decimal snapshot values retained exactly; small cross-check rounding differences disclosed. All unknown reservations and original records remain retained. This dated post-Code snapshot does not describe later spending."
+  },
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/freeze.json",
+      "sha256": "a2c027a86f3bc23cad6fa88df1e3e68a28eaf77e4728588947ff57093503757e",
+      "bytes": 6880
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-safe-metrics.json",
+      "sha256": "a5aaa54ec2dd6d056d101812835fb90c64d19f418a0bd87252cd9856ded2ec43",
+      "bytes": 166041
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-review-stop-safe.json",
+      "sha256": "28c38b7f9383c71edc327b7df01418c8978e678a0ef52fa80068b29a47ac9583",
+      "bytes": 13827
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-response-format-metrics.json",
+      "sha256": "a519cf183e699fffee29342bc9db966489f7bebad6cfbe3c83922dc255742fcd",
+      "bytes": 44468
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/code-action-trace-safe.json",
+      "sha256": "3d1b345525ee2f6f3e481350f3cd31a3d11de79c7e815cfc6a18e41a949a6a72",
+      "bytes": 30063
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr975fd04f8code9/campaign-post-code-audit.jsonl",
+      "sha256": "819b8853586e56b23d3f297052201fbd474ea35f26b3b39ed00a711278ae478d",
+      "bytes": 6700
+    }
+  ],
+  "limitations": [
+    "No original provider request, response or decrypted state is copied into this archive; exact records remain encrypted and hash-linked.",
+    "Judge39 is an invalid zero-action response, not empty output, output exhaustion, admission failure or unknown usage. Its uncertainty prose is not an acceptance action.",
+    "The specific result-accessibility premise in Judge36 conflicts with existing compiler semantics; this does not prove installation succeeds or that the operation produces sufficient business evidence.",
+    "The subsequent export repair is observed, not an avoided-correction estimate. The forthcoming shared-hint change has not established live benefit.",
+    "Two actual review requests used the increased frozen ceiling; changed contexts preclude matched causal attribution or a business-success claim.",
+    "The accepted clone remains outside exact delegated invocation authority because its branch is unpinned. No permissions or oracle are relaxed.",
+    "Checkpoints and favorable reviews do not establish independent business obligations satisfied by a complete artifact; the calls-per-satisfied-obligation ratio remains undefined.",
+    "Full solution, publication and CI evidence remain separate from this live outcome."
+  ]
+}

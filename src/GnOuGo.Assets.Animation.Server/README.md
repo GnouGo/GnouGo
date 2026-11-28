@@ -1,6 +1,6 @@
 # GnOuGo.Assets.Animation.Server
 
-Standalone .NET 10 and React demonstration host for autonomous GnOuGo team
+Standalone .NET 11 and React demonstration host for autonomous GnOuGo team
 animations. The server validates a lightweight workflow preview, generates a
 base SVG, and streams synthetic timer-driven events as NDJSON. It has no
 database, persisted sessions, or dependency on any `GnOuGo.Flow` project.

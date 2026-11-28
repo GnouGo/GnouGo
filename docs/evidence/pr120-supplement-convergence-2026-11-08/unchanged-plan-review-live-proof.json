@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "source": "9f9affa39fbd5dc9e649dd17031efa63e8b4228c",
+  "run": "boundary-qualification-20261109-02",
+  "session_id": "10ab4f0b1d01476b89bdd28d79fb2750",
+  "scenario": "review-boundary",
+  "boundary": {
+    "version": "unchanged-business-review-boundary-v1",
+    "observed": true,
+    "block_id": "block_1",
+    "contribution_checkpoints": [
+      1
+    ],
+    "review_checkpoint": 2,
+    "accepted_plan_hash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "reviewed_plan_hash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "added_task_count": 0,
+    "closed_scope_count": 0,
+    "closed_original_requirement_count": 0,
+    "root_open_during_review": true,
+    "selection_request_id": "10ab4f0b1d01476b89bdd28d79fb2750:5:a5c697118a320fe4be28e27d9d34631d1252a9acebc923c42a39aba85ae6f69f:9ad177f1d805a913cf7f7f4b6681f34008302d41bff7360d3a359dd90c8a66be",
+    "first_review_call": 6,
+    "drafting_echo_between_selection_and_review": false,
+    "review_request_id": "10ab4f0b1d01476b89bdd28d79fb2750:6:6c4cfff1b93c37615c52cfd602857a45cc823b58a4a31b9193062c9103317d59:06d778f126c0fa509f5b230f5a9e351a95cecb79949eee0c1c323a7e7f243062",
+    "review_verdict": "ok"
+  },
+  "contribution": {
+    "sequence": 1,
+    "baseHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "planHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "taskIds": [
+      "line_price"
+    ],
+    "closedRequirementIds": [],
+    "closedScopes": []
+  },
+  "review_claim": {
+    "sequence": 2,
+    "baseHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "planHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "taskIds": [],
+    "closedRequirementIds": [],
+    "closedScopes": [],
+    "step": {
+      "discoveryProtocol": 2,
+      "blockId": "block_1",
+      "id": "step_2",
+      "baseHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+      "scope": "/root",
+      "kind": "close",
+      "objective": "Establish the line price for two units as a useful contribution, without claiming business completion or closing any original requirement.",
+      "requirementIds": [
+        "req_0",
+        "req_2"
+      ],
+      "inputTaskIds": [],
+      "inputs": [],
+      "dependencyTaskIds": [],
+      "expectedOutputs": [
+        "Numeric lineTotal equal to unitPrice multiplied by 2, offered for subsequent invoice handling and eventual public output."
+      ],
+      "operationIds": [],
+      "schemaPointers": [],
+      "closeRequirementIds": [],
+      "closeScopes": [],
+      "outputNames": [],
+      "discoveryComplete": true
+    },
+    "fragment": {
+      "scope": "/root",
+      "tasks": [],
+      "outputs": [],
+      "businessReviewPending": false,
+      "complete": false,
+      "completeBlock": true,
+      "acceptedConsumers": [],
+      "acceptedClaimsHash": "c04fbcd02ed78ca6eda02ac7b2e8e300f8450462ba968d0f4d095d42f7954cb1"
+    }
+  },
+  "ordinary_local_review": [
+    {
+      "purpose": "construction_local_judge",
+      "outcome": "ok",
+      "requestId": "10ab4f0b1d01476b89bdd28d79fb2750:6:6c4cfff1b93c37615c52cfd602857a45cc823b58a4a31b9193062c9103317d59:06d778f126c0fa509f5b230f5a9e351a95cecb79949eee0c1c323a7e7f243062",
+      "baselineHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+      "candidateHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+      "reviewedTaskIds": [
+        "line_price"
+      ],
+      "openScopes": [
+        "/root"
+      ],
+      "claims": {
+        "scope": "/root",
+        "requirements": [
+          "req_0",
+          "req_2"
+        ],
+        "closedRequirements": [],
+        "closedScopes": [],
+        "complete": false,
+        "step": {
+          "discoveryProtocol": 2,
+          "blockId": "block_1",
+          "id": "step_2",
+          "baseHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+          "scope": "/root",
+          "kind": "close",
+          "objective": "Establish the line price for two units as a useful contribution, without claiming business completion or closing any original requirement.",
+          "requirementIds": [
+            "req_0",
+            "req_2"
+          ],
+          "inputTaskIds": [],
+          "inputs": [],
+          "dependencyTaskIds": [],
+          "expectedOutputs": [
+            "Numeric lineTotal equal to unitPrice multiplied by 2, offered for subsequent invoice handling and eventual public output."
+          ],
+          "operationIds": [],
+          "schemaPointers": [],
+          "closeRequirementIds": [],
+          "closeScopes": [],
+          "outputNames": [],
+          "discoveryComplete": true
+        },
+        "continuationBinding": null,
+        "boundaryTransitions": null,
+        "completeBlock": true,
+        "businessBlock": {
+          "objective": "Establish the line price for two units as a useful contribution, without claiming business completion or closing any original requirement.",
+          "requirementIds": [
+            "req_0",
+            "req_2"
+          ],
+          "informationNeeds": [
+            "One required numeric public input, unitPrice, supplied at runtime with no default."
+          ],
+          "expectedResults": [
+            "Numeric lineTotal equal to unitPrice multiplied by 2, offered for subsequent invoice handling and eventual public output."
+          ],
+          "dependencies": [],
+          "successCriteria": [
+            "The planned behavior requires runtime unitPrice and calculates lineTotal using native arithmetic, without external effects or runtime inference.",
+            "Acceptance of this contribution leaves all original requirements open and does not constitute observed execution or successful business review.",
+            "The following planning decision requests business review of this unchanged accepted contribution, without adding executable work or closing a scope or original requirement; invoice handling follows only after that review succeeds.",
+            "This contribution adds no public outputs beyond lineTotal; the final workflow must return exactly numeric lineTotal and invoiceTotal."
+          ]
+        }
+      }
+    }
+  ],
+  "subsequent_invoice_checkpoint": {
+    "sequence": 3,
+    "taskIds": [
+      "invoice_handling"
+    ],
+    "baseHash": "ba1cc3f0bec62ab742d5f37784236b84bf546a96ab169ba2f8d714e133440dcd",
+    "planHash": "d7741369a8643955e8e70a7dc498328c6c5915043a0bb5eb223d11e986533b4d"
+  },
+  "final_status": "stopped",
+  "final_diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_INCONCLUSIVE",
+      "location": "/construction/candidate",
+      "message": "The required runtime input, native arithmetic, ordering, and exactly two numeric caller outputs satisfy req_0 and req_1. However, the final workflow does not establish the planning-review sequence required by req_2. Its completion claim alone cannot prove prior acceptance, a separate review of the unchanged contribution, and successful review before invoice handling.",
+      "required": true,
+      "validationStage": "construction_global_judge",
+      "rule": null
+    }
+  ],
+  "known_receipt_count": 17,
+  "pending_request": null,
+  "execution_qualified": false,
+  "global_review_passed": false,
+  "stop_basis": "The host stopped with CONSTRUCTION_REVIEW_INCONCLUSIVE before the protected operator stop could apply. All 17 calls have receipts. No cancellation retention was applied.",
+  "limits": "Targeted protocol-prefix proof only. The global Judge could not establish the planning-history requirement from its business projection. No artifact approval or execution; not a qualified end-to-end success. No expected live response or plan was injected.",
+  "private_evidence_sha256": {
+    "boundary02-final.json": "b73ea68df5e47263f648796bc44e10c27f5d342610d60dd27989c5722be48e3f",
+    "boundary02-final-receipts.json": "89fc4531f7418e2b7871a1f50f063ba0c58d6328d4590d50000044dc022f190d",
+    "boundary02-live.log": "f661f993fef77c4fdd1b7a7170dd87855ce4885f4e469606b628b47bf2abc224",
+    "boundary02-protected-stop.log": "b5c494d39c05a7bb1a8e790081bf65ea4c52d92555fb72b33562b2ef4ad4f7d0"
+  },
+  "source_binding_limitation": "The Release build contained the correction but began before commit 9f9affa3 was created. Later Code13 preflight rejected stale MCP informational versions before session creation or model dispatch. This target run establishes the observed protocol behavior but is not counted as a fully frozen-source qualification. A clean post-commit Release build now records 9f9affa3 for all participating assemblies."
+}

@@ -1,0 +1,33 @@
+[
+  {
+    "request_id": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+    "http_attempts": 0,
+    "transport_present": true,
+    "failure": {
+      "stage": "dispatch",
+      "exception_type": "InvalidOperationException",
+      "kind": null,
+      "status_code": null,
+      "safe_provider_code": null,
+      "retryable": null,
+      "attempt_count": null,
+      "retry_exhausted": null,
+      "retry_after_ms": null,
+      "budget_refusal": {
+        "request_id": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+        "scope": "campaign_llm_budget",
+        "origin": "captured_campaign_ceiling",
+        "limit_kind": "estimated_cost",
+        "allowance": "740.0301038327063045424449473",
+        "required_reservation": "1487.6589143113189934076732151",
+        "estimated_cost_currency": "EUR",
+        "dispatch_status": "not_started",
+        "attempt_dispatch_status": "not_started",
+        "denied_attempt_number": 1,
+        "mandatory_review_reserve_eur": "28.452634403792825834153323196",
+        "retained_external_reservations_eur": "731.9247059871703492516037064"
+      }
+    },
+    "usage_present": false
+  }
+]

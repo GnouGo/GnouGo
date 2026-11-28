@@ -1,0 +1,19 @@
+{
+  "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+  "platform": "Windows x64",
+  "publication": "Self-contained win-x64 Release Server with its default partial trimming. The persistence smoke does not package bundled MCP tools.",
+  "exe_sha256": "98f6cdbf3ff13d686e52b50d73deed30f85ad428f960d4c0d1daf72c09a1f851",
+  "assembly_sha256": {
+    "GnOuGo.Agent.Server.dll": "138d98cdcb12453c8374c1cf68794605592f6076acd89387ec70f481426b6300",
+    "GnOuGo.Flow.Planning.dll": "705fd796c15801c153b5a4a2522c70f76ca092c577b7b29ff6c36afceed5640e",
+    "GnOuGo.AI.Core.dll": "5e21d33356f9dd1294249bfed1e91012b01a0f78c1be3a8ed7978affe8cfa4e9"
+  },
+  "persistence_smoke": "Format-11 planning persistence and exact receipt recovery passed; execution journal schema 9 is unchanged.",
+  "warning_count": 7,
+  "exit": 0,
+  "publish_and_smoke_seconds": 533.172,
+  "warnings": {
+    "Entity Framework Core 11 experimental feature notices": 6,
+    "IL2101 in Microsoft.AspNetCore.Components.Endpoints built-in ILLink.Substitutions.xml": 1
+  }
+}

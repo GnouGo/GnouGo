@@ -31,6 +31,8 @@ internal static class PlanningContractCompatibility
         // that source into an inclusive union would lose this useful constraint.
         // Identical reference text is sufficient only in the same schema environment.
         if (JsonNode.DeepEquals(actual, expected) && (!References(actual) || JsonNode.DeepEquals(sourceRoot, targetRoot))) return true;
+        if (PlanningContractShapes.IsNonNullVariantOf(actual, expected) &&
+            (!References(actual) && !References(expected) || JsonNode.DeepEquals(sourceRoot, targetRoot))) return true;
         if (actual["$ref"] is JsonValue sr)
         {
             var siblings = actual.DeepClone().AsObject(); siblings.Remove("$ref");

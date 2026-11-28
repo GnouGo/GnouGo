@@ -1,0 +1,898 @@
+{
+  "version": 1,
+  "captured_at_utc": "2026-10-20T17:26:39.650838+00:00",
+  "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+  "campaign": "schema-portability-20261019-incremental",
+  "model": "gpt-5.5-2026-04-24",
+  "reasoning": "medium",
+  "phase_policy_hash": "8b9c7a88e4f6b3d6edc242055b4831041cdf7702be12239a62aa8a718a83f097",
+  "statistics": "p50 median; p95 nearest rank ceil(.95*n). All prepared requests counted; conservative estimates remain separate from provider usage; exact decimal money is encoded as strings.",
+  "limitations": [
+    "No original prompts, responses, contracts, HTTP bodies or artifacts are emitted.",
+    "No complete business or safety outcome is inferred from planning checkpoints or lack of execution.",
+    "These diagnostic runs do not constitute the unstarted 18-run paired comparison."
+  ],
+  "kind": "safe_frozen_source_phase_summary",
+  "totals": {
+    "calls": 14,
+    "corrections": 1,
+    "checkpoints": 1,
+    "input_tokens": 13456,
+    "output_tokens": 34812,
+    "reasoning_tokens": 32825,
+    "planning_ms": "540344",
+    "known_cost_eur": "0.9878610148404869812494445923",
+    "empty_content_receipts": 3,
+    "rejected_prepared_requests": 0,
+    "new_unknown_attempts": 0,
+    "component_byte_reconciliation_failures": 0,
+    "complete_request_bytes_sum": 76805
+  },
+  "runs": [
+    {
+      "run": "compactd5c01f98-amazon-1",
+      "case": "amazon",
+      "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+      "retained_record_sha256": "7ec64436d6142811a8b23d4143140efdb2f7af657f47ad8060315db022ff4be6",
+      "status": "stopped",
+      "phase": "construction_intent",
+      "calls": 2,
+      "corrections": 0,
+      "diagnostics": [
+        {
+          "code": "MODEL_OUTPUT_LIMIT",
+          "location": "/phases/construction_intent"
+        }
+      ],
+      "planning_ms": 123557,
+      "reasoning_tokens": 9955,
+      "empty_content_receipts": 1,
+      "execution_started": false,
+      "business_success": null,
+      "safety_outcome": null,
+      "component_bytes_reconcile": true,
+      "all_prepared_requests_admitted": true,
+      "within_phase_input_limits": true,
+      "phases": {
+        "construction_intent": {
+          "prepared_requests": 2,
+          "receipts": 2,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 2,
+            "p50": 4040.0,
+            "p95": 5112,
+            "max": 5112
+          },
+          "complete_request_bytes_sum": 8080,
+          "estimated_input_tokens": {
+            "count": 2,
+            "p50": 1603.0,
+            "p95": 1960,
+            "max": 1960
+          },
+          "estimated_input_tokens_sum": 3206,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 1358,
+            "output_tokens": 10237,
+            "reasoning_tokens": 9955
+          },
+          "known_cost_eur": "0.2789478361325868657246956367",
+          "elapsed_ms": "121802.7342",
+          "empty_content_receipts": 1,
+          "components": {
+            "diagnostics": {
+              "serialized_bytes": 52,
+              "estimated_tokens": 18
+            },
+            "envelope": {
+              "serialized_bytes": 783,
+              "estimated_tokens": 774
+            },
+            "instructions": {
+              "serialized_bytes": 1505,
+              "estimated_tokens": 502
+            },
+            "intent": {
+              "serialized_bytes": 1890,
+              "estimated_tokens": 631
+            },
+            "interfaces": {
+              "serialized_bytes": 59,
+              "estimated_tokens": 20
+            },
+            "response_schema": {
+              "serialized_bytes": 3791,
+              "estimated_tokens": 1264
+            }
+          }
+        }
+      },
+      "accepted_checkpoints": 0
+    },
+    {
+      "run": "5c01f98e803bc06bd0f241bd2491c1200fef3c77:fixture:cohort:compactd5c01f98:collections:1",
+      "case": "collections",
+      "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+      "retained_record_sha256": "d8dbace64799ce37396f78cdff295fac90b61642b7a5cf48aff0dc25844551fa",
+      "status": "stopped",
+      "phase": "construction_draft",
+      "calls": 9,
+      "corrections": 1,
+      "diagnostics": [
+        {
+          "code": "MODEL_OUTPUT_LIMIT",
+          "location": "/phases/construction_draft"
+        }
+      ],
+      "planning_ms": 206096,
+      "reasoning_tokens": 13141,
+      "empty_content_receipts": 1,
+      "execution_started": false,
+      "business_success": null,
+      "safety_outcome": null,
+      "component_bytes_reconcile": true,
+      "all_prepared_requests_admitted": true,
+      "within_phase_input_limits": true,
+      "phases": {
+        "construction_draft": {
+          "prepared_requests": 2,
+          "receipts": 2,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 2,
+            "p50": 10217.5,
+            "p95": 10450,
+            "max": 10450
+          },
+          "complete_request_bytes_sum": 20435,
+          "estimated_input_tokens": {
+            "count": 2,
+            "p50": 3662.5,
+            "p95": 3740,
+            "max": 3740
+          },
+          "estimated_input_tokens_sum": 7325,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 3807,
+            "output_tokens": 8789,
+            "reasoning_tokens": 8600
+          },
+          "known_cost_eur": "0.2512263396427619301519594775",
+          "elapsed_ms": "115682.3014",
+          "empty_content_receipts": 1,
+          "components": {
+            "construction_context": {
+              "serialized_bytes": 2117,
+              "estimated_tokens": 706
+            },
+            "diagnostics": {
+              "serialized_bytes": 52,
+              "estimated_tokens": 18
+            },
+            "envelope": {
+              "serialized_bytes": 840,
+              "estimated_tokens": 792
+            },
+            "evidence": {
+              "serialized_bytes": 50,
+              "estimated_tokens": 18
+            },
+            "fragment": {
+              "serialized_bytes": 44,
+              "estimated_tokens": 16
+            },
+            "instructions": {
+              "serialized_bytes": 1688,
+              "estimated_tokens": 564
+            },
+            "interfaces": {
+              "serialized_bytes": 420,
+              "estimated_tokens": 141
+            },
+            "mcp_contracts": {
+              "serialized_bytes": 50,
+              "estimated_tokens": 18
+            },
+            "objective": {
+              "serialized_bytes": 224,
+              "estimated_tokens": 76
+            },
+            "requirements": {
+              "serialized_bytes": 1203,
+              "estimated_tokens": 402
+            },
+            "response_schema": {
+              "serialized_bytes": 13747,
+              "estimated_tokens": 4583
+            }
+          }
+        },
+        "construction_intent": {
+          "prepared_requests": 2,
+          "receipts": 2,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 2,
+            "p50": 3618.5,
+            "p95": 4826,
+            "max": 4826
+          },
+          "complete_request_bytes_sum": 7237,
+          "estimated_input_tokens": {
+            "count": 2,
+            "p50": 1462.5,
+            "p95": 1865,
+            "max": 1865
+          },
+          "estimated_input_tokens_sum": 2925,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 1160,
+            "output_tokens": 730,
+            "reasoning_tokens": 487
+          },
+          "known_cost_eur": "0.0246156580467430907313605260",
+          "elapsed_ms": "13841.1667",
+          "empty_content_receipts": 0,
+          "components": {
+            "diagnostics": {
+              "serialized_bytes": 52,
+              "estimated_tokens": 18
+            },
+            "envelope": {
+              "serialized_bytes": 819,
+              "estimated_tokens": 786
+            },
+            "instructions": {
+              "serialized_bytes": 1505,
+              "estimated_tokens": 502
+            },
+            "intent": {
+              "serialized_bytes": 1021,
+              "estimated_tokens": 341
+            },
+            "interfaces": {
+              "serialized_bytes": 59,
+              "estimated_tokens": 20
+            },
+            "response_schema": {
+              "serialized_bytes": 3781,
+              "estimated_tokens": 1261
+            }
+          }
+        },
+        "construction_local_judge": {
+          "prepared_requests": 1,
+          "receipts": 1,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 1,
+            "p50": 6099,
+            "p95": 6099,
+            "max": 6099
+          },
+          "complete_request_bytes_sum": 6099,
+          "estimated_input_tokens": {
+            "count": 1,
+            "p50": 2289,
+            "p95": 2289,
+            "max": 2289
+          },
+          "estimated_input_tokens_sum": 2289,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 1020,
+            "output_tokens": 288,
+            "reasoning_tokens": 225
+          },
+          "known_cost_eur": "0.0122100773127166089042921887",
+          "elapsed_ms": "6380.0389",
+          "empty_content_receipts": 0,
+          "components": {
+            "construction_context": {
+              "serialized_bytes": 1081,
+              "estimated_tokens": 361
+            },
+            "diagnostics": {
+              "serialized_bytes": 26,
+              "estimated_tokens": 9
+            },
+            "envelope": {
+              "serialized_bytes": 424,
+              "estimated_tokens": 398
+            },
+            "evidence": {
+              "serialized_bytes": 25,
+              "estimated_tokens": 9
+            },
+            "fragment": {
+              "serialized_bytes": 645,
+              "estimated_tokens": 215
+            },
+            "instructions": {
+              "serialized_bytes": 1781,
+              "estimated_tokens": 594
+            },
+            "interfaces": {
+              "serialized_bytes": 382,
+              "estimated_tokens": 128
+            },
+            "mcp_contracts": {
+              "serialized_bytes": 25,
+              "estimated_tokens": 9
+            },
+            "objective": {
+              "serialized_bytes": 100,
+              "estimated_tokens": 34
+            },
+            "requirements": {
+              "serialized_bytes": 599,
+              "estimated_tokens": 200
+            },
+            "response_schema": {
+              "serialized_bytes": 1011,
+              "estimated_tokens": 337
+            }
+          }
+        },
+        "construction_select": {
+          "prepared_requests": 4,
+          "receipts": 4,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 4,
+            "p50": 5925.0,
+            "p95": 6431,
+            "max": 6431
+          },
+          "complete_request_bytes_sum": 23674,
+          "estimated_input_tokens": {
+            "count": 4,
+            "p50": 2231.0,
+            "p95": 2400,
+            "max": 2400
+          },
+          "estimated_input_tokens_sum": 8916,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 4144,
+            "output_tokens": 4382,
+            "reasoning_tokens": 3829
+          },
+          "known_cost_eur": "0.1352350484315293699457922331",
+          "elapsed_ms": "65054.2773",
+          "empty_content_receipts": 0,
+          "components": {
+            "construction_context": {
+              "serialized_bytes": 2012,
+              "estimated_tokens": 672
+            },
+            "diagnostics": {
+              "serialized_bytes": 550,
+              "estimated_tokens": 184
+            },
+            "envelope": {
+              "serialized_bytes": 1662,
+              "estimated_tokens": 1580
+            },
+            "evidence": {
+              "serialized_bytes": 570,
+              "estimated_tokens": 190
+            },
+            "instructions": {
+              "serialized_bytes": 2944,
+              "estimated_tokens": 984
+            },
+            "interfaces": {
+              "serialized_bytes": 1745,
+              "estimated_tokens": 583
+            },
+            "requirements": {
+              "serialized_bytes": 2411,
+              "estimated_tokens": 806
+            },
+            "response_schema": {
+              "serialized_bytes": 11780,
+              "estimated_tokens": 3929
+            }
+          }
+        }
+      },
+      "accepted_checkpoints": 1
+    },
+    {
+      "run": "compactd5c01f98-code-1",
+      "case": "code",
+      "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+      "retained_record_sha256": "f8279752670692672563570792ff9fb428e12bb06e1b91780f78fc9d1e69ab78",
+      "status": "stopped",
+      "phase": "construction_intent",
+      "calls": 3,
+      "corrections": 0,
+      "diagnostics": [
+        {
+          "code": "MODEL_OUTPUT_LIMIT",
+          "location": "/phases/construction_intent"
+        }
+      ],
+      "planning_ms": 210691,
+      "reasoning_tokens": 9729,
+      "empty_content_receipts": 1,
+      "execution_started": false,
+      "business_success": null,
+      "safety_outcome": null,
+      "component_bytes_reconcile": true,
+      "all_prepared_requests_admitted": true,
+      "within_phase_input_limits": true,
+      "phases": {
+        "construction_intent": {
+          "prepared_requests": 3,
+          "receipts": 3,
+          "rejected_prepared_requests": 0,
+          "complete_request_bytes": {
+            "count": 3,
+            "p50": 3126,
+            "p95": 5144,
+            "max": 5144
+          },
+          "complete_request_bytes_sum": 11280,
+          "estimated_input_tokens": {
+            "count": 3,
+            "p50": 1298,
+            "p95": 1971,
+            "max": 1971
+          },
+          "estimated_input_tokens_sum": 4529,
+          "component_bytes_reconcile": true,
+          "provider_usage": {
+            "input_tokens": 1967,
+            "output_tokens": 10386,
+            "reasoning_tokens": 9729
+          },
+          "known_cost_eur": "0.2856260552741491157913445303",
+          "elapsed_ms": "208198.1915",
+          "empty_content_receipts": 1,
+          "components": {
+            "diagnostics": {
+              "serialized_bytes": 78,
+              "estimated_tokens": 27
+            },
+            "envelope": {
+              "serialized_bytes": 1168,
+              "estimated_tokens": 1158
+            },
+            "instructions": {
+              "serialized_bytes": 2387,
+              "estimated_tokens": 796
+            },
+            "intent": {
+              "serialized_bytes": 3193,
+              "estimated_tokens": 1066
+            },
+            "interfaces": {
+              "serialized_bytes": 59,
+              "estimated_tokens": 20
+            },
+            "response_schema": {
+              "serialized_bytes": 4395,
+              "estimated_tokens": 1466
+            }
+          }
+        }
+      },
+      "accepted_checkpoints": 0
+    }
+  ],
+  "campaign_balance": {
+    "kind": "independent_post_run_public_api_audit",
+    "campaign": "schema-portability-20261019-incremental",
+    "evidence_hash": "f702dc2e58871ab6e72e9f6c6b73819f5af276ea6684455d99d792d2a7c44114",
+    "audit_file_sha256": "b09edd365da513ef0b89fde907b3cf8c27f4c7770b98ab4d03ec7ba11dd7c7b9",
+    "reserved_requests": 664,
+    "completed_receipts": 661,
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "calls": 664,
+    "session_calls": 0,
+    "known_input_tokens": 992958,
+    "known_output_tokens": 508118,
+    "known_cost_eur": "17.958171154358837643295121300",
+    "reserved_input_tokens": 13173,
+    "reserved_output_tokens": 16384,
+    "reserved_cost_eur": "0.4953212476672887230071980805",
+    "cost_upper_bound_eur": "18.453492402026126366302319380",
+    "unknown_attempts": 2,
+    "remaining_eur": "221.576611430680178176142627920"
+  },
+  "full_safe_report_sha256": "6cb6953e62bdf741d85438b9d07242440eac194bd8ba5d227d674a04006133de",
+  "input_reports": {
+    "amazon": "c6334b9b2c2e0461d2734b82fae190e56be932d4f37dfd232677eea518442f86",
+    "collections": "d4615450d80452c0e5accf2102b8553aca32ebd81eed20757334a2f0cf680f5c",
+    "code": "0519a80118634ed5aab02290264dbe102ce37873313599d9dc9912c22819b052"
+  },
+  "output_experiments": [
+    {
+      "kind": "draft16384",
+      "version": 1,
+      "captured_at_utc": "2026-10-20T17:35:10.054620+00:00",
+      "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+      "campaign": "schema-portability-20261019-incremental",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "phase_policy_hash": "fd2ee4c7f6ff803f79a9a4e11b368ce6659791072859d04d33ac0432066e1bc7",
+      "statistics": "p50 median; p95 nearest rank ceil(.95*n). All prepared requests counted; conservative estimates remain separate from provider usage; exact decimal money is encoded as strings.",
+      "totals": {
+        "calls": 2,
+        "corrections": 0,
+        "checkpoints": 0,
+        "input_tokens": 1166,
+        "output_tokens": 8618,
+        "reasoning_tokens": 8517,
+        "planning_ms": 173440,
+        "known_cost_eur": "0.2349329067804141117924109127",
+        "empty_content_receipts": 1,
+        "rejected_prepared_requests": 0,
+        "new_unknown_attempts": 0,
+        "component_byte_reconciliation_failures": 0,
+        "complete_request_bytes_sum": 7284
+      },
+      "runs": [
+        {
+          "run": "5c01f98e803bc06bd0f241bd2491c1200fef3c77:fixture:cohort:compactd5c01d16:collections:1",
+          "case": "collections",
+          "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+          "retained_record_sha256": "79673225bb883a125d4a074b1cf497ea21cbd2ab8b9010a4c396772ac6a00104",
+          "status": "stopped",
+          "phase": "construction_intent",
+          "calls": 2,
+          "corrections": 0,
+          "diagnostics": [
+            {
+              "code": "MODEL_OUTPUT_LIMIT",
+              "location": "/phases/construction_intent"
+            }
+          ],
+          "planning_ms": 173440,
+          "reasoning_tokens": 8517,
+          "empty_content_receipts": 1,
+          "execution_started": false,
+          "business_success": null,
+          "safety_outcome": null,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": true,
+          "within_phase_input_limits": true,
+          "phases": {
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3642.0,
+                "p95": 4873,
+                "max": 4873
+              },
+              "complete_request_bytes_sum": 7284,
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1470.5,
+                "p95": 1881,
+                "max": 1881
+              },
+              "estimated_input_tokens_sum": 2941,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": 1166,
+                "output_tokens": 8618,
+                "reasoning_tokens": 8517
+              },
+              "known_cost_eur": "0.2349329067804141117924109127",
+              "elapsed_ms": "172131.5119",
+              "empty_content_receipts": 1,
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes": 52,
+                  "estimated_tokens": 18
+                },
+                "envelope": {
+                  "serialized_bytes": 819,
+                  "estimated_tokens": 786
+                },
+                "instructions": {
+                  "serialized_bytes": 1505,
+                  "estimated_tokens": 502
+                },
+                "intent": {
+                  "serialized_bytes": 1068,
+                  "estimated_tokens": 357
+                },
+                "interfaces": {
+                  "serialized_bytes": 59,
+                  "estimated_tokens": 20
+                },
+                "response_schema": {
+                  "serialized_bytes": 3781,
+                  "estimated_tokens": 1261
+                }
+              }
+            }
+          },
+          "accepted_checkpoints": 0
+        }
+      ],
+      "limitations": [
+        "No original prompts, responses, contracts, HTTP bodies or artifacts are emitted.",
+        "No complete business or safety outcome is inferred from planning checkpoints or lack of execution.",
+        "These diagnostic runs do not constitute the unstarted 18-run paired comparison."
+      ],
+      "interpretation": "Unexposed: navigation stopped before any changed draft request.",
+      "full_safe_report_sha256": "4df88324d2a00832e8e7663258fa8d7fb8843ff529a17333e6da7b703ff3b4e9"
+    },
+    {
+      "kind": "navigation16384",
+      "version": 1,
+      "captured_at_utc": "2026-10-20T17:48:16.092062+00:00",
+      "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+      "campaign": "schema-portability-20261019-incremental",
+      "model": "gpt-5.5-2026-04-24",
+      "reasoning": "medium",
+      "phase_policy_hash": "068f29186333165c72ab5d81ed9873535d86e9d292460ea03c5848fb920cde89",
+      "statistics": "p50 median; p95 nearest rank ceil(.95*n). All prepared requests counted; conservative estimates remain separate from provider usage; exact decimal money is encoded as strings.",
+      "totals": {
+        "calls": 10,
+        "corrections": 1,
+        "checkpoints": 0,
+        "input_tokens": 19096,
+        "output_tokens": 8024,
+        "reasoning_tokens": 6259,
+        "planning_ms": 125430,
+        "known_cost_eur": "0.2987647738380876210788234248",
+        "empty_content_receipts": 0,
+        "rejected_prepared_requests": 1,
+        "new_unknown_attempts": 0,
+        "component_byte_reconciliation_failures": 0,
+        "complete_request_bytes_sum": 107116
+      },
+      "runs": [
+        {
+          "run": "compactd5c01n16-amazon-1",
+          "case": "amazon",
+          "source": "5c01f98e803bc06bd0f241bd2491c1200fef3c77",
+          "retained_record_sha256": "8bd8b15b714f4da5705e99b05c0cd70f2777299baeac1e9845931024c64015b0",
+          "status": "stopped",
+          "phase": "construction_discovery",
+          "calls": 10,
+          "corrections": 1,
+          "diagnostics": [
+            {
+              "code": "CONSTRUCTION_EVIDENCE_LIMIT",
+              "location": "/evidenceRequests"
+            },
+            {
+              "code": "REPLAN_NO_PROGRESS",
+              "location": "/"
+            }
+          ],
+          "planning_ms": 125430,
+          "reasoning_tokens": 6259,
+          "empty_content_receipts": 0,
+          "execution_started": false,
+          "business_success": null,
+          "safety_outcome": null,
+          "component_bytes_reconcile": true,
+          "all_prepared_requests_admitted": false,
+          "within_phase_input_limits": false,
+          "phases": {
+            "construction_discovery": {
+              "prepared_requests": 7,
+              "receipts": 6,
+              "rejected_prepared_requests": 1,
+              "complete_request_bytes": {
+                "count": 7,
+                "p50": 13281,
+                "p95": 19508,
+                "max": 19508
+              },
+              "complete_request_bytes_sum": 85639,
+              "estimated_input_tokens": {
+                "count": 7,
+                "p50": 4683,
+                "p95": 6759,
+                "max": 6759
+              },
+              "estimated_input_tokens_sum": 30341,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": 15183,
+                "output_tokens": 3857,
+                "reasoning_tokens": 2764
+              },
+              "known_cost_eur": "0.1702879232204745401226339643",
+              "elapsed_ms": "61768.3419",
+              "empty_content_receipts": 0,
+              "components": {
+                "construction_context": {
+                  "serialized_bytes": 6204,
+                  "estimated_tokens": 2070
+                },
+                "diagnostics": {
+                  "serialized_bytes": 375,
+                  "estimated_tokens": 125
+                },
+                "envelope": {
+                  "serialized_bytes": 2771,
+                  "estimated_tokens": 2718
+                },
+                "evidence": {
+                  "serialized_bytes": 34980,
+                  "estimated_tokens": 11661
+                },
+                "instructions": {
+                  "serialized_bytes": 4452,
+                  "estimated_tokens": 1484
+                },
+                "mcp_descriptors": {
+                  "serialized_bytes": 13655,
+                  "estimated_tokens": 4555
+                },
+                "objective": {
+                  "serialized_bytes": 2758,
+                  "estimated_tokens": 924
+                },
+                "requirements": {
+                  "serialized_bytes": 10297,
+                  "estimated_tokens": 3437
+                },
+                "response_schema": {
+                  "serialized_bytes": 10147,
+                  "estimated_tokens": 3384
+                }
+              }
+            },
+            "construction_intent": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 3987.5,
+                "p95": 5006,
+                "max": 5006
+              },
+              "complete_request_bytes_sum": 7975,
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 1585.5,
+                "p95": 1925,
+                "max": 1925
+              },
+              "estimated_input_tokens_sum": 3171,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": 1331,
+                "output_tokens": 2636,
+                "reasoning_tokens": 2287
+              },
+              "known_cost_eur": "0.0761885719363725228827868124",
+              "elapsed_ms": "33325.4752",
+              "empty_content_receipts": 0,
+              "components": {
+                "diagnostics": {
+                  "serialized_bytes": 52,
+                  "estimated_tokens": 18
+                },
+                "envelope": {
+                  "serialized_bytes": 785,
+                  "estimated_tokens": 774
+                },
+                "instructions": {
+                  "serialized_bytes": 1505,
+                  "estimated_tokens": 502
+                },
+                "intent": {
+                  "serialized_bytes": 1783,
+                  "estimated_tokens": 595
+                },
+                "interfaces": {
+                  "serialized_bytes": 59,
+                  "estimated_tokens": 20
+                },
+                "response_schema": {
+                  "serialized_bytes": 3791,
+                  "estimated_tokens": 1264
+                }
+              }
+            },
+            "construction_select": {
+              "prepared_requests": 2,
+              "receipts": 2,
+              "rejected_prepared_requests": 0,
+              "complete_request_bytes": {
+                "count": 2,
+                "p50": 6751.0,
+                "p95": 7380,
+                "max": 7380
+              },
+              "complete_request_bytes_sum": 13502,
+              "estimated_input_tokens": {
+                "count": 2,
+                "p50": 2506.5,
+                "p95": 2716,
+                "max": 2716
+              },
+              "estimated_input_tokens_sum": 5013,
+              "component_bytes_reconcile": true,
+              "provider_usage": {
+                "input_tokens": 2582,
+                "output_tokens": 1531,
+                "reasoning_tokens": 1208
+              },
+              "known_cost_eur": "0.0522882786812405580734026481",
+              "elapsed_ms": "22609.8925",
+              "empty_content_receipts": 0,
+              "components": {
+                "construction_context": {
+                  "serialized_bytes": 730,
+                  "estimated_tokens": 244
+                },
+                "envelope": {
+                  "serialized_bytes": 796,
+                  "estimated_tokens": 778
+                },
+                "evidence": {
+                  "serialized_bytes": 1283,
+                  "estimated_tokens": 428
+                },
+                "instructions": {
+                  "serialized_bytes": 1472,
+                  "estimated_tokens": 492
+                },
+                "interfaces": {
+                  "serialized_bytes": 366,
+                  "estimated_tokens": 122
+                },
+                "requirements": {
+                  "serialized_bytes": 2942,
+                  "estimated_tokens": 982
+                },
+                "response_schema": {
+                  "serialized_bytes": 5913,
+                  "estimated_tokens": 1972
+                }
+              }
+            }
+          },
+          "accepted_checkpoints": 0
+        }
+      ],
+      "limitations": [
+        "No original prompts, responses, contracts, HTTP bodies or artifacts are emitted.",
+        "No complete business or safety outcome is inferred from planning checkpoints or lack of execution.",
+        "These diagnostic runs do not constitute the unstarted 18-run paired comparison."
+      ],
+      "interpretation": "All navigation responses completed below8192 output tokens; no causal benefit is established. The repeated oversized evidence batch stopped discovery.",
+      "full_safe_report_sha256": "a51c60190a2735d68b58523de1f1742346fe88756a3d94428489e854797789fb"
+    }
+  ],
+  "post_experiments_accounting": {
+    "campaign": "schema-portability-20261019-incremental",
+    "evidence_hash": "dbc3b273d39213f0a718c127cdcf6b0a29a387cbc098c876ddb8175bf99b1265",
+    "audit_file_sha256": "bf747584c0be48c8a113e0638dbd8aa67c01418f963f8d49bc442e19d9951dd7",
+    "reserved_requests": 676,
+    "completed_receipts": 673,
+    "cost_ceiling_eur": "240.0301038327063045424449473",
+    "calls": 676,
+    "session_calls": 0,
+    "known_input_tokens": 1013220,
+    "known_output_tokens": 524760,
+    "known_cost_eur": "18.491868834977339376166355638",
+    "reserved_input_tokens": 13173,
+    "reserved_output_tokens": 16384,
+    "reserved_cost_eur": "0.4953212476672887230071980805",
+    "cost_upper_bound_eur": "18.987190082644628099173553718",
+    "unknown_attempts": 2,
+    "remaining_eur": "221.042913750061676443271393582"
+  }
+}

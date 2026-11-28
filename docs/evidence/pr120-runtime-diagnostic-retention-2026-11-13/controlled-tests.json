@@ -1,0 +1,16 @@
+{
+  "configuration": "Release",
+  "warnaserror": true,
+  "financial_cases_passed": 660,
+  "new_diagnostic_authority_cases": 26,
+  "skipped": 0,
+  "failed": 0,
+  "red": "The positive sealed-diagnostic regression compiled and failed on the unsupported retention kind. Earlier fixture compilation/timing/strictness errors are excluded from that semantic red.",
+  "preserves_originals_and_exact_accounting": true,
+  "stale_preview_rejected": true,
+  "duplicate_apply_does_not_rewrite_closure": true,
+  "cold_root_execution_copilot_replay_guards": true,
+  "existing_server_probe_rejects_runtime_shape": true,
+  "receipt_usage_tools_effects_configuration_owner_wire_policy_window_negatives": true,
+  "trx_sha256": "1e69c4cf6f0193c4a7843a99fd8c7d6843137288900bc80594ed9f068df5f523"
+}

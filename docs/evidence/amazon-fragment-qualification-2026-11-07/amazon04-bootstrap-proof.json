@@ -1,0 +1,12 @@
+{
+  "run": "fragmentfix-amazon-20261107-04",
+  "source": "9e7a93fe403c265a4e38e57edcf0942ec04b7198",
+  "processExitCode": 134,
+  "sessionCreated": false,
+  "providerDispatches": 0,
+  "accountingExactlyEqualToBeforeStartup": true,
+  "proof": "Initialization failed at the host Agent MCP connection before StartCoreAsync constructed/persisted a planning session or queued inference; no session_id was recorded and exact accounting is unchanged.",
+  "failure": "Agent MCP was incorrectly converted from the mounted HTTP transport to a standalone stdio process; the MCP initialize handshake timed out.",
+  "correctionSource": "1fe56119",
+  "correction": "Resolve the existing Server-mounted HTTP configuration lazily after listener binding; restrict the owned lookup session to agent_get_by_name and hide its metadata. A real HTTP regression verifies the lookup and write denial."
+}

@@ -9,6 +9,17 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public sealed partial class DynamicMappingCollectionTests
 {
+    [Fact]
+    public void ObservedNullCanGuardTextWithoutDroppingEmptyStringsOrDuplicates()
+    {
+        const string script = "m.indexed(source.rows).filter(r=>m.has(r.value,'label') && !m.isNull(r.value.label) && m.test(r.value.label,'^a|^$')).map(r=>r.index)";
+        var source = JsonNode.Parse("""{"rows":[{},{"label":null},{"label":""},{"label":"a"},{"label":"skip"},{"label":"a"}]}""");
+        JintSandbox.ValidateMapping(script);
+        Assert.Equal("[2,3,5]", new JintSandbox().ExecuteMapping(script, source, Ct)!.ToJsonString());
+        foreach (var invalid in new[] { "m.isNull(source.absent)", "m.isNull(null)", "m.isNull({})", "m.isNull(source.rows[1].label)" })
+            Assert.Throws<WorkflowRuntimeException>(() => new JintSandbox().ExecuteMapping(invalid, source, Ct));
+    }
+
     [Theory]
     [InlineData("{\"type\":\"null\"}", true)]
     [InlineData("{\"type\":[\"string\",\"null\"]}", true)]

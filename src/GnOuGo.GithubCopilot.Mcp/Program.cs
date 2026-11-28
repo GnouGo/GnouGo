@@ -10,6 +10,7 @@ using Microsoft.Extensions.Options;
 using ModelContextProtocol.Protocol;
 using GnOuGo.Observability.Core;
 using Microsoft.Extensions.Configuration;
+using System.Text.Json.Nodes;
 
 if (args is ["--copilot-task-persistence-smoke", var smokeRoot])
 {
@@ -36,8 +37,7 @@ var keyVaultOverlay = await CopilotKeyVaultConfigurationOverlay.LoadAsync(keyVau
 if (keyVaultOverlay.Values.Count > 0)
     builder.Configuration.AddInMemoryCollection(keyVaultOverlay.Values);
 
-builder.Services.AddSingleton<IConfigureOptions<CodeServerSettings>, CodeServerSettingsOptionsConfigurator>();
-builder.Services.AddHttpClient(nameof(ConfigurationCopilotProviderConfigResolver));
+builder.Services.AddCodeTaskServices();
 builder.Services.AddSingleton<IKeyVaultSecretCatalogReader>(keyVaultReader);
 builder.Services.AddSingleton<IKeyVaultSecretReader>(sp =>
     sp.GetRequiredService<IKeyVaultSecretCatalogReader>());
@@ -51,34 +51,15 @@ await using var taskStore = new KeyVaultCopilotTaskStore(records, trace,
 builder.Services.AddSingleton<IKeyVaultRecordStore>(records);
 builder.Services.AddSingleton(taskStore);
 builder.Services.AddSingleton<CopilotLogicalOperations>();
-builder.Services.AddSingleton<ICopilotProviderConfigResolver, ConfigurationCopilotProviderConfigResolver>();
-builder.Services.AddSingleton<ICopilotProviderResolver, CoreCopilotProviderResolver>();
-builder.Services.AddHttpClient(nameof(CopilotInferenceProxyHandler), client => client.Timeout = Timeout.InfiniteTimeSpan)
-    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false, UseProxy = false });
-builder.Services.AddSingleton<ICopilotSdkClientFactory>(sp =>
-{
-    var endpoint = sp.GetRequiredService<IOptions<CodeServerSettings>>().Value.Copilot.InferenceProxyEndpoint;
-    return new GitHubCopilotSdkClientFactory(sp.GetRequiredService<ILoggerFactory>(), endpoint is null ? null :
-        new CopilotInferenceProxyHandler(sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler)), new Uri(endpoint, UriKind.Absolute)));
-});
 builder.Services.AddSingleton<McpCopilotHumanInputProvider>();
 builder.Services.AddSingleton<ICopilotHumanInputProvider>(sp => sp.GetRequiredService<McpCopilotHumanInputProvider>());
-builder.Services.AddSingleton<KeyVaultCopilotPermissionGrantStore>();
-builder.Services.AddSingleton<ICopilotPermissionGrantStore>(sp => sp.GetRequiredService<KeyVaultCopilotPermissionGrantStore>());
 builder.Services.AddSingleton<McpCopilotPermissionEventSink>();
 builder.Services.AddSingleton<ICopilotPermissionEventSink>(sp => sp.GetRequiredService<McpCopilotPermissionEventSink>());
-builder.Services.AddSingleton<CopilotSessionManager>();
-builder.Services.AddSingleton<CopilotReviewManager>();
-builder.Services.AddSingleton<CodePolicy>();
 builder.Services.AddSingleton<CodeProjectService>();
 builder.Services.AddSingleton(trace);
-builder.Services.AddSingleton<CodeProgressReporter>();
-builder.Services.AddSingleton<ICopilotSessionFileSystemFactory, LocalProjectSessionFsFactory>();
-builder.Services.AddSingleton<CopilotMcpConfiguration>();
 builder.Services.AddSingleton<CopilotCodeService>();
 builder.Services.AddTransient<CodeTools>();
 builder.Services.AddTransient<CopilotTools>();
-builder.Services.AddSingleton<BoundedCopilotTasks>();
 builder.Services.AddTransient<BoundedCopilotTools>();
 builder.Services
     .AddMcpServer(options =>
@@ -95,20 +76,29 @@ builder.Services
         {
             var result = await next(request, ct);
             foreach (var tool in result.Tools)
+            {
+                if (tool.Name.StartsWith("copilot_", StringComparison.Ordinal) || tool.Name is "code_agent_edit" or "code_suggest_change")
+                {
+                    var metadata = tool.Meta?.DeepClone().AsObject() ?? new JsonObject();
+                    metadata["gnougo"] ??= new JsonObject();
+                    metadata["gnougo"]!["management"] = new JsonObject { ["version"] = 1, ["visibility"] = "management_only" };
+                    tool.Meta = metadata;
+                }
                 McpEffectMetadata.Publish(tool, tool.Name switch
                 {
                     "code_get_policy" or "code_project_summary" or "code_read_file" or "code_search_text" or "code_suggest_change" or
                     "copilot_get_capabilities" or "copilot_connectivity" or "copilot_status" or "copilot_auth_status" or "copilot_list_models" or
                     "copilot_session_list" or "copilot_session_get_configuration" or "copilot_session_history" or "copilot_session_get_mode" or
                     "copilot_plan_read" or "copilot_session_get_foreground" or "copilot_workspace_list_files" or "copilot_workspace_read_file" or
-                    "copilot_review" or "copilot_review_analyze_batch" or "copilot_task_contract" or "copilot_task_validate" or "copilot_task_inspect" or "copilot_permission_grants_list" => "read",
+                    "copilot_task_contract" or "copilot_task_validate" or "copilot_task_inspect" or "copilot_permission_grants_list" => "read",
                     "code_write_file" or "copilot_plan_update" or "copilot_workspace_create_file" => "write",
                     "code_agent_edit" or "copilot_one_shot" or "copilot_interactive_one_shot" or "copilot_session_send" or "copilot_task_run" => "execute",
                     "copilot_session_create" or "copilot_session_resume" or "copilot_session_disconnect" or "copilot_session_delete" or "copilot_session_abort" or
                     "copilot_session_set_model" or "copilot_session_set_mode" or "copilot_session_set_foreground" or "copilot_plan_delete" or
-                    "copilot_review_start" or "copilot_review_finish" or "copilot_permission_grant_create" or "copilot_permission_grant_revoke" or "copilot_permission_grants_revoke_agent" => "lifecycle",
+                    "copilot_permission_grant_create" or "copilot_permission_grant_revoke" or "copilot_permission_grants_revoke_agent" => "lifecycle",
                     _ => null
                 });
+            }
             return result;
         });
         options.Filters.Request.CallToolFilters.Add(next => async (request, cancellationToken) =>
@@ -131,14 +121,12 @@ if (keyVaultOverlay.Warning is not null)
     logger.LogWarning("{KeyVaultConfigurationWarning}", keyVaultOverlay.Warning);
 var policy = host.Services.GetRequiredService<CodePolicy>();
 var settings = host.Services.GetRequiredService<IOptions<CodeServerSettings>>().Value;
-if (settings.Copilot.InferenceProxyEndpoint is { } inferenceProxy)
+if (settings.Copilot.InferenceProxyEndpoint is not null)
 {
     // Resolve the configured SDK factory before attesting that its interception is enabled.
     _ = host.Services.GetRequiredService<ICopilotSdkClientFactory>();
-    var client = host.Services.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(CopilotInferenceProxyHandler));
     using var readyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-    using var ready = await client.PostAsync(inferenceProxy.TrimEnd('/') + "/ready", new StringContent("sdk-http-interception-v1"), readyTimeout.Token);
-    ready.EnsureSuccessStatusCode();
+    await host.Services.GetRequiredService<CopilotInferenceProxyHandler>().VerifyReadyAsync(readyTimeout.Token);
 }
 var info = policy.DescribePolicy();
 

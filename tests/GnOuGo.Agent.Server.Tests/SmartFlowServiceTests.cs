@@ -679,19 +679,7 @@ workflows:
         Assert.DoesNotContain(events, evt => evt.Type == "error");
     }
 
-    [Fact]
-    public async Task ExecuteAsync_RoutedRawResponse_ReformatsAsLosslessMarkdown()
-    {
-        const string agentId = "f3613d97-83e5-447a-b46c-055a0547f624";
-        const string agentName = "raw-result-specialist";
-        const string formattedAnswer = """
-            # Result
-
-            - **Status:** complete
-            - **Count:** 2
-            - **Items:** alpha, beta
-            """;
-        const string agentWorkflow = """
+    internal const string RawResultWorkflow = """
             version: 1
             name: raw-result-specialist
             skill:
@@ -720,6 +708,20 @@ workflows:
                     expr: "${data.steps.final_answer.answer}"
                     type: string
             """;
+
+    [Fact]
+    public async Task ExecuteAsync_RoutedRawResponse_ReformatsAsLosslessMarkdown()
+    {
+        const string agentId = "f3613d97-83e5-447a-b46c-055a0547f624";
+        const string agentName = "raw-result-specialist";
+        const string formattedAnswer = """
+            # Result
+
+            - **Status:** complete
+            - **Count:** 2
+            - **Items:** alpha, beta
+            """;
+        const string agentWorkflow = RawResultWorkflow;
 
         var llm = new RoutedMarkdownFormattingLlmClient(agentName, formattedAnswer);
         var runtimeStore = SmartFlowTestFactory.CreateRuntimeOptionsStore(new LLMOptions

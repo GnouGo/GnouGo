@@ -1,0 +1,182 @@
+{
+  "run": "browser-startup-description-20261111-01",
+  "source": "7d41517ed30ac49dd5020fdf446049ec0a172c3d",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "requested_output_tokens": 32768,
+  "requested_reasoning": "low",
+  "schema_valid": true,
+  "protocol_complete": true,
+  "usage_known": true,
+  "http_seconds": 35.717835,
+  "first_output_seconds": 29.441244,
+  "known_tariff_cost_eur": "0.5024630541871921182266009852",
+  "durable_receipt": true,
+  "amendment": {
+    "before_prompt_hash": "6580c7af6462d7ecdc726b3f1f500f37d8cba5cd299f9209d5e0c9663bfc5707",
+    "after_prompt_hash": "8dce24dbcd080f999ecd1db77e89a2eeb9f18bd64fc0e07c8fb297df51daa82e",
+    "before_evidence_hash": "66683c7bea113bdab829b3261b4fddbcd6396f8f501ed57b86e674b73b2ef3d4",
+    "after_evidence_hash": "2f9fab0d16da3746039dd8b709651423871c395f9152f5bd3df19c668c93113d",
+    "occurrences": 1,
+    "source_session_modified": false,
+    "response_schema_changed": false
+  },
+  "original_request_bound_map_valid": true,
+  "issued_snapshot_revision": 28,
+  "compiler_and_continuation_valid": true,
+  "findings": [],
+  "source_session_modified": false,
+  "accepted_plan": false,
+  "execution": false,
+  "independent_business_oracle_qualification": false,
+  "metadata_publication": {
+    "identity": "browser-startup-metadata-20261111-01",
+    "source": "7d41517ed30ac49dd5020fdf446049ec0a172c3d",
+    "corrected_metadata_published": true,
+    "description_prefix": "Reads rendered content from a permitted absolute URL, opening its owned browser and page when needed, or from an existing page/CSS selector when url is omitted.",
+    "omitted_url_requires_existing_page": true,
+    "input_schema_hash": "6d84060d8663ddbad0848ddf63248a1d2472dacd9e5963a52c1feed25e305c57",
+    "new_page_opened": false,
+    "source_gets": 0,
+    "model_calls": 0
+  },
+  "extension": {
+    "completeBlock": false,
+    "scope": "/root",
+    "continueInScope": "/root",
+    "tasks": [
+      {
+        "id": "amazon_search",
+        "objective": "Rechercher sur Amazon.fr avec l\u2019entr\u00e9e publique obligatoire query et conserver int\u00e9gralement l\u2019observation compl\u00e8te retourn\u00e9e, tous ses enregistrements et occurrences r\u00e9p\u00e9t\u00e9s, contextes DOM originaux et preuves d\u2019acquisition. Cette acquisition initiale ne s\u00e9lectionne aucun produit et ne valide aucune identit\u00e9 ; les validations et acquisitions sources ordonn\u00e9es restent \u00e0 composer avant toute s\u00e9lection m\u00e9tier.",
+        "kind": "operation",
+        "dependsOn": [],
+        "operation": "cap_490d9e16075cbdca5954ec27",
+        "inputs": [
+          {
+            "name": "url",
+            "value": {
+              "kind": "string_operation",
+              "text": "concat",
+              "number": null,
+              "boolean": null,
+              "source": null,
+              "port": null,
+              "members": [],
+              "items": [
+                {
+                  "kind": "string",
+                  "text": "https://www.amazon.fr/s?k=",
+                  "number": null,
+                  "boolean": null,
+                  "source": null,
+                  "port": null,
+                  "members": [],
+                  "items": [],
+                  "predicate": null
+                },
+                {
+                  "kind": "string_operation",
+                  "text": "uri_component",
+                  "number": null,
+                  "boolean": null,
+                  "source": null,
+                  "port": null,
+                  "members": [],
+                  "items": [
+                    {
+                      "kind": "input",
+                      "text": null,
+                      "number": null,
+                      "boolean": null,
+                      "source": "query",
+                      "port": null,
+                      "members": [],
+                      "items": [],
+                      "predicate": null
+                    }
+                  ],
+                  "predicate": null
+                }
+              ],
+              "predicate": null
+            }
+          },
+          {
+            "name": "format",
+            "value": {
+              "kind": "string",
+              "text": "observation_complete",
+              "number": null,
+              "boolean": null,
+              "source": null,
+              "port": null,
+              "members": [],
+              "items": [],
+              "predicate": null
+            }
+          },
+          {
+            "name": "waitUntil",
+            "value": {
+              "kind": "string",
+              "text": "domcontentloaded",
+              "number": null,
+              "boolean": null,
+              "source": null,
+              "port": null,
+              "members": [],
+              "items": [],
+              "predicate": null
+            }
+          }
+        ],
+        "outputs": [],
+        "condition": null,
+        "body": null,
+        "otherwise": null,
+        "branches": [],
+        "items": null,
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4,
+        "group": null
+      }
+    ],
+    "always": [
+      {
+        "id": "close_browser",
+        "objective": "Fermer le navigateur \u00e0 la fin du scope /root couvrant la recherche, les r\u00e9solutions sources et les futures visites produit, m\u00eame en cas d\u2019erreur propag\u00e9e. Ne pas fermer \u00e0 la fin de ce fragment ni inventer de r\u00e9cup\u00e9ration ou de r\u00e9ussite.",
+        "kind": "operation",
+        "dependsOn": [],
+        "operation": "cap_bdb7ba9ab04b18783883fa86",
+        "inputs": [],
+        "outputs": [],
+        "condition": null,
+        "body": null,
+        "otherwise": null,
+        "branches": [],
+        "items": null,
+        "parallel": false,
+        "maxItems": 100,
+        "maxConcurrency": 4,
+        "group": null
+      }
+    ],
+    "outputs": [],
+    "groups": [],
+    "choices": [],
+    "closeScopes": [],
+    "requirementIds": [
+      "req_0"
+    ],
+    "complete": false
+  },
+  "evidence_sha256": {
+    "startup-probe-run.json": "2604d2d71f51da175b1939e0444d06a5e8518495a948d5bf395a85ffac0d8967",
+    "startup-probe-http.json": "9dd2f9929e51a61c8f1d7d3d33d3c3303d4494c44bf3bf0d40536195720cd276",
+    "startup-probe-requests.json": "ca4fb79af995320d9145e444fb80c38044bc69eebfa4fa5b930621ab10f9ef1d",
+    "startup-probe-receipts.json": "b2043876274393734cf5bacf2377ac08c646fc2b90b4c4dbd18f6fc0efbd562a",
+    "startup-issued-fixture.json": "51124f8a7ceb4ab90836e8bb76a80e1d98bdd6c08f8d6f0b9cd53f69b1bf38a5",
+    "startup-compiler-validation-03.json": "a340e2067cc3f4d299e2f8384b189cec4c15f2068eb042557e681b5fbc51dd14"
+  }
+}

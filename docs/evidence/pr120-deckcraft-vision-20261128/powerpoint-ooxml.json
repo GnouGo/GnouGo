@@ -1,0 +1,22 @@
+{
+  "pptx_sha256": "7d3b4632292c49823ba96b561d7f01e05a8cfc6d102749be8f798aa9455886f8",
+  "slides": 1,
+  "slide": "ppt/slides/slide1.xml",
+  "chart": "ppt/charts/chart1.xml",
+  "workbook": "ppt/embeddings/Microsoft_Excel_Worksheet.xlsx",
+  "workbook_sha256": "1df17e12e82199ef1dc66ef755d7adec407e9e08d744cc70f3915780d9de0604",
+  "formulas": [
+    "Sheet1!$B$1",
+    "Sheet1!$A$2:$A$3",
+    "Sheet1!$B$2:$B$3"
+  ],
+  "title": "Pr\u00e9sentation r\u00e9vis\u00e9e",
+  "categories": [
+    "A",
+    "B"
+  ],
+  "values": [
+    "4",
+    "13"
+  ]
+}

@@ -1,3 +1,4 @@
+using GnOuGo.Flow.Planning;
 using GnOuGo.Mcp.Core;
 using System.Collections.Concurrent;
 using System.Net;
@@ -23,7 +24,7 @@ namespace GnOuGo.Flow.Integrations;
 /// Reads configuration from a dictionary of <see cref="McpServerOptions"/>.
 /// Shared by both GnOuGo.Flow.Cli and GnOuGo.Flow.Server.
 /// </summary>
-public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutionHooks, IAsyncDisposable
+public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutionHooks, IAsyncDisposable, IMcpSourceConfigurationFingerprint
 {
     private const string ProgressEnvelopeMarker = "gnougo.mcp.progress";
     private static readonly AsyncLocal<McpCorrelationContext?> CurrentCorrelation = new();
@@ -62,6 +63,20 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
             })
             .ToList()
             .AsReadOnly();
+    }
+
+    public string SourceConfigurationFingerprint(string serverName)
+    {
+        if (!_serverConfigs.TryGetValue(serverName, out var value)) throw new ArgumentException("Unknown configured source.");
+        // Credentials affect connection identity, but only this digest leaves the configuration owner.
+        var document = new JsonObject { ["type"] = value.Type, ["url"] = value.Url, ["description"] = value.Description,
+            ["discoveryTimeout"] = value.DiscoveryTimeoutSeconds, ["callTimeout"] = value.CallTimeoutSeconds,
+            ["apiKey"] = value.ApiKey, ["issuer"] = value.Issuer, ["clientId"] = value.ClientId,
+            ["clientSecret"] = value.ClientSecret, ["scopes"] = value.Scopes, ["command"] = value.Command,
+            ["args"] = value.Args is null ? null : new JsonArray(value.Args.Select(a => (JsonNode?)JsonValue.Create(a)).ToArray()),
+            ["environment"] = value.EnvironmentVariables is null ? null : new JsonObject(value.EnvironmentVariables.OrderBy(p => p.Key, StringComparer.Ordinal)
+                .Select(p => new KeyValuePair<string, JsonNode?>(p.Key, JsonValue.Create(p.Value)))) };
+        return PlanningGraphCompiler.Fingerprint(document.ToJsonString());
     }
 
     public IReadOnlyList<McpServerMetadata> ServerMetadata => _serverMetadata;
@@ -283,7 +298,7 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
             ParentInvocationId = correlation?.StepId,
             Prompt = request.Message,
             Mode = fields is { Count: > 1 } ? HumanInputContract.ModeForm : HumanInputContract.ModeChoice,
-            Context = BuildMcpHumanInputContext(correlation),
+            Context = BuildMcpHumanInputContext(correlation, serverName, request.Meta),
             Fields = fields,
             Choices = fields is { Count: 1 } ? fields[0].Options : null,
             TimeoutMs = HumanInputContract.DefaultTimeoutMs
@@ -346,12 +361,15 @@ public sealed class ConfiguredMcpClientFactory : IMcpClientFactory, IMcpExecutio
         return new ElicitResult { Action = "accept", Content = content };
     }
 
-    private static JsonObject? BuildMcpHumanInputContext(McpCorrelationContext? correlation)
+    private static JsonObject? BuildMcpHumanInputContext(McpCorrelationContext? correlation, string? serverName, JsonObject? meta)
     {
         if (correlation is null)
             return null;
 
         var context = new JsonObject();
+        if (correlation.StepType == "agent.run" && serverName == correlation.ServerName && meta?["gnougo"] is JsonObject metadata &&
+            ReadMetaString(metadata, "requestedCapability") is { Length: 47 } capability && capability.StartsWith("mcp_", StringComparison.Ordinal))
+            context["requested_capability"] = capability;
         if (!string.IsNullOrWhiteSpace(correlation.ServerName))
             context["mcp_server"] = correlation.ServerName;
         if (!string.IsNullOrWhiteSpace(correlation.MethodName))
@@ -1065,6 +1083,8 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
 
     public string ServerName { get; }
 
+    internal string? ProtocolVersion => _client.NegotiatedProtocolVersion;
+
     public async Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct)
     {
         if (_discoveredTools is not null)
@@ -1207,11 +1227,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             ? await McpTaskPolling.CallAsync(_client, toolName, arguments, CreateRequestOptions().Meta, ct)
             : await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
 
-        return new McpCallResult
-        {
-            IsError = result.IsError == true,
-            Content = BuildContent(result)
-        };
+        return FromProtocolResult(result);
     }
 
     public async Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
@@ -1267,6 +1283,16 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
         };
     }
 
+    internal static McpCallResult FromProtocolResult(CallToolResult result)
+    {
+        var content = BuildContent(result);
+        var structured = result.StructuredContent is JsonElement { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) };
+        var blocks = structured ? SerializeBlocks(result) : content as JsonArray;
+        // An array parsed from a single text block is a business value.
+        if (!structured && result.Content is [TextContentBlock]) blocks = null;
+        return new() { IsError = result.IsError == true, Content = content, ContentBlocks = blocks };
+    }
+
     private static JsonNode? BuildContent(CallToolResult result)
     {
         if (result.StructuredContent is JsonElement structuredContent
@@ -1286,7 +1312,11 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             catch { return text; }
         }
 
-        // Preserve protocol payloads, including embedded resources, with the SDK's AOT-safe metadata.
+        return SerializeBlocks(result);
+    }
+
+    private static JsonArray SerializeBlocks(CallToolResult result)
+    {
         var arr = new JsonArray();
         foreach (var block in result.Content)
             arr.Add(JsonSerializer.SerializeToNode(block, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(ContentBlock))));

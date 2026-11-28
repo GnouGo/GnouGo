@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "source": "727b27bda2e599842e7ebf29eb9461285f463204",
+  "scope": "Root-owned post-Code, pre-Collections-high zero-call readiness snapshot; not a later balance.",
+  "captured_at": "2026-10-25T04:34:10.139148+00:00",
+  "measured_archive": {
+    "path": "/private/tmp/gnougo-727b-code-terminal-safe/compact-taskplan-727b27bda-code.json",
+    "sha256": "4502dd1ea7f2252a77d22e15cd675cafc3f312b54fc7e1fb02a8d6788b8a18a3",
+    "bytes": 16443
+  },
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/freeze.json",
+      "sha256": "4487a3943ea8d4f547892b0b5195cc5643c86bcd5867e29efa24f53bf4920cbb",
+      "bytes": 16392
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr727b27bdacolhighv5/provider-readiness.jsonl",
+      "sha256": "e5a08e9b0499f25662bdbccec36afea0e68beab5b95e7587ff4c5f65d6585cea",
+      "bytes": 8531
+    }
+  ],
+  "known_cost_eur": "139.06013459923999442778370795",
+  "reserved_cost_eur": "43.222737502336131456719380257",
+  "recorded_cost_upper_bound_eur": "182.28287210157612588450308821",
+  "cost_ceiling_eur": "240.0301038327063045424449473",
+  "available_eur": "57.74723173113017865794185909",
+  "recorded_upper_minus_exact_known_plus_reserve_eur": "3E-27",
+  "physical_attempts": 3248,
+  "unknown_usage_attempts": 57,
+  "receiptless_identities": 29,
+  "closed_receiptless_identities": 29,
+  "unresolved_receiptless_identities": 0,
+  "readiness_model_calls": 0,
+  "readiness_session_calls": 0,
+  "audit_evidence_hash": "048949ea826632a26f3a30583c725de41cec6c6fc08f587e007889b6b524ae36",
+  "notes": [
+    "Exact Decimal precision80 arithmetic; recorded CLR upper and operands are retained unchanged.",
+    "These campaign totals come directly from the independent audit, not a sum of selected run archives.",
+    "The older lost-ledger exposure remains separately retained outside this campaign ceiling.",
+    "No store, readiness, lease, reader or provider call was made for this supplement."
+  ]
+}

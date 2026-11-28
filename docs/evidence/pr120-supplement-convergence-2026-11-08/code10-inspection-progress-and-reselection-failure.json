@@ -1,0 +1,42 @@
+{
+  "source": "4a77d50315b19010465176ac91f2541a600edafd",
+  "run": "code-qualification-20261108-10",
+  "session_id": "e5a1f4b5a12f48e8a61977c41ff6d86a",
+  "status": "cancelled",
+  "logical_calls": 24,
+  "known_physical_http_attempts": 23,
+  "uncertain_http_attempts": 0,
+  "unsent_pending_requests": [
+    "e5a1f4b5a12f48e8a61977c41ff6d86a:24:47fa16d47fd71d7dea1cf68761149b3e30f065d13e483c1b7ea900acbe56037d:0b2702781662b90a1d778d4e2fef80989915e9d4d19938633443e1b679a870d6"
+  ],
+  "corrections": 1,
+  "accepted_checkpoints": 0,
+  "first_accepted_contribution_call": null,
+  "time_to_first_accepted_contribution_ms": null,
+  "cost_to_first_accepted_contribution_eur": null,
+  "business_qualified": false,
+  "resolved_contracts": [
+    "code_agent_edit",
+    "git_clone",
+    "code_read_file",
+    "code_project_summary",
+    "cmd_run",
+    "document_write"
+  ],
+  "measured_usage_tariff_estimate_eur": "7.2267084639498432601880877743",
+  "additional_retained_application_hold_eur": "2.2129601433049708911777877295",
+  "retention_evidence_hash": "2d598c19eb8c129a2a4a822e9b861ec069123824396351f39a5d2065fbf73a72",
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "all_reservations_retained": true,
+  "observed_progress": "The new metadata-only action was used at call 6. Six exact contracts were acquired by call 13; no executable binding or accepted task was inferred from inspection.",
+  "first_draft_failure": "Call 14 selected CodeAgent alone. Call 15 abandoned it because the clone producer and lifecycle companion operations were not selected. It did not create a metadata-echo task.",
+  "host_validation_defect": "Call 18 selected disjoint contract reads from the same source. The issued schema allowed them, but the batch validator rejected them as duplicate source reads. Call 19 corrected the grouping. A failing regression reproduced this mismatch before its generic correction.",
+  "remaining_loop": "After the tentative binding was abandoned, a replacement cursor reread the same cached metadata. Protected stop completed at call 24. Verified contract/schema evidence is now restored from the existing rejection journal only for the same block, scope and accepted baseline.",
+  "limitations": [
+    "Zero accepted business contributions; metadata acquisition is not qualification.",
+    "No approved artifact or workflow execution.",
+    "The exact unchanged-plan accepted-block review boundary remains unproved.",
+    "No cancelled session or pending request may resume."
+  ]
+}

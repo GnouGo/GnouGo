@@ -1,0 +1,40 @@
+{
+  "source": "7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+  "browser_mcp_sha256": "d016da1e67263716ab686914a24892052cba1e316deac465dcd174e534b49489",
+  "navigation_policy": "amazon-observed-first-products-v12",
+  "policy_file_sha256": "19772c4eb2bc8d2cbe8a389feb068158cece78bd457b6cc5975a913e6dfc1b49",
+  "check_started_utc": "2026-11-27T22:41:34.169690+00:00",
+  "query_search_succeeded": true,
+  "original_observed_href_sha256": "8caa99854fa5cc1a71794bbcc1c131d620c9cb9c6683bb69e9edc66b1fa55e9d",
+  "source_index": 54,
+  "http_status": 200,
+  "observed_page_title": "Geox Homme Uomo Symbol B Chaussures, Black, 45 EU : Geox: Amazon.fr: Mode",
+  "matched_text_records": 12,
+  "selector_roots": [
+    "#apex-pricetopay-accessibility-label",
+    "#corePriceDisplay_desktop_feature_div",
+    "#corePrice_feature_div",
+    "#productDescription",
+    "#productDescription_feature_div",
+    "#productFactsDesktopExpander",
+    "#title"
+  ],
+  "observed_samples": [
+    "GEOX SYMBOL B - Sneaker Basse - Homme",
+    "70,00 \u20ac avec 30 % d'\u00e9conomies",
+    "Prix conseill\u00e9 : 99,90 \u20ac",
+    "Composition du mat\u00e9riau"
+  ],
+  "browser_closed": true,
+  "raw_response_sha256": "dfe08f4f38b57cd2b15ec4e5a39397ccb2cbfe934aeb2d86b083086abf1e62a4",
+  "scope": "A separate real Browser search and one direct product-page capture from its observed prefix. This check does not count toward a Server workflow or workbook.",
+  "a16_retention": {
+    "outcome": "inconclusive",
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "evidence_hash": "9dc09bcd5f2ad9a2f079fe9d7e05831e6b559cfd5090db116717db8d8ac66c02",
+    "retained_http_eur": "0.2376924829157175398633257403",
+    "covered_application_eur": "0.2374988591767819658665693164",
+    "application_in_http": true
+  }
+}

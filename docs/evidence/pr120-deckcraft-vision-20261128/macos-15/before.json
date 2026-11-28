@@ -1,0 +1,22 @@
+{
+  "pptx_sha256": "b70a2509e39fe2450244258969b4ae331f5de99a9ecc7f0adbd3bb185e28fd14",
+  "slides": 1,
+  "slide": "ppt/slides/slide1.xml",
+  "chart": "ppt/charts/chart1.xml",
+  "workbook": "ppt/embeddings/kept1.xlsx",
+  "workbook_sha256": "fb5a8e3fe39768634d143dfd5e659a6790c2a55c2477abc10f5f629bd62892d9",
+  "formulas": [
+    "Sheet1!$B$1",
+    "Sheet1!$A$2:$A$3",
+    "Sheet1!$B$2:$B$3"
+  ],
+  "title": "Pr\u00e9sentation initiale",
+  "categories": [
+    "A",
+    "B"
+  ],
+  "values": [
+    "4",
+    "7"
+  ]
+}

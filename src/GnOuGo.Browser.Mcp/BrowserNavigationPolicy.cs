@@ -19,8 +19,7 @@ public static class BrowserNavigationPolicy
         if (string.IsNullOrWhiteSpace(uri.Host))
             throw new InvalidOperationException("The URL must contain a valid host.");
 
-        if (System.Text.RegularExpressions.Regex.Match(url, HttpUrlPattern,
-            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)).Length != url.Length)
+        if (!HasHttpUrlSyntax(url))
             throw new ArgumentException("The absolute HTTP URL must escape whitespace.", nameof(url));
 
         if (settings.AllowedHosts.Count > 0 && !IsHostAllowed(uri.Host, settings.AllowedHosts))
@@ -29,7 +28,49 @@ public static class BrowserNavigationPolicy
                 $"Host '{uri.Host}' is not allowed by the current browser policy.");
         }
 
+        // Parsing may remove an explicit default port or collapse dot segments.
+        // Neither transformation grants authority absent from the supplied URL.
+        // The same rule must authorize both its literal and transmitted forms.
+        if (settings.AllowedNavigationUrlPatterns.Count > 0 && !settings.AllowedNavigationUrlPatterns.Any(pattern =>
+            Matches(WithExplicitRootPath(url), pattern) && Matches(uri.AbsoluteUri, pattern)))
+            throw new InvalidOperationException("The URL is outside the configured navigation routes.");
+
         return uri;
+    }
+
+    internal static bool HasHttpUrlSyntax(string url) => url.Length > 0 && System.Text.RegularExpressions.Regex.Match(url, HttpUrlPattern,
+        System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking, TimeSpan.FromSeconds(1)).Length == url.Length;
+
+    internal static bool Matches(string url, string pattern)
+    {
+        try
+        {
+            // Regex.Escape denotes one exact string. Long literal URLs need no
+            // regex automaton; require the canonical round trip before using
+            // this equivalent comparison, without changing any other pattern.
+            var literal = System.Text.RegularExpressions.Regex.Unescape(pattern);
+            if (System.Text.RegularExpressions.Regex.Escape(literal) == pattern)
+                return string.Equals(url, literal, StringComparison.Ordinal);
+        }
+        catch (ArgumentException)
+        {
+            // Regex escapes such as \d belong to the existing regex engine.
+        }
+        return System.Text.RegularExpressions.Regex.IsMatch(
+            url, "\\A(?:" + pattern + ")\\z",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant | System.Text.RegularExpressions.RegexOptions.NonBacktracking,
+            TimeSpan.FromSeconds(1));
+    }
+
+    // HTTP gives an omitted path the request target "/". Preserve that existing
+    // form without normalizing the authority, explicit port, or supplied path.
+    private static string WithExplicitRootPath(string url)
+    {
+        var authorityStart = url.IndexOf("://", StringComparison.Ordinal) + 3;
+        var path = url.AsSpan(authorityStart).IndexOfAny('/', '?', '#');
+        if (path < 0) return url + "/";
+        path += authorityStart;
+        return url[path] == '/' ? url : url.Insert(path, "/");
     }
 
     public static bool IsHostAllowed(string host, IEnumerable<string> rules)

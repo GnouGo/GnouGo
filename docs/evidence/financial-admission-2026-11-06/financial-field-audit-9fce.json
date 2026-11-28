@@ -1,0 +1,18 @@
+{
+  "sessionId": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+  "tenantId": "default",
+  "inspectedAtUtc": "2026-11-07T00:10:07.079186+00:00",
+  "indexedCalls": 258,
+  "receipts": 257,
+  "httpRecords": 258,
+  "parsedResponseBodies": 257,
+  "partialOrInvalidBodies": 0,
+  "financialMetadataFields": {},
+  "numericFinancialEvidence": [],
+  "modelDispatches": 0,
+  "historicalChanges": false,
+  "scope": "Root provider/usage/HTTP metadata; generated business content and credential headers excluded. Amounts are evidence only, never added or treated as invoices automatically.",
+  "rawEvidenceSha256": "491900ad56585186fe274f537f2a8227a66e8a55d9f415cb1dc7a6f0cfc434d8",
+  "queryLibrariesRevision": "9faa818cebc43154c6a6a4f7198687216491cf7b",
+  "readOnlyQuery": "financial-field-query.cs.txt"
+}

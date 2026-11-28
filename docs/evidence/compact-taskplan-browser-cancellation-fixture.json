@@ -1,0 +1,42 @@
+{
+  "evidence_version": 1,
+  "base_revision": "664895d790ee8572c76ac36b70629a7eac9e9eeb",
+  "scope": "Browser cancellation test fixture only; no production behavior change.",
+  "received_failure": {
+    "workflow_run": 40736347663,
+    "test": "BrowserEmptyObservationTests.DirectHostCancellationKeepsItsExceptionContractAndAcquisitionEvidence",
+    "expected": "OperationCanceledException",
+    "actual": "BrowserObservationException: Complete snapshot acquisition exceeded its shared timeout during startup.",
+    "workflow_conclusion": "failure",
+    "log_sha256": "594324545fff12ccca37d020f2f9b2988475254ce5294c43a120fad9602443a0"
+  },
+  "fixture_change": {
+    "file": "tests/GnOuGo.Browser.Mcp.Tests/BrowserEmptyObservationTests.cs",
+    "sha256": "9978259b75a4f1caa3080a6bc99d5c26fa831af3fa0c755bbcd9e4f1816f9951",
+    "preparation": "Navigate to synthetic /warmup using ordinary HTML before the measured observation, then clear the synthetic site's request history.",
+    "preserved": [
+      "5000 ms observation timeout",
+      "same observation cancellation hook",
+      "OperationCanceledException and CANCELLED result contract",
+      "retained acquisition evidence",
+      "one observed navigation to /"
+    ]
+  },
+  "validation": {
+    "command": "dotnet test tests/GnOuGo.Browser.Mcp.Tests/GnOuGo.Browser.Mcp.Tests.csproj --no-restore -m:1 -warnaserror -p:UseSharedCompilation=false --logger 'console;verbosity=normal'",
+    "passed": 142,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "elapsed_seconds": 17.0643,
+    "component_source_files": 34,
+    "component_sources_unchanged_during_run": true,
+    "source_manifest_sha256": "7b648fb86b8cca28b2dfe5d64031fc8a05f4d621977adad772b63708686436aa",
+    "log_sha256": "c70942ade478b2cdba5abf4b55af66d57bce08ca74bbd91f55f29c5c90dfd6c3",
+    "paid_calls": 0
+  },
+  "limitations": [
+    "The original CI failure is retained; this is a later local fixture validation, not a successful rerun of that workflow.",
+    "This component result does not establish a complete solution pass or live planner business acceptance."
+  ]
+}

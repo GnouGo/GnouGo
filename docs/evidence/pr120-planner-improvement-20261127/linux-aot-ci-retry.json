@@ -1,0 +1,14 @@
+{
+  "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+  "run": "46027553971",
+  "initial_attempt": 1,
+  "job": "140602753828",
+  "step": "Install Linux native toolchain",
+  "result": "The Ubuntu package index at packages.microsoft.com returned HTTP 403 before the AOT build. apt exited 100.",
+  "action": "Reran only the failed job with the same source.",
+  "job_url": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140602753828",
+  "requested_utc": "2026-11-27T16:00:23.930351+00:00",
+  "retry_result": "success",
+  "retry_job_url": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610586182",
+  "completed_utc": "2026-11-27T16:02:25Z"
+}

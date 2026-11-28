@@ -1,0 +1,110 @@
+{
+  "source": "56fd623c89f455be58e697b5c3321ba153c61ebb",
+  "kind": "offline-continuation-catalog-and-diagnostic-masking-audit",
+  "received_request_sequence": 7,
+  "state_sha256": "d4e35c763337f7de19ac61d5c962a196de061f07970f405154c6bca560741491",
+  "received_response_sha256": "7f52e97395325c002c7c7b13c71b6511bd30ba8afbf466761b6e2bfaf0ab5cf6",
+  "planning_assembly_sha256": "84062dce7d9e1f355522c384961321ff768a779db77ee26d4da075b7fb4142ec",
+  "private_probe_report_sha256": "bb7232cc974c57c4238e999c9f69d9263d926d9367dcbcfbfa1eff1b0f079bb9",
+  "helper_source_sha256": "c61a8b18264ae757537b70a1b4c7b5db1f44662c5ec54a4929484f84d88fbf54",
+  "helper_project_sha256": "e39dd5f9cb31f3529fc964aba42c71b71e59b453b48a2bd8291260b1f0a22c06",
+  "build_log_sha256": "df033c2153fc7ce7edf06127ef39f62cb31b942f3ea891611d0044fc7f7a197d",
+  "probe_exit_code": 0,
+  "build_surfaced_warnings": 0,
+  "provider_calls": 0,
+  "operational_writes": 0,
+  "input_files_unchanged": true,
+  "comparisons": [
+    {
+      "fragment": "exact_received_extension",
+      "used_exact_resolved_contracts_admitted": false,
+      "catalog_before": 0,
+      "catalog_after": 0,
+      "candidate_task_count": 8,
+      "selected_input_count": 1,
+      "baseline_selected_interfaces": 1,
+      "candidate_diagnostic_counts": {
+        "TASK_OPERATION_UNKNOWN": 4,
+        "TASK_FIELD_TYPE": 4
+      },
+      "candidate_selected_interfaces": 0,
+      "extension_diagnostics": [
+        {
+          "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+          "location": "/step/inputs"
+        }
+      ],
+      "extension_unchanged_by_validation": true
+    },
+    {
+      "fragment": "exact_received_extension",
+      "used_exact_resolved_contracts_admitted": true,
+      "catalog_before": 0,
+      "catalog_after": 2,
+      "candidate_task_count": 8,
+      "selected_input_count": 1,
+      "baseline_selected_interfaces": 1,
+      "candidate_diagnostic_counts": {
+        "TASK_FIELD_TYPE": 4
+      },
+      "candidate_selected_interfaces": 0,
+      "extension_diagnostics": [
+        {
+          "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+          "location": "/step/inputs"
+        }
+      ],
+      "extension_unchanged_by_validation": true
+    },
+    {
+      "fragment": "synthetic_reduced_prefix_first_two_tasks_and_original_cleanup",
+      "used_exact_resolved_contracts_admitted": false,
+      "catalog_before": 0,
+      "catalog_after": 0,
+      "candidate_task_count": 3,
+      "selected_input_count": 1,
+      "baseline_selected_interfaces": 1,
+      "candidate_diagnostic_counts": {
+        "TASK_OPERATION_UNKNOWN": 2
+      },
+      "candidate_selected_interfaces": 0,
+      "extension_diagnostics": [
+        {
+          "code": "CONSTRUCTION_STEP_INPUT_INVALID",
+          "location": "/step/inputs"
+        }
+      ],
+      "extension_unchanged_by_validation": true
+    },
+    {
+      "fragment": "synthetic_reduced_prefix_first_two_tasks_and_original_cleanup",
+      "used_exact_resolved_contracts_admitted": true,
+      "catalog_before": 0,
+      "catalog_after": 2,
+      "candidate_task_count": 3,
+      "selected_input_count": 1,
+      "baseline_selected_interfaces": 1,
+      "candidate_diagnostic_counts": {},
+      "candidate_selected_interfaces": 1,
+      "extension_diagnostics": [],
+      "extension_unchanged_by_validation": true
+    }
+  ],
+  "findings": [
+    "The original selected caller input resolves on the unchanged baseline.",
+    "Exact received fragment has four genuine TASK_FIELD_TYPE findings: object-field projections named 0, 1 and length are applied to an array. It is not technically valid even after exact contract admission.",
+    "Continuation validation probes candidate interfaces before the normal host admission of used exact resolved contracts. Absent catalog entries add misleading TASK_OPERATION_UNKNOWN findings.",
+    "The compiler clears interface results when any finding exists. ImportedInterfaces then masks underlying candidate findings as CONSTRUCTION_STEP_INPUT_INVALID, incorrectly locating the failure at the unchanged selected input.",
+    "A separately labeled three-task synthetic prefix retains the first two received tasks and original cleanup. It fails solely for absent catalog entries before admission; after admitting the same two uniquely resolved used contracts, its compiler and continuation validation pass."
+  ],
+  "recommended_minimal_change": [
+    "Use the existing exact resolved-contract admission rules in a cloned candidate catalog before continuation interface probing; preserve ambiguity, permissions and selected-operation validation.",
+    "When compiler findings prevent interface capture, preserve those original diagnostics and locations rather than fabricating an input-availability defect.",
+    "Add a valid partial-operation regression with caller inputs and contracts retained only in Discovery.Resolved, including restart; retain a negative array-field regression and a truly unavailable-input regression."
+  ],
+  "limits": [
+    "The original received response was never modified or accepted. The reduced prefix is a synthetic offline diagnostic control, not a repaired live response or business-correctness claim.",
+    "All admissions occur only in deserialized private clones; no active or historical session, provider receipt, operational catalog or raw file was written.",
+    "No production change, commit, paid replay or execution was performed. The ongoing live run remains under its original source and automatic repair authority."
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "scenario": "review-boundary",
+  "oracle": "unchanged-business-review-boundary-v1",
+  "source": "a3879a0e58c514dd7f4d95e8ca0ef1c9cbe9db8b",
+  "run": "boundary-qualification-20261109-01",
+  "session_id": "94fab5970c9444d08f4fafc01e245d6d",
+  "observed_boundary": false,
+  "passed": false,
+  "first_cause": "An explicitly selected no-scope/no-requirement business close with an already-bound public output fell through to construction_draft.",
+  "accepted_contribution": {
+    "sequence": 1,
+    "baseHash": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+    "planHash": "ad4c6eef0178c38fb59a447b80496dc1e88571e712b1145e2fc3cbea6ff0ca3d",
+    "taskIds": [
+      "calculateLineTotal"
+    ],
+    "closedScopes": [],
+    "closedRequirementIds": []
+  },
+  "implementation_selection_call_5": {
+    "baseHash": "ad4c6eef0178c38fb59a447b80496dc1e88571e712b1145e2fc3cbea6ff0ca3d",
+    "step": {
+      "scope": "/root",
+      "kind": null,
+      "inputs": [
+        {
+          "kind": "output",
+          "source": "calculateLineTotal",
+          "port": "lineTotal"
+        }
+      ],
+      "groupId": null,
+      "dependencyTaskIds": [
+        "calculateLineTotal"
+      ],
+      "closeRequirementIds": [],
+      "outputNames": [
+        "lineTotal"
+      ],
+      "prerequisites": null,
+      "operationIds": [],
+      "closeScopes": null
+    },
+    "evidenceRequests": null,
+    "clarifications": null
+  },
+  "discovery_selection_call_6": {
+    "discoveryRequests": null,
+    "evidenceRequests": null,
+    "reselectStep": null,
+    "clarifications": null,
+    "binding": {
+      "kind": "close",
+      "operationIds": [],
+      "groupId": null,
+      "closeScopes": []
+    }
+  },
+  "following_phase": "construction_draft",
+  "stop": {
+    "status": "cancelled",
+    "calls": 9,
+    "repairs": 1,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "retention": {
+    "evidence_hash": "2f1e96ab685014c9b6c2c1ccaadb66ce83ff497c128e4bce754fd76b30676017",
+    "outcome": "inconclusive",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "reason": "operator_retained_uncertain_planning",
+    "operator": "Codex local operator",
+    "authorization": "User standing authorization for conservative tool-free incident handling; PR120 continuation 2026-11-09.",
+    "authorization_hash": "55c8ecaecda10e37d61edb5f580717979dc9f5365ecd157d12d082619bace11e",
+    "retained_at": "2026-11-09T00:41:02.7617270+00:00"
+  },
+  "limits": "No final/global review, artifact approval, execution or successful boundary proof. The stopped session cannot be resumed.",
+  "private_evidence_sha256": {
+    "boundary01-final.json": "687d5d9e01a37938531301b875eb51760bb575451825e699f2b080a902b49b2d",
+    "boundary01-final-receipts.json": "ddae59f0d1e54a346f37b89790eee30dd25a1dfac2ba63f0693a7b79c24d5102",
+    "boundary01-final-http09.json": "60cec7442406561e3c42d867c9e93d468f0591247462c0b5750d8b2c8249af9e",
+    "boundary01-retention-applied.json": "d9ae8d3a7fe983cc72f80956ed4395f8b29dbf276ab277951c057c64e35f404d",
+    "boundary-bound-output-red.log": "1715411fc708cd46cd6bd6f148ef8b5bce29e7989ef8b6f6ea0f5a6689a9cfbd",
+    "boundary-bound-output-green.log": "fd7f9a0e36bf088d5e395dea291593ade102a79b15685e03974e46724744247f"
+  }
+}

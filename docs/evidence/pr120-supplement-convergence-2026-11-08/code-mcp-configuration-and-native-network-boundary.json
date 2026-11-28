@@ -1,0 +1,60 @@
+{
+  "user_direction": "Code configuration should come from GnOuGo.GithubCopilot.Mcp.",
+  "inspection_source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+  "actual_mcp_configuration": {
+    "configuration_baseline_source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+    "source": "460a35deb96ffaf4165ffb8acd4a4192c9246ba2",
+    "mcp": "GnOuGo.GithubCopilot.Mcp",
+    "packaged_provider": "Copilot",
+    "packaged_fallback_model": "gpt-5.4-mini",
+    "declared_mcp_provider": "Copilot",
+    "effective_provider": "OpenAi",
+    "effective_model": "gpt-6.1-sol-2026-09-29",
+    "mcp_fallback_model": "gpt-5.4-mini",
+    "reasoning_effort": "high",
+    "wire_api": null,
+    "endpoint_sha256": "8b03876f6d007fa690032e951c8a2ce2a9157f01526dcb0db94670c079502603",
+    "endpoint_path_sha256": "dc6501a60198d90d0dee8ea893d61c2cec0c7c59407af7106380a513f80c49df",
+    "provider_configuration_present": true,
+    "use_logged_in_user": "True",
+    "shared_provider_or_mcp_overlay_applied": true,
+    "mcp_provider_override_present": false,
+    "mcp_model_override_present": false,
+    "mcp_wire_api_override_present": false,
+    "warning_present": false,
+    "credential_values_exported": false,
+    "configuration_changed": false,
+    "model_dispatches": 0
+  },
+  "native_mcp_read_only_probe": {
+    "tools": [
+      "copilot_auth_status",
+      "copilot_list_models"
+    ],
+    "authenticated": true,
+    "auth_type": "gh-cli",
+    "model_listing_success": false,
+    "http_status": 403,
+    "gateway_status": "AXAGlobalURLBlocked",
+    "blocked_destination": "https://api.individual.githubcopilot.com/meta",
+    "model_generation_dispatches": 0,
+    "copilot_sessions_created": 0,
+    "command_observations": 0,
+    "temporary_clients_disposed": true,
+    "network_policy_bypass": false
+  },
+  "conclusion": "The MCP project is already the provider-configuration source: its Copilot default delegates to the configured Agent provider, whose KeyVault model is gpt-6.1-sol-2026-09-29. Its native logged-in SDK identity is authenticated, but actual models.list is blocked by the corporate URL filter. Neither path currently establishes a compatible Code execution.",
+  "configuration_changed": false,
+  "campaign_pin_changed": false,
+  "additional_spending_authorized_or_dispatched": false,
+  "private_evidence_sha256": {
+    "copilot-mcp-effective-configuration.json": "9fa8e45e9f79515d1516687e8ef43f79de55c7aeb8c51f4c303e04674163216f",
+    "copilot-mcp-effective-configuration.json.native-identity.json": "4b04491db0a316f9758d17b2e757660ea98c2f0a7568d813d4d7a30e5e102064",
+    "copilot-mcp-effective-configuration.json.models-error.json": "0df9b035469b633ba3fe92e98f59ef2ac04532d55fe02c7fa434dc0902279bf2"
+  },
+  "limitations": [
+    "Authentication alone does not establish a supported model, reachable inference or successful Code execution.",
+    "Raw block-page identity, network and group data are private and are not included in this proof.",
+    "An approved reachable native Copilot service or compatible saved MCP provider configuration is required; no proxy, allowlist or immutable-pin bypass is inferred."
+  ]
+}

@@ -1,0 +1,292 @@
+using System.Text.Json.Nodes;
+using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Spreadsheet;
+using GnOuGo.Flow.Core.Runtime;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class AmazonBusinessOracleTests
+{
+    private const string Query = "chaussure geox homme 45";
+    private const string Search = "https://www.amazon.fr/s?k=chaussure+geox+homme+45";
+
+    [Fact]
+    public void OriginalSearchDefinesFirstProductsBeforeWorkbookOrVisits()
+    {
+        var events = Events();
+        AssertPass(events);
+        (events[1], events[2]) = (events[2], events[1]);
+        AssertFinding(events, "first_product_identity_or_order_mismatch");
+    }
+
+    [Theory]
+    [InlineData("wrong_query", "search_query_does_not_match_input")]
+    [InlineData("duplicate_query", "search_query_does_not_match_input")]
+    [InlineData("changed_search_result", "search_observation_not_independently_complete")]
+    [InlineData("omitted", "first_product_visits_incomplete")]
+    [InlineData("duplicated_visit", "first_product_identity_or_order_mismatch")]
+    [InlineData("later_product", "first_product_identity_or_order_mismatch")]
+    [InlineData("invented_url", "first_product_identity_or_order_mismatch")]
+    [InlineData("different_product_redirect", "first_product_identity_or_order_mismatch")]
+    [InlineData("non_product_visit", "first_product_identity_or_order_mismatch")]
+    [InlineData("truncated_search", "requested_search_not_observed")]
+    [InlineData("opaque_sponsored", "search_product_redirect_identity_unverified")]
+    [InlineData("malformed_product", "search_product_identity_unverified")]
+    public void RejectsUnsupportedSelectionWithoutUsingGeneratedRows(string variant, string finding)
+    {
+        var events = Events();
+        switch (variant)
+        {
+            case "wrong_query": events[0]["arguments"]!["url"] = Search.Replace("geox", "other", StringComparison.Ordinal); break;
+            case "duplicate_query": events[0]["arguments"]!["url"] = Search + "&k=another"; break;
+            case "changed_search_result": events[0]["result"]!["url"] = Search.Replace("geox", "other", StringComparison.Ordinal); break;
+            case "omitted": events.RemoveAt(2); break;
+            case "duplicated_visit": events[2] = (JsonObject)events[1].DeepClone(); break;
+            case "later_product": events[2] = Product(3); break;
+            case "invented_url": events[1]["arguments"]!["url"] = Url(1) + "?invented=1"; break;
+            case "different_product_redirect": events[1]["result"]!["url"] = Url(4); break;
+            case "non_product_visit": events[1] = Snapshot("https://www.amazon.fr/help", [new JsonObject { ["text"] = "Help" }]); break;
+            case "truncated_search": events[0]["result"]!["observationSnapshot"]!["captureTruncated"] = true; break;
+            case "opaque_sponsored":
+                Records(events[0]).Insert(0, new JsonObject { ["href"] = "https://www.amazon.fr/sspa/click?opaque=123", ["text"] = "Sponsored" });
+                Count(events[0]); break;
+            case "malformed_product":
+                Records(events[0]).Insert(0, new JsonObject { ["href"] = "https://www.amazon.fr/dp/unknown", ["text"] = "Unresolved product" });
+                Count(events[0]); break;
+        }
+        AssertFinding(events, finding);
+    }
+
+    [Fact]
+    public void ExactUrlAliasesInOneObservedProductGroupDoNotCreateExtraProducts()
+    {
+        var events = Events();
+        Records(events[0]).Insert(1, new JsonObject { ["href"] = Url(1) + "?ref=image", ["group"] = "main > article:nth-of-type(1)", ["text"] = "" });
+        Count(events[0]);
+        events[1]["arguments"]!["url"] = Url(1) + "?ref=image";
+        AssertPass(events);
+    }
+
+    [Fact]
+    public void SeparateObservedProductOccurrencesPreserveRepeatedIdentities()
+    {
+        var events = Events();
+        Records(events[0])[1]!["href"] = Url(1);
+        events[2] = Product(1);
+        AssertPass(events);
+        events.RemoveAt(2);
+        AssertFinding(events, "first_product_visits_incomplete");
+    }
+
+    [Fact]
+    public void BroadDuplicateAnchorGroupingCannotSilentlyDeduplicateProducts()
+    {
+        var events = Events();
+        foreach (var record in Records(events[0])) record!["group"] = "#search";
+        Records(events[0]).Insert(1, new JsonObject { ["href"] = Url(1), ["group"] = "#search", ["text"] = "Repeated anchor" });
+        Count(events[0]);
+        AssertFinding(events, "search_product_occurrences_ambiguous");
+    }
+
+    [Fact]
+    public void AnotherGroupDoesNotMakeRepeatedIdentitiesInOneBroadGroupUnambiguous()
+    {
+        var events = Events();
+        Records(events[0])[0]!["group"] = "main";
+        Records(events[0]).Insert(1, new JsonObject { ["href"] = Url(1), ["group"] = "main", ["text"] = "Another occurrence" });
+        Count(events[0]);
+        AssertFinding(events, "search_product_occurrences_ambiguous");
+    }
+
+    [Fact]
+    public void FewerCompleteObservedProductsCanBeVerifiedWithoutInventingRows()
+    {
+        var events = Events();
+        Records(events[0]).RemoveAt(3); Records(events[0]).RemoveAt(2); Records(events[0]).RemoveAt(1);
+        Count(events[0]); events.RemoveAt(2);
+        var result = LiveWorkflowOracles.VerifyAmazonSelection(events, 3, Query);
+        Assert.True(result["passed"]!.GetValue<bool>(), result.ToJsonString());
+        Assert.Equal(1, result["expected_product_count"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void PreSearchLandingReadIsNotMisclassifiedAsAProductVisit()
+    {
+        var events = Events();
+        events.Insert(0, Snapshot("https://www.amazon.fr/", [new JsonObject { ["text"] = "Search" }]));
+        AssertPass(events);
+        events[0] = Product(1);
+        AssertFinding(events, "product_visit_before_search");
+    }
+
+    [Fact]
+    public void HistoricalObservedProductOracleRetainsItsCapturedBehavior()
+    {
+        var events = ObservedProductOracleTests.Events("https://fixture.invalid/item", "https://fixture.invalid/item");
+        Assert.True(LiveWorkflowOracles.VerifyObservedProducts(events, ObservedProductOracleTests.Rows(), 10)["passed"]!.GetValue<bool>());
+        Assert.False(LiveWorkflowOracles.VerifyAmazonSelection(events, 10, Query)["passed"]!.GetValue<bool>());
+    }
+
+    [Theory]
+    [InlineData(null, "body")]
+    [InlineData("", "body")]
+    [InlineData(" \t ", "body")]
+    [InlineData("body", "body")]
+    [InlineData(" html ", "html")]
+    public void WholeDocumentSearchUsesExactOriginalAndProducerScope(string? selector, string resolved)
+    {
+        var events = Events();
+        if (selector is not null) events[0]["arguments"]!["selector"] = selector;
+        events[0]["result"]!["selector"] = selector;
+        events[0]["result"]!["resolvedSelector"] = resolved;
+        AssertPass(events);
+    }
+
+    [Theory]
+    [InlineData("narrowed")]
+    [InlineData("producer_narrowed")]
+    [InlineData("missing_resolution")]
+    [InlineData("missing_fallback")]
+    [InlineData("fallback")]
+    [InlineData("selector_mismatch")]
+    [InlineData("resolved_mismatch")]
+    [InlineData("non_string_selector")]
+    public void CompleteFlagsCannotCertifyANarrowedOrUnverifiedSearchScope(string variant)
+    {
+        var events = Events();
+        var arguments = events[0]["arguments"]!.AsObject();
+        var result = events[0]["result"]!.AsObject();
+        switch (variant)
+        {
+            case "narrowed":
+                arguments["selector"] = "article:nth-of-type(3)";
+                result["selector"] = "article:nth-of-type(3)";
+                result["resolvedSelector"] = "article:nth-of-type(3)";
+                // A later card remains a complete capture of the requested subtree.
+                Records(events[0]).Clear();
+                Records(events[0]).Add(new JsonObject { ["href"] = Url(3), ["text"] = "Product 3", ["group"] = "main > article:nth-of-type(3)" });
+                Count(events[0]); events[1] = Product(3); events.RemoveAt(2);
+                break;
+            case "producer_narrowed": result["resolvedSelector"] = "#search"; break;
+            case "missing_resolution": result.Remove("resolvedSelector"); break;
+            case "missing_fallback": result.Remove("fallbackApplied"); break;
+            case "fallback": result["fallbackApplied"] = true; break;
+            case "selector_mismatch": result["selector"] = "html"; break;
+            case "resolved_mismatch": arguments["selector"] = "html"; result["selector"] = "html"; break;
+            case "non_string_selector": arguments["selector"] = 1; break;
+        }
+        AssertFinding(events, "search_observation_scope_not_independently_complete");
+        var historical = LiveWorkflowOracles.VerifyAmazonSelection(events, 2, Query, LiveWorkflowOracles.AmazonBusinessVersion3);
+        Assert.True(historical["passed"]!.GetValue<bool>(), historical.ToJsonString());
+        Assert.Equal(LiveWorkflowOracles.AmazonBusinessVersion3, historical["version"]!.ToString());
+    }
+
+    [Theory]
+    [InlineData("complete", true)]
+    [InlineData("three", false)]
+    [InlineData("substituted", false)]
+    [InlineData("swapped", false)]
+    [InlineData("unsupported", false)]
+    [InlineData("open", false)]
+    [InlineData("missing_close", false)]
+    [InlineData("headers", false)]
+    [InlineData("read_writer_path", true)]
+    [InlineData("read_relative_path", true)]
+    [InlineData("read_other_path", false)]
+    [InlineData("read_other_receipt", false)]
+    [InlineData("read_before_write", false)]
+    [InlineData("read_text", false)]
+    public async Task TenProductQualificationReopensWorkbookAndChecksWorkflowClosure(string variant, bool expected)
+    {
+        using var root = new TemporaryWorkbookDirectory();
+        var path = Path.Combine(root.Path, "products.xlsx");
+        var products = Enumerable.Range(1, variant == "three" ? 3 : 11).ToArray();
+        string Address(int n) => $"https://www.amazon.fr/dp/B{n:D9}";
+        var search = Snapshot(Search, products.Select(n => new JsonObject
+        {
+            ["href"] = Address(n), ["text"] = $"Product {n}", ["group"] = $"main > article:nth-of-type({n})"
+        }).ToArray());
+        var events = new JsonArray(search);
+        var rows = new List<string[]> { variant == "headers" ? ["name", "description", "price"] : ["Nom", "Description", "Prix"] };
+        foreach (var n in products.Take(10))
+        {
+            var k = variant == "substituted" && n == 4 ? 11 : n;
+            string[] fields = [$"Product {k}", $"Description {k}", $"{k},00 €"];
+            events.Add(Snapshot(Address(k), fields.Select(value => new JsonObject { ["text"] = value }).ToArray()));
+            rows.Add(fields);
+        }
+        if (variant == "swapped") (rows[3], rows[4]) = (rows[4], rows[3]);
+        if (variant == "unsupported") rows[6][2] = "999,95 €";
+        using (var workbook = SpreadsheetDocument.Create(path, SpreadsheetDocumentType.Workbook))
+        {
+            var part = workbook.AddWorkbookPart();
+            part.Workbook = new Workbook();
+            var sheet = part.AddNewPart<WorksheetPart>();
+            sheet.Worksheet = new Worksheet(new SheetData(rows.Select(row => new Row(row.Select(value =>
+                new Cell { DataType = CellValues.String, CellValue = new CellValue(value) })))));
+            part.Workbook.Append(new Sheets(new Sheet { Id = part.GetIdOfPart(sheet), SheetId = 1, Name = "Products" }));
+        }
+        var readback = variant.StartsWith("read_", StringComparison.Ordinal);
+        var write = new JsonObject { ["server"] = "GnOuGo.Document.Mcp", ["tool"] = "document_write", ["error"] = false,
+            ["arguments"] = new JsonObject { ["filePath"] = "./products.xlsx" }, ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } };
+        if (variant != "read_before_write") events.Add(write);
+        if (readback)
+        {
+            var readPath = variant switch { "read_relative_path" => "./products.xlsx", "read_other_path" => "other.xlsx", _ => path };
+            events.Add(new JsonObject { ["server"] = "GnOuGo.Document.Mcp", ["tool"] = "document_read", ["error"] = false,
+                ["arguments"] = new JsonObject { ["filePath"] = readPath, ["format"] = variant == "read_text" ? "text" : "cells" },
+                ["result"] = new JsonObject { ["success"] = true, ["filePath"] = variant == "read_other_receipt" ? Path.Combine(root.Path, "other.xlsx") : path } });
+        }
+        if (variant == "read_before_write") events.Add(write);
+        if (variant != "missing_close") events.Add(new JsonObject { ["tool"] = "browser_close", ["error"] = false, ["result"] = new JsonObject { ["success"] = true } });
+        var transport = new InMemoryMcpClientFactory();
+        transport.RegisterServer("GnOuGo.Browser.Mcp", new MockMcpServerConfig { ToolHandlers = new()
+        {
+            ["browser_get_content"] = _ => new() { IsError = variant != "open", Content = new JsonObject { ["message"] = variant == "open" ? "Still open" : "No active page" } },
+            ["browser_close"] = _ => new() { Content = new JsonObject { ["success"] = true } }
+        } });
+        var run = new JsonObject { ["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile, ["workspace_relative"] = ".",
+            ["oracle_version"] = LiveWorkflowOracles.AmazonBusinessVersion, ["max_products"] = 10, ["workflow_readback_required"] = readback,
+            ["inputs"] = new JsonObject { ["query"] = Query }, ["execution"] = new JsonObject { ["success"] = true }, ["events"] = events };
+        var oracle = await LiveWorkflowOracles.VerifyAsync("amazon", root.Path, run, transport);
+        Assert.True(expected == oracle["passed"]!.GetValue<bool>(), oracle.ToJsonString());
+    }
+
+    private sealed class TemporaryWorkbookDirectory : IDisposable
+    {
+        public string Path { get; } = Directory.CreateTempSubdirectory().FullName;
+        public void Dispose() => Directory.Delete(Path, true);
+    }
+
+    private static List<JsonObject> Events() =>
+    [
+        Snapshot(Search, Enumerable.Range(1, 4).Select(i => new JsonObject
+        { ["href"] = Url(i), ["text"] = "Product " + i, ["group"] = "main > article:nth-of-type(" + i + ")" }).ToArray()),
+        Product(1), Product(2)
+    ];
+    private static JsonObject Product(int index) => Snapshot(Url(index), [new JsonObject { ["text"] = "Product " + index }]);
+    private static string Url(int index) => "https://www.amazon.fr/dp/B00000000" + index;
+    private static JsonObject Snapshot(string url, JsonObject[] records) => new()
+    {
+        ["tool"] = "browser_get_content", ["error"] = false, ["arguments"] = new JsonObject { ["url"] = url },
+        ["result"] = new JsonObject { ["url"] = url, ["success"] = true, ["truncated"] = false,
+            ["selector"] = null, ["resolvedSelector"] = "body", ["fallbackApplied"] = false,
+            ["observationSnapshot"] = new JsonObject { ["id"] = "snapshot-" + url, ["captureTruncated"] = false, ["manifestTruncated"] = false,
+                ["recordCount"] = records.Length, ["pages"] = new JsonArray((JsonNode)new JsonObject { ["id"] = "snapshot-" + url,
+                    ["captureTruncated"] = false, ["nextCursor"] = null, ["records"] = new JsonArray(records.Cast<JsonNode>().ToArray()) }) } }
+    };
+    private static JsonArray Records(JsonObject read) => read["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
+    private static void Count(JsonObject read) => read["result"]!["observationSnapshot"]!["recordCount"] = Records(read).Count;
+    private static void AssertPass(List<JsonObject> events)
+    {
+        var result = LiveWorkflowOracles.VerifyAmazonSelection(events, 2, Query);
+        Assert.True(result["passed"]!.GetValue<bool>(), result.ToJsonString());
+    }
+    private static void AssertFinding(List<JsonObject> events, string expected)
+    {
+        var result = LiveWorkflowOracles.VerifyAmazonSelection(events, 2, Query);
+        Assert.False(result["passed"]!.GetValue<bool>());
+        Assert.Contains(expected, result["findings"]!.AsArray().Select(f => f!.ToString()));
+    }
+}

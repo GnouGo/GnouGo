@@ -1,0 +1,18 @@
+{
+  "change": "Server live execution interaction preflight before campaign access",
+  "regression": {
+    "command": "dotnet test tests/GnOuGo.Agent.Server.Tests -c Release -warnaserror -p:SkipClientBuild=true --filter FullyQualifiedName~DelegatedTestReviewTests",
+    "passed": 94,
+    "failed": 0,
+    "skipped": 0
+  },
+  "coverage": [
+    "Execution and planning-with-execution require interaction",
+    "Planning-only, inspection, revalidation, metadata readiness and provider probe do not",
+    "EOF, malformed or stale challenge fails",
+    "Exact challenge grants no execution permission",
+    "Existing delegated artifact review, invocation permission and replay checks retained"
+  ],
+  "full_solution_validation": "In progress; final results will be recorded separately",
+  "live_launcher_validation": "Pending source-bound Release build; no qualification claimed"
+}

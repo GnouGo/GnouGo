@@ -1,0 +1,78 @@
+{
+  "source": "3cf04d86231d4ae4ceced6bad98f453fba9f0c7f",
+  "run": "improve40-code-20261127-083614",
+  "session": "ad55f0dd07b542b1b921aed415ca892c",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T08:37:39.591145+00:00",
+  "finished_utc": "2026-11-27T08:41:02.4875483+00:00",
+  "wall_seconds": 202.896403,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1780,
+      "output_tokens": 4096,
+      "measured_eur": "0.0227152619589977220956719818",
+      "duration_ms": "177948.4532"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 0,
+  "diagnostics": [
+    {
+      "code": "MODEL_OUTPUT_LIMIT",
+      "location": "/phases/construction_intent"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 1,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false,
+    "budget_blocked": true
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "f0e802587fe6a603ed9908a5ff3b6cf5f04d781d2377f8b5fee80205129f4fde",
+    "server": "a6de91dbee17b9c8c68d9c6a740c1ba80f3ee7a4f95c555a445d709a4c47d330",
+    "GnOuGo.Git.Mcp": "c854cfee664d73a063ae840e24144a43cf83abc9f63dd1a0e43b7326f530311b",
+    "GnOuGo.Document.Mcp": "95fd533040d13ea7d0a32c2516f4eed229df6d995dab262f099f429f06bbf90f",
+    "GnOuGo.Cmd.Mcp": "a75ff08fa8cfc02be8be05198bb339cfc3d6af63e9c1836b4e27e369abb700e1"
+  },
+  "campaign_opening_measured_eur": "26.337166287015945330296127774",
+  "campaign_closing": {
+    "calls": 692,
+    "known_input_tokens": 10851420,
+    "known_output_tokens": 360284,
+    "known_cost_eur": "26.359881548974943052391799756",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "26.597220956719817767653758754"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "ad55f0dd07b542b1b921aed415ca892c",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.0227152619589977220956719818",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ]
+}

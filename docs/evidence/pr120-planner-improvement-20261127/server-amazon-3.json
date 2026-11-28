@@ -1,0 +1,147 @@
+{
+  "source": "4cb2c264364b04fd50f941330c376357481c1e56",
+  "run": "improve40-amazon-20261127-110013",
+  "session": "963340500b2d44ad91a35b5c5366b5d0",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T11:02:18.6297592+00:00",
+  "finished_utc": "2026-11-27T11:30:01.9632332+00:00",
+  "wall_seconds": 1663.333474,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2208,
+      "output_tokens": 1529,
+      "measured_eur": "0.0119954441913439635535307517",
+      "duration_ms": "207827.6179"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 5542,
+      "output_tokens": 1698,
+      "measured_eur": "0.0203599088838268792710706150",
+      "duration_ms": "70900.1302"
+    },
+    "construction_implementation": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 56725,
+      "output_tokens": 3032,
+      "measured_eur": "0.1430273348519362186788154897",
+      "duration_ms": "192194.5194"
+    },
+    "construction_discovery": {
+      "logical_calls": 20,
+      "physical_attempts": 20,
+      "input_tokens": 365565,
+      "output_tokens": 8372,
+      "measured_eur": "0.8708633257403189066059225515",
+      "duration_ms": "621559.6739"
+    },
+    "construction_draft": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "input_tokens": 252320,
+      "output_tokens": 5639,
+      "measured_eur": "0.6004510250569476082004555807",
+      "duration_ms": "312607.2095"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 10235,
+      "output_tokens": 226,
+      "measured_eur": "0.0243439635535307517084282460",
+      "duration_ms": "38747.0609"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "cancelled",
+  "replans": 3,
+  "diagnostics": [],
+  "result": {
+    "status": "cancelled",
+    "calls": 41,
+    "repairs": 3,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "12ca757315495e7cebab4453c18e0ecf0b039a94045ceb3e6c823bf235048054",
+    "server": "a7848a0583f039af0e57ae5c0cbe9ca03a2c90cd4c9d91fc484c4c2342b2694c",
+    "GnOuGo.Browser.Mcp": "d77e081f2b0e6e6e3a7ac2d442730876403ca954795806705f9bb4d043defa62",
+    "GnOuGo.Document.Mcp": "bee652410e8f8a8492c8b6d9561f9763b76921a1eea23c3943e990e0167d0e0d"
+  },
+  "campaign_opening_measured_eur": "29.760494305239179954441913701",
+  "campaign_closing": {
+    "calls": 834,
+    "known_input_tokens": 12943172,
+    "known_output_tokens": 427636,
+    "known_cost_eur": "31.431535307517084282460136954",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "31.668874715261958997722095952"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "963340500b2d44ad91a35b5c5366b5d0",
+      "httpAttempts": 41,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "1.6710410022779043280182232346",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "stop_reason": "The planner requested an exact XLSX cell reader. The frozen document_read exposed rendered section text. The operator stopped at this clarification to preserve the exact workbook requirement.",
+  "clarification": {
+    "revision": 115,
+    "id": "xlsx_readback",
+    "question": "Aucune opération disponible ne garantit la relecture des cellules XLSX avec leurs valeurs et leur ordre. Pouvez-vous rendre disponible une opération de lecture structurée du classeur, ou autoriser une autre méthode de vérification ?",
+    "cancelled_at_revision": 116,
+    "starting_source": "4cb2c264364b04fd50f941330c376357481c1e56",
+    "product_visits": 0,
+    "produced_workbook": false
+  },
+  "captured_requests": [
+    {
+      "ordinal": 29,
+      "request_sha256": "b6162df51c4ba6b0880d53218fc34c668f5f54e7fc51acba140bbcd20219895d",
+      "response_sha256": "4d0d243f34973459d4ea4d422e3f28e5551a8b20f0c5ea670a853021aede0333",
+      "prompt_chars": 88121
+    },
+    {
+      "ordinal": 31,
+      "request_sha256": "784149997a994a55db1e3063de1e1a349fbcac747cf57bc60c90c9268b06fbc6",
+      "response_sha256": "200cb38d1f2257797d99bcc8071f944dcd2c4bf95d5989b745bd5a7299310671",
+      "prompt_chars": 73932
+    },
+    {
+      "ordinal": 32,
+      "request_sha256": "25be73cb6cbbcc3adb2e1039591436eac845ec7a53ac2f6ee6e1a647185cb90d",
+      "response_sha256": "a39a194d3228c14b8c57eb93b959ddde14a1a2188a6761ae9f7c23bad8863522",
+      "prompt_chars": 133153
+    },
+    {
+      "ordinal": 33,
+      "request_sha256": "bdaad23ee9d119c6ed72cd8492a8e330d9f4033a4dbfc4688b29f7b76051c989",
+      "response_sha256": "1e58e9866f6df63e8bd7359b1d0202786065a2bd09a14c24b1f99ea835687d05",
+      "prompt_chars": 41971
+    }
+  ]
+}

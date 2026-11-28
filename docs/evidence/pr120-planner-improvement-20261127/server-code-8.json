@@ -1,0 +1,356 @@
+{
+  "source": "7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+  "run": "improve40-code-20261127-224019",
+  "session": "b1a97ab2a4f84cdcb6f4b637052c5583",
+  "scenario": "code",
+  "oracle": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T22:41:45.2092555+00:00",
+  "finished_utc": "2026-11-27T22:53:17.8987789+00:00",
+  "wall_seconds": "692.689523",
+  "phases": {
+    "construction_implementation": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 8866,
+      "output_tokens": 416,
+      "measured_eur": "0.0220911161731207289293849658",
+      "duration_ms": "22409.6313"
+    },
+    "construction_discovery": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 72151,
+      "output_tokens": 1348,
+      "measured_eur": "0.1704943052391799544419134396",
+      "duration_ms": "82115.0425"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1889,
+      "output_tokens": 1384,
+      "measured_eur": "0.0106082004555808656036446469",
+      "duration_ms": "165288.5933"
+    },
+    "construction_draft": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 33235,
+      "output_tokens": 2825,
+      "measured_eur": "0.0885763097949886104783599089",
+      "duration_ms": "51434.4776"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 7732,
+      "output_tokens": 122,
+      "measured_eur": "0.0181685649202733485193621868",
+      "duration_ms": "11213.1913"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 9747,
+      "output_tokens": 194,
+      "measured_eur": "0.0230865603644646924829157175",
+      "duration_ms": "11883.682"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2098,
+      "output_tokens": 751,
+      "measured_eur": "0.0082004555808656036446469248",
+      "duration_ms": "17539.2457"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "0.3412255125284738041002277903",
+  "input_tokens": 135718,
+  "output_tokens": 7040,
+  "planning_status": "final_review",
+  "diagnostics": [],
+  "accepted_tasks": [
+    [
+      "agent",
+      "check",
+      "cleanup",
+      "cleanup_assert",
+      "clone",
+      "compare",
+      "result",
+      "review",
+      "write"
+    ],
+    []
+  ],
+  "result": {
+    "status": "final_review",
+    "calls": 15,
+    "repairs": 1,
+    "execution_status": "failed",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "48.142774487471526195899772705",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "21.3358382687927107061503411903",
+    "physical_attempts": 1333,
+    "input_tokens": 19767400,
+    "output_tokens": 683639
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "49.089328018223234624145786383",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "20.3892847380410022779043275123",
+    "physical_attempts": 1355,
+    "input_tokens": 20165365,
+    "output_tokens": 692425
+  },
+  "independent": {
+    "source": "7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+    "binary_manifest": [
+      {
+        "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "2398cb042cc3c0a4e5f991a42fb67c64345134e829ff8e66a22f94ba3a82c52c"
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.dll",
+        "version": "0.0.0-dev+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "b003317d4d41f9db9a1949b53016217492c803258df3d3f29dacb8e910c113fb"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "d06c154271cab3c49fb20933a95692d16d93bcf4c4354377550c79bb496f29a6"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "1f3cc55632f5ea8022f04f3f78d257a77354cd925767f5f20be006302bdb96b2"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "3c4d90c707a98139de5a8df42fcaea0f594b7e09de9cb61f7f1c972dd0cf5ec8"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Core.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "8840320146a9f2a4a1dc0bb0b00e591296384084d0011cafff72a42a2db55ac2"
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "d016da1e67263716ab686914a24892052cba1e316deac465dcd174e534b49489"
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "19697db7a91e787e3501b04c66941ecba056dd522f3390b9a2e3f278c969b67f"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "0cc3454923ca897fcca407797e04e8a781e79c546751652345371e245b31f7f3"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "fe88c82c90043b9c8dc66c301ab045446ef7e26347aea105c7922e823a08a483"
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "515c64250235984e1013b35ffc846c416aae6908432ee545efe4a5cf9046a813"
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.dll",
+        "version": "1.0.0+7bf3fd44fb9576f7863ab0a2316302711b9aa38c",
+        "sha256": "94af65480413ce854b619ea8fa04166391a8f727a6af9b7fbe1e486923598323"
+      }
+    ],
+    "run": "improve40-code-20261127-224019",
+    "planning_session": "b1a97ab2a4f84cdcb6f4b637052c5583",
+    "form_run": "82ab31a682579f3b13884fbb71e5b69f",
+    "approved_artifact": "c9414979820f032601da50dcd64fe2a9ce7a568aa9bd4848780f64bfec570553",
+    "review_origin": "delegated_test_reviewed",
+    "passed": false,
+    "execution": {
+      "success": false,
+      "status": "failed",
+      "finalization_completed": true
+    },
+    "business_oracle": {
+      "passed": false,
+      "changed_files": 8,
+      "observed_files": [
+        ".bin/test-annotation-policy-cleanup.py",
+        ".bin/test-annotation-policy.py",
+        ".github/workflows/main.yml",
+        "demo/slimfaas-annotation-policy.yml",
+        "docs/annotation-policy.md",
+        "docs/functions.md",
+        "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+        "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+      ],
+      "findings": [
+        "workflow_execution_failed",
+        "incomplete_sdk_execution",
+        "missing_workflow_report"
+      ]
+    },
+    "events": [
+      {
+        "tool": "git_clone",
+        "server": "GnOuGo.Git.Mcp",
+        "started": "2026-11-27T22:49:09.6642329+00:00",
+        "elapsed_ms": 23931,
+        "success": true,
+        "is_error": false
+      },
+      {
+        "tool": "git_compare_refs",
+        "server": "GnOuGo.Git.Mcp",
+        "started": "2026-11-27T22:49:34.0582478+00:00",
+        "elapsed_ms": 147,
+        "success": true,
+        "is_error": false
+      },
+      {
+        "tool": "cmd_run",
+        "server": "GnOuGo.Cmd.Mcp",
+        "started": "2026-11-27T22:49:35.0672325+00:00",
+        "elapsed_ms": 1665,
+        "success": true,
+        "is_error": false
+      },
+      {
+        "tool": "cmd_run",
+        "server": "GnOuGo.Cmd.Mcp",
+        "started": "2026-11-27T22:53:13.1383966+00:00",
+        "elapsed_ms": 2508,
+        "success": true,
+        "is_error": false
+      }
+    ],
+    "business_phase": {
+      "physical_attempts": 7,
+      "input_tokens": 262247,
+      "output_tokens": 1746,
+      "measured_eur": "0.6053280182232346241457858877",
+      "sdk_receipts": [
+        {
+          "status": "failed",
+          "usage": {
+            "model_calls": 7,
+            "total_tokens": 1157144,
+            "elapsed_milliseconds": "214219.1198",
+            "metering": "reserved_upper_bound",
+            "actions": 37
+          },
+          "failure": "The provided comparison or structured review is invalid."
+        }
+      ],
+      "execution_to_final_report_seconds": "254.04365",
+      "accounting_basis": "Exclusive campaign audit difference after subtraction of recorded planning phases; SDK usage counters also include reserved output."
+    },
+    "checkout_absent_on_independent_inspection": true,
+    "report_exists_on_independent_inspection": false,
+    "observed_sdk_reads": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      "AGENTS.md",
+      "demo/service-account-slimfaas.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/jobs.md",
+      "src/SlimFaas/Kubernetes/FunctionMetadataParser.cs",
+      "src/SlimFaas/Kubernetes/JobMetadataParser.cs",
+      "src/SlimFaas/Kubernetes/KubernetesService.Deployments.cs",
+      "src/SlimFaas/Kubernetes/KubernetesService.Jobs.cs",
+      "src/SlimFaas/Kubernetes/KubernetesService.JobsConfiguration.cs",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/lib/documentation.ts",
+      "src/SlimFaasSite/src/lib/markdown.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ]
+  },
+  "sdk": {
+    "session_tools": [
+      "apply_patch",
+      "project_append",
+      "project_list",
+      "project_mkdir",
+      "project_read",
+      "project_remove",
+      "project_rename",
+      "project_stat",
+      "project_write",
+      "read_task_input",
+      "view"
+    ],
+    "completed_tool_calls": {
+      "read_task_input": 9,
+      "project_read": 16,
+      "project_list": 7,
+      "view": 5
+    },
+    "subagent_calls": 0,
+    "dialog_decisions": {
+      "completed": 37
+    },
+    "model_calls": 7,
+    "charged_token_upper_bound": 1157144,
+    "session_closed": true,
+    "finalization_completed": true,
+    "changed_files_observed": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "candidate_finding_checks": [
+      {
+        "path": "docs/annotation-policy.md",
+        "side": "RIGHT",
+        "start": 33,
+        "end": 33,
+        "anchor_on_changed_lines": true,
+        "emitted_severity": "P1"
+      },
+      {
+        "path": "docs/annotation-policy.md",
+        "side": "RIGHT",
+        "start": 17,
+        "end": 17,
+        "anchor_on_changed_lines": true,
+        "emitted_severity": "P1"
+      }
+    ],
+    "candidate_limits": 2,
+    "failure": "The provided comparison or structured review is invalid.",
+    "sdk_receipt_sha256": "2944bb75830e26f468633720e9258f43e5d9b64dc6943a3cecae7a92388fb00a",
+    "form_run": "82ab31a682579f3b13884fbb71e5b69f"
+  },
+  "verification": {
+    "git_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "git_head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "tests": 4,
+    "test_exit": 0,
+    "cleanup_exit": 0,
+    "checkout_absent": true,
+    "report_written": false
+  }
+}

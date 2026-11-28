@@ -1,0 +1,246 @@
+{
+  "source": "daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+  "binary_manifest": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "f0d195af5bdf0edfbccfa8b68fbae9524dd10edcb52de01cd89c3dbeec738a8f"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "45b41fc29d04ca9b19dc2de951341eb0ea16f85f91e21ee1ec30ad056ef4709a"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "813813aaf4a614f6e64ce1772e32b8ac361dbe544fdad7859380a215d2594fbd"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "2efc3b7eb012063daf334e886ded209a130d77c501c6367cbfce84d9174d9abc"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "512d46a1f805289e68a1123b7b21a8cf23aa5949c5b692769152f71b5763c366"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "4933d49cced560a771202610efadc23332b222d3a16ce1b0124643e7d4f716de"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "0b4ff1134930aa06f78da573231c7e909af071cbd41b9a88b00134968e9240dc"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "25d3b32018b1f319a99f2168b7ba1fe25e5d0542724ca6089986aa0e4adfdd35"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "37b1b6f7c6907a44b972f1b53914a0c506ec21c95bb251529f2fb3b3ed1a7e4a"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+      "sha256": "87a7674d647a37c28386388fc9f65f6c1a797f6c7a98f85170a1d1d8141e2db2"
+    }
+  ],
+  "capture_run": "improve40-amazon-20261127-152507",
+  "planning_only": true,
+  "new_model_calls": 0,
+  "prerequisite": {
+    "issued_by": "construction_discovery, call 8, reselectStep.suspend",
+    "exchange_sha256": "81e4ac5f55e9dd33ab985d250040f1d5b4c7c4414b4d1873e6b379143659fbc0",
+    "required": {
+      "observedSourceAccepted": false,
+      "observationSnapshot": false,
+      "navigationEvidence": false,
+      "acquisition": false,
+      "error_code": false,
+      "error_message": false
+    },
+    "normalized_evidence": [
+      "contract:cap_490d9e16075cbdca5954ec27@json-v1%3Aaacba4e41686f2491777dce02c90d347231f1ab3b8ed96c627f812903a00fd88",
+      "requirement:req_1",
+      "source:request:0:clause:2",
+      "source:request:0:clause:5",
+      "source:request:0:clause:1"
+    ]
+  },
+  "checkpoint_replays": [
+    {
+      "call": 14,
+      "exchange_sha256": "929ea1c483c30d26077d30ca58899cc9f8395bbd2bcef204b95894b76879f2df",
+      "pending_capture_gzip_sha256": "724271e4c1c4d3e3c942f486357050d66e1597251fa87e31c64e2dc31281293c",
+      "wire_valid": true,
+      "candidate_diagnostics": [],
+      "accepted_checkpoint": 1,
+      "checkpoint_plan_hash": "6431c5e18eb8c9f672fec5bfb470a46ccb09d9a082efb6f1e8a3a3e8d90ca658",
+      "original_producer": "search",
+      "same_path_selected_fields": {
+        "observedSourceAccepted": null,
+        "observationSnapshot": {
+          "pages": null,
+          "linkPrefix": {
+            "attribute": null,
+            "reachedEnd": null,
+            "ancestors": null,
+            "links": null
+          },
+          "captureTruncated": null,
+          "manifestTruncated": null
+        },
+        "navigationEvidence": null,
+        "acquisition": null,
+        "error_code": null,
+        "error_message": null
+      },
+      "original_selector": "step_1",
+      "resumed_selector": "step_4",
+      "consumer_objective": "Identify the first ten actual product occurrences for the required Amazon.fr search, or report the observed reason they cannot be established.",
+      "business_block": "block_1",
+      "status": "resuming",
+      "inputs": [
+        [
+          "query",
+          null
+        ],
+        [
+          "continuation_0_view",
+          "value"
+        ]
+      ],
+      "obligations": [
+        "req_0",
+        "req_1",
+        "req_2",
+        "req_4"
+      ],
+      "closed_at_technical_checkpoint": [],
+      "cleanup": [
+        "close_browser"
+      ],
+      "resumed_session_sha256": "52f701a68e37a025a22a0cc031335cc9b34f2d0161e3c41084bc1c463855cf60"
+    },
+    {
+      "call": 15,
+      "exchange_sha256": "f3bcbdd0ba741828544766ecc5a706a4a465264118cf179280365acf467ea8fe",
+      "pending_capture_gzip_sha256": "beecdbd50d932d00bf4256938816be568e5060f70d5c6cda9c7f90d12bedc57c",
+      "wire_valid": true,
+      "candidate_diagnostics": [],
+      "accepted_checkpoint": 1,
+      "checkpoint_plan_hash": "19d55154df4a6ea79296f26cee6ff723b1714d3ea989d229155d5f9b0df3c64b",
+      "original_producer": "search_capture",
+      "same_path_selected_fields": {
+        "observedSourceAccepted": null,
+        "observationSnapshot": {
+          "pages": null,
+          "linkPrefix": {
+            "attribute": null,
+            "reachedEnd": null,
+            "ancestors": null,
+            "links": null
+          },
+          "captureTruncated": null,
+          "manifestTruncated": null
+        },
+        "navigationEvidence": null,
+        "acquisition": null,
+        "error_code": null,
+        "error_message": null
+      },
+      "original_selector": "step_1",
+      "resumed_selector": "step_4",
+      "consumer_objective": "Identify the first ten actual product occurrences for the required Amazon.fr search, or report the observed reason they cannot be established.",
+      "business_block": "block_1",
+      "status": "resuming",
+      "inputs": [
+        [
+          "query",
+          null
+        ],
+        [
+          "continuation_0_view",
+          "value"
+        ]
+      ],
+      "obligations": [
+        "req_0",
+        "req_1",
+        "req_2",
+        "req_4"
+      ],
+      "closed_at_technical_checkpoint": [],
+      "cleanup": [
+        "close_browser"
+      ],
+      "resumed_session_sha256": "c4ed49fec7e9e58154b370306e0b780082b7e58d14dae69b48964a617fc3337a"
+    }
+  ],
+  "complete_candidate_replays": [
+    {
+      "case": "baseline",
+      "plan_file_sha256": "cf217f8b1e861e5006f1fc1191cbcbf02990d8b95ef6c1c07d2d2a34e93899d0",
+      "yaml_sha256": "0fdda7d1d69d37e3d43564734f1f587dc07f4c1899f2411905f0b7ddfe37bf55",
+      "yaml_bytes": 249681,
+      "phase": "final_review",
+      "diagnostics": [],
+      "coverage": {
+        "passed": 1,
+        "declared": 6,
+        "unverified": 26,
+        "verified": 4
+      }
+    },
+    {
+      "case": "composed",
+      "plan_file_sha256": "b65157b9e21cb127a2930898043cb243bad4eb70d9cfa368ee4bef0699f6af09",
+      "yaml_sha256": "7100c8bf506e55b6bed126befe8187da4a912d0c7f09721516e35598477d155b",
+      "yaml_bytes": 234402,
+      "phase": "final_review",
+      "diagnostics": [],
+      "coverage": {
+        "passed": 1,
+        "declared": 6,
+        "unverified": 26,
+        "verified": 4
+      }
+    },
+    {
+      "case": "slimfaas",
+      "plan_file_sha256": "40b76a5654a3ffcdd360a7b63a413f00d3774cea283c458204a44b85a8dd6a5a",
+      "yaml_sha256": "e5d41747fe8cf39beedcda0f4cdf25ae61939ba55d212b73888676086bca96fe",
+      "yaml_bytes": 16473,
+      "phase": "final_review",
+      "diagnostics": [],
+      "coverage": {
+        "passed": 1,
+        "declared": 6,
+        "verified": 20,
+        "unverified": 16
+      }
+    }
+  ],
+  "composition": "The offline Amazon candidate joins archived downstream tasks to the call 14 accepted fragment. Consumers of copied paths use its view and consumers of the larger result retain the original output. The readback capability comes from the archived discovery result. The candidate includes conditional delivery, deterministic iteration, root output and cleanup. No replay artifact is supplied to a live session.",
+  "attempt_7": {
+    "result": "MODEL_OUTPUT_STALLED",
+    "call": 12,
+    "response_chars": 18280,
+    "prefix_before_structural_whitespace_chars": 786,
+    "trailing_structural_whitespace_chars": 17494,
+    "raw_text_sha256": "2e9ee6f31409021ca65a3eb803e5a22f26106988bf334978a4dbad4746d62d2f",
+    "prior_complete_call": 11,
+    "prior_complete_response_chars": 2532,
+    "output_tokens": 4096,
+    "reasoning_tokens": 405,
+    "input_tokens": 24996,
+    "unchanged_retries": 0
+  }
+}

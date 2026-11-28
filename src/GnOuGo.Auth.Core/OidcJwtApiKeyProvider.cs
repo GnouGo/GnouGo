@@ -134,9 +134,11 @@ public sealed class OidcJwtApiKeyProvider : IApiKeyProvider
                 throw new InvalidOperationException("OIDC token response has an invalid expires_in.");
         }
 
-        // Never extend an issuer's lifetime. A proportional margin also lets short-lived
-        // tokens be cached, and acquisition time counts against their usable lifetime.
-        var refreshAt = requestedAt.AddSeconds(expiresIn - Math.Min(30d, expiresIn * 0.1d));
+        // A bearer can be checked after a request has spent time in a gateway queue.
+        // Reserve the client's request window, capped at one tenth of the issued lifetime.
+        var requestWindow = _http.Timeout == Timeout.InfiniteTimeSpan ? double.PositiveInfinity : _http.Timeout.TotalSeconds;
+        var margin = Math.Min(expiresIn * 0.1d, Math.Max(30d, requestWindow));
+        var refreshAt = requestedAt.AddSeconds(expiresIn - margin);
         if (_clock.GetUtcNow() >= refreshAt)
             throw new InvalidOperationException("OIDC token expired during acquisition.");
         _token = accessToken;

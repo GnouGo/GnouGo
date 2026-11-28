@@ -1,0 +1,57 @@
+{
+  "source": "eab31ccab89a3045403437827e318cbf5f22a425",
+  "parent": "1884a65866d1143cd982f24c05eb87b3a7d029c7",
+  "observed_at_utc": "2026-10-30T16:34:11.210080+00:00",
+  "scope": "Fresh configured sessions capture their business contract on a clone before validation; retained and malformed sessions reject unchanged.",
+  "source_files_sha256": {
+    "docs/incremental-taskplan-construction.md": "4269720320a3813ff1dfc22f9adf7c2e989eac057b793886dc2c16af7f4dd9de",
+    "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.cs": "25b747cdd3b8be3ad5757f6619485ca0363537ec8fcc7cf84b6c947847a66e97",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.BusinessSelection.cs": "133d63723817ceba84ec872588b1ba1e6a23b203c32c3d4fb9eafaaeeeb5cf75",
+    "src/GnOuGo.Flow.Planning/PlanningSessionCreation.cs": "7bc98b81e85392b61905405e4e9582f6cf119e1d740573b414186928bac03326",
+    "tests/GnOuGo.Agent.Server.Tests/FreshBenchmarkConstructionTests.cs": "14b21ec5498d304abc3757b7aedd768b844f3a7c9131557ff5fd26c6b0b4b20a",
+    "tests/GnOuGo.Flow.Planning.Tests/FreshConstructionAuthorityTests.cs": "bb505482d3a69f8e849ab5b9a79dfc2a9f6e3a29e6afb6dc3aac761defee901a"
+  },
+  "validation": {
+    "fresh_pipeline_red": {
+      "failed": 3,
+      "passed": 6,
+      "log_sha256": "a0bc44869477c18bec0c7a437669fbbca1f863b631afe8a93e5e9e99805d6c0f",
+      "log_file": "pr120-fresh-construction-init-server-red.log"
+    },
+    "missing_metadata_red": {
+      "failed": 1,
+      "passed": 1,
+      "log_sha256": "d45eeddfc10063eefda18a06f38b3384ae2badef7f1255d491a14323eb815b5f",
+      "log_file": "pr120-fresh-construction-init-missing-metadata-red.log"
+    },
+    "server_green": {
+      "failed": 0,
+      "passed": 45,
+      "log_sha256": "6ac4f4e2d192f7ee9d248f79e1d9bee588072ac767abf9566f002633ce4d54ea",
+      "log_file": "pr120-fresh-construction-init-server-green.log"
+    },
+    "planning_green": {
+      "failed": 0,
+      "passed": 143,
+      "log_sha256": "9b271cef6c2fbda2888e44b0929cc1f6bd83992dd7d3f8eb59694d825877c151",
+      "log_file": "pr120-fresh-construction-init-planning-green.log"
+    }
+  },
+  "server_filter": "FreshBenchmarkConstructionTests|BenchmarkPhasePolicyTests|LiveWorkflowReviewTests|CompactConstructionHostTests",
+  "planning_filter": "FreshConstructionAuthorityTests|BusinessSelectionArchitectureTests|ConstructionPhasePolicyTests|BenchmarkUsefulWorkTests|CompactRequestMeasurementTests|PlanningTransportPolicyTests",
+  "msbuild": "-m:1 -warnaserror",
+  "server_build_flags": [
+    "SkipClientBuild=true",
+    "SkipModelMetadataGeneration=true"
+  ],
+  "new_regression_cases": 27,
+  "independent_source_review": "no blocker",
+  "provider_calls": 0,
+  "operational_record_writes": 0,
+  "historical_run_mutations": 0,
+  "limitations": [
+    "Focused offline tests only; no live planning or execution retried.",
+    "Full integration and publication remain the root integration responsibility.",
+    "Tests ran before commit; recorded file hashes match the committed files."
+  ]
+}

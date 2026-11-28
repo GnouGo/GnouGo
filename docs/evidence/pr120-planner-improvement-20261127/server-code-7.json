@@ -1,0 +1,298 @@
+{
+  "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+  "run": "improve40-code-20261127-204426",
+  "session": "2c907835312d403cbfdce4fd91999b10",
+  "scenario": "code",
+  "oracle": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T20:45:43.0059683+00:00",
+  "finished_utc": "2026-11-27T21:02:02.6242474+00:00",
+  "wall_seconds": 979.618279,
+  "phases": {
+    "construction_discovery": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "input_tokens": 127922,
+      "output_tokens": 1694,
+      "measured_eur": "0.2991116173120728929384965833",
+      "duration_ms": "147936.5940"
+    },
+    "construction_implementation": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 58476,
+      "output_tokens": 1696,
+      "measured_eur": "0.1409293849658314350797266515",
+      "duration_ms": "88335.6307"
+    },
+    "construction_draft": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 74927,
+      "output_tokens": 3265,
+      "measured_eur": "0.1855512528473804100227790434",
+      "duration_ms": "100918.0994"
+    },
+    "construction_select": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 9820,
+      "output_tokens": 1040,
+      "measured_eur": "0.0271070615034168564920273349",
+      "duration_ms": "53810.2630"
+    },
+    "construction_local_judge": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 22009,
+      "output_tokens": 554,
+      "measured_eur": "0.0526583143507972665148063781",
+      "duration_ms": "43053.4693"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 7801,
+      "output_tokens": 105,
+      "measured_eur": "0.0182482915717539863325740319",
+      "duration_ms": "10244.3"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1844,
+      "output_tokens": 1285,
+      "measured_eur": "0.0100546697038724373576309795",
+      "duration_ms": "137879.4519"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "0.7336605922551252847380410026",
+  "input_tokens": 302799,
+  "output_tokens": 9639,
+  "planning_status": "final_review",
+  "diagnostics": [],
+  "accepted_tasks": [
+    [
+      "assert_cleanup",
+      "cleanup",
+      "clone",
+      "compare",
+      "destination"
+    ],
+    [
+      "annotation_check",
+      "review"
+    ],
+    [
+      "verified_report",
+      "write_report"
+    ],
+    [],
+    []
+  ],
+  "result": {
+    "status": "final_review",
+    "calls": 34,
+    "repairs": 1,
+    "execution_status": "needs_reconciliation",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "42.649981776765375854214123436",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "27.0663234624145785876993161993",
+    "physical_attempts": 1163,
+    "input_tokens": 17510732,
+    "output_tokens": 606305
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "43.631066059225512528473804543",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "26.0852391799544419134396350923",
+    "physical_attempts": 1201,
+    "input_tokens": 17920466,
+    "output_tokens": 616786
+  },
+  "independent": {
+    "source": "725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+    "binary_manifest": [
+      {
+        "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "36776ec388f83ae3859a17f08406b27d521551d9bd188317d7788d46f71331e6"
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.dll",
+        "version": "0.0.0-dev+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "d8c57041ce478d443a60d1a16b9d4e632a388048fd3843f663a15e9c5e898fd4"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "5190431ad9f080d1f49e009d2dd78a1a1df7b8a56fd124b2d72ba8b2f8764716"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "0f8cb088be758afa70d8fa0e089627ebf5d4703d3e0ad15ec846a680dd26287f"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Core.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "b2c1d991107e1e97a62e829d0359b745c5220f4e79efc425791ac59c92a9accd"
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "eeed58a7fbe8cbe342f7073ae0293a9fdc51377d12faab703561b340f8b2a331"
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "e31a4f114f332ca4a8d22edb457aeebf37ce5e22b24c9d0f7f18733b861f4242"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "108db99cb279972b384b520884947290093f8dfd292d08b951eed77cb30f5dd4"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "92d64113ea955600df1a25de3fac079aad4c4fba6b72cf1db27814d98d527766"
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "c8da3501c4cdd7d6958ca6b9838459c4b69c984968bcffe2de593d14830f2d04"
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.dll",
+        "version": "1.0.0+725d10f7d3261bdcd0dd6cf14c68340fae7482d8",
+        "sha256": "c9a73efaa6475e7f4eec70104bd30157d249a0ef5b43bae083635bfce0c26a3a"
+      }
+    ],
+    "run": "improve40-code-20261127-204426",
+    "planning_session": "2c907835312d403cbfdce4fd91999b10",
+    "form_run": "e904811d0cd7d4f8344c0ce1d682bdcb",
+    "approved_artifact": "216836d7f776e5c01bdc270ed239162feec3ea1a1bffda53951c9ec19ecce924",
+    "review_origin": "delegated_test_reviewed",
+    "passed": false,
+    "execution": {
+      "success": false,
+      "status": "needs_reconciliation",
+      "finalization_completed": false
+    },
+    "business_oracle": {
+      "passed": false,
+      "changed_files": 8,
+      "observed_files": [],
+      "findings": [
+        "workflow_execution_failed",
+        "incomplete_sdk_execution",
+        "no_observed_changed_file_reads",
+        "missing_required_changed_file_read",
+        "missing_workflow_report",
+        "checkout_cleanup_missing"
+      ]
+    },
+    "events": [
+      {
+        "tool": "git_clone",
+        "server": "GnOuGo.Git.Mcp",
+        "started": "2026-11-27T20:59:16.2842904+00:00",
+        "elapsed_ms": 29406,
+        "success": true,
+        "is_error": false
+      },
+      {
+        "tool": "git_compare_refs",
+        "server": "GnOuGo.Git.Mcp",
+        "started": "2026-11-27T20:59:46.5233164+00:00",
+        "elapsed_ms": 238,
+        "success": true,
+        "is_error": false
+      },
+      {
+        "tool": "cmd_run",
+        "server": "GnOuGo.Cmd.Mcp",
+        "started": "2026-11-27T20:59:48.4646063+00:00",
+        "elapsed_ms": 2730,
+        "success": true,
+        "is_error": false
+      }
+    ],
+    "business_phase": {
+      "physical_attempts": 4,
+      "input_tokens": 106935,
+      "output_tokens": 842,
+      "measured_eur": "0.2474236902050113895216401044",
+      "sdk_receipts": [
+        {
+          "status": "needs_reconciliation",
+          "usage": {
+            "model_calls": 4,
+            "total_tokens": 468428,
+            "elapsed_milliseconds": "128539.4857",
+            "metering": "reserved_upper_bound",
+            "actions": 24
+          },
+          "failure": "Execution was interrupted; inspect and reconcile the original invocation."
+        }
+      ],
+      "execution_to_final_report_seconds": 170.792419,
+      "accounting_basis": "Exclusive campaign audit difference after subtraction of recorded planning phases; SDK usage counters also include reserved output."
+    },
+    "checkout_absent_on_independent_inspection": false,
+    "report_exists_on_independent_inspection": false,
+    "observed_sdk_reads": []
+  },
+  "execution_observations": {
+    "pinned_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "pinned_head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "changed_paths": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "observed_project_reads": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/service-account-slimfaas.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "docs/jobs.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/lib/documentation.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "confirmed_changed_file_count": 8,
+    "upstream_tests": 4,
+    "upstream_exit": 0,
+    "concrete_approvals": 24,
+    "completed_tool_executions": 24,
+    "sdk_message_completed_utc": "2026-11-27T21:01:50.7242378+00:00",
+    "sdk_message_sha256": "7cf9304c080449d4584208a7b18746af56934128dab6c5cb373470607f1f4646",
+    "candidate_findings": 1,
+    "candidate_limitations": 3,
+    "terminal_session_closed": false,
+    "journal_updated_utc": "2026-11-27T21:02:01.0694172+00:00",
+    "journal_status": "needs_reconciliation",
+    "finalization_completed": false,
+    "sdk_admission_stop": null,
+    "sdk_receipt_sha256": "9df2e1d9963652e6169f952f8595f9023fa421700e34eec88207077c7ce0864f",
+    "scope": "Candidate SDK text has no verified completion receipt. The Server never returned or wrote this report. The checkout remains subject to reconciliation."
+  }
+}

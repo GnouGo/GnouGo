@@ -47,6 +47,46 @@ public sealed class ConditionalEntryGuardTests
     }
 
     [Theory]
+    [InlineData("left", "right", true)]
+    [InlineData(null, "right", false)]
+    [InlineData("left", null, false)]
+    public async Task NonNullRequirementsNarrowOnlyTheirExactOperationArguments(string? first, string? second, bool allowed)
+    {
+        var calls = new List<JsonNode?>();
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("records", new() { Tools = [new() { Name = "use_pair", EffectKind = "none",
+            InputSchema = JsonNode.Parse("""{"type":"object","properties":{"left":{"type":"string"},"right":{"type":"string"}},"required":["left","right"],"additionalProperties":false}"""),
+            OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"ok":{"type":"boolean"}},"required":["ok"]}""") }],
+            ToolHandlers = new() { ["use_pair"] = args => { calls.Add(args?.DeepClone()); return new() { Content = new JsonObject { ["ok"] = true } }; } } });
+        var engine = new WorkflowEngine { McpClientFactory = factory };
+        var catalog = await TaskPlanCompilerTests.Catalog(new(engine, (_, _) => Task.CompletedTask));
+        var consume = new PlanTask { Id = "consume", Objective = "Use the observed pair.",
+            Operation = catalog.Capabilities.Single(c => c.Method == "use_pair").Id,
+            Requires = P("and", P("not_equal", Output("observe", "first"), new()), P("not_equal", Output("observe", "second"), new())),
+            Inputs = [new("left", Output("observe", "first")), new("right", Output("observe", "second"))] };
+        var plan = new TaskPlan { Inputs = new[] { "first", "second" }.Select(name => new TaskInput { Name = name,
+            Type = new() { Kind = "string", Nullable = true } }).ToList(),
+            Root = new() { Tasks = [new() { Id = "observe", Kind = "value", Objective = "Keep the observed values.",
+                Outputs = [new("first", Input("first")), new("second", Input("second"))] }, consume] } };
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var document = new WorkflowCompiler().Compile(WorkflowParser.Parse(new PlanningGraphCompiler().Compile(compiled.Graph!, catalog)));
+        var result = await engine.ExecuteAsync(document.Workflows[document.Entrypoint!], new JsonObject { ["first"] = first, ["second"] = second }, PlannerFixture.Ct);
+        Assert.Equal(allowed, result.Success);
+        if (allowed)
+            Assert.True(JsonNode.DeepEquals(new JsonObject { ["left"] = first, ["right"] = second }, Assert.Single(calls)));
+        else
+        {
+            Assert.Equal("INPUT_VALIDATION", result.Error!.Code);
+            Assert.Empty(calls);
+        }
+        consume.Requires.Predicate = "or";
+        var findings = new TaskPlanCompiler().Compile(plan, catalog).Diagnostics;
+        Assert.Contains(findings, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/consume/inputs/left");
+        Assert.Contains(findings, d => d.Code == "TASK_INPUT_TYPE" && d.Location == "/tasks/consume/inputs/right");
+    }
+
+    [Theory]
     [InlineData(null, "enable", true)]
     [InlineData("exact", "follow", true)]
     [InlineData("exact", "enable", false)]
@@ -75,6 +115,25 @@ public sealed class ConditionalEntryGuardTests
         var result = await Execute(engine, catalog, plan, reference, action, authorized);
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(expected, calls.Count);
         Assert.All(calls, value => Assert.Equal(reference, value));
+        Assert.Contains(result.StepResults, r => r.Output?["cleaned"]?.GetValue<bool>() == true);
+    }
+
+    [Theory]
+    [InlineData("enable", true)]
+    [InlineData("follow", false)]
+    public async Task ConditionalEffectPreservesTheObservedResultOnBothPaths(string observed, bool eligible)
+    {
+        var (engine, catalog, calls) = await Environment();
+        var plan = Plan(corrected: true);
+        var route = plan.Root.Tasks.Single();
+        route.Body!.Outputs = [new("performed", Flag(true))];
+        route.Otherwise!.Outputs = [new("performed", Flag(false))];
+        plan.Root.Outputs = [new("observed", Input("action")), new("performed", Output(route.Id, "performed"))];
+        var result = await Execute(engine, catalog, plan, "exact", observed, true);
+        Assert.True(result.Success, result.Error?.Message);
+        Assert.Equal(observed, result.Outputs!["observed"]!.GetValue<string>());
+        Assert.Equal(eligible, result.Outputs["performed"]!.GetValue<bool>());
+        Assert.Equal(eligible ? new[] { "exact" } : [], calls);
         Assert.Contains(result.StepResults, r => r.Output?["cleaned"]?.GetValue<bool>() == true);
     }
 
@@ -112,16 +171,16 @@ public sealed class ConditionalEntryGuardTests
     }
 
     [Fact]
-    public async Task CorrectProposalReachesReviewInOneCallWithRuntimeGuardsUnchanged()
+    public async Task ValidGuardPlanCompilesWithoutInventingAConditionalEntryProof()
     {
-        var (engine, catalog, _) = await Environment(); var plan = Plan(); var state = State(plan, catalog);
+        var (_, catalog, _) = await Environment(); var plan = Plan();
         var before = JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan);
-        var runtime = new TestRuntime(engine) { Proposal = new() { Plan = plan, Requirements = state.Requirements } };
-        state.Plan = null; state.Diagnostics.Clear(); state.RevisionScope.Clear();
-        var reviewed = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, reviewed.Status); Assert.Single(runtime.Calls); Assert.Equal(0, reviewed.ReplanAttempts);
-        Assert.Equal(before, JsonSerializer.Serialize(reviewed.Plan, PlanningJsonContext.Default.TaskPlan));
-        Assert.Contains("Required condition:", reviewed.Yaml!);
+        var compiled = new TaskPlanCompiler().Compile(plan, catalog);
+        Assert.Empty(compiled.Diagnostics);
+        var yaml = new PlanningGraphCompiler().Compile(compiled.Graph!, catalog);
+        Assert.Contains("Required condition:", JsonSerializer.Serialize(compiled.Graph, PlanningJsonContext.Default.PlanningGraph));
+        Assert.StartsWith("version:", yaml, StringComparison.Ordinal);
+        Assert.Equal(before, JsonSerializer.Serialize(plan, PlanningJsonContext.Default.TaskPlan));
     }
 
     [Fact]
@@ -132,22 +191,6 @@ public sealed class ConditionalEntryGuardTests
         Assert.Contains(TaskPlanRevisions.Validate(state.Plan, copy, state.RevisionScope, catalog), d => d.Location == "/tasks/act/requires");
         catalog.Policy.DeniedCapabilityIds.Add("act");
         Assert.Contains(new TaskPlanCompiler().Compile(Plan(corrected: true), catalog).Diagnostics, d => d.Code == "TASK_OPERATION_DENIED");
-    }
-
-    [Fact]
-    public async Task RetiredGuardRepairRequiresRevisionWithoutRedispatch()
-    {
-        var (_, catalog, _) = await Environment(); var state = State(Plan(), catalog);
-        state.Diagnostics = [new("TASK_CONDITIONAL_REQUIREMENT", "/tasks/route/condition", "Retained legacy proof diagnostic")];
-        state.PendingCall = new() { Id = "issued", Purpose = "replan", Request = new() { Prompt = "original", Model = "test", StructuredOutputSchema = new JsonObject { ["type"] = "object" } } };
-        state.ModelCalls = 2; state.ReplanAttempts = 1;
-        var saved = JsonSerializer.Serialize(state.PendingCall, PlanningJsonContext.Default.PlanningModelCall);
-        var runtime = new TestRuntime(); var restored = PlannerFixture.Clone(state);
-        var stopped = await new HybridWorkflowPlanner().AdvanceAsync(restored, new() { ExpectedRevision = restored.Revision }, runtime, PlannerFixture.Ct);
-        Assert.Equal(PlanningStatus.Stopped, stopped.Status); Assert.Empty(runtime.Calls);
-        Assert.Equal(2, stopped.ModelCalls); Assert.Equal(1, stopped.ReplanAttempts);
-        Assert.Equal(saved, JsonSerializer.Serialize(stopped.PendingCall, PlanningJsonContext.Default.PlanningModelCall));
-        Assert.Contains(stopped.Diagnostics, d => d.Code == "PLANNING_REVISION_REQUIRED");
     }
 
     private static async Task<RunResult> Execute(WorkflowEngine engine, PlanningCatalog catalog, TaskPlan plan, string? reference, string? action, bool authorized)

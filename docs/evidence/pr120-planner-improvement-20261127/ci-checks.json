@@ -1,0 +1,83 @@
+{
+  "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+  "observed_utc": "2026-11-27T16:06:16.211437+00:00",
+  "checks": [
+    {
+      "name": "validate",
+      "conclusion": "",
+      "status": "IN_PROGRESS",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553914/job/140602753318",
+      "workflowName": "Deterministic planner validation"
+    },
+    {
+      "name": "ProxyCopilot AOT (linux-x64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610586182",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "Build all nine frontends",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553970/job/140602753158",
+      "workflowName": "Frontend and Python dependency validation"
+    },
+    {
+      "name": "standalone",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553927/job/140602753087",
+      "workflowName": "ProxyCopilot standalone validation"
+    },
+    {
+      "name": "ProxyCopilot AOT (linux-arm64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610587325",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "ProxyCopilot AOT (win-x64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610588945",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "ProxyCopilot AOT (win-arm64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610588159",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "ProxyCopilot AOT (osx-x64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610588269",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "ProxyCopilot AOT (osx-arm64)",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553971/job/140610588407",
+      "workflowName": "Build ProxyCopilot Native AOT"
+    },
+    {
+      "name": "Python 3.10 tests, lint and packages",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553970/job/140602753562",
+      "workflowName": "Frontend and Python dependency validation"
+    },
+    {
+      "name": "Python 3.14 tests, lint and packages",
+      "conclusion": "SUCCESS",
+      "status": "COMPLETED",
+      "detailsUrl": "https://github.com/GnouGo/GnouGo/actions/runs/46027553970/job/140602753483",
+      "workflowName": "Frontend and Python dependency validation"
+    }
+  ]
+}

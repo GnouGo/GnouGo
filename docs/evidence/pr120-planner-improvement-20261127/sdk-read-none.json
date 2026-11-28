@@ -1,0 +1,38 @@
+{
+  "source": "fdbba759e7f042f6dcadd406d4eafebea7978622",
+  "run": "improve40-read-none-20261127-092743",
+  "deployment_configuration": "a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6",
+  "scope": "Isolated transport diagnostic with an artificial seed and one permitted project.read capability. The common direct SDK used its interactive mode with no human input provider attached.",
+  "chat_tools_reasoning": "none",
+  "wire_output_limit": 2048,
+  "probe_binary_sha256": "5b447005e09631c7707ff2eb50970e8d2b7594bd65731524ad6f293c89481272",
+  "physical_attempts": 2,
+  "input_tokens": 8658,
+  "output_tokens": 45,
+  "measured_eur": "0.019927107061503416856492028",
+  "additional_reservations_eur": "0E-28",
+  "observed_sdk_tool": {
+    "toolName": "project_read",
+    "arguments_keys": "path",
+    "matchesSeed": true,
+    "completionObserved": true,
+    "toolSucceeded": false,
+    "conflictingCompletion": false,
+    "errorCode": "denied",
+    "startedSequence": 1,
+    "completedSequence": 2
+  },
+  "sdk_send_completed": true,
+  "read_observed": false,
+  "seed_returned": false,
+  "status": "needs_reconciliation",
+  "reloaded_status": "needs_reconciliation",
+  "sdk_budget_receipt": {
+    "ModelCalls": 2,
+    "TotalTokens": 67622,
+    "ElapsedMilliseconds": "102766.8525",
+    "Metering": "reserved_upper_bound",
+    "Actions": 1
+  },
+  "passed": false
+}

@@ -1,0 +1,43 @@
+{
+  "baseline_source": "a18517450bcdb48ece64fd4ed552c7d07e6a5c7a",
+  "candidate_attribution": "Exact uncommitted source snapshot; source hashes match the correction committed alongside this evidence.",
+  "source_manifest_sha256": "a7c5ad9b3344cdeb445194f4f360658c871713eacb2b2079e366cf16f238cb9d",
+  "changed_source_hashes": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.AuthoringEvidence.cs": "cb4823e8c0c466f5a52f307a390bda5a4087c59159fee2a2acc33bb041e426d9",
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs": "2aba4e564527dfb19705e6291e363e49a072d535bd7c5878fa50ec26581a6df8",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactContractEvidenceFlowTests.cs": "18105e6c58ad3788e94885e59a94ee50ed860c761a6d72dd61243e5f3b769697"
+  },
+  "planning": {
+    "counters": {
+      "total": 2315,
+      "executed": 2315,
+      "passed": 2315,
+      "failed": 0
+    },
+    "trx_sha256": "7c5c8c03746f35598b4eede7bc235bd7490ab6eefe9578f55fdc637c5d16bec6",
+    "log_sha256": "2c59ec0e8de6b7be432cfd84602cf15fc017e311751a5616e74f39bcf64b2997",
+    "compiler_warnings": 0
+  },
+  "affected_host": {
+    "counters": {
+      "total": 161,
+      "executed": 161,
+      "passed": 161,
+      "failed": 0
+    },
+    "trx_sha256": "ba36f8fbc3b7ea8a8dce1fedd37062637e5ac6a3b852f000c437b054f33e7362",
+    "log_sha256": "ac4390c533e737e85e0e9a8f6bc9ad1ff3aea432dd01ee91feec33072b47cb1a",
+    "compiler_warnings": 0
+  },
+  "new_cases": 7,
+  "focused_counts_not_added": 149,
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "business_success_claimed": false,
+  "production_change_inventory": {
+    "updated_existing_helpers": 2,
+    "new_state_protocol_engine_or_format": false,
+    "replaced": "Selected-operation-only sharing now also uses earlier exact producer views; draft/repair progress navigation uses existing checkpoint links.",
+    "preserved": "Selection/discovery progression facts, all originals, explicit evidence, actual producer arguments and contract constraints, safe retry accounting and v15."
+  }
+}

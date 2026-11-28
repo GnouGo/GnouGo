@@ -165,7 +165,7 @@ internal sealed class CopilotExecutionObservations(string? sessionId = null, Cop
         CopilotExecutionBounds? bounds, CancellationToken ct, CopilotInferenceBudget? logical = null, IReadOnlyList<CopilotStreamEvent>? events = null)
     {
         lock (_gate)
-            return new(new(handle, sessionId, "", null, events ?? [], Completed: false) { ToolExecutions = Snapshot(), OutputLogs = state?.OutputSnapshot() ?? new Dictionary<string, string>() },
+            return new(new(handle, sessionId, "", null, events ?? [], Completed: false) { InferenceFailure = bounds?.ProviderFailure ?? logical?.ProviderFailure, ToolExecutions = Snapshot(), OutputLogs = state?.OutputSnapshot() ?? new Dictionary<string, string>() },
                 _sessionError && error is InvalidOperationException && bounds?.AdmissionStop is not null &&
                 !bounds.TransportFailed && !ct.IsCancellationRequested,
                 bounds is null && logical is { TransportFailed: false, AdmissionStop: null } && _contextLimit && VerifiedTerminalCompletion && !ct.IsCancellationRequested,

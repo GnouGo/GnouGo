@@ -1,0 +1,473 @@
+{
+  "source": "f015f5a4bad6feba552cd743ed54e447a41a0e81",
+  "sdk": "10.0.403",
+  "targetFramework": "net10.0",
+  "checks": [
+    {
+      "check": "outdated-after",
+      "exitCode": 0,
+      "projects": 77,
+      "findings": 0,
+      "sha256": "1784c7001b96514daafe94cf7e19b5d07d91249852eaf705af31e1c7018c12ec"
+    },
+    {
+      "check": "vulnerable",
+      "exitCode": 0,
+      "projects": 77,
+      "findings": 0,
+      "sha256": "50e57f2e732ad7c60827d881e4a865bfd1ea4ca727010075640f121d26b4ef15"
+    },
+    {
+      "check": "deprecated",
+      "exitCode": 0,
+      "projects": 77,
+      "findings": 0,
+      "sha256": "9da289e712ce09d8ff044082d7992e06f1feb048fbc7d630eceb909f47c78b5c"
+    }
+  ],
+  "explicitLibraryPacks": 15,
+  "realLocalModel": {
+    "file": "Qwen3-0.6B-Q4_0.gguf",
+    "bytes": 428970080,
+    "sha256": "da2572f16c06133561ce56accaa822216f2391ef4d37fba427801cd6736417d4",
+    "tests": 1,
+    "passed": 1,
+    "failed": 0,
+    "modelInferenceWasOptedIn": true
+  },
+  "fullSolutionTests": {
+    "source": "f015f5a4bad6feba552cd743ed54e447a41a0e81",
+    "exitCode": 0,
+    "passed": 8197,
+    "failed": 0,
+    "skipped": 13,
+    "details": "full-solution-validation.json"
+  },
+  "publishProfiles": [
+    {
+      "project": "src/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "f51acbeab1001dab0e696a69bf05a291ab133b45ff77c17e1eda258f15be5c3a"
+    },
+    {
+      "project": "src/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "009f9a3065667f84155a7ff3fc124927e79a29f9febb401fb19847c04e2d6982"
+    },
+    {
+      "project": "src/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "d78e5f5afa9ea294942e52e2413b7eeda75b7fd00bd5b6e91003bfa8fdb17992"
+    },
+    {
+      "project": "src/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "85632c38b2d81fafd3ead36ef07800e4447b4eb5dfb8d21eba7259387da5b886"
+    },
+    {
+      "project": "src/GnOuGo.DocIngestor.Mcp/GnOuGo.DocIngestor.Mcp.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "fda48125a7eb3720549c6c5bc32f7c50241db0e919109b0378029c86edd0030c"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Cli/GnOuGo.Flow.Cli.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 2,
+      "logSha256": "85ec313046946950a292d299a0b4eacb5ac05a8ca9b66b7a965d338339054b7f"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Server/GnOuGo.Flow.Server.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 2,
+      "logSha256": "5b6200cb8a127490384a237a2142fddf1e7975cf28d15131d375c6c536a7e4ff"
+    },
+    {
+      "project": "src/GnOuGo.Files.Server/GnOuGo.Files.Server.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 2,
+      "logSha256": "b6f8ebe582fb6e4a29472e575f1f1b0f11d8543518df28479e17b16d802ab86c"
+    },
+    {
+      "project": "src/GnOuGo.Assets.Animation.Server/GnOuGo.Assets.Animation.Server.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "70874f64868d8258c55210e57167104b3caf19de738c35e8a974d40c11329a98"
+    },
+    {
+      "project": "src/GnOuGo.Agent.Mcp/GnOuGo.Agent.Mcp.csproj",
+      "nativeAot": false,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "cf1fcd691d03b0eaa4a39c60021bf6a44426e88f445bddf33aa369a1e1faaeff"
+    },
+    {
+      "project": "src/GnOuGo.KeyVault.Mcp/GnOuGo.KeyVault.Mcp.csproj",
+      "nativeAot": false,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "1a60e218267ddbe792973e108e04dbc327a106f33c2b34259d8edf1b56347cf2"
+    },
+    {
+      "project": "src/GnOuGo.OtlpCollector.Server/GnOuGo.OtlpCollector.Server.csproj",
+      "nativeAot": false,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "bd20085bb8ddeb6f2b40b187d1d950c6c36e381f72999382854fe7cd3194e92d"
+    },
+    {
+      "project": "src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+      "nativeAot": false,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "caaa06196e6589834b33868020534a50d7e47f8cb29e5b5b5361ffef024387db"
+    },
+    {
+      "project": "src/GnOuGo.Agent.Desktop/GnOuGo.Agent.Desktop.csproj",
+      "nativeAot": false,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "1b1ce7020c4b619eb7a57b999909061e88dc78c386c4887a151a79ff93231c09"
+    },
+    {
+      "project": "src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "7d52986cfe008f7b8013020b27568453982491d4be4a75e3aaec7827265b2cdd"
+    },
+    {
+      "project": "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+      "nativeAot": true,
+      "exitCode": 0,
+      "unexpectedWarnings": [],
+      "acceptedEfExperimentalNoticeCount": 0,
+      "logSha256": "fadffcc5ff8107195b7b2d6905938c38824a1cc50b5fd2716b2b761235d5afe4"
+    }
+  ],
+  "publishPolicy": "Existing repository profiles and scoped dependency exceptions; no new suppressions. Audit-known mode checked separately for Flow CLI and Files.",
+  "exactWarningAudits": [
+    {
+      "project": "GnOuGo.Flow.Cli",
+      "expectedCount": 16,
+      "observedCount": 16,
+      "unexpected": [],
+      "missing": [],
+      "fingerprints": [
+        "EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental",
+        "EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental",
+        "IL2026|Jint.DefaultObjectConverter.ConvertSystemTextJsonValue(Engine,JsonNode)",
+        "IL2026|Jint.Options.<>c__DisplayClass77_0.<Apply>b__0(JsValue,JsValue[])",
+        "IL2026|Jint.Options.Apply(Engine)",
+        "IL2026|Jint.Runtime.Interop.DefaultTypeConverter.BuildDelegate(Type,Func`3<JsValue,JsValue[],JsValue>,Expression)",
+        "IL2104|Jint.dll",
+        "IL2104|Microsoft.EntityFrameworkCore.Relational.dll",
+        "IL2104|Microsoft.EntityFrameworkCore.Sqlite.dll",
+        "IL2104|Microsoft.EntityFrameworkCore.dll",
+        "IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()",
+        "IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()",
+        "IL3053|Jint.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.Relational.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.dll"
+      ],
+      "sha256": "6f45c20d8e5f1450d3052057c4ed3b61e4fa3c84ea7a35bf2f236f6ff253a800"
+    },
+    {
+      "project": "GnOuGo.Files.Server",
+      "expectedCount": 13,
+      "observedCount": 13,
+      "unexpected": [],
+      "missing": [],
+      "fingerprints": [
+        "CS8669|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs",
+        "CS9270|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs",
+        "EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental",
+        "EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental",
+        "IL2104|Microsoft.EntityFrameworkCore.Relational.dll",
+        "IL2104|Microsoft.EntityFrameworkCore.Sqlite.dll",
+        "IL2104|Microsoft.EntityFrameworkCore.dll",
+        "IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()",
+        "IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()",
+        "IL3053|Microsoft.EntityFrameworkCore.Abstractions.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.Relational.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll",
+        "IL3053|Microsoft.EntityFrameworkCore.dll"
+      ],
+      "sha256": "1d14002e0d2a3803772a41cbea07ce6921c48956a23c6efcdb012e29147dde3b"
+    }
+  ],
+  "packs": [
+    {
+      "project": "src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.AI.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.AI.Local.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Assets.Animation/GnOuGo.Assets.Animation.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Assets.Animation.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Assets.Bears/GnOuGo.Assets.Bears.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Assets.Bears.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Auth.Core/GnOuGo.Auth.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Auth.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Copilot/GnOuGo.Flow.Copilot.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Copilot.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Integrations.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Mermaid/GnOuGo.Flow.Mermaid.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Mermaid.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Persistence/GnOuGo.Flow.Persistence.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Persistence.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Flow.Planning.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.GithubCopilot.Core/GnOuGo.GithubCopilot.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.GithubCopilot.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Mcp.Core/GnOuGo.Mcp.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Mcp.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Observability.Core/GnOuGo.Observability.Core.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Observability.Core.pack.log"
+    },
+    {
+      "project": "src/GnOuGo.Workspace/GnOuGo.Workspace.csproj",
+      "exitCode": 0,
+      "log": "GnOuGo.Workspace.pack.log"
+    }
+  ],
+  "runtimeChecks": [
+    {
+      "name": "Native Flow/Jint triage",
+      "exitCode": 0,
+      "log": "flow-jint-smoke.log",
+      "logSha256": "48e10e214d887b69c9952dd58468fc5c774947ca5179210da0f7ce6ebb9f93f5"
+    },
+    {
+      "name": "Existing published Flow CLI/server/Copilot MCP encrypted journal smoke",
+      "exitCode": 0,
+      "log": "flow-published-smoke-absolute.log",
+      "logSha256": "7b1d7038269333a812e82c9c1ea4140d57755dc0dc26f9ac1f358d3fa31e054e"
+    },
+    {
+      "name": "Published Proxy Native AOT controlled providers",
+      "exitCode": 0,
+      "log": "proxy-published-smoke.log",
+      "logSha256": "77b3e111c4de37c278b4202e55d99d438488174e280c2b9b9377abbf22d0c65a"
+    },
+    {
+      "name": "Planning Native AOT smoke",
+      "exitCode": 0,
+      "log": "planning-native-smoke.log",
+      "logSha256": "c329794b4a60bcc9157ef6480c38f3a392f8d31fd567845e8e585637b97a2b30"
+    }
+  ],
+  "http-smokes": [
+    {
+      "check": "Files Native AOT upload/download and tenant isolation",
+      "passed": true
+    },
+    {
+      "check": "Files Native AOT restart persistence and TTL purge",
+      "passed": true
+    },
+    {
+      "check": "Animation Native AOT representative YAML validation",
+      "passed": true
+    },
+    {
+      "check": "GnOuGo.Agent.Mcp published startup and health",
+      "passed": true
+    },
+    {
+      "check": "GnOuGo.KeyVault.Mcp published startup and health",
+      "passed": true
+    }
+  ],
+  "desktop-published-assets": {
+    "passed": true,
+    "requiredFiles": [
+      "GnOuGo.Agent",
+      "wwwroot/_framework/blazor.web.js",
+      "tools/GnOuGo.Browser.Mcp/GnOuGo.Browser.Mcp",
+      "tools/GnOuGo.Cmd.Mcp/GnOuGo.Cmd.Mcp",
+      "tools/GnOuGo.Document.Mcp/GnOuGo.Document.Mcp",
+      "tools/GnOuGo.GithubCopilot.Mcp/GnOuGo.GithubCopilot.Mcp",
+      "tools/GnOuGo.Git.Mcp/GnOuGo.Git.Mcp"
+    ],
+    "nativeAssets": {
+      "libggml-base.dylib": [
+        "runtimes/osx-arm64/native/libggml-base.dylib"
+      ],
+      "libggml-cpu.dylib": [
+        "runtimes/osx-arm64/native/libggml-cpu.dylib"
+      ],
+      "libggml.dylib": [
+        "runtimes/osx-arm64/native/libggml.dylib"
+      ],
+      "libllama.dylib": [
+        "runtimes/osx-arm64/native/libllama.dylib"
+      ],
+      "libggml-metal.dylib": [
+        "runtimes/osx-arm64/native/libggml-metal.dylib"
+      ]
+    },
+    "rid": "osx-arm64",
+    "graphicalLaunchPerformed": false
+  },
+  "server-startup": {
+    "passed": true,
+    "checks": [
+      "normal startup",
+      "health",
+      "root UI",
+      "Blazor negotiate"
+    ],
+    "isolatedData": true,
+    "modelDispatch": false
+  },
+  "otlp-published-startup": {
+    "passed": true,
+    "isolatedDatabase": true,
+    "modelDispatch": false
+  },
+  "copilot-native-handshake": {
+    "passed": true,
+    "operations": [
+      "copilot_connectivity",
+      "copilot_status"
+    ],
+    "sessionCreated": false,
+    "modelDispatch": false,
+    "authenticatedUserDisabled": true,
+    "sdk": "1.0.29",
+    "runtime": "1.0.107",
+    "ping": {
+      "message": "pong: gnougo",
+      "timestamp": "2026-11-07T18:53:08.2125750+00:00",
+      "protocolVersion": "3"
+    },
+    "status": {
+      "version": "1.0.107",
+      "protocolVersion": "3",
+      "connectionState": "connected"
+    }
+  },
+  "cross-version-baseline": {
+    "baselineSource": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "baselineEfSqliteVersion": "10.0.12",
+    "baselineBinarySha256": "3b2e32144d8d855b1ccd9ecf6d2aef21ef934cf90856817d16c1fe13d572eaa2",
+    "dataDirectory": "cross-version-storage",
+    "exitCode": 0,
+    "seconds": 1.4
+  },
+  "cross-version-recovery": {
+    "source": "f015f5a4bad6feba552cd743ed54e447a41a0e81",
+    "binarySha256": "9f95eb35eb6c7fd7088535e4a39385aeb62f7cb88ea7ff7c4c6477734fedcd06",
+    "oldEfSqlite": "10.0.12",
+    "newEfSqlite": "10.0.14",
+    "sameDataDirectory": "cross-version-storage",
+    "processes": [
+      {
+        "process": 1,
+        "exitCode": 0,
+        "seconds": 3.01,
+        "log": "new-runtime-storage-reopen-1.log"
+      },
+      {
+        "process": 2,
+        "exitCode": 0,
+        "seconds": 1.12,
+        "log": "new-runtime-storage-reopen-2.log"
+      }
+    ]
+  },
+  "receipt-origin-proof": {
+    "passed": true,
+    "attemptCount": 1,
+    "startedAtUtc": "2026-11-07T18:30:59.1626110+00:00",
+    "completedAtUtc": "2026-11-07T18:30:59.2101230+00:00",
+    "baselineCompletedAtUtc": "2026-11-07T18:30:59.7825188+00:00",
+    "protocolComplete": true,
+    "recordValueSha256": "0448bd2fb56ce82370eae2ed0ea14178b9becde3fadcb22d71048ce22a12ae56",
+    "receiptPredatesNewProcesses": true
+  },
+  "limitations": [
+    "Local native/published execution checked on macOS ARM64. Proxy CI separately validates six Windows/Linux/macOS targets; see ci-validation.json.",
+    "Desktop graphical window was not launched.",
+    "Frontend dependencies and separate TypeScript checks/build were unchanged and not rerun.",
+    "No paid-provider inference; SDK handshake and controlled proxy fixtures do not prove provider-account availability.",
+    "PowerShell orchestration unavailable locally; profiles and smoke assertions executed directly.",
+    "The complete unfiltered solution run tests the dependency commit f015f5a4; follow-up timer fix 458c2f4e has its own exact component, host, publication and CI results."
+  ],
+  "followup": {
+    "source": "458c2f4ea1c8e8b321e8e9ae3f4768429ee4b3f5",
+    "details": "followup-validation.json"
+  }
+}

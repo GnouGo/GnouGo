@@ -1,0 +1,367 @@
+{
+  "version": 1,
+  "source": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+  "prepared_utc": "2026-10-25T01:54:49.270277+00:00",
+  "case": "code",
+  "cohort": "compactrba86cf874code20v5",
+  "run_hash": "a559462ad5d0017c2585b450aa284a54d300b884c46ba5515d43fdb95bf15f76",
+  "scope": "Independent source and bounded-original intent assessment only; no plan/artifact/runtime or business success.",
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-intent-state-witness.json",
+      "sha256": "382860fd1d0ba5f1e4c685a8a626a41bc1b351dfab423d9158beac8e3dee0bf5",
+      "bytes": 27141
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-intent-requests-witness.json",
+      "sha256": "0917a4991985a74a1fde923ba11e5ae6546e0f4e9a75edcf3e106f628687bae7",
+      "bytes": 164597
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/code-terminal-safe-metrics.json",
+      "sha256": "ce6204e6f96b651c62db8c49c11f1d4b6be8534f982ba8d330ce0345906fd424",
+      "bytes": 29238
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactrba86cf874code20v5/freeze.json",
+      "sha256": "a4c7bb9c962ecef29050f2c4ee7cf37646da2b1dc0681051d0d008ebfbbef732",
+      "bytes": 20074
+    }
+  ],
+  "source_files": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "commit": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "6f249c5466be9cdebfa98ded9625a166ba12b2fb3a7de66f02a19aadc9ccd2bd",
+      "bytes": 26014
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs",
+      "commit": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "9f0f9fe087d2135c4befd0abf803fc17d7217390db8e0cfb109d0f5d73999f2a",
+      "bytes": 16697
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactConstruction.cs",
+      "commit": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "cd9100fcee925a5cc2aaea6e7519ff296f1172a6e62f7b73a73b714a3d6a27d6",
+      "bytes": 32045
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactIntentResolutionTests.cs",
+      "commit": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "c8e1cc281f4d1eb03c5607078a5083187c0e6d4ef0d3f45d8320952aca92da9f",
+      "bytes": 34958
+    },
+    {
+      "path": "tests/GnOuGo.Flow.Planning.Tests/CompactIntentIndexingTests.cs",
+      "commit": "ba86cf8746bb7964e901f71678cb79bd0002b2f5",
+      "sha256": "e4d6dc6845ba6c2e7c704b234bea2689177a2950795f5c2316f8dd2cab026c9e",
+      "bytes": 68017
+    }
+  ],
+  "terminal": {
+    "phase": "construction_intent",
+    "status": "clarification",
+    "logical_calls": 8,
+    "physical_attempts": 11,
+    "receipts": 8,
+    "corrections": 2,
+    "checkpoints": 0,
+    "plan": null,
+    "accepted_input_names": [
+      "pullRequestUrl",
+      "reviewText"
+    ],
+    "accepted_output_names": [
+      "feedback"
+    ],
+    "pending_clarification_id": "clarify-review-json-schema"
+  },
+  "findings": [
+    {
+      "id": "directional_feedback",
+      "classification": "demonstrated host diagnostic imprecision; validation decision correct",
+      "requests": [
+        4,
+        5,
+        7,
+        8
+      ],
+      "basis": "CheckNames checks duplicate typed names and ordinal set equality in both directions but emits only Each typed interface must be named by an exact source disposition. Request4 instead omits typed declarations named by dispositions. Request7 supplies typed declarations unlinked to the current dispositions. The first failing inputs check masks the separate output mismatch in each response.",
+      "mismatches": {
+        "4": {
+          "inputs": {
+            "typed_without_current_disposition": [],
+            "current_disposition_without_typed_declaration": [
+              "reviewText"
+            ],
+            "duplicate_typed_names": []
+          },
+          "outputs": {
+            "typed_without_current_disposition": [],
+            "current_disposition_without_typed_declaration": [
+              "feedback"
+            ],
+            "duplicate_typed_names": []
+          }
+        },
+        "7": {
+          "inputs": {
+            "typed_without_current_disposition": [
+              "pullRequestUrl",
+              "reviewText"
+            ],
+            "current_disposition_without_typed_declaration": [],
+            "duplicate_typed_names": []
+          },
+          "outputs": {
+            "typed_without_current_disposition": [
+              "feedback"
+            ],
+            "current_disposition_without_typed_declaration": [],
+            "duplicate_typed_names": []
+          }
+        }
+      },
+      "source": "HybridWorkflowPlanner.CompactIntent.cs:218-228"
+    },
+    {
+      "id": "current_candidate_scope",
+      "classification": "presentation ambiguity with no demonstrated causal efficacy",
+      "requests": [
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "basis": "The current candidate sources are separate from originalContext and existingInputs/existingOutputs. The fresh-v5 sentence Extract all explicit caller inputs/public results omits the current-candidate qualifier retained in earlier versions. Request7 reproduces existing interfaces visible in the opening original page without current disposition links. Request6 correctly emits no declarations despite the same existing names, so the context does not force repetition. Original pages may legitimately supply a name/type for a current-source declaration; identical existing interfaces remain acceptable when genuinely linked by current dispositions.",
+      "source": "PlanningCompactConstruction.Intent.cs:24-31,187-207; HybridWorkflowPlanner.CompactConstruction.cs:208-238"
+    },
+    {
+      "id": "artifact_content",
+      "classification": "unsupported public-interface promotion; clarification is an allowed action, not a protocol impossibility",
+      "requests": [
+        3,
+        6,
+        7,
+        8
+      ],
+      "basis": "The original report clause specifies review.json contents, without explicitly returning this report as a caller result. Initial classification is provisional, not authoritative final interface acceptance. Request7 promotes the report to a public object and uses any for unspecified content; neither report declaration nor those types were accepted because source coverage fails first. Request8 asks whether to expose it publicly and requests missing fields/types; no answer was supplied. The existing schema permits no_public_interface and original evidence retrieval, and request6 successfully used no_public_interface for another operational clause. Missing field types would matter for an actual public declaration, not force creating one for an artifact-content obligation.",
+      "context_limit": "At7/8 the middle original page specifying the saved artifact path is not inline; its exact source:request:755 address is offered for retrieval. No retrieval was attempted. This does not prove lack of evidence caused the choice, and no keyword classifier or invented output shape is warranted."
+    },
+    {
+      "id": "retained_state",
+      "classification": "no acceptance or correction-allowance defect observed",
+      "basis": "ReadInterfaceDispositions and semantic interface validation precede authoritative state assignment. The rejected4/7 declarations are absent from final requirements; accepted5 inputs/feedback and6 non-interface disposition remain. Final extraction stays incomplete. Pending clarification is copied exactly from8. No task, checkpoint, artifact or runtime was produced."
+    }
+  ],
+  "minimal_proposal": {
+    "diagnostic": "For fresh v5 only, retain duplicate/ordinal-set-equality acceptance and report bounded exact typed-without-disposition, disposition-without-typed, and duplicate-name differences distinctly. No automatic insertion, skipping or acceptance of unchanged unlinked repeats.",
+    "instruction_replacement": "Declare only the caller inputs/public results resolved for these candidate sources; originalContext and existing names supply context, not additional candidates. Match typed declarations exactly to their disposition names, merging only the same interface.",
+    "compatibility": "Preserve v2-4 guidance/diagnostics and saved issued-v5 requests. Preserve existing declaration immutability, schema, original evidence, source/version and enum/default/type validation. This is a controlled wording experiment, with no convergence or avoided-correction claim.",
+    "useful_regressions": [
+      "Both mismatch directions and duplicate typed names reject without accepting declarations/dispositions.",
+      "A later artifact-only source resolves to no_public_interface while prior interfaces remain unchanged.",
+      "A later current source may legitimately reference/redeclare an identical existing interface using supporting earlier originals.",
+      "Exact historical diagnostics/guidance and saved pending request bytes remain stable."
+    ]
+  },
+  "original_response_formatting": {
+    "method": "Scan exact receipt.text UTF-8 from the root-exported witness; count only JSON formatting whitespace outside quoted strings, honoring escapes. Parse each and compare structurally with saved receipt.json. No text persisted by this assessment.",
+    "receipts": 8,
+    "original_text_utf8_bytes": 10679,
+    "outside_json_string_whitespace_bytes": 15,
+    "max_outside_whitespace_run": 5,
+    "empty_responses": 0,
+    "all_valid_json": true,
+    "all_parsed_text_equals_receipt_json": true,
+    "normalized_response_content_bytes": 11072,
+    "hash_domain_qualification": "Original-text hashes are SHA256 of exact receipt.text UTF-8. Normalized response hashes are retained reader presentation hashes, a different domain. Request/receipt record hashes are joined exactly to the safe metrics, not recomputed by Python serialization."
+  },
+  "request_evidence": [
+    {
+      "request_number": 1,
+      "request_id": "compactrba86cf874code20v5-code-1:1:816f74e842d7f7039e3fa0238fd16de60f14536ed105a0b2b309d7327fac0a9b",
+      "record_hashes": {
+        "requests": "1940516d5c97bfb6d2c00d04aa37914389f897cad93a3c7467d7f5539370261b",
+        "http-attempts": "8ad6dae6f336ae1d12a13d5cdd1db948994afab4fe9b8630c8b861f402414492",
+        "receipts": "6a24e4fd4ff08dd446b0273df64186db6707080f5d874820617599e7aa3b18e7",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "063c4033b98a7c1ede32110fe1a9faac44d42fbce2625918c43ea65e5a02647b",
+      "original_text_utf8_bytes": 1194,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "bbb289c7469178678bb604d2bb6a89952e9730401ec2980412d24938cf150acc",
+      "normalized_response_content_bytes": 1268,
+      "prompt_utf8_sha256": "12f1f1abd2c6881a9fced3dee8dacc8d0af6124e4dcc1cbc0feec0beb2238b2b"
+    },
+    {
+      "request_number": 2,
+      "request_id": "compactrba86cf874code20v5-code-1:2:933a12d4fc944c02abe4ea374b647a1b41aa9afee8c60a602b7c3c1580032bfe",
+      "record_hashes": {
+        "requests": "028e0cde9d462dadc72de65c461eded8bebfebe5c8f04a685783319c796c9474",
+        "http-attempts": "34c8d4072bcab73799066a575dd86122f2054a98c0c54a21a399c3d13ade32ca",
+        "receipts": "28bd29c9edc460c81d87e8e468061a4fd6cf4a978e58cf1fe381762000b066e6",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "c04effbde65a4b6c821f5ada054abb7b8f17272d71918af0ac842dcd3f387f16",
+      "original_text_utf8_bytes": 1140,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "574d5b279bc4b9e7371330c702f5abbd54082265bba38d918a704b7101d9df99",
+      "normalized_response_content_bytes": 1221,
+      "prompt_utf8_sha256": "10fc200028b0e48623510a7c2c16169d4465f44af88702a11d6d542c274babb2"
+    },
+    {
+      "request_number": 3,
+      "request_id": "compactrba86cf874code20v5-code-1:3:731349be94d5097db3a72a0353f89e924eb7123f2ac506b169165286af6b4b3e",
+      "record_hashes": {
+        "requests": "25491f16c118d5023fe01e010790db51e2bc88c7ce4de505431cffaa9280f287",
+        "http-attempts": "c67fc21e6d70aef66306e52eab25dee7235a5cbf2beeadb16c6c511d467c372a",
+        "receipts": "adb489c364ec0489d4eb186bee91388e0eb0f6a5e2cc64b6435ea8b4a9c163ce",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "4490e52cdd7c96e212f1eb479bf79dc09b7d9f24b44082397f5c1e4f17772a2a",
+      "original_text_utf8_bytes": 513,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "52162263f7f17f8e964fb6f7fb3a582f81d937d2b8560c82decee9fe854c14be",
+      "normalized_response_content_bytes": 537,
+      "prompt_utf8_sha256": "a164c2b3d762a44b477f9235a53eb91ab586b3bbac73bd978e9551f9858f770c"
+    },
+    {
+      "request_number": 4,
+      "request_id": "compactrba86cf874code20v5-code-1:4:795867e06958961b42507928b672bcc6d092d5e311773fbc2a794346b0d8fd22",
+      "record_hashes": {
+        "requests": "ef86b1911ae7636ba960ebaec2c515fcf93d99a14229a179972cce9c06c16d8a",
+        "http-attempts": "1af6f4d49b1ed5aaf09a5bc98e25553057ec0d2c553f5a70e0863ef209027753",
+        "receipts": "65907873582b0cd1f2eb1eb2b38b2f52db10063c55702a6ff229cfd4c0417cf8",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "301bb07312663de551289d88a0de4cc98322cc982ca9b914d80a30b9af467bd4",
+      "original_text_utf8_bytes": 2026,
+      "outside_json_string_whitespace_bytes": 15,
+      "max_outside_whitespace_run": 5,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "9d092ef595150a0dfaa50ffbb74aba482526c7c3251022f5a290cf2d598db9c1",
+      "normalized_response_content_bytes": 2085,
+      "prompt_utf8_sha256": "c67a33cfebee406b5195e8c0e77b74370f71ad45d26e0a7497678844575cb138"
+    },
+    {
+      "request_number": 5,
+      "request_id": "compactrba86cf874code20v5-code-1:5:81e3a0bc0a183259503275a2708c506bda0d8ae464a47aa68a0350320012457e",
+      "record_hashes": {
+        "requests": "f1d07bbc05b07e79fc249503693d03243791dd9e41e29829cbf7834664161765",
+        "http-attempts": "409b11572b2f9251ba93b6f64770087ceffc533991648d6e17494e634cc23016",
+        "receipts": "5c6652486c1338397bf868b49d8c47f4225db314a25a240fb3e54ca4cbb42fb7",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "30ed70953c5067d73f120c23d6f89668c4c31d7c3a4b1952dc9ea2336efe81aa",
+      "original_text_utf8_bytes": 2552,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "828adb638b1c3a5e1a68d390ee469f16ec5e23e52a4799a7d39dd95e8156cc95",
+      "normalized_response_content_bytes": 2644,
+      "prompt_utf8_sha256": "8f00f0fde18b2b37870585004328ada7b1a4355cb75e20c37be672ce182d3c6f"
+    },
+    {
+      "request_number": 6,
+      "request_id": "compactrba86cf874code20v5-code-1:6:b234edb2eac6908de771f40c9d5829e817375cc06f829eca37bc2648b0cfc96e",
+      "record_hashes": {
+        "requests": "5118b73638f419a046be8f339b0f3e59b6d9d162b968274f7f6f4369887b023d",
+        "http-attempts": "f406a4f7584c527a012cde00b882cfd423b51a5b20629939f2d93114faec476c",
+        "receipts": "4300532f0afd3be71f09866763a71537cd6f4c832423f0e710a84b5491771dd8",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "3ec6582f25f61290dafd522ba052977bb1f38ca51985ebf5e59e124f6684e458",
+      "original_text_utf8_bytes": 863,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "3ec6582f25f61290dafd522ba052977bb1f38ca51985ebf5e59e124f6684e458",
+      "normalized_response_content_bytes": 863,
+      "prompt_utf8_sha256": "35ef512ccfe1847c4cd991d1b0e18dea8228221e315fefeea8eb308ea6a30b9d"
+    },
+    {
+      "request_number": 7,
+      "request_id": "compactrba86cf874code20v5-code-1:7:6e2cc345ceaf6943a7801daad9cf19d43a5a85a999333fb976fd44c628b5e2b1",
+      "record_hashes": {
+        "requests": "987f8c8138685673ae0c45a4089b77408b7a687a6303636cbe3e5b82999119e7",
+        "http-attempts": "f5c40eadeddead572c32bdd43ffc211568e8a5bc61b7eeb5fbbd0fa515f00d10",
+        "receipts": "85413965d3a5b3c73ce1cdea3b68150b67d87c7d5a990e1bee2205e0bda97c4a",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "bf58aca75cd08e864578aa84d1b255b54aead433b8e996f80180b4462ad2ad16",
+      "original_text_utf8_bytes": 1564,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "1c0ea54db8742938138a53f8a66cbedfe555d167a8ba180614265605eee86286",
+      "normalized_response_content_bytes": 1584,
+      "prompt_utf8_sha256": "48a95ac47551a21e36f5805784b175869a6d95229d3521d6dac35e850eb5e200"
+    },
+    {
+      "request_number": 8,
+      "request_id": "compactrba86cf874code20v5-code-1:8:24a47fe2b3c8cead7e25a819e4c48de8257621c502710c8bc15c512c4e715a6c",
+      "record_hashes": {
+        "requests": "fd9bd5d7ca395bd96424166cd535fd7bbe38d07a3020941cf30cc29c14840458",
+        "http-attempts": "ac07be8d34b726315cd375bbeebfc6e7546cda4e162ea5103b6d471266cf3ffb",
+        "receipts": "b7005b3cce702d9376847afad3e5434aa54e7513d34388036bd5bfd52808e4e6",
+        "failures": null,
+        "closures": null
+      },
+      "original_text_utf8_sha256": "4cc7a7652647556334b091a1d58b6dac610b8d48cd00a71fe858fb665eb3f46f",
+      "original_text_utf8_bytes": 827,
+      "outside_json_string_whitespace_bytes": 0,
+      "max_outside_whitespace_run": 0,
+      "parsed_text_equals_receipt_json": true,
+      "normalized_response_content_sha256": "fc87de5109ad92ce70cf09db381b0f38a44c52939b42eca52b8b286bd20054b1",
+      "normalized_response_content_bytes": 870,
+      "prompt_utf8_sha256": "27622543b4d080f8042415a0a9d57e7be8ee45ce35124d8223bcb7e6341d8f0c"
+    }
+  ],
+  "limitations": [
+    "No model-cause, benefit of previous source changes, schema impossibility, empty-output or output-exhaustion claim.",
+    "No authorization, runtime execution, new caller input, new public output or provider action.",
+    "Only named bounded safe exports and committed source were read; originals remain untouched."
+  ],
+  "timing_and_transport_qualification": {
+    "whole_logical_intervals": [
+      {
+        "request_number": 4,
+        "elapsed_ms": "644608.8306",
+        "http_statuses": [
+          500,
+          500,
+          200
+        ]
+      },
+      {
+        "request_number": 8,
+        "elapsed_ms": "357512.6627",
+        "http_statuses": [
+          500,
+          200
+        ]
+      }
+    ],
+    "input_tokens": 11896,
+    "output_tokens": 11891,
+    "reasoning_tokens_within_output": 8579,
+    "interpretation": "Logical latency includes retained retries; request4 had500,500,200 and8 had500,200. No precise failed-attempt latency or failure-body cause is inferred. Eight nonempty valid JSON receipts do not support output exhaustion. Prior original assessment remains unchanged."
+  }
+}

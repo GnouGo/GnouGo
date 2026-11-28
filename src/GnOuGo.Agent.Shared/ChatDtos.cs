@@ -13,7 +13,7 @@ public sealed record ChatStreamRequestDto(
     IReadOnlyList<string>? FilesIds = null,
     string? ConversationId = null,
     string? Prompt = null,
-    string PlanningMode = "interactive");
+    string PlanningMode = "interactive", string? ThresholdMode = null);
 
 public sealed record ChatCompletionResponseDto(string Text, string? ConversationId = null);
 
@@ -45,13 +45,19 @@ public sealed record LlmConfiguredProviderDto(
     string ProviderType,
     string Url,
     string? DefaultModel,
-    bool IsDefault);
+    bool IsDefault)
+{
+    public string? DefaultModelSource { get; init; }
+}
 
 public sealed record LlmModelDto(
     string Id,
     string DisplayName,
     string ProviderType,
-    string? OwnedBy = null);
+    string? OwnedBy = null)
+{
+    public System.Text.Json.Nodes.JsonObject? DeclaredMetadata { get; init; }
+}
 
 public sealed record LlmProviderModelsDto(
     string Provider,

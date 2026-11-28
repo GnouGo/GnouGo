@@ -1,0 +1,31 @@
+{
+  "production_source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+  "planning_suite": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 3685
+    },
+    "elapsed_seconds": 354.88511491694953,
+    "source_unchanged": true,
+    "log_sha256": "424f38a645cad46bec079c88877e08f25f6bcf264050cef74f82f436713e7bee"
+  },
+  "source_manifest_sha256": "ade99be38b5d4f0fd7ce1c43413390c0510de27a99aa45b666668711ca9b146e",
+  "production_postimages_match_current": true,
+  "publication": {
+    "source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+    "exact_source_blobs_and_modes": 4756,
+    "source_manifest_sha256": "954f571723bc6a549e0c4b69f4164f594d3c3e8ee5695b0e7bad103d6a694e87",
+    "verified_output_files": 213,
+    "managed_and_native_aot_smoke": true,
+    "fresh11_and_historical_2_to_10": true,
+    "exact_pending_recovery_and_mock_runtime": true,
+    "published_encryption_and_tenant_isolation": true,
+    "limitation": "Server packaging excludes existing ClientApp and bundled-tool staging; this validates publication and synthetic encrypted persistence, not business workflows."
+  },
+  "publication_stages_passed": 12,
+  "independent_packages": 6,
+  "publication_qualification_sha256": "d468a0ca3efe4d71ada09d7794322287004d36f5719774401eb482dff1f86fe6",
+  "full_solution": "running on this source; earlier 9015-pass result belongs to09ac9ff5",
+  "business_qualification": "No execution on this candidate yet; the earlier Collections success remains09ac9ff5 evidence.",
+  "overlap": "392 focused cases overlap Planning and the full solution, never sum."
+}

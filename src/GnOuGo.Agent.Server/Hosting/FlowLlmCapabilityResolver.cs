@@ -26,6 +26,16 @@ internal sealed class FlowLlmCapabilityResolver(LLMRuntimeOptionsStore store) : 
         });
     }
 
+    public Task<int?> ImageTokenUpperBoundAsync(string? provider, string model, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var metadata = new RoutingLLMClient(store.Current, []).ResolveDeclaredMetadata(provider, model);
+        return Task.FromResult(GnOuGo.Flow.Integrations.RoutingLLMClientAdapter.ImageTokenUpperBound(metadata, images));
+    }
+
+    public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
+        => Task.FromResult(Resolve(provider, model, ct)?.SupportsVision);
+
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
         => Task.FromResult(Resolve(provider, model, ct)?.SupportsStructuredOutput);
 

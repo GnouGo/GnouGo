@@ -1,0 +1,27 @@
+{
+  "identity": "amazon-proxy-source-20261111-02",
+  "source": "b605ded48b45d49571b978430086ffa7ac31e05f",
+  "policy": "amazon-observed-review-proof-context-v6",
+  "verifier": "amazon-business-v10",
+  "source_only": true,
+  "record_count": 1448,
+  "capture_truncated": false,
+  "manifest_truncated": false,
+  "source_prerequisite_qualified": true,
+  "source_reads": 15,
+  "store_resolution_reads": 13,
+  "product_resolution_reads": 0,
+  "cold_oracle_identical": true,
+  "close": {
+    "closed": true,
+    "close_error": false,
+    "probe_error": true
+  },
+  "model_calls": 0,
+  "full_workflow_execution": false,
+  "business_oracle_passed": false,
+  "remaining_findings": [
+    "first_product_visits_incomplete"
+  ],
+  "events_sha256": "8cec6c1c5eb20a910715aac7f7f960c87b5da62bb0f4d9cca897967de0d054c1"
+}

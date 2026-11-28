@@ -1,0 +1,239 @@
+{
+  "schema": "pr120_prospective_complete_request_measurement_v1",
+  "captured_date_utc": "2026-10-29",
+  "baseline_public_production_source": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "baseline_private_execution_source": "034e9111f9198abe4c3accce0f9a7cf52a7e75ac",
+  "candidate_source": {
+    "public_base": "a18517450bcdb48ece64fd4ed552c7d07e6a5c7a",
+    "uncommitted_compaction_overlays": true,
+    "source_hashes": {
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.AuthoringEvidence.cs": "cb4823e8c0c466f5a52f307a390bda5a4087c59159fee2a2acc33bb041e426d9",
+      "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs": "2aba4e564527dfb19705e6291e363e49a072d535bd7c5878fa50ec26581a6df8"
+    },
+    "compiled_libraries": [
+      {
+        "component": "GnOuGo.Flow.Core",
+        "sha256": "300926bf08a71180e6676e9f8d24c88c22773bf58c0baec9d5b7b83d5f17bad2"
+      },
+      {
+        "component": "GnOuGo.Flow.Planning",
+        "sha256": "793a0aad6be1d62fe1c90034f00b93a9781717e47bf8249489c62d20401ad73b"
+      }
+    ]
+  },
+  "input": {
+    "exact_retained_state_sha256": "b61c5ddde6c2e73948328bc7867aec1358f7b52c64c20f58808afbf01972f6d9",
+    "stage": "construction_draft",
+    "prospective_ordinal": 29,
+    "baseline_request_hash": "ef260bc2c9749842ed1658045f4f6fa9380f2ebe9f6c49c9f982095adcbf4476",
+    "baseline_schema_hash": "89edc90e1230b13cf1563283e014cb713cf14f1ba3b019b8d21e27abb037b9de",
+    "source_state_reconstructed_from_exact_issued_selection": true
+  },
+  "captured_model": "gpt-5.5-2026-04-24",
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "mcp_manifest_sha256": "5b2c4135da538375b4eb952c21aec11208a85aefc51ca1885227b9b2c9578d11",
+  "mcp_files": 568,
+  "baseline": {
+    "bytes": 68764,
+    "estimate": 23178,
+    "requestHash": "ef260bc2c9749842ed1658045f4f6fa9380f2ebe9f6c49c9f982095adcbf4476",
+    "schemaHash": "89edc90e1230b13cf1563283e014cb713cf14f1ba3b019b8d21e27abb037b9de",
+    "components": [
+      {
+        "component": "construction_context",
+        "serializedBytes": 7204,
+        "estimatedTokens": 2402
+      },
+      {
+        "component": "diagnostics",
+        "serializedBytes": 403,
+        "estimatedTokens": 135
+      },
+      {
+        "component": "envelope",
+        "serializedBytes": 507,
+        "estimatedTokens": 425
+      },
+      {
+        "component": "evidence",
+        "serializedBytes": 1301,
+        "estimatedTokens": 434
+      },
+      {
+        "component": "fragment",
+        "serializedBytes": 22,
+        "estimatedTokens": 8
+      },
+      {
+        "component": "instructions",
+        "serializedBytes": 1070,
+        "estimatedTokens": 357
+      },
+      {
+        "component": "interfaces",
+        "serializedBytes": 11330,
+        "estimatedTokens": 3777
+      },
+      {
+        "component": "mcp_contracts",
+        "serializedBytes": 17765,
+        "estimatedTokens": 5922
+      },
+      {
+        "component": "objective",
+        "serializedBytes": 584,
+        "estimatedTokens": 195
+      },
+      {
+        "component": "requirements",
+        "serializedBytes": 13226,
+        "estimatedTokens": 4409
+      },
+      {
+        "component": "response_schema",
+        "serializedBytes": 15352,
+        "estimatedTokens": 5118
+      }
+    ]
+  },
+  "candidate": {
+    "bytes": 59034,
+    "estimate": 19934,
+    "requestHash": "d34f002df5135f981aaf46535bef2efdf4363c5506be73110b9dbdb208ed0cb9",
+    "schemaHash": "751af9debac86e530bde5eff1ead00a22e591b14174357cac83780c2b1fd9884",
+    "components": [
+      {
+        "component": "construction_context",
+        "serializedBytes": 7204,
+        "estimatedTokens": 2402
+      },
+      {
+        "component": "diagnostics",
+        "serializedBytes": 403,
+        "estimatedTokens": 135
+      },
+      {
+        "component": "envelope",
+        "serializedBytes": 507,
+        "estimatedTokens": 425
+      },
+      {
+        "component": "evidence",
+        "serializedBytes": 1301,
+        "estimatedTokens": 434
+      },
+      {
+        "component": "fragment",
+        "serializedBytes": 22,
+        "estimatedTokens": 8
+      },
+      {
+        "component": "instructions",
+        "serializedBytes": 1070,
+        "estimatedTokens": 357
+      },
+      {
+        "component": "interfaces",
+        "serializedBytes": 11330,
+        "estimatedTokens": 3777
+      },
+      {
+        "component": "mcp_contracts",
+        "serializedBytes": 13073,
+        "estimatedTokens": 4358
+      },
+      {
+        "component": "objective",
+        "serializedBytes": 584,
+        "estimatedTokens": 195
+      },
+      {
+        "component": "requirements",
+        "serializedBytes": 8263,
+        "estimatedTokens": 2755
+      },
+      {
+        "component": "response_schema",
+        "serializedBytes": 15277,
+        "estimatedTokens": 5093
+      }
+    ]
+  },
+  "measurement": {
+    "estimator": "serialized_utf8_div3_plus256_v1",
+    "input_target": 8000,
+    "input_maximum": 20000,
+    "saved_complete_bytes": 9730,
+    "estimated_tokens_reduced": 3244,
+    "estimated_input_headroom": 66,
+    "complete_components_reconcile": true,
+    "captured_settings_unchanged": true
+  },
+  "conservation_checks": {
+    "allNonContextRequestSettingsUnchanged": true,
+    "step": true,
+    "globalConstraints": true,
+    "instructions": true,
+    "operations": true,
+    "evidence": true,
+    "draft": true,
+    "diagnostics": true,
+    "rebuild": true,
+    "outputs": true,
+    "taskEvidence": true,
+    "consumedInterfacesFullyReconstruct": true,
+    "originalRequirementsSourcesStatusesAndCommitments": true,
+    "exactCheckpointRetrieval": true
+  },
+  "checkpoint_rows_verified": 15,
+  "validation": {
+    "private_helper_build_warnings": 0,
+    "private_helper_build_errors": 0,
+    "all_conservation_checks_pass": true,
+    "provider_calls": 0,
+    "operational_reads": 0,
+    "runtime_effects": 0,
+    "prospective_request_dispatched": false
+  },
+  "candidate_status_difference": {
+    "completionClaimPendingReview_false_wrappers": 7,
+    "additional_wire_bytes_vs_earlier_compaction_prototype": 329,
+    "retained": true
+  },
+  "evidence_sha256": {
+    "private_measurement_program": "6a16065495733549be6fd353b5d25f5dd25c8b337c15666870f69b23a0057fe6",
+    "private_summary": "a34ae78cea6fba04b1f8b9615b481fa2268992485a6c6d17470b0b36044f6d2a",
+    "exact_baseline_request": "ef260bc2c9749842ed1658045f4f6fa9380f2ebe9f6c49c9f982095adcbf4476",
+    "candidate_prospective_request": "d34f002df5135f981aaf46535bef2efdf4363c5506be73110b9dbdb208ed0cb9",
+    "candidate_complete_measurement": "32472f0fe8a03d45c0f401a39bc92aef95301073d09e2121b9ae6276bceed1cc",
+    "helper_build_log": "ffb95c54c4671a32163e6f89e3b023369c7af059a909f31e255f9a2f3f9417b4",
+    "helper_execution_log": "23b40040407d519497a713b207f09a6f14385f8370f62a22ce5a2052e3c9d3b5"
+  },
+  "limitations": [
+    "This measures the actual compiled candidate projection on a frozen retained input. It is prospective and unissued; no live convergence, runtime or cost improvement is established.",
+    "The baseline was e880; the candidate also retains the A185 completion-claim-pending status. Its329additional bytes are disclosed rather than attributed to the compaction.",
+    "Original obligations, exact consumed schemas, nullable values, ancestor constraints, original references and producer arguments are compared after recursive metadata reconstruction. Optional checkpoint navigation is retrieved through existing exact links.",
+    "The remaining66estimated tokens of headroom concern this exact request only; they do not establish general admission or completion."
+  ]
+}

@@ -1,0 +1,182 @@
+{
+  "production_and_harness_source": "0881cf87f2274720a99f0d4675ee4fbd9530d531",
+  "run": "compactm0881cf87code11a-code-1",
+  "status": "received_draft_output_exhaustion_after_one_operator_revision",
+  "logical_requests": 49,
+  "physical_attempts": 49,
+  "verified_completions": 49,
+  "judge_calls": 4,
+  "correction_charges": 1,
+  "operator_planning_interventions": 1,
+  "planning_ms_cumulative": 2823714,
+  "planning_ms_before_intervention": 1201871,
+  "known_cost_eur_cumulative": "4.9313617174166891224288152338",
+  "known_cost_eur_before_intervention": "1.7850040420371867421180274859",
+  "retained_unknown_reservation_eur": "0",
+  "provider_tokens": {
+    "input_tokens": 359795,
+    "output_tokens": 123037,
+    "reasoning_tokens": 111409
+  },
+  "received_empty_text_replies": 1,
+  "received_whitespace_only_nonempty_replies": 0,
+  "failure": {
+    "request": 49,
+    "phase": "construction_draft",
+    "selected_kind": "transform",
+    "objective": "Derive local structured review feedback from supplied check/review results",
+    "provider_input_tokens": 9936,
+    "output_tokens": 16384,
+    "reasoning_tokens": 16384,
+    "visible_text_bytes": 0,
+    "status": "output_limit",
+    "cause_of_exhaustion": "unproven",
+    "automatic_escalation_or_retry": false
+  },
+  "confirmed_scoped_revision": {
+    "source": "0881cf87f2274720a99f0d4675ee4fbd9530d531",
+    "run": "compactm0881cf87code11a-code-1",
+    "operator_intervention": 1,
+    "initial_logical_calls": 24,
+    "repair_request": 25,
+    "renewed_review": 26,
+    "actual_correction_charges": 1,
+    "same_task_ids": true,
+    "clone_branch_and_directory_unchanged": true,
+    "type_changes_only_ten_zero_array_maxima_to_unspecified": true,
+    "unspecified_maximum_serialization": "nullable optional values may be absent; only the ten former zero maxima differ",
+    "other_task_owned_fields_unchanged": true,
+    "renewed_business_review_ok": true,
+    "workflow_complete": false,
+    "runtime_started": false,
+    "qualifies_intervention_free": false
+  },
+  "subsequent_closure_review": {
+    "request": 29,
+    "verdict": "ok"
+  },
+  "cached_operation_path": {
+    "selection": 46,
+    "draft": 47,
+    "intervening_discovery_calls": 0,
+    "equivalent_completed_control_trace": false,
+    "eliminated_calls_claimed": null
+  },
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_status": "not_started",
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "all_components_reconcile": true,
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488,
+      "peak_components": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 427,
+        "instructions": 1404,
+        "intent": 2387,
+        "interfaces": 59,
+        "response_schema": 4156
+      }
+    },
+    "construction_select": {
+      "logical_calls": 11,
+      "p50_bytes": 32778,
+      "p95_bytes": 39187,
+      "maximum_bytes": 39187,
+      "peak_components": {
+        "construction_context": 2802,
+        "envelope": 499,
+        "evidence": 3741,
+        "instructions": 2968,
+        "interfaces": 6858,
+        "requirements": 14531,
+        "response_schema": 7788
+      }
+    },
+    "construction_discovery": {
+      "logical_calls": 20,
+      "p50_bytes": 41929,
+      "p95_bytes": 48732,
+      "maximum_bytes": 49502,
+      "peak_components": {
+        "construction_context": 2101,
+        "envelope": 496,
+        "evidence": 7637,
+        "instructions": 2240,
+        "interfaces": 2999,
+        "mcp_contracts": 9191,
+        "mcp_descriptors": 4451,
+        "objective": 543,
+        "requirements": 12175,
+        "response_schema": 7669
+      }
+    },
+    "construction_draft": {
+      "logical_calls": 11,
+      "p50_bytes": 41887,
+      "p95_bytes": 52263,
+      "maximum_bytes": 52263,
+      "peak_components": {
+        "construction_context": 5865,
+        "diagnostics": 26,
+        "envelope": 504,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 11876,
+        "mcp_contracts": 6178,
+        "objective": 534,
+        "requirements": 9359,
+        "response_schema": 16730
+      }
+    },
+    "construction_local_judge": {
+      "logical_calls": 4,
+      "p50_bytes": "24561.5",
+      "p95_bytes": 30254,
+      "maximum_bytes": 30254,
+      "peak_components": {
+        "construction_context": 6938,
+        "envelope": 497,
+        "fragment": 15145,
+        "instructions": 1456,
+        "interfaces": 304,
+        "requirements": 3939,
+        "response_schema": 1975
+      }
+    },
+    "replan": {
+      "logical_calls": 2,
+      "p50_bytes": 41850,
+      "p95_bytes": 59883,
+      "maximum_bytes": 59883,
+      "peak_components": {
+        "construction_context": 21376,
+        "diagnostics": 355,
+        "envelope": 503,
+        "evidence": 1145,
+        "fragment": 8459,
+        "instructions": 3560,
+        "interfaces": 25,
+        "mcp_contracts": 7110,
+        "objective": 1061,
+        "requirements": 8170,
+        "response_schema": 8119
+      }
+    }
+  },
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "source_or_profile_changed_mid_session": false,
+  "automatic_unchanged_request_retry": false,
+  "uncertain_replay": false,
+  "needs_permanent_uncertainty_closure": false,
+  "qualifies_intervention_free": false,
+  "runtime_success": false,
+  "subsequent_experiment_limit": "A larger draft output reservation would require a separate prospective freeze. None was raised here."
+}

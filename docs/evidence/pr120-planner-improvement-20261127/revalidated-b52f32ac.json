@@ -1,0 +1,125 @@
+{
+  "source": "b52f32acbbd487082995422363f2c44d64abcf40",
+  "business_scenario": "amazon",
+  "run": "improve40-amazon-20261127-213233",
+  "provider_calls_in_replay": 0,
+  "binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "2ed351d63095e7c7800507be5fb5f0309567a97cc987a2856f84668c4f2cf280"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "eca04d568bbb18d99278460b12a59f055b17df24afe672399bbda1a1202d3325"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "ca655485cae25d5ab8e82cd32d5d577a97f4c5b61a8e1fd4be6ac1f9e54c106a"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "a568c8d9509b7f2b7a030d226ed14873b408224d88bb33c4df2c2c83bed64506"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Copilot.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "bfb13f821ef2c4efafb0f811bd19dd9faeb901eb96288b6cfd5c63e1d7147b14"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "964c6887e4247974cff9b1dcc73578af8c2515d6ea525cca7cfb3d65f16bdc16"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "6e0d612d99a69ddea2a453e7a01769a41f0dacc1cdd99d20884cd73080ba043f"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "67b84cbd39e3d40d4d04f4450757668c2d1663901505eb1102fe3c6ce333c195"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "139df43b0309bc8cbe98c051b5c16f7eba55058ea92607521ad74e92e3f71203"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "988b8cc72ee07a5481450936de022f015fb61f70ef75b3d078885f047f482f47"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "ab65861026f67c3b2112ea967d03ab6c85329cb143530c3c2a879537e2afad36"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+b52f32acbbd487082995422363f2c44d64abcf40",
+      "sha256": "6d1132364eda79990af366e43674d0425813331b0525eb392e2cae155f7b9e37"
+    }
+  ],
+  "archived_full_candidates": {
+    "baseline": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 249516,
+      "yaml_sha256": "0fdda7d1d69d37e3d43564734f1f587dc07f4c1899f2411905f0b7ddfe37bf55",
+      "receipt_sha256": "f28bd1b246534891796da01eb3a7050b50194789012b79cfc1f8ee9a434962a8"
+    },
+    "composed": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 234244,
+      "yaml_sha256": "7100c8bf506e55b6bed126befe8187da4a912d0c7f09721516e35598477d155b",
+      "receipt_sha256": "1f880daac8876b8c233c8d73206203a5a0c7ab20014850dcfbb6dee0b266a7b1"
+    },
+    "slimfaas": {
+      "status": "final_review",
+      "findings": [],
+      "compiled_yaml_length": 16473,
+      "yaml_sha256": "e5d41747fe8cf39beedcda0f4cdf25ae61939ba55d212b73888676086bca96fe",
+      "receipt_sha256": "21dba4031b90a6e7c8633057e3e3cb11b6f89361216c54f17a1151815cd2f46d"
+    }
+  },
+  "original_consumer_continuations": {
+    "14": {
+      "receipt_sha256": "0bd22fc119df69364305f3a7257a9c7ef195eaa0224c957d740596f4c3d5c5e4",
+      "suspended_status": [
+        "resuming"
+      ],
+      "accepted_root_tasks": [
+        "search",
+        "continuation_0_view"
+      ],
+      "diagnostics": []
+    },
+    "15": {
+      "receipt_sha256": "1b22da468d0db97f45c0f51de3720238140ddafbf9896eb1e279ee279f6b05eb",
+      "suspended_status": [
+        "resuming"
+      ],
+      "accepted_root_tasks": [
+        "search_capture",
+        "continuation_0_view"
+      ],
+      "diagnostics": []
+    }
+  },
+  "other_replays": {
+    "pr120-boundary-replayed.json": "e5ce2d833bab70af165005c6ea798d3bec2f7a67ada4a62dcde0e3513425930e",
+    "pr120-guard-draft-7.json": "47f537dc989f1d5b7d14234b0f41925ed01bc9408c44b65b82b9556acf20660f",
+    "pr120-guard-draft-10.json": "5b118b21e3132df5904c5632ba0f34bc53b29a3965cc58984d15726d0010ea2b",
+    "pr120-cursor-replayed.json": "09c6ca5ddc2e5e3165d6fd6569e8dd5e99cfe3e9b9e83b9421d2e7121e6a1462",
+    "pr120-claim-replay.json": "84e01698d5fc2eec8fd48b4870f2e6d150a21de3feb0d574931baae348cab82c",
+    "pr120-matrix-replay.json": "3db452ecc9e0cfdd5ea014c62eb2c15d28cd38c574ebf648beb27f797cd26c45",
+    "pr120-a14-issued-incorrect.json": "aaf6cc0c6d1c5e1e58ca8ab2a73bdb7ffa93585ad9e832c668921cf9890f2c66",
+    "pr120-a14-issued-canonical.json": "d5b10f2092084806ec9d156fcdcb10b1d43ee6591c0b5a03fba9388fa5a49d01"
+  }
+}

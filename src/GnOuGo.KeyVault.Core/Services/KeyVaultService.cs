@@ -99,22 +99,33 @@ public sealed class KeyVaultService
         return new SecretValueDto(secret.Id, key, value, nextVersion, tenantId, version.CreatedAt);
     }
 
-    public async Task<SecretValueDto?> GetSecretAsync(string key, Guid? tenantId, string author, CancellationToken ct = default)
+    public Task<SecretValueDto?> GetSecretAsync(string key, Guid? tenantId, string author, CancellationToken ct = default)
+        => ReadSecretAsync(key, tenantId, author, null, ct);
+
+    /// <summary>Reads and audits one explicitly selected version in the same tenant as the current secret.</summary>
+    public Task<SecretValueDto?> GetSecretVersionAsync(string key, Guid? tenantId, string author, int version, CancellationToken ct = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(version);
+        return ReadSecretAsync(key, tenantId, author, version, ct);
+    }
+
+    private async Task<SecretValueDto?> ReadSecretAsync(string key, Guid? tenantId, string author, int? version, CancellationToken ct)
     {
         var secret = await KeyVaultQueries.GetSecretByKeyAndTenant(_db, key, tenantId);
 
         if (secret is null) return null;
 
-        var latestVersion = secret.Versions.OrderByDescending(v => v.Version).FirstOrDefault();
-        if (latestVersion is null) return null;
+        var selected = version.HasValue ? secret.Versions.SingleOrDefault(v => v.Version == version.Value) :
+            secret.Versions.MaxBy(v => v.Version);
+        if (selected is null) return null;
 
         var (_, privPem) = await GetKeyPairAsync(tenantId, ct);
-        var decrypted = CryptoService.Decrypt(latestVersion.EncryptedValue, privPem);
+        var decrypted = CryptoService.Decrypt(selected.EncryptedValue, privPem);
 
-        LogAudit(tenantId, key, AuditOperation.GetSecret, author, $"Read version {latestVersion.Version}");
+        LogAudit(tenantId, key, AuditOperation.GetSecret, author, $"Read version {selected.Version}");
         await _db.SaveChangesAsync(ct);
 
-        return new SecretValueDto(secret.Id, key, decrypted, latestVersion.Version, tenantId, latestVersion.CreatedAt);
+        return new SecretValueDto(secret.Id, key, decrypted, selected.Version, tenantId, selected.CreatedAt);
     }
 
     public async Task<bool> DeleteSecretAsync(string key, Guid? tenantId, string author, CancellationToken ct = default)

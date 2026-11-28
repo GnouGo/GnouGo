@@ -14,6 +14,7 @@ internal sealed class WorkflowSymbolTable
         string workflowName,
         IReadOnlyDictionary<string, FlowTypeDescriptor> workflowInputs,
         IReadOnlySet<string> allStepIds,
+        IReadOnlySet<string>? checkedInputNames,
         Dictionary<string, FlowTypeDescriptor>? stepOutputs = null,
         Dictionary<string, FlowTypeDescriptor>? dataVariables = null,
         Dictionary<string, HashSet<string>>? resourceTags = null,
@@ -22,6 +23,7 @@ internal sealed class WorkflowSymbolTable
         WorkflowName = workflowName;
         WorkflowInputs = workflowInputs;
         AllStepIds = allStepIds;
+        CheckedInputNames = checkedInputNames;
         _stepOutputs = stepOutputs == null
             ? new Dictionary<string, FlowTypeDescriptor>(StringComparer.Ordinal)
             : new Dictionary<string, FlowTypeDescriptor>(stepOutputs, StringComparer.Ordinal);
@@ -40,20 +42,23 @@ internal sealed class WorkflowSymbolTable
     public string WorkflowName { get; }
     public IReadOnlyDictionary<string, FlowTypeDescriptor> WorkflowInputs { get; }
     public IReadOnlySet<string> AllStepIds { get; }
+    public IReadOnlySet<string>? CheckedInputNames { get; }
     public IReadOnlyDictionary<string, FlowTypeDescriptor> StepOutputs => _stepOutputs;
     public IReadOnlyDictionary<string, FlowTypeDescriptor> DataVariables => _dataVariables;
 
     public static WorkflowSymbolTable Create(
         string workflowName,
         IReadOnlyDictionary<string, InputDef>? workflowInputs,
-        IReadOnlySet<string> allStepIds) =>
+        IReadOnlySet<string> allStepIds, bool inputsRetainEntryValues = false) =>
         new(
             workflowName,
             FlowTypeDescriptorConverter.InputMap(workflowInputs),
-            allStepIds);
+            allStepIds,
+            inputsRetainEntryValues ? workflowInputs?.Where(p => p.Value.Required)
+                .Select(p => p.Key).ToHashSet(StringComparer.Ordinal) : null);
 
     public WorkflowSymbolTable Clone() =>
-        new(WorkflowName, WorkflowInputs, AllStepIds, _stepOutputs, _dataVariables, _resourceTags, _checkedStepOutputs);
+        new(WorkflowName, WorkflowInputs, AllStepIds, CheckedInputNames, _stepOutputs, _dataVariables, _resourceTags, _checkedStepOutputs);
 
     public void SetCheckedStepOutput(string stepId, FlowTypeDescriptor descriptor) => _checkedStepOutputs[stepId] = descriptor;
     public bool TryGetCheckedStepOutput(string stepId, out FlowTypeDescriptor descriptor) => _checkedStepOutputs.TryGetValue(stepId, out descriptor!);

@@ -1,0 +1,30 @@
+# Bounded workflow agent qualification
+
+The follow-up includes a normal Server execution of the pinned checkout and tests, captured SDK and Amazon failures, phase measurements and reconciled funding. [27 November planner qualification](../pr120-planner-improvement-20261127/README.md)
+
+The Windows Server executable was published from `246a1eff8e99ffc36662dc6981de170cfcc6d10b`. Both fresh Server qualifications stopped during planning. The captured sessions produced no business tool receipts, workbook, independent readback or local SDK review.
+
+## Fresh Windows Server sessions
+
+| Scenario | Sessions | Planning calls | Input tokens | Output tokens | Summed session time | Measured tariff |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Amazon.fr | 7 | 304 | 5,734,568 | 171,951 | 1 h 30 min 33 s | €13.846173 |
+| Local SlimFaas review | 8 | 361 | 4,819,448 | 170,720 | 1 h 44 min 33 s | €11.756009 |
+
+**Amazon.fr.** The requested search was `chaussure geox homme 45`. The most recent session scoped the optional native business agent to earlier unresolved groups. Its proposed detail visit lost the Browser URL constraint on the selected item. After a clarification supplied the original-link mapping, the planner stopped on a repeated strategy. The scenario now carries the original zero-based link position and exact signed href, checks their equality and binds the original Browser href to the direct visit. An offline replay removed the URL diagnostic. It still reported three separate issues in that earlier compound draft. [Last Server session](amazon-attempt-7.json) · [Original-link replay](amazon-original-link-replay-de8c0ff9.json)
+
+**SlimPlanet/SlimFaas #519.** The target was base `bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1` and head `00af9df84dfba79c3330beed31e118523f4f094d`. The last plan included checkout, comparison, the pinned upstream checks, one SDK review, local delivery and cleanup. Global review found that a failed cleanup receipt could pass. The user clarification added a requirement after final closure selection. The Server stopped with that requirement still open. An offline replay of the fix retained all five checkpoints and the earlier global finding. A separate local variation of the plan compiled with an explicit cleanup success assertion. The named upstream command ran all four tests in a direct probe. The SDK performed zero live review reads. Nothing was published to the upstream repository. [Last Server session](code-attempt-8.json) · [Closure replay](code-clarified-closure-replay-246a1eff.json) · [Cleanup assertion](code-cleanup-assertion-replay-246a1eff.json) · [Four upstream tests](pinned-long-path-command-probe.json)
+
+The fifteen sessions used 665 physical planning calls, including the planner’s own reviews. Workflow execution and runtime verification each used zero model calls. The per-scenario and per-phase counts, token totals and timing are in the [campaign summary](campaign-summary.json). The old €15 authorization closed with €10.152870 measured and zero reservations. The independent €30 campaign recorded €25.602182 at the captured tariffs, €0 reserved, zero unknown attempts and €4.397818 available. The last pair of planning runs cost €4.844943 before either reached execution. Paid calls stopped with a €0.447125 gap against that planning reference. [Grant and closure](funding.json)
+
+## Windows validation
+
+Release builds for 23 projects succeeded with warnings treated as errors. The Windows full planner suite passed 3,353 tests. The final Server selection passed 269, the runtime routing and budget selection passed 218, and the three SDK and runner assemblies passed 446. Git and Cmd accounted for 192 distinct passing tests. Two Cmd transport fixtures failed in the concurrent run and passed when their three-case class was rerun. The Server suite was rerun after correcting its prompt assertion and migrating historical fixtures to the pinned code profile. In all, 4,478 distinct test cases passed across the final results. The receipt identifies the exact test-source blobs used for that Server run. Five additional credentialed SDK integration cases were skipped on the preceding `de8c0ff9` run. [Windows test results and retries](windows-tests-246a1eff.json)
+
+The self-contained, trimmed win-x64 Server passed its persistence and exact receipt recovery smoke. All five bundled tools were present. The bundled Copilot MCP verified encrypted task recovery, tenant isolation, uncertain outcome handling and structured wire exchange. The bundled Git MCP advertised the expected comparison schema over stdio. The executable SHA-256 was `34ae1162703a9e02e8e567a408bb036014e44b8fb1e2c10a59b5782b2b54f647`. Publishing emitted six EF Core experimental-feature notices and the upstream ASP.NET Core linker warning `IL2101`. All three NuGet packages contained the expected commit. [Server binary](windows-bundled-server-246a1eff.json) · [Copilot smoke](windows-bundled-copilot-246a1eff.json) · [Git discovery](windows-bundled-git-246a1eff.json) · [NuGet packages](nuget-246a1eff.json)
+
+The two scenario-specific blockers were replayed locally without model calls. A further replay reduced one 239,178-byte archived planner response to 79,516 bytes. Requesting the linked record recovered the full earlier evidence. [Archived evidence replay](amazon-archived-evidence-replay-246a1eff.json)
+
+## Diagnostic artifacts from the previous campaign
+
+The ten-product workbook came from real Browser and Document diagnostics. Its independent ZIP/XML readback matched all 30 cells. The earlier local review covered a different SlimFaas head, `458efb736ad6f4159281606da573d51c5115256c`. These files document those earlier checks. [Workbook](../pr120-windows-15eur-20261126/ten-products.xlsx) · [Workbook readback](../pr120-windows-15eur-20261126/ten-products-readback.json) · [Earlier review](../pr120-windows-15eur-20261126/slimfaas-519-review.md)

@@ -1,0 +1,178 @@
+{
+  "production_and_harness_source": "72c7724eaa320de074ed054d5dfbaa0e482d1ee6",
+  "run": "compactm72c7724ecode11a-code-1",
+  "status": "stopped_after_repeated_local_business_finding_without_edit_authority",
+  "logical_requests": 33,
+  "physical_attempts": 33,
+  "received_completions": 33,
+  "judge_calls": 2,
+  "reconsideration_calls": 1,
+  "charged_corrections": 1,
+  "charged_correction_reason": "Repeated original requirement ID in selection18; corrected selection19.",
+  "actual_plan_repairs": 0,
+  "operator_planning_interventions": 0,
+  "known_cost_eur": "3.7522006646905595975927422979",
+  "retained_unknown_reservation_eur": "0",
+  "provider_tokens": {
+    "input_tokens": 250069,
+    "output_tokens": 97566,
+    "reasoning_tokens": 88212
+  },
+  "received_empty_responses": 0,
+  "received_output_exhaustion": 0,
+  "artifact_binding_projection_exercised": true,
+  "first_pass_code_agent_bindings": {
+    "requests": [
+      26,
+      28
+    ],
+    "binding": "clonedReviewRepository.projectRootRelative",
+    "compiler_artifact_diagnostics": 0,
+    "avoided_corrections_claimed": false
+  },
+  "local_review_context_loss": {
+    "closed_child": "/tasks/toolVersionEvidenceWhenCloneSucceeded/body",
+    "actual_open_ancestors": [
+      "/root"
+    ],
+    "ancestor_absent_from_projection": true,
+    "completed_requirement_claims": [],
+    "workflow_completion_claim": false,
+    "finding": "Child body lacks failure-safe cleanup; task instructions alone do not guarantee cleanup.",
+    "context_fix_is_not_cleanup_satisfaction": true,
+    "independently_confirmed_false_positive_count": null,
+    "semantic_status": "Scope timing remains disputed; missing parent context is confirmed. Final failure cleanup remains an unresolved obligation."
+  },
+  "reconsideration": {
+    "first_finding_request": 31,
+    "support_request": 32,
+    "second_finding_request": 33,
+    "support_was_already_cited": true,
+    "actual_correction_charge": 0,
+    "outcome": "finding persists; stopped without broadening structural edit authority"
+  },
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 8488,
+      "p95_bytes": 8488,
+      "maximum_bytes": 8488
+    },
+    "construction_select": {
+      "logical_calls": 7,
+      "p50_bytes": 27783,
+      "p95_bytes": 35681,
+      "maximum_bytes": 35681
+    },
+    "construction_draft": {
+      "logical_calls": 7,
+      "p50_bytes": 42682,
+      "p95_bytes": 59057,
+      "maximum_bytes": 59057
+    },
+    "construction_discovery": {
+      "logical_calls": 15,
+      "p50_bytes": 45317,
+      "p95_bytes": 52748,
+      "maximum_bytes": 52748
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "p50_bytes": 29023,
+      "p95_bytes": 33811,
+      "maximum_bytes": 33811
+    },
+    "replan": {
+      "logical_calls": 1,
+      "p50_bytes": 27878,
+      "p95_bytes": 27878,
+      "maximum_bytes": 27878
+    }
+  },
+  "peak_request_components_by_phase": {
+    "construction_intent": {
+      "construction_context": 29,
+      "diagnostics": 26,
+      "envelope": 427,
+      "instructions": 1404,
+      "intent": 2387,
+      "interfaces": 59,
+      "response_schema": 4156
+    },
+    "construction_select": {
+      "construction_context": 2477,
+      "envelope": 498,
+      "instructions": 2968,
+      "interfaces": 6482,
+      "requirements": 15154,
+      "response_schema": 8102
+    },
+    "construction_draft": {
+      "construction_context": 6443,
+      "diagnostics": 26,
+      "envelope": 505,
+      "evidence": 25,
+      "fragment": 22,
+      "instructions": 1144,
+      "interfaces": 12367,
+      "mcp_contracts": 13472,
+      "objective": 564,
+      "requirements": 9622,
+      "response_schema": 14867
+    },
+    "construction_discovery": {
+      "construction_context": 1900,
+      "envelope": 497,
+      "evidence": 12195,
+      "instructions": 2240,
+      "interfaces": 2546,
+      "mcp_contracts": 8848,
+      "mcp_descriptors": 4397,
+      "objective": 439,
+      "requirements": 11630,
+      "response_schema": 8056
+    },
+    "construction_local_judge": {
+      "construction_context": 6053,
+      "envelope": 497,
+      "fragment": 19150,
+      "instructions": 1456,
+      "interfaces": 535,
+      "requirements": 4046,
+      "response_schema": 2074
+    },
+    "replan": {
+      "construction_context": 2222,
+      "envelope": 499,
+      "fragment": 19150,
+      "instructions": 357,
+      "interfaces": 535,
+      "requirements": 4046,
+      "response_schema": 1069
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "planning_ms": 2071488,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "settings_changed": false,
+  "qualifying_success": false,
+  "whole_run_efficiency_claimed": false,
+  "no_abandonment_required": "All33 requests have received receipts; no uncertain replay.",
+  "intent_calls": 1,
+  "intent_provider_latency_ms": "77123.1745",
+  "first_independently_checked_clone_construction": {
+    "logical_request": 9,
+    "remote_literal_matches_oracle": true,
+    "branch_and_directory_singleton_enums_match_oracle": true,
+    "additional_runtime_interpretation_dependency": true,
+    "runtime_success": false,
+    "sum_model_call_latency_ms_through_construction": "557628.6280",
+    "wall_latency_to_construction_ms": null,
+    "not_a_matched_state_savings_claim": true
+  }
+}

@@ -1,0 +1,133 @@
+{
+  "source": "8a0f10c0aae44b706c71351b27602f75e5a62f12",
+  "run": "improve40-amazon-20261127-125435",
+  "session": "559d246045e9443492efab791ee8270b",
+  "scenario": "amazon",
+  "oracle_version": "amazon-business-v16",
+  "started_utc": "2026-11-27T12:56:00.8209014+00:00",
+  "finished_utc": "2026-11-27T13:20:01.1723195+00:00",
+  "wall_seconds": 1440.351418,
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2261,
+      "output_tokens": 1723,
+      "measured_eur": "0.0130000000000000000000000000",
+      "duration_ms": "135697.6885"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 5761,
+      "output_tokens": 1826,
+      "measured_eur": "0.0214419134396355353075170843",
+      "duration_ms": "53805.7924"
+    },
+    "construction_implementation": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 99253,
+      "output_tokens": 5078,
+      "measured_eur": "0.2492232346241457858769931664",
+      "duration_ms": "168584.3822"
+    },
+    "construction_discovery": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "input_tokens": 184599,
+      "output_tokens": 3675,
+      "measured_eur": "0.4372414578587699316628701593",
+      "duration_ms": "167467.1139"
+    },
+    "construction_draft": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "input_tokens": 284532,
+      "output_tokens": 9841,
+      "measured_eur": "0.6929703872437357630979498862",
+      "duration_ms": "306867.2829"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 10911,
+      "output_tokens": 338,
+      "measured_eur": "0.0263940774487471526195899772",
+      "duration_ms": "18447.8037"
+    },
+    "replan": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 402484,
+      "output_tokens": 2213,
+      "measured_eur": "0.9269020501138952164009111618",
+      "duration_ms": "255823.2906"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "stopped",
+  "replans": 3,
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_REVIEW_ALLOWANCE",
+      "location": "/"
+    }
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 46,
+    "repairs": 3,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "executed": false,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "272737d328017c2fa71d2cd19f003baaee1555af0a80b82aa6234edc13ee66ce",
+    "server": "7f2b524a8775d04dada1bdd633e2e86b3fc1ed3da56a3134c7b11f3b865416d8",
+    "GnOuGo.Browser.Mcp": "b463d33c94e0ae1c88724b42f12e4532ad24e186e31f9ab0e9a74bc5a89aa352",
+    "GnOuGo.Document.Mcp": "7c58f0c665d9a8f27bcbbc47c7350ff1a36885df01b0715813215cc1655cf0d1"
+  },
+  "campaign_opening_measured_eur": "33.0446788154897494305239183",
+  "campaign_closing": {
+    "calls": 923,
+    "known_input_tokens": 14588063,
+    "known_output_tokens": 478870,
+    "known_cost_eur": "35.411851936218678815489749759",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "35.649191343963553530751708757"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "559d246045e9443492efab791ee8270b",
+      "httpAttempts": 46,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "2.3671731207289293849658314352",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "observed_business": {
+    "fresh_searches": 0,
+    "product_visits": 0,
+    "workbook_exists": false,
+    "workflow_started": false
+  },
+  "terminal_cause": "CONSTRUCTION_REVIEW_ALLOWANCE",
+  "captured_repair_replay": "matrix-and-index-replay.json",
+  "retained_prompt_projection": "imported-output-schema-replay.json"
+}

@@ -1,0 +1,32 @@
+{
+  "closed": {"campaign":"pr120-win-amazon-review-20261126-15","authorization":"user-pr120-close-15-start-agent-routing-20261126","closed_at_utc":"2026-11-26T21:10:18.1203398+00:00","ceiling_eur":15,"accounting":{"calls":235,"session_calls":0,"known_input_tokens":4201994,"known_output_tokens":127558,"known_cost_eur":10.152870159453302961275626453,"reserved_input_tokens":0,"reserved_output_tokens":0,"reserved_cost_eur":0,"cost_upper_bound_eur":10.152870159453302961275626453,"unknown_attempts":0},"retained_application_reservations_eur":0},
+  "opened": {"kind":"independent_new_spend","campaign":"pr120-agent-routing-20261126-30","allowance_eur":30,"current_authorized_ceiling_eur":30,"authorization_reference":"user-pr120-agent-routing-fresh-live-20261126-eur30","configuration_id":"a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6","previous_campaign":"pr120-win-amazon-review-20261126-15","previous_ceiling_eur":15,"historical_liabilities_unreconciled":true,"initial_new_consumption_eur":0,"globally_available_funding":null},
+  "opening_audit": {
+  "campaign": "pr120-agent-routing-20261126-30",
+  "ceilingEur": 30,
+  "ceilingSource": "persisted_spending_authorizations",
+  "retainedApplicationReservationsEur": 0,
+  "accounting": {
+    "calls": 0,
+    "session_calls": 0,
+    "known_input_tokens": 0,
+    "known_output_tokens": 0,
+    "known_cost_eur": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": 0,
+    "unknown_attempts": 0,
+    "sessions": [],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  }
+}
+}

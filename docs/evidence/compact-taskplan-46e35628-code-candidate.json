@@ -1,0 +1,329 @@
+{
+  "source": "46e356283e431c3c7911010ac7098302f8df9b71",
+  "presentation_version": 10,
+  "cohort": "compactr46e356283code20nhv10a",
+  "run": "compactr46e356283code20nhv10a-code-1",
+  "case": "code",
+  "role": "Matched frozen candidate diagnostic; incomplete business work, no runtime qualification.",
+  "freeze_sha256": "28c984ac8a9f048673f8d83bafc1476c6ac456a35bb2706a3dd784bb1d204c01",
+  "command_sha256": "02d85a2012cc84a6ccfd63507be32a9b2b4cb1bc09116591fc17d1321177c0d0",
+  "benchmark_binary_sha256": "f7777fb76640b17f8c31c7dd3928580291763b4226f15c0d02ac963116c12cd5",
+  "source_manifest_sha256": "fb36f47872bccd7576d5f98b079199600694d9be1772dee96e269649272448e4",
+  "phase_policy_sha256": "00fcfe333c623720a4cd0495bb604d784c00e4229b6ba008cfebe357d1764c8e",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 18000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "high",
+      "outputTokens": 8192
+    }
+  },
+  "observation_utc": "2026-10-27T19:08:30.064280+00:00",
+  "status": "stopped",
+  "revision": 25,
+  "planning": {
+    "logical_calls": 25,
+    "physical_attempts": 25,
+    "known_input_tokens": 188073,
+    "known_output_tokens": 53979,
+    "known_cost_eur": "2.2844578313253012048192771082",
+    "unknown_attempts": 0,
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "receipts": 25,
+    "corrections": 2,
+    "known_reasoning_tokens": 44350,
+    "planning_wall_ms": 1194685,
+    "provider_discovery_reads": 3
+  },
+  "terminal": {
+    "code": "CONSTRUCTION_CONTRACT_LIMIT",
+    "phase": "construction_draft",
+    "request_number": 26,
+    "complete_request_bytes": 70797,
+    "estimated_input_tokens": 23855,
+    "frozen_input_limit": 20000,
+    "dispatched": false,
+    "provider_failure_records": 0,
+    "all_admitted_receipts_present": true,
+    "pending_receipt_uncertainty": false,
+    "retention_needed": false,
+    "interpretation": "Mandatory request admission stopped planning before a provider call. This is distinct from a rejected or exhausted provider response."
+  },
+  "trajectory": [
+    {
+      "requests": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "observation": "Original-clause and interface acquisition. Final public inputs are required pullRequestUrl:string and reviewText:string without defaults. Two total correction charges are reported; exact intermediate interface bodies and issued diagnostic history were not retained by this safe projection."
+    },
+    {
+      "requests": [
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ],
+      "observation": "Selected clone work, discovered and bound original git clone capability, requested its branch schema, drafted exactly pinned repository/head/path arguments and received clean scoped findings."
+    },
+    {
+      "requests": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24
+      ],
+      "observation": "Selected prerequisite verification; two discovery batches, one repeated description address, then bound cap_e872 and drafted a task consuming clone.projectRootRelative. Two clean scoped Judge responses followed."
+    },
+    {
+      "requests": [
+        25,
+        26
+      ],
+      "observation": "Directly selected the already known cap_e872 for a further objective. The next mandatory draft was constructed and rejected before dispatch. Exact next objective/input references and full rejected payload are unavailable here, so repeated tool identity is not classified as duplicate work."
+    }
+  ],
+  "accepted_progress": {
+    "public_inputs": [
+      {
+        "name": "pullRequestUrl",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      },
+      {
+        "name": "reviewText",
+        "type": {
+          "kind": "string",
+          "nullable": false,
+          "items": null,
+          "fields": []
+        },
+        "required": true,
+        "default_sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+      }
+    ],
+    "operation_tasks": 2,
+    "empty_groups": 0,
+    "public_outputs": 0,
+    "cleanup_tasks": 0,
+    "clone": {
+      "id": "clone_pr_repository",
+      "operation": "cap_fa8aa0024ff2ec0a4f9e61ad",
+      "exact_literal_arguments": {
+        "remoteUrl": "https://github.com/AxaFrance/SmartGuide.git",
+        "branch": "f2f6bda0e02a6c5c363e88cd6cb5d4eb7c313488",
+        "targetDirectory": "workflows/schema-portability-20261019-incremental/compactr46e356283code20nhv10a-code-1/repository"
+      },
+      "captured_literal_hashes": {
+        "remoteUrl": "ed4532b7eea0ec8ae201dd7c9e43df460ceb0fc303d84caff9667273d69be9a0",
+        "branch": "7f51289941c0460c524ae761905c68600fca00c93be4dc1fe0e01b700c096858",
+        "targetDirectory": "14ea6043c38dee6f1eb023fa3b7989c43d270894e05a7c128dbaa54f228f9a7c"
+      },
+      "matches_frozen_repository_head_and_run_path": true
+    },
+    "dependent_task": {
+      "id": "verify_toolchain_prerequisites",
+      "operation": "cap_e87238bc6035a17954299a78",
+      "depends_on": [
+        "clone_pr_repository"
+      ],
+      "projectRoot": {
+        "kind": "output",
+        "source": "clone_pr_repository",
+        "port": "projectRootRelative",
+        "number": null,
+        "boolean": null,
+        "predicate": null,
+        "items": [],
+        "members": []
+      },
+      "task_text_sha256": "ae55931c40542e0d0fa73e96e8b305574954d1e3287a93ea234c452c35a22144",
+      "task_text_characters": 552,
+      "boundary": "Its authored purpose is named prerequisite verification. Exact task text and original operation semantics were not independently revalidated by this public projection; no runtime command or successful prerequisite check is inferred."
+    },
+    "accepted_plan_sha256": "40e74fc82923c1bd7c010b465ac125e1e679cb77b39739a4219f92ac368a41fa",
+    "completed_business_obligations": 0,
+    "logical_calls_per_completed_obligation": null,
+    "physical_calls_per_completed_obligation": null,
+    "boundary": "Two accepted operations are partial construction. No complete review artifact, checks, local feedback file or cleanup execution occurred."
+  },
+  "last_selection": {
+    "request_number": 25,
+    "id": null,
+    "kind": "operation",
+    "scope": "/root",
+    "requirementIds": [
+      "req_0"
+    ],
+    "operationIds": [
+      "cap_e87238bc6035a17954299a78"
+    ],
+    "closeRequirementIds": [],
+    "closeScopes": null,
+    "continuationId": null,
+    "objective_sha256": "f0fec09fbd4f7372f6a92f7b7b3a351f03f5766ec6e53df23b82032d479c71b7",
+    "same_operation_as_existing_task": true,
+    "input_references_available": false,
+    "distinct_new_work_or_redundancy": "Unclassified: same capability identity alone cannot distinguish a legitimate new command from duplicate work."
+  },
+  "review_observations": {
+    "clean_scoped_judge_requests": [
+      14,
+      23,
+      24
+    ],
+    "request_acknowledgment_pairs": 27,
+    "broad_acknowledgments": 27,
+    "subject_acknowledgments": 0,
+    "received_continuation_associations": 0,
+    "received_boundary_claims": 0,
+    "retained_reuse_events": null,
+    "retained_transition_events": null,
+    "checkpoint_count": null,
+    "boundary": "No raw construction/proof/transition journals in this public projection. No host transition or saved-call counterfactual is inferred."
+  },
+  "correction_boundary": {
+    "total_charges": 2,
+    "exact_per_charge_attribution": false,
+    "reason": "The safe trace identifies seven intent requests but does not retain intermediate interface bodies or issued diagnostic history. No guessed assignment of individual charges."
+  },
+  "context_limit_analysis": {
+    "component_utf8_bytes": {
+      "mcp_contracts": 28745,
+      "response_schema": 21007,
+      "construction_context": 7477,
+      "requirements": 5031,
+      "interfaces": 4883,
+      "evidence": 1280,
+      "instructions": 1273,
+      "objective": 604,
+      "envelope": 449,
+      "diagnostics": 26,
+      "fragment": 22
+    },
+    "contract_pins": [
+      {
+        "id": "cap_e87238bc6035a17954299a78",
+        "version": "c3054449c9350b0f59c43bc3e5f164932eac812f9e3d9c705d4d6e2a4ddd1f7a",
+        "hash": "02d62f95bcd35d7c37080532610e52be3f29703f127fa28b95f112e5f3d59eb2"
+      },
+      {
+        "id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+        "version": "ee5b7e4c7ec176a5d7899e045c5cfdc9b94cd27b9359ca11e5610e0e5e933aef",
+        "hash": "3e19c2c43af92705d4448250a811ca036db5a9db1c6c4e87c5d1b3e85388b68e"
+      }
+    ],
+    "full_rejected_payload_available": false,
+    "removable_duplication_established": false,
+    "boundary": "The two mandatory original capability contracts and response grammar dominate the measured request. Component sizes do not establish duplicate dispensable content or an equivalent request fitting20k."
+  },
+  "response_anomalies": {
+    "normalized_objects_received": 25,
+    "recorded_content_bytes_total": 24564,
+    "received_zero_content_byte_count": 0,
+    "completion_status_missing_count": 25,
+    "original_finish_reasons": null,
+    "original_whitespace_metrics": null,
+    "http_status_codes": null,
+    "boundary": "All admitted requests have receipts and all physical attempts have known usage. Original formatting, ordinary finish reasons and HTTP statuses are not exposed here; missing fields remain unknown."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "model_calls": 0,
+    "independent_oracle_pass": false,
+    "complete_business_units": 0
+  },
+  "campaign_after_run": {
+    "captured_utc": "2026-10-27T19:08:30.064280+00:00",
+    "inspection_sha256": "f652bcc91aea3253119dfaad900f033dd16e43c93ded4d91d845565bfe32d933",
+    "campaign": "schema-portability-20261019-incremental",
+    "cost_ceiling_eur": "540.0301038327063045424449473",
+    "reserved_requests": 4976,
+    "completed_receipts": 4939,
+    "transport_accounting": {
+      "calls": 5038,
+      "session_calls": 0,
+      "known_input_tokens": 17206412,
+      "known_output_tokens": 6508020,
+      "known_cost_eur": "250.85791237701777220556148579",
+      "reserved_input_tokens": 1509590,
+      "reserved_output_tokens": 2719744,
+      "reserved_cost_eur": "79.53228681068062052410001390",
+      "cost_upper_bound_eur": "330.39019918769839272966149969",
+      "unknown_attempts": 98
+    },
+    "receiptless_count": 37,
+    "retained_closed_count": 37,
+    "unresolved_count": 0,
+    "available_eur": "209.63990464500791181278344761",
+    "boundary": "One dated post-terminal campaign read. Existing historical reserves remain unchanged; no closure or funds release was performed."
+  },
+  "comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_record_sha256": "8daa3d384455804407ade135a958c73a4ae44a2e3f290c09bc598d6ae66bb6e6",
+    "control_freeze_sha256": "5778cd647a9335a715865f838ee4e457479bf85ec792185abcb54ece86693105",
+    "control_calls_physical_receipts": [
+      23,
+      23,
+      23
+    ],
+    "candidate_calls_physical_receipts": [
+      25,
+      25,
+      25
+    ],
+    "boundary": "Control stopped at the previously demonstrated resumed prerequisite accumulation limit; candidate stopped at mandatory draft admission with different partial accepted work. Both have zero complete business units. No causal savings, avoided-correction or convergence claim."
+  },
+  "measurements": {
+    "file": "compact-taskplan-46e35628-code-measurements.json",
+    "sha256": "93681320489f82fb6a59a2ad7bf506ed38a2291d8b1a28a0893058f7a8164b47",
+    "bytes": 11408
+  },
+  "evidence": {
+    "reduction_sha256": "78beb1e6fc43dca4130ed7e2a4cfdac8080776679745963c2acbfb091935dd0e",
+    "inspection_stdout_sha256": "1d32ed1bd902e65f53db271d4afeaa5b1ce9b287bc957ce791b5c8743fdfc30f",
+    "reader_terminal_sha256": "5d4c923579bc74eb5bee66fa90ce6f8b2849bf76e56b2c27fe9b5c22121530f9",
+    "prepared_reader_peer_sha256": "3899496a8c9d83d6388c6eeee017cd406d4e8907c551da283aea24515d6caa9a"
+  },
+  "limits": [
+    "Both original input strings and full provider/request payloads remained encrypted or RAM-only; public fixed-target literals are derived and hash-checked against frozen scenario constants.",
+    "The stopped reader captured actual nested operation inputs on its first read; further interface/diagnostic/context semantics are not fabricated.",
+    "No execution, approval, continuation, replay, retention or source/profile change."
+  ]
+}

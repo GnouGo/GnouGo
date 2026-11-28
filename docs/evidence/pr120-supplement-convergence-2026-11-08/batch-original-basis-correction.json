@@ -1,0 +1,16 @@
+{
+  "supersedes_host_page_cache_commit": "87224644",
+  "failure_source": "2e6102429d7cbf6420dd9eae89363bb850080c12",
+  "existing_return_navigation_regressions": 3,
+  "corrected_worktree_commit": "74f85ebf",
+  "behavior": "Validate every original and its description continuation against the immutable pre-batch producer-access basis; keep exact contract and permission checks, normal cursor commit and atomic admission. Store no automatic page or successful-read marker.",
+  "focused_passed": 369,
+  "planning_passed": 2931,
+  "public_grammar_and_issued_requests_preserved": true,
+  "private_evidence_sha256": {
+    "post-batch-full-remainder.log": "51c9b9e09e3d6671a9976abae0b6a068d3a058bc32208ca4357960819594b5b6",
+    "post-batch-ci-failed.log": "0dcee52831a1ca54d17b244749d00366007b5737614c76b506be4074c025aba8",
+    "code16-batch-basis-green.log": "a9589d5117dfa865d88e2d86ffd6e467054efdda42a14125aa4a6e5737759390",
+    "code16-batch-basis-planning-all.log": "e2847ca22829baf44e0f827080eef183b6a423107ee09e6224029ecf9caa40f6"
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "source": "77dfe36774f54ed09eb03b3bb16a1c3adc854b85",
+  "run": "finance-final-77df-20261106-2349",
+  "campaign": "schema-portability-20261019-incremental",
+  "campaign_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "host": "GnOuGo.Agent.Server",
+  "budget_mode": "limited",
+  "financial_forecast_mode": "experimental_warning",
+  "retained_external_reservations_eur": "733.8902769679137437881016912",
+  "started_utc": "2026-11-06T23:50:11.661717+00:00",
+  "phase": "provider_probe",
+  "working_directory": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367",
+  "launch_arguments": [
+    "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+    "--schema-portability",
+    "server-live-probe",
+    "--run",
+    "finance-final-77df-20261106-2349",
+    "--model",
+    "gpt-6.1-sol-2026-09-29",
+    "--campaign-configuration",
+    "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+    "--workspace",
+    "/Users/a115vc/Desktop/GnOuGo",
+    "--campaign",
+    "schema-portability-20261019-incremental",
+    "--retained-external-reservations-eur",
+    "733.8902769679137437881016912",
+    "--financial-forecast-mode",
+    "experimental_warning"
+  ],
+  "loaded_assemblies": {
+    "entry": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Planning.Benchmark.dll",
+      "sha256": "6d9d03247576eb722f793d583defc800bf0cf37044689bbdf024be3861d0a805"
+    },
+    "server": {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/bin/Release/net10.0/GnOuGo.Agent.Server.dll",
+      "sha256": "12dc37c3aa55c7820419789508955f99407c44be0e8705505c6db8dbb2bdf5eb"
+    }
+  },
+  "configuration_sources": {
+    "provider": "campaign_provider_pin",
+    "model": "keyvault_provider_configuration",
+    "endpoint": "keyvault_provider_configuration",
+    "metadata": "bundled_catalog_and_host_overrides_then_persisted_user_overrides",
+    "environment": "not applied by the campaign loader; Server configuration providers are reported separately",
+    "historical_host_options": "unavailable",
+    "request_policy.BillingServiceTier": "code_default",
+    "request_policy.BillingRegionalProcessing": "code_default",
+    "request_policy.BillingCacheRetention": "code_default",
+    "request_policy.BackgroundProtocol": "keyvault_provider_configuration",
+    "request_policy.UnspecifiedOutputTokens": "code_default",
+    "request_policy.DefaultMaxOutputTokens": "code_default",
+    "request_policy.MaxOutputTokensCap": "code_default"
+  },
+  "server_model_source": "keyvault_provider_configuration",
+  "frontend_ready": true,
+  "request_id": "finance-final-77df-20261106-2349:probe:0686338693bba6dd6c90644361c4c7d2fd1194ff3f22404851c187cfdf392357",
+  "requested_output_tokens": 1024,
+  "passed": false,
+  "exception_type": "GnOuGo.Flow.Core.Expressions.WorkflowRuntimeException",
+  "exception_stack": "   at KeyVaultBenchmarkModel.DispatchAsync(LLMRequest request, CancellationToken ct, Boolean execution) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 486\n   at KeyVaultBenchmarkModel.CallBoundedAsync(LLMRequest request, Boolean execution, CancellationToken ct) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/KeyVaultBenchmarkModel.cs:line 424\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 71\n   at GnOuGo.Agent.Server.Telemetry.LlmTraceCapture.CallAsync(LLMRequest request, LLMOptions options, Func`3 dispatch, CancellationToken ct) in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/src/GnOuGo.Agent.Server/Telemetry/LlmTraceCapture.cs:line 115\n   at ServerLiveDiagnostics.<>c__DisplayClass0_1.<<RunAsync>b__5>d.MoveNext() in /Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/artifacts/finance-publish-77dfe367/tests/GnOuGo.Agent.Planning.Benchmark/ServerLiveDiagnostics.cs:line 132",
+  "campaign_stop_reason": null,
+  "failure_code": "LLM_BUDGET_UNVERIFIABLE",
+  "financial_refusal": {
+    "dispatch_status": "not_started",
+    "reason": "external_financial_history_incomplete"
+  },
+  "physical_http_attempts": 0,
+  "durable_receipt": false,
+  "finished_utc": "2026-11-06T23:50:12.531435+00:00",
+  "trace_id": "3335c124ab94a15b7d7394677df40b60",
+  "rawLogSha256": "9c6d8ff15f544329c0256f812fc04f2c524d7fe1f5e49f6dbd08f0299d4e971d",
+  "qualification": "actual Agent.Server host with configured provider client; pre-dispatch refusal, no paid inference"
+}

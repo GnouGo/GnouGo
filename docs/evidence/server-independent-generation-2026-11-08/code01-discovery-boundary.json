@@ -1,0 +1,42 @@
+{
+  "run": "convergence-code-20261108-01",
+  "source": "21a3d7c60e2ec160cf3e0996036481122b1c21dc",
+  "session": "bf6d320ef6f7487983d21425a8cae99c",
+  "status": "cancelled",
+  "revision": 228,
+  "logical_calls": 76,
+  "physical_attempts": 77,
+  "accepted_checkpoints": 7,
+  "approval": false,
+  "execution": false,
+  "first_cause": {
+    "stage": "metadata_discovery",
+    "source": "GnOuGo.GithubCopilot.Mcp",
+    "observed_category": "transport_unavailable",
+    "reproduced_startup_exit": 134,
+    "launcher_proxy_override": "discovery-only",
+    "real_contract_listing_without_override": 46,
+    "model_dispatches_in_reproduction": 0
+  },
+  "cancelled_attempt": {
+    "Id": "bf6d320ef6f7487983d21425a8cae99c:76:7d9264895670d8007d9aa0c4ac771a132ae5a96bed8516690bf95b0f7dfa9d0e:d9606ce89e157d9bceedbfed3958a4dd58846b4435a11e1e241e3b648cd01b03:c886f1acd3ce4e958249f5c85ffd4e3c",
+    "Status": null,
+    "ObservedStatus": 200,
+    "ContentType": "text/event-stream; charset=utf-8",
+    "Failure": "cancelled",
+    "RetryDecision": "cancelled; no retry",
+    "ResponseBodyComplete": false,
+    "ProtocolComplete": null,
+    "UsageKnown": null
+  },
+  "partial_base64_characters": 996,
+  "preserve_all_originals_and_reservations": true,
+  "diagnostic_stop": "No idle metadata-recovery boundary appeared during a bounded 20-second observation; the operator stopped the owned diagnostic. The final request was cancelled after native headers/partial bytes. The old session cannot continue.",
+  "accounting_after_stop": {
+    "known_cost_eur": "175.15770712046574115539632889",
+    "http_reserved_cost_eur": "112.96780116435288849081952533",
+    "external_reservation_eur": "2.4215763546798029556650246305",
+    "available_eur": "109.4529153605015673981191212"
+  },
+  "not_business_qualification": true
+}

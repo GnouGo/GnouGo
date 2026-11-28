@@ -70,7 +70,7 @@ function Get-DiagnosticCode {
 }
 
 function Get-PublishWarningLines {
-    param([Parameter(Mandatory)] [string[]] $Lines)
+    param([Parameter(Mandatory)] [AllowEmptyString()] [string[]] $Lines)
 
     return @($Lines | Where-Object {
         $_ -match '(?i)\b(?:warning|avertissement)\s+(?:IL|CS|NETSDK|ASP)\d{4}\s*:' -or
@@ -88,6 +88,13 @@ function Get-AuditOrigin {
 
     if ($Line.Contains('NativeAOT support is experimental and can change in the future.', [System.StringComparison]::Ordinal)) {
         return 'Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
+    }
+
+    # ASP.NET Core 11.0.0 embeds a duplicate of the Forms substitution in Endpoints.
+    # Identify the signed owner, resource and foreign assembly for this precise exception.
+    if ($Line.Contains('resource ILLink.Substitutions.xml in Microsoft.AspNetCore.Components.Endpoints, Version=11.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60', [StringComparison]::Ordinal) -and
+        $Line.Contains('Embedded XML in assembly ''Microsoft.AspNetCore.Components.Endpoints'' contains assembly "fullname" attribute for another assembly ''Microsoft.AspNetCore.Components.Forms, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null''', [StringComparison]::Ordinal)) {
+        return 'Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
     }
 
     $assembly = [regex]::Match($Line, '(?i)(?<assembly>[A-Za-z0-9_.-]+\.dll)\s*:\s*(?:warning|avertissement)')
@@ -128,26 +135,31 @@ function Get-FingerprintSetHash {
 function Assert-PublishDiagnostics {
     param(
         [Parameter(Mandatory)] [string] $ProjectName,
-        [Parameter(Mandatory)] [string[]] $Lines,
+        [Parameter(Mandatory)] [AllowEmptyString()] [string[]] $Lines,
         [Parameter(Mandatory)] [hashtable] $KnownAuditFingerprints
     )
 
-    $warnings = Get-PublishWarningLines -Lines $Lines
+    $warnings = @(Get-PublishWarningLines -Lines $Lines)
     if (-not $AuditKnownTrimWarnings) {
-        $baseline = @($KnownAuditFingerprints[$ProjectName])
+        $policy = $KnownAuditFingerprints[$ProjectName]
+        $baseline = if ($policy -is [hashtable]) {
+            @($policy['NormalNotices'])
+        } else {
+            @($policy | Where-Object { $_ -like 'EFCORETASKS|*' })
+        }
         $unexpectedWarnings = @($warnings | Where-Object {
             $code = Get-DiagnosticCode -Line $_
             $origin = Get-AuditOrigin -Line $_
             $fingerprint = "$code|$origin"
-            $code -ne 'EFCORETASKS' -or $fingerprint -notin $baseline
+            $fingerprint -notin $baseline
         })
         if ($unexpectedWarnings.Count -gt 0) {
             throw "$ProjectName emitted $($unexpectedWarnings.Count) warning line(s):`n$($unexpectedWarnings -join "`n")"
         }
 
-        $auditedNotices = @($warnings | Where-Object { (Get-DiagnosticCode -Line $_) -eq 'EFCORETASKS' })
+        $auditedNotices = @($warnings)
         if ($auditedNotices.Count -gt 0) {
-            Write-Host "Accepted $($auditedNotices.Count) exact pinned EF Core Tasks experimental notice(s) for $ProjectName." -ForegroundColor DarkYellow
+            Write-Host "Accepted $($auditedNotices.Count) exact dependency notice(s) for $ProjectName." -ForegroundColor DarkYellow
         }
 
         return
@@ -395,6 +407,8 @@ function Invoke-FilesSmoke {
     }
     $tenantA = 'warning-audit-a'
     $tenantB = 'warning-audit-b'
+    $environment['OpenTelemetry__TenantId'] = $tenantA
+    $environment['KeyVault__DatabasePath'] = Join-Path $DataDirectory 'files-vault.db'
     $headersA = @{ 'X-Tenant-Id' = $tenantA }
     $process = $null
 
@@ -511,6 +525,10 @@ function Invoke-AgentServerSmoke {
             -FilePath (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
             -Arguments @('--planning-persistence-smoke', (Join-Path $DataDirectory 'planning-persistence')) `
             -LogPath (Join-Path $PublishDirectory 'planning-persistence-smoke.log'))
+        $retentionRoot = Join-Path $DataDirectory ('owner-retention-' + [guid]::NewGuid())
+        foreach ($mode in @('write', 'verify')) {
+            [void] (Invoke-LoggedCommand -FilePath (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') -Arguments @('--owner-retention-smoke', $mode, $retentionRoot) -LogPath (Join-Path $PublishDirectory "owner-retention-$mode.log"))
+        }
         $process = Start-PublishedProcess `
             -Executable (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
             -WorkingDirectory $PublishDirectory `
@@ -578,6 +596,7 @@ $publishProfiles = @(
 # the diagnostic code and exact originating assembly/member. Small dependency sets are
 # listed directly. Large framework sets use a deterministic count and SHA-256 over the
 # sorted exact fingerprints, so any addition, removal, or changed origin fails audit.
+$duplicateFormsSubstitution = 'IL2101|Microsoft.AspNetCore.Components.Endpoints@11.0.0.0:ILLink.Substitutions.xml:Microsoft.AspNetCore.Components.Forms'
 $knownAuditFingerprints = @{
     'GnOuGo.Flow.Cli' = @(
         'IL2026|Jint.Options.Apply(Engine)',
@@ -612,15 +631,16 @@ $knownAuditFingerprints = @{
         'IL3053|Microsoft.EntityFrameworkCore.Sqlite.dll',
         'IL3002|Microsoft.EntityFrameworkCore.Infrastructure.SpatialiteLoader.FindExtension()',
         'IL3002|Microsoft.Extensions.DependencyModel.DependencyContext..cctor()',
-        'CS8669|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
-        'CS9270|src/GnOuGo.Files.Server/obj/Release/net10.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
+        'CS8669|src/GnOuGo.Files.Server/obj/Release/net11.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
+        'CS9270|src/GnOuGo.Files.Server/obj/Release/net11.0/FilesMetadataRepository.EFInterceptors.FilesDbContext.g.cs',
         'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
         'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental'
     )
     'GnOuGo.Agent.Mcp' = @{
+        NormalNotices = @($duplicateFormsSubstitution)
         FingerprintCount = 86
         Sha256 = '2575e0c408614d8bb2067f7a0212b734531b10e1678e28786d105071dfdcf39b'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core partial-trim and EF Core SQLite closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.KeyVault.Mcp' = @{
         FingerprintCount = 3
@@ -628,24 +648,31 @@ $knownAuditFingerprints = @{
         Dependencies = 'Pinned EF Core SQLite closure.'
     }
     'GnOuGo.OtlpCollector.Server' = @{
+        NormalNotices = @($duplicateFormsSubstitution)
         FingerprintCount = 88
         Sha256 = '9fb6fbd5118fb83ed72ab0492bf7e07d35e7048bdc97e9023c8c8639cc52d4a4'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core partial-trim and EF Core SQLite closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core partial-trim and EF Core SQLite closure.'
     }
     'GnOuGo.Agent.Server' = @{
-        # Re-audited against parent 46c2c77: 106 origins -> 105; the compiled planning model removes its application IL2026.
-        FingerprintCount = 105
-        Sha256 = 'e81aebe48518ed041b326e3f5d8198fa640868779687d3de64c60a324ce0e9d2'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
+        NormalNotices = @(
+            'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:QueryPrecompilationExperimental',
+            'EFCORETASKS|Microsoft.EntityFrameworkCore.Tasks:NativeAotExperimental',
+            $duplicateFormsSubstitution
+        )
+        # .NET 11 arm64 release audit, after using typed JSON for planning inspection and trace documents.
+        FingerprintCount = 108
+        Sha256 = '1f246002cb8719b1e6f3f845455e806037b5bf61e3691df794af571400365f28'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and generated Routes component closure.'
     }
     'GnOuGo.Agent.Desktop' = @{
         FingerprintCount = 101
         Sha256 = '936ea2746f534c3a45a15e1fe7db28538c753835dca594e1d4866ff52d47715a'
-        Dependencies = 'Pinned .NET 10 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and embedded Agent Server closure.'
+        Dependencies = 'Pinned .NET 11 ASP.NET Core/Blazor, EF Core SQLite, Jint, YamlDotNet, ML.Tokenizers, and embedded Agent Server closure.'
     }
 }
 
 $knownAuditFingerprints['GnOuGo.Flow.Server'] = $knownAuditFingerprints['GnOuGo.Flow.Cli']
+$knownAuditFingerprints['GnOuGo.Agent.Desktop']['NormalNotices'] = $knownAuditFingerprints['GnOuGo.Agent.Server']['NormalNotices']
 $publishDirectories = @{}
 try {
     Write-Host "Runtime identifier: $RuntimeIdentifier" -ForegroundColor Green

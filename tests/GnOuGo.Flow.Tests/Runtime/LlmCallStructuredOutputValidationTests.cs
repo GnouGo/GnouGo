@@ -11,6 +11,31 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class LlmCallStructuredOutputValidationTests
 {
     [Theory]
+    [InlineData("output_limit", false, "MODEL_OUTPUT_LIMIT")]
+    [InlineData("output_limit", true, "MODEL_OUTPUT_LIMIT")]
+    [InlineData("incomplete", true, "MODEL_COMPLETION_REJECTED")]
+    [InlineData("failed", true, "MODEL_COMPLETION_REJECTED")]
+    [InlineData("refused", true, "MODEL_COMPLETION_REJECTED")]
+    public async Task ProviderTerminalStatusRejectsEvenSchemaValidContent(string status, bool valid, string code)
+    {
+        var client = new Mock<ILLMClient>();
+        client.Setup(c => c.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LLMResponse
+            {
+                CompletionStatus = status, Text = valid ? "{}" : "{",
+                Json = valid ? new JsonObject() : null,
+                Usage = new JsonObject { ["input_tokens"] = 65068, ["output_tokens"] = 4096 }
+            });
+        var result = await RunMainAsync("schema_inline: { type: object }", client.Object);
+
+        Assert.False(result.Success);
+        Assert.Equal(code, result.Error!.Code);
+        Assert.Equal(status, result.Error.Details?["completion_status"]?.ToString());
+        Assert.Equal("4096", result.Error.Details?["output_tokens"]?.ToString());
+        Assert.Single(client.Invocations);
+    }
+
+    [Theory]
     [InlineData("int")]
     [InlineData("long")]
     [InlineData("parsed")]

@@ -1,0 +1,123 @@
+{
+  "observed_at_utc": "2026-10-30T16:05:36.469327+00:00",
+  "production_source": "1884a65866d1143cd982f24c05eb87b3a7d029c7",
+  "production_implementation_source": "aa29d4e03d9921bddde8ba9bda0e90e2493cf5e3",
+  "source_equivalence": {
+    "planning_and_host_test_tree": "c6efd677e61bfd3fcfae6a4e9db021ce1dd4068c",
+    "initial_production_tree": "c6efd677e61bfd3fcfae6a4e9db021ce1dd4068c",
+    "subsequent_changed_paths": [
+      "tests/GnOuGo.Agent.Server.Tests/InitialRequirementsHostTests.cs",
+      "tests/GnOuGo.Agent.Server.Tests/PlanningClarificationBrowserTests.cs",
+      "tests/GnOuGo.Agent.Server.Tests/PlanningTraceUiTests.Approval.cs",
+      "tests/GnOuGo.Flow.Integrations.Tests/ApprovedExecutionTests.cs",
+      "tests/GnOuGo.Flow.Integrations.Tests/PlanningClarificationExecutionTests.cs"
+    ],
+    "core_and_runtime_test_sources_unchanged_since": "f4740a43"
+  },
+  "suites": [
+    {
+      "suite": "Planning",
+      "tested_source": "343f2f9fc26f1a590d0c7c6166263da30f69a507",
+      "counts": {
+        "total": 2596,
+        "executed": 2596,
+        "passed": 2596,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "warnings_as_errors": true,
+      "trx_sha256": "9f47086ad3937f741f9a329869829768191be77435551e0cf4856f15894646e1",
+      "log_sha256": "ea7242a9639c8ff12a70570f4f9658197508e5cc1e2cc026d5fad063671d9123",
+      "scope": "Complete owning suite."
+    },
+    {
+      "suite": "Core/runtime",
+      "tested_source": "f4740a4381ee705ab7385b28a235ca318deacad5",
+      "counts": {
+        "total": 1510,
+        "executed": 1510,
+        "passed": 1510,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "warnings_as_errors": true,
+      "trx_sha256": "0c6acffedd48cfda60262ee5a4f455f120371f8a1361f1264818aa4bf412f2c5",
+      "log_sha256": "8a5039c61c3455d4c6d06f5688998eb0d85d54e16de6fe1bcbe32602179f2289",
+      "scope": "Complete owning suite; Core and its test source bytes unchanged at production SHA."
+    },
+    {
+      "suite": "Affected benchmark and host",
+      "tested_source": "343f2f9fc26f1a590d0c7c6166263da30f69a507",
+      "counts": {
+        "total": 500,
+        "executed": 500,
+        "passed": 500,
+        "failed": 0,
+        "error": 0,
+        "timeout": 0,
+        "aborted": 0,
+        "inconclusive": 0,
+        "passedButRunAborted": 0,
+        "notRunnable": 0,
+        "notExecuted": 0,
+        "disconnected": 0,
+        "warning": 0,
+        "completed": 0,
+        "inProgress": 0,
+        "pending": 0
+      },
+      "warnings_as_errors": true,
+      "trx_sha256": "1e59e30337c5807e6d642b0d84b523031d60f7960c9cee74ae9a20cfca37940a",
+      "log_sha256": "121ddba3738ffe17554c2a8538814771bd9f136f3b4fbebefe2435be52c1064b",
+      "scope": "Benchmark, budget/accounting/recovery/retention, session lifecycle/ownership/history, host and choice execution classes."
+    }
+  ],
+  "integration_fixture_correction": {
+    "source": "dd342eec89bf9935ad1d10ce61a698f0d5a8870d",
+    "passed": 103,
+    "failed": 0,
+    "skipped": 0,
+    "log_sha256": "6293760ec47ad6f87427b5dd0e36c2ca11f23c1062e44e61ca3401bbe230d58a",
+    "source_changes": "Two fixture files assert the separate implementation phase and its extra call. All existing execution, approval, restart, privacy and tenant assertions remain."
+  },
+  "boundaries": [
+    "Focused counts overlap and are not summed with full-solution results.",
+    "Full-solution verification is independently running against the exact production commit.",
+    "Affected builds skip model metadata generation; host focused builds skip the frontend. Full-solution verification includes the frontend and bundled tools.",
+    "Synthetic tests and publication checks establish no live business qualification.",
+    "The first aa29 full-solution run retains its six stale fixture assertion failures and all original evidence.",
+    "The earlier dd342eec full-solution run preserves its stale host fixture failures. The final fixture batch passes all 54 owning cases including the opt-in browser interaction."
+  ],
+  "host_ui_fixture_correction": {
+    "source": "1884a65866d1143cd982f24c05eb87b3a7d029c7",
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0,
+    "warnings": 0,
+    "actual_browser_smoke": true,
+    "proof": "server-fixtures-validation.sanitized.json",
+    "boundary": "Synthetic host/UI tests with actual Chromium. No production UI code or execution authority changed."
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "classification": "Deterministic protocol validation, no business outcome",
+  "base": "2cb5b4acbcfd2ddd9cbdac52a11a664418d9e3e2",
+  "exit_code": 0,
+  "counts": {
+    "Passed": 178
+  },
+  "elapsed_seconds": 22.542560958012473,
+  "source_unchanged": true,
+  "log_sha256": "7ed35c0ad6b3e5228d5d98266ccf59a384e0dca3abab4abb110f3e07e14514bd",
+  "source_manifest_sha256": "df938916984c2ea485c0b76f132396a41f6579c2f5e0ffa47733c0cd8ceda21d",
+  "interpretation": "Exact issued schema owns string bounds. Marked10/11 count code points; unmarked9/10/11 keep UTF16. Recovery preserves exact bytes, accepted plan and one correction charge."
+}

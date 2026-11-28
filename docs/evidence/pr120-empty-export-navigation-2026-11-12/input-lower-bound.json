@@ -1,0 +1,51 @@
+{
+  "source_fixture_content_reads": 29,
+  "model_calls": 0,
+  "navigation_calls": 0,
+  "campaign_writes": 0,
+  "fragment_applied": false,
+  "measurement": "controlled lower-bound input reproduction using retained actual-profile source; not a runtime dispatch",
+  "findings": [
+    {
+      "task": "audit_search_acquisition",
+      "prompt_utf8_bytes_lower_bound": 1359431,
+      "estimated_request_tokens_lower_bound": 616814,
+      "declared_physical_input_allowance": 1017232,
+      "physical_input_admitted": true
+    },
+    {
+      "task": "inventory_original_sources",
+      "prompt_utf8_bytes_lower_bound": 1359287,
+      "estimated_request_tokens_lower_bound": 616754,
+      "declared_physical_input_allowance": 1017232,
+      "physical_input_admitted": true
+    },
+    {
+      "task": "classify_complete_source_coverage",
+      "prompt_utf8_bytes_lower_bound": 9622483,
+      "estimated_request_tokens_lower_bound": 4464176,
+      "declared_physical_input_allowance": 1017232,
+      "physical_input_admitted": false,
+      "code": "LLM_BUDGET_EXCEEDED",
+      "details": {
+        "classification": "request_input_allowance",
+        "limit_kind": "request_input_allowance",
+        "limit": 1017232,
+        "current": 4464176,
+        "measurement": "estimated_tokens",
+        "unit": "tokens",
+        "stage": "controlled_input_probe",
+        "dispatch_status": "not_started"
+      }
+    }
+  ],
+  "source": "8f2d02f4ada37ad407382cf6c9ddc8aad5366440",
+  "source_fixture_sha256": "411ae957b02b8d3a7c9d53da0a091ebf4489174d26d4e756e15f8ea70a3459db",
+  "original_results_utf8_bytes": 8953887,
+  "source_read_results_utf8_bytes": 7699330,
+  "source_navigation_evidence_utf8_bytes": 120216,
+  "actual_usage_tokens": null,
+  "accepted_plan": false,
+  "execution": false,
+  "independent_oracle": false
+}

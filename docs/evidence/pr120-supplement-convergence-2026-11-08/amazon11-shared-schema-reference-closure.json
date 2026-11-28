@@ -1,0 +1,101 @@
+{
+  "run": "amazon-qualification-20261109-11",
+  "session": "77d55bf84803419182eb618a630514f6",
+  "source": "28762a0191634e66c58f817bde73af46477a827d",
+  "logical_calls": 31,
+  "physical_attempts": 31,
+  "uncertain_attempts": 0,
+  "known_usage_tariff_eur": "9.49389162561576354679802956",
+  "repairs": 3,
+  "ordinary_local_reviews_ok": [
+    12,
+    26
+  ],
+  "final_status": "clarification",
+  "global_review": false,
+  "approval": false,
+  "execution_started": false,
+  "oracle_qualification": false,
+  "accepted_progress": {
+    "first_call": 10,
+    "first_ids": [
+      "amazon_search",
+      "close_amazon_browser"
+    ],
+    "second_call": 11,
+    "second_ids": [
+      "select_amazon_products",
+      "validated_amazon_selection"
+    ],
+    "delivery_accepted_before_local_review_call": 26,
+    "original_business_objectives_preserved": true
+  },
+  "first_cause": {
+    "kind": "producer_schema_reference_closure",
+    "new_browser_field": "navigationEvidence.supersededResponses",
+    "shared_response_type": "BrowserNavigationHop",
+    "reference": "#/properties/navigationEvidence/properties/hops/items",
+    "effect": "A root-relative MCP schema reference was detached inside generated field, collection and scope contracts without its authoritative root.",
+    "completion_assessment_required_diagnostics": 6,
+    "business_selector": "Only generic technicalValidation=blocked; completion action withheld, no exact technical finding in operator progress.",
+    "terminal_question": "Model identified accepted business coverage but no valid completion action; it requested host clarification instead of inventing another responsibility."
+  },
+  "correction": {
+    "catalogue_payloads_identities_unchanged": true,
+    "producer_and_graph_projection": "Expand acyclic local references against the original producer root before detaching or wrapping fields. Preserve referenced and sibling constraints, nullable values and existing validation.",
+    "original_schema_selection": "Use that same closure only for an originally selectable owned capability/pointer.",
+    "expansion_resource_bounds": {
+      "visited_schema_nodes": 16384,
+      "active_references": 64
+    },
+    "unresolved_recursive_external": "Remain subject to ordinary schema validation; never fetched, dropped or replaced by opaque contracts.",
+    "inspection": "Expose exact required technical findings in protected inspection only; no mutation, inference, repair, completion or execution authority.",
+    "no_business_or_permission_or_oracle_change": true
+  },
+  "read_only_original_artifact_assessment": {
+    "before_required_diagnostics": 6,
+    "after_required_diagnostics": 0,
+    "original_snapshot_edited": false,
+    "model_or_tool_dispatches": 0,
+    "live_qualification_established": false
+  },
+  "validation": {
+    "projection_red_failed": 2,
+    "warning_free_initial_focused_passed": 38,
+    "planning_component_after_initial_fix_passed": 2938,
+    "final_focused_passed": 57,
+    "new_cases_total": 11,
+    "planning_component_before_final_coordinate_correction_passed": 2941,
+    "final_full_solution": "required after source freeze; not claimed yet"
+  },
+  "closed_funding": {
+    "ceiling_eur": "1200",
+    "available_eur": "145.055494849977608598298246988",
+    "application_holds_eur": "44.588114643976712942230183612",
+    "all_old_holds_preserved": true,
+    "global_funding": "unavailable",
+    "invoice_claim": false
+  },
+  "limitations": [
+    "No execution or workbook outcome exists for this run.",
+    "The fixed-source qualification needs a fresh identity; retained revalidation requires unchanged production source and a review-ready artifact.",
+    "The shutdown trace renderer logged a disposed-service exception after the clarification; it was not the completion blocker."
+  ],
+  "private_evidence_sha256": {
+    "amazon11-final-run.json": "52b62d0bef541db2db8d134d878469f790343e24eb3652077bf45270e2ae60cf",
+    "amazon11-completion-assessment.json": "eebae0e10de142e8a0e72a9bd6c24cdb94d366583b937380528315c8183a49e0",
+    "amazon11-completion-assessment-fixed.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+    "amazon11-closed-audit.json": "c1ab378a33b2fd3e598296e7ac53befa7202dfa13a53e819876036eb3e921811",
+    "amazon11-reference-projection-red.log": "9e1372d45e3de92f61bd9dc1f3b477f94708a31e8df1a2939db032cc2b0548ca",
+    "amazon11-reference-projection-green3.log": "e25eff394f39fc24918c8f5105ccba61f0941bca48a75d7571b03b3a3d80c8c6",
+    "amazon11-reference-planning-all.log": "507c24439ce813be833b2c42f0da8aeb4f3af61bd76851e30e08ce79e133ce34",
+    "amazon11-owned-reference-inspection-red.log": "6d94c86223847e723d407433af65b3c4a0814f8d71dab3cdb1d2e07b50cccf9e",
+    "amazon11-operator-inspection-red.log": "7dc43e59200b43a5b014ff2458245055103e2d358e1587e53bb91f4f4b3101e7",
+    "amazon11-reference-and-inspection-focused.log": "d73aed88753bc1e9c87682ce724e946b301309ada6fe230e1f26cb4ff8539ae3",
+    "amazon11-reference-inspection-planning-final.log": "e77eee2c87522a8d7d6bd180335f02e7814d6cd2535f2223b3956f1d9067adb3",
+    "amazon11-reference-inspection-planning-final-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+    "amazon11-original-coordinate-red.log": "ddf8ac8ad410daba83f254c3b005b9a65649d024fc1915b9961e1afd291b8972",
+    "amazon11-reference-and-inspection-final-focused.log": "5f58cacc74a2a64b4210803e997614cac28f8c074cb7526f9b1a75763bde9656",
+    "amazon11-reference-and-inspection-final-focused-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+  }
+}

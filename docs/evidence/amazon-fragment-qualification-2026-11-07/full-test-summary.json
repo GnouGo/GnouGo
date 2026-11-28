@@ -1,0 +1,497 @@
+{
+  "assemblies": 33,
+  "outcomes": {
+    "Passed": 8029,
+    "NotExecuted": 13
+  },
+  "compilerDiagnostics": [],
+  "reports": [
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_18_23_net10.0.trx",
+      "outcomes": {
+        "Passed": 89
+      },
+      "times": {
+        "creation": "2026-11-07T11:18:23.8056240+01:00",
+        "queuing": "2026-11-07T11:18:23.8056240+01:00",
+        "start": "2026-11-07T11:18:22.2664040+01:00",
+        "finish": "2026-11-07T11:18:25.3312590+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_18_29_net10.0.trx",
+      "outcomes": {
+        "Passed": 52
+      },
+      "times": {
+        "creation": "2026-11-07T11:18:29.7745480+01:00",
+        "queuing": "2026-11-07T11:18:29.7745480+01:00",
+        "start": "2026-11-07T11:18:28.6849490+01:00",
+        "finish": "2026-11-07T11:18:30.3710740+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_18_33_net10.0.trx",
+      "outcomes": {
+        "Passed": 23
+      },
+      "times": {
+        "creation": "2026-11-07T11:18:33.0782710+01:00",
+        "queuing": "2026-11-07T11:18:33.0782710+01:00",
+        "start": "2026-11-07T11:18:31.2981910+01:00",
+        "finish": "2026-11-07T11:18:44.8193770+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_18_49_net10.0.trx",
+      "outcomes": {
+        "Passed": 1529
+      },
+      "times": {
+        "creation": "2026-11-07T11:18:49.2878420+01:00",
+        "queuing": "2026-11-07T11:18:49.2878420+01:00",
+        "start": "2026-11-07T11:18:47.9583550+01:00",
+        "finish": "2026-11-07T11:18:51.0006100+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_18_58_net10.0.trx",
+      "outcomes": {
+        "Passed": 116
+      },
+      "times": {
+        "creation": "2026-11-07T11:18:58.1040520+01:00",
+        "queuing": "2026-11-07T11:18:58.1040520+01:00",
+        "start": "2026-11-07T11:18:57.0249000+01:00",
+        "finish": "2026-11-07T11:18:59.6843130+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_19_01_net10.0.trx",
+      "outcomes": {
+        "Passed": 283
+      },
+      "times": {
+        "creation": "2026-11-07T11:19:01.2335920+01:00",
+        "queuing": "2026-11-07T11:19:01.2335920+01:00",
+        "start": "2026-11-07T11:19:00.0243860+01:00",
+        "finish": "2026-11-07T11:19:02.6890650+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_19_04_net10.0.trx",
+      "outcomes": {
+        "Passed": 14
+      },
+      "times": {
+        "creation": "2026-11-07T11:19:04.1204620+01:00",
+        "queuing": "2026-11-07T11:19:04.1204620+01:00",
+        "start": "2026-11-07T11:19:03.0128810+01:00",
+        "finish": "2026-11-07T11:19:04.1292430+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_19_05_net10.0.trx",
+      "outcomes": {
+        "Passed": 103
+      },
+      "times": {
+        "creation": "2026-11-07T11:19:05.8536870+01:00",
+        "queuing": "2026-11-07T11:19:05.8536870+01:00",
+        "start": "2026-11-07T11:19:04.7876450+01:00",
+        "finish": "2026-11-07T11:19:07.5597590+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_19_09_net10.0.trx",
+      "outcomes": {
+        "Passed": 93,
+        "NotExecuted": 7
+      },
+      "times": {
+        "creation": "2026-11-07T11:19:09.1515790+01:00",
+        "queuing": "2026-11-07T11:19:09.1515790+01:00",
+        "start": "2026-11-07T11:19:08.0405840+01:00",
+        "finish": "2026-11-07T11:19:26.6983590+01:00"
+      },
+      "skips": [
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"using namespace System\\n[Console]::WriteLine('names\"\u00b7\u00b7\u00b7, expected: \"namespace declaration\", exitCode: 0)",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 0)",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: False)",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.PrivateEofPreservesRepeatedCommandsUnicodeQuotesAndExitCodes(exitCode: 3)",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.LaunchInitializationPreservesLeadingScriptDeclarations(script: \"param([string]$text = 'parameter default'); [Conso\"\u00b7\u00b7\u00b7, expected: \"parameter default\", exitCode: 3)",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.DefaultLaunchUsesOnlyTheSelectedShellsBuiltInModulePath",
+          "reason": "Requires native Windows PowerShell."
+        },
+        {
+          "name": "GnOuGo.Cmd.Mcp.Tests.WindowsCommandExecutionTests.TimeoutAndCancellationTerminateTheChildTree(cancel: True)",
+          "reason": "Requires native Windows PowerShell."
+        }
+      ]
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_19_28_net10.0.trx",
+      "outcomes": {
+        "Passed": 142
+      },
+      "times": {
+        "creation": "2026-11-07T11:19:28.6843630+01:00",
+        "queuing": "2026-11-07T11:19:28.6843630+01:00",
+        "start": "2026-11-07T11:19:27.6644790+01:00",
+        "finish": "2026-11-07T11:19:49.7837560+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_11_20_28_net10.0.trx",
+      "outcomes": {
+        "Passed": 1717,
+        "NotExecuted": 1
+      },
+      "times": {
+        "creation": "2026-11-07T11:20:28.1271160+01:00",
+        "queuing": "2026-11-07T11:20:28.1271160+01:00",
+        "start": "2026-11-07T11:20:26.6598430+01:00",
+        "finish": "2026-11-07T12:29:27.2122590+01:00"
+      },
+      "skips": [
+        {
+          "name": "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission",
+          "reason": "Set PLAYWRIGHT_MODULE_PATH to run the isolated deterministic browser smoke."
+        }
+      ]
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_29_net10.0.trx",
+      "outcomes": {
+        "Passed": 73
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:29.6444830+01:00",
+        "queuing": "2026-11-07T12:29:29.6444830+01:00",
+        "start": "2026-11-07T12:29:28.4230190+01:00",
+        "finish": "2026-11-07T12:29:35.2365620+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_37_net10.0.trx",
+      "outcomes": {
+        "Passed": 9
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:37.2741780+01:00",
+        "queuing": "2026-11-07T12:29:37.2741780+01:00",
+        "start": "2026-11-07T12:29:35.5426180+01:00",
+        "finish": "2026-11-07T12:29:37.2825440+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_38_net10.0.trx",
+      "outcomes": {
+        "Passed": 10
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:38.5645940+01:00",
+        "queuing": "2026-11-07T12:29:38.5645940+01:00",
+        "start": "2026-11-07T12:29:37.5661840+01:00",
+        "finish": "2026-11-07T12:29:38.9620840+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_41_net10.0.trx",
+      "outcomes": {
+        "Passed": 7
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:41.0219090+01:00",
+        "queuing": "2026-11-07T12:29:41.0219090+01:00",
+        "start": "2026-11-07T12:29:39.2900810+01:00",
+        "finish": "2026-11-07T12:29:41.0246070+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_42_net10.0.trx",
+      "outcomes": {
+        "Passed": 7
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:42.7219910+01:00",
+        "queuing": "2026-11-07T12:29:42.7219910+01:00",
+        "start": "2026-11-07T12:29:41.2771940+01:00",
+        "finish": "2026-11-07T12:29:42.7239900+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_29_44_net10.0.trx",
+      "outcomes": {
+        "Passed": 243
+      },
+      "times": {
+        "creation": "2026-11-07T12:29:44.4060630+01:00",
+        "queuing": "2026-11-07T12:29:44.4060630+01:00",
+        "start": "2026-11-07T12:29:43.1969430+01:00",
+        "finish": "2026-11-07T12:30:27.9202360+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_29_net10.0.trx",
+      "outcomes": {
+        "Passed": 173
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:29.4393480+01:00",
+        "queuing": "2026-11-07T12:30:29.4393480+01:00",
+        "start": "2026-11-07T12:30:28.3432130+01:00",
+        "finish": "2026-11-07T12:30:29.8286900+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_31_net10.0.trx",
+      "outcomes": {
+        "Passed": 7,
+        "NotExecuted": 5
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:31.1847490+01:00",
+        "queuing": "2026-11-07T12:30:31.1847490+01:00",
+        "start": "2026-11-07T12:30:30.1943230+01:00",
+        "finish": "2026-11-07T12:30:31.1933610+01:00"
+      },
+      "skips": [
+        {
+          "name": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: False, bounded: False, executeTests: True)",
+          "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.E2E.Tests.LivePullRequestReviewTests.ConfiguredOpenAiProvider_CanReviewExactDiffWithoutPublishing",
+          "reason": "Set GNOU_GO_LIVE_PR_REVIEW_E2E=1 to create the disposable live GitHub fixture."
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: False)",
+          "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: False, executeTests: True)",
+          "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+        },
+        {
+          "name": "GnOuGo.GithubCopilot.E2E.Tests.LiveControlledEditingTests.RealModel_InspectsEditsAndVerifiesResults(managed: True, bounded: True, executeTests: True)",
+          "reason": "Set GNOU_GO_LIVE_COPILOT_EDIT=1 to run the local real-model fixture."
+        }
+      ]
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_32_net10.0.trx",
+      "outcomes": {
+        "Passed": 3
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:32.3966730+01:00",
+        "queuing": "2026-11-07T12:30:32.3966730+01:00",
+        "start": "2026-11-07T12:30:31.4030720+01:00",
+        "finish": "2026-11-07T12:30:32.3985730+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_33_net10.0.trx",
+      "outcomes": {
+        "Passed": 84
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:33.6979640+01:00",
+        "queuing": "2026-11-07T12:30:33.6979640+01:00",
+        "start": "2026-11-07T12:30:32.6529260+01:00",
+        "finish": "2026-11-07T12:30:39.7819940+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_41_net10.0.trx",
+      "outcomes": {
+        "Passed": 30
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:41.0667290+01:00",
+        "queuing": "2026-11-07T12:30:41.0667290+01:00",
+        "start": "2026-11-07T12:30:40.0174880+01:00",
+        "finish": "2026-11-07T12:30:41.0763730+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_42_net10.0.trx",
+      "outcomes": {
+        "Passed": 49
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:42.3237740+01:00",
+        "queuing": "2026-11-07T12:30:42.3237740+01:00",
+        "start": "2026-11-07T12:30:41.2883820+01:00",
+        "finish": "2026-11-07T12:30:42.3330680+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_43_net10.0.trx",
+      "outcomes": {
+        "Passed": 12
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:43.5662160+01:00",
+        "queuing": "2026-11-07T12:30:43.5662160+01:00",
+        "start": "2026-11-07T12:30:42.5380690+01:00",
+        "finish": "2026-11-07T12:30:43.5765730+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_44_net10.0.trx",
+      "outcomes": {
+        "Passed": 91
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:44.8325930+01:00",
+        "queuing": "2026-11-07T12:30:44.8325930+01:00",
+        "start": "2026-11-07T12:30:43.7890110+01:00",
+        "finish": "2026-11-07T12:30:53.7387860+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_55_net10.0.trx",
+      "outcomes": {
+        "Passed": 42
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:55.0801500+01:00",
+        "queuing": "2026-11-07T12:30:55.0801500+01:00",
+        "start": "2026-11-07T12:30:54.0452010+01:00",
+        "finish": "2026-11-07T12:30:55.0893670+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_30_57_net10.0.trx",
+      "outcomes": {
+        "Passed": 13
+      },
+      "times": {
+        "creation": "2026-11-07T12:30:57.6450220+01:00",
+        "queuing": "2026-11-07T12:30:57.6450220+01:00",
+        "start": "2026-11-07T12:30:55.8920320+01:00",
+        "finish": "2026-11-07T12:31:01.5337340+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_31_03_net10.0.trx",
+      "outcomes": {
+        "Passed": 28
+      },
+      "times": {
+        "creation": "2026-11-07T12:31:03.2099600+01:00",
+        "queuing": "2026-11-07T12:31:03.2099600+01:00",
+        "start": "2026-11-07T12:31:02.0234450+01:00",
+        "finish": "2026-11-07T12:31:03.2187460+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_31_05_net10.0.trx",
+      "outcomes": {
+        "Passed": 2771
+      },
+      "times": {
+        "creation": "2026-11-07T12:31:05.8932310+01:00",
+        "queuing": "2026-11-07T12:31:05.8932310+01:00",
+        "start": "2026-11-07T12:31:04.3014580+01:00",
+        "finish": "2026-11-07T12:33:54.7612960+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_33_57_net10.0.trx",
+      "outcomes": {
+        "Passed": 177
+      },
+      "times": {
+        "creation": "2026-11-07T12:33:57.1775560+01:00",
+        "queuing": "2026-11-07T12:33:57.1775560+01:00",
+        "start": "2026-11-07T12:33:56.0087880+01:00",
+        "finish": "2026-11-07T12:34:06.4772090+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_34_07_net10.0.trx",
+      "outcomes": {
+        "Passed": 8
+      },
+      "times": {
+        "creation": "2026-11-07T12:34:07.8029990+01:00",
+        "queuing": "2026-11-07T12:34:07.8029990+01:00",
+        "start": "2026-11-07T12:34:06.6967700+01:00",
+        "finish": "2026-11-07T12:34:07.8052070+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_34_09_net10.0.trx",
+      "outcomes": {
+        "Passed": 26
+      },
+      "times": {
+        "creation": "2026-11-07T12:34:09.7757550+01:00",
+        "queuing": "2026-11-07T12:34:09.7757550+01:00",
+        "start": "2026-11-07T12:34:08.0581120+01:00",
+        "finish": "2026-11-07T12:34:15.1573610+01:00"
+      },
+      "skips": []
+    },
+    {
+      "file": "_a115vcCX1PXQ575D_2026-11-07_12_34_16_net10.0.trx",
+      "outcomes": {
+        "Passed": 5
+      },
+      "times": {
+        "creation": "2026-11-07T12:34:16.4215020+01:00",
+        "queuing": "2026-11-07T12:34:16.4215020+01:00",
+        "start": "2026-11-07T12:34:15.3652780+01:00",
+        "finish": "2026-11-07T12:34:16.4234980+01:00"
+      },
+      "skips": []
+    }
+  ]
+}

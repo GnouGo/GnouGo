@@ -1,0 +1,184 @@
+{
+  "kind": "unreviewed_requirement_completion_red_to_green",
+  "baseline_revision": "e880124edb8a6e217eec392aceb5298d0fa6b2ac",
+  "candidate_revision": null,
+  "candidate_attribution": "Uncommitted correction source frozen in an isolated private clone. Public SHA mapping must be added after commit; no future SHA claimed.",
+  "captured_utc": "2026-10-29T00:15:05.341511+00:00",
+  "candidate_source_manifest_sha256": "2c64de5c804bbddf257837dca8cffad984b114f355287de575c77b244131740a",
+  "candidate_source_manifest_file_count": 4764,
+  "candidate_source_unchanged_after_full_planning": true,
+  "main_equivalence": {
+    "core_planning_csharp_files": 216,
+    "core_planning_csharp_mismatches": [],
+    "all_src_non_markdown_files": 1112,
+    "all_src_non_markdown_mismatches": [],
+    "all_test_files": 761,
+    "all_test_mismatches": [],
+    "documentation_only_difference_since_capture": [
+      "src/GnOuGo.Flow.Planning/README.md"
+    ]
+  },
+  "candidate_binaries": {
+    "src/GnOuGo.Flow.Planning/bin/Debug/net10.0/GnOuGo.Flow.Planning.dll": "22215858ae890083d0d2d9994dc67b23d9dfd1f68d5c70a0b2b7a4906b061d9d",
+    "src/GnOuGo.Flow.Core/bin/Debug/net10.0/GnOuGo.Flow.Core.dll": "652472791428fee6a305e21a10e658f6088e451508b8891cc3f00bda4fce00b3",
+    "tests/GnOuGo.Flow.Planning.Tests/bin/Debug/net10.0/GnOuGo.Flow.Planning.Tests.dll": "110b746fb4374a0b9bae69f5e937fba3ea8d78dc43e0b1c78bd856fe259be534"
+  },
+  "fixture_sha256": "cae1d0c664b4007144e33cffdde600154e4e69caffff83559c9ff95011eca131",
+  "red": {
+    "proof_sha256": "8976c7d50d9d39ef004e0bd519e700f233dea681597269b9c98455a7dd500c8d",
+    "fixture_sha256": "c4a728632d647a6d961f4ece9ea3b7dedcbcbc6c10a82a07e4aed02ceff1115b",
+    "production_assemblies": "Direct immutable e880 DLL references; no project-reference rebuild.",
+    "executed": 13,
+    "passed": 1,
+    "failed": 12,
+    "demonstrated_assertions": [
+      "Empty group opening changed a technically accepted completion claim into closed business status before any Judge.",
+      "Adverse and exhausted final reviews left all six old requirements closed.",
+      "Repeating a same-basis pending completion claim was accepted as progress."
+    ],
+    "paid_calls": 0
+  },
+  "green_full_planning": {
+    "trx_sha256": "426bb4a13e72fdbd6cedd891c8d171dc0ed5f425fc87fdac7bc4db487f5f4638",
+    "counters": {
+      "total": 2308,
+      "executed": 2308,
+      "passed": 2308,
+      "failed": 0
+    },
+    "failures": [],
+    "terminal": {
+      "exitCode": 0,
+      "seconds": 173.5324466660386
+    },
+    "command_sha256": "53e75e395a0c907c905c3957d1977b478304338ad266a546419738a05368af9c",
+    "log_sha256": "58d342f2a4765dd8c989f83a17b4bc573b0e4b7b78d4ca95dbc52739395fbd21",
+    "compiler_diagnostics": 0,
+    "new_regression_cases": [
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.EmptyGroupOpeningRetainsUnreviewedClaimWithoutHidingOriginalWork",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.LocalOkCommitsOnlyItsExplicitClaimAndLeavesUncalledGroupClaimPending",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InvalidatedOrUnassociatedOldClaimsCannotPrepareFinalization(mutation: \"checkpoint_claim\")",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InvalidatedOrUnassociatedOldClaimsCannotPrepareFinalization(mutation: \"membership\")",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.MoreThanFourPendingClaimsReachOneHostPreparedGlobalReview",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.ExplicitFinalGlobalReviewCoversPendingClaimsOutsideCurrentStep(adverse: False)",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InvalidatedOrUnassociatedOldClaimsCannotPrepareFinalization(mutation: \"invalidated\")",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InvalidatedOrUnassociatedOldClaimsCannotPrepareFinalization(mutation: \"step_claim\")",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.AdverseOrExhaustedGlobalReviewCannotCommitPendingClaims(exhausted: False)",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.ChangedCompletionClaimsRejectAnIssuedReviewBeforeDispatch",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.ExplicitFinalGlobalReviewCoversPendingClaimsOutsideCurrentStep(adverse: True)",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InvalidatedOrUnassociatedOldClaimsCannotPrepareFinalization(mutation: \"association\")",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.SameBasisPendingClaimIsNotProgressButNewAcceptedWorkCanRenewIt",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.AdverseOrExhaustedGlobalReviewCannotCommitPendingClaims(exhausted: True)",
+        "outcome": "Passed"
+      },
+      {
+        "test": "GnOuGo.Flow.Planning.Tests.BusinessRequirementCompletionTests.InterruptedGlobalIssuanceRecoversExactRequestAndClosesClaimsOnce",
+        "outcome": "Passed"
+      }
+    ]
+  },
+  "earlier_green_evidence_retained_not_added_to_full_count": {
+    "initial_13_cases": {
+      "trx_sha256": "951f14f8d259e53215b1904b046d96bfb1f34d886c1185785d3da8034e6f00ba",
+      "counters": {
+        "total": 13,
+        "executed": 13,
+        "passed": 13,
+        "failed": 0
+      },
+      "failures": [],
+      "source_manifest_sha256": "39624b93fc83a1af4305e0616c5ab60f19294b7f8a065c6a0b5533ae27d03c2f",
+      "log_sha256": "ba3a83ab8feda2fdd299237ecf82e3c2e4ab5f737c4640cf5c88c7a09b422482"
+    },
+    "affected_261_before_two_fixture_reopenings": {
+      "trx_sha256": "110b60f3c914928831f658268612a323108cb313e9704608581856274b329150",
+      "counters": {
+        "total": 261,
+        "executed": 261,
+        "passed": 259,
+        "failed": 2
+      },
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CompactConstructionTests.PublicOutputDirectoryAndSchemaPageWithoutResendingTheCatalog",
+          "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"$.step: value does not match any allowed schema va\"\u00b7\u00b7\u00b7]"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CompactConstructionTests.InternalGroupResultsCannotBeMistakenForDeclaredPublicOutputs",
+          "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [\"$.step: value does not match any allowed schema va\"\u00b7\u00b7\u00b7]"
+        }
+      ],
+      "source_manifest_sha256": "8acc23c7a08b70891d1213dec912515fc96abd0bf12017beaa60c15a35116408",
+      "log_sha256": "8ed867ae9ef9cf644a7ec753c9d89066e5b52157309d5280afbffac34f367777",
+      "correction": "The two synthetic fixtures set status=remaining after a completed run but retained checkpoint completion authority. Clearing their requirement checkpoint memberships explicitly reopens that synthetic authority; public-output and schema assertions remain intact. Both cases pass in the final full run."
+    }
+  },
+  "acceptance_properties": [
+    "Technical empty-group/declaration acceptance retains pending claims and leaves business obligations open without an opening Judge.",
+    "Local OK commits its explicit claims only; the unrelated unused-group claim remains pending.",
+    "More than four valid pending claims receive one host-prepared global review without dropping IDs.",
+    "Model-authored Complete with a subset of current close IDs receives all original obligations; only actual global OK closes all requirements.",
+    "Adverse, exhausted, stale, invalidated or unassociated evidence cannot close requirements.",
+    "Interrupted exact issued global review recovers once without duplicate dispatch or extra correction charge.",
+    "Same-basis repeated pending closure is non-progress; subsequent accepted work allows renewed closure."
+  ],
+  "host_affected_validation": {
+    "terminal": {
+      "exitCode": 0,
+      "seconds": 55.942481499980204
+    },
+    "counters": {
+      "total": 161,
+      "executed": 161,
+      "passed": 161,
+      "failed": 0
+    },
+    "trx_sha256": "e15e4e3117d6b24827ec97415041226a70190e6a77c58fe133b4097842176f46",
+    "compiler_diagnostics": 0,
+    "counting": "Separate host suite; not added to the 2308 Planning total."
+  },
+  "paid_calls": 0,
+  "operational_workspaces_accessed": false,
+  "business_runtime_qualification_claimed": false,
+  "counting": "The final 2308-case Planning run includes the 15 new cases and affected fixtures. Earlier focused counts are evidence history, not additional passes."
+}

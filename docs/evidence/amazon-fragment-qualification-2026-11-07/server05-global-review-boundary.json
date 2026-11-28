@@ -1,0 +1,87 @@
+{
+  "run": "fragmentfix-amazon-20261107-05",
+  "source": "1fe56119",
+  "session": "35f8a17f38064254be5653d5bdfe9d70",
+  "revision": 76,
+  "status": "clarification",
+  "phase": "construction_global_judge",
+  "logicalCalls": 31,
+  "normalModelReceipts": 31,
+  "acceptedCheckpoints": 4,
+  "localBusinessReviews": [
+    {
+      "purpose": "construction_local_judge",
+      "outcome": "ok",
+      "requestId": "35f8a17f38064254be5653d5bdfe9d70:10:69c6f4703f8f78becccb87a76198ca5e34b01555e57bfcf9aee9899dd01a7de4:0fcf8ee47cfc36190bc41bcb84b3185b8cdf869d59f6aff3ed32510e15367f4f"
+    },
+    {
+      "purpose": "construction_local_judge",
+      "outcome": "ok",
+      "requestId": "35f8a17f38064254be5653d5bdfe9d70:28:645dc9840b2167ee00dd7bfa93bf67052a6f399ed4393068fcdc21777e8e6af5:76dd6bea48dc4e79c39d06b5bf0eb2c2a46e4545f14ffe2a1e1ec745259fcca0"
+    }
+  ],
+  "globalReview": {
+    "requestId": "35f8a17f38064254be5653d5bdfe9d70:30:a3b21de9a328577125bebd4c33038d5a963f74cca4b6d192e609f7e8e8da8958:fc213616b36d04f2a2d8961f04752b5a5729525cb3097dabfe9af87bc4352eef",
+    "outcome": "needs_change",
+    "response": {
+      "decision": {
+        "verdict": "needs_change",
+        "reason": "The workbook write is correctly targeted, but its materialization result is not propagated to the caller. e55099eb5_25 constructs the save result and final report, yet root scope e55099eb5_11 has no outputs and publicOutputs is empty. Export the actual materialization result and completion report from the root; computing them internally or writing the workbook does not satisfy the required output propagation.",
+        "obligations": [
+          "policy:instructions"
+        ],
+        "targets": [
+          "/root",
+          "products_delivery_report",
+          "save_products_excel"
+        ]
+      }
+    },
+    "capturedGlobalConstraints": [
+      {
+        "id": "request:0:clause:1",
+        "text": "Ferme le navigateur même en cas d’échec. ",
+        "evidence": "source:request:0:clause:1"
+      },
+      {
+        "id": "request:0:clause:2",
+        "text": "Les erreurs observées, prix ou données absents restent explicites, jamais inventés. Ne déclare pas de réussite si le travail n’a pas abouti.",
+        "evidence": "source:request:0:clause:2"
+      },
+      {
+        "id": "policy:instructions",
+        "text": "Generate a self-contained chat-agent workflow. Host configuration, credentials and saving the agent belong to the host. Preserve requested outputs and cleanup. The .GnOuGo directory is reserved for internal state; workflow-created files belong under workflows/<purpose-specific-name>. Propagate declared materialization outputs. Express the requested business actions. The host manages approval of the generated plan before execution; do not add that approval as a business task."
+      }
+    ],
+    "actualPublicOutputs": []
+  },
+  "declaredPublicOutputs": [],
+  "clarification": [
+    {
+      "id": "root_output_authority",
+      "question": "The diagnosed defect requires exporting the actual save_products_excel result and products_delivery_report report from /root to the caller, but the issued slots authorize only task inputs and an objective. Can the host issue explicit revision slots for root/public output bindings and their producer-to-consumer chains? None of the current slots can repair the missing exports.",
+      "alternatives": [
+        {
+          "id": "authorize_output_bindings",
+          "description": "Issue explicit authority to add root/public output bindings referencing save_products_excel's actual result and products_delivery_report.report, preserving existing tasks and interfaces."
+        },
+        {
+          "id": "retain_current_authority",
+          "description": "Keep the current edit authority and leave the output-propagation defect unresolved; task input or objective edits cannot create caller-visible exports."
+        }
+      ],
+      "recommended": "authorize_output_bindings"
+    }
+  ],
+  "authorizedRepairPaths": [
+    "/tasks/products_delivery_report/inputs",
+    "/tasks/products_delivery_report/objective",
+    "/tasks/save_products_excel/inputs"
+  ],
+  "finalPlanAccepted": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "oracleRun": false,
+  "originalPolicyUnchanged": true,
+  "nextTrialFactor": "Clarify public output declarations versus file effects in fresh host policy and global review presentation; retain judgment and all actual materialization/provenance checks."
+}

@@ -1,4 +1,6 @@
 using GnOuGo.Flow.Integrations;
+using System.Collections.Concurrent;
+using SdkExecutionScope = GnOuGo.GithubCopilot.Mcp.Tests.CopilotAttachmentTests.Fixture.SdkExecutionScope;
 using GnOuGo.KeyVault.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
 using System.IO.Pipelines;
@@ -79,6 +81,12 @@ public sealed class CopilotListContractTests
                 Assert.Empty(PlanningContractValidation.ValidateInstance(JsonNode.Parse(json), fixture.Schemas[tool]["properties"]![parameter]!));
             }
             var result = await fixture.Call(tool, args, "fixture-tenant");
+            if (tool == "code_agent_edit" && json is null or "null" or "[]")
+            {
+                Assert.True(result.IsError);
+                Assert.Equal(0, fixture.Host.Sends);
+                continue;
+            }
             Assert.False(result.IsError == true, string.Join(";", result.Content.OfType<TextContentBlock>().Select(t => t.Text)));
             Assert.Equal("fixture-tenant", fixture.Host.Configuration!.Request.Context.TenantId);
             var configuration = fixture.Host.Configuration.Request.Configuration;
@@ -102,8 +110,9 @@ public sealed class CopilotListContractTests
                 else Assert.Equal(json == "[]" ? [] : new[] { "readme.md", "README.md" }, actual);
             }
         }
-        Assert.Equal(4, fixture.Host.SessionsCreated);
-        Assert.Equal(tool == "copilot_session_create" ? 0 : 4, fixture.Host.Sends);
+        var admitted = tool == "code_agent_edit" ? 1 : 4;
+        Assert.Equal(admitted, fixture.Host.SessionsCreated);
+        Assert.Equal(tool == "copilot_session_create" ? 0 : admitted, fixture.Host.Sends);
     }
 
     private static void AssertInvalid(CallToolResult result, string location)
@@ -118,6 +127,7 @@ public sealed class CopilotListContractTests
     private sealed class Fixture : IAsyncDisposable
     {
         private readonly string root = Directory.CreateTempSubdirectory("copilot-list-contract-").FullName;
+        private readonly ConcurrentDictionary<string, SdkExecutionScope> owners = new(StringComparer.Ordinal);
         internal CopilotTestHost Host = null!;
         internal readonly Dictionary<string, JsonNode> Schemas = [];
         private KeyVaultCopilotTaskStore tasks = null!;
@@ -133,13 +143,13 @@ public sealed class CopilotListContractTests
             var settings = new CodeServerSettings { DefaultWorkingDirectory = f.root, AllowedWorkingRoots = [f.root], AllowWrites = true, Copilot = new() { Model = "mock" } };
             var policy = new CodePolicy(settings, f.root); var options = Options.Create(settings);
             f.Host = new(settings, f.root, policy);
-            f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
+            f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", f.Host.Configuration?.Request.Configuration.ExecutionBounds is null ? "mock result" : """{"summary":"mock result"}""", "mock", []));
             f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.root, "vault.db"), f.root), f.Host.Trace, Path.Combine(f.root, "leases"));
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
-            var copilot = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
+            var copilot = new CopilotTools(f.Host.Manager, policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var service = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options,
-                f.Host.Trace, new(f.Host.Trace), logical);
+                f.Host.Trace, new(f.Host.Trace), f.Host.Bounded, f.tasks);
             var code = new CodeTools(new(policy, options), service, NullLogger<CodeTools>.Instance, f.Host.Human);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "lists-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions); CopilotListContract.Configure(serverOptions);
@@ -147,6 +157,8 @@ public sealed class CopilotListContractTests
             serverOptions.Filters.Request.CallToolFilters.Add(next => async (request, ct) =>
             {
                 using var scope = f.Host.Trace.Push(CodeMcpTraceContext.FromMcpMeta(request.Params.Meta));
+                if (f.tasks.CurrentTaskId is { } id)
+                    f.owners.TryAdd(id, request.Services!.GetRequiredService<SdkExecutionScope>());
                 return await next(request, ct);
             });
             foreach (var target in new object[] { copilot, code })
@@ -154,6 +166,7 @@ public sealed class CopilotListContractTests
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
             var incoming = new Pipe(); var outgoing = new Pipe();
             var registrations = new ServiceCollection(); registrations.AddLogging();
+            registrations.AddScoped(_ => new SdkExecutionScope());
             registrations.AddMcpServer().WithCopilotTasks(f.tasks, f.Host.Trace);
             f.services = registrations.BuildServiceProvider();
             foreach (var configure in f.services.GetServices<IConfigureOptions<McpServerOptions>>()) configure.Configure(serverOptions);
@@ -170,8 +183,11 @@ public sealed class CopilotListContractTests
 
         public async ValueTask DisposeAsync()
         {
+            await Task.WhenAll(owners.Values.Select(owner => owner.Completion.Task)).WaitAsync(Ct);
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
         }
     }
 }

@@ -1,0 +1,15 @@
+{
+  "session": "8227a8c68f3a4706b69dec086ec93789",
+  "revision": 26,
+  "publicRecordValuesUnchanged": {
+    "session": true,
+    "planning-evaluation-runs": true,
+    "planning-evaluation-http-attempts": true,
+    "planning-evaluation-failures": true,
+    "planning-evaluation-session-policy": true,
+    "agent-planning-model-http-v11": true,
+    "agent-planning-model-requests-v11": true,
+    "agent-planning-model-receipts-v11": true,
+    "agent-planning-budgets-v11": true
+  }
+}

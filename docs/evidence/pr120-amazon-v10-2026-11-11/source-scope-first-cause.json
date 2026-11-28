@@ -1,0 +1,31 @@
+{
+  "source": "7aa38147b4e37b3c8b46340e2c101d47e006c434",
+  "run": "amazon-v10-qualification-20261111-02",
+  "session": "dea7d3383ff04763b0d253a39ba3dad4",
+  "status": "cancelled",
+  "revision": 84,
+  "issued_requests": 34,
+  "checkpoints": 4,
+  "local_review_outcomes": [
+    "ok"
+  ],
+  "global_review": false,
+  "execution": false,
+  "independent_oracle": false,
+  "cause": "V6 planning facts lost the inherited unverified-identity qualifier. Generated source_contexts and ordered_source_reads selected all allowlisted navigable links, while the unchanged guard admits only the next unresolved sponsored source occurrence before qualified business links. Detected during artifact inspection; no permission rejection is claimed as executed.",
+  "old_sentence": "Resolve every navigable source-link occurrence by its own exact GET, including equal hrefs.",
+  "correct_sentence": "Before business product selection, resolve every sponsored source-link occurrence with unverified identity by GET of its exact literal href in source order, including repeated hrefs.",
+  "correction": "Reuse the existing v5 source-resolution sentence; preserve its text and unchanged guard/oracle/permissions.",
+  "controlled_regression": {
+    "test": "SourceResolutionFactsDoNotRequireEarlyReadsOfAlreadyIdentifiedProducts",
+    "known_product_before_unresolved_candidates": true,
+    "red": "Guard assertions passed; v6 capture omitted the precise resolution sentence.",
+    "green_passed": 433,
+    "failures": 0,
+    "skips": 0,
+    "warnaserror": true,
+    "red_sha256": "c174db4fc28778546fb2f276ba2a058e24afced32d2cabbd87c9ff8e378b9942",
+    "green_sha256": "939c1c6b948def1f40c076d29e49d6fd525120342cb656bebb3372c50127af86"
+  },
+  "qualification": "Controlled correction only; a fresh independent targeted response must demonstrate the narrowed selection before another full run."
+}

@@ -1,0 +1,253 @@
+{
+  "source": "3052c649160beb3b5315a443f71a741f766ba6f4",
+  "run": "improve40-amazon-20261127-230314",
+  "session": "d9358ce98fe748348456a453cf51da5a",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T23:04:37.5450252+00:00",
+  "finished_utc": "2026-11-27T23:29:00.0438143+00:00",
+  "wall_seconds": 1462.498789,
+  "phases": {
+    "construction_draft": {
+      "logical_calls": 14,
+      "physical_attempts": 14,
+      "input_tokens": 291135,
+      "output_tokens": 11503,
+      "measured_eur": "0.7155831435079726651480637814",
+      "duration_ms": "270260.7831"
+    },
+    "construction_select": {
+      "logical_calls": 7,
+      "physical_attempts": 7,
+      "input_tokens": 26217,
+      "output_tokens": 3765,
+      "measured_eur": "0.0768724373576309794988610478",
+      "duration_ms": "134212.3120"
+    },
+    "construction_implementation": {
+      "logical_calls": 12,
+      "physical_attempts": 12,
+      "input_tokens": 201069,
+      "output_tokens": 8373,
+      "measured_eur": "0.4961617312072892938496583143",
+      "duration_ms": "238615.9384"
+    },
+    "construction_intent": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 4976,
+      "output_tokens": 2226,
+      "measured_eur": "0.0214760820045558086560364465",
+      "duration_ms": "181743.203"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "input_tokens": 119400,
+      "output_tokens": 3016,
+      "measured_eur": "0.2857220956719817767653758542",
+      "duration_ms": "131632.1811"
+    },
+    "replan": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 126228,
+      "output_tokens": 712,
+      "measured_eur": "0.2907790432801822323462414579",
+      "duration_ms": "59729.3278"
+    },
+    "construction_local_judge": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 141100,
+      "output_tokens": 2125,
+      "measured_eur": "0.3310933940774487471526195899",
+      "duration_ms": "114583.9192"
+    },
+    "construction_global_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 18335,
+      "output_tokens": 274,
+      "measured_eur": "0.0430136674259681093394077449",
+      "duration_ms": "14597.9927"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "2.2607015945330296127562642369",
+  "input_tokens": 928460,
+  "output_tokens": 31994,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "PLANNING_HOST_FAILURE",
+      "path": "/",
+      "message": "Planning could not safely complete this operation."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "close_browser",
+      "search"
+    ],
+    [
+      "assess_search"
+    ],
+    [
+      "decide_prefix",
+      "select_prefix",
+      "selection_failure"
+    ],
+    [
+      "navigate_ambiguous",
+      "resolve_selection",
+      "route_selection"
+    ],
+    [
+      "original_links",
+      "visit_selection"
+    ],
+    [
+      "detail",
+      "extract_detail",
+      "has_text",
+      "href_match",
+      "in_range",
+      "visits"
+    ],
+    [
+      "extract_detail"
+    ],
+    [
+      "compare",
+      "deliver",
+      "expected",
+      "read",
+      "readable",
+      "write",
+      "written"
+    ],
+    [],
+    []
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 59,
+    "repairs": 5,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "49.089328018223234624145786383",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "20.3892847380410022779043275123",
+    "physical_attempts": 1355,
+    "input_tokens": 20165365,
+    "output_tokens": 692425
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "51.350029612756264236902050643",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "18.1285831435079726651480632523",
+    "physical_attempts": 1414,
+    "input_tokens": 21093825,
+    "output_tokens": 724419
+  },
+  "terminal_diagnosis": {
+    "revision": 155,
+    "public_code": "PLANNING_HOST_FAILURE",
+    "replayed_validation_revision": 154,
+    "exception": "ArgumentException: An item with the same key has already been added. Key: outcome_1_1",
+    "origin": "PlanningGraphCompiler.LowerPureCall, when declaring the branch result after rebasing the intermediate checks.",
+    "live_authority": {
+      "operator_answer_revision": 98,
+      "producer_edit_revision": 103,
+      "producer": "extract_detail",
+      "final_outcome_producer": "deliver.outcome"
+    },
+    "completed_construction_checkpoints": 10,
+    "business_searches": 0,
+    "product_visits": 0,
+    "workbook_created": false,
+    "source_plan_sha256": "5388a3d98b8ac28ec20239d414a53f4c59b689360d4e98d6c6bc2b729e6efec7",
+    "frozen_assemblies": [
+      {
+        "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "98f5b7d740c1be89a00eb844d1bc6eacf017c1772e1a6a0079dd7d11f9ce90c9"
+      },
+      {
+        "assembly": "GnOuGo.Agent.Server.dll",
+        "version": "0.0.0-dev+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "d26d4a08ed064e4b9bcf3e6dab8cb3776ff3de09753c683229a68517d955a2f6"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Planning.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "8bc6d116c5df7275a52e679692988b13715857d38becbe768c4207599ecfe07f"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Persistence.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "4e568b27dee4a376aeca3bcca0db84576cb66b66f647e381417af5c2c053f6b8"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Copilot.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "77b1803dd6a1934adb2c0a90001cb32c50de83a70e7f769c8996a6de231c3640"
+      },
+      {
+        "assembly": "GnOuGo.Flow.Core.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "d81ed202fb112975774a9db198176ba7a2192e52018a20e070746164bf7c2761"
+      },
+      {
+        "assembly": "GnOuGo.Browser.Mcp.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "e9ccb1bffa273cba0c06b6b358b5fea87c74e994faab6a9344cbf9a4c21d121b"
+      },
+      {
+        "assembly": "GnOuGo.Document.Mcp.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "ff517986b38f2c9384e9ab22a6ad3932c97b0714052a6d2f7b63d88d73e30bab"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Core.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "4240f9888ccf4a19add148f44ecb2a5e7e6e50cd2d1b325f4e79918cdea6c4d2"
+      },
+      {
+        "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "92351b9c3c8b47b54c45f01b401ef110eb23dbb9a6960d9b4734a97dd31ce907"
+      },
+      {
+        "assembly": "GnOuGo.Cmd.Mcp.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "dd952903bd8d5dcd5e05c81316ebe4c90eacdc30d0ff1f0cf8d30089bf22a006"
+      },
+      {
+        "assembly": "GnOuGo.Git.Mcp.dll",
+        "version": "1.0.0+3052c649160beb3b5315a443f71a741f766ba6f4",
+        "sha256": "1308effe7b729f234613b3bec8764040cc8473daad4bc1997a60e58883d6a1ab"
+      }
+    ]
+  },
+  "local_regression": {
+    "unmodified_plan_revision": 154,
+    "provider_calls": 0,
+    "status": "final_review",
+    "diagnostics": [],
+    "compiled_yaml_characters": 643648,
+    "compiled_yaml_sha256": "f2fab3d833fa60cc25da620facce2a6f8fd81945e03d4f17dce25c52e5faec5d",
+    "windows_planner_tests": 80,
+    "windows_planner_trx_sha256": "06818a888577578c6b583e88de94f1398435d6daef1f961cf659bbeb84073912",
+    "two_selected_regression_cases": "Both enabled and disabled cases reproduced the identical duplicate key on the original planning DLL. Both passed against the changed DLL.",
+    "tested_planning_dll_sha256": "5d0ce0cf85dbeb9f533dcbe76165c2c675d75b8c958349dcdf0f929f33a85fdf"
+  }
+}

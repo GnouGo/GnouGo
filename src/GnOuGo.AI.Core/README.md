@@ -1,7 +1,7 @@
 ﻿# GnOuGo.AI.Core
 
 <a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/v/GnOuGo.AI.Core.svg" alt="NuGet version"></a>
-<a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-10.0-blue.svg" alt=".NET 10.0"></a>
+<a href="https://www.nuget.org/packages/GnOuGo.AI.Core"><img src="https://img.shields.io/badge/.NET-11.0-blue.svg" alt=".NET 11.0"></a>
 <a href="https://nugettrends.com/packages?ids=GnOuGo.AI.Core"><img src="https://img.shields.io/nuget/dt/GnOuGo.AI.Core.svg" alt="NuGet downloads"></a>
 
 Low-level, AOT-friendly library for calling LLM providers.  
@@ -16,6 +16,8 @@ Provides a **provider-agnostic routing layer** so that the rest of the system ne
 | `Copilot`   | `copilot` | GitHub Copilot / GitHub Models API               |
 | `Anthropic` | `anthropic` | Anthropic Claude Messages API                  |
 | `Local`     | `local`   | Embedded runtime supplied by `GnOuGo.AI.Local`   |
+
+`StructuredToolSelection` provides the shared Chat Completions tool-selection contract for ProxyCopilot and GithubCopilot.Mcp. It builds a strict JSON schema from the functions offered for one request, includes their complete declarations in the conversation, and converts a completed decision into a Chat Completions reply or stream. Tool names, required selections and parallel-call limits are checked before any call reaches the client. The client owns argument validation, permissions and execution.
 
 ## Model Catalog Behavior
 
@@ -34,12 +36,16 @@ stop capability proof, while the editor's suggestion-oriented resolution remains
 - OpenAI-compatible providers and Copilot/GitHub Models return the advertised catalog directly.
 - GnOuGo does not run extra chat-completions probes during model listing.
 - OIDC client-credentials authentication is supported for both inference calls and model discovery.
+- Valid OIDC tokens are reused across calls and captured retry-policy copies for the same issuer, client, scopes and credentials within one `HttpClient` lifetime. The existing token provider owns expiry and serialized refresh; changed credentials or another HTTP client use a separate cache. Authentication requests never become journaled generation attempts, and caching does not retry an uncertain generation or suppress an initial authentication failure.
+- Failures inside OIDC resolution retain the optional typed `LLMProviderException.Stage = LLMProviderFailureStage.Authentication` marker through normalization. Failure kind, HTTP status and retry disposition remain separate; caller cancellation remains cancellation. An absent marker means the stage is unknown, not that generation occurred. The marker contains no issuer, credentials, response body or prompt.
 - The embedded metadata catalog adds pricing, token limits and request capabilities when known.
 - User metadata files and inline overrides can add new models or override builtin values without recompilation.
 - Unknown model ids use deterministic, provider-aware fuzzy matching to inherit the closest same-provider limits, pricing and capabilities. Cross-provider fallback is never used.
 - `LLMModelMetadataResolver.ResolveWithDetails(...)` exposes whether resolution was exact, alias-based, fuzzy, or heuristic-only, together with the matched model and similarity score. Fuzzy results retain the requested model identity.
 - `RoutingLLMClient` removes unsupported optional fields (for example `temperature` on reasoning models) before calling the provider.
 - Builtin metadata is authored in `Telemetry/model-metadata.json`; pricing is stored under each model's `pricing` object.
+- OpenAI GPT-6/6.1 planning entries were verified against official model, pricing and deprecation pages on 2026-11-05. `VerifiedAt`/`SourceUrls` retain provenance. Endpoint, conditional reasoning/tool/temperature, streaming and modality fields remain separate from configured gateway availability. Regenerate these verified entries with the scripts **without** their third-party download option. See [diagnostic planning metadata and billing](../../docs/diagnostic-planning.md#openai-sources-and-billing).
+- `EstimateUsageCost` applies reported cache subsets, documented cache writes, long-context and configured tier/regional conditions. Reasoning tokens remain included in output. Captured metadata uses exact provider/model identities, independent of later catalog overrides; it never supplies missing historical tariffs.
 - `ModelPricingMetadata` includes currency and nullable input, output, cached-input, cache-write-input (`CacheWriteInputPer1MTokens`), and reasoning-output rates per million tokens. Cache-write rates survive external metadata loading, overrides, and cloning; consumers decide how to normalize usage and apply rates.
 - Builtin and external metadata can use provider-qualified keys such as `openai/gpt-4o`, `copilot/gpt-4o`, `claude/claude-sonnet-4-20250514`, or `ollama/llama3.1` when the same model id exists on multiple providers with different limits or pricing.
 - `scripts/update-model-metadata.ps1 -DownloadLatest` and `scripts/update-model-metadata.sh --download-latest` synchronize the builtin catalog from LiteLLM for the supported providers (`openai`, `anthropic`/`claude`, `copilot`/GitHub Models, and `ollama`) and regenerate `ModelMetadataCatalog.Generated.cs`.
@@ -81,15 +87,24 @@ provider is `local`, routing performs at most two local attempts. A structured
 second attempt receives sanitized validation feedback. A configured non-local
 `LLM.Fallback` is then called at most once for load, inference, or structured-output
 failure. Caller cancellation is never retried or sent to a fallback, and a fallback
-cannot point back to `local`.
+cannot point back to `local`. A durable HTTP generation context disables both local
+semantic retries and provider fallback.
 
 ## HTTP resilience
 
-OpenAI, Ollama, Copilot/GitHub Models, and Anthropic HTTP operations make at most four
-attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Every attempt receives a fresh
-request. A valid `Retry-After` delta or HTTP date is honored; otherwise recovery uses
+The default policy for GETs and journaled generation POSTs permits at most four
+attempts for `425`, `429`, `500`, `502`, `503`, and `504`. Unjournaled POSTs are single-attempt. Every attempt receives a fresh
+request. The transport honors `Retry-After` seconds (including fractional provider values) or HTTP dates and the
+`retry-after-ms` and `x-ms-retry-after-ms` millisecond headers. When several
+valid headers arrive, the latest allowed instant wins. In their absence it uses
 full-jitter exponential backoff from one second, capped at 30 seconds per wait and 60 seconds
-cumulatively. A delay outside that budget stops recovery instead of holding a workflow open.
+cumulatively. A delay outside that budget stops recovery and records the earliest retry.
+Background polling also honors cooldowns on successful responses whose work is still
+pending. A failed receipt read records its own HTTP status when available, failure
+phase and correlation. Recovery retrieves the same provider response ID.
+The OpenAI and Azure SDKs also recognize provider millisecond headers.
+[OpenAI SDK](https://github.com/openai/openai-python/blob/main/src/openai/_base_client.py) ·
+[Azure SDK](https://github.com/Azure/azure-sdk-for-js/blob/main/sdk/core/ts-http-runtime/src/retryStrategies/throttlingRetryStrategy.ts)
 
 Before replay, GnOuGo inspects a bounded error envelope. Quota/billing, authentication,
 and authorization failures are terminal even when a gateway transports them as `429`.
@@ -101,14 +116,61 @@ safe to repeat. Generation POSTs require an explicit `LLMHttpRetryContext` backe
 its possible usage before allowing dispatch. Tool-bearing/background calls cannot use this
 context. Hosts must not wrap this HTTP recovery in another retry loop.
 
+A host may attach an additional mandatory admission journal with
+`LLMHttpRetryContext.RequireAdditionalJournal`. The active host keeps its request
+identity, retry policy and recovery ownership. Both journals persist admission
+before sending; disagreement on retained outcomes stops recovery without replay.
+This permits a finite shared campaign ceiling alongside per-session accounting,
+without another retry loop or a new storage service. Journal failures never release
+uncertain reservations or authorize redispatch.
+
 The journal retains complete HTTP responses, so restart can replay a completion without
 sending or charging again. A reserved attempt without a response remains uncertain and
 consumes the uncertain-retry allowance; its identity is never reused. Caller cancellation
 is durable and terminal. Journal failures stop without an in-process resend. The configurable
 `AttemptTimeoutMilliseconds` covers both headers and body; `MaxAttempts` includes the
-initial attempt and `MaxUncertainRetries` defaults to one. Logs contain only the operation, status, attempt, selected
-delay, and exhaustion state—not endpoints, prompts, payloads, response bodies, tokens, headers,
-or credentials.
+initial attempt and `MaxUncertainRetries` defaults to one. Transport diagnostics contain
+the operation, status, attempt count, elapsed and requested waits, earliest retry, phase,
+correlation and exhaustion state. Credentials and request or response content stay out of these logs.
+
+An optional captured policy on `LLMHttpRetryContext` selects confirmed-response-only
+recovery: at most three total attempts, with no uncertain retries. It permits fully
+buffered and persisted `500`, `502`, `503`, `504`, or `429` supported by a recognized
+rate-limit marker or valid `Retry-After`. Permanent error markers take precedence.
+Timeouts, incomplete bodies, missing outcomes, cancellation and invalid successful
+responses never trigger this retry path. Explicit `DisableTransportRetries=true`
+still restricts the call to one attempt. Hosts own conservative per-attempt admission,
+encrypted evidence and retained unknown-usage reservations; a later success does not
+prove earlier attempts were free. Existing contexts without the captured policy retain
+their original recovery policy.
+
+An explicit `independentGenerationMaxElapsedMilliseconds` on the context opts a
+trusted host into independent, tool-free generation after an observed transport
+loss or incomplete stream. It requires a captured policy with at most three total
+attempts and one or two uncertain retries, plus a total duration of at most 61
+minutes. The planner's version-2 policy captures these values before dispatch.
+AI.Core remains the only retry owner: it uses the existing backoff, jitter and
+`Retry-After`, reserves a fresh identity before each send, and starts a fresh
+response assembly. Earlier partial bytes and unknown-usage reservations remain.
+A fired timer whose allowance was limited by the captured total generation duration
+is retained as `IndependentGenerationDurationExhausted` on its attempt. Restoring
+the journal cannot replace that exhausted outcome with apparent remaining UTC
+time or restart generation; a shorter per-attempt timeout grants no such marker.
+Saved completions recover first; Responses background receipt retrieval retains its
+existing precedence. A loaded unresolved attempt cannot trigger independent
+generation after a restart. Cancellation, permanent errors, malformed protocol,
+received final usage and incomplete/model-rejected outputs require their existing
+recovery path. Only a complete final response reaches the caller.
+
+EOF before an SSE event boundary is a transport interruption; complete malformed
+JSON frames remain protocol failures. Partial frames are retained and never
+contribute to the next attempt's response.
+
+A deadline-cancelled progress write remains cancellation, followed by the transport
+owner's mandatory durable final save. It cannot become a stale storage exception
+that masks a later attempt's timeout. Genuine storage/admission failures stop the
+retry owner before another send. Observed output exhaustion and final usage also
+block independent generation when the last protocol marker is missing.
 
 `RoutingLLMClient` exposes provider failures through the redacted
 `LLMProviderException` contract. `LLMProviderFailureKind` distinguishes transport,
@@ -117,8 +179,16 @@ authorization, quota or billing exhaustion, invalid requests, unavailable models
 and unknown terminal failures. Transport, timeout, rate-limit, and service failures
 are retryable; the remaining categories fail immediately. Exception metadata may contain an
 HTTP status, actual attempt count, retry-exhaustion flag, accepted `Retry-After`, and a safe
-provider error code, but never a response body, endpoint, credential, request prompt, or raw
-user content.
+provider error code. The durable transport record and safe error also carry the
+earliest retry instant, failure phase, physical request identity and a hash of the
+provider correlation ID when supplied. These diagnostic fields exclude credentials
+and request or response content.
+
+Background Responses retrieval follows the original response ID. Each poll records
+its own request identity, status and provider timing. Confirmed rejections share
+the captured wait allowance across restarts. A deferred poll can resume once the
+remaining wait fits. The physical timer covers headers and the complete body of
+each request, independently of waits between requests.
 
 ### OpenAI background Responses
 
@@ -346,3 +416,26 @@ dotnet test tests/GnOuGo.AI.Core.Tests/GnOuGo.AI.Core.Tests.csproj
 | `ChatRequestBuilder` | AOT-friendly JSON request builder |
 | `ChatResponseParser` | Response parser for all providers |
 | `CopilotEndpoints` / `OpenAiEndpoints` / `OllamaEndpoints` | URL helpers |
+
+Native generation transport is configurable as `Auto`, `Streaming` or `NonStreaming`, including exact deployment overrides. See [configuration, protocol completion and recovery](../../docs/native-provider-streaming.md).
+
+`NativeStreamingSocketTests` exercises the existing routing client, HTTP factory,
+native SSE reader and file-journal recovery over a real loopback HTTP/1.1 socket.
+Its controls distinguish HTTP EOF, a peer socket reset, missing `[DONE]` with
+known usage, the captured deadline, and a complete response after a silent gap.
+Every case runs normally in the existing Core test suite. To investigate a
+five-minute idle boundary without calling a provider:
+
+```sh
+GNOU_GO_NATIVE_STREAM_IDLE_SECONDS=310 dotnet test tests/GnOuGo.AI.Core.Tests \
+  -m:1 -warnaserror --filter FullyQualifiedName~NativeStreamingSocketTests \
+  --logger 'trx;LogFileName=native-socket-idle.trx'
+```
+
+Only the complete-response fixture uses the optional 1–450 second interval;
+the production client retains its 600-second deadline and existing five-minute
+connection-pool lifetime. TRX output includes the synthetic journal, observed
+HTTP version and timestamps. This controlled transport reproduction uses no
+KeyVault deployment, campaign funds, model inference, workflow execution or
+old session. A passing result excludes that local idle-cutoff hypothesis under
+the tested conditions; it does not establish delivery through a remote gateway.

@@ -22,27 +22,18 @@ public sealed class CopilotCompletionReceiptTests
         { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } })!;
 
     [Theory]
-    [InlineData("completed", "copilot_interactive_one_shot")]
-    [InlineData("completed", "code_agent_edit")]
-    [InlineData("empty-final", "copilot_interactive_one_shot")]
-    [InlineData("empty-final", "code_agent_edit")]
-    [InlineData("late-idle", "copilot_interactive_one_shot")]
-    [InlineData("late-idle", "code_agent_edit")]
-    [InlineData("budget", "copilot_interactive_one_shot")]
-    [InlineData("budget", "code_agent_edit")]
-    [InlineData("disposal-failure", "copilot_interactive_one_shot")]
-    [InlineData("disposal-failure", "code_agent_edit")]
-    [InlineData("pending-command", "copilot_interactive_one_shot")]
-    [InlineData("pending-command", "code_agent_edit")]
-    [InlineData("pending-shell", "copilot_interactive_one_shot")]
-    [InlineData("pending-shell", "code_agent_edit")]
-    [InlineData("async-exit", "copilot_interactive_one_shot")]
-    [InlineData("async-exit", "code_agent_edit")]
-    [InlineData("denied-command", "copilot_interactive_one_shot")]
-    [InlineData("denied-command", "code_agent_edit")]
-    public async Task BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(string scenario, string operation)
+    [InlineData("completed")]
+    [InlineData("empty-final")]
+    [InlineData("late-idle")]
+    [InlineData("budget")]
+    [InlineData("disposal-failure")]
+    [InlineData("pending-command")]
+    [InlineData("pending-shell")]
+    [InlineData("async-exit")]
+    [InlineData("denied-command")]
+    public async Task BoundedLocalCommandAndRealMcpTransportSeparateTerminalFailureFromUnknownCompletion(string scenario)
     {
-        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(configure: s => { s.Copilot.LogicalLimits.InferenceAttempts = 1; s.AllowWrites = operation == "code_agent_edit"; });
+        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(configure: s => { s.Copilot.LogicalLimits.InferenceAttempts = 1; });
         string? taskId = null; var inferenceCalls = 0;
         var disposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         fixture.Host.OnDispose = async () =>
@@ -108,14 +99,14 @@ public sealed class CopilotCompletionReceiptTests
             }
             throw observations.Interrupted(handle, "bounded-session", new InvalidOperationException("PRIVATE_ERROR"), null, ct, budget);
         };
-        var args = new Dictionary<string, object?> { ["projectRoot"] = "workflows/project", [operation == "code_agent_edit" ? "task" : "prompt"] = "Run the local fixture command once and report its exit code." };
+        var args = new Dictionary<string, object?> { ["projectRoot"] = "workflows/project", ["prompt"] = "Run the local fixture command once and report its exit code." };
         var uncertain = scenario is "pending-command" or "pending-shell";
-        if (uncertain) await Assert.ThrowsAsync<McpException>(() => fixture.Call(operation, args, "fixture-tenant"));
+        if (uncertain) await Assert.ThrowsAsync<McpException>(() => fixture.Call("copilot_interactive_one_shot", args, "fixture-tenant"));
         else
         {
-            var response = await fixture.Call(operation, args, "fixture-tenant");
+            var response = await fixture.Call("copilot_interactive_one_shot", args, "fixture-tenant");
             Assert.Equal(scenario != "completed", response.IsError == true);
-            Assert.Equal(scenario == "completed", response.StructuredContent!.Value.GetProperty(operation == "code_agent_edit" ? "success" : "completed").GetBoolean());
+            Assert.Equal(scenario == "completed", response.StructuredContent!.Value.GetProperty("completed").GetBoolean());
             Assert.DoesNotContain("PRIVATE", response.StructuredContent.Value.GetRawText());
             await disposed.Task.WaitAsync(TimeSpan.FromSeconds(5), Ct);
         }
@@ -152,13 +143,11 @@ public sealed class CopilotCompletionReceiptTests
     }
 
     [Theory]
-    [InlineData(true, "copilot_interactive_one_shot")]
-    [InlineData(false, "copilot_interactive_one_shot")]
-    [InlineData(true, "code_agent_edit")]
-    [InlineData(false, "code_agent_edit")]
-    public async Task RealFlowOnlyReleasesCleanupForAVerifiedFinalToolResult(bool verified, string operation)
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RealFlowOnlyReleasesCleanupForAVerifiedFinalToolResult(bool verified)
     {
-        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(configure: s => s.AllowWrites = operation == "code_agent_edit");
+        await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync();
         fixture.Host.OnSend = (_, handle, _, ct) =>
         {
             var observations = new CopilotExecutionObservations();
@@ -179,8 +168,8 @@ public sealed class CopilotCompletionReceiptTests
                     type: mcp.call
                     input:
                       server: code
-                      method: {{operation}}
-                      request: { projectRoot: workflows/project, {{(operation == "code_agent_edit" ? "task" : "prompt")}}: Inspect local evidence }
+                      method: copilot_interactive_one_shot
+                      request: { projectRoot: workflows/project, prompt: Inspect local evidence }
                 finally:
                   - id: cleanup
                     type: mcp.call
@@ -237,7 +226,11 @@ public sealed class CopilotCompletionReceiptTests
             await owner.SetCompletedAsync(id, result, Ct);
             Assert.Equal(result.GetRawText(), (await reader.GetTaskAsync(id, Ct))!.Result!.Value.GetRawText());
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 
     private sealed class FailingStore(IKeyVaultRecordStore inner) : IKeyVaultRecordStore

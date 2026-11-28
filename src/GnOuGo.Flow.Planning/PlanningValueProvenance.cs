@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Planning;
@@ -20,6 +21,8 @@ internal static class PlanningValueProvenance
                 return child is { Type: "mcp.call", If: null } && value.Path.Count >= 3 && value.Path[1] == "response" && !child.OnError.Any(h => h.Action == "continue") &&
                     Proves(workflow, new() { Kind = "output", Source = child.Key, Path = value.Path.Skip(2).ToList() }, graph, source, visited);
             }
+            if (value is { Kind: "at_index", Items.Count: 2 })
+                return ProvesItems(workflow, value.Items[0], value.Path, graph, source, visited);
             if (value.Kind == "loop_item")
             {
                 var loop = PlanningGraphCompiler.Enumerate(workflow.Steps.Concat(workflow.Finally)).FirstOrDefault(n => n.Key == value.Source && n.Type is "loop.sequential" or "loop.parallel");
@@ -146,8 +149,13 @@ internal static class PlanningValueProvenance
         var remaining = path.ToArray();
         for (var i = 0; i < remaining.Length && source is not null; i++)
         {
+            if (source is { Kind: "object_view", Items: [var original, var shape] })
+                return PlanningGraphValidation.IsLiteral(shape) && PlanningGraphValidation.Literal(shape) is JsonObject fields &&
+                    PlanningObjectView.CopiesPath(fields, remaining.Skip(i)) ? Select(original, remaining.Skip(i)) : null;
             if (source is { Kind: "flatten", Items.Count: 1 } && source.Items[0] is { Kind: "array" } groups && groups.Items.All(v => v.Kind == "array"))
                 source = new() { Kind = "array", Items = groups.Items.SelectMany(v => v.Items).ToList() };
+            if (source is { Kind: "at_index", Items.Count: 2 })
+                return new() { Kind = source.Kind, Items = source.Items, Path = source.Path.Concat(remaining.Skip(i)).ToList() };
             if (source.Kind is "output" or "input" or "loop_item") return new() { Kind = source.Kind, Source = source.Source, ResultChannel = source.ResultChannel, Path = source.Path.Concat(remaining.Skip(i)).ToList() };
             if (source.Kind == "object") source = PlanningGraphValidation.Member(source, remaining[i]);
             else if (source.Kind == "array" && int.TryParse(remaining[i], out var index) && index >= 0 && index < source.Items.Count) source = source.Items[index];

@@ -9,6 +9,43 @@ internal static class PlanningSchemaReferences
 {
     internal static string Escape(string value) => value.Replace("~", "~0", StringComparison.Ordinal).Replace("/", "~1", StringComparison.Ordinal);
 
+    // Producer fields move into generated object/array contracts. Expand acyclic
+    // local references while their authoritative root is still available, before
+    // detaching or embedding them. Recursive/non-local references remain subject
+    // to ordinary contract validation; they never trigger a fetch or lose a rule.
+    internal static JsonObject ExpandLocalReferences(JsonObject root, JsonObject? selected = null)
+    {
+        var source = selected ?? root;
+        if (!Walk(source, "", 0).Any(entry => entry.Schema.ContainsKey("$ref"))) return source;
+        var remaining = 16384;
+        return Expand(source, new HashSet<string>(StringComparer.Ordinal) { "#" });
+
+        JsonObject Expand(JsonObject source, HashSet<string> active)
+        {
+            var copy = source.DeepClone().AsObject();
+            var nodes = Walk(copy, "", 0).Select(entry => entry.Schema).ToArray();
+            remaining -= nodes.Length;
+            if (remaining < 0) throw new InvalidOperationException("Producer schema reference expansion exceeds the supported schema-node bound.");
+            foreach (var node in nodes.Reverse())
+            {
+                if (node["$ref"] is not JsonValue value || !value.TryGetValue<string>(out var reference) ||
+                    !reference.StartsWith("#/", StringComparison.Ordinal) || active.Contains(reference)) continue;
+                if (active.Count >= 64) throw new InvalidOperationException("Producer schema reference expansion exceeds the supported reference depth.");
+                if (Read(root, reference[1..]) is not JsonObject target) continue;
+                var expanded = Expand(target, new HashSet<string>(active, StringComparer.Ordinal) { reference });
+                var siblings = node.DeepClone().AsObject(); siblings.Remove("$ref");
+                node.Clear();
+                foreach (var (name, child) in expanded) node[name] = child?.DeepClone();
+                if (siblings.Count > 0)
+                {
+                    node["allOf"] ??= new JsonArray();
+                    node["allOf"]!.AsArray().Add((JsonNode)siblings);
+                }
+            }
+            return copy;
+        }
+    }
+
     internal static JsonObject Resolve(PlanningSchema schema, PlanningCatalog catalog)
     {
         if (schema.Type != "string" || schema.Nullable || schema.Description is not null || schema.Enum.Count != 0 ||
@@ -21,7 +58,8 @@ internal static class PlanningSchemaReferences
         var found = Entries(capability).FirstOrDefault(entry => entry.Path == pointer);
         if (found.Schema is null)
             throw new InvalidOperationException("The schema reference is unresolved. schemaPointer starts with /input or /output, followed by JSON Schema segments such as /properties/name. Data paths and /outputSchema are not schema pointers.");
-        var result = (JsonObject)found.Schema.DeepClone();
+        var input = pointer.StartsWith("/input", StringComparison.Ordinal);
+        var result = ExpandLocalReferences(input ? capability.InputSchema : capability.OutputSchema, found.Schema).DeepClone().AsObject();
         // A detached subschema must still resolve its own references. Do not silently
         // drop/rebase constraints or borrow a different capability's definitions.
         var errors = PlanningContractValidation.ValidateSchema(result);

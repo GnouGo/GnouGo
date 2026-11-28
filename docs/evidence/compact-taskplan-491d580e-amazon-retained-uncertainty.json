@@ -1,0 +1,128 @@
+{
+  "production_and_harness_source": "491d580edaf72c7f2c4c171f65b458f13db3ca2d",
+  "run": "compactm491d580eamz11out32b-amazon-1",
+  "status": "transport_uncertainty_permanently_retained",
+  "logical_requests": 10,
+  "physical_attempts": 10,
+  "verified_completion_receipts": 9,
+  "receiptless_requests": 1,
+  "judge_calls": 0,
+  "correction_charges": 0,
+  "planning_ms": 830742,
+  "intent_calls": 1,
+  "intent_latency_ms": "56164.0925",
+  "known_cost_eur": "0.6028788287074463307284649241",
+  "retained_unknown_reservation_eur": "0.9979834725590586544507320578",
+  "provider_tokens": {
+    "input_tokens": 27227,
+    "output_tokens": 17835,
+    "reasoning_tokens": 16185
+  },
+  "accepted_state": {
+    "empty_group_definitions": 1,
+    "executable_business_nodes": 0,
+    "artifact_created": false,
+    "runtime_started": false
+  },
+  "resumption_domain_fix_exercised": false,
+  "business_oracle_status": "not_started",
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "comparison_limit": "Provider uncertainty stops this trajectory before the changed resumption path. Fewer requests than the control are not an efficiency or correctness improvement.",
+  "profile_sha256": "1ae308efc238e137e12e98db45e533b7d270abaa680650f9946aa31c32d20e4c",
+  "settings_changed_from_output32_control": false,
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "issued_requests": 1,
+      "p50_bytes": 7305,
+      "p95_bytes": 7305,
+      "maximum_bytes": 7305,
+      "peak_components": {
+        "construction_context": 29,
+        "diagnostics": 26,
+        "envelope": 433,
+        "instructions": 1404,
+        "intent": 1199,
+        "interfaces": 59,
+        "response_schema": 4155
+      }
+    },
+    "construction_select": {
+      "issued_requests": 2,
+      "p50_bytes": "12511.5",
+      "p95_bytes": 13282,
+      "maximum_bytes": 13282,
+      "peak_components": {
+        "construction_context": 1542,
+        "envelope": 501,
+        "instructions": 2968,
+        "interfaces": 294,
+        "requirements": 3468,
+        "response_schema": 4509
+      }
+    },
+    "construction_discovery": {
+      "issued_requests": 6,
+      "p50_bytes": "21841.5",
+      "p95_bytes": 25603,
+      "maximum_bytes": 25603,
+      "peak_components": {
+        "construction_context": 665,
+        "envelope": 502,
+        "evidence": 6635,
+        "instructions": 2240,
+        "interfaces": 1667,
+        "mcp_descriptors": 2742,
+        "objective": 619,
+        "requirements": 3469,
+        "response_schema": 7064
+      }
+    },
+    "construction_draft": {
+      "issued_requests": 1,
+      "p50_bytes": "17967.5",
+      "p95_bytes": 17988,
+      "maximum_bytes": 17988,
+      "peak_components": {
+        "construction_context": 2038,
+        "diagnostics": 26,
+        "envelope": 507,
+        "evidence": 25,
+        "fragment": 22,
+        "instructions": 1144,
+        "interfaces": 339,
+        "mcp_contracts": 25,
+        "objective": 599,
+        "requirements": 2619,
+        "response_schema": 10644
+      }
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "retention": {
+    "campaign": "schema-portability-20261019-incremental",
+    "run": "compactm491d580eamz11out32b-amazon-1",
+    "request_id": "compactm491d580eamz11out32b-amazon-1:10:f51b8a591c29dcd17e8c3a3f540e973bb51dab90b818871213349769dd6c5720:a42858a6f9e2f95e67a7effcbe54451275a7978e5ca09d49e6d49c2fdaf65cf8",
+    "source": "491d580edaf72c7f2c4c171f65b458f13db3ca2d",
+    "evidence_hash": "c9dc8361d8bb664484a640cfc77dae43780225559db6f168015fd5f70a3a8c4d",
+    "outcome": "terminal_inconclusive_permanent",
+    "full_reservation_retained_eur": "0.9979834725590586544507320578",
+    "all_six_original_records_and_timestamps_unchanged": true,
+    "request_and_run_rejected_after_restart": true,
+    "provider_calls_in_guard_test": 0,
+    "guard_record_mutations": 0,
+    "repeated_apply_idempotent": true,
+    "scoped_accounting_identical_across_inspection_and_both_applies": true,
+    "campaign_accounting_unchanged": true,
+    "accounting_scope_note": "The leased operation names the stopped session with10 calls; campaign-wide inspection has session_calls0. All aggregate financial/call/token fields are exactly equal and the original session record is unchanged.",
+    "permanent_closures": 54,
+    "unresolved": 0,
+    "available_eur_after_operation": "143.98636351741481238732629689",
+    "ceiling_eur": "640.0301038327063045424449473",
+    "known_campaign_cost_eur": "374.31690934215308215099308199",
+    "retained_unknown_campaign_reservations_eur": "121.72683097313841000412556842",
+    "unknown_attempts": 143,
+    "supplement_reapplied": false
+  },
+  "qualifying_success": false
+}

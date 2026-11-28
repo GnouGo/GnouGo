@@ -1,0 +1,159 @@
+{
+  "source": "143c4c53630492f312baaabff9a92c0659675792",
+  "run": "routing30-code-20261126-234401",
+  "session_id": "a8e8df1d69bd463ba4180929d5c945d9",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v1",
+  "workspace_relative": "workflows/pr120-agent-routing-20261126-30/routing30-code-20261126-234401",
+  "planning_passed": false,
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 52,
+    "repairs": 8,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "planning_by_phase": {
+    "construction_draft": {
+      "logical_calls": 14,
+      "physical_attempts": 14,
+      "known_input_tokens": 260727,
+      "known_output_tokens": 8473,
+      "cost_eur": "0.6325125284738041002277904328"
+    },
+    "construction_implementation": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "known_input_tokens": 40305,
+      "known_output_tokens": 4015,
+      "cost_eur": "0.1101025056947608200455580866"
+    },
+    "construction_discovery": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "known_input_tokens": 114052,
+      "known_output_tokens": 3257,
+      "cost_eur": "0.2746378132118451025056947608"
+    },
+    "construction_local_judge": {
+      "logical_calls": 10,
+      "physical_attempts": 10,
+      "known_input_tokens": 90983,
+      "known_output_tokens": 5653,
+      "cost_eur": "0.2330045558086560364464692484"
+    },
+    "replan": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "known_input_tokens": 184643,
+      "known_output_tokens": 3582,
+      "cost_eur": "0.4369179954441913439635535307"
+    },
+    "construction_select": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 5904,
+      "known_output_tokens": 1130,
+      "cost_eur": "0.0185968109339407744874715261"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 1536,
+      "known_output_tokens": 1276,
+      "cost_eur": "0.0093120728929384965831435080"
+    }
+  },
+  "logical_planning_calls": 52,
+  "campaign_delta": {
+    "calls": 52,
+    "known_input_tokens": 698150,
+    "known_output_tokens": 27386,
+    "known_cost_eur": "1.715084282460136674259681093",
+    "reserved_cost_eur": 0,
+    "unknown_attempts": 0,
+    "cost_upper_bound_eur": "1.715084282460136674259681093"
+  },
+  "campaign_after": {
+    "calls": 130,
+    "session_calls": 0,
+    "known_input_tokens": 1924276,
+    "known_output_tokens": 73363,
+    "known_cost_eur": "4.7175444191343963553530751711",
+    "reserved_input_tokens": 0,
+    "reserved_output_tokens": 0,
+    "reserved_cost_eur": 0,
+    "cost_upper_bound_eur": "4.7175444191343963553530751711",
+    "unknown_attempts": 0,
+    "sessions": [
+      {
+        "sessionId": "73810d322abe4fc2bbadea191bb2c99c",
+        "httpAttempts": 18,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.7263621867881548974943052393",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "845d7b9b176d4c6e8fa9d3647282fc60",
+        "httpAttempts": 39,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.582248291571753986332574032",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "a8e8df1d69bd463ba4180929d5c945d9",
+        "httpAttempts": 52,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "1.7150842824601366742596810934",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      },
+      {
+        "sessionId": "c4fbdf1879494f928cd93fe7b5bd8003",
+        "httpAttempts": 21,
+        "unresolvedAttempts": 0,
+        "measuredUsageTariffEstimateEur": "0.6938496583143507972665148064",
+        "unresolvedReservationEur": 0,
+        "zeroAttemptRequests": []
+      }
+    ],
+    "legacyAggregate": {
+      "present": false,
+      "estimatedCost": null,
+      "currency": null,
+      "indexedAttempts": null,
+      "potentialOverlappingRequests": []
+    },
+    "providerInvoicedCost": null,
+    "basis": "Measured usage × captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection."
+  },
+  "campaign_available_eur": "25.28245558086560364464692483",
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_BUSINESS_REVIEW",
+      "location": "/tasks/local_review"
+    }
+  ],
+  "workflow_execution_started": false,
+  "workflow_tool_receipts": 0,
+  "started_utc": "2026-11-26T23:44:46.2658096+00:00",
+  "finished_utc": "2026-11-26T23:59:41.9933923+00:00",
+  "wall_seconds": 895.728,
+  "workflow_execution_model_calls": 0,
+  "workflow_verification_model_calls": 0,
+  "review_target": {
+    "url": "https://github.com/SlimPlanet/SlimFaas/pull/519",
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d"
+  },
+  "required_diagnostics": [
+    {
+      "code": "CONSTRUCTION_BUSINESS_REVIEW",
+      "location": "/tasks/local_review",
+      "message": "The review task e20cec9fb_28 requests real project reads but declares only review.diff verification; it does not require file.read evidence records. The instruction and reviewed_files output do not themselves establish the required evidence of actual reads."
+    }
+  ]
+}

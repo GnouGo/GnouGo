@@ -102,8 +102,14 @@ internal static class LlmFailureClassifier
             details["status_code"] = failure.StatusCode.Value;
         if (!string.IsNullOrWhiteSpace(failure.SafeProviderCode))
             details["provider_code"] = failure.SafeProviderCode;
+        if (failure.RetryNotBeforeUtc is { } due) details["retry_not_before_utc"] = due.ToString("O");
+        if (failure.FailurePhase is { } phase) details["failure_phase"] = phase;
+        if (failure.PhysicalRequestId is { } physical) details["physical_request_id"] = physical;
+        if (failure.ProviderRequestIdHash is { } correlation) details["provider_request_id_sha256"] = correlation;
         if (failure.RetryAfterMilliseconds != null)
             details["retry_after_ms"] = failure.RetryAfterMilliseconds.Value;
+        if (failure.Stage == LLMClientFailureStage.Authentication)
+            details["provider_stage"] = "authentication";
 
         return new WorkflowRuntimeException(
             code,

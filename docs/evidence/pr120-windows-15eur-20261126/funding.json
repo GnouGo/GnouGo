@@ -1,0 +1,33 @@
+{
+  "new_grant": {
+    "kind": "independent_new_spend",
+    "campaign": "pr120-win-amazon-review-20261126-15",
+    "allowance_eur": 15,
+    "current_authorized_ceiling_eur": 15,
+    "authorization_reference": "user-pr120-amazon-and-local-code-review-20261126-eur15",
+    "configuration_id": "72d3eafbdcce91fafc293e3d8e596a7f5f433d0376185b061f5b5fb44964cf91",
+    "previous_campaign": "pr120-windows-20261125-20",
+    "previous_ceiling_eur": 20,
+    "historical_liabilities_unreconciled": true,
+    "initial_new_consumption_eur": 0,
+    "globally_available_funding": null
+  },
+  "predecessor_request_90": {
+    "run": "win-amazon-first-ten-20261126-105418",
+    "request": "b3e254ef14a847cf9e26d28f1844af55:90:b6d85e5b3583ad77b0caee15773e827c772196f02f85e68922d0e6729b8224c1:32a06d0d7797dae28aeb68d49cd86f2cdb8f456ba4f239cfe233c6d5cee5792a",
+    "earlier_preview": "44a3f417b850058beb094506e58b976ea671d842697c2560b74c957fd2790f81",
+    "applied_preview": "b56800377cbca0961b6707f7d3deb3d83fa8b3210f64daf757479b7b065c55af",
+    "only_changed_evidence_field": "run_hash",
+    "outcome": "inconclusive",
+    "physical_attempts": 0,
+    "reserved_eur": "0",
+    "replay_forbidden": true,
+    "continuation_forbidden": true
+  },
+  "private_receipts_sha256": {
+    "new15-req90-before.json": "1bb10e6a8bbbb66d5980bab8d618a7d44eaca853468e9fb5e5b422f1682379ef",
+    "new15-req90-fresh-preview.json": "d02690bb4e37f4a566c3db6ddb7f1b3de366180e01e378a043b2855defe2938c",
+    "new15-req90-applied.json": "79a4a29d50a83d80559451421cbef725f15aa58d3179e7113a0ff50ddc1f750c",
+    "new15-grant.json": "1c9e31325b01069daca11e9acd8fcd34d7c26931d9ddcb89ce4e7a308a60c611"
+  }
+}

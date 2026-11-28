@@ -1,0 +1,72 @@
+{
+  "source": "422836b82c13fe95ab2d209ed0c003a0a7a3899d",
+  "session": "0eb17725cede426bbeddde86cc51081b",
+  "status": "stopped",
+  "revision": 38,
+  "logicalCalls": 17,
+  "completedModelReceipts": 16,
+  "physicalHttpAttempts": 19,
+  "acceptedCheckpoints": 0,
+  "acceptedPlan": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "independentOracleRun": false,
+  "lastRequest": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb",
+  "lastLogicalFailure": {
+    "stage": "dispatch",
+    "exception_type": "LLMClientException",
+    "kind": "ServiceUnavailable",
+    "status_code": 500,
+    "safe_provider_code": null,
+    "retryable": true,
+    "attempt_count": 3,
+    "retry_exhausted": true,
+    "retry_after_ms": null
+  },
+  "lastPhysicalAttempts": [
+    {
+      "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:d84189ceb3bd4046919565ef8f243d4c",
+      "StartedAtUtc": "2026-11-07T08:40:17.803903+00:00",
+      "CompletedAtUtc": "2026-11-07T08:45:18.304988+00:00",
+      "Status": 500,
+      "Failure": null,
+      "ResponseBodyComplete": true
+    },
+    {
+      "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:a17e721b4e4f4b9a81ee979c120d629f",
+      "StartedAtUtc": "2026-11-07T08:45:18.663157+00:00",
+      "CompletedAtUtc": "2026-11-07T08:50:19.588856+00:00",
+      "Status": 500,
+      "Failure": null,
+      "ResponseBodyComplete": true
+    },
+    {
+      "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:37f82777a8fa4976b4a473edea9ed81b",
+      "StartedAtUtc": "2026-11-07T08:50:19.66125+00:00",
+      "CompletedAtUtc": "2026-11-07T08:55:20.423846+00:00",
+      "Status": 500,
+      "Failure": null,
+      "ResponseBodyComplete": true
+    }
+  ],
+  "backendErrorCodes": [
+    "ESG120",
+    "ESG120",
+    "ESG120"
+  ],
+  "reservationPerCampaignAttemptEur": "7.2128437080161218092252575010",
+  "originalRequest9ReservationOutsideCampaignHttpEur": "2.4215763546798029556650246305",
+  "totalCampaignHttpReservationsEur": "29.289888042991491267353336319",
+  "knownCampaignTariffEstimatesEur": "14.504711150918047469771607717",
+  "remainingNewAllocationAfterKnownEstimatesAndAllHoldsEur": "353.7838244514106583072100313335",
+  "newestRequestPermanentlyRetained": false,
+  "retryAllowanceChanged": false,
+  "uncertainReplayAllowed": false,
+  "auditDisabled": false,
+  "storageHostFailure": false,
+  "backendErrorEnvelope": {
+    "errorCode": "ESG120",
+    "errorMessage": "Routing failed",
+    "errorDetail": "Backend not available, no answer from backend."
+  }
+}

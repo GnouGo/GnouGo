@@ -1,0 +1,174 @@
+{
+  "scope": "Exact public encrypted-record APIs; private endpoint/authentication omitted. Attempt IDs are local journal correlation IDs, not demonstrated server-side request headers.",
+  "runs": [
+    {
+      "run": "storagefix-amazon-20261107-04",
+      "requestId": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb",
+      "endpointSha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+      "method": "POST",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "reasoningEffort": "medium",
+      "maxCompletionTokens": 32768,
+      "httpBodyKeys": [
+        "model",
+        "max_completion_tokens",
+        "reasoning_effort",
+        "messages",
+        "response_format"
+      ],
+      "capturedRetryPolicy": {
+        "MaxAttempts": 3,
+        "MaxUncertainRetries": 0,
+        "AttemptTimeoutMilliseconds": 600000,
+        "BaseDelayMilliseconds": 1000,
+        "MaxDelayMilliseconds": 30000,
+        "MaxTotalDelayMilliseconds": 60000
+      },
+      "attempts": [
+        {
+          "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:d84189ceb3bd4046919565ef8f243d4c",
+          "StartedAtUtc": "2026-11-07T08:40:17.803903+00:00",
+          "CompletedAtUtc": "2026-11-07T08:45:18.304988+00:00",
+          "ObservedStatus": 500,
+          "Status": 500,
+          "ResponseBodyComplete": true,
+          "Failure": null,
+          "RetryDecision": "retry; captured transient-response policy",
+          "ContentType": "application/json; charset=UTF-8",
+          "durationSeconds": 300.501085,
+          "responseBody": {
+            "errorCode": "ESG120",
+            "errorMessage": "Routing failed",
+            "errorDetail": "Backend not available, no answer from backend."
+          }
+        },
+        {
+          "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:a17e721b4e4f4b9a81ee979c120d629f",
+          "StartedAtUtc": "2026-11-07T08:45:18.663157+00:00",
+          "CompletedAtUtc": "2026-11-07T08:50:19.588856+00:00",
+          "ObservedStatus": 500,
+          "Status": 500,
+          "ResponseBodyComplete": true,
+          "Failure": null,
+          "RetryDecision": "retry; captured transient-response policy",
+          "ContentType": "application/json; charset=UTF-8",
+          "durationSeconds": 300.925699,
+          "responseBody": {
+            "errorCode": "ESG120",
+            "errorMessage": "Routing failed",
+            "errorDetail": "Backend not available, no answer from backend."
+          }
+        },
+        {
+          "Id": "0eb17725cede426bbeddde86cc51081b:17:e8c1e4bfa0e061694baaa67ed3fa69b04505cba9d19fa698b7983ff14e7df486:8c8e194d7781f94583992fcc2d7384927e7f688adc7a73e25b0a4a48c429b2bb:37f82777a8fa4976b4a473edea9ed81b",
+          "StartedAtUtc": "2026-11-07T08:50:19.66125+00:00",
+          "CompletedAtUtc": "2026-11-07T08:55:20.423846+00:00",
+          "ObservedStatus": 500,
+          "Status": 500,
+          "ResponseBodyComplete": true,
+          "Failure": null,
+          "RetryDecision": "blocked; captured retry allowance exhausted",
+          "ContentType": "application/json; charset=UTF-8",
+          "durationSeconds": 300.762596,
+          "responseBody": {
+            "errorCode": "ESG120",
+            "errorMessage": "Routing failed",
+            "errorDetail": "Backend not available, no answer from backend."
+          }
+        }
+      ]
+    },
+    {
+      "run": "fragmentfix-amazon-20261107-01",
+      "requestId": "8227a8c68f3a4706b69dec086ec93789:11:7daed91ab93b1610b31b33dc304db771231bb54bc185f70ec6aa535244be38ae:e2c696d146d55f970d6310532e6df9187168b909b7e8995ec6a8a5f86e07a9ba",
+      "endpointSha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+      "method": "POST",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "reasoningEffort": "low",
+      "maxCompletionTokens": 32768,
+      "httpBodyKeys": [
+        "model",
+        "max_completion_tokens",
+        "reasoning_effort",
+        "messages",
+        "response_format"
+      ],
+      "capturedRetryPolicy": {
+        "MaxAttempts": 3,
+        "MaxUncertainRetries": 0,
+        "AttemptTimeoutMilliseconds": 600000,
+        "BaseDelayMilliseconds": 1000,
+        "MaxDelayMilliseconds": 30000,
+        "MaxTotalDelayMilliseconds": 60000
+      },
+      "attempts": [
+        {
+          "Id": "8227a8c68f3a4706b69dec086ec93789:11:7daed91ab93b1610b31b33dc304db771231bb54bc185f70ec6aa535244be38ae:e2c696d146d55f970d6310532e6df9187168b909b7e8995ec6a8a5f86e07a9ba:d174af7abe3f4d67b26e3fd7982545f5",
+          "StartedAtUtc": "2026-11-07T10:01:27.370759+00:00",
+          "CompletedAtUtc": "2026-11-07T10:06:27.815617+00:00",
+          "ObservedStatus": null,
+          "Status": null,
+          "ResponseBodyComplete": false,
+          "Failure": "transport",
+          "RetryDecision": "blocked; uncertain outcome",
+          "ContentType": null,
+          "durationSeconds": 300.444858
+        }
+      ]
+    },
+    {
+      "run": "fragmentfix-amazon-20261107-02",
+      "requestId": "01a4e292867d4a239a96ee8d49a3473d:17:fec0b0676f1380e5fdffa14569448822d7a4d0e66dc9a5c2bdbe2bf9bdef5181:36bd0ee5cde6e3f80d9d4dbdd59f7396f3a601bf28f69a3c65c17c8f9375c79b",
+      "endpointSha256": "663c036555fdf3cd0f345c1b75f21f61f3f91f4e7fd2cd13608f665f0a396758",
+      "method": "POST",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "reasoningEffort": "low",
+      "maxCompletionTokens": 32768,
+      "httpBodyKeys": [
+        "model",
+        "max_completion_tokens",
+        "reasoning_effort",
+        "messages",
+        "response_format"
+      ],
+      "capturedRetryPolicy": {
+        "MaxAttempts": 3,
+        "MaxUncertainRetries": 0,
+        "AttemptTimeoutMilliseconds": 600000,
+        "BaseDelayMilliseconds": 1000,
+        "MaxDelayMilliseconds": 30000,
+        "MaxTotalDelayMilliseconds": 60000
+      },
+      "attempts": [
+        {
+          "Id": "01a4e292867d4a239a96ee8d49a3473d:17:fec0b0676f1380e5fdffa14569448822d7a4d0e66dc9a5c2bdbe2bf9bdef5181:36bd0ee5cde6e3f80d9d4dbdd59f7396f3a601bf28f69a3c65c17c8f9375c79b:7de5f0941cb1435d88f8aa0c6b547211",
+          "StartedAtUtc": "2026-11-07T10:25:29.953054+00:00",
+          "CompletedAtUtc": "2026-11-07T10:30:29.829509+00:00",
+          "ObservedStatus": null,
+          "Status": null,
+          "ResponseBodyComplete": false,
+          "Failure": "transport",
+          "RetryDecision": "blocked; uncertain outcome",
+          "ContentType": null,
+          "durationSeconds": 299.876455
+        }
+      ]
+    }
+  ],
+  "localLayers": {
+    "inferenceHttpClientTimeoutMilliseconds": 600000,
+    "capturedAttemptTimeoutMilliseconds": 600000,
+    "connectionLifetimeMilliseconds": 300000,
+    "connectionLifetimeDoesNotAbortActiveRequests": true,
+    "outerStandaloneLoopbackProbeTimeoutMilliseconds": 720000
+  },
+  "conclusion": {
+    "demonstrated": "Three complete remote HTTP 500 ESG120 responses around 300 seconds, plus two later transport losses around 300 seconds, precede the unchanged local 600-second bound.",
+    "unproved": [
+      "The exact remote component owning the cutoff",
+      "Whether the backend was still generating after the connection was lost",
+      "A usable asynchronous creation/retrieval route on the authorized gateway",
+      "Model, proxy, schema warm-up or backend-specific root cause"
+    ]
+  }
+}

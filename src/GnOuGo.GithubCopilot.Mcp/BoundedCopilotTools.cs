@@ -12,22 +12,27 @@ namespace GnOuGo.GithubCopilot.Mcp;
 internal sealed class BoundedCopilotTools(BoundedCopilotTasks tasks, McpCopilotHumanInputProvider human,
     CodeMcpTraceContextAccessor trace)
 {
+
     private const string Metadata = "{\"management\":{\"visibility\":\"management_only\"}}";
-    [McpServerTool(Name = "copilot_task_contract", UseStructuredContent = true), Description("Exact schema-9 bounded task contract for the Flow.Copilot adapter.")]
+    [McpServerTool(Name = "copilot_task_contract", UseStructuredContent = true), Description("Bounded code task contract for external clients of the managed SDK service.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
     public Task<JsonObject> ContractAsync(CancellationToken cancellationToken) => tasks.ContractAsync(cancellationToken);
 
     [McpServerTool(Name = "copilot_task_validate", UseStructuredContent = true), Description("Validate an approved task scope without dispatching adaptive work.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
     public async Task<JsonObject> ValidateAsync(string contextJson, CancellationToken cancellationToken)
-        => new() { ["errors"] = new JsonArray((await tasks.ValidateAsync(Parse(contextJson), cancellationToken)).Select(e => (JsonNode?)JsonValue.Create(e)).ToArray()) };
+    {
+        var context = Parse(contextJson);
+        return new() { ["errors"] = new JsonArray((await tasks.ValidateAsync(context, cancellationToken)).Select(e => (JsonNode?)JsonValue.Create(e)).ToArray()) };
+    }
 
     [McpServerTool(Name = "copilot_task_run", UseStructuredContent = true), Description("Execute one approved bounded task using its durable tenant/run/invocation identity. Existing identities are never redispatched.")]
     [McpMeta("gnougo", JsonValue = Metadata)]
     public async Task<JsonObject> RunAsync(RequestContext<CallToolRequestParams> request, string contextJson, CancellationToken cancellationToken)
     {
         using var scope = human.Push(request.Server, cancellationToken);
-        return Receipt(await tasks.RunAsync(Parse(contextJson), cancellationToken));
+        var context = Parse(contextJson);
+        return Receipt(await tasks.RunAsync(context, cancellationToken));
     }
 
     [McpServerTool(Name = "copilot_task_inspect", UseStructuredContent = true), Description("Read the encrypted receipt for an interrupted task without restoring a Copilot session or repeating its effects.")]

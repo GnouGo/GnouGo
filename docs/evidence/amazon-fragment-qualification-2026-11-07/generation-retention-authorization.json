@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-07",
+  "clientTimeZone": "Europe/Paris",
+  "userAnswer": "Authorize this and future eligible generation retentions",
+  "currentIncident": {
+    "session": "01a4e292867d4a239a96ee8d49a3473d",
+    "requestNumber": 17,
+    "previewEvidenceHash": "b03322da0283377945ddab40ea460c0b82d6c3c3468ada70660a2902abe32b39",
+    "reservedEur": "7.297671294223018360949395432"
+  },
+  "futureScope": "Tool-free generation only after exact receipt recovery and eligibility checks prove no approved/executed artifact or business effects",
+  "treatment": "Inconclusive permanent retention; all original evidence and reservations retained; old request replay and run continuation forbidden",
+  "campaign": "pr120-live-20261107-400",
+  "financialAuthorityChanged": false
+}

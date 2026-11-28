@@ -1,0 +1,15 @@
+{
+  "source": "f87bbdbe65dd065ccdcf5ee8eb248e706f88a433",
+  "run": "convergence-code-20261108-04",
+  "session_id": "2a98be446d874c0d92fd9c6ba36dc858",
+  "request_id": "2a98be446d874c0d92fd9c6ba36dc858:100:f5370e1bf095b0c0820b406e90e37dbee75f0a36e7d5f6464e01fab247733aca:967da33aea74c3c3802b743d845788feb56746ba3dd2126fcca0abfdaf13ee94",
+  "evidence_hash": "9f4d11202c1e11d570f59a6b0cee56da6cb76e5fae42803b614a806383cbbcd0",
+  "outcome": "inconclusive",
+  "reservation_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "retained_at": "2026-11-08T12:03:42.2896470+00:00",
+  "full_uncertain_reservation_eur": "11.186278549037169726824899238",
+  "original_records_and_partials_retained": true,
+  "funds_released_eur": "0"
+}

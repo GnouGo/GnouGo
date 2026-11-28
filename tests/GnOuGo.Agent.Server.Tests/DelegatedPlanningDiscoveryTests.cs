@@ -1,0 +1,229 @@
+using System.Text.Json.Nodes;
+using GnOuGo.Agent.Mcp;
+using GnOuGo.AI.Core;
+using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.Flow.Integrations;
+using GnOuGo.Flow.Planning.Capabilities;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.Extensions.DependencyInjection;
+
+namespace GnOuGo.Agent.Server.Tests;
+
+public sealed class DelegatedPlanningDiscoveryTests
+{
+    [Fact]
+    public async Task AdaptiveDiscoveryListsPinnedBusinessSchemasWithoutExecutingAnyTool()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        const string browser = "GnOuGo.Browser.Mcp";
+        var inner = new Factory(browser, "browser_get_content", "unapproved");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "bound-host", adaptive: true);
+        await using var session = await discovery.GetClientAsync(browser, ct);
+        Assert.Equal("browser_get_content", Assert.Single(await session.ListToolsAsync(ct)).Name);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("browser_get_content", new JsonObject(), ct));
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task PublishedReviewCloneDiscoveryDescribesItsThreePreDispatchChecks()
+    {
+        var inner = new Factory("GnOuGo.Git.Mcp", "git_clone", "git_status");
+        var clone = inner.Tools[0];
+        clone.Description = "Clone a repository and check out a revision.";
+        clone.EffectKind = "write";
+        var ct = TestContext.Current.CancellationToken;
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario, "bound-host");
+        var catalog = new CapabilityDiscovery(new() { McpClientFactory = discovery });
+        var snapshot = await catalog.CaptureAsync(CapabilityDiscovery.SourceId("GnOuGo.Git.Mcp"), ct);
+        var captured = Assert.Single(snapshot.Capabilities, cap => cap.Method == "git_clone");
+        var entry = Assert.Single(catalog.ReadPage(snapshot, null, null).Capabilities, cap => cap.Id == captured.Id);
+        var resolved = await catalog.ResolveAsync(entry, ct);
+        Assert.Contains("remoteUrl, branch and targetDirectory", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("captured pull request head", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("before dispatch", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains(clone.Description, resolved.Description, StringComparison.Ordinal);
+        Assert.Equal("Clone a repository and check out a revision.", clone.Description);
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task PublishedReviewDiscoveryDescribesTheInstalledDispatchGuardOnTheUnderlyingWrite()
+    {
+        const string description = "The provider can create, submit or remove a pending review.";
+        var inner = new Factory("Github", "pull_request_review_write", "pull_request_read");
+        var write = inner.Tools[0];
+        write.Description = description;
+        write.EffectKind = "write";
+        write.OutputSchema = JsonNode.Parse("""{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}""")!.AsObject();
+        var ct = TestContext.Current.CancellationToken;
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, PublishedReviewQualification.Scenario, "bound-host");
+        await using var session = await discovery.GetClientAsync("Github", ct);
+        var tools = await session.ListToolsAsync(ct);
+        var offered = Assert.Single(tools, tool => tool.Name == write.Name);
+        Assert.Contains("submit_pending", offered.Description, StringComparison.Ordinal);
+        Assert.Contains("concrete verdict and inline comments", offered.Description, StringComparison.Ordinal);
+        Assert.Contains("rechecks the pull request head and base", offered.Description, StringComparison.Ordinal);
+        Assert.Contains(description, offered.Description, StringComparison.Ordinal);
+        Assert.Equal(write.EffectKind, offered.EffectKind);
+        Assert.Same(write.InputSchema, offered.InputSchema);
+        Assert.Same(write.OutputSchema, offered.OutputSchema);
+        Assert.Same(inner.Tools[1], Assert.Single(tools, tool => tool.Name == "pull_request_read"));
+        Assert.Equal(description, write.Description);
+        var catalog = new CapabilityDiscovery(new() { McpClientFactory = discovery });
+        var snapshot = await catalog.CaptureAsync(CapabilityDiscovery.SourceId("Github"), ct);
+        var captured = Assert.Single(snapshot.Capabilities, capability => capability.Method == write.Name);
+        var page = catalog.ReadPage(snapshot, null, null);
+        var resolved = await catalog.ResolveAsync(Assert.Single(page.Capabilities, capability => capability.Id == captured.Id), ct);
+        Assert.Contains("Calling submit_pending invokes this guard directly", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("DELEGATED_PERMISSION_DENIED", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("no normal result or submission acknowledgement", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("leave the pending review intact for reconciliation", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("Permitted write methods are create and submit_pending", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("checks for an existing pending review before create", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("only to the review created by this execution", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("reads back the submitted review and inline comments by that ID", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("pending pull request review successfully submitted", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("after workflow execution", resolved.Description, StringComparison.Ordinal);
+        Assert.Contains("message", resolved.OutputSchema!.ToJsonString(), StringComparison.Ordinal);
+        var grant = new PublishedReviewQualification("example", "repository", 1, "head", "base");
+        var args = new JsonObject { ["owner"] = "example", ["repo"] = "repository", ["pullNumber"] = 1,
+            ["method"] = "create", ["commitID"] = "head" };
+        Assert.True(grant.Allows(write.Name, args));
+        args["method"] = "submit_pending";
+        args["event"] = "REQUEST_CHANGES";
+        args["body"] = "Verified finding.";
+        Assert.True(grant.Allows(write.Name, args));
+        args["method"] = "delete_pending";
+        Assert.False(grant.Allows(write.Name, args));
+        Assert.Equal(captured.Version, resolved.Version);
+        var ordinary = new LiveWorkflowEvaluation.ObservedMcp(inner, _ => Task.CompletedTask);
+        await using var ordinarySession = await ordinary.GetClientAsync("Github", ct);
+        Assert.Same(write, (await ordinarySession.ListToolsAsync(ct))[0]);
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Theory]
+    [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill")]
+    [InlineData("code", "GnOuGo.Git.Mcp", "git_diff", "git_push")]
+    public async Task PlanningOffersOnlyExistingDelegatedToolsAndPreservesTheirOriginalContracts(string scenario, string server, string allowed, string denied)
+    {
+        var inner = new Factory(server, allowed, denied);
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, scenario, "frozen-authority-assembly");
+        await using var session = await discovery.GetClientAsync(server, TestContext.Current.CancellationToken);
+        var tools = await session.ListToolsAsync(TestContext.Current.CancellationToken);
+        Assert.Same(inner.Tools[0], Assert.Single(tools));
+        Assert.True(DelegatedTestReviewAuthority.AllowsTool(scenario, server, tools[0].Name));
+        Assert.Empty(await session.ListPromptsAsync(TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync(allowed, new JsonObject(), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync(denied, new JsonObject(), TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetPromptAsync("unadvertised", null, TestContext.Current.CancellationToken));
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task ConfigurationAndDelegatedPolicyBothBindSnapshotOwnershipAndTransportIsDisposed()
+    {
+        var inner = new Factory("GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill");
+        var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "policy-a");
+        var original = discovery.SourceConfigurationFingerprint("GnOuGo.Browser.Mcp");
+        Assert.NotEqual(original, new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "policy-b").SourceConfigurationFingerprint("GnOuGo.Browser.Mcp"));
+        Assert.NotEqual(original, new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "code", "policy-a").SourceConfigurationFingerprint("GnOuGo.Browser.Mcp"));
+        inner.Configuration = "changed-config";
+        Assert.NotEqual(original, discovery.SourceConfigurationFingerprint("GnOuGo.Browser.Mcp"));
+        await discovery.DisposeAsync(); Assert.True(inner.Disposed);
+    }
+
+    [Fact]
+    public async Task HostNameLookupRemainsAvailableWithoutAdvertisingAgentOperationsOrPermittingWrites()
+    {
+        var inner = new Factory("GnOuGo.Agent.Mcp", "agent_get_by_name", "agent_create");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "frozen-authority-assembly");
+        Assert.Empty(discovery.ServerMetadata);
+        await using var session = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+        Assert.Empty(await session.ListToolsAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await session.ListResourcesAsync(TestContext.Current.CancellationToken));
+        Assert.Empty(await session.ListPromptsAsync(TestContext.Current.CancellationToken));
+        await session.CallToolAsync("agent_get_by_name", new JsonObject { ["name"] = "independent-run" }, TestContext.Current.CancellationToken);
+        Assert.Equal(1, inner.BusinessCalls);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("agent_create", new JsonObject { ["name"] = "independent-run" }, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => session.GetPromptAsync("unadvertised", null, TestContext.Current.CancellationToken));
+        Assert.Equal(1, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task HostLookupRejectsMissingNamesAndAdditionalArguments()
+    {
+        var inner = new Factory("GnOuGo.Agent.Mcp", "agent_get_by_name", "agent_create");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(inner, "amazon", "frozen-authority-assembly");
+        await using var session = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+        foreach (var arguments in new JsonNode?[] { null, new JsonObject(), new JsonObject { ["name"] = " " },
+            new JsonObject { ["name"] = "run", ["unexpected"] = true } })
+            await Assert.ThrowsAsync<InvalidOperationException>(() => session.CallToolAsync("agent_get_by_name", arguments, TestContext.Current.CancellationToken));
+        Assert.Equal(0, inner.BusinessCalls);
+    }
+
+    [Fact]
+    public async Task HostLookupUsesTheMountedHttpTransportResolvedAfterTheListenerBinds()
+    {
+        var database = AgentMcpTestPersistence.CreateIsolatedDatabasePath("delegated-host-lookup");
+        var app = AgentMcpWebHost.Build(["--contentRoot=" + Path.GetDirectoryName(database), "--Agent:DatabasePath=" + database,
+            "--Kestrel:Endpoints:LookupA:Url=http://127.0.0.1:0", "--Kestrel:Endpoints:LookupB:Url=http://127.0.0.1:0"], routePrefix: "/mcp/agent");
+        var factoryCreations = 0;
+        var business = new Factory("GnOuGo.Browser.Mcp", "browser_get_content", "browser_fill");
+        await using var discovery = new ServerLiveDiagnostics.DelegatedPlanningDiscovery(business, "amazon", "frozen-authority-assembly", _ =>
+        {
+            factoryCreations++;
+            var addresses = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses;
+            Assert.True(addresses.Count >= 2);
+            var address = addresses.Select(value => new Uri(value)).First(value => value.IsLoopback && value.Scheme == Uri.UriSchemeHttp && value.Port > 0);
+            return Task.FromResult<IMcpClientFactory>(new ConfiguredMcpClientFactory(new Dictionary<string, McpServerOptions>
+            {
+                ["GnOuGo.Agent.Mcp"] = new() { Type = "http", Url = address.GetLeftPart(UriPartial.Authority) + "/mcp/agent" }
+            }));
+        });
+        try
+        {
+            Assert.Equal(0, factoryCreations);
+            Assert.Equal("GnOuGo.Browser.Mcp", Assert.Single(discovery.ServerMetadata).Name);
+            await app.StartAsync(TestContext.Current.CancellationToken);
+            await using var lookup = await discovery.GetClientAsync("GnOuGo.Agent.Mcp", TestContext.Current.CancellationToken);
+            Assert.Equal(1, factoryCreations);
+            Assert.Empty(await lookup.ListToolsAsync(TestContext.Current.CancellationToken));
+            var result = await lookup.CallToolAsync("agent_get_by_name", new JsonObject { ["name"] = "absent-independent-run" }, TestContext.Current.CancellationToken);
+            var payload = Assert.IsType<JsonObject>(result.Content);
+            Assert.False(payload["success"]!.GetValue<bool>());
+            Assert.Equal("NOT_FOUND", payload["error_code"]!.GetValue<string>());
+            await Assert.ThrowsAsync<InvalidOperationException>(() => lookup.CallToolAsync("agent_create", new JsonObject { ["name"] = "not-authorized" }, TestContext.Current.CancellationToken));
+            Assert.Equal(0, business.BusinessCalls);
+        }
+        finally
+        {
+            await app.StopAsync(CancellationToken.None);
+            await app.DisposeAsync();
+            AgentMcpTestPersistence.CleanupIsolatedWorkspace(database);
+        }
+    }
+
+    private sealed class Factory(string server, string allowed, string denied) : IMcpClientFactory, IMcpSourceConfigurationFingerprint, IAsyncDisposable
+    {
+        internal readonly McpToolInfo[] Tools = [new() { Name = allowed, InputSchema = new JsonObject { ["type"] = "object" } }, new() { Name = denied }];
+        internal int BusinessCalls;
+        internal bool Disposed;
+        internal string Configuration = "config";
+        public IReadOnlyList<McpServerMetadata> ServerMetadata => [new() { Name = server }];
+        public string SourceConfigurationFingerprint(string serverName) => Configuration;
+        public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) => Task.FromResult<IMcpSession>(new Session(this, server));
+        public ValueTask DisposeAsync() { Disposed = true; return ValueTask.CompletedTask; }
+        private sealed class Session(Factory owner, string server) : IMcpSession
+        {
+            public string ServerName => server;
+            public Task<IReadOnlyList<McpToolInfo>> ListToolsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpToolInfo>>(owner.Tools);
+            public Task<IReadOnlyList<McpResourceInfo>> ListResourcesAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpResourceInfo>>([]);
+            public Task<IReadOnlyList<McpPromptInfo>> ListPromptsAsync(CancellationToken ct) => Task.FromResult<IReadOnlyList<McpPromptInfo>>([new() { Name = "unadvertised" }]);
+            public Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct) => throw new NotSupportedException();
+            public Task<McpCallResult> CallToolAsync(string toolName, JsonNode? arguments, CancellationToken ct) { owner.BusinessCalls++; return Task.FromResult(new McpCallResult()); }
+            public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        }
+    }
+}

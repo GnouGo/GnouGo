@@ -1,0 +1,626 @@
+{
+  "source": "cb1d9899bf30d48b679dcbe3a04fe64fe2ba61bf",
+  "campaign": "schema-portability-20261019-incremental",
+  "cohort": "compactrcb1d9899bcode20nhv8p8a",
+  "freeze_sha256": "f55c900fc0a044f1caabe7595b90333cbd6a646f017410cf53f2f14890d71c90",
+  "captured_utc": "2026-10-26T19:36:26.802191+00:00",
+  "status": "stopped",
+  "terminal_phase": "construction_discovery",
+  "logical_requests": 39,
+  "physical_attempts": 42,
+  "receipts": 39,
+  "corrections": 3,
+  "checkpoints_not_business_credit": 5,
+  "artifact_present": false,
+  "execution_started": false,
+  "runtime_success": false,
+  "independently_satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "planning_ms": 2705564,
+  "diagnostics": [
+    {
+      "code": "CONSTRUCTION_EVIDENCE_LIMIT",
+      "location": "/evidenceRequests",
+      "message": "The complete prospective construction_discovery request needs 18016 estimated input tokens; its captured ceiling is 18000. Request a smaller coherent batch or exact separable view.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    },
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The model repeated a rejected compact construction action.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "totals": {
+    "request_identities": 43,
+    "http_attempts": 42,
+    "receipts": 39,
+    "unknown_attempts": 3,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 298937,
+    "known_output_tokens": 84921,
+    "known_reasoning_tokens": 68954,
+    "reasoning_measured_calls": 39,
+    "known_cost_eur": "3.6075992860330209727800089245",
+    "unknown_usage_reservation_eur": "3.0058188308790718429272646140",
+    "cost_upper_bound_eur": "6.6134181169120928157072735385"
+  },
+  "totals_interpretation": "request_identities=43 includes39 admitted issued requests,2 draft probes and2 rejected discovery probes. Only39 logical requests were dispatched. Unknown usage belongs to three confirmed HTTP errors followed by successful receipts; no new receiptless logical request. All reservations retained.",
+  "phase_provider_usage": {
+    "construction_intent": {
+      "logical_requests": 7,
+      "physical_attempts": 9,
+      "receipts": 7,
+      "provider_input_tokens": 11314,
+      "provider_output_tokens": 20681,
+      "provider_reasoning_tokens": 10751,
+      "known_cost_eur": "0.6041945560017849174475680499",
+      "retained_unknown_usage_reservation_eur": "1.9152878179384203480589022758",
+      "received_call_latency_ms": "972620.2995"
+    },
+    "construction_select": {
+      "logical_requests": 8,
+      "physical_attempts": 8,
+      "receipts": 8,
+      "provider_input_tokens": 62570,
+      "provider_output_tokens": 35352,
+      "provider_reasoning_tokens": 32743,
+      "known_cost_eur": "1.2257117358322177599286033022",
+      "retained_unknown_usage_reservation_eur": "0",
+      "received_call_latency_ms": "546317.2662"
+    },
+    "construction_draft": {
+      "logical_requests": 6,
+      "physical_attempts": 6,
+      "receipts": 6,
+      "provider_input_tokens": 56123,
+      "provider_output_tokens": 5942,
+      "provider_reasoning_tokens": 4392,
+      "known_cost_eur": "0.4095269968763944667559125390",
+      "retained_unknown_usage_reservation_eur": "0",
+      "received_call_latency_ms": "164294.1780"
+    },
+    "construction_local_judge": {
+      "logical_requests": 6,
+      "physical_attempts": 6,
+      "receipts": 6,
+      "provider_input_tokens": 39143,
+      "provider_output_tokens": 9280,
+      "provider_reasoning_tokens": 8692,
+      "known_cost_eur": "0.4231280678268630075858991522",
+      "retained_unknown_usage_reservation_eur": "0",
+      "received_call_latency_ms": "211313.8395"
+    },
+    "construction_discovery": {
+      "logical_requests": 12,
+      "physical_attempts": 13,
+      "receipts": 12,
+      "provider_input_tokens": 129787,
+      "provider_output_tokens": 13666,
+      "provider_reasoning_tokens": 12376,
+      "known_cost_eur": "0.9450379294957608210620258812",
+      "retained_unknown_usage_reservation_eur": "1.0905310129406514948683623382",
+      "received_call_latency_ms": "665665.2945"
+    }
+  },
+  "post_run_campaign": {
+    "campaign": "schema-portability-20261019-incremental",
+    "observed_utc": "2026-10-26T19:34:27.176026+00:00",
+    "unresolved_request_count": 0,
+    "retained_inconclusive_count": 33,
+    "known_cost_eur": "219.48452549616101183072882183",
+    "retained_reservation_eur": "68.128328756240638373274489583",
+    "cost_upper_bound_eur": "287.61285425240165020400331141",
+    "cost_ceiling_eur": "440.0301038327063045424449473",
+    "available_eur": "152.41724958030465433844163589",
+    "available_basis": "high-precision subtraction of exact campaign ceiling minus exact retained upper bound",
+    "physical_calls": 4557,
+    "unknown_usage_attempts": 84,
+    "readiness_sha256": "aaa04464dd8be13150fa8a4c01a1a1803d4a8490b3599982700059de33e4a995"
+  },
+  "interpretation": [
+    "Technical checkpoints and model-closed requirements do not increase the business denominator.",
+    "Component estimates are not billed usage. Reasoning tokens are included in output.",
+    "Received nonempty JSON and automatic HTTP recovery do not imply semantic acceptance.",
+    "No source/settings changes, operator revision, execution or extra paid request was performed during inspection."
+  ],
+  "request_measurements_by_phase": {
+    "construction_intent": {
+      "constructed_requests": 7,
+      "admitted_requests": 7,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 7,
+        "p50": 10975,
+        "p95": 12201,
+        "maximum": 12201,
+        "total": 54977
+      },
+      "estimated_input_tokens": {
+        "count": 7,
+        "p50": 3915,
+        "p95": 4323,
+        "maximum": 4323,
+        "total": 20120
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 480,
+          "estimated_tokens": 162
+        },
+        "envelope": {
+          "serialized_bytes": 3019,
+          "estimated_tokens": 2801
+        },
+        "instructions": {
+          "serialized_bytes": 8586,
+          "estimated_tokens": 2862
+        },
+        "intent": {
+          "serialized_bytes": 18699,
+          "estimated_tokens": 6235
+        },
+        "response_schema": {
+          "serialized_bytes": 23727,
+          "estimated_tokens": 7911
+        },
+        "evidence": {
+          "serialized_bytes": 92,
+          "estimated_tokens": 32
+        },
+        "interfaces": {
+          "serialized_bytes": 374,
+          "estimated_tokens": 126
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    },
+    "construction_select": {
+      "constructed_requests": 8,
+      "admitted_requests": 8,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 8,
+        "p50": 33601,
+        "p95": 47388,
+        "maximum": 47388,
+        "total": 265239
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "11456.5",
+        "p95": 16052,
+        "maximum": 16052,
+        "total": 90462
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 21008,
+          "estimated_tokens": 7006
+        },
+        "envelope": {
+          "serialized_bytes": 3509,
+          "estimated_tokens": 3221
+        },
+        "instructions": {
+          "serialized_bytes": 26920,
+          "estimated_tokens": 8976
+        },
+        "interfaces": {
+          "serialized_bytes": 28316,
+          "estimated_tokens": 9444
+        },
+        "requirements": {
+          "serialized_bytes": 110274,
+          "estimated_tokens": 36759
+        },
+        "response_schema": {
+          "serialized_bytes": 71670,
+          "estimated_tokens": 23893
+        },
+        "evidence": {
+          "serialized_bytes": 3542,
+          "estimated_tokens": 1182
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    },
+    "construction_draft": {
+      "constructed_requests": 8,
+      "admitted_requests": 6,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 8,
+        "p50": 46071,
+        "p95": 52516,
+        "maximum": 52516,
+        "total": 339438
+      },
+      "estimated_input_tokens": {
+        "count": 8,
+        "p50": "15613.5",
+        "p95": 17762,
+        "maximum": 17762,
+        "total": 115198
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 32867,
+          "estimated_tokens": 10957
+        },
+        "diagnostics": {
+          "serialized_bytes": 208,
+          "estimated_tokens": 72
+        },
+        "envelope": {
+          "serialized_bytes": 3582,
+          "estimated_tokens": 3245
+        },
+        "evidence": {
+          "serialized_bytes": 2580,
+          "estimated_tokens": 865
+        },
+        "fragment": {
+          "serialized_bytes": 176,
+          "estimated_tokens": 64
+        },
+        "instructions": {
+          "serialized_bytes": 10184,
+          "estimated_tokens": 3400
+        },
+        "interfaces": {
+          "serialized_bytes": 9573,
+          "estimated_tokens": 3194
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 57868,
+          "estimated_tokens": 19293
+        },
+        "objective": {
+          "serialized_bytes": 2871,
+          "estimated_tokens": 960
+        },
+        "requirements": {
+          "serialized_bytes": 101801,
+          "estimated_tokens": 33934
+        },
+        "response_schema": {
+          "serialized_bytes": 117728,
+          "estimated_tokens": 39246
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    },
+    "construction_local_judge": {
+      "constructed_requests": 6,
+      "admitted_requests": 6,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 6,
+        "p50": 30341,
+        "p95": 45516,
+        "maximum": 45516,
+        "total": 183541
+      },
+      "estimated_input_tokens": {
+        "count": 6,
+        "p50": 10370,
+        "p95": 15428,
+        "maximum": 15428,
+        "total": 62719
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 27126,
+          "estimated_tokens": 9045
+        },
+        "diagnostics": {
+          "serialized_bytes": 156,
+          "estimated_tokens": 54
+        },
+        "envelope": {
+          "serialized_bytes": 2696,
+          "estimated_tokens": 2437
+        },
+        "evidence": {
+          "serialized_bytes": 2697,
+          "estimated_tokens": 903
+        },
+        "fragment": {
+          "serialized_bytes": 4502,
+          "estimated_tokens": 1503
+        },
+        "instructions": {
+          "serialized_bytes": 27403,
+          "estimated_tokens": 9137
+        },
+        "interfaces": {
+          "serialized_bytes": 2156,
+          "estimated_tokens": 722
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 12899,
+          "estimated_tokens": 4303
+        },
+        "objective": {
+          "serialized_bytes": 2031,
+          "estimated_tokens": 680
+        },
+        "requirements": {
+          "serialized_bytes": 78145,
+          "estimated_tokens": 26049
+        },
+        "response_schema": {
+          "serialized_bytes": 23730,
+          "estimated_tokens": 7912
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true
+    },
+    "construction_discovery": {
+      "constructed_requests": 14,
+      "admitted_requests": 12,
+      "rejected_before_dispatch": 2,
+      "complete_request_bytes": {
+        "count": 14,
+        "p50": 51979,
+        "p95": 53998,
+        "maximum": 53998,
+        "total": 654503
+      },
+      "estimated_input_tokens": {
+        "count": 14,
+        "p50": 17583,
+        "p95": 18256,
+        "maximum": 18256,
+        "total": 221757
+      },
+      "component_sizes": {
+        "construction_context": {
+          "serialized_bytes": 38365,
+          "estimated_tokens": 12791
+        },
+        "envelope": {
+          "serialized_bytes": 6144,
+          "estimated_tokens": 5637
+        },
+        "instructions": {
+          "serialized_bytes": 34314,
+          "estimated_tokens": 11438
+        },
+        "interfaces": {
+          "serialized_bytes": 36035,
+          "estimated_tokens": 12019
+        },
+        "mcp_descriptors": {
+          "serialized_bytes": 56002,
+          "estimated_tokens": 18672
+        },
+        "objective": {
+          "serialized_bytes": 5128,
+          "estimated_tokens": 1712
+        },
+        "requirements": {
+          "serialized_bytes": 199392,
+          "estimated_tokens": 66465
+        },
+        "response_schema": {
+          "serialized_bytes": 143720,
+          "estimated_tokens": 47912
+        },
+        "evidence": {
+          "serialized_bytes": 9332,
+          "estimated_tokens": 3115
+        },
+        "mcp_contracts": {
+          "serialized_bytes": 125317,
+          "estimated_tokens": 41777
+        },
+        "diagnostics": {
+          "serialized_bytes": 754,
+          "estimated_tokens": 252
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": false
+    }
+  },
+  "response_format": {
+    "all_received_json_parseable": true,
+    "empty_responses": 0,
+    "original_response_utf8_bytes": 46603,
+    "outside_json_string_whitespace_bytes": 19571,
+    "notable_response": {
+      "request_number": 4,
+      "phase": "construction_intent",
+      "content_utf8_bytes": 21847,
+      "outside_json_string_whitespace_bytes": 19564,
+      "empty": false,
+      "parseable_json": true,
+      "provider_output_tokens": 9302,
+      "provider_reasoning_tokens": 1537,
+      "derived_visible_output_tokens": 7765
+    },
+    "interpretation": "Whitespace-heavy interface output and omitted typed reviewText are separate received observations; no shared cause is established. No received output-exhaustion failure occurred."
+  },
+  "correction_attribution": {
+    "method": "All exact issued contexts: required diagnostics occur only at q5/q38/q39. PlanningCorrectionAttempt receives and charges corrective responses unless evidence is admitted; terminal count is three. No adverse Judge finding is involved.",
+    "issued_correction_requests": [
+      {
+        "request_number": 5,
+        "request_id": "compactrcb1d9899bcode20nhv8p8a-code-1:5:442e1909b28c9fcdc9f7563bcb35481f32b0af8a52c48129dd50eda9601c97bf",
+        "diagnostic_codes": [
+          "CONSTRUCTION_SOURCE_COVERAGE"
+        ]
+      },
+      {
+        "request_number": 38,
+        "request_id": "compactrcb1d9899bcode20nhv8p8a-code-1:38:62bd3f1096fef3d5390634cb26184a784035f5a4da5d69a6c8036eb459217f3c",
+        "diagnostic_codes": [
+          "CONSTRUCTION_EVIDENCE_LIMIT"
+        ]
+      },
+      {
+        "request_number": 39,
+        "request_id": "compactrcb1d9899bcode20nhv8p8a-code-1:39:7404070a60d68bc56c0ccec0ec0d1eb1a929bce14366b4ed5fdf99c70a2854a0",
+        "diagnostic_codes": [
+          "CONSTRUCTION_EVIDENCE_LIMIT"
+        ]
+      }
+    ],
+    "causes": [
+      {
+        "request": 5,
+        "previous_response": 4,
+        "kind": "typed_interface_inconsistency",
+        "detail": "q4 disposition names reviewText, but typed inputs contain only pullRequestUrl. q5 supplies both required public string inputs, matching exact originals."
+      },
+      {
+        "request": 38,
+        "previous_response": 37,
+        "kind": "received_evidence_request_rejected_by_complete_followup_admission",
+        "detail": "q37 asks two whole description pages; the prepared follow-up estimate is 18,256 against 18,000. q38 reduces to one page."
+      },
+      {
+        "request": 39,
+        "previous_response": 38,
+        "kind": "received_repeat_after_singleton_admission_rejection",
+        "detail": "q38 singleton produces estimate 18,016 against 18,000; q39 repeats exactly the same singleton. Existing accepted-progress fingerprint rejects it as REPLAN_NO_PROGRESS before another load."
+      }
+    ],
+    "source_locations": [
+      "PlanningModelCalls.cs:194-228",
+      "HybridWorkflowPlanner.CompactConstruction.cs:132-160",
+      "HybridWorkflowPlanner.CompactConstruction.cs:320-361"
+    ]
+  },
+  "judge_reports": {
+    "received": 6,
+    "clean_findings": 5,
+    "evidence_requests": 1,
+    "adverse_findings": 0,
+    "clean_request_numbers": [
+      10,
+      14,
+      21,
+      26,
+      33
+    ],
+    "evidence_request_number": 25,
+    "interpretation": "Clean bounded reviews are not runtime/business completion. q33 explicitly reviews an open empty inspection scope and leaves future work unverified."
+  },
+  "accepted_state": {
+    "recursive_tasks": 3,
+    "sequences": 2,
+    "operations": 1,
+    "operation_task": "clone_smartguide_pr_610_once",
+    "operation_id": "cap_fa8aa0024ff2ec0a4f9e61ad",
+    "clone_literals_match_fixed_original_target": true,
+    "second_clone_or_alias": false,
+    "empty_nested_inspection_scope": true,
+    "public_inputs": [
+      "pullRequestUrl",
+      "reviewText"
+    ],
+    "public_outputs_materialized": [],
+    "closed_requirement_metadata": [
+      "req_5",
+      "req_7"
+    ],
+    "open_scope_count": 3,
+    "interpretation": "Only one correct fixed-target clone is planned, inside an outer sequence plus an empty dependent inspection sequence. Requirement metadata closes input declaration and exact clone argument constraints only. No installed dependency/check/review/cleanup/feedback/report execution is demonstrated. An empty structural scope is not a duplicated operation or a proven forbidden structure."
+  },
+  "repetition": {
+    "provider_discovery_pair": [
+      28,
+      35
+    ],
+    "same_provider_id": "source_d15a1ef6ddddd137066d25b7",
+    "same_first_description_pair": [
+      29,
+      36
+    ],
+    "original_additional_description_batch": 30,
+    "accepted_empty_sequence_binding_and_draft": [
+      31,
+      32
+    ],
+    "next_similar_business_objective_selection": 34,
+    "terminal_exact_repeat_pair": [
+      38,
+      39
+    ],
+    "boundary": "Step5 and step6 differ in scope/objective/imports and accepted baseline. Repeated provider/page choices are evidenced, but no identical accepted operation, missing original, false Judge finding or unauthorized action is demonstrated. RetainPrerequisiteEvidence clears non-prerequisite evidence on the new step; prior-page presence is not proof it was visible in q39.",
+    "source_locations": [
+      "HybridWorkflowPlanner.CompactConstruction.cs:305-317",
+      "PlanningCompactConstruction.cs:1032-1044",
+      "PlanningCompactConstruction.Contracts.cs:51-58"
+    ]
+  },
+  "capacity": {
+    "rejected_complete_requests": [
+      {
+        "requestId": "compactrcb1d9899bcode20nhv8p8a-code-1:38:02455d1d5e7ee2a3fcd75b29ca92b8f435e8bd0423ca5844ec4afec806024ed7",
+        "requestHash": "1cc990797a0290a6b0004a520797bb5032f8646835d17458b19b9d387aaad249",
+        "schemaHash": "7f5fb2b5235f3e9bc2ed695a6f05da9e37ab5b6136e6e65fac69a4838b4d7301",
+        "phase": "construction_discovery",
+        "completeRequestBytes": 53998,
+        "estimatedInputTokens": 18256,
+        "inputLimit": 18000,
+        "admission": "rejected_before_dispatch"
+      },
+      {
+        "requestId": "compactrcb1d9899bcode20nhv8p8a-code-1:39:cab28ed7043202aafd49501d6f63d0fb6dc2a82b8cefc1e1324e02cc5c809d54",
+        "requestHash": "d6b1da19b5385a6260fe5b04d1e12e50b57f668755bb88af9c13bd57401a67b6",
+        "schemaHash": "c931d301e7a7c72e961d034c784a7b7f4a3e4d42b1dd5003ecdf8ab1a23d61c1",
+        "phase": "construction_discovery",
+        "completeRequestBytes": 53279,
+        "estimatedInputTokens": 18016,
+        "inputLimit": 18000,
+        "admission": "rejected_before_dispatch"
+      }
+    ],
+    "singleton_address": "description:cap_8b5d1bd5281f866aa19d29ed@013d5538946a9e70f7b374b79c35c5059a76563706426ec141ea03ea78b7e42c:0",
+    "singleton_description_characters": 191,
+    "singleton_description_utf8_bytes": 191,
+    "singleton_description_text_sha256": "cb054dbc658ba014452a10a03c6c28e2470e76eeffb541ad5b163e6ba60c106d",
+    "singleton_next_is_null": true,
+    "original_page_evidence_request": 30,
+    "original_page_exact_issued_visible_request": 31,
+    "terminal_issued_context_lacks_page_text": true,
+    "explicit_admission_precedes_automatic_continuations": true,
+    "automatic_prefix_kept_on_optional_continuation_limit": true,
+    "source_locations": [
+      "PlanningConstruction.Evidence.cs:53-63",
+      "PlanningConstruction.Evidence.cs:88-131",
+      "PlanningConstruction.Evidence.cs:146-159"
+    ],
+    "conclusion": "Captured complete-follow-up ceiling and received repeated action explain the stop. Automatic continuation overflow is refuted by source ordering and the single complete page. No model usage was incurred for the two rejected prepared follow-ups; corrective q38/q39 were received and billed."
+  },
+  "limits": [
+    "No demonstrated host authority/validation defect or mandatory-original omission established.",
+    "No claim that a different scope choice, metadata projection, ceiling or profile would complete the business task.",
+    "No source changes, build/test, reader invocation, operational workspace/store/provider access, or paid dispatch by this assessment.",
+    "Small read-only checker shape mistakes (pretty JSON, list vs mapping) stopped before evidence output; original evidence was unchanged."
+  ],
+  "detailed_evidence": {
+    "numeric_record_sha256": "4e60bec968ab6922d8a9ca0ffb11fde27ba3ea4840e0a1c6d003cf7bf73d5973",
+    "assessment_sha256": "c9fad86754b9f5aa581f2d0ce68fb363a2864b4110183f20ba9fd9c8dfd61995",
+    "canonical_evidence": {
+      "metrics-safe.jsonl": "92175f1b7ab7cbb24f3e6952b2addaafb682b7d129afceb38e0ac926c6674a8a",
+      "terminal-state-safe.jsonl": "1f903a2c9b36e0bdc2ae75c60c3029efb28559bed8aa179a86694ae32a35a512",
+      "received-requests-index-safe.json": "40567d801594af4404cc853914d7d9d2282c4770d4cb18c539e873ab0c1a0bdb",
+      "post-run-readiness.jsonl": "aaa04464dd8be13150fa8a4c01a1a1803d4a8490b3599982700059de33e4a995",
+      "post-run-accounting-safe.json": "38a159a1958333c0397cb7caf3cfaa9ae278c9365ac434a95dbc2d4679460bf1"
+    },
+    "request_receipt_index_sha256": "40567d801594af4404cc853914d7d9d2282c4770d4cb18c539e873ab0c1a0bdb"
+  }
+}

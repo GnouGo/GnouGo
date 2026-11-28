@@ -1,5 +1,7 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Encodings.Web;
 using GitHub.Copilot;
 
 namespace GnOuGo.GithubCopilot.Core;
@@ -8,12 +10,28 @@ namespace GnOuGo.GithubCopilot.Core;
 public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalTokens, DateTimeOffset deadline,
     Func<int, long, CancellationToken, Task> persistReservation, int initialCalls = 0, long initialTokens = 0)
 {
+    // This JSON is sent as application/json, including non-ASCII text in the original data.
+    private static readonly JsonSerializerOptions WireJson = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
     private readonly SemaphoreSlim _gate = new(1, 1);
     private volatile bool _stopped;
+    private string? _toolBudgetUpdate;
+    internal string? TakeToolBudgetUpdate() => Interlocked.Exchange(ref _toolBudgetUpdate, null);
     public DateTimeOffset Deadline { get; } = deadline;
     public int ModelCalls { get; private set; } = initialCalls;
     public long ChargedTokens { get; private set; } = initialTokens;
     public CopilotAdmissionStop? AdmissionStop { get; private set; }
+    internal Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync { get; set; }
+    internal Func<int, string, HttpContent, string, CancellationToken, Task>? SettleHostAttemptAsync { get; set; }
+    internal static readonly HttpRequestOptionsKey<Func<HttpContent, CancellationToken, Task>> SettleReceipt = new("gnougo.copilot.settle_usage");
+    private readonly CancellationTokenSource _providerRejected = new();
+    internal CancellationToken ProviderRejected => _providerRejected.Token;
+    public CopilotInferenceFailure? ProviderFailure { get; private set; }
+    internal void RecordProviderFailure(CopilotInferenceFailure failure)
+    {
+        ProviderFailure = failure;
+        CloseAdmissions();
+        _providerRejected.Cancel();
+    }
     public bool TransportFailed { get; private set; }
     internal bool AdmitsTools => !_stopped && DateTimeOffset.UtcNow < Deadline;
     internal void RecordTransportFailure() => TransportFailed = true;
@@ -24,7 +42,9 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
         await _gate.WaitAsync(ct);
         _gate.Release();
     }
-    internal async Task ReserveAsync(HttpRequestMessage request, CancellationToken ct)
+    internal Task ReserveAsync(HttpRequestMessage request, CancellationToken ct) => ReserveAsync(request, null, ct);
+
+    internal async Task ReserveAsync(HttpRequestMessage request, CopilotPreparedInference? prepared, CancellationToken ct)
     {
         await _gate.WaitAsync(ct);
         try
@@ -40,23 +60,58 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
                 ?? throw new InvalidOperationException("Invalid bounded inference request.");
             if (body["previous_response_id"] is not null || body["conversation"] is not null || !TextOnly(body))
                 throw new InvalidOperationException("Opaque conversation state and non-text inference cannot be charged safely.");
-            // The supported byte-BPE text protocols consume at most one token per UTF-8 byte.
-            // Charge all serialized metadata as well, plus an explicit framing allowance.
-            var inputCeiling = checked(Encoding.UTF8.GetByteCount(body.ToJsonString()) + 4096L);
-            var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
-            if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
             var field = path.EndsWith("/responses", StringComparison.Ordinal) ? "max_output_tokens" : "max_completion_tokens";
             var requested = body[field]?.GetValue<long>() ?? body["max_tokens"]?.GetValue<long>() ?? 8192;
             if (requested < 1) throw new InvalidOperationException("Invalid inference output ceiling.");
-            var outputCeiling = Math.Min(requested, Math.Min(remaining, 32768));
-            body.Remove("max_tokens"); body[field] = outputCeiling;
+            var outputCeiling = Math.Min(requested, 32768);
+            body.Remove("max_tokens");
+            body[field] = outputCeiling;
+            // Byte-BPE consumes at most one token per UTF-8 byte. Include every metadata
+            // byte and the framing allowance. Lowering the output ceiling can only shorten the wire.
+            var wire = body.ToJsonString(WireJson);
+            var inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
+            var remaining = maxTotalTokens - ChargedTokens - inputCeiling;
+            var retry = request.Options.TryGetValue(CopilotInferenceProxyHandler.RepeatedReservation, out var repeated) && repeated;
+            // Once tools have returned, keep the last affordable turn available for the answer.
+            if (!retry && (ModelCalls + 1 == maxModelCalls || remaining - outputCeiling <= inputCeiling) &&
+                (prepared?.TryRequireFinalResponse(body) ?? RequireNativeFinalResponse(body, path)))
+            {
+                wire = body.ToJsonString(WireJson);
+                inputCeiling = checked(Encoding.UTF8.GetByteCount(wire) + 4096L);
+                remaining = maxTotalTokens - ChargedTokens - inputCeiling;
+            }
+            // An additional physical send must fit the exact already-journaled wire request.
+            if (retry && outputCeiling > remaining) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
+            if (remaining < 1) throw ExhaustedBudget(CopilotAdmissionStopKind.Tokens, inputCeiling);
+            if (outputCeiling > remaining)
+            {
+                outputCeiling = remaining;
+                body[field] = outputCeiling;
+                wire = body.ToJsonString(WireJson);
+            }
             // Multiple completions would multiply the reserved output allowance.
             if (body["n"] is { } count && count.GetValue<int>() != 1)
                 throw new InvalidOperationException("Bounded inference permits one completion per request.");
+            if (ReserveHostAttemptAsync is { } reserve)
+            {
+                var model = body["model"]?.GetValue<string>() ?? throw new InvalidDataException("Missing inference model.");
+                var attempt = ModelCalls + 1;
+                await reserve(attempt, model, checked((int)inputCeiling), checked((int)outputCeiling), ct);
+                if (SettleHostAttemptAsync is { } settle)
+                    request.Options.Set(SettleReceipt, (content, token) => settle(attempt, model, content, path, token));
+            }
             ModelCalls++; ChargedTokens = checked(ChargedTokens + inputCeiling + outputCeiling);
             await persistReservation(ModelCalls, ChargedTokens, ct);
+            // One model-context update per admitted request, even when its tools finish concurrently.
+            var available = maxTotalTokens - ChargedTokens;
+            var recent = inputCeiling + outputCeiling;
+            var advice = available < 2 * recent || maxModelCalls - ModelCalls <= 2
+                ? "Prioritize a complete final response with observed results, failures and unfinished work."
+                : "Reserve room for a complete final response.";
+            Volatile.Write(ref _toolBudgetUpdate, FormattableString.Invariant(
+                $"Operation allowance remaining: {maxModelCalls - ModelCalls} inference requests, {available} reservable tokens. Last request reserved {recent}. {advice}"));
             var original = request.Content;
-            request.Content = new StringContent(body.ToJsonString(), Encoding.UTF8, "application/json");
+            request.Content = new StringContent(wire, Encoding.UTF8, "application/json");
             original.Dispose();
         }
         finally { _gate.Release(); }
@@ -67,6 +122,20 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
         AdmissionStop ??= new(kind, maxModelCalls, maxTotalTokens, Deadline, ModelCalls, ChargedTokens, inputCeiling);
         _stopped = true;
         return new InvalidOperationException("The approved Copilot inference allowance cannot admit this request.");
+    }
+
+    private static bool RequireNativeFinalResponse(JsonObject body, string path)
+    {
+        if (body["tools"] is not JsonArray { Count: > 0 } ||
+            body["tool_choice"] is { } choice && choice.ToString() != "auto") return false;
+
+        var hasToolResult = path.EndsWith("/responses", StringComparison.Ordinal)
+            ? body["input"] is JsonArray input && input.Any(item => item is JsonObject result && result["type"]?.ToString() == "function_call_output")
+            : body["messages"] is JsonArray messages && messages.Any(item => item is JsonObject message && message["role"]?.ToString() == "tool");
+        if (!hasToolResult) return false;
+
+        body["tool_choice"] = "none";
+        return true;
     }
 
     private static bool TextOnly(JsonNode? node)
@@ -81,20 +150,11 @@ public sealed class CopilotInferenceBudget(int maxModelCalls, long maxTotalToken
     }
 }
 
-internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler
+internal sealed class CopilotLogicalInferenceHandler(CopilotInferenceBudget budget, CopilotInferenceProxyHandler? proxy,
+    CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
-    private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-    {
-        await budget.ReserveAsync(request, context.CancellationToken);
-        try
-        {
-            return proxy is null
-                ? await Direct.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(request, context);
-        }
-        catch { budget.RecordTransportFailure(); throw; }
-    }
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, budget.ReserveAsync, budget.RecordTransportFailure, rejected: budget.RecordProviderFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded logical operations."));
 }

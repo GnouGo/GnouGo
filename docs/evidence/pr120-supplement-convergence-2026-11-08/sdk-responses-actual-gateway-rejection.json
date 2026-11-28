@@ -1,0 +1,39 @@
+{
+  "run": "sdk-responses-20261109-03",
+  "source": "28762a0191634e66c58f817bde73af46477a827d",
+  "sdk_wire_api": "responses",
+  "configured_deployment_route_preserved": true,
+  "physical_provider_attempts": 1,
+  "actual_http_status": 404,
+  "provider_message": "The requested resource was not found",
+  "provider_usage": null,
+  "unpriced_reservation_retained_eur": "3.9001880877742946708463949842",
+  "commands": 0,
+  "terminal_completion_verified": true,
+  "durable_receipt_reloaded": true,
+  "cleanup": true,
+  "passed": false,
+  "execution_never_replay": true,
+  "closed_funding": {
+    "ceiling_eur": "1200",
+    "available_eur": "154.549386475593372145096276688",
+    "application_holds_eur": "44.588114643976712942230183612",
+    "global_funding": "unavailable"
+  },
+  "next_controlled_factor": "An explicit fresh Chat-tools profile may omit reasoning_effort under the same pinned endpoint. Field absence differs from the provider-rejected none string. No effective default or compatibility is assumed. No automatic fallback.",
+  "private_evidence_sha256": {
+    "sdk-responses-03-final.json": "fb62dd8cc753ca22882526a611c2f9a929f94129ab13dac656cfc96254c3feaf",
+    "sdk-responses-03-http-current.json": "858edbba39758e6e3678e179dd12b74c708f85308d9b3f58565a055d032eca08",
+    "sdk-responses03-closed-audit.json": "7b3298ae38efd910e8873728810ec266c29595e439121d5bf5910be28feccdfe",
+    "sdk-provider-default-red.log": "0d8162958ab8ea9180f25b48290d15d84854f3c7e962d1b48e38721cde30b18d",
+    "sdk-provider-default-green.log": "7666eb909b0c79d515aa6d4566ec9ce3544d82815a5f6d080c5a404cea4a7d64",
+    "sdk-provider-default-green-exit.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+  },
+  "local_provider_default_regression": {
+    "red_failed": 4,
+    "green_passed": 281,
+    "green_failed": 0,
+    "new_cases": 4,
+    "live_compatibility_not_established": true
+  }
+}

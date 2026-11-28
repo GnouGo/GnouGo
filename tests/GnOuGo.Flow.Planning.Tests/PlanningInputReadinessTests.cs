@@ -71,22 +71,6 @@ public sealed class PlanningInputReadinessTests
         Assert.Equal(before, JsonSerializer.Serialize(compilation.Graph, PlanningJsonContext.Default.PlanningGraph));
     }
 
-    [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    public void HistoricalReadinessRetainsItsOriginalEvidence(int version)
-    {
-        var node = Mapping(Object(new PlanningMember("observation", Reference("source"))));
-        node.Input.Members.Add(new("infer_each", new() { Kind = "boolean", Boolean = true }));
-        var compilation = Compilation(node);
-        var oldResult = Assert.Single(PlanningInputReadiness.Assess(compilation.Graph!));
-        var retained = Assert.Single(PlanningInputReadiness.Assess(compilation, version));
-        Assert.Equal(oldResult.Id, retained.Id);
-        Assert.Equal(oldResult.Outcome, retained.Outcome);
-        Assert.Equal(oldResult.Description, retained.Description);
-        Assert.Equal(oldResult.Diagnostics, retained.Diagnostics);
-        Assert.Contains("Independent extraction's complete collection", retained.Description);
-    }
 
     [Fact]
     public void InterpretationReadinessUsesAuthoredInputLocationsAndKeepsUnknownEnvelopeUnverified()

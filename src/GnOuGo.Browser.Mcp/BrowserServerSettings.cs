@@ -4,6 +4,9 @@ public sealed class BrowserServerSettings
 {
     public const string SectionName = "Browser";
 
+    internal const int ObservationPageCeiling = 100;
+    internal const int ObservationRecordsPerPageCeiling = 200;
+
     public bool Headless { get; set; } = true;
     public string BrowserName { get; set; } = "chromium";
     public string? Channel { get; set; }
@@ -12,11 +15,17 @@ public sealed class BrowserServerSettings
     public int NavigationTimeoutMs { get; set; } = 45_000;
     public int MaxContentCharacters { get; set; } = 12_000;
     public int MaxObservationCharacters { get; set; } = 24_000;
-    public int MaxObservationRecords { get; set; } = 200;
-    public int MaxObservationPages { get; set; } = 100;
+    public int MaxObservationRecords { get; set; } = ObservationRecordsPerPageCeiling;
+    public int MaxObservationPages { get; set; } = ObservationPageCeiling;
+    public List<string> ObservationAncestorAttributes { get; set; } = [];
+    public List<string> ObservationTextSelectorPrefixes { get; set; } = [];
+    public bool IncludeObservationTextReview { get; set; }
     public int ScreenshotQuality { get; set; } = 90;
     public int SlowMoMs { get; set; }
     public int HoldOpenMs { get; set; }
     public bool KeepBrowserOpen { get; set; }
     public List<string> AllowedHosts { get; set; } = [];
+    public List<string> AllowedNavigationUrlPatterns { get; set; } = [];
+    public List<string> ObservedNavigationSourceUrlPatterns { get; set; } = [];
+    public List<string> ObservedNavigationEntryUrlPatterns { get; set; } = [];
 }

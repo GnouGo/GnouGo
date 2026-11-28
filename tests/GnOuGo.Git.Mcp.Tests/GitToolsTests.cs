@@ -103,12 +103,23 @@ public sealed class GitToolsTests : IDisposable
         Assert.All(tools, tool => AssertValidRequiredDeclarations(
             JsonNode.Parse(tool.ProtocolTool.OutputSchema!.Value.GetRawText()),
             tool.ProtocolTool.Name));
+        var diff = Assert.Single(tools, tool => tool.ProtocolTool.Name == "git_diff").ProtocolTool;
+        Assert.Contains("unstaged working tree", diff.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("staged index", diff.Description, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("git_compare_refs", diff.Description, StringComparison.Ordinal);
         var compare = Assert.Single(tools, static tool =>
             string.Equals(tool.ProtocolTool.Name, "git_compare_refs", StringComparison.Ordinal));
+        var input = JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText())!;
+        Assert.Equal("boolean", input["properties"]?["requirePageDirectory"]?["type"]?.ToString());
+        Assert.Contains("requirePageDirectory", compare.ProtocolTool.Description, StringComparison.Ordinal);
+        var outputSchema = JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText());
+        var cursorDirectory = outputSchema!["properties"]!["remainingPageCursors"];
+        Assert.Equal("string", cursorDirectory!["items"]!["type"]!.GetValue<string>());
+        Assert.Contains("remainingPageCursors", compare.ProtocolTool.Description, StringComparison.Ordinal);
         var artifactValidation = McpArtifactContractParser.ParseAndValidate(
             compare.ProtocolTool.Meta,
             JsonNode.Parse(compare.ProtocolTool.InputSchema.GetRawText()),
-            JsonNode.Parse(compare.ProtocolTool.OutputSchema!.Value.GetRawText()));
+            outputSchema);
         Assert.True(artifactValidation.IsValid, string.Join(Environment.NewLine, artifactValidation.Errors));
     }
 

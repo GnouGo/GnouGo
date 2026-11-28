@@ -1,0 +1,255 @@
+{
+  "source": "9824b76288e5036fd47b01207e70dfa9792d717f",
+  "presentation_version": 10,
+  "cohort": "compactr9824b7628amz22j20v10a",
+  "run": "compactr9824b7628amz22j20v10a-amazon-1",
+  "case": "amazon",
+  "role": "Frozen candidate diagnostic; no business acceptance credit.",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "7dcbe5b8decc3503fbf8c9a5ff5f208c7927587f6db76574cf081f30b926e814",
+  "command_sha256": "46240d65111468faf28dc9f582cb59ffe712ae96c78f51dfc33c65f0511d0613",
+  "benchmark_binary_sha256": "f4db280589e0a11dac33e43063bfb7652db8e5f2a9173541f3be572dcb4103f3",
+  "source_manifest_sha256": "efa59893967190323640b0881305f3d73b5ffe51aa94d405e7d4e133f4164563",
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "reasoning": "high",
+      "outputTokens": 32768
+    },
+    "draft": {
+      "targetInputTokens": 8000,
+      "maxInputTokens": 22000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    },
+    "review": {
+      "targetInputTokens": 4000,
+      "maxInputTokens": 20000,
+      "reasoning": "medium",
+      "outputTokens": 16384
+    }
+  },
+  "limits": {
+    "max_model_calls": 64,
+    "max_repairs": 4,
+    "max_total_tokens": 15000000,
+    "max_elapsed_ms": 18000000,
+    "transport_policy": {
+      "version": 1,
+      "maxAttempts": 3,
+      "maxUncertainRetries": 0,
+      "attemptTimeoutMilliseconds": 600000,
+      "baseDelayMilliseconds": 1000,
+      "maxDelayMilliseconds": 30000,
+      "maxTotalDelayMilliseconds": 60000
+    }
+  },
+  "observation_utc": "2026-10-27T16:13:41.580286+00:00",
+  "status": "stopped",
+  "classification": {
+    "terminal_code": "MODEL_DISPATCH_UNVERIFIABLE",
+    "missing_response_request_number": 18,
+    "missing_response_request_id": "compactr9824b7628amz22j20v10a-amazon-1:18:208ebe5915820939891ff312ae12cb42f178c48c65749cffd3a6adc0b7b192a6",
+    "last_received_request_number": 17,
+    "failure_records": 1,
+    "last_failure_kind": "Transport",
+    "retry_exhausted": false,
+    "pending_response_is_not_empty_output": true,
+    "received_semantic_stop_or_output_exhaustion_established": false,
+    "retention_state": "Root applied exact delegated permanent retention after this stopped-run observation; original records and full reservations remain, with request replay and run continuation forbidden."
+  },
+  "planning": {
+    "logical_calls": 18,
+    "physical_attempts": 19,
+    "known_input_tokens": 58508,
+    "known_output_tokens": 21175,
+    "known_cost_eur": "0.8280142793395805443998215082",
+    "unknown_attempts": 2,
+    "reserved_input_tokens": 64100,
+    "reserved_output_tokens": 32768,
+    "reserved_cost_eur": "1.1633556448014279339580544400",
+    "receipts": 17,
+    "corrections": 0,
+    "planning_ms": 1238495,
+    "known_reasoning_tokens": 17286,
+    "total_provider_usage_known": false,
+    "provider_discovery_reads": 1
+  },
+  "trajectory": [
+    {
+      "requests": [
+        1,
+        2
+      ],
+      "event": "Original-clause and typed-interface capture; required query:string, no default."
+    },
+    {
+      "requests": [
+        3,
+        4,
+        5,
+        6
+      ],
+      "event": "Explicit requirement-only query-input closure, four-address original/interface evidence retrieval, empty extension and clean scoped Judge; no root closure."
+    },
+    {
+      "requests": [
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ],
+      "event": "Selected Amazon search/listing work; provider discovery plus two original contract-description reads; chose and accepted an empty sequence with clean scoped Judge."
+    },
+    {
+      "requests": [
+        14,
+        15,
+        16,
+        17
+      ],
+      "event": "Selected work inside that sequence; repeated the same provider-discovery request and first exact description address, then bound one operation."
+    },
+    {
+      "requests": [
+        18
+      ],
+      "event": "Admitted operation draft has no retained response; no draft node or approval can be inferred."
+    }
+  ],
+  "accepted_progress": {
+    "public_input": "Exactly one required query:string with no default.",
+    "structural_tasks": 1,
+    "structure": "One empty sequence for Amazon search/listing; no accepted operation, transform, product loop, workbook writer, cleanup or public output.",
+    "closed_requirement_claim": "req_2 query-input declaration was explicitly reviewed separately; this is not the complete Amazon business obligation.",
+    "next_selected_operation_id": "cap_490d9e16075cbdca5954ec27",
+    "next_operation_accepted": false,
+    "checkpoints": null,
+    "checkpoint_count_boundary": "The existing public inspect-run projection does not expose construction checkpoints.",
+    "independently_completed_business_obligations": 0,
+    "calls_per_completed_business_obligation": null
+  },
+  "review_observations": {
+    "received_judge_requests": [
+      6,
+      13
+    ],
+    "clean_findings_responses": 2,
+    "received_request_acknowledgment_pairs": 17,
+    "broad_acknowledgments": 17,
+    "subject_acknowledgments": 0,
+    "received_continuation_or_boundary_claims": 0,
+    "retained_reuse_events": null,
+    "retained_transition_events": null,
+    "boundary": "Public normalized responses expose acknowledgments and authored claims, but not retained coverage/transition journals. No inferred reuse, transition or saved-call counterfactual."
+  },
+  "repetition": {
+    "same_provider_request_pairs": [
+      [
+        8,
+        15
+      ]
+    ],
+    "same_exact_description_address_pairs": [
+      [
+        9,
+        16
+      ]
+    ],
+    "recorded_provider_discovery_reads": 1,
+    "interpretation": "Repeated navigation under a new nested selected step is observed. There is no duplicated accepted business operation and no independently demonstrated semantic defect in the partial accepted graph."
+  },
+  "response_anomalies": {
+    "received_normalized_json_objects": 17,
+    "recorded_content_bytes_total": 12341,
+    "received_zero_content_byte_count": 0,
+    "completion_status_missing_count": 17,
+    "ordinary_finish_reason_counts": null,
+    "original_whitespace_bytes": null,
+    "whitespace_heavy_response_count": null,
+    "http_status_codes": null,
+    "provider_input_rejection_count": null,
+    "boundary": "The public projection retains content-byte and reasoning-token metrics but not original whitespace, ordinary finish reasons or attempt HTTP statuses. Missing q18 is not an empty received response."
+  },
+  "artifact_hash": null,
+  "runtime": {
+    "started": false,
+    "model_calls": 0,
+    "independent_oracle_pass": false,
+    "business_units": 0
+  },
+  "comparison": {
+    "control_source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+    "control_freeze_sha256": "db687b1d5cf51c319605d306d805ac11a47478a68ab556889e64988e1e6e9290",
+    "same_profile": true,
+    "interpretation": "The immediate65db control stopped later on its distinct prerequisite/repeat limit; this candidate stops earlier on transport uncertainty. Neither completed the business unit, so lower counts establish no efficiency or mechanism benefit."
+  },
+  "measurements": {
+    "file": "compact-taskplan-9824b762-amazon-measurements.json",
+    "sha256": "f301459697f43b299b0df7ae2988f98401014a92c22bef7256b5c3cc9398074c",
+    "bytes": 7723
+  },
+  "inspection_stdout_sha256": "eb0fc13bd4740b117ad2bc364d76b86a384f9006f4c6fc97d7b795a418c61fdf",
+  "limitations": [
+    "No provider request, replay, continuation, approval, abandonment or runtime execution was performed by this read-only reduction.",
+    "Raw responses and originals remained in RAM; only safe aggregate, identity and structural summaries were saved.",
+    "No complete issued request schema or original HTTP response bodies were fetched; provider formatting and acceptance causes are not inferred."
+  ],
+  "retention": {
+    "request_id": "compactr9824b7628amz22j20v10a-amazon-1:18:208ebe5915820939891ff312ae12cb42f178c48c65749cffd3a6adc0b7b192a6",
+    "evidence_hash": "70fb6c178ff1e07d1f69023e9d4c1d2456a4ad8ea5b612530ea8a394d04460c5",
+    "inspection_sha256": "462766cd8acac361542bce8c6587321338a35e077386dbd14dfd1944a803e393",
+    "application_sha256": "f70c81993060b99202f24eb6c8bda9209d028ed25441f569beb05dd14c8b2760",
+    "restart_application_sha256": "f70c81993060b99202f24eb6c8bda9209d028ed25441f569beb05dd14c8b2760",
+    "readback_sha256": "fee99e6f6d0a98c534ad830d4b53011b5192597aad3cf6678dfb0d0813c0fa4e",
+    "authorization_hash": "a431bee07af25e48ede187d5994c49a4a8b740a9045e916e9ef849f3d06113dc",
+    "retained_at": "2026-10-27T16:13:50.1027080+00:00",
+    "root_confirmed_application": true,
+    "restart_application_byte_identical": true,
+    "already_retained_readback": true,
+    "closure_hash": "c083b07bd1c82a9f44bc0e1225b1f85e9f3a0198bfe42b4022bb9a52e25072c5",
+    "accounting_equal_before_after": true,
+    "reservation_retained": true,
+    "funds_released": false,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true,
+    "per_request_reservation_eur": null,
+    "reservation_boundary": "The existing inspector does not expose a monetary split for request18. The exact run total covers two unknown physical attempts and is not assigned wholly to the final request.",
+    "retention_kind": "exhausted-planning-retries",
+    "mode_boundary": "The existing retention label is not evidence that three attempts were exhausted; the retained failure reports retry_exhausted=false."
+  },
+  "campaign_inspection": {
+    "observed_utc": "2026-10-27T16:11:15.055342+00:00",
+    "known_cost_eur": "241.75646213159162316495461387",
+    "reserved_cost_eur": "77.051987837008152875728751074",
+    "cost_upper_bound_eur": "318.80844996859977604068336494",
+    "unknown_attempts": 95,
+    "ceiling_eur": "540.0301038327063045424449473",
+    "available_eur": "221.22165386410652850176158236",
+    "available_basis": "Exact high-precision subtraction of frozen campaign ceiling minus captured ledger upper bound.",
+    "accounting_basis": "Authoritative saved inspector decimals; decimal accumulation may round its final retained digit. No arbitrary-precision identity between known+reserve and captured upper is asserted.",
+    "unresolved_logical_requests": 0,
+    "boundary": "Dated inspection followed by accounting-equal root closure/campaign readback. This does not authorize or predict future spending.",
+    "post_closure_audit": {
+      "sha256": "57ea01c71a87277d93ccff83385b2441afd8058bdaa9b0b6a82d793a097ed788",
+      "saved_file_mtime_utc": "2026-10-27T16:14:32.252578+00:00",
+      "receiptless_logical_requests": 37,
+      "retained_closed_logical_requests": 37,
+      "unresolved_logical_requests": 0,
+      "all_receiptless_identities_match_retained_closures": true,
+      "captured_accounting_unchanged": true,
+      "boundary": "Readback validates stored replay/continuation prohibition flags after process restart; no actual replay or provider termination was attempted."
+    }
+  },
+  "source_evidence": {
+    "reduction_sha256": "20d46d5f5d96aea6947959d9559e00fea3a33eaf8c742d09e8bf8a74d3f161df",
+    "build_runtime_record_sha256": "231a637df768ecf48ddd1cb0e4e252d4fc81f31730a00521acbb8e365adaa935",
+    "retention_only_delta_from_original_outcome_sha256": "1e20b84920a1818caa21a64ab9f4ec86a53ac27c1d41364555385bda52ba9712"
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "source": "d060e6ca16e5a57ebd506fb6e0cebaa5644396f2",
+  "run": "code-qualification-20261108-12",
+  "session_id": "d0372a09bb8f423f83457897e3188b58",
+  "logical_calls": 35,
+  "known_physical_http_attempts": 34,
+  "accepted_checkpoints": 2,
+  "first_contribution": {
+    "source": "d060e6ca16e5a57ebd506fb6e0cebaa5644396f2",
+    "run": "code-qualification-20261108-12",
+    "session_id": "d0372a09bb8f423f83457897e3188b58",
+    "checkpoint": 1,
+    "call_through_first_accepted_contribution": 25,
+    "accepted_plan_hash": "0505c9190e94b6644d79a437b68e46ed6ba6eee85d763f528a5371cfeaba138c",
+    "task_ids": [
+      "clone_pr610",
+      "delete_unique_clone",
+      "preserve_qualification_if_available",
+      "preserve_then_cleanup",
+      "qualify_copilot",
+      "write_qualification_evidence"
+    ],
+    "closed_requirement_ids": [],
+    "run_started_utc": "2026-11-08T22:59:02.905987+00:00",
+    "first_inspection_event_with_checkpoint_1_utc": "2026-11-08T23:09:46.382949+00:00",
+    "elapsed_to_first_checkpoint_observation_ms": "643476.962000",
+    "known_physical_requests_through_first_contribution": 25,
+    "measured_usage_tariff_estimate_through_first_contribution_eur": "9.9450604567845947156291983875",
+    "measurement_scope": "Includes the preceding discovery and two abandoned tentative selections. The first observed checkpoint event bounds acceptance after response retention; this is not execution timing or a provider invoice.",
+    "business_qualification": false,
+    "limitations": [
+      "Technically accepted planned clone, Copilot qualification, evidence persistence and cleanup; no workflow execution is established.",
+      "An ordinary review after another changed fragment does not prove the exact unchanged-plan accepted-block review boundary.",
+      "Do not infer final source qualification before global review, artifact approval, real execution and independent oracle."
+    ]
+  },
+  "local_business_review": {
+    "request_calls": [
+      29,
+      30
+    ],
+    "verdicts": [
+      "needs_context",
+      "ok"
+    ],
+    "cleanup_bodies_inspected": true,
+    "ordinary_review_after_changed_fragment": true,
+    "exact_unchanged_plan_review_boundary_proved": false
+  },
+  "business_qualified": false,
+  "global_review_completed": false,
+  "artifact_approved": false,
+  "execution_started": false,
+  "oracle_executed": false,
+  "terminal_cause": "The current captured physical draft reservation exceeded the available campaign allocation. The first attempt of request 35 was refused before HTTP dispatch.",
+  "refused_current_request": {
+    "input_ceiling": 98682,
+    "output_ceiling": 32768,
+    "cost_ceiling_eur": "7.934348410210479175996417376",
+    "http_attempts": 0,
+    "financial_forecast_mode": "experimental_warning",
+    "current_physical_reservation_remains_hard": true
+  },
+  "permanent_retention": {
+    "evidence_hash": "e4fc8b46e5c0ef47ecb7f71c436df1eb0301bb2ee919f4377fdac2e6d8742052",
+    "reservation_retained": true,
+    "request_replay_forbidden": true,
+    "run_continuation_forbidden": true
+  },
+  "limitations": [
+    "Two accepted planned fragments and one ordinary local business review do not establish actual execution or scenario success.",
+    "The exact bcc0434f unchanged-plan accepted-block review boundary remains unproved.",
+    "Native/Collections successful pairs belong to their recorded earlier frozen source.",
+    "No manual plan edits, expected live responses or oracle reductions were used."
+  ]
+}

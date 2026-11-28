@@ -1,0 +1,79 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "ceilingEur": 3600,
+  "modelDispatches": 0,
+  "historicalChanges": false,
+  "globallyAvailableFunding": null,
+  "fundingLimitation": "External session pricing and lost historical ledger evidence are not established by this campaign-only read.",
+  "ceilingHistory": [
+    {
+      "previousCeilingEur": 0,
+      "ceilingEur": 400,
+      "authorizedAtUtc": "2026-11-07T02:52:01.556586+00:00",
+      "authorizationHash": "4e9fc12805717dda09b2d3c902b82311c25f651c209c55d6b74a46e721ac9e59"
+    },
+    {
+      "previousCeilingEur": 400,
+      "ceilingEur": 800,
+      "authorizedAtUtc": "2026-11-08T14:55:33.4677310+00:00",
+      "authorizationHash": "5110eabf0fed2b3ba3a0d8f6bd7258d6941c4cf4a5f8d54c079ad304bcadc3a7"
+    },
+    {
+      "previousCeilingEur": 800,
+      "ceilingEur": 900,
+      "authorizedAtUtc": "2026-11-09T00:21:36.6702580+00:00",
+      "authorizationHash": "21730aebb1fd9d28e5a78605163063faad51cfe0abcfadf5f3a70fe79f17e4ce"
+    },
+    {
+      "previousCeilingEur": 900,
+      "ceilingEur": 1200,
+      "authorizedAtUtc": "2026-11-09T05:57:55.8874730+00:00",
+      "authorizationHash": "d72da6f1c5cb2ea7ed23cfa7a25cda7d30acbe22653e417924a644ccedd3f777"
+    },
+    {
+      "previousCeilingEur": 1200,
+      "ceilingEur": 1400,
+      "authorizedAtUtc": "2026-11-09T18:31:33.8271690+00:00",
+      "authorizationHash": "e0192f5f8df673b6c6c59ae9b101fee3f0f0e1cb2c5a343baa68a5f1ee3f1323"
+    },
+    {
+      "previousCeilingEur": 1400,
+      "ceilingEur": 1700,
+      "authorizedAtUtc": "2026-11-09T21:39:05.5532740+00:00",
+      "authorizationHash": "286469683498b06d7ff48d5c29cc708fb99042017ea2251eff2212ea0800b497"
+    },
+    {
+      "previousCeilingEur": 1700,
+      "ceilingEur": 2100,
+      "authorizedAtUtc": "2026-11-20T06:13:10.6094540+00:00",
+      "authorizationHash": "25041a40a3c9336a98364ba6cf232c01e0c1df3ee9cbe26fbe7685b1685ef834"
+    },
+    {
+      "previousCeilingEur": 2100,
+      "ceilingEur": 2600,
+      "authorizedAtUtc": "2026-11-20T16:50:06.1753600+00:00",
+      "authorizationHash": "48f5df93db4ab5401d8612a9572c204b4eb8a542fe7cfecbb0ccc966ad437b39"
+    },
+    {
+      "previousCeilingEur": 2600,
+      "ceilingEur": 3100,
+      "authorizedAtUtc": "2026-11-21T08:22:09.5955080+00:00",
+      "authorizationHash": "a7b50a7cd0e065bd10955ccd49a7c2d9bac7451ee08099dbc77a361f1dbd80e7"
+    },
+    {
+      "previousCeilingEur": 3100,
+      "ceilingEur": 3600,
+      "authorizedAtUtc": "2026-11-21T18:17:49.5340210+00:00",
+      "authorizationHash": "41e536cde0735fd527c508d8192cae68972b7eea25d51b922e4548bb18b0deca"
+    }
+  ],
+  "readOnlyAuditSha256": "639188999c9cef214f7cf8c11d49753ff7be30ec1e9f5fb78e0e777d686d5c96",
+  "calls": 4806,
+  "known_cost_eur": "2476.7233424365265526858317768",
+  "reserved_cost_eur": "495.81437180601547344334618",
+  "unknown_attempts": 56,
+  "providerInvoicedCost": null,
+  "basis": "Measured usage \u00d7 captured tariffs and unresolved reservations; not provider invoices. Group sums may round upward differently. Zero-attempt campaign records reserve no money. No reservation is released by inspection.",
+  "retainedApplicationReservationsEur": "171.63356950311035727717154657",
+  "campaignMarginEur": "455.8287162543476165936504964"
+}

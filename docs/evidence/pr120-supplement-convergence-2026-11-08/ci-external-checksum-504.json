@@ -1,0 +1,22 @@
+{
+  "source": "6c0fdf07c7518bd04a0ebee63eab6285bc443483",
+  "workflow_run": 42578372046,
+  "attempts": 2,
+  "conclusion": "failure",
+  "failure": "MSB3923: external GitHub Copilot CLI v1.0.107 SHA256SUMS.txt download returned HTTP 504.",
+  "same_read_only_official_url_probe_http_status": 504,
+  "checks_not_disabled": true,
+  "new_source_workflows_pending": false,
+  "private_evidence_sha256": {
+    "post-lifecycle-ci-failed.log": "e141e95ff17fb4685be4745d0c7d6ab1daae25971cf8f17b7f47d0fc5bebed97",
+    "post-lifecycle-ci-rerun-failed.log": "30252642be039ae29fcdb791ccb11f7799f3a77f808edbacfa3810dc81c2e8de",
+    "post-lifecycle-ci-rerun.json": "90c34669f9a3ae63bed4798d10760070d37c4e4d445be1ce39aa16de2d087ecd",
+    "post-lifecycle-ci-rerun-state.json": "f8d08a4777d2c72d563360041527b0b3d09001ff31b047cf382ed64778373ca2",
+    "ci-copilot-official-checksum-probe.log": "7400d31f5f73f971c67b389755e564bc70fa476c73bfa3c869379e4f9c755348",
+    "post-syntax-ci-failed.log": "dce1d77367f22aa0010746026f90be4aed3cdf1848483e520d1cf3cf62561188"
+  },
+  "latest_source": "d52e07a0bcccac2a44feb4b7d34b5051b1c02909",
+  "latest_source_planner_workflow_run": 42580528899,
+  "latest_source_planner_conclusion": "failure_same_external_checksum_504",
+  "latest_source_standalone_and_native_aot_conclusion": "success"
+}

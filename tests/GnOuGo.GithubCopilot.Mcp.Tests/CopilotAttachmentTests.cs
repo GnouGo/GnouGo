@@ -47,6 +47,8 @@ public sealed class CopilotAttachmentTests
         });
         fixture.Host.OnSend = async (configuration, handle, _, ct) =>
         {
+            Assert.Contains("64 interactions", configuration.Request.Configuration.SystemMessage, StringComparison.Ordinal);
+            Assert.Contains("complete final response", configuration.Request.Configuration.SystemMessage, StringComparison.Ordinal);
             using var callback = fixture.Host.Trace.Push(null);
             var answers = await Task.WhenAll(Enumerable.Range(0, 14).Select(i => configuration.HumanInputProvider!.RequestAsync(
                 new(new("fixture-tenant"), "permission", "permission-" + i, ["Allow once", "Refuse"], false), ct)));
@@ -175,7 +177,7 @@ public sealed class CopilotAttachmentTests
 
         // The Tasks SDK disposes its execution scope after terminal task-store
         // bookkeeping. A partial logical checkpoint is an earlier boundary.
-        private sealed class SdkExecutionScope : IAsyncDisposable
+        internal sealed class SdkExecutionScope : IAsyncDisposable
         {
             internal TaskCompletionSource Completion { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
             public ValueTask DisposeAsync() { Completion.TrySetResult(); return ValueTask.CompletedTask; }
@@ -191,7 +193,7 @@ public sealed class CopilotAttachmentTests
             f.Host.OnSend = (_, handle, _, _) => Task.FromResult(new CopilotSendResult(handle, "mock-session", "mock result", "mock", []));
             f.tasks = new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(f.Root, "vault.db"), f.Root), f.Host.Trace, Path.Combine(f.Root, "leases"), settings.Copilot.LogicalLimits);
             var logical = new CopilotLogicalOperations(f.Host.Manager, f.tasks, f.Host.Human, options);
-            var target = new CopilotTools(f.Host.Manager, new(f.Host.Manager), policy, options, f.Host.Trace, f.Host.Human,
+            var target = new CopilotTools(f.Host.Manager, policy, options, f.Host.Trace, f.Host.Human,
                 new(f.Host.Trace), null!, new(policy, options, f.Host.Trace), logical);
             var serverOptions = new McpServerOptions { ServerInfo = new() { Name = "attachments-fixture", Version = "1" }, ToolCollection = [] };
             serverOptions.AddGnOuGoToolErrorNormalizer(); CopilotAttachmentContract.Configure(serverOptions);
@@ -208,7 +210,7 @@ public sealed class CopilotAttachmentTests
             });
             foreach (var method in typeof(CopilotTools).GetMethods().Where(m => Methods.Contains(m.GetCustomAttribute<McpServerToolAttribute>()?.Name)))
                 serverOptions.ToolCollection.Add(McpServerTool.Create(method, target, new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
-            var codeService = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options, f.Host.Trace, new(f.Host.Trace), logical);
+            var codeService = new CopilotCodeService(f.Host.Manager, new(policy, options, f.Host.Trace), policy, options, f.Host.Trace, new(f.Host.Trace), f.Host.Bounded, f.tasks);
             var code = new CodeTools(new(policy, options), codeService, Microsoft.Extensions.Logging.Abstractions.NullLogger<CodeTools>.Instance, f.Host.Human);
             serverOptions.ToolCollection.Add(McpServerTool.Create(typeof(CodeTools).GetMethod(nameof(CodeTools.AgentEditAsync))!, code,
                 new() { SerializerOptions = CodeMcpJson.SerializerOptions }));
@@ -236,7 +238,9 @@ public sealed class CopilotAttachmentTests
             TeardownWaitingForOwners.TrySetResult();
             await Task.WhenAll(owners.Values.Select(owner => owner.Completion.Task)).WaitAsync(Ct);
             await client.DisposeAsync(); await stop.CancelAsync(); await running; await server.DisposeAsync();
-            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose(); Directory.Delete(Root, true);
+            await Host.Manager.DisposeAsync(); await tasks.DisposeAsync(); await services.DisposeAsync(); stop.Dispose();
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(Root, true);
         }
     }
 }

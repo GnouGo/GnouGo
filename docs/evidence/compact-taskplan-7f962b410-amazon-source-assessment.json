@@ -1,0 +1,108 @@
+{
+  "version": 1,
+  "reviewed_at_utc": "2026-10-25T07:22:27.452670+00:00",
+  "source": "7f962b41073fa7d887052eabd573b509b2d775c6",
+  "result": "No demonstrated generic context, schema or guidance defect; received missing-type clarification is permitted by the current extraction policy.",
+  "safe_inputs": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/verified-review-v5-validation-20261024/candidate-7f962b410/amazon-extraction-witness.json",
+      "sha256": "826dda323e909dc7b21f73e3ce61c7430639393e77259b01a8ad32fc24fe3165",
+      "bytes": 37359
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr7f962b410amz20v5/freeze.json",
+      "sha256": "d2b1cc1998ad5a81ff8b447243075340c245c992caa931fd4a40fa02690c019d",
+      "bytes": 18027
+    }
+  ],
+  "source_pins": [
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs",
+      "sha256": "92e126f04c1aa5d20070f421578ee250288131d693e38f80601b56b791dd2f55",
+      "bytes": 26537,
+      "committed_source": "7f962b41073fa7d887052eabd573b509b2d775c6"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs",
+      "sha256": "f79e99760b001982d6146492988d5fe7089d3de34297e6b7b689da1739d81561",
+      "bytes": 18128,
+      "committed_source": "7f962b41073fa7d887052eabd573b509b2d775c6"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Flow.Planning.Tests/CompactIntentResolutionTests.cs",
+      "sha256": "e040698c77a9db2c036416273cede97e3eb423dd1d11f094ffc6e390d51753d2",
+      "bytes": 51922,
+      "committed_source": "7f962b41073fa7d887052eabd573b509b2d775c6"
+    },
+    {
+      "path": "/Users/a115vc/Desktop/github/GnouGo-flow-hybrid-v9/tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs",
+      "sha256": "01c400b742e57fcc2772344e5ec1903b7903a5ec5c1ff0fa432b72f5b71b58c8",
+      "bytes": 40628,
+      "committed_source": "7f962b41073fa7d887052eabd573b509b2d775c6"
+    }
+  ],
+  "findings": [
+    {
+      "finding": "The public interface name query is explicit, while its wire type is not explicitly declared. A natural-language article search and the supplied phrase strongly suggest text; the response itself recommends string. The question is conservative and policy-permitted, not proven logically unavoidable.",
+      "references": [
+        "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs:18",
+        "tests/GnOuGo.Agent.Planning.Benchmark/LiveWorkflowEvaluation.cs:22",
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs:24"
+      ]
+    },
+    {
+      "finding": "No missing-original retrieval defect is demonstrated: the entire original request appears in q2 originalContext, both input-marked clauses are current candidates, existing inputs/outputs are empty, and no undisplayed original remains. Therefore the evidenceRequests:null branch is consistent with the existing directory exclusion.",
+      "references": [
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs:143",
+        "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Intent.cs:193"
+      ]
+    },
+    {
+      "finding": "Clarification is an explicit offered action. The coordinator suspends before committing any interface/disposition. The existing scripted missing-type regression verifies suspension, exact answer indexing and later source-bound acceptance without repair/checkpoint charges; it does not prove that the model needed this particular question.",
+      "references": [
+        "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs:130",
+        "src/GnOuGo.Flow.Planning/HybridWorkflowPlanner.CompactIntent.cs:154",
+        "tests/GnOuGo.Flow.Planning.Tests/CompactIntentResolutionTests.cs:413"
+      ]
+    },
+    {
+      "finding": "Both responses are received nonempty JSON; original texts equal their saved parsed objects. This evidence supports neither transport uncertainty, output exhaustion, malformed output nor a formatting explanation. No selected task, Judge, artifact or runtime is reached.",
+      "references": [
+        "bounded witness requests1–2/state/construction"
+      ]
+    }
+  ],
+  "recommendation": "No production change or new regression is justified by these two receipts alone. Do not turn query naming, an example or hidden benchmark runtime input into a generic type/default rule. Any future explicit interface-type clarification must remain an original answer or a separately declared benchmark-input change.",
+  "limitations": [
+    "No store, reader, provider, helper, build, test or runtime invocation; only supplied safe witness/source bytes read.",
+    "Root-reported record hashes are joined from the bounded witness, not independently reread from encrypted storage. Witness monetary projections are not used for accounting.",
+    "The state witness clarifications:null projection does not establish absence of a pending question; q2 contains the exact question and the state is clarification.",
+    "No causal claim about this stop, recent producer-link correction, or prospective convergence; prior successful interpretation does not prove a required interpretation for this run."
+  ],
+  "received_request_text_joins": [
+    {
+      "request_index": 1,
+      "request_id": "compactr7f962b410amz20v5-amazon-1:1:9f8ddecc64d7a1abea0f328f2332111602a0bef0eb371f06e91dd51fbf953c53",
+      "response_text_sha256": "b66f4ecbc54b597aed2bff9614a55e3598b96251f89a60c21efd88980be15bab",
+      "response_text_utf8_bytes": 1097,
+      "outside_string_whitespace_bytes": 0,
+      "parsed_text_equals_saved_response": true,
+      "received_http_statuses": [
+        200
+      ],
+      "root_reported_http_journal_sha256": "b8f5208318c1e5d716eb819703c1da879fd1a494d3f98a2d324f1582f1b2d1cb"
+    },
+    {
+      "request_index": 2,
+      "request_id": "compactr7f962b410amz20v5-amazon-1:2:65295763ed108aa5a7912664a106db08dd7cd9dc51bc0af0d615223f7e2d2aeb",
+      "response_text_sha256": "96784450148f5c923f15b856a07c3f94059e684ed9a4cff4b94de27c0fcf92ef",
+      "response_text_utf8_bytes": 426,
+      "outside_string_whitespace_bytes": 0,
+      "parsed_text_equals_saved_response": true,
+      "received_http_statuses": [
+        200
+      ],
+      "root_reported_http_journal_sha256": "c184b49b5924acb2cff86a3a0134ef2cce6834ee334c08e1209ddbdb95a0bb18"
+    }
+  ]
+}

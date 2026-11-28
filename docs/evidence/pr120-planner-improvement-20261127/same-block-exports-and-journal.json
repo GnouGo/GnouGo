@@ -1,0 +1,142 @@
+{
+  "product_source": "970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+  "previous_source": "daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+  "replay": {
+    "paid_calls": 0,
+    "origin": "improve40-amazon-20261127-175353",
+    "pending_revision": 43,
+    "exchange_sha256": "207afc3eb6a8d88a8173425e2fd4f5a5f321b59c45d49094c4e5d31d27ea9b96",
+    "strict_response_valid": true,
+    "checkpoints": 5,
+    "exports": {
+      "capture_clear": "assess_capture.clear",
+      "observed_reason": "assess_capture.reason"
+    },
+    "open_obligations": {
+      "req_0": "in_progress",
+      "req_1": "in_progress",
+      "req_2": "in_progress",
+      "req_3": "remaining"
+    },
+    "business_block": "block_1"
+  },
+  "windows_planner_suite_on_previous_source": {
+    "file": "pr120-view-full-planner.trx",
+    "sha256": "53f62aae77de146d0f8455f4a51f6ad4e52a215257c7b4b2499de513e2e54a6f",
+    "total": 3396,
+    "passed": 3396,
+    "failed": 0,
+    "started": "2026-11-27T18:54:43.4112871+01:00",
+    "finished": "2026-11-27T19:22:40.4989821+01:00"
+  },
+  "windows_precommit_export_tests": {
+    "file": "pr120-boundary-final.trx",
+    "sha256": "99880fdddeef34765de47db08200af8722342dea010c720deb4ac773d34f54f5",
+    "total": 53,
+    "passed": 53,
+    "failed": 0,
+    "started": "2026-11-27T19:20:55.9687323+01:00",
+    "finished": "2026-11-27T19:21:41.3995675+01:00"
+  },
+  "windows_precommit_persistence_tests": {
+    "file": "pr120-view-persistence.trx",
+    "sha256": "e744115912492a95f499179d602f7877b82b43bbfff50ef3027c089cff244a2b",
+    "total": 27,
+    "passed": 27,
+    "failed": 0,
+    "started": "2026-11-27T19:03:08.9339145+01:00",
+    "finished": "2026-11-27T19:05:10.7740900+01:00"
+  },
+  "journal_definition_measurements": {
+    "method": "Forty encrypted checkpoints through the same acquired journal, with independent readback and exact revision 41. Wall time includes concurrent work on this machine.",
+    "before": [
+      {
+        "yamlBytes": 100,
+        "checkpoints": 40,
+        "ms": 4387.9346,
+        "allocation": 8690096,
+        "revision": 41
+      },
+      {
+        "yamlBytes": 511620,
+        "checkpoints": 40,
+        "ms": 6327.3448,
+        "allocation": 192998624,
+        "revision": 41
+      }
+    ],
+    "after": [
+      {
+        "yamlBytes": 100,
+        "checkpoints": 40,
+        "ms": 4012.7017,
+        "allocation": 8815192,
+        "revision": 41
+      },
+      {
+        "yamlBytes": 511620,
+        "checkpoints": 40,
+        "ms": 3768.7867,
+        "allocation": 8682096,
+        "revision": 41
+      }
+    ]
+  },
+  "production_binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "ffa4107c8341b8df02462713e22ead5628cb6018736a040d545f99a5f2e322da"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "12304aeead98594de8d7689df241bb24769cddb1ff21e47dc09f7f31f25dc681"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "d0a62f3ac464ca9a3f751f92702a16f6de58f9d6f02ecbefa7aee9df1d12f38d"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "052644c2d855ecc10b45059f7d0a24fc7afa9eb2ceb876e4b90444e9acadb354"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "a984446a3733d205e530b12c1539cdf680b827590741fa89248dc610e72872cf"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "9dc17eec4e33ffbb7092cebb99ecbc1de40865c1de3fef6923535ca871fa43a5"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "7b7cd0dd7029a4ba03f7b2c8087afba3dce6e6efb3822578d829fdd6834a6c74"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "c4ec1101cbced4ecfe215f1c817730c6fc61f7da23d548136caecf1b2736de29"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "ac4baffdbdc4872685a781c51c7bf5f3e25c0edfcddfadeaf5987b55779140d4"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "64d5df8113bcf6b3fcfad6d2138d73586974a1397224f5106d47ceeeabcfe118"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+970fdba9360c0939c38a41cd5f42ee9535c5c1ed",
+      "sha256": "38f6f74b5a3187a3e62034fc675c22790e909db4acb9d9c119f453fa36243f7f"
+    }
+  ]
+}

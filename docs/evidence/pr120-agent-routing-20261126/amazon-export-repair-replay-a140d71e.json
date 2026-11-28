@@ -1,0 +1,10 @@
+{
+  "reference_session": "58590fa82d5d4ec0a064637eb54b8aac",
+  "prior_status": "unchanged",
+  "new_status": "composition_changed",
+  "old_prompt_characters": 192484,
+  "new_prompt_characters": 171254,
+  "resolution_claimed": false,
+  "model_calls": 0,
+  "source": "a140d71e74f5cfc4c96debc24ad65612b2ed2b5d"
+}

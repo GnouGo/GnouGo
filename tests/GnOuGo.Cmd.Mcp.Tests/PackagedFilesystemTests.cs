@@ -44,6 +44,25 @@ public sealed class PackagedFilesystemTests : IDisposable
     }
 
     [Fact]
+    public async Task MissingFileReadReportsFailure()
+    {
+        var result = await Run("cat_file", new JsonObject { ["path"] = "missing.txt" });
+        Assert.False(result.Success);
+        Assert.NotEqual(0, result.ExitCode);
+    }
+
+    [Theory]
+    [InlineData("seed é\n")]
+    [InlineData("東京 without a final newline")]
+    public async Task CatFilePreservesUtf8TextAndExactLineEndings(string content)
+    {
+        await File.WriteAllTextAsync(Path.Combine(_root, "seed.txt"), content, TestContext.Current.CancellationToken);
+        var result = await Run("cat_file", new JsonObject { ["path"] = "seed.txt" });
+        Success(result);
+        Assert.Equal(content, result.Stdout);
+    }
+
+    [Fact]
     public void PackagedCatalogAndDiscoveryContainOnlyTheEighteenFilesystemCommands()
     {
         Assert.Equal(ExpectedCommands, _policy.ListAllowedCommands().Select(c => c.Name));

@@ -1,0 +1,27 @@
+{
+  "source": "6cda7c8409a34e3e9cfb32c30c3fb6c4641b8109",
+  "server": {
+    "success": true,
+    "passed": 2347,
+    "existing_skips": 1,
+    "exact_coverage": true,
+    "binaries_unchanged": true
+  },
+  "non_server": {
+    "source": "6cda7c8409a34e3e9cfb32c30c3fb6c4641b8109",
+    "command": "dotnet test GnOuGo.Agent.sln -c Release -m:1 -warnaserror -p:SkipClientBuild=true --filter FullyQualifiedName!~GnOuGo.Agent.Server.Tests",
+    "scope": "Non-Server solution tests; Server inventory runs separately against frozen Debug binaries.",
+    "completed_test_project_results": 32,
+    "failed": 0,
+    "passed": 6711,
+    "skipped": 12,
+    "total": 6723,
+    "exit_code": 0,
+    "log_sha256": "c37bde4b9c95470b714e6ae84f6d11b22c7ba6c9876221e74f9a8822b6a39b93",
+    "new_model_calls": 0
+  },
+  "aggregate_passed": 9058,
+  "aggregate_existing_skips": 13,
+  "warnaserror": true,
+  "live_workflow_qualification": false
+}

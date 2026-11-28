@@ -1,0 +1,60 @@
+{
+  "source": "d52e07a0bcccac2a44feb4b7d34b5051b1c02909",
+  "run": "code-qualification-20261109-16",
+  "session_id": "7a2c656695244547a562fbd90d8880fe",
+  "status": "cancelled_and_permanently_retained",
+  "known_receipts": 36,
+  "stopped_pending_call": 37,
+  "first_accepted_call": 19,
+  "first_accepted_tariff_estimate_eur": "7.8240483654276757725033587103",
+  "first_receipt_elapsed_seconds": 756.255088,
+  "measured_planning_tariff_estimate_eur": "17.0035378414688759516345723241",
+  "local_review_call": 27,
+  "local_review_verdict": "ok",
+  "prior_review_context_call": 26,
+  "root_remained_open": true,
+  "second_business_block_accepted_tasks": 0,
+  "output_limit_observed": false,
+  "typed_nullable_repair_accepted": true,
+  "first_cause": {
+    "call": 30,
+    "all_four_selected_ids_offered_in_issued_evidence_requests": true,
+    "first_batch_member": "next interface page",
+    "later_batch_member": "exact input field schema of the accepted Copilot producer",
+    "failure": "The cursor advanced before the later schema lookup, hiding its originally visible producer.",
+    "reproduction": "Next-page first fails at the same producer-contract guard; schema first passes.",
+    "fix": "Retain the already issued host producer page before advancing. Do not add a requested-read fingerprint or any binding/operation authority. Preserve complete-batch admission, exact continuation and rejection guards.",
+    "regression_before_fix": {
+      "passed": 1,
+      "failed": 1
+    },
+    "focused_after_fix": {
+      "passed": 347,
+      "failed": 0
+    },
+    "new_regression_cases": 10
+  },
+  "retained_application_reservation_eur": "8.613210927004030452306314375",
+  "retention_evidence_hash": "85885c1d5d92355407ae83a2c61d500505611b9044e46b9b1a73795db2dcd5a1",
+  "all_reservations_retained": true,
+  "request_replay_forbidden": true,
+  "run_continuation_forbidden": true,
+  "global_review_passed": false,
+  "artifact_approved": false,
+  "execution_qualified": false,
+  "available_after_retention_eur": "233.724935064935064935064929401",
+  "retained_external_reservations_eur": "42.286833855799373040752351099",
+  "private_evidence_sha256": {
+    "code16-final.json": "812edd23d9baf865540cd5e522abb37f1b165283b6251a8061758f88485be57d",
+    "code16-final-receipts.json": "3a73cd9aed9c6d23061f267f689355e05776bdbc5c5f1b71b1217603d7add0ef",
+    "code16-call30-request.json": "c6cf3ed5e50ac0a2aebc0c7707e08e4101a58a5d987c0afc22a2a1aa9ffd42e7",
+    "code16-call31-request.json": "09ed9684b8f27687f929488ce2c3429740171f7e92ba8b014c6db595760b8c72",
+    "code16-call32-request.json": "9388f2c016aca91210effa0f4186835dd508adbcd4512004660fcb5361490c9b",
+    "code16-protected-stop.log": "45ee419d9a9618ee50d834dab67a99181e2810ef689ea6ba915aae8e3b2b9890",
+    "code16-retention-preview.json": "e76464727d7abee0ff4f471286562173185f8328267e90117704c89d184608b1",
+    "code16-retention-applied.json": "cf950e45bca88778cd0bc2e7ef216c619e11028c13b84792cb2d78f66b45068e",
+    "code16-retained-final-audit.json": "9359e06f92a9fd4d23fe089d527a63e8aad9488c44459753adfe89be7dae3a85",
+    "code16-batch-cursor-red.log": "e6161ef034ce419ebfb9c77ef14eefbd699121dd5a4cce9a6b664f2f6218b8b8",
+    "code16-batch-cursor-final-green.log": "a24f115b2dcd0d745da7d6a56d5eb275de3b4ac70423f10cf1009de0dbd3854f"
+  }
+}

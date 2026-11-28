@@ -1,0 +1,324 @@
+{
+  "runs": [
+    {
+      "run": "collections-qualification-20261109-01",
+      "source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+      "captured_options": {
+        "construction_preset": "ordinary",
+        "automatic_correction": true,
+        "optimization_threshold_policy": "diagnostic-v1",
+        "diagnostic_progress_policy": "advisory-v1",
+        "compilation_profile": "compact-bindings-v15",
+        "mapping_profile": "adaptive-each-v1",
+        "planning_validation_profile": "explicit-assertions-v1",
+        "business_selection_contract": 2
+      },
+      "phase_policy": {
+        "version": 1,
+        "navigation": {
+          "targetInputTokens": 3000,
+          "maxInputTokens": 6000,
+          "reasoning": "medium",
+          "outputTokens": 4096
+        },
+        "draft": {
+          "targetInputTokens": 8000,
+          "maxInputTokens": 16000,
+          "reasoning": "low",
+          "outputTokens": 32768
+        },
+        "review": {
+          "targetInputTokens": 4000,
+          "maxInputTokens": 8000,
+          "reasoning": "medium",
+          "outputTokens": 8192
+        }
+      },
+      "compact_business_state_present": true,
+      "published_numeric_array_maximum": null,
+      "per_phase_complete_request_measurements": {
+        "construction_intent": {
+          "calls": 1,
+          "complete_request_bytes": {
+            "min": 6917,
+            "max": 6917
+          },
+          "measured_provider_input_tokens": {
+            "min": 1155,
+            "max": 1155
+          },
+          "estimated_input_tokens": {
+            "min": 2562,
+            "max": 2562
+          },
+          "schema_hashes": [
+            "666406c17c46227342c27164140372b4567e305d14f7f5a655ff751381d10131"
+          ]
+        },
+        "construction_select": {
+          "calls": 2,
+          "complete_request_bytes": {
+            "min": 7178,
+            "max": 8916
+          },
+          "measured_provider_input_tokens": {
+            "min": 1126,
+            "max": 1391
+          },
+          "estimated_input_tokens": {
+            "min": 2649,
+            "max": 3228
+          },
+          "schema_hashes": [
+            "b820d1073002cce61b5f3ba22bd5c39e66e71bf09043fb59c719da15fefa0f18",
+            "dfcf6d646eadbac5bfa667ba9d9b62fb77b3fa93c7061fa538288926d1a3c5c6"
+          ]
+        },
+        "construction_implementation": {
+          "calls": 5,
+          "complete_request_bytes": {
+            "min": 12849,
+            "max": 19212
+          },
+          "measured_provider_input_tokens": {
+            "min": 2384,
+            "max": 3588
+          },
+          "estimated_input_tokens": {
+            "min": 4539,
+            "max": 6660
+          },
+          "schema_hashes": [
+            "a0c1969465875a8be679238ca7fbfa6cd6ff8e1a82c23c373c6dde7ec47d3ef7",
+            "14b8b99fb3f50290ed94c9fcada32e48cee607890f41359fe373b428e47d0a05",
+            "7e77ab4958fce781a661d9723bd90f4c0879f748ccafa0c25c97b4481f16a67f",
+            "3c35aee748f75729798f67ae66b6c1da4e5e00fbd9e8ade4dc976209cf890cd9",
+            "2b0a3264ac9742233bf64ab0ee3ecb25c40625eec4b6402f5219f616dd7dab3a"
+          ]
+        },
+        "construction_draft": {
+          "calls": 7,
+          "complete_request_bytes": {
+            "min": 27038,
+            "max": 33792
+          },
+          "measured_provider_input_tokens": {
+            "min": 4899,
+            "max": 6208
+          },
+          "estimated_input_tokens": {
+            "min": 9269,
+            "max": 11520
+          },
+          "schema_hashes": [
+            "5bded4aae408609ad72446d72bac96245941bee782b2264a9dee553d471dc6fd",
+            "3d4b74cbc656c47b377724cfb4c723a48d2aec24714be0aa8c19932d01c35f09",
+            "0357048a25b45c1e1adaf601c569ac9fd7d83f68fdd8dfc6aefe070f666b33ce",
+            "19cdfdc7c2fa7e0456d257bb3593f4743465ceb3af6b35008e2af1d34e1e7179",
+            "41b21267025b67928d7cefcfc437d3494dd8be9f03d578330698b9a438f3c6a7",
+            "fb2e30dedd61709fa6dd61ff4aa80dfc860948b0b49d35d9b24b0b2deca82b05",
+            "6d7b97007f35559319a2264e09bbb4b9de3aacbf7a9cbcb9ca981b90bfa3d0a6"
+          ]
+        },
+        "construction_local_judge": {
+          "calls": 1,
+          "complete_request_bytes": {
+            "min": 10084,
+            "max": 10084
+          },
+          "measured_provider_input_tokens": {
+            "min": 1716,
+            "max": 1716
+          },
+          "estimated_input_tokens": {
+            "min": 3618,
+            "max": 3618
+          },
+          "schema_hashes": [
+            "9f8c30cee37dfa5947b8890a9cc83a7b0fb36a8fdea4077bd708cd0ec71fc489"
+          ]
+        },
+        "construction_global_judge": {
+          "calls": 1,
+          "complete_request_bytes": {
+            "min": 9647,
+            "max": 9647
+          },
+          "measured_provider_input_tokens": {
+            "min": 1653,
+            "max": 1653
+          },
+          "estimated_input_tokens": {
+            "min": 3472,
+            "max": 3472
+          },
+          "schema_hashes": [
+            "7438994a8a1a08800d1ee758dd53cffc0b0a89a7a37aacbab7b947d95cf0d517"
+          ]
+        }
+      }
+    },
+    {
+      "run": "collections-qualification-20261109-02",
+      "source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+      "captured_options": {
+        "construction_preset": "ordinary",
+        "automatic_correction": true,
+        "optimization_threshold_policy": "diagnostic-v1",
+        "diagnostic_progress_policy": "advisory-v1",
+        "compilation_profile": "compact-bindings-v15",
+        "mapping_profile": "adaptive-each-v1",
+        "planning_validation_profile": "explicit-assertions-v1",
+        "business_selection_contract": 2
+      },
+      "phase_policy": {
+        "version": 1,
+        "navigation": {
+          "targetInputTokens": 3000,
+          "maxInputTokens": 6000,
+          "reasoning": "medium",
+          "outputTokens": 4096
+        },
+        "draft": {
+          "targetInputTokens": 8000,
+          "maxInputTokens": 16000,
+          "reasoning": "low",
+          "outputTokens": 32768
+        },
+        "review": {
+          "targetInputTokens": 4000,
+          "maxInputTokens": 8000,
+          "reasoning": "medium",
+          "outputTokens": 8192
+        }
+      },
+      "compact_business_state_present": true,
+      "published_numeric_array_maximum": null,
+      "per_phase_complete_request_measurements": {
+        "construction_intent": {
+          "calls": 1,
+          "complete_request_bytes": {
+            "min": 6917,
+            "max": 6917
+          },
+          "measured_provider_input_tokens": {
+            "min": 1155,
+            "max": 1155
+          },
+          "estimated_input_tokens": {
+            "min": 2562,
+            "max": 2562
+          },
+          "schema_hashes": [
+            "666406c17c46227342c27164140372b4567e305d14f7f5a655ff751381d10131"
+          ]
+        },
+        "construction_select": {
+          "calls": 2,
+          "complete_request_bytes": {
+            "min": 7178,
+            "max": 8962
+          },
+          "measured_provider_input_tokens": {
+            "min": 1126,
+            "max": 1380
+          },
+          "estimated_input_tokens": {
+            "min": 2649,
+            "max": 3244
+          },
+          "schema_hashes": [
+            "361ebdc69e6d036ff8b5614a0c73006acd01959c023e7751b6a2d9a4dec5ce01",
+            "bb1cf8b4e65be9b369737f030c8241d1789e381e86735a9d8b236bbe0d8e7646"
+          ]
+        },
+        "construction_implementation": {
+          "calls": 3,
+          "complete_request_bytes": {
+            "min": 12834,
+            "max": 19284
+          },
+          "measured_provider_input_tokens": {
+            "min": 2377,
+            "max": 3528
+          },
+          "estimated_input_tokens": {
+            "min": 4534,
+            "max": 6684
+          },
+          "schema_hashes": [
+            "a14ff6350c0d6d55ca6a04b7e7abdfee6ddee19d21409e654403998fb5a9f682",
+            "f69ed06f6db1c785cda6a581e3912175c84ea8603dd819d7b604a73eb49a4778",
+            "bae8b1015e7eb30711142c06bcf851600486e53975160157cb70ce6224da253c"
+          ]
+        },
+        "construction_draft": {
+          "calls": 5,
+          "complete_request_bytes": {
+            "min": 27023,
+            "max": 33866
+          },
+          "measured_provider_input_tokens": {
+            "min": 4894,
+            "max": 6182
+          },
+          "estimated_input_tokens": {
+            "min": 9264,
+            "max": 11545
+          },
+          "schema_hashes": [
+            "1b3c4b49272b791bd6704e1deae4d0bbf1153210277fa7a593f3103d39400a8f",
+            "024dad195f942cdb4bb77ec72350defe863d1612223554c2409efbb588539599",
+            "4e21d51c161d110342dbf7ad43798950c1626104ee2a10c8459f4907cee4aa79",
+            "3f3ff4fc2d718e1be7e94e5a2fb00fa0389951c001440994b5fed8581dfeac4a",
+            "40aa2c2723f46506bb883b9b20b3f8a39efeeb54a94341308587fb82e7d93ad8"
+          ]
+        },
+        "construction_local_judge": {
+          "calls": 1,
+          "complete_request_bytes": {
+            "min": 10053,
+            "max": 10053
+          },
+          "measured_provider_input_tokens": {
+            "min": 1695,
+            "max": 1695
+          },
+          "estimated_input_tokens": {
+            "min": 3607,
+            "max": 3607
+          },
+          "schema_hashes": [
+            "babe6c181c9512c6423a0c111a99afa21bc3e68edcf4c33ee8ff8f6533ca3575"
+          ]
+        },
+        "construction_global_judge": {
+          "calls": 2,
+          "complete_request_bytes": {
+            "min": 9631,
+            "max": 10210
+          },
+          "measured_provider_input_tokens": {
+            "min": 1683,
+            "max": 1807
+          },
+          "estimated_input_tokens": {
+            "min": 3467,
+            "max": 3660
+          },
+          "schema_hashes": [
+            "b0afee6c061e8239ad6b08f88222ce4946f7cd24c1a40e225192d7750bcb1e24",
+            "3154bb9755350d7e0ad0ac4ca2466c4e96c28d26593a5c29eb102286b8916737"
+          ]
+        }
+      }
+    }
+  ],
+  "interpretation": [
+    "These are actual retained options and request measurements, not a list inferred from current code defaults.",
+    "The mapping profile is captured; this native Collections workflow makes no mapping or external operation call, so its runtime mapping optimization is not exercised.",
+    "Full strict response-schema hashes remain captured. Byte and token measurements cover complete serialized requests, not prompt text alone.",
+    "Diagnostic optimization targets warn; finite financial admission, exact contracts, permissions, replay barriers and physical capacities remain enforced.",
+    "No controlled single-factor optimization comparison was performed by these identical-profile qualification runs."
+  ]
+}

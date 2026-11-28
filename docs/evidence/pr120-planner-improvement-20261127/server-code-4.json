@@ -1,0 +1,289 @@
+{
+  "source": "4cb2c264364b04fd50f941330c376357481c1e56",
+  "run": "improve40-code-20261127-103116",
+  "session": "18eaa435484d4b18977c1f08860e8b06",
+  "scenario": "code",
+  "oracle_version": "local-sdk-review-v2",
+  "started_utc": "2026-11-27T10:34:22.9117811+00:00",
+  "finished_utc": "2026-11-27T10:58:22.6638216+00:00",
+  "wall_seconds": "1439.75204",
+  "planning_envelope": {
+    "llm_budget": {
+      "max_calls": 48,
+      "max_total_tokens": 3200000,
+      "max_elapsed_ms": 3600000,
+      "max_estimated_cost": {
+        "amount": "3.5",
+        "currency": "EUR"
+      }
+    },
+    "execution_verification_reserve_eur": 15
+  },
+  "planning_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 1832,
+      "output_tokens": 1361,
+      "measured_eur": "0.0103735763097949886104783599",
+      "duration_ms": "278464.1369"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2083,
+      "output_tokens": 576,
+      "measured_eur": "0.0073690205011389521640091116",
+      "duration_ms": "25173.2106"
+    },
+    "construction_implementation": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 4132,
+      "output_tokens": 196,
+      "measured_eur": "0.0103052391799544419134396355",
+      "duration_ms": "17716.5057"
+    },
+    "construction_discovery": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 28237,
+      "output_tokens": 620,
+      "measured_eur": "0.0671457858769931662870159452",
+      "duration_ms": "72729.8816"
+    },
+    "construction_draft": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 45855,
+      "output_tokens": 2805,
+      "measured_eur": "0.1172323462414578587699316628",
+      "duration_ms": "80881.7707"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 9559,
+      "output_tokens": 868,
+      "measured_eur": "0.0257289293849658314350797267",
+      "duration_ms": "27754.3653"
+    },
+    "construction_global_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 15846,
+      "output_tokens": 510,
+      "measured_eur": "0.0384191343963553530751708428",
+      "duration_ms": "48704.3008"
+    },
+    "replan": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 10227,
+      "output_tokens": 149,
+      "measured_eur": "0.0239749430523917995444191344",
+      "duration_ms": "16343.8194"
+    }
+  },
+  "phase_duration_basis": "Sum of admitted request measurements, host invocation including receipt recovery. Wall clock includes other Server operations. All currency values are EUR.",
+  "planning_status": "final_review",
+  "replans": 1,
+  "diagnostics": [],
+  "result": {
+    "status": "final_review",
+    "calls": 13,
+    "repairs": 1,
+    "execution_status": "needs_reconciliation",
+    "execution_correct": false
+  },
+  "executed": true,
+  "passed": false,
+  "binary_sha256": {
+    "entry": "12ca757315495e7cebab4453c18e0ecf0b039a94045ceb3e6c823bf235048054",
+    "server": "a7848a0583f039af0e57ae5c0cbe9ca03a2c90cd4c9d91fc484c4c2342b2694c",
+    "GnOuGo.Git.Mcp": "ffc22ce9d544c9940e0b4a5b8400f258f0a4a7076641a4abd5378259b45efdf4",
+    "GnOuGo.Document.Mcp": "bee652410e8f8a8492c8b6d9561f9763b76921a1eea23c3943e990e0167d0e0d",
+    "GnOuGo.Cmd.Mcp": "abb30401e7d8e1080688a7615c1541a19f704847058d90fa46033bd62376dc55"
+  },
+  "campaign_opening_measured_eur": "29.204724373576309794988610731",
+  "campaign_closing": {
+    "calls": 793,
+    "known_input_tokens": 12250577,
+    "known_output_tokens": 407140,
+    "known_cost_eur": "29.760494305239179954441913701",
+    "reserved_cost_eur": "0.2373394077448747152619589977",
+    "unknown_attempts": 1,
+    "cost_upper_bound_eur": "29.997833712984054669703872699"
+  },
+  "related_attempts": [
+    {
+      "sessionId": "18eaa435484d4b18977c1f08860e8b06",
+      "httpAttempts": 13,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.3005489749430523917995444189",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    },
+    {
+      "sessionId": "18eaa435484d4b18977c1f08860e8b06-copilot",
+      "httpAttempts": 4,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.2552209567198177676537585422",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "execution_started_utc": "2026-11-27T10:48:52.6915083+00:00",
+  "execution_run_id": "03d86310f3c5d042dfb5ab5c817c6f3d",
+  "execution_artifact_hash": "395249f206439305e9bfb8f85ff3f7e4ac0d24f39feaae18cbcc0df1e05e2ee0",
+  "execution": {
+    "success": false,
+    "status": "needs_reconciliation",
+    "finalization_completed": false,
+    "outputs": null
+  },
+  "oracle": {
+    "passed": false,
+    "changed_files": 8,
+    "observed_files": [],
+    "findings": [
+      "workflow_execution_failed",
+      "incomplete_sdk_execution",
+      "no_observed_changed_file_reads",
+      "missing_required_changed_file_read",
+      "missing_workflow_report",
+      "checkout_cleanup_missing"
+    ]
+  },
+  "events": [
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_clone",
+      "started": "2026-11-27T10:49:04.2186665+00:00",
+      "error": false,
+      "latency_ms": 62087,
+      "success": true
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_compare_refs",
+      "started": "2026-11-27T10:50:08.1840251+00:00",
+      "error": false,
+      "latency_ms": 497,
+      "success": true,
+      "baseSha": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+      "headSha": "00af9df84dfba79c3330beed31e118523f4f094d",
+      "totalFiles": 8
+    },
+    {
+      "server": "GnOuGo.Cmd.Mcp",
+      "tool": "cmd_run",
+      "started": "2026-11-27T10:50:10.8321371+00:00",
+      "error": false,
+      "latency_ms": 4206,
+      "success": true,
+      "commandName": "check_annotation_cleanup",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": "....\r\n----------------------------------------------------------------------\r\nRan 4 tests in 0.115s\r\n\r\nOK\r\n"
+    }
+  ],
+  "target": {
+    "base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "observed_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+    "observed_head": "00af9df84dfba79c3330beed31e118523f4f094d",
+    "required_read": ".bin/test-annotation-policy-cleanup.py"
+  },
+  "sdk": [
+    {
+      "status": "needs_reconciliation",
+      "usage": {
+        "model_calls": 4,
+        "total_tokens": 484160,
+        "elapsed_milliseconds": "469713.2608",
+        "metering": "reserved_upper_bound",
+        "actions": 29
+      },
+      "failure": {
+        "code": "AGENT_BUDGET_EXHAUSTED",
+        "type": "AGENT_BUDGET_EXHAUSTED",
+        "message": "The approved agent inference allowance cannot admit another request. Charged tokens are conservative reservations, not measured usage.",
+        "retryable": false,
+        "details": {
+          "dimension": "tokens",
+          "max_model_calls": 12,
+          "max_total_tokens": 600000,
+          "deadline": "2026-11-27T11:00:17.6168249+00:00",
+          "model_calls": 4,
+          "charged_tokens": 484160,
+          "required_input_tokens": 194179,
+          "remaining_tokens": 115840,
+          "metering": "reserved_upper_bound",
+          "cessation_verified": false
+        }
+      },
+      "verification": []
+    }
+  ],
+  "execution_to_final_report_seconds": "569.972313",
+  "receipt_sha256": {
+    "form-invocation": "e36466c8bc4b05f3b2f9389dccc08f7984159423b26b9a62d21313245354c123",
+    "scoped_review": "fa97af379260978e88b6296bcb79477ed9ac2d49b0a563161dec293491f4b7ac",
+    "auth": "2cd84a7ec3e984ebb5a34b6c41f20743cede8f04bee0e4e68793d3e10cc4f4b8"
+  },
+  "trace_readback": {
+    "sdk_record_sha256": "eabf167f1a4fc69519c1265f275d674afe9a930bf5bcad1710b8e8e183330bec",
+    "terminal_run_status": "needs_reconciliation",
+    "terminal_sdk_status": "needs_reconciliation",
+    "finalization_completed": false,
+    "tool_lifecycle_records": 30,
+    "successful_tool_records": 29,
+    "successful_read_paths": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/deployment-cron.yaml",
+      "demo/service-account-slimfaas.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "docs/jobs.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/lib/documentation.ts",
+      "src/SlimFaasSite/src/lib/markdown.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "successful_changed_file_reads": [
+      ".bin/test-annotation-policy-cleanup.py",
+      ".bin/test-annotation-policy.py",
+      ".github/workflows/main.yml",
+      "demo/slimfaas-annotation-policy.yml",
+      "docs/annotation-policy.md",
+      "docs/functions.md",
+      "src/SlimFaasSite/src/lib/documentation-catalog.ts",
+      "src/SlimFaasSite/src/pages/annotation-policy.tsx"
+    ],
+    "approved_individual_dialogs": 29,
+    "tool_errors": [
+      {
+        "tool": "project_read",
+        "error": "denied"
+      }
+    ]
+  },
+  "independent_artifacts": {
+    "review_json_exists": false,
+    "checkout_exists": true
+  },
+  "phase_policy_sha256": "0c486a8df95dbe9ff579ff141c5f1dc18faa46cd24045d6c3fd4d2efdc31ce7c",
+  "sdk_phase": {
+    "physical_attempts": 4,
+    "measured_input_tokens": 110696,
+    "measured_output_tokens": 673,
+    "measured_eur": "0.2552209567198177676537585422",
+    "duration_ms": "469713.2608",
+    "duration_basis": "Elapsed SDK task including tools and human decisions.",
+    "token_basis": "Difference of the exclusive campaign opening and closing physical ledgers after subtracting the measured planning phases."
+  }
+}

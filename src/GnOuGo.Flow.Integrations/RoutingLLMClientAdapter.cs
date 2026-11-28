@@ -17,6 +17,45 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
         _inner = inner;
     }
 
+    public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(_inner.ResolveDeclaredCapabilities(provider, model)?.SupportsVision);
+    }
+
+    public Task<int?> ImageTokenUpperBoundAsync(string? provider, string model, IReadOnlyList<WorkflowImage> images, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(ImageTokenUpperBound(_inner.ResolveDeclaredMetadata(provider, model), images));
+    }
+
+    /// <summary>Bound image tokens from verified dimensions for models with published patch or tile rules.</summary>
+    public static int? ImageTokenUpperBound(LLMModelMetadata? metadata, IReadOnlyList<WorkflowImage> images)
+    {
+        if (metadata is null || !string.Equals(metadata.ProviderType, "openai", StringComparison.OrdinalIgnoreCase) ||
+            metadata.Capabilities.SupportsVision != true || images.Count == 0) return null;
+        // Both high and auto only downscale. The unresized grid bounds either wire protocol.
+        // https://developers.openai.com/api/docs/guides/images-vision#calculating-costs
+        long total = 0;
+        foreach (var image in images)
+        {
+            if (image.Width is <= 0 or > 8192 || image.Height is <= 0 or > 8192) return null;
+            var patches = ((image.Width + 31) / 32) * ((image.Height + 31) / 32);
+            var tiles = ((Math.Min(image.Width, 2048) + 511) / 512) * ((Math.Min(image.Height, 2048) + 511) / 512);
+            switch (metadata.Id)
+            {
+                case "gpt-6-astra" or "gpt-5.6-sol" or "gpt-5.6-terra" or "gpt-5.6-luna" or
+                    "gpt-5.5" or "gpt-5.4" or "gpt-5.4-mini" or "gpt-5.4-nano" or "gpt-5.2":
+                    total += (patches * 12 + 9) / 10 + 1; // Published billing rounding tolerance per image.
+                    break;
+                case "gpt-4.1" or "gpt-4o": total += 85 + 170 * tiles; break;
+                case "gpt-4o-mini": total += 2833 + 5667 * tiles; break;
+                default: return null;
+            }
+        }
+        return checked((int)total);
+    }
+
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -69,6 +108,8 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,
+            Images = request.Images?.Select(i => new LLMImageInput(i.MimeType, i.Bytes
+                ?? throw new InvalidOperationException("The referenced image has not been loaded."))).ToArray(),
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,
@@ -122,8 +163,15 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
     internal static string? CompletionStatus(JsonNode? raw)
     {
         if (raw is not JsonObject obj) return null;
+        if ((obj["choices"] as JsonArray)?.OfType<JsonObject>().Any(c => c["message"]?["refusal"] is JsonValue value && value.TryGetValue<string>(out var refusal) && !string.IsNullOrEmpty(refusal)) == true)
+            return "refused";
         var reason = (obj["choices"] as JsonArray)?.OfType<JsonObject>().FirstOrDefault()?["finish_reason"]?.ToString()
             ?? (obj["incomplete_details"] as JsonObject)?["reason"]?.ToString() ?? obj["stop_reason"]?.ToString() ?? obj["done_reason"]?.ToString();
-        return reason switch { "length" or "max_output_tokens" or "max_tokens" => "output_limit", "content_filter" or "refusal" => "refused", _ => null };
+        return reason switch
+        {
+            "length" or "max_output_tokens" or "max_tokens" => "output_limit",
+            "content_filter" or "refusal" => "refused",
+            _ => obj["status"]?.ToString() is "failed" or "incomplete" ? obj["status"]!.ToString() : null
+        };
     }
 }

@@ -52,6 +52,8 @@ builder.Services
 
             foreach (var tool in result.Tools)
             {
+                if (tool.Name == "document_read")
+                    tool.OutputSchema = DocumentMcpJson.ReadOutputSchema(tool.OutputSchema!.Value);
                 if (string.Equals(tool.Name, "document_write", StringComparison.Ordinal))
                 {
                     tool.InputSchema = DocumentMcpJson.WriteInputSchema(tool.InputSchema);

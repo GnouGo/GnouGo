@@ -6,38 +6,6 @@ namespace GnOuGo.Flow.Planning.Tests;
 public sealed class CommitmentPromptContractTests
 {
     [Fact]
-    public async Task IssuedFullProposalExplainsNamesAndItsExampleCompilesWithoutChangingAcceptance()
-    {
-        var (runtime, state) = await CommitmentCoverageTests.Fixture();
-        var original = PlanningSchemas.FullProposal(state, compact: false);
-        var annotations = PlanningSchemas.Compact(original.DeepClone().AsObject(), compositionHints: true);
-        var historical = PlanningSchemas.Compact(original.DeepClone().AsObject());
-        var completed = await PlannerFixture.RunAsync(runtime, state);
-        Assert.Equal(PlanningStatus.FinalReview, completed.Status); Assert.Null(completed.ApprovedHash);
-        var issued = Assert.Single(runtime.Calls);
-        var description = PlanningSchemaReferences.Walk(issued.StructuredOutputSchema!.AsObject(), "", 0)
-            .Select(e => e.Schema["description"]?.ToString()).Single(s => s?.Contains("Non-executable obligations", StringComparison.Ordinal) == true)!;
-        Assert.Contains("result.port: its exact output port", description);
-        Assert.Contains("NAME in requirements.outputs", description); Assert.Contains("result:null", description);
-        Assert.Contains("operation-only", description);
-        Assert.DoesNotContain("Non-executable obligations", historical.ToJsonString());
-        foreach (var schema in new[] { annotations, historical })
-        {
-            var response = TestRuntime.Response(new() { StructuredOutputSchema = schema }, runtime.Proposal);
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json, schema));
-            response.Json!["requirements"]!["outcomes"]![0]!["commitments"]![0]!["result"]!["output"] = "workspace/report.xlsx";
-            // These annotations explain a semantic rule; they do not narrow JSON Schema.
-            Assert.Empty(PlanningContractValidation.ValidateInstanceFindings(response.Json, schema));
-            response.Json["requirements"]!["outcomes"]![0]!["commitments"]![0]!["result"]!["port"] = 42;
-            Assert.NotEmpty(PlanningContractValidation.ValidateInstanceFindings(response.Json, schema));
-        }
-        Assert.InRange(PlanningJsonTransport.EstimateInputTokens(issued.Prompt, issued.StructuredOutputSchema.AsObject()), 1, state.Request.Generation.MaxInputTokensPerRequest);
-        foreach (var schema in new[] { annotations, historical })
-            foreach (var (_, node) in PlanningSchemaReferences.Walk(schema, "", 0)) node.Remove("description");
-        Assert.True(JsonNode.DeepEquals(annotations, historical));
-    }
-
-    [Fact]
     public void SharedPresentationPreservesEveryConstraintAndLiteralAndKeepsExistingReferenceBases()
     {
         var repeated = JsonNode.Parse("""{"type":"object","properties":{"label":{"type":"string"},"nullable":{"type":["number","null"]}},"required":["label","nullable"],"additionalProperties":false,"default":{"type":"string","required":["literal"]},"description":"Keep this explanatory contract annotation"}""")!;

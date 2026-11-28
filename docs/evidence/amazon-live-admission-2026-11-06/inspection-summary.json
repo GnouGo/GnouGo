@@ -1,0 +1,83 @@
+{
+  "sessionId": "11386753f6ce4c4eb456deb20376e057",
+  "events": [
+    {
+      "sequence": 1,
+      "timestampUtc": "2026-11-06T20:01:33.294529+00:00",
+      "phase": "construction_intent",
+      "state": "active",
+      "reason": "Exact request prepared and admitted; waiting for the provider.",
+      "requestId": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "blockId": null,
+      "stepId": null,
+      "checkpoint": 0,
+      "objective": null,
+      "phaseOccurrence": 1
+    },
+    {
+      "sequence": 2,
+      "timestampUtc": "2026-11-06T20:02:08.60996+00:00",
+      "phase": "construction_intent",
+      "state": "blocked",
+      "reason": "No verified completion; inspect the retained HTTP attempts.",
+      "requestId": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "blockId": null,
+      "stepId": null,
+      "checkpoint": 0,
+      "objective": null,
+      "phaseOccurrence": 1
+    },
+    {
+      "sequence": 3,
+      "timestampUtc": "2026-11-06T20:02:08.611224+00:00",
+      "phase": "construction_intent",
+      "state": "blocked",
+      "reason": "LLM_BUDGET_EXCEEDED",
+      "requestId": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "blockId": null,
+      "stepId": null,
+      "checkpoint": 0,
+      "objective": null,
+      "phaseOccurrence": 1
+    }
+  ],
+  "nextEvent": 3,
+  "hasMoreEvents": false,
+  "calls": [
+    {
+      "key": "11386753f6ce4c4eb456deb20376e057:11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "requestId": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af",
+      "createdAtUtc": "2026-11-06T20:01:33.310465+00:00",
+      "provider": "OpenAi",
+      "model": "gpt-6.1-sol-2026-09-29",
+      "source": "Encrypted journal \u2014 telemetry absent",
+      "responseStatus": "uncertain \u2014 no receipt",
+      "technicalValidation": "Unavailable",
+      "businessReview": "Unavailable",
+      "status": "no_retained_completion",
+      "phase": "construction_intent",
+      "blockId": null,
+      "stepId": null,
+      "inputTokens": null,
+      "outputTokens": null,
+      "estimatedInputTokens": 2617,
+      "issuedOutputTokens": 8192,
+      "durationMilliseconds": "35309.8815",
+      "durationBasis": "host_invocation_including_receipt_recovery"
+    }
+  ],
+  "callCount": 1,
+  "nextCallCursor": {
+    "requests": {
+      "updatedAtTicks": "639295920933104650",
+      "key": "11386753f6ce4c4eb456deb20376e057:11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af"
+    },
+    "receipts": null,
+    "http": {
+      "updatedAtTicks": "639295920933229260",
+      "key": "11386753f6ce4c4eb456deb20376e057:1:b26b07922ca5b5450e481bfa85bb891364a4832b0e547a8d2873a4b23c6489af"
+    },
+    "event": 3
+  },
+  "hasMoreCalls": false
+}

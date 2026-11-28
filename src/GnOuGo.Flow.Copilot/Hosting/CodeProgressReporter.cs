@@ -1,0 +1,86 @@
+﻿using System.Text.Json;
+
+namespace GnOuGo.GithubCopilot.Mcp;
+
+internal sealed class CodeProgressReporter
+{
+    private const string ProgressEnvelopeType = "gnougo.mcp.progress";
+    private readonly CodeMcpTraceContextAccessor _traceContextAccessor;
+    private readonly Action<CodeProgressEvent>? _workflow;
+    private readonly bool _captured;
+    private readonly CodeMcpTraceContext? _capturedContext;
+
+    public CodeProgressReporter(CodeMcpTraceContextAccessor traceContextAccessor)
+    {
+        _traceContextAccessor = traceContextAccessor;
+    }
+
+    internal CodeProgressReporter(CodeMcpTraceContextAccessor accessor, Action<CodeProgressEvent> workflow) : this(accessor) => _workflow = workflow;
+
+    private CodeProgressReporter(CodeMcpTraceContextAccessor accessor, CodeMcpTraceContext? context)
+    {
+        _traceContextAccessor = accessor;
+        _captured = true;
+        _capturedContext = context;
+    }
+
+    public CodeProgressReporter Capture() => _workflow is not null ? this : new(_traceContextAccessor, CodeMcpTraceContext.Capture(_traceContextAccessor));
+
+    public CodeProgressEvent Report(
+        string kind,
+        string level,
+        string message,
+        string? file = null,
+        string? fallbackServer = null,
+        string? fallbackMethod = null,
+        string? fallbackMcpKind = null)
+    {
+        var progressEvent = new CodeProgressEvent(
+            Kind: kind,
+            Level: level,
+            Message: message,
+            Timestamp: DateTimeOffset.UtcNow,
+            File: file);
+
+        WriteProgress(progressEvent, fallbackServer, fallbackMethod, fallbackMcpKind);
+        return progressEvent;
+    }
+
+    public CodeProgressEvent Report(
+        CodeProgressEvent progressEvent,
+        string? fallbackServer = null,
+        string? fallbackMethod = null,
+        string? fallbackMcpKind = null)
+    {
+        WriteProgress(progressEvent, fallbackServer, fallbackMethod, fallbackMcpKind);
+        return progressEvent;
+    }
+
+    private void WriteProgress(CodeProgressEvent progressEvent, string? fallbackServer, string? fallbackMethod, string? fallbackMcpKind)
+    {
+        try
+        {
+            if (_workflow is not null) { _workflow(progressEvent); return; }
+            var context = _captured ? _capturedContext : CodeMcpTraceContext.Capture(_traceContextAccessor);
+            var envelope = new CodeMcpProgressEnvelope(
+                Type: ProgressEnvelopeType,
+                CorrelationId: context?.CorrelationId,
+                RunId: context?.RunId,
+                StepId: context?.StepId,
+                StepType: context?.StepType,
+                Server: context?.McpServer ?? fallbackServer,
+                Method: context?.McpMethod ?? fallbackMethod,
+                Kind: context?.McpKind ?? fallbackMcpKind,
+                Event: progressEvent);
+
+            Console.Error.WriteLine(JsonSerializer.Serialize(envelope, CodeProgressJsonContext.Default.CodeMcpProgressEnvelope));
+        }
+        catch
+        {
+            // Progress reporting is best-effort and must never fail a tool call.
+        }
+    }
+}
+
+[System.Text.Json.Serialization.JsonSerializable(typeof(CodeMcpProgressEnvelope))]
+internal sealed partial class CodeProgressJsonContext : System.Text.Json.Serialization.JsonSerializerContext;

@@ -1,0 +1,79 @@
+{
+  "run": "win-local-pr519-20261126-174339",
+  "source": "69bd9a69fddb0b9da13a1da16732d31a08510cfb",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-terra",
+  "request_id": "win-local-pr519-20261126-174339:diagnostic:9a783bb66ff05a9f8eed745b8de913f1e615d72fc6810b9f96183f64e0c6a2c9",
+  "target_head": "458efb736ad6f4159281606da573d51c5115256c",
+  "target_base": "bc2213576e1f29f72f5dd2fcb50a6c22ac6a84e1",
+  "provider_observations": 8,
+  "unmatched_anchors": 0,
+  "reproduced": [
+    {
+      "kind": "defect",
+      "file": ".bin/test-annotation-policy.py",
+      "line": 170,
+      "excerpt": "            subprocess.run([\"kind\", \"delete\", \"cluster\", \"--name\", args.cluster], check=False)",
+      "assessment": "A failed deletion is ignored, so a successful smoke test can exit successfully while leaving the cluster and its resources behind. The cleanup tests only simulate successful deletion."
+    },
+    {
+      "kind": "test_gap",
+      "file": ".bin/test-annotation-policy-cleanup.py",
+      "line": 57,
+      "excerpt": "        self.assertEqual([], fake.deleted())",
+      "assessment": "The creation-failure test does not assert that creation was attempted or that the expected CalledProcessError occurred. An unrelated early exit can satisfy the test without exercising the cleanup guard."
+    }
+  ],
+  "checks": [
+    {
+      "conclusion": "success",
+      "head_sha": "458efb736ad6f4159281606da573d51c5115256c",
+      "html_url": "https://github.com/SlimPlanet/SlimFaas/actions/runs/45866721415/job/140071332507",
+      "name": "documentation / build",
+      "status": "completed"
+    },
+    {
+      "conclusion": "success",
+      "head_sha": "458efb736ad6f4159281606da573d51c5115256c",
+      "html_url": "https://github.com/SlimPlanet/SlimFaas/actions/runs/45866717917/job/140071318590",
+      "name": "Annotation admission policy",
+      "status": "completed"
+    }
+  ],
+  "local_cleanup_tests": 4,
+  "local_documentation_tests": 12,
+  "local_site": {
+    "test": 0,
+    "typecheck": 0,
+    "trackedDiffEmpty": true
+  },
+  "local_reproductions": [
+    {
+      "sourceLines": [
+        168,
+        169,
+        170
+      ],
+      "scope": "cleanup control flow with stubbed policy calls",
+      "simulatedDeletionExit": 1,
+      "scriptReportedFailure": false,
+      "realClusterOperations": 0
+    },
+    {
+      "case": "test_cluster_is_kept_when_creation_fails",
+      "subprocess_calls": 0,
+      "test_returned_success_after_unrelated_early_exit": true
+    }
+  ],
+  "external_writes": 0,
+  "generated_server_plan": false,
+  "private_receipts_sha256": {
+    "cleanup-tests.log": "20ef3d7ca3c147de3908f132a216baa6c4f64e3341827cf2d408bb6e8584fafe",
+    "cleanup-failure-reproduction.json": "6af2a17f0e3eb427e7713c4602437b14b97a187366d59c58d9bfe868b1332959",
+    "test-coverage-reproduction.json": "97d32304c92b02d280028cd33df0e303a2091edc5e46419ac0b4ff4941b14661",
+    "site-pinned-tests.log": "09c56ac43099c0db857ac4bf6141592675c0bdd93081a7e17faa4e569bb0f4c9",
+    "site-pinned-typecheck.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "upstream-head-checks.json": "30b6c1cb8a84fc919fdbb16699a5fc276b0aaea802a0a40c0f2c7415959c0e95",
+    "win-local-pr519-20261126-174339-result.log": "7ab8f32bf988592b6b20f5d56983f82f2cc58ac1e78ed9e411028a7f66706a4c"
+  }
+}

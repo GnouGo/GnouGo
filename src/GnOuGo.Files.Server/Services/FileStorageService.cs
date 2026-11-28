@@ -1,17 +1,17 @@
-﻿using GnOuGo.Files.Server.Data;
+using GnOuGo.Files.Core;
+using GnOuGo.Files.Server.Data;
 using GnOuGo.Files.Server.Models;
 using GnOuGo.Files.Server.Options;
 using GnOuGo.Files.Server.Web;
 using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Net.Mime;
-using System.Security.Cryptography;
 
 namespace GnOuGo.Files.Server.Services;
 
 public sealed class FileStorageService
 {
-    private const string DefaultTenantId = "default";
+    private readonly DurableFileStore _files;
     private readonly FilesMetadataRepository _metadata;
     private readonly FilesServerOptions _options;
     private readonly FilesStoragePaths _paths;
@@ -21,9 +21,11 @@ public sealed class FileStorageService
         FilesMetadataRepository metadata,
         IOptions<FilesServerOptions> options,
         FilesStoragePaths paths,
+        DurableFileStore files,
         ILogger<FileStorageService> logger)
     {
         _metadata = metadata;
+        _files = files;
         _options = options.Value;
         _paths = paths;
         _logger = logger;
@@ -33,109 +35,77 @@ public sealed class FileStorageService
     {
         var ttl = ResolveRequestedTtl(context.Request);
         var now = DateTimeOffset.UtcNow;
-        var id = CreateId();
-        var originalFileName = ResolveFileName(context.Request);
-        var contentType = string.IsNullOrWhiteSpace(context.Request.ContentType)
-            ? MediaTypeNames.Application.Octet
-            : context.Request.ContentType;
-        var tenantId = ResolveTenantId(context.Request);
-        var storedFileName = id + ".blob";
-        var storedPath = Path.Combine(_paths.StorageRootPath, storedFileName);
-
-        Directory.CreateDirectory(_paths.StorageRootPath);
-
-        long sizeBytes = 0;
-        try
+        var tenant = ResolveTenantId(context.Request) ?? throw new ArgumentException("Invalid upload tenant.");
+        var expires = now.Add(ttl);
+        var file = await _files.UploadAsync(tenant, context.Request.Body,
+            context.Request.ContentType ?? MediaTypeNames.Application.Octet, ResolveFileName(context.Request), expires, cancellationToken);
+        var record = new FileRecord
         {
-            await using (var target = new FileStream(
-                storedPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                _options.GetStreamBufferSize(),
-                FileOptions.Asynchronous | FileOptions.SequentialScan))
-            {
-                sizeBytes = await CopyCountingAsync(context.Request.Body, target, _options.GetStreamBufferSize(), cancellationToken);
-            }
-
-            var record = new FileRecord
-            {
-                Id = id,
-                TenantId = tenantId,
-                OriginalFileName = originalFileName,
-                ContentType = contentType,
-                StoredFileName = storedFileName,
-                StoredPath = storedPath,
-                SizeBytes = sizeBytes,
-                CreatedUtc = now,
-                ExpiresUtc = now.Add(ttl)
-            };
-
-            await _metadata.InsertAsync(record, cancellationToken);
-
-            return ToUploadResponse(record, context.Request, now);
-        }
-        catch
-        {
-            TryDeleteFile(storedPath, _logger);
-            throw;
-        }
+            Id = file.Id, TenantId = tenant, StoredFileName = "encrypted-v2",
+            CreatedUtc = now, ExpiresUtc = expires, SizeBytes = file.Size
+        };
+        await _metadata.InsertAsync(record, cancellationToken);
+        return ToUploadResponse(Describe(record, file), context.Request, now);
     }
 
-    public async Task<FileRecord?> GetAvailableFileAsync(string id, HttpRequest request, CancellationToken cancellationToken)
+    private static FileRecord Describe(FileRecord record, StoredFile file)
     {
-        var now = DateTimeOffset.UtcNow;
-        var record = await _metadata.GetAsync(id, ResolveTenantId(request), cancellationToken);
-        if (record is null)
-            return null;
-
-        if (record.ExpiresUtc <= now || !File.Exists(record.StoredPath))
-            return null;
-
+        record.ContentType = file.ContentType;
+        record.OriginalFileName = file.Name;
         return record;
     }
 
-    public async Task<FileListResponse> ListAvailableAsync(HttpRequest request, CancellationToken cancellationToken)
+    public async Task<FileRecord?> GetAvailableFileAsync(string id, HttpRequest request, CancellationToken ct)
     {
-        var now = DateTimeOffset.UtcNow;
-        var records = await _metadata.ListAsync(ResolveTenantId(request), cancellationToken);
-
-        var files = records
-            .Where(file => file.ExpiresUtc > now && File.Exists(file.StoredPath))
-            .OrderBy(file => file.ExpiresUtc)
-            .Select(file => new FileListItemResponse(
-                file.Id,
-                file.TenantId,
-                file.OriginalFileName,
-                file.ContentType,
-                file.SizeBytes,
-                file.CreatedUtc,
-                file.ExpiresUtc,
-                Math.Max(0, (long)(file.ExpiresUtc - now).TotalSeconds),
-                BuildDownloadUrl(request, file.Id)))
-            .ToList();
-
-        return new FileListResponse(files);
+        if (ResolveTenantId(request) is not { } tenant) return null;
+        var record = await _metadata.GetAsync(id, tenant, ct);
+        if (record?.StoredFileName != "encrypted-v2" || record.ExpiresUtc <= DateTimeOffset.UtcNow) return null;
+        var file = await _files.InspectUploadAsync(tenant, id, ct);
+        return file is null ? null : Describe(record, file);
     }
 
-    public async Task<int> PurgeExpiredAsync(CancellationToken cancellationToken)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var expired = await _metadata.ListAsync(cancellationToken);
+    public Task<bool> DownloadAsync(FileRecord record, Stream destination, CancellationToken ct) =>
+        _files.CopyAsync(record.TenantId, record.Id, null, destination, ct);
 
-        var deleted = 0;
-        foreach (var file in expired.Where(file => file.ExpiresUtc <= now).OrderBy(file => file.ExpiresUtc))
+    public async Task<FileListResponse> ListAvailableAsync(HttpRequest request, CancellationToken ct)
+    {
+        if (ResolveTenantId(request) is not { } tenant) return new([]);
+        var now = DateTimeOffset.UtcNow;
+        var rows = await _metadata.ListAsync(tenant, ct);
+        var files = new List<FileListItemResponse>();
+        foreach (var row in rows.Where(f => f.StoredFileName == "encrypted-v2" && f.ExpiresUtc > now).OrderBy(f => f.ExpiresUtc))
         {
-            TryDeleteFile(file.StoredPath, _logger);
-            await _metadata.DeleteAsync(file.Id, cancellationToken);
+            if (await _files.InspectUploadAsync(tenant, row.Id, ct) is not { } file) continue;
+            files.Add(new(row.Id, tenant, file.Name, file.ContentType, file.Size, row.CreatedUtc, row.ExpiresUtc,
+                Math.Max(0, (long)(row.ExpiresUtc - now).TotalSeconds), FilesLinks.DownloadUrl(_options.PublicBaseUrl, request, row.Id)));
+        }
+        return new(files);
+    }
+
+    public async Task<int> PurgeExpiredAsync(CancellationToken ct)
+    {
+        await _files.SweepAsync(ct);
+        var rows = await _metadata.ListAsync(ct);
+        var deleted = 0;
+        foreach (var row in rows.Where(f => f.StoredFileName != "encrypted-v2" || f.ExpiresUtc <= DateTimeOffset.UtcNow))
+        {
+            // Historical plaintext uploads had an exact ID-derived basename. Ignore the stored absolute path.
+            if (row.Id.Length == 32 && row.Id.All(char.IsAsciiHexDigitLower) && row.StoredFileName == row.Id + ".blob")
+                File.Delete(Path.Combine(_paths.StorageRootPath, row.StoredFileName));
+            await _metadata.DeleteAsync(row.Id, ct);
             deleted++;
         }
-
-        if (deleted > 0)
+        if (Directory.Exists(_paths.StorageRootPath))
         {
-            _logger.LogInformation("Purged {DeletedCount} expired temporary file(s).", deleted);
+            // Retire orphaned plaintext uploads from the removed writer as well as indexed uploads.
+            foreach (var path in Directory.EnumerateFiles(_paths.StorageRootPath, "*.blob", SearchOption.TopDirectoryOnly))
+            {
+                ct.ThrowIfCancellationRequested();
+                var id = Path.GetFileNameWithoutExtension(path);
+                if (id.Length == 32 && id.All(char.IsAsciiHexDigitLower)) File.Delete(path);
+            }
         }
-
+        if (deleted > 0) _logger.LogInformation("Purged {DeletedCount} temporary file records.", deleted);
         return deleted;
     }
 
@@ -158,12 +128,12 @@ public sealed class FileStorageService
         return ParseTtl(request.Query["ttl"].FirstOrDefault(), _options.GetDefaultTtl());
     }
 
-    private static string ResolveTenantId(HttpRequest request)
+    private string? ResolveTenantId(HttpRequest request)
     {
-        var tenantId = request.Headers["X-Tenant-Id"].FirstOrDefault()
-            ?? request.Query["tenantId"].FirstOrDefault();
-
-        return string.IsNullOrWhiteSpace(tenantId) ? DefaultTenantId : tenantId.Trim();
+        var tenant = request.HttpContext.User.Identity?.IsAuthenticated == true
+            ? request.HttpContext.User.FindFirst("tenant_id")?.Value ?? _options.TenantId : _options.TenantId;
+        var requested = request.Headers["X-Tenant-Id"].FirstOrDefault() ?? request.Query["tenantId"].FirstOrDefault();
+        return requested is null || requested == tenant ? tenant : null;
     }
 
     private static string ResolveFileName(HttpRequest request)
@@ -186,26 +156,7 @@ public sealed class FileStorageService
         return Path.GetFileName(fileName.Trim().Trim('"'));
     }
 
-    private static async Task<long> CopyCountingAsync(Stream source, Stream target, int bufferSize, CancellationToken cancellationToken)
-    {
-        var buffer = new byte[bufferSize];
-        long total = 0;
-        int read;
-        while ((read = await source.ReadAsync(buffer.AsMemory(0, buffer.Length), cancellationToken)) > 0)
-        {
-            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
-            total += read;
-        }
-
-        return total;
-    }
-
-    private static string CreateId()
-    {
-        return Convert.ToHexString(RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
-    }
-
-    private static FileUploadResponse ToUploadResponse(FileRecord record, HttpRequest request, DateTimeOffset now)
+    private FileUploadResponse ToUploadResponse(FileRecord record, HttpRequest request, DateTimeOffset now)
     {
         return new FileUploadResponse(
             record.Id,
@@ -216,29 +167,6 @@ public sealed class FileStorageService
             record.CreatedUtc,
             record.ExpiresUtc,
             Math.Max(0, (long)(record.ExpiresUtc - now).TotalSeconds),
-            BuildDownloadUrl(request, record.Id));
-    }
-
-    private static string BuildDownloadUrl(HttpRequest request, string id)
-    {
-        return $"{request.Scheme}://{request.Host}/api/files/{Uri.EscapeDataString(id)}";
-    }
-
-    private static void TryDeleteFile(string path, ILogger logger)
-    {
-        try
-        {
-            if (File.Exists(path))
-                File.Delete(path);
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Best-effort cleanup failed for stored file '{Path}'.", path);
-            // Best-effort cleanup: another process can still hold the file handle.
-        }
+            FilesLinks.DownloadUrl(_options.PublicBaseUrl, request, record.Id));
     }
 }
-
-
-
-

@@ -1,0 +1,11 @@
+{
+  "requestId": "fragment-availability-low-20261107-01:probe:f5ae2241991f4d798312fe05d7e082b2:e50c6f2f481832af501f57646dfd2e6c2d630f6aa9eb25200e89f7cf19346e46",
+  "physicalAttemptId": "fragment-availability-low-20261107-01:probe:f5ae2241991f4d798312fe05d7e082b2:e50c6f2f481832af501f57646dfd2e6c2d630f6aa9eb25200e89f7cf19346e46:0872af443ca041d585f32a964ee82d93",
+  "startedUtc": "2026-11-07T09:57:40.6335+00:00",
+  "completedUtc": "2026-11-07T09:57:42.69263+00:00",
+  "durationSeconds": 2.05913,
+  "httpStatus": 200,
+  "responseBodyComplete": true,
+  "maxAttempts": 1,
+  "attemptTimeoutMs": 600000
+}

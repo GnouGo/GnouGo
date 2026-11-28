@@ -86,10 +86,7 @@ public sealed class DocumentPolicy
     {
         var policy = DescribePolicy();
         var sb = new StringBuilder();
-        sb.AppendLine("Writes text content to a file, creating missing parent directories within the allowed workspace. For .docx, automatically detects Markdown and maps headings, lists, emphasis, code, links, blockquotes, and tables to Word structures.");
-        sb.AppendLine("For .pdf, generates a readable A4 PDF and automatically renders Markdown headings, lists, emphasis, code, links, blockquotes, tables, and separators.");
-        sb.AppendLine("For .xlsx, generates a spreadsheet from tab/comma-separated text: each nonblank line is a row; tabs separate cells when present, otherwise commas do. Cells are trimmed. Quotes are literal, not CSV escaping. Supply exactly one of content or rows. For exact XLSX values, use rows (arrays of strings or null cells): no splitting, trimming, number conversion or formulas. Headers are ordinary rows and null cells are blank. For other allowed extensions, writes plain text.");
-        sb.AppendLine("Allowed targets come from document_get_policy: file paths must be relative to the workspace root, resolve inside document_get_policy.AllowedRoots, and use an extension from document_get_policy.AllowedExtensions.");
+        sb.AppendLine(DocumentTools.WriteDescription);
         sb.Append("Current document_get_policy.AllowedExtensions: ");
         sb.Append(FormatDescriptionList(policy.AllowedExtensions));
         sb.AppendLine(".");
@@ -102,9 +99,6 @@ public sealed class DocumentPolicy
         sb.Append("Current document_get_policy.MaxFileSizeBytes: ");
         sb.Append(policy.MaxFileSizeBytes);
         sb.AppendLine(" bytes.");
-        sb.AppendLine("Use relative paths only from the workspace root; do not provide absolute paths. Only workspace-contained targets outside the reserved .GnOuGo internal directory are authorized.");
-        sb.AppendLine("For long LLM workflows, initialize the document with append=false, then call document_write repeatedly with append=true as each section is ready.");
-        sb.Append("This avoids sending one very large final save payload that can exceed the model context window.");
         return sb.ToString().TrimEnd();
     }
 

@@ -49,11 +49,26 @@ internal static class PlanningValues
         if (value.Source is not null || value.ResultChannel is not null || value.Path.Count != 0 || value.Members.Count != 0 ||
             value.Number is not null || value.Boolean is not null)
             throw new InvalidOperationException("A typed computation contains unsupported fields.");
+        if (value.Kind == "object_view")
+        {
+            if (value.Text is null && value.Items is [var source, var shape] &&
+                resolve(source) is { } original && PlanningGraphValidation.IsLiteral(shape) &&
+                PlanningGraphValidation.Literal(shape) is JsonObject fields && PlanningObjectView.Contract(original, fields) is { } view)
+                return view;
+            throw new InvalidOperationException("The selected object fields must have an exact source contract.");
+        }
         if (value.Kind == "json")
         {
             if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is null)
                 throw new InvalidOperationException("JSON encoding requires exactly one established value.");
             return new() { ["type"] = "string" };
+        }
+        if (value.Kind == "array_length")
+        {
+            if (value.Text is not null || value.Items.Count != 1 || resolve(value.Items[0]) is not { } array ||
+                PlanningContractShapes.IterationItems(array) is null)
+                throw new InvalidOperationException("array_length requires one nonnullable array.");
+            return new() { ["type"] = "integer", ["minimum"] = 0 };
         }
         if (value.Kind == "flatten")
         {
@@ -64,6 +79,22 @@ internal static class PlanningValues
             // Outer/per-group constraints remain on the checked source. They do
             // not imply uniqueness or cardinality constraints on concatenation.
             return new() { ["type"] = "array", ["items"] = element.DeepClone() };
+        }
+        if (value.Kind == "at_index")
+        {
+            if (value.Text is not null || value.Items.Count != 2 || resolve(value.Items[0]) is not { } collection ||
+                PlanningContractShapes.IterationItems(collection) is not { } element || PlanningContractShapes.IsOpaque(element) ||
+                !Established(element) || HasTuple(collection))
+                throw new InvalidOperationException("at_index requires a nonnullable array with an established element contract.");
+            var index = value.Items[1];
+            if (index is { Kind: "number", Number: { } literal }
+                ? !double.IsFinite(literal) || literal < 0 || literal > 9007199254740991d || Math.Truncate(literal) != literal
+                : resolve(index) is not { } position || !PlanningContractCompatibility.Fits(position, new() { ["type"] = "integer" }))
+                throw new InvalidOperationException("at_index requires a zero-based integer position.");
+            return element;
+
+            static bool HasTuple(JsonObject schema) => schema["prefixItems"] is JsonArray { Count: > 0 } ||
+                (schema["anyOf"] ?? schema["oneOf"]) is JsonArray alternatives && alternatives.OfType<JsonObject>().Any(HasTuple);
         }
         if (value.Kind == "lookup")
         {
@@ -78,6 +109,15 @@ internal static class PlanningValues
             // The source is checked before selecting. Its cardinality/uniqueness
             // does not constrain the selected list, which may repeat identities.
             return new() { ["type"] = "array", ["items"] = record.DeepClone() };
+        }
+        if (value.Kind == "string_operation")
+        {
+            if (value.Text is not ("concat" or "uri_component") ||
+                (value.Text == "concat" ? value.Items.Count is < 2 or > 16 : value.Items.Count != 1))
+                throw new InvalidOperationException("String operations require concat with two to sixteen operands or uri_component with one operand.");
+            if (value.Items.Any(operand => resolve(operand) is not { } schema || !PlanningContractCompatibility.Fits(schema, new() { ["type"] = "string" })))
+                throw new InvalidOperationException("String operations require established, nonnullable string operands.");
+            return new() { ["type"] = "string" };
         }
         if (value.Kind == "arithmetic")
         {
@@ -94,7 +134,7 @@ internal static class PlanningValues
             var schema = resolve(operand) ?? throw new InvalidOperationException("The predicate operand has no established contract.");
             if (value.Text is "and" or "or" or "not" && schema["type"]?.ToString() != "boolean")
                 throw new InvalidOperationException("Logical predicates require boolean operands.");
-            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && schema["type"]?.ToString() is not ("number" or "integer"))
+            if (value.Text is "less" or "less_equal" or "greater" or "greater_equal" && !PlanningContractCompatibility.Fits(schema, PlanningSchemas.Type("number")))
                 throw new InvalidOperationException("Ordering predicates require numeric operands.");
         }
         return new() { ["type"] = "boolean" };

@@ -94,14 +94,14 @@ internal static class TraceDebugUiHelpers
     }
     public static SummaryModel BuildSummary(TraceGroupDto trace)
     {
-        var llmMetrics = TracePipeline.Calls(trace)
+        var llmMetrics = LlmCallProjection.Calls(trace)
             .Select(span => new LlmCallModel(
                 OperationName: GetFirstAttribute(span.Attributes, "gen_ai.operation.name", "llm.operation.name") ?? span.Name,
                 Model: GetFirstAttribute(span.Attributes, "gen_ai.request.model", "gen_ai.response.model", "llm.request.model") ?? "unknown",
                 Provider: ResolveProvider(span.Attributes),
-                PromptTokens: TracePipeline.Number(span, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens"),
-                CompletionTokens: TracePipeline.Number(span, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
-                TotalTokens: TracePipeline.Number(span, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
+                PromptTokens: TokenCount(span, "gen_ai.usage.prompt_tokens", "gen_ai.usage.input_tokens", "llm.usage.prompt_tokens"),
+                CompletionTokens: TokenCount(span, "gen_ai.usage.completion_tokens", "gen_ai.usage.output_tokens", "llm.usage.completion_tokens"),
+                TotalTokens: TokenCount(span, "gen_ai.usage.total_tokens", "llm.usage.total_tokens"),
                 DurationMs: GetSpanDurationMs(span),
                 Cost: span.Attributes.ContainsKey("gnougo.llm.estimated_cost") ? GetDecimalAttribute(span.Attributes, "gnougo.llm.estimated_cost") : null,
                 Currency: GetFirstAttribute(span.Attributes, "gnougo.llm.cost_currency")))
@@ -276,6 +276,9 @@ internal static class TraceDebugUiHelpers
         }
         return false;
     }
+    private static long? TokenCount(TraceSpanDto span, params string[] names)
+        => long.TryParse(GetFirstAttribute(span.Attributes, names), out var value) ? value : null;
+
     internal static string? GetFirstAttribute(Dictionary<string, object?> attributes, params string[] keys)
     {
         foreach (var key in keys)

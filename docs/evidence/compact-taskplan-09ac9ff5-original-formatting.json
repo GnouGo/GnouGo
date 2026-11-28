@@ -1,0 +1,31 @@
+{
+  "production_source": "09ac9ff58fed9a772d4c6bd063f2bb7f8876a753",
+  "cohort": "compactr09ac9ff5colhighv11a",
+  "measurement": "original_completion_utf8_lexical_v1",
+  "received_responses": 31,
+  "original_texts_available": 31,
+  "all_original_json_matches_receipts": true,
+  "empty_received_texts": 0,
+  "received_output_limit_markers": 0,
+  "largest_original_text": {
+    "request_id": "ae393cfa6eb953c800f7dfed0b88c0fcf86f39b16484c78bdaf8a697230df039:2:5ce16726b77942632bf7112ef2842ea80824311c47290832abcc8336c68e354d",
+    "phase": "construction_intent",
+    "http_status": 200,
+    "original_response_body_sha256": "5d8a9d70d61937e81e0da72175fa05723e39e89a00951b07ec7b1b6bdd3590cf",
+    "original_text_available": true,
+    "parsed_json_matches_receipt": true,
+    "leading_whitespace_characters": 0,
+    "trailing_whitespace_characters": 0,
+    "original_text_utf8_bytes": 130721,
+    "original_text_sha256": "ece4319366a718daf3e2ab40fecadbd31d35d3ef7ee3130570905b813a37c8fc",
+    "outside_string_whitespace_bytes": 129433,
+    "maximum_whitespace_run": 129432,
+    "empty_text": false,
+    "output_limit_marker": false
+  },
+  "remaining_responses_max_utf8_bytes": 1078,
+  "safe_measurement_file_sha256": "f407fb80e9de96645b98c64730ee063fbd94f0c9e45ba790b1799c74ece33e38",
+  "reader_source_sha256": "ef385d8a8cab7b8630c74bab1ba5b6d161a73fdd4030cce71c961adc5e7f3397",
+  "raw_text_persisted_outside_original_store": false,
+  "inference": "One valid interface response contains a long internal whitespace run. This is not an empty response or output exhaustion, and does not establish a schema/reasoning-setting cause."
+}

@@ -1,0 +1,79 @@
+{
+  "live_source": "f554478910e14f3482c1384deac1f306b6700fab",
+  "live_exchange_sha256": "f13e8b994510350f843299842f1be05777ebb29e743d8d7ef4404d0a60ccb592",
+  "raw_response_sha256": "5611c5d72d003c4293beffe8abbf8742137c9c7b9feb0730607a7d1696a0ecf0",
+  "prefix_characters": 3143,
+  "trailing_structural_whitespace": 37776,
+  "emitted_cursor": "/root",
+  "original_stall_position": "At the opening bracket for boundaryTransitions after a nonnull continueInScope. The only array allowed on this branch was empty.",
+  "guard_pairing_instruction_present": true,
+  "offline_method": "The old diagnostic fixture supplies the missing closing tokens and null top-level actions. The revised diagnostic fixture omits the empty boundaryTransitions. Both retain all original tasks, operands, bindings, requirements and cursor. Neither fixture was dispatched or executed.",
+  "old_diagnostic_sha256": "e2568cd0ca3b82f6852ab3e73e20555bfb82ff6d6c266153c996322fa3fc1a9e",
+  "new_diagnostic_sha256": "9bbb41e0635663531ac82c14f614998a2886040fcd3a778fda9feb4f3d113ccc",
+  "offline": {
+    "wireBefore": true,
+    "wireAfter": true,
+    "emptyFieldRejectedOnNewWire": true,
+    "candidateDiagnostics": [],
+    "taskCount": 2,
+    "acceptedCheckpoints": 3,
+    "continuingScope": "/root"
+  },
+  "live_binaries": [
+    {
+      "assembly": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "2e483a25bb349611d8eefd293fa3044dd905bf967968b5f31b9297290f366bbc"
+    },
+    {
+      "assembly": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "ce9e45327563100d0b3cccabe3b648b27085d04865be89cda71dffa9a876c4cc"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "936c49139d1c9172bd342795e9e62e4f5bf874b3aa54631e657cda203c93e210"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "203afea41a9b5b66015e0d70242acfdbfb1e3e93bdb82f27b04dc3025b039262"
+    },
+    {
+      "assembly": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "1108210837cd1e39597697c285f226c8da95374bc7fef43da88fd52e5056f78a"
+    },
+    {
+      "assembly": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "8f67e45b67068b85117fd40cbd8eaee0999b55d8a835a2d4c8478ff58ab5e542"
+    },
+    {
+      "assembly": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "0787cdf202812414530e0edd35a0875554ccbd110358b3b46a6515f8b667f1fe"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Core.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "ec82c9450703557a64498bd8e5ef345ff8b3308429b300271254bf7005371d30"
+    },
+    {
+      "assembly": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "f2f7d1189b199d1d538951d21f8bf0423697962e83b458b2ad0ed8f532660e38"
+    },
+    {
+      "assembly": "GnOuGo.Cmd.Mcp.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "ada77e441b7136ed2e41614420d846ce5ff22cdd822c2feda184cc107108ca3a"
+    },
+    {
+      "assembly": "GnOuGo.Git.Mcp.dll",
+      "version": "1.0.0+f554478910e14f3482c1384deac1f306b6700fab",
+      "sha256": "dc402dc7f80f7eec1ee8cdc4dda0a633bb67a560326956510c537f8edb165af5"
+    }
+  ]
+}

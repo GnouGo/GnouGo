@@ -1,0 +1,16 @@
+{
+  "issue": "Isolated checkout had no generated UI bundle: GnOuGo.Agent.markdown.enhance was undefined. The actual planning admission completed independently of the observer failure.",
+  "repair": "Built the unchanged ClientApp in the isolated checkout using existing installed dependencies.",
+  "command": [
+    "pnpm",
+    "--dir",
+    "artifacts/continuity-live-e673a51e/src/GnOuGo.Agent.Server/ClientApp",
+    "run",
+    "build"
+  ],
+  "result": "passed",
+  "log_sha256": "47398ab656a79a3b9b5856ad8c2e17a9f6ff7312ab95f6679ec5009ed48c94c1",
+  "post_build_browser_revalidated": false,
+  "screenshots_published": false,
+  "new_live_run_after_failure": false
+}

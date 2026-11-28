@@ -1,0 +1,49 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "deployment_configuration": "a9dc945ab2e96ff56ba3191ddb4c8e951478756931cd7ad139de8824f313c5c6",
+  "model": "gpt-6.1-terra",
+  "extension_authorization": "user-pr120-planner-improvement-20261127-eur30",
+  "ceiling_history": [
+    {
+      "previousCeilingEur": 0,
+      "ceilingEur": 30,
+      "authorizedAtUtc": "2026-11-26T21:14:10.0115061+00:00",
+      "authorizationHash": "1faefe58c7a40bbad5ffd33bea34326c7bd841c080b66695c939b0302693bf3d"
+    },
+    {
+      "previousCeilingEur": 30,
+      "ceilingEur": 70,
+      "authorizedAtUtc": "2026-11-27T07:10:24.9896186+00:00",
+      "authorizationHash": "ec9eabe4f337f0580d65edde654fdb31316c6d44e87f0d2d3f07ce61aa17fb5e"
+    }
+  ],
+  "closed": false,
+  "opening": {
+    "physical_attempts": 665,
+    "known_input_tokens": 10554016,
+    "known_output_tokens": 342671,
+    "measured_eur": "25.602182232346241457858770131",
+    "physical_reservations_eur": "0",
+    "unknown_usage_attempts": 0,
+    "application_reservations_eur": "0",
+    "available_eur": "44.397817767653758542141229869",
+    "ceiling_eur": "70"
+  },
+  "ending": {
+    "physical_attempts": 1676,
+    "known_input_tokens": 25524569,
+    "known_output_tokens": 846666,
+    "measured_eur": "61.999774487471526195899772866",
+    "physical_reservations_eur": "0.475031890660592255125284738",
+    "unknown_usage_attempts": 2,
+    "application_reservations_eur": "0.0463553530751708428246013667",
+    "available_eur": "7.4788382687927107061503410293",
+    "ceiling_eur": "70"
+  },
+  "new_measured_eur": "36.397592255125284738041002735",
+  "new_physical_attempts": 1011,
+  "opening_audit_sha256": "64aba8331ed035a0b8f5453460ca7bc2b8870b1256e4b4668936338bde4ab739",
+  "ending_audit_sha256": "98928524ae5d703ef56347249d92da70c445a4fa7ea22a1063d11d42dc7ff9da",
+  "ending_audit_after": "improve40-amazon-20261127-234035-form-a74e6e93ed84b5a1cfb640f572be4ef4-8d6e97a3-execution",
+  "basis": "Encrypted physical-attempt ledger and retained separate Server reservations. Unknown usage stays reserved in full. The funding ledger records one extension."
+}

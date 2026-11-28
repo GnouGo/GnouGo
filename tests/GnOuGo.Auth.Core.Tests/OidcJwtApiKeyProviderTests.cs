@@ -9,6 +9,27 @@ namespace GnOuGo.Auth.Core.Tests;
 public sealed class OidcJwtApiKeyProviderTests
 {
     [Fact]
+    public async Task CachedHourTokenIsRefreshedBeforeARequestThatCanOutliveIt()
+    {
+        var clock = new Clock();
+        var tokens = 0;
+        using var http = new HttpClient(new Handler(request =>
+        {
+            if (request.Method == HttpMethod.Get) return Task.FromResult(Json("{\"token_endpoint\":\"https://issuer.test/token\"}"));
+            tokens++;
+            return Task.FromResult(Json($$"""{"access_token":"token-{{tokens}}","expires_in":3599}"""));
+        })) { Timeout = TimeSpan.FromMinutes(5) };
+        var provider = new OidcJwtApiKeyProvider(http, new("https://issuer.test", "client", "models.read", "secret"), clock);
+        var ct = TestContext.Current.CancellationToken;
+        Assert.Equal("token-1", await provider.GetApiKeyAsync(ct));
+        clock.Advance(TimeSpan.FromMinutes(50));
+        Assert.Equal("token-1", await provider.GetApiKeyAsync(ct));
+        clock.Advance(TimeSpan.FromSeconds(557));
+        Assert.Equal("token-2", await provider.GetApiKeyAsync(ct));
+        Assert.Equal(2, tokens);
+    }
+
+    [Fact]
     public async Task ConcurrentCallsShareTokenAndRefreshBeforeActualShortExpiry()
     {
         var clock = new Clock();

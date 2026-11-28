@@ -4,6 +4,13 @@
 
 No mapping executor in TaskPlan: typed → JavaScript compiled at final lowering; insufficiently typed → DynamicMappingExecutor at runtime.
 
+Closed compiler expressions adopt a freshly assembled, detached JSON container once
+instead of cloning it again at each enclosing array/object. Borrowed observations
+and repeated aliases still receive independent, charged copies. The existing
+materialization, allocation, statement, time and assembled-output depth limits
+remain enforced. Output wire bytes are measured separately from actual container
+materialization; moving an existing container does not allocate another copy.
+
 Business transforms optionally declare `mode: extract` or `mode: interpret`. Omission retains historical interpretation semantics and serialization. Extraction supplies inputs, an objective and a closed result type. It contains no script, runtime executor name or cache setting. A typed HTML string does not declare the fields within the page. Explicit interpretation remains available for synthesis and costs runtime inference.
 
 Contract closure checks structured bindings before final lowering. Known incompatible contracts, missing dependencies, invalid scope and missing artifact provenance remain errors. Compiler-owned projection bindings lower to checked `set` expressions and output-schema validation. An unconstrained typed value may receive a deterministic consumer-constraint guard (for example a string pattern or collection bound); invalid literals, finite domains and contradictory declared constraints still fail compilation. This never asks the model to enumerate possible runtime observations. An opaque source bound to an authoritative consumer, or an explicit extract transform, may instead defer its shape check to a `mapping.dynamic` runtime binding. Artifact review identifies runtime inference and its applicable shared allowance. Historical bindings permit at most two attempts; fresh adaptive independent bindings require a finite cumulative runtime budget before execution. Final approval and host policy still apply.
@@ -38,7 +45,7 @@ Jint observes cancellation and bounded time, statements and memory. Shape and or
 
 ### Independent collections
 
-An extract transform may add `each: { input: pages, output: rows }`. Its `pages` input must be an array; its closed result type has exactly one field, `rows`, also an array. Each page produces one row under the declared item schema. Rows may themselves contain arrays; there is no implicit flattening, filtering, sorting or deduplication. Other business inputs are explicit read-only shared context. Interpretation and operation tasks cannot use `each`; historical compiled bindings retain their behavior when it is absent. Fresh `compact-bindings-v1` bindings infer the same independent semantics for one unambiguous source/target collection pair using optional runtime `infer_each`; ambiguous collections require explicit `each`. See [compact compilation](compact-workflow-bindings.md).
+An extract transform may add `each: { input: pages, output: rows }`. Its `pages` input must be an array; its closed result type has exactly one field, `rows`, also an array. Each page produces one row under the declared item schema. Rows may themselves contain arrays; there is no implicit flattening, filtering, sorting or deduplication. Other business inputs are explicit read-only shared context. Interpretation and operation tasks cannot use `each`; historical compiled bindings retain their behavior when it is absent. Sessions captured with `adaptive-each-v2` require an explicit `each` for independent business extraction. An undeclared extract processes its inputs together and can filter, group or change cardinality. Historical compact profiles preserve their static and runtime collection inference. See [compact compilation](compact-workflow-bindings.md).
 
 The compiler keeps typed identity-compatible collections deterministic. Other independent extractions lower to the existing `mapping.dynamic` with the approved declaration. The learned expression sees the original `item` and approved shared `context` (`source.pages` remains a historical alias). It cannot access the surrounding collection or earlier results. All items and specializations share statement, active sandbox time, imported-data and allocation allowances. Adaptive evaluations retain these counters across engine entries; inference waiting does not renew sandbox allowances. The complete collection is schema-checked before publication; failure publishes no partial business output and caches no script.
 
@@ -56,6 +63,14 @@ authored task/input locations. Known source JSON bytes are descriptive and separ
 from complete-request token estimates; input fit stays unverified until dispatch.
 This changes review evidence only, not mapping execution, approved YAML or historical
 version-1 review behavior.
+
+For an observed array without its own position field, `m.indexed(array)`
+returns pairs containing the original `value` and its zero-based `index`.
+Apply filtering after indexing to preserve the positions of repeated values.
+The helper checks the input array's origin and rejects a derived array.
+Use `m.has` for a potentially missing property and `m.isNull` to guard an
+observed nullable value before applying a text predicate. Empty strings,
+false and zero remain present values.
 
 Pagination is a transport boundary, not evidence of independent business items.
 Preserve grouping and relationships that cross pages when projecting or extracting
@@ -118,7 +133,7 @@ Fresh planning sessions and explicit revisions select approval-fingerprinted `ma
 
 Before any external workflow action, an adaptive artifact requires an existing, configured `LLMUsageBudgetScope` with a finite call, token, elapsed-time or cost limit. Runtime and campaign gates both apply; no planner quota becomes a runtime quota. The live harness uses its existing 30-minute execution deadline as the cumulative runtime inference deadline, alongside the unchanged encrypted campaign spending gate. Hosts without a configured budget return `LLM_BUDGET_UNVERIFIABLE` before execution. Agent.Server exposes this policy through [`Flow:Execution:LlmBudget`](../src/GnOuGo.Agent.Server/README.md#runtime-execution-budgets); its shipped appsettings limits each new run to 50 logical calls, 1,000,000 total tokens and 30 minutes, without a monetary ceiling. New runs receive separate scopes; recovery restores the saved execution budget and usage instead of applying a new host policy.
 
-The executor first revalidates compatible cached mappings. It then tries one generic candidate on unresolved items, validates every original item and retains successful values privately. Failures are grouped by structural shape and stable validation cause (including contract paths in diagnostics), ordered by their lowest original index. A specialization sees the actual failing complete item first; optional examples come only from that group. Its result is tested against every member. Remaining failures are regrouped, including singleton groups when necessary. Every call uses the same budget scope; invalid programs, cache recovery and specialization do not receive fresh quotas. Repeated identical failures stop without further inference. Cancellation, provider errors, sandbox exhaustion and uncertain completion are terminal for this invocation, not shape mismatches.
+The executor first revalidates compatible cached mappings. It then tries one generic candidate on unresolved items, validates every original item and retains successful values privately. Failures are grouped by structural shape and stable validation cause (including contract paths in diagnostics), ordered by their lowest original index. A specialization sees the actual failing complete item first; optional examples come only from that group. Its result is tested against every member. Remaining failures are regrouped, including singleton groups when necessary. Every call uses the same budget scope; invalid programs, cache recovery and specialization do not receive fresh quotas. Durable execution reconstructs captured limits and usage while retaining advisory token authority only from an incoming trusted benchmark scope. Recovery must supply that authority again; stored usage alone never grants it. Production scopes remain strict. Repeated identical failures stop without further inference. Cancellation, provider errors, sandbox exhaustion and uncertain completion are terminal for this invocation, not shape mismatches.
 
 The complete assembled result must satisfy collection-wide constraints. There is no filtering, reordering, partial publication, invented scalar or implicit default. New cache artifacts are written only after complete validation. Cache identity includes the approved objective/binding, target and producer contracts, tenant, shared context, execution profile and item shape, not item position or run ID. Raw text/HTML, content-dependent expressions and incompatible scripts sharing a shape use conservative content-specific entries. Every hit is revalidated against current observations.
 
@@ -155,6 +170,8 @@ valid when the declared contracts permit them.
 Every cache hit reruns sandbox and target validation. Incompatible or invalid entries cannot authorize data access or artifact ownership. Only validated scripts are cached. Without trusted tenant identity and persistent storage, reuse is local to that execution.
 
 Durable runs record child inference intents and completion receipts through the existing journal and usage-budget path. A completed malformed response still has a receipt and may use the remaining repair. Unknown completion stops for reconciliation and is never redispatched automatically. Resume and outer retries cannot reset the historical two-attempt allowance or the adaptive shared runtime budget. A non-durable execution has only execution-local attempt accounting; restart recovery requires a durable run store.
+
+Trusted advisory token crossings are retained as content-free `warnings` in the existing usage snapshot. Each warning records its stage, kind, observed value and threshold, with the exact model request ID when available. Mapping admission and cumulative accounting use the same snapshot; aggregate `agent.run` warnings are retained by normal completion or reconciliation writes, including failed verification. Restored usage preserves these warnings without authorizing dispatch or changing calls, money, permissions or replay rules. Snapshots without warnings retain their historical serialized shape.
 
 ## Breaking .NET DSL/API migration
 

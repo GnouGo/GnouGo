@@ -1,0 +1,204 @@
+{
+  "campaign": "pr120-windows-20261125-20",
+  "configuration_id": "db68ae1900ecd8e640bdfe4e5c2909ed999459868d50f145771fac291bec6ca8",
+  "final_tested_source": "8bde61c8d64cfd0a95aec707efd450ae4c161e7d",
+  "ceiling_eur": 20,
+  "known_cost_eur": "0.0011476909007773205304069502",
+  "remaining_independent_eur": "19.99885230909922267946959305",
+  "http_reservation_eur": "0",
+  "application_reservation_eur": "0",
+  "global_available_eur": null,
+  "audit_sha256": "fb07d15c8b1d0309478d8c24a7d3f489bbc38989d65b9e094ef12ca4f64868c1",
+  "probes": [
+    {
+      "run": "win-terra-availability-01",
+      "source": "bdbe80d025347d9d0f5cde31de4107984616ecfc",
+      "passed": true,
+      "seconds": 23.471,
+      "provider": "OpenAi",
+      "model": "gpt-6.1-terra",
+      "physical_attempts": 1,
+      "status": [
+        200
+      ],
+      "input_tokens": 102,
+      "output_tokens": 34,
+      "measured_tariff_eur": "0.0003886602652034750800182899",
+      "receipt": true,
+      "workbook_sha256": null,
+      "browser_closed": null,
+      "log_sha256": "692869cfe5ba26d052e1428780bdb9ba19e9a989dc685abf5da42b773d79be1c"
+    },
+    {
+      "run": "win-terra-workbook-01",
+      "source": "bdbe80d025347d9d0f5cde31de4107984616ecfc",
+      "passed": false,
+      "seconds": 133.277,
+      "provider": "OpenAi",
+      "model": "gpt-6.1-terra",
+      "physical_attempts": 0,
+      "status": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "measured_tariff_eur": "0",
+      "receipt": false,
+      "workbook_sha256": null,
+      "browser_closed": true,
+      "log_sha256": "bb22871f28868552a1df416df231d928d0c6ef7375ea7ce48653c2c4a21b82a0"
+    },
+    {
+      "run": "win-terra-workbook-02",
+      "source": "11c8e0b2334fe180b8cfdd2c293b8795efa6d660",
+      "passed": true,
+      "seconds": 25.091,
+      "provider": "OpenAi",
+      "model": "gpt-6.1-terra",
+      "physical_attempts": 1,
+      "status": [
+        200
+      ],
+      "input_tokens": 270,
+      "output_tokens": 31,
+      "measured_tariff_eur": "0.0007590306355738454503886603",
+      "receipt": true,
+      "workbook_sha256": "301bd9509681bbd7e912f35d67e9f7bf527008dca6464dde764cfa4c39fcaba0",
+      "browser_closed": true,
+      "log_sha256": "e107acf9453d62bd256e1e6c2db1d3fc57a58c570fe3f51044c8d31e9156e559"
+    }
+  ],
+  "amazon_sources": [
+    {
+      "run": "amazon-source-win-01",
+      "version": "amazon-business-v14",
+      "issued_reads": 1,
+      "final_search_records": 1624,
+      "source_qualified": false,
+      "source_findings": [
+        "search_heading_context_unaccounted",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": null,
+      "listing_status": null,
+      "blocked_location": null,
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "e7aaa99ab895d869a30f16d481ac3e70d2034655314398ea9b611fcaa0454441",
+      "issued_sha256": "9a7bf08704b129035666f0cd3a46d41413846c822499b6be69d2fda2c7ab3094"
+    },
+    {
+      "run": "amazon-source-v11-win-01",
+      "version": "amazon-business-v15",
+      "issued_reads": 6,
+      "final_search_records": 1634,
+      "source_qualified": false,
+      "source_findings": [
+        "source_authority_failed_read",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": "INVALID_INPUT",
+      "listing_status": null,
+      "blocked_location": null,
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "6f0e741bf87727687da7fa0bc5e1d69210b75f0dfaf62ad9ecb384108fbc2344",
+      "issued_sha256": "a50e3c395b2173302ea0e4e06ef2640949787f37846c7ffbe5cff83bbe50fe54"
+    },
+    {
+      "run": "amazon-source-v11-win-02",
+      "version": "amazon-business-v15",
+      "issued_reads": 6,
+      "final_search_records": 1603,
+      "source_qualified": false,
+      "source_findings": [
+        "source_authority_failed_read",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": "INVALID_INPUT",
+      "listing_status": null,
+      "blocked_location": null,
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "765a4f77d368a8bb55c9af8a2232534054a701fb402b1b550a0e8c3d5ccb8a3e",
+      "issued_sha256": "0afbbbffee20286b3037ea7553fbd29f7b1679bfdf1647381c027e4d9820d2b2"
+    },
+    {
+      "run": "amazon-source-v11-win-03",
+      "version": "amazon-business-v15",
+      "issued_reads": 6,
+      "final_search_records": 1565,
+      "source_qualified": false,
+      "source_findings": [
+        "source_authority_failed_read",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": "INVALID_INPUT",
+      "listing_status": null,
+      "blocked_location": null,
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "cde78ea69a860ad4706f36bdb189c1d8a28a3ddf3cc8f0a58f16b39b3a20a889",
+      "issued_sha256": "12ba4370706e81ba212619c19dd825ad4cf059dd29ed106a3c73da0cabf127a5"
+    },
+    {
+      "run": "amazon-source-v11-win-04",
+      "version": "amazon-business-v15",
+      "issued_reads": 7,
+      "final_search_records": 1597,
+      "source_qualified": false,
+      "source_findings": [
+        "source_authority_failed_read",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": "NAVIGATION_POLICY_DENIED",
+      "listing_status": 302,
+      "blocked_location": "/blackfriday",
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "6d1147fd3a49c98b277732731a6b441057267b7f01d85403960f86945e0795c8",
+      "issued_sha256": "3e976cabb51b0f7db9e30ff4e90568ffd55821e41a4df09c842e3ed016a223c9"
+    },
+    {
+      "run": "amazon-source-v11-win-05",
+      "version": "amazon-business-v15",
+      "issued_reads": 2,
+      "final_search_records": 1615,
+      "source_qualified": false,
+      "source_findings": [
+        "search_product_redirect_route_unapproved",
+        "source_resolutions_incomplete",
+        "first_product_visits_incomplete"
+      ],
+      "last_read_error": null,
+      "listing_status": null,
+      "blocked_location": null,
+      "model_calls": 0,
+      "browser_closed_and_verified": true,
+      "events_sha256": "9bc8b5dae343cef61a7c01da3af3fcc3ba16010ca760fcdf0dc8b126784ff2d5",
+      "issued_sha256": "e25b6e2a32ea59546c5dc27c8c14ece7b3e56d49cea891996ea9ebea584dd20c"
+    }
+  ],
+  "last_live_source": "759f5514ab6fb0e172bf4d238edb3bcae03d3738",
+  "final_source_replays": [
+    {
+      "run": "amazon-source-v11-win-04",
+      "replay_verified": true,
+      "source_qualified": false,
+      "next_entries_after": 0,
+      "model_calls": 0,
+      "original_sha256": "6d1147fd3a49c98b277732731a6b441057267b7f01d85403960f86945e0795c8"
+    },
+    {
+      "run": "amazon-source-v11-win-05",
+      "replay_verified": true,
+      "source_qualified": false,
+      "next_entries_after": 0,
+      "model_calls": 0,
+      "original_sha256": "9bc8b5dae343cef61a7c01da3af3fcc3ba16010ca760fcdf0dc8b126784ff2d5"
+    }
+  ]
+}

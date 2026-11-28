@@ -142,10 +142,7 @@ public sealed class CommandExecutionHost
                         // Process already exited.
                     }
                 }
-                else
-                {
-                    await exitTask;
-                }
+                await exitTask;
 
                 var stdout = await stdoutTask;
                 var stderr = await stderrTask;

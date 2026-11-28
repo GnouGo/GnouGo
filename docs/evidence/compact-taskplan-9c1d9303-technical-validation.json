@@ -1,0 +1,70 @@
+{
+  "production_source": "9c1d930341ac9d4b13b54a5368491ed8de1cd170",
+  "source_unchanged": true,
+  "full_solution": {
+    "command": "dotnet test GnOuGo.Agent.sln -m:1 -warnaserror",
+    "passed": 7193,
+    "skipped": 12,
+    "assemblies": 33,
+    "failed": 0,
+    "build_diagnostics": [],
+    "elapsed_seconds": 4358.475,
+    "summary_sha256": "285fb26ace31188d695d7d696c82e63da5e4fe5501ac4ead2a20599de6e191b4"
+  },
+  "publication_stages": [
+    {
+      "stage": "core-pack",
+      "exit_code": 0,
+      "log_sha256": "f3aa0c8783c4ede4a33469d69e9ab4f35268ca8c6e75edbc66fdc6c3cc38561a"
+    },
+    {
+      "stage": "planning-pack",
+      "exit_code": 0,
+      "log_sha256": "884dd654d1cfb89048db582d9d1dbb9502669584c93ee459931d1476e9aad10a"
+    },
+    {
+      "stage": "integrations-pack",
+      "exit_code": 0,
+      "log_sha256": "286e6f1d9c7492e8118282642decb97698e28d0894eb494de7741a6ec7c01604"
+    },
+    {
+      "stage": "copilot-pack",
+      "exit_code": 0,
+      "log_sha256": "b1ea1f5ff8a0d4d531d8d1bb2751c03ea412e4d3a17e203472b66dbc5ec2a088"
+    },
+    {
+      "stage": "persistence-pack",
+      "exit_code": 0,
+      "log_sha256": "8a87a3ac712d93eb80b2104309192ef610b92c6a15056a721954cf848caad1a4"
+    },
+    {
+      "stage": "native-publish",
+      "exit_code": 0,
+      "log_sha256": "c018141d73dc764cd6d16b9acaabe47e4d7de164cae3a75104ef72c959783097"
+    },
+    {
+      "stage": "native-run",
+      "exit_code": 0,
+      "log_sha256": "b81e6a8d5dbd68514253a514214e82471849ea875985385997648e7084ceca35"
+    },
+    {
+      "stage": "server-restore",
+      "exit_code": 0,
+      "log_sha256": "1cf7895d2d4c43eb51c7f07c078fd94232db5283ed372e1ab959195250d00829"
+    },
+    {
+      "stage": "server-publish",
+      "exit_code": 0,
+      "log_sha256": "24c50b35e6c20e7a04dbfa8a18f09618fa77406cbc7ebed0fe6546ae9c87e2c2"
+    },
+    {
+      "stage": "server-storage-run",
+      "exit_code": 0,
+      "log_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563"
+    }
+  ],
+  "publication_manifest_sha256": "3570dc1a92de0e649b69504bed4ee77a8136c775828aa8827949c72b85d2be63",
+  "paid_calls": 0,
+  "business_success_claimed": false,
+  "not_attributed_to_later_repair_changes": true
+}

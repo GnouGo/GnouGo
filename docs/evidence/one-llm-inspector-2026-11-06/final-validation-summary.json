@@ -1,0 +1,73 @@
+{
+  "source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+  "solution_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0,
+    "command": [
+      "dotnet",
+      "build",
+      "GnOuGo.Agent.sln",
+      "-c",
+      "Release",
+      "--no-restore",
+      "-m:1",
+      "-warnaserror",
+      "-p:SkipClientBuild=true",
+      "-p:SkipModelMetadataGeneration=true",
+      "--verbosity",
+      "quiet"
+    ],
+    "log": "final-solution-build.log.gz"
+  },
+  "frontend": {
+    "result": "passed",
+    "source_files_unchanged_since": "7169a227",
+    "command": [
+      "pnpm",
+      "--dir",
+      "src/GnOuGo.Agent.Server/ClientApp",
+      "run",
+      "build"
+    ],
+    "log": "frontend-build.log.gz",
+    "unavailable_scripts": [
+      "test",
+      "lint",
+      "type-check"
+    ]
+  },
+  "skill_validation": {
+    "gnougo-dotnet": "passed",
+    "gnougo-frontend": "passed",
+    "gnougo-planning": "passed"
+  },
+  "publication_checks": 9,
+  "platform": "macOS arm64",
+  "limitations": [
+    "No live inference: retained configuration fingerprint mismatch.",
+    "Native Photino window not automated.",
+    "Other operating systems not qualified by local publication checks.",
+    "Published server retains two pre-existing EF Tasks experimental-feature notices; no new suppression."
+  ],
+  "final_script_source_commit": "62e3e6de5f3227434aa66305dfa24f0bfbc5dc70",
+  "compiled_code_unchanged_after_source_commit": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+  "full_solution_tests": {
+    "source_commit": "7169a2277d8af010d82f57de424e6efdb8082ffe",
+    "assemblies": 33,
+    "outcomes": {
+      "Passed": 7800,
+      "NotExecuted": 12,
+      "Failed": 2
+    },
+    "details": "solution-validation-results.json",
+    "failures_corrected_in_separate_reruns": true
+  },
+  "clarification_browser_rerun": {
+    "source_commit": "62e3e6de5f3227434aa66305dfa24f0bfbc5dc70",
+    "outcomes": {
+      "Passed": 1
+    },
+    "details": "clarification-validation.json"
+  }
+}

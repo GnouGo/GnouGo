@@ -1,0 +1,85 @@
+{
+  "source_revision": "5e9a83add4cd3b5d976096a9ff0445f50337b5ee",
+  "run": "boundary-code-20261108-02",
+  "session_id": "d18b6e45ebe6483b95f65a57eaf6b843",
+  "milestones": [
+    {
+      "milestone": "first accepted technical contribution",
+      "logical_calls": 18,
+      "physical_attempts": 18,
+      "seconds_from_server_run_start_to_retained_provider_completion": 327.868854,
+      "captured_usage_tariff_estimate_eur": "6.9322973578145991939095387370",
+      "accepted_checkpoint": 1,
+      "seconds_from_server_run_start_to_checkpoint_acceptance": 328.526726
+    },
+    {
+      "milestone": "first favorable local business review",
+      "logical_calls": 25,
+      "physical_attempts": 25,
+      "seconds_from_server_run_start_to_retained_provider_completion": 481.894233,
+      "captured_usage_tariff_estimate_eur": "12.1476757725033587102552619790",
+      "accepted_checkpoint": 4,
+      "seconds_from_server_run_start_to_checkpoint_acceptance": 481.994772
+    },
+    {
+      "milestone": "second favorable local business review",
+      "logical_calls": 34,
+      "physical_attempts": 34,
+      "seconds_from_server_run_start_to_retained_provider_completion": 684.748422,
+      "captured_usage_tariff_estimate_eur": "17.3438423645320197044334975363",
+      "accepted_checkpoint": 6,
+      "seconds_from_server_run_start_to_checkpoint_acceptance": 684.846629
+    },
+    {
+      "milestone": "third favorable local business review",
+      "logical_calls": 55,
+      "physical_attempts": 55,
+      "seconds_from_server_run_start_to_retained_provider_completion": 1029.540782,
+      "captured_usage_tariff_estimate_eur": "31.6640662785490371697268248983",
+      "accepted_checkpoint": 8,
+      "seconds_from_server_run_start_to_checkpoint_acceptance": 1029.643758
+    },
+    {
+      "milestone": "technical authority clarification",
+      "logical_calls": 60,
+      "physical_attempts": 60,
+      "seconds_from_server_run_start_to_retained_provider_completion": 1107.342268,
+      "captured_usage_tariff_estimate_eur": "34.3070488132557098074339453639"
+    }
+  ],
+  "accepted_checkpoints": 8,
+  "favorable_local_reviews": 3,
+  "global_verdict": "needs_change",
+  "execution_started": false,
+  "autonomous_qualification": false,
+  "exact_unchanged_plan_business_completion_exercised": false,
+  "completion_checkpoints_added_real_tasks": true,
+  "compact_discovery_guide_active_http_calls": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+  ],
+  "repeat_diagnostics": {
+    "calls_42_to_49": "distinct accepted-interface/task pages; unchanged useful-state hash alone is not a repeat",
+    "identical_strategy_repeats": 0
+  },
+  "delivery_channel_probe": {
+    "source_revision": "f09e4cef70775b66e4de1bc3d19ab577463e1082",
+    "changed_http_paths": [
+      "messages[0].content"
+    ],
+    "all_other_wire_fields_identical": true,
+    "structured_schema_unchanged": true,
+    "verdict": "ok",
+    "physical_attempts": 1,
+    "captured_usage_tariff_estimate_eur": "0.6594088669950738916256157635",
+    "candidate_applied": false,
+    "business_effects": false,
+    "limitation": "One exact-request independent probe supports the delivery interpretation; it is not a workflow approval, execution or causal convergence proof."
+  },
+  "remaining_boundary": "The bcc0434f unchanged-plan empty-business-claim route remains unobserved in this live cohort."
+}

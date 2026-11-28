@@ -3,7 +3,8 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <OutputType Condition="'$(OS)' == 'Windows_NT' or $([System.String]::Copy('$(RuntimeIdentifier)').StartsWith('win-'))">WinExe</OutputType>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
+    <LangVersion>15.0</LangVersion>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ClientAppDir>..\GnOuGo.Agent.Server\ClientApp</ClientAppDir>
@@ -39,7 +40,7 @@
 
 
   <ItemGroup>
-    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.27.0" GeneratePathProperty="true" />
+    <PackageReference Include="LLamaSharp.Backend.Cpu" Version="0.30.0" GeneratePathProperty="true" />
     <PackageReference Include="Photino.NET" Version="4.0.16" />
   </ItemGroup>
 
@@ -245,7 +246,7 @@
       <_LlamaSharpNativeAsset Include="$(PkgLLamaSharp_Backend_Cpu)/LLamaSharpRuntimes/$(RuntimeIdentifier)/**/*" />
     </ItemGroup>
     <Error Condition="'@(_LlamaSharpNativeAsset)' == ''"
-           Text="LLamaSharp.Backend.Cpu 0.27.0 has no native assets for $(RuntimeIdentifier)." />
+           Text="LLamaSharp.Backend.Cpu 0.30.0 has no native assets for $(RuntimeIdentifier)." />
     <Copy SourceFiles="@(_LlamaSharpNativeAsset)"
           DestinationFiles="@(_LlamaSharpNativeAsset->'$(PublishDir)runtimes/$(RuntimeIdentifier)/%(RecursiveDir)%(Filename)%(Extension)')"
           SkipUnchangedFiles="true" />
@@ -258,6 +259,11 @@
     <Content Include="Assets/**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- The publish target assembles the RID-specific MCP bundle itself. Development
+       staging expects managed apphosts, which SDK 11 omits for AOT publish builds. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true'">
+    <GnOuGoStageBundledMcpTools>false</GnOuGoStageBundledMcpTools>
+  </PropertyGroup>
   <Import Project="..\..\build\GnOuGo.BundledMcpTools.targets" />
 
 </Project>

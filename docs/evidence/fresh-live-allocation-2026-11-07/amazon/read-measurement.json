@@ -1,0 +1,11 @@
+{
+  "observedAtUtc": "2026-11-07T03:04:58.021598+00:00",
+  "modelDispatches": 0,
+  "allTenantRecords": 7110,
+  "allTenantLogicalBytes": 50186411,
+  "allTenantReadMilliseconds": "6925.7319",
+  "campaignRecords": 15,
+  "campaignLogicalBytes": 320935,
+  "campaignReadMilliseconds": "29.4727",
+  "payloadExported": false
+}

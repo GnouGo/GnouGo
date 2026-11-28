@@ -1,0 +1,301 @@
+{
+  "version": 1,
+  "source": "6308c479f607a08b173729489ac4f48e197b21ba",
+  "cohort": "compactr6308c479fcolscope",
+  "case": "collections",
+  "campaign": "schema-portability-20261019-incremental",
+  "snapshot": "terminal; permanent-retention approval pending and unapplied at this snapshot",
+  "run_key": "6308c479f607a08b173729489ac4f48e197b21ba:fixture:cohort:compactr6308c479fcolscope:collections:1",
+  "run_hash": "d47a156f71048bb7846814255b91417ed72f8dabe14433e3ff7c088f3deeebb0",
+  "freeze_sha256": "9766c2f4ce6a95db9baf245023e21711d3645226aad95591fce4f83f7f4c011c",
+  "benchmark_binary_sha256": "74b9299b296fbfd65a06c3367ce5d62396a6ce75d7f73f402fc3bbb40e7d0015",
+  "model": "gpt-5.5-2026-04-24",
+  "phase_policy": {
+    "version": 1,
+    "navigation": {
+      "reasoning": "medium",
+      "targetInputTokens": 3000,
+      "maxInputTokens": 12000,
+      "outputTokens": 32768
+    },
+    "draft": {
+      "reasoning": "medium",
+      "targetInputTokens": 8000,
+      "maxInputTokens": 18000,
+      "outputTokens": 16384
+    },
+    "review": {
+      "reasoning": "high",
+      "targetInputTokens": 4000,
+      "maxInputTokens": 8000,
+      "outputTokens": 8192
+    }
+  },
+  "transport_policy": {
+    "version": 1,
+    "maxAttempts": 3,
+    "maxUncertainRetries": 0,
+    "attemptTimeoutMilliseconds": 600000,
+    "baseDelayMilliseconds": 1000,
+    "maxDelayMilliseconds": 30000,
+    "maxTotalDelayMilliseconds": 60000
+  },
+  "controlled_setting": {
+    "control_cohort": "compactr7697449cecolreview8",
+    "phase_policy_unchanged": true,
+    "candidate_change": "The exact630 source contains the reviewed basis-qualified scope-interface instruction and documentation. No new review was reached in this run; its effect is unmeasured."
+  },
+  "outcome": {
+    "status": "stopped",
+    "phase": "construction_intent",
+    "termination_reason": "uncertain_dispatch",
+    "diagnostics": [
+      "MODEL_DISPATCH_UNVERIFIABLE"
+    ],
+    "logical_calls": 2,
+    "physical_attempts": 3,
+    "receipts": 1,
+    "corrections": 0,
+    "checkpoints": 0,
+    "judge_calls": 0,
+    "artifact": false,
+    "execution": false,
+    "independent_runtime_acceptance": false,
+    "accepted_business_obligations": 0,
+    "per_accepted_obligation": null
+  },
+  "usage": {
+    "request_identities": 2,
+    "http_attempts": 3,
+    "receipts": 1,
+    "unknown_attempts": 2,
+    "empty_completed_responses": 0,
+    "known_input_tokens": 377,
+    "known_output_tokens": 512,
+    "known_reasoning_tokens": 400,
+    "reasoning_measured_calls": 1,
+    "known_cost_eur": "0.0153904506916555109326193664",
+    "unknown_usage_reservation_eur": "1.8617402945113788487282463186",
+    "cost_upper_bound_eur": "1.8771307452030343596608656850"
+  },
+  "latency": {
+    "planning_ms": 635877,
+    "total_elapsed_ms": 635877,
+    "runtime_ms": null,
+    "receipt1_logical_elapsed_ms": "15205.8483",
+    "receiptless_request2_logical_elapsed_ms": "614893.8413",
+    "recorded_call_elapsed_sum_ms": "630099.6896",
+    "completed_call_stage_elapsed_ms": "15205.8483",
+    "limits": "Per-attempt wall-clock durations are not available in this projection. Optional latency_checkpoint fields are provider-reported/nonstandard, not independently verified provider-only latency. Differences between clocks do not establish host overhead."
+  },
+  "requests": {
+    "constructed": 2,
+    "admitted": 2,
+    "rejected_before_dispatch": 0,
+    "components_reconcile": true,
+    "component_token_rounding_note": "Component token estimates round separately; serialized component bytes reconcile exactly, while total component estimates exceed the two complete-request estimates by3tokens.",
+    "all_constructed_within_captured_input_limit": true,
+    "phase_input_limit": 12000,
+    "decisive_request": {
+      "request_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+      "request_sha256": "347ca1a83457a17bfa3b264def9550da065bcd6aa85248a826b98c04210a9439",
+      "schema_sha256": "c77e5c66cb39f2e26bc3505dbaca3d5762db576e46d3c2f8e028fe5fc85cc15d",
+      "complete_request_bytes": 8505,
+      "estimated_input_tokens": 3091,
+      "input_limit": 12000
+    }
+  },
+  "phases": {
+    "construction_intent": {
+      "constructed_requests": 2,
+      "admitted_requests": 2,
+      "rejected_before_dispatch": 0,
+      "complete_request_bytes": {
+        "count": 2,
+        "p50": "5471.5",
+        "p95": 8505,
+        "maximum": 8505,
+        "total": 10943
+      },
+      "estimated_input_tokens": {
+        "count": 2,
+        "p50": 2080,
+        "p95": 3091,
+        "maximum": 3091,
+        "total": 4160
+      },
+      "component_sizes": {
+        "diagnostics": {
+          "serialized_bytes": 52,
+          "estimated_tokens": 18
+        },
+        "envelope": {
+          "serialized_bytes": 876,
+          "estimated_tokens": 805
+        },
+        "instructions": {
+          "serialized_bytes": 2355,
+          "estimated_tokens": 785
+        },
+        "intent": {
+          "serialized_bytes": 1762,
+          "estimated_tokens": 588
+        },
+        "response_schema": {
+          "serialized_bytes": 5816,
+          "estimated_tokens": 1939
+        },
+        "evidence": {
+          "serialized_bytes": 23,
+          "estimated_tokens": 8
+        },
+        "interfaces": {
+          "serialized_bytes": 59,
+          "estimated_tokens": 20
+        }
+      },
+      "components_reconcile": true,
+      "within_input_limits": true,
+      "logical_calls": 2,
+      "physical_attempts": 3,
+      "receipts": 1,
+      "corrections": 0,
+      "checkpoints": 0,
+      "known_input_tokens": 377,
+      "known_output_tokens": 512,
+      "known_reasoning_tokens": 400,
+      "known_visible_tokens_derived": 112,
+      "known_cost_eur": "0.0153904506916555109326193664",
+      "unknown_usage_reservation_eur": "1.8617402945113788487282463186"
+    }
+  },
+  "decisive_evidence": {
+    "request_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+    "phase": "construction_intent",
+    "http_journal_sha256": "503c3c224bf603326f2e3357088ebf3430f786e21b1563a7e19cb9e2d8c0f5c3",
+    "failure_sha256": "84d0ea0595a0419914026a9cab593f0b695719458477b7917d2bbc24b315fce7",
+    "attempts": [
+      {
+        "status": 500,
+        "body_present": true,
+        "body_bytes": 130,
+        "body_sha256": "0e491b9ecbab696c8290235f873b327ffa0d084f2a7e4ce4b26be63ee9a4e452",
+        "failure_present": false
+      },
+      {
+        "status": null,
+        "body_present": false,
+        "body_bytes": null,
+        "body_sha256": null,
+        "failure_present": true
+      }
+    ],
+    "recorded_failure": {
+      "stage": "dispatch",
+      "exception_type": "LLMClientException",
+      "kind": "Transport",
+      "status_code": null,
+      "safe_provider_code": null,
+      "retryable": true,
+      "attempt_count": 2,
+      "retry_exhausted": false,
+      "retry_after_ms": null
+    },
+    "receipt_present": false,
+    "verified_usage_present": false,
+    "classification": "First attempt has a fully received HTTP500 error-only response; the second has no response and a recorded Transport failure. Provider processing/termination and the cause of the missing response are unknown. This is not a known empty completion or output exhaustion.",
+    "policy_interpretation": "MaxAttempts=3 is a maximum, not a requirement to resend uncertainty. MaxUncertainRetries=0 makes the final response-less attempt terminal; retry_exhausted=false is preserved. The existing captured-policy retention inspector validated both attempt identities and all bound original records through the exact journal hash.",
+    "requirement_or_judge_assessment": "No requirement closure or business Judge was reached; the changed scope-interface instruction has no measured effect."
+  },
+  "permanent_retention_inspection": {
+    "operator": "retain-uncertain-request",
+    "retention_kind": "exhausted-planning-retries",
+    "run_collection": "planning-evaluation-runs",
+    "run_key": "6308c479f607a08b173729489ac4f48e197b21ba:fixture:cohort:compactr6308c479fcolscope:collections:1",
+    "request_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+    "source": "6308c479f607a08b173729489ac4f48e197b21ba",
+    "eligible": true,
+    "inspection_file_sha256": "a6d45d4a4149282c554292ff1db1d1fe61cb5dfd0f34e135fcce2ec67d5364af",
+    "evidence_sha256": "3f76285fdd85241b829aa92eb402715f8782d66c1ed3cd7693119f019230c406",
+    "full_request_reservation_eur": "1.8617402945113788487282463186",
+    "authorization": "separate exact authorization pending at snapshot",
+    "applied": false,
+    "consequence_if_separately_authorized": "Append one immutable encrypted closure, preserve every original record and full reservation, forbid replay and all continuation of this exact run. No receipt or success is manufactured."
+  },
+  "response_format": {
+    "known_receipts": 1,
+    "text_utf8_bytes": 480,
+    "outside_string_whitespace_bytes": 0,
+    "maximum_whitespace_run": 0,
+    "receipt1_input_tokens": 377,
+    "receipt1_output_tokens": 512,
+    "receipt1_reasoning_tokens": 400,
+    "receipt1_visible_tokens_derived": 112,
+    "receipt1_text_sha256": "dd776089397df51f0952dabf73cc3a7b8ec57c25f360e1dba1e59bf1f4e71689",
+    "request2": "No receipt: original text, formatting and visible/reasoning usage are unknown.",
+    "provider_latency_checkpoint_receipts": 1
+  },
+  "campaign_after_collections": {
+    "audit_evidence_sha256": "ae322878f4c68afac6f96111764f070f9c94ed468c968cd4b33c6e1120a28596",
+    "physical_attempts": 2309,
+    "reserved_request_identities": 2305,
+    "completed_receipts": 2282,
+    "receiptless_request_identities": 23,
+    "permanently_closed_identities": 22,
+    "unclosed_identities": 1,
+    "unclosed_request_id": "ff2ea5dd9232b49ddfeb32eb273ac98cd1f03e0ee547308194ede13be991d155:2:a383136ae2755c3de3f3702170315a0d926e1136f91e79b89c1d4de7bbaa982e",
+    "unknown_physical_attempts": 26,
+    "known_cost_eur": "93.40269149348363565937674686",
+    "full_reserved_cost_eur": "15.198721438079103344269581065",
+    "upper_bound_eur": "108.60141293156273900364632792",
+    "ceiling_eur": "240.0301038327063045424449473",
+    "available_eur": "131.42869090114356553879861938",
+    "separately_retained_prior_exposure_eur": "159.96989616729369545755505266",
+    "cumulative_prior_plus_current_upper_eur": "268.57130909885643446120138058",
+    "audit_upper_minus_decimal_sum_eur": "-5E-27",
+    "rounding_note": "Original CLR-decimal ledger totals are authoritative; the high-precision sum cross-check is disclosed without rewriting those values."
+  },
+  "safe_sources": [
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/freeze.json",
+      "sha256": "9766c2f4ce6a95db9baf245023e21711d3645226aad95591fce4f83f7f4c011c",
+      "bytes": 8053
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/collections-safe-metrics.json",
+      "sha256": "e447b773a00ee3c800554374bd013e041f22e04dbf56deadc92ba89cef881996",
+      "bytes": 10295
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/collections-transport-witness-safe.json",
+      "sha256": "0193af1198e89ce58389c794f2250411afcb36a6a49f2e550541537088011fcc",
+      "bytes": 3219
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/collections-response-format-metrics.json",
+      "sha256": "555311b13ea5a636a2b294ea3a2bb94d13f83385775aabcbadcdad44787829de",
+      "bytes": 1697
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/retention-inspection.json",
+      "sha256": "a6d45d4a4149282c554292ff1db1d1fe61cb5dfd0f34e135fcce2ec67d5364af",
+      "bytes": 1938
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/campaign-post-collections-audit.json",
+      "sha256": "414f59027143256e7d5060c37a63179be0d06edc5a35063a9d08d914e0ac0680",
+      "bytes": 5965
+    },
+    {
+      "path": "/Users/a115vc/Desktop/GnOuGo/.GnOuGo/benchmark-evidence/compactr6308c479fcolscope/collections-exit.json",
+      "sha256": "478b3657c9a651ff10f39222c6aab56221d7018d64b7e1da794e9dcdc45d7fb9",
+      "bytes": 67
+    }
+  ],
+  "limitations": [
+    "Original request, HTTP response body and model text remain encrypted; this archive stores safe metadata/hash links only.",
+    "No automatic abandonment, replay, approval, runtime effect, source change or new provider call was performed during inspection.",
+    "No model-performance, business-success, avoided-correction or causal-benefit claim.",
+    "All prior immutable archives remain unchanged; a later authorized closure needs separate append-only evidence."
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "configuration": "Release",
+  "warnaserror": true,
+  "controlled_passed": 34,
+  "failed": 0,
+  "skipped": 0,
+  "trx_sha256": "2ff7c02ec79bbb6711cfbe63051949d75bbe0700d64328b7a4ff973331c63828",
+  "model_calls": 0,
+  "navigation_calls": 0,
+  "active_verifier_unchanged": true,
+  "old_v14_rejection_preserved": true,
+  "historical_records_unchanged": true,
+  "source_prerequisite_qualified": false,
+  "business_oracle_passed": false
+}

@@ -1,0 +1,45 @@
+{
+  "only_wire_factor": "messages[0].content: +166 UTF-8 bytes requesting compact JSON without padding outside strings",
+  "actual_http_comparison_passed": true,
+  "original_final_json_context_byte_identical": true,
+  "strict_schema_reasoning_output_limit_and_all_other_wire_fields_identical": true,
+  "results": [
+    {
+      "run": "code-json-syntax-20261108-02",
+      "source_request": "a8da951303184ddc9199cacbd7db4a25:29:77156ef1d023d70ee2fa0d70ade4139ff2255eda2c010029ee0f73e4364a4009:d740ba99120eefa2990dbf77d3e6f3ebbdb849d3f5789b586e045bc970a3a360",
+      "probe_source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+      "requested_reasoning": "medium",
+      "requested_output_tokens": 4096,
+      "schema_valid": true,
+      "extension_returned": false,
+      "physical_attempts": 1,
+      "output_tokens": 94,
+      "reasoning_tokens": 45,
+      "cost_eur": "0.3027675772503358710255261979",
+      "started_utc": "2026-11-08T18:47:48.505081+00:00",
+      "finished_utc": "2026-11-08T18:48:05.630635+00:00",
+      "candidate_applied": false,
+      "business_effects": false
+    },
+    {
+      "run": "amazon-json-syntax-20261108-01",
+      "source_request": "dd2a1bf3c095481d85a0f7ff7f3be833:9:162afc55bab1db2d275058066618e8728aca8264dfb9ed0be1ab5b9e9322d1a9:9b1528b176d3ce36fb3803f7cc19be39c562f955c050b801b3a002d2c81ed617",
+      "probe_source": "0f3028a2291a0e3cb3164f9a977a1dfc22e11b56",
+      "requested_reasoning": "low",
+      "requested_output_tokens": 32768,
+      "schema_valid": true,
+      "extension_returned": true,
+      "physical_attempts": 1,
+      "output_tokens": 1047,
+      "reasoning_tokens": 91,
+      "cost_eur": "0.5434393193013882669055082848",
+      "started_utc": "2026-11-08T18:48:47.2986+00:00",
+      "finished_utc": "2026-11-08T18:49:20.797513+00:00",
+      "candidate_applied": false,
+      "business_effects": false
+    }
+  ],
+  "interpretation": "Two independent schema-valid responses support another ordinary workflow trial; they establish neither an upstream cause nor convergence. No candidate, expected response or business effect was injected.",
+  "prospective_change": "Fresh Discovery and Draft requests only; preserve exact pending requests. Optional guidance yields to the unchanged Strict input ceiling before final identity and admission.",
+  "materialization_guidance_enabled_in_production": false
+}

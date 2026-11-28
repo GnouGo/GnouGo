@@ -1,0 +1,10 @@
+{
+  "url": "https://github.com/GnouGo/GnouGo/pull/120",
+  "state": "open",
+  "draft": true,
+  "merged": false,
+  "head": "feat/incremental-taskplan-construction",
+  "remote_head_sha": "1a81a769c34e5a9a67c04ac10811ff53f4b4423e",
+  "local_implementation_sha": "e2d3e01a5ef6617f6935d11ab27b6ca71501516b",
+  "note": "Read-only PR verification; local implementation was not pushed or merged."
+}

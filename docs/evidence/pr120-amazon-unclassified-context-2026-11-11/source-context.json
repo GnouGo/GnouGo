@@ -1,0 +1,78 @@
+[
+  {
+    "ordinal": 316,
+    "reference": "3b22ff98f2ac42ae996672ed5f81e294:record:316",
+    "heading": false,
+    "host": "aax-eu-zaz.amazon.fr",
+    "path_prefix": "/x/c/",
+    "has_query": true,
+    "has_fragment": false,
+    "fragment": null,
+    "href_sha256": "8ad13ff84f684fbe3b6bf690dcb2669499660660c82c35f28c6efa24b94c9ced",
+    "href_length": 2002,
+    "context": {
+      "value": "",
+      "tag": "div",
+      "role": null,
+      "index": 16
+    },
+    "occurrence": null
+  },
+  {
+    "ordinal": 318,
+    "reference": "3b22ff98f2ac42ae996672ed5f81e294:record:318",
+    "heading": true,
+    "host": "aax-eu-zaz.amazon.fr",
+    "path_prefix": "/x/c/",
+    "has_query": true,
+    "has_fragment": false,
+    "fragment": null,
+    "href_sha256": "32c18e4ef220046ce905e07b4072a3407052e1ab97ca71ec613cf0902d097bcd",
+    "href_length": 2351,
+    "context": {
+      "value": "",
+      "tag": "div",
+      "role": null,
+      "index": 16
+    },
+    "occurrence": null
+  },
+  {
+    "ordinal": 321,
+    "reference": "3b22ff98f2ac42ae996672ed5f81e294:record:321",
+    "heading": false,
+    "host": "aax-eu-zaz.amazon.fr",
+    "path_prefix": "/x/c/",
+    "has_query": true,
+    "has_fragment": true,
+    "fragment": "customerReviews",
+    "href_sha256": "d2aa7f8969ebb48dda6a2ccbf9c93ebe5452891d860d18cbb259694271869154",
+    "href_length": 2367,
+    "context": {
+      "value": "",
+      "tag": "div",
+      "role": null,
+      "index": 16
+    },
+    "occurrence": null
+  },
+  {
+    "ordinal": 323,
+    "reference": "3b22ff98f2ac42ae996672ed5f81e294:record:323",
+    "heading": false,
+    "host": "aax-eu-zaz.amazon.fr",
+    "path_prefix": "/x/c/",
+    "has_query": true,
+    "has_fragment": false,
+    "fragment": null,
+    "href_sha256": "32c18e4ef220046ce905e07b4072a3407052e1ab97ca71ec613cf0902d097bcd",
+    "href_length": 2351,
+    "context": {
+      "value": "",
+      "tag": "div",
+      "role": null,
+      "index": 16
+    },
+    "occurrence": null
+  }
+]

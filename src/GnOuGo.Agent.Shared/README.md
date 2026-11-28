@@ -1,7 +1,7 @@
 # GnOuGo.Agent.Shared
 
 Provider-neutral chat and planning API DTOs for Agent.Server and its consumers.
-This .NET 10 library has no project dependencies and can be packaged separately.
+This .NET 11 library has no project dependencies and can be packaged separately.
 
 Planning clients create a session with `PlanningStartDto` and submit
 `PlanningCommandDto` with the observed revision. Final approval also carries the
@@ -18,8 +18,9 @@ separate. Chat requests accept `planningMode`, defaulting to `interactive`.
 
 Planning validation DTOs carry optional validation-stage, rule, computation and
 prerequisite context. Compiler diagnostics identify tasks and business ports;
-executable details remain available for review. Planning format 10 rejects older
-sessions with a regeneration instruction; execution journals retain schema 9.
+executable details remain available for review. Planning format 11 rejects older
+sessions with a regeneration instruction; there are no compatibility adapters.
+Execution journals retain schema 9. Business review is mandatory and has no opt-out DTO field.
 
 ```sh
 dotnet build src/GnOuGo.Agent.Shared/GnOuGo.Agent.Shared.csproj

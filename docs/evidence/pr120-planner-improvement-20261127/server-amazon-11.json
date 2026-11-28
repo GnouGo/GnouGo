@@ -1,0 +1,101 @@
+{
+  "source": "f554478910e14f3482c1384deac1f306b6700fab",
+  "run": "improve40-amazon-20261127-190417",
+  "session": "538b898e8379428cb60789dbcd7f4a73",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T19:06:29.1527407+00:00",
+  "finished_utc": "2026-11-27T19:15:09.1346745+00:00",
+  "wall_seconds": 519.981934,
+  "phases": {
+    "construction_draft": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 67668,
+      "output_tokens": 4954,
+      "measured_eur": "0.1767107061503416856492027335",
+      "duration_ms": "92700.6568"
+    },
+    "construction_implementation": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 4870,
+      "output_tokens": 402,
+      "measured_eur": "0.0129248291571753986332574032",
+      "duration_ms": "17203.2533"
+    },
+    "construction_discovery": {
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 106388,
+      "output_tokens": 3339,
+      "measured_eur": "0.2575535307517084282460136675",
+      "duration_ms": "142383.7934"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2775,
+      "output_tokens": 519,
+      "measured_eur": "0.0086856492027334851936218679",
+      "duration_ms": "18406.8297"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2277,
+      "output_tokens": 2046,
+      "measured_eur": "0.0145079726651480637813211845",
+      "duration_ms": "204396.0533"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "0.4703826879271070615034168566",
+  "input_tokens": 183978,
+  "output_tokens": 11260,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "MODEL_OUTPUT_STALLED",
+      "path": "/phases/construction_draft",
+      "message": "The incomplete structured response ended with 37776 whitespace characters outside a JSON string. Inspect the issued decision and its schema before another request."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "close_browser",
+      "search"
+    ],
+    [
+      "assess_capture"
+    ]
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 14,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "38.56419362186788154897494342",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "31.1521116173120728929384962153",
+    "physical_attempts": 1024,
+    "input_tokens": 15846283,
+    "output_tokens": 541699
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "39.034576309794988610478360283",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "30.6817289293849658314350793523",
+    "physical_attempts": 1038,
+    "input_tokens": 16030261,
+    "output_tokens": 552959
+  }
+}

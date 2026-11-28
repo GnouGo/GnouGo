@@ -36,6 +36,7 @@ These tools allow building MCP scenarios such as:
 Practical rule for `browser_get_content`:
 
 - for a "one-shot" page read, prefer `browser_get_content(url: ..., format: ...)` so a single call handles both navigation and extraction
+- a permitted `url` opens the owned browser/page when needed; no existing tab is required. Omitting `url` reads an already active page. The tool description states this lifecycle in its opening sentence so discovery can distinguish the two forms.
 - use `format: text` to summarize a page, read visible content, extract readable text, or feed a synthesis
 - use `format: html` whenever you need to preserve the DOM structure or attributes, e.g., to extract menu/navigation links, retrieve `href`/`src`, inspect buttons, forms, tables, or decide which element to click on the MCP client side
 - 
@@ -86,11 +87,26 @@ Very short MCP client examples:
 - `Browser:BrowserName`: `chromium`, `firefox`, `webkit`
 - `Browser:Channel`: specific channel (`msedge`, `chrome`, etc.)
 - `Browser:AllowedHosts`: optional allowlist of allowed hosts (`example.com`, `*.example.com`)
+- `Browser:AllowedNavigationUrlPatterns`: optional full-URL regular expressions, combined with the host allowlist; each explicit read and redirect destination must match one pattern. The same pattern must authorize both the supplied absolute URL and its transmitted URI form: removing an explicit default port or collapsing path segments cannot grant route authority. An omitted HTTP path retains its ordinary `/` request target. Absolute redirect spelling is checked before canonicalization and before contact. These are trusted host settings, never model-authored permission grants.
+  Canonically escaped literal patterns use an equivalent ordinal string comparison, so long exact URLs do not require a regex automaton. Other patterns retain the bounded nonbacktracking engine. This changes no URL spelling, host restriction, redirect rule or permission.
+- `Browser:ObservedNavigationSourceUrlPatterns` / `ObservedNavigationEntryUrlPatterns`: optional trusted pattern lists, disabled by default and validated together. A successful complete whole-document observation of a matching source may authorize explicit content reads of exact, fragment-free observed link hrefs matching an entry pattern, including a different host. Every redirect still requires a base-policy route or exact current observed entry. Interaction tools gain no additional authority. This per-Browser scope expires on close/disconnect, a new matching source navigation or failed read; another Browser cannot borrow it. Partial, selector-scoped and failed observations grant nothing. The original records, base allowlists and URL spelling remain unchanged. A configuration change requires the host's ordinary permission review; model arguments cannot enable this capability.
+  For a complete observation of a configured source, `observedSourceAccepted` reports whether Browser published that capture's eligible observed links. A withheld capture reports `false`, including when another navigation replaced the source during acquisition. The flag describes the publication instant. Subsequent reads still validate their exact URLs against current permissions.
 - `Browser:DefaultTimeoutMs` / `NavigationTimeoutMs`: Playwright timeouts
+
 - `Browser:MaxContentCharacters`: max size returned by `browser_get_content`
 - `Browser:SlowMoMs`: slows down each Playwright action for visual debugging
 - `Browser:HoldOpenMs`: keeps the window open for a few milliseconds before closing
 - `Browser:KeepBrowserOpen`: ignores `browser_close` and prevents automatic browser closure by the host
+
+Observed-navigation lifecycle events use the existing logger and activity. They
+distinguish source publication, incomplete evidence, a changed source generation,
+owned response commits, unowned source requests/commits/history, failed reads and
+closure. A response already indexed by the exact owned navigation read retains
+that provenance until complete acquisition ends, including if its commit arrives
+after the navigation helper returns. Another request to the same URL gains no
+ownership from string equality. Diagnostics carry reasons, generations, counts
+and opaque snapshot IDs; they contain no URLs, patterns or page content and grant
+no authority.
 
 ## Start the Server
 
@@ -102,8 +118,8 @@ Windows PowerShell example:
 
 ```powershell
 dotnet build .\src\GnOuGo.Browser.Mcp\GnOuGo.Browser.Mcp.csproj
-powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\playwright.ps1 install chromium
-.\src\GnOuGo.Browser.Mcp\bin\Debug\net10.0\GnOuGo.Browser.Mcp.exe
+powershell -ExecutionPolicy Bypass -File .\src\GnOuGo.Browser.Mcp\bin\Debug\net11.0\playwright.ps1 install chromium
+.\src\GnOuGo.Browser.Mcp\bin\Debug\net11.0\GnOuGo.Browser.Mcp.exe
 ```
 
 ## Visual Debug Mode
@@ -180,17 +196,76 @@ Example MCP configuration in `LLMOptions`:
 - Navigations are restricted to absolute `http` and `https` URLs with escaped whitespace. `browser_get_content` publishes this syntax in its input schema. Decode an encoded whole URL or resolve a relative reference against its observed page URL before calling; the host still enforces scheme and allowed-host policy. Null/omission reads the current page; an explicit empty URL is invalid. Refresh discovery after this contract change.
 - `file://`, `data:`, and other non-web schemes are rejected.
 - If `AllowedHosts` is empty, any HTTP/HTTPS destination is allowed.
-- The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net10.0/GnOuGo.Browser.Mcp.dll`.
+- The direct apphost command above assumes launch from the repository root. A portable alternative after building is `dotnet src/GnOuGo.Browser.Mcp/bin/Debug/net11.0/GnOuGo.Browser.Mcp.dll`.
 - `KeepBrowserOpen=true` is a local debug mode; do not leave it enabled in normal automated runs.
 
 ### Compact observations
+
+Links and headings retain visible text, with their explicit `aria-label` as a
+fallback when that text is empty. Explicit ARIA `heading` elements are observed
+alongside native headings. Hidden elements remain excluded. Labels describe the
+observed element; they do not establish product identity, destination provenance
+or authority. Link URLs, nearest requested ancestor attributes and DOM order retain
+their existing meaning.
+
+Semantic repeated containers retain their observed tag, explicit ARIA role and
+snapshot-local first-occurrence index in each record's `groupContext`. Native
+`article`, `li`, `tr` and ARIA `listitem`, `article`, `row` containers take precedence
+over broad regions; visible dialog ownership remains first. Repeated links inside
+one occurrence remain associated, while distinct occurrences with identical URLs
+remain distinct. DOM order, original resolved hrefs, exact selectors and existing
+snapshot-bound record references are preserved. These facts do not identify a
+business product or establish that a link's eventual destination was visited.
+The published `records` contract specifies source order. Its `reference`
+field identifies each original record within that snapshot, including records
+that share an href. Consumers can join observations by this returned identity.
+Each record also exposes its outer semantic `occurrence` (selector, tag, role and snapshot-local index), bounded by the nearest landmark/dialog. This retains the relationship between nested variant links and their containing item. `heading` identifies an enclosing or linked heading selector when present. Neither field assigns business meaning to that item.
+
+Explicit content reads return `navigationEvidence` only for a response bound to
+the actual committed main document. It records the requested URL, actual final
+URL and ordered observed HTTP response hops, including raw Location headers.
+`terminalResponse` exposes the last hop directly when the chain is complete
+and its URL matches the final URL. It preserves the actual HTTP status,
+including failure statuses. Partial reads omit the field.
+Each GET is sent once without transport retries or automatic redirects. The host
+checks a resolved observed redirect destination before contacting it and starts
+the next browser navigation under the same deadline. Loops and more than twenty
+redirects stop before sending the next request; failures retain partial hops and
+never claim a final destination. A Playwright interruption also retains only the
+read's already observed hops, with `complete: false` and no final URL, through
+both ordinary content and complete-snapshot failure results. If a guarded GET
+fails before receiving a response, the complete-snapshot receipt also records
+a bounded transport category such as `connection_reset` in
+`acquisition.failureCategory`. The receipt omits the Playwright call log,
+which can contain request headers. The existing error
+code and acquisition failure category remain; this evidence authorizes no retry
+or acceptance. A history-only address change retains the same document's actual method, status and response chain and reports the changed address separately as `documentUrl`; it never invents an HTTP redirect. If the page replaces its document with another guarded GET response for the identical terminal URL during that read, the host verifies the current request's already observed response. Earlier responses appear separately in `supersededResponses`, preserving any real redirect prefix. This metadata lookup dispatches no navigation or interaction; a different URL or POST cannot borrow an earlier response. A new explicit fragment-only navigation cannot borrow an earlier response. An eligible wholly empty-document reload remains a distinct acquisition
+attempt with its own response identity and the existing shared bounds.
+
+This uses Playwright's existing request transport because its
+[routing callback does not intercept every automatic redirect](https://playwright.dev/dotnet/docs/network#redirects).
+Service workers are blocked so they cannot evade this interception. With a host
+navigation policy, other navigations are checked too; an interaction's redirect
+stops and requires an explicit content read rather than replaying that interaction.
+Subresource reads remain ordinary browser requests. No scenario-specific route,
+business interpretation, destination rewrite or permission expansion is introduced.
+Denied child-frame navigations remain blocked before contact and do not replace the main document's acquisition outcome. External delegated route guards still apply before any Browser dispatch.
+
+A main-frame request does not replace the current document until it commits.
+Denied or aborted requests retain that document's actual response evidence and
+clear only their own pending request. A later history address change remains
+bound to the same committed response. New document commits still replace the
+evidence and invalidate snapshots; explicit reads retain their own independent
+navigation outcome. This grants no authority to contact a denied destination.
 
 Use `browser_get_content(format: "observation_complete")` when every page is
 needed before interpreting or acting. `observationSnapshot` contains `id`, ordered
 `pages` (each with typed `records` and the same `id`), `recordCount`,
 `captureTruncated: false` and `manifestTruncated: false`. The pages have no
-continuation cursors. Flat `content` stays empty. Process these pages with ordinary
-collection bindings; keep extraction and interpretation outside Browser.
+continuation cursors. Flat `content` stays empty. Page boundaries can split a DOM
+group, occurrence or captured ancestor. When an interpretation depends on related
+records, associate their snapshot-local identities across all pages and retain
+source order. Use collection bindings for extraction and interpretation.
 
 The producer buffers the full acquisition and checks its document generation
 before publishing. Navigation, including same-URL reloads, discards the entire
@@ -270,6 +345,28 @@ invalid for continuation.
 Page boundaries are frozen at capture time. The existing per-response character
 and record caps apply; `Browser:MaxObservationPages` defaults to 100 and can only
 lower the hard 100-page ceiling. The manifest itself obeys the response allowance.
+For an optional ordered index on a complete capture, supply `prefixAttribute`
+(a host-configured observation ancestor attribute) and `prefixGroups` (1–100).
+`observationSnapshot.linkPrefix` includes links from the beginning of the document
+through the requested number of populated ancestor and occurrence pairs. It keeps
+earlier missing and empty attributes, closes over overlapping group members across
+pages, and reports whether it reached the final link. Every entry points to its
+original page and offset. Empty attributed groups retain every exact absolute
+HTTP(S) href. Populated groups retain HTTP(S) heading hrefs or their first
+href when they have no heading. Each index entry includes the nullable `href`
+field. Its value is null when the index has no navigable href for that entry.
+The published href pattern matches the input
+syntax for navigation. Preserve the full string including its query and percent
+escapes. Other destinations can be read from the original record. The route
+field omits the query and serves only as descriptive evidence. The original
+pages and aggregate response allowance apply throughout.
+
+A host can enable `Browser:IncludeObservationTextReview` to add `observationSnapshot.textReview` on complete captures. The view retains the snapshot ID, record counts and every distinct nonblank visible label per source page in order. Its serialized limit is 64 KiB. If the view or aggregate response would exceed the allowance, the field is absent. A text-review decision can bind this field, HTTP status, capture flags and any relevant `textMatches`. Exact selectors, action evidence and original URLs remain in the retained records. When the view is absent, consume bounded pages or return an incomplete assessment.
+
+The output schema publishes `maxItems` for both manifests and complete snapshots
+(100 pages) and for each returned page (200 records). Size planning for the full
+collection must account for both dimensions. Request or host settings can reduce
+the number of pages or records returned.
 
 This fits an ordinary bounded `foreach`: capture, read every listed page, collect
 the observations, then navigate. The manifest describes available pages; it does
@@ -310,3 +407,21 @@ References are usable only after their record has been delivered. Navigation, in
 Legacy selector/text calls and existing C# selector entrypoints retain their behavior. No saved workflow is rewritten; refreshed discovery exposes the additive contracts for new review and approval. Observed URLs may still be retained as business data for ordinary navigation; they are not durable DOM action references. References grant no permission and do not establish factual correctness or completeness.
 
 Post-action `domcontentloaded` and `load` waits subscribe before the interaction and recheck the current document's lifecycle state. A fast navigation cannot lose its completion notification between a state check and event registration. Reloads invalidate previously observed readiness; same-document navigation retains the document's established lifecycle. Delayed readiness, cancellation, page closure and genuine timeouts still fail explicitly. The existing timeout is shared by readiness rechecks, and the interaction is never repeated. Explicit `networkidle` continues to require Playwright's network-quiescence condition. This does not alter target identity, `follow`/`activate` compatibility, permissions or snapshot expiration.
+`Browser:ObservationAncestorAttributes` optionally names up to eight DOM attributes
+to retain on observed links. Each entry identifies the nearest matching ancestor
+inside the selected root (including the link), with its exact value, tag, role and
+snapshot-local source index. Missing and empty values stay distinct. Different
+containers retain different indexes even when their attribute values match. No
+attribute is requested by default. Names are bounded to 64 characters; values over
+1,024 characters or ancestry beyond 64 levels mark the capture incomplete. Existing
+record/page/byte limits apply. This metadata records source DOM facts and performs
+no business classification or URL construction.
+
+`Browser:ObservationTextSelectorPrefixes` accepts up to 16 case-sensitive prefixes of the selector strings recorded by Browser. With this option, a complete snapshot can include `textMatches`. Its ordered heading and text entries carry the original text, selector, reference, page and offset. The view stops at 64 entries or 16 KiB of serialized entries and marks any omitted match with `truncated`. When the complete response only fits without the extra view, the original pages are returned alone. Creating this view reads the captured records without another page request.
+
+The published record contract permits a null dictionary value for a requested
+attribute with no matching ancestor, alongside a strictly typed context object.
+The object's `value`, `tag`, `role` and `index` remain required; an observed empty
+attribute stays an empty string. Observation and complete-snapshot records publish
+the same contract. Refresh discovery for the corrected schema fingerprint; saved
+payloads, old catalogues and permissions are unchanged.

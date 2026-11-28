@@ -1,0 +1,74 @@
+{
+  "source": "94a6078b5d5ed74eceac42166d2fe2fd5c5b8552",
+  "run": "convergence-local-20261108-01",
+  "session_id": "e8b51f8c739a46938fd4e607f1bdd131",
+  "source_request": "e8b51f8c739a46938fd4e607f1bdd131:1:7c029432fb3b3bfe5f5201bd9882260fcb1c32c5bfae69b85937743f8872f584",
+  "http_request_bytes": 6142,
+  "request_sha256": "89dd3df592b00bf486fa86d02b98cce2608be25b38ecc66d9584fd0e6acac753",
+  "provider_response_format": "json_schema",
+  "structured_strict": true,
+  "reasoning_effort": "medium",
+  "output_tokens": 32768,
+  "tools_present": false,
+  "attempts": [
+    {
+      "Id": "e8b51f8c739a46938fd4e607f1bdd131:1:7c029432fb3b3bfe5f5201bd9882260fcb1c32c5bfae69b85937743f8872f584:d3605715701841f28482787c9e060a27",
+      "StartedAtUtc": "2026-11-08T08:16:20.266201+00:00",
+      "DeadlineAtUtc": "2026-11-08T08:26:20.266201+00:00",
+      "CompletedAtUtc": "2026-11-08T08:26:20.865994+00:00",
+      "Failure": "timeout",
+      "RetryDecision": "abandoned; independent tool-free generation retry",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "native_bytes": 9042575,
+      "complete_json_frames": 16654,
+      "visible_characters": 83207,
+      "non_whitespace_characters": 195,
+      "prefix": "{\"clauses\":[{\"text\":\"Return a numeric output named result equal to 6 times 7. No inputs or external calls.\",\"kind\":\"requirement\",\"inputs\":[],\"outputs\":[{\"name\":\"result\",\"type\":{\"kind\":\"number\",\"nullable\":false} \n\n\n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n\n\n \n\n",
+      "native_partial_sha256": "1ec5cc003e4eaf08e456943fa283c4920ea466c40b2620c4704bc222a2a821ac"
+    },
+    {
+      "Id": "e8b51f8c739a46938fd4e607f1bdd131:1:7c029432fb3b3bfe5f5201bd9882260fcb1c32c5bfae69b85937743f8872f584:23c1271481ad40b5a94984d42ad43dc5",
+      "StartedAtUtc": "2026-11-08T08:26:28.762847+00:00",
+      "DeadlineAtUtc": "2026-11-08T08:36:28.762847+00:00",
+      "CompletedAtUtc": "2026-11-08T08:36:29.389102+00:00",
+      "Failure": "timeout",
+      "RetryDecision": "blocked; captured retry allowance exhausted",
+      "ProtocolComplete": null,
+      "UsageKnown": null,
+      "native_bytes": 3640829,
+      "complete_json_frames": 6908,
+      "visible_characters": 7064,
+      "non_whitespace_characters": 195,
+      "prefix": "{\"clauses\":[{\"text\":\"Return a numeric output named result equal to 6 times 7. No inputs or external calls.\",\"kind\":\"requirement\",\"inputs\":[],\"outputs\":[{\"name\":\"result\",\"type\":{\"kind\":\"number\",\"nullable\":false} \t\n \t\n \t\n \t\n \t\n \t\n \t\n \t\n \t\n \t\n",
+      "native_partial_sha256": "0eac0107d2ccf0cce2a193c67f2141ffe7efadcd3c2b26e210a751eca3b69fcd"
+    }
+  ],
+  "retained_planner_diagnostics": [
+    {
+      "code": "LLM_BUDGET_EXCEEDED",
+      "location": "/",
+      "message": "Active planning time was exhausted.",
+      "required": true,
+      "validationStage": null,
+      "rule": null,
+      "budgetFailure": {
+        "scope": "planning_session",
+        "origin": "captured_planning_request",
+        "limitKind": "elapsed_ms",
+        "allowance": 18000000,
+        "requiredReservation": 481.7392,
+        "currency": null,
+        "dispatchStatus": "unavailable"
+      }
+    }
+  ],
+  "accepted_result": false,
+  "approval_or_execution": false,
+  "failure_classification_regression": {
+    "earlier_binary": "TaskCanceledException from a cancelled progress write masks final transport timeout",
+    "fixed_binary": "LLMProviderException Timeout, exhausted, two attempts; genuine storage failures still stop before another send",
+    "deterministic_ai_tests": 377,
+    "focused_retention_journal_tests": 192
+  }
+}

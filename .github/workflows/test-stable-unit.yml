@@ -18,10 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      - name: Setup .NET 10
+      - name: Set up the .NET SDK
         uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "11.0.100"
 
       - name: Ensure OTLP proto files
         uses: ./.github/actions/ensure-otlp-protos
@@ -73,5 +73,5 @@ jobs:
         working-directory: librairies/python/gnougo-flow-cli
         run: uv run --extra dev pytest -q
 
-      - name: Test protocol acquisition recovery
+      - name: Test repository scripts
         run: python -m unittest discover -s scripts/tests -v

@@ -1,0 +1,25 @@
+{
+  "source": "926b81314bd09129d9f139e70459f5f4809f0a30",
+  "observed_utc": "2026-11-11 11:04:19 UTC",
+  "runs": [
+    {
+      "id": 43007028213,
+      "name": "Deterministic planner validation",
+      "status": "in_progress",
+      "conclusion": null
+    },
+    {
+      "id": 43007027665,
+      "name": "ProxyCopilot standalone validation",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 43007027662,
+      "name": "Build ProxyCopilot Native AOT",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ],
+  "all_checks_passed": false
+}

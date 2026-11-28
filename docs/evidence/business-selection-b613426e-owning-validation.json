@@ -1,0 +1,36 @@
+{
+  "kind": "source_postimage_owning_validation",
+  "version": 1,
+  "source_postimages_match_commit": "b613426e2586fec447089532251ab8773df16b08",
+  "observed_at_utc": "2026-11-04T11:30:43.617148+00:00",
+  "command": "dotnet test tests/GnOuGo.Flow.Planning.Tests -warnaserror",
+  "trx_sha256": "2ca79259b7e6fc858ea023bfdf382ee01592897bdc1b71ceb51d0f7125fa2660",
+  "counts": {
+    "total": "2653",
+    "executed": "2653",
+    "passed": "2653",
+    "failed": "0",
+    "error": "0",
+    "timeout": "0",
+    "aborted": "0",
+    "inconclusive": "0",
+    "passedButRunAborted": "0",
+    "notRunnable": "0",
+    "notExecuted": "0",
+    "disconnected": "0",
+    "warning": "0",
+    "completed": "0",
+    "inProgress": "0",
+    "pending": "0"
+  },
+  "focused_cases_passed": 2,
+  "focused_cases_overlap_owning_total": true,
+  "initial_generic_reproduction_failed": 1,
+  "initial_red_trx_sha256": "49267fbbd023510b8ed1a148d4d26f1c206697a2733ebed35b1e9284f6ce8ba7",
+  "postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningGraphValidation.cs": "82a0f7998ac6f2c894654c41e4e572363c90898a8b840ad5df3e3a234851bf22",
+    "tests/GnOuGo.Flow.Planning.Tests/ArrayBindingContractTests.cs": "53771f987a1acac53500e04af4e5d86558003fab3bbc5fae5515154b5a80d405",
+    "docs/compact-workflow-bindings.md": "aa091537b31c692fe3e3f7a4a0b8546f64f34ea8491e51bd790058edf74f11e3"
+  },
+  "limit": "The owning suite ran before commit creation on matching committed source postimages. Exact-commit solution/publication validation runs separately."
+}

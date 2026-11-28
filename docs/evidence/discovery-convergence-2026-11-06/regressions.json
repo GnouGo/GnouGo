@@ -1,0 +1,256 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "overlapping_runs_must_not_be_added": true,
+  "runs": [
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/before/continuity-before.trx",
+      "raw_sha256": "959a26abfd9c5a2aa0c26e33c92de4d0da56c25dd06111a627ba719296115340",
+      "qualification": "Initial uncommitted regression reproduction; not final-source qualification",
+      "counters": {
+        "total": "17",
+        "executed": "17",
+        "passed": "11",
+        "failed": "6",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CapabilityIdentityTests.CaptureRetainsSafeFailureCategory(failure: \"denied\", expected: \"access_denied\")",
+          "message": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"access_denied\"\nActual:   \"transport_unavailable\"\n           \u2191 (pos 0)"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.ReselectionFeedbackTests.RejectedChoiceRemainsVisibleAtDiscoveryAndDraftAfterReload(diagnostic: False)",
+          "message": "Assert.Equal() Failure: Strings differ\nExpected: \"Copying the prepared record does not publish it th\"\u00b7\u00b7\u00b7\nActual:   null"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CapabilityIdentityTests.CaptureRetainsSafeFailureCategory(failure: \"forbidden\", expected: \"access_denied\")",
+          "message": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"access_denied\"\nActual:   \"transport_unavailable\"\n           \u2191 (pos 0)"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.ReselectionFeedbackTests.RejectedChoiceRemainsVisibleAtDiscoveryAndDraftAfterReload(diagnostic: True)",
+          "message": "Assert.Equal() Failure: Strings differ\nExpected: \"Copying the prepared record does not publish it th\"\u00b7\u00b7\u00b7\nActual:   null"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CapabilityIdentityTests.EquivalentJsonPreservesVersionsCursorsAndResolutionAcrossRuntimes",
+          "message": "Assert.Equal() Failure: Collections differ at index 2\n           \u2193 (pos 0)\nExpected: \"0f48787902676560dd9c937ac817e34630804f4b9299705d24\"\u00b7\u00b7\u00b7\nActual:   \"d79a793839f20e49e0c0aaa1cf50b3bdd31d88e9a253e06e21\"\u00b7\u00b7\u00b7\n           \u2191 (pos 0)"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.CapabilityIdentityTests.CaptureRetainsSafeFailureCategory(failure: \"timeout\", expected: \"timeout\")",
+          "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"timeout\"\nActual:   \"transport_unavailable\"\n            \u2191 (pos 1)"
+        }
+      ]
+    },
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/before-refresh/refresh-before.trx",
+      "raw_sha256": "652f90169a16c22cc2e0289cb4604766e8531ddd74bad7ad9aa7c86c5c0cd2ae",
+      "qualification": "Refresh descriptor reproduction; not final-source qualification",
+      "counters": {
+        "total": "2",
+        "executed": "2",
+        "passed": "0",
+        "failed": "2",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RefreshOffersOnlyTheNewActionVersionWhileKeepingOldPages(diagnostic: True)",
+          "message": "Assert.Single() Failure: The collection was empty"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.RefreshOffersOnlyTheNewActionVersionWhileKeepingOldPages(diagnostic: False)",
+          "message": "Assert.Single() Failure: The collection was empty"
+        }
+      ]
+    },
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/selected-before/selected-before.trx",
+      "raw_sha256": "813f96bb97c7236366f11180ae907b970831e4b4c72879251c199049b5403aa5",
+      "qualification": "Required selected-contract reproduction; not final-source qualification",
+      "counters": {
+        "total": "2",
+        "executed": "2",
+        "passed": "0",
+        "failed": "2",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.ChangedSelectedContractBlocksAndExplicitRefreshPreservesIndependentWork(diagnostic: False)",
+          "message": "GnOuGo.Flow.Core.Planning.PlanningConflictException : The selected capability changed. Rediscover and review it."
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.ChangedSelectedContractBlocksAndExplicitRefreshPreservesIndependentWork(diagnostic: True)",
+          "message": "GnOuGo.Flow.Core.Planning.PlanningConflictException : The selected capability changed. Rediscover and review it."
+        }
+      ]
+    },
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/selected-after/selected-after.trx",
+      "raw_sha256": "add058e92c1f6166e977a0c7ebcde9f044c794242a8596cde032097534733b86",
+      "qualification": "Intermediate strategy-version regression; subsequently corrected",
+      "counters": {
+        "total": "39",
+        "executed": "39",
+        "passed": "37",
+        "failed": "2",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": [
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.ChangedSelectedContractBlocksAndExplicitRefreshPreservesIndependentWork(diagnostic: False)",
+          "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = REPLAN_NO_PROGRESS, Location = /, Message = The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: 7c0c392371624a4e9057c790f8d4dc37:3:5e223f08eacdaf2799f20248d15a89957ce96f9e74c0d6da1002c2535f7def15:0e14fd92f1d67454f1e100139db59e80134f2d69cb272115f52bc90582351d25; prior request: 7c0c392371624a4e9057c790f8d4dc37:2:50658bdca80d59b1d968bfc3874ea914dbe0df76269c9edb4c6f4e94069db1c4:db7db0475d095957bc97aca4fbe9f699082014ab9348e4135158717ded28ced4. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal., Required = True, ValidationStage = , Rule = , BudgetFailure = , Prerequisite =  }]"
+        },
+        {
+          "test": "GnOuGo.Flow.Planning.Tests.FocusedDiscoveryTests.ChangedSelectedContractBlocksAndExplicitRefreshPreservesIndependentWork(diagnostic: True)",
+          "message": "Assert.Empty() Failure: Collection was not empty\nCollection: [PlanningDiagnostic { Code = REPLAN_NO_PROGRESS, Location = /, Message = The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: 926496eea9184667991fbb505046d475:3:a452aa2acd40257dae1a44370ee3ee0ccb7a9ed13a1f564e6f850fb3579f694a:756907b6a1fb39ed25863fbaacea9288e20c38693d9a10c241fd39d86b87a539; prior request: 926496eea9184667991fbb505046d475:2:647e19b4ea5b043761fe03becc69054c52c8212ac8dbd1824acd4c331e0476de:fa1826b33b1bcc9fda72e172798cee8df9aed719840175db8722b4dedf6dee23. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal., Required = True, ValidationStage = , Rule = , BudgetFailure = , Prerequisite =  }]"
+        }
+      ]
+    },
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/identity-final/identity-final.trx",
+      "raw_sha256": "b33cbb07aff9913cbf4f27da6bf174665816128c9b1132a65fc9473850f3cc18",
+      "qualification": "Focused tests on final implementation",
+      "counters": {
+        "total": "48",
+        "executed": "48",
+        "passed": "48",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": []
+    },
+    {
+      "artifact": "artifacts/discovery-convergence-20261106/removed-source/removed-source.trx",
+      "raw_sha256": "d4795eab751b0da82ae3af6b1e88b0988da9a6bb6c9795f2531a2097006c697c",
+      "qualification": "Focused Server/browser tests on final implementation",
+      "counters": {
+        "total": "20",
+        "executed": "20",
+        "passed": "20",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "failures": []
+    }
+  ],
+  "loop": {
+    "session": "9fce45f8750a4ed19a3fe1b5ba48adb3",
+    "inspected_revision": 526,
+    "last_saved_status": "generating",
+    "logical_calls": 258,
+    "completed_receipts": 257,
+    "unresolved_reserved_calls": 1,
+    "accepted_checkpoints": 2,
+    "corrections": 45,
+    "nonproductive_count_at_call_246": 207,
+    "rejected_value_steps_at_first_snapshot": 34,
+    "base_plan_hash_unchanged_in_calls_247_250_257": true,
+    "loop_example": [
+      {
+        "call": 247,
+        "phase": "implementation",
+        "rejection_reason_present": true
+      },
+      {
+        "call": 248,
+        "phase": "discovery",
+        "same_rejection_reason_present": false,
+        "selected_kind": "value"
+      },
+      {
+        "call": 249,
+        "phase": "draft",
+        "disposition": "abandon"
+      }
+    ],
+    "app_process_stopped": true,
+    "agent_cancelled_or_resumed": false,
+    "agent_model_dispatches": 0
+  },
+  "intermediate_solution_runs": [
+    {
+      "directory": "artifacts/discovery-convergence-20261106/solution",
+      "qualification": "Interrupted; not a full pass",
+      "cause": "An overlapping build touched Release test outputs (MSB3026). Final runner builds first, then tests with --no-build. No check was disabled.",
+      "log_sha256": "eb8acd99ca47aeef6e23c856c63d34b51bf67d09359c7dc096256c39238778ad"
+    },
+    {
+      "directory": "artifacts/discovery-convergence-20261106/final",
+      "source": "e673a51ec681c96b44e62b1bf7ff9188a0e4722c",
+      "qualification": "Interrupted to complete selected-contract recovery; not a full pass"
+    },
+    {
+      "directory": "artifacts/discovery-convergence-20261106/final-e82d483c",
+      "source": "e82d483c4333d541c26fbe487d3ac468dc78cc0c",
+      "qualification": "Interrupted after a real regression; not a full pass",
+      "failure": "SecureWorkflowRuntimeFactoryTests.RemovedVirtualToolsFailNormalCatalogRevalidation expected CATALOG_CHANGED, received CATALOG_UNAVAILABLE. Corrected in 2a83c9c0 and revalidated.",
+      "log_sha256": "4a3fe1641d4e0e3684a2be152d0e43a04eb6227792d74fbe35e04a781bee81a2"
+    }
+  ]
+}

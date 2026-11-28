@@ -20,10 +20,8 @@ public sealed class CopilotTasksTests
     private static Dictionary<string, object?> Args => new() { ["projectRoot"] = "workflows/project", ["prompt"] = "Inspect the project and report verified results." };
     private static CodeMcpTraceContext Context(string tenant) => CodeMcpTraceContext.FromMcpMeta(new() { ["gnougo"] = new JsonObject { ["tenantId"] = tenant } })!;
 
-    [Theory]
-    [InlineData("copilot_interactive_one_shot")]
-    [InlineData("code_agent_edit")]
-    public async Task InteractiveEntryPointsRetainTypedReceiptBeyondTenInputRounds(string operation)
+    [Fact]
+    public async Task InteractiveSessionRetainsTypedReceiptBeyondTenInputRounds()
     {
         var answers = 0; string? taskId = null;
         await using var fixture = await CopilotAttachmentTests.Fixture.CreateAsync(new McpClientOptions { Handlers = new()
@@ -37,11 +35,9 @@ public sealed class CopilotTasksTests
             return new(handle, "mock", "verified result", "mock", [])
             { ToolExecutions = [new("one", null, "arbitrary-operation", "{}", true, true, false, [], null)] };
         };
-        var arguments = operation == "code_agent_edit"
-            ? new Dictionary<string, object?> { ["projectRoot"] = "workflows/project", ["task"] = "Inspect and report." } : Args;
-        var response = await fixture.Call(operation, arguments, "fixture-tenant");
+        var response = await fixture.Call("copilot_interactive_one_shot", Args, "fixture-tenant");
         Assert.False(response.IsError == true); Assert.Equal(12, answers); Assert.NotNull(taskId);
-        Assert.Equal("verified result", response.StructuredContent!.Value.GetProperty(operation == "code_agent_edit" ? "summary" : "content").GetString());
+        Assert.Equal("verified result", response.StructuredContent!.Value.GetProperty("content").GetString());
         Assert.Single(response.StructuredContent.Value.GetProperty("toolExecutions").EnumerateArray());
         using var tenant = fixture.Host.Trace.Push(Context("fixture-tenant"));
         var saved = await fixture.tasks.GetTaskAsync(taskId, Ct);
@@ -289,8 +285,13 @@ public sealed class CopilotTasksTests
             Assert.Contains("COPILOT_NEEDS_RECONCILIATION", recovered.Error!.Value.GetRawText());
             Assert.Equal(1234, (await restarted.ReadOperationAsync(id, Ct))!["reservedTokens"]!.GetValue<int>());
             Assert.Contains("decline", (await restarted.AnswersAsync(id, Ct)).ToJsonString());
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             Assert.DoesNotContain("private-objective", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(path, Ct)));
         }
-        finally { Directory.Delete(root, true); }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            Directory.Delete(root, true);
+        }
     }
 }

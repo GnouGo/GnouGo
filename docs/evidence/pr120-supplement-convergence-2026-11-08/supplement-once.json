@@ -1,0 +1,35 @@
+{
+  "campaign": "pr120-live-20261107-400",
+  "authorization": "pr120-supplement-20261108-400-01",
+  "previous_ceiling_eur": "400",
+  "ceiling_eur": "800",
+  "additional_authorized_eur": "400",
+  "matching_authorization_entries": 1,
+  "history_entries": 2,
+  "authorized_at": "2026-11-08T14:55:33.4677310+00:00",
+  "initial_grant_unchanged": true,
+  "accounting_identical_before_and_after": true,
+  "physical_attempts": 601,
+  "known_usage_tariff_estimate_eur": "246.33783251231527093596059311",
+  "uncertain_http_reservations_eur": "148.30422749664128974473802064",
+  "unknown_http_attempts": 22,
+  "separate_external_reservation_eur": "2.4215763546798029556650246305",
+  "available_eur_immediately_after_supplement": "402.9363636363636363636363616195",
+  "globally_available_funding": null,
+  "accounting_reset": false,
+  "reservations_released_eur": "0",
+  "existing_extend_budget_mechanism_invocations": 1,
+  "idempotency_and_conflicting_repeat_regression": "ExistingAllocationAcceptsOneAuthorizedSupplementWithoutResettingGrantOrLiabilities",
+  "regression_before": {
+    "failed": 1,
+    "failure": "funding_scope_incomplete_or_changed"
+  },
+  "focused_campaign_tests_after": {
+    "passed": 183,
+    "failed": 0,
+    "compiler_warnings": 0
+  },
+  "before_audit_sha256": "dff777794b4ea453287c389bf4b026afabd373d9c11d3e988eb1189147cf43eb",
+  "after_audit_sha256": "3722ee3bf8411704675f202575de06a5b5c15c89eb53218b9265bedaeac64eab",
+  "authorization_record_export_sha256": "c4a84ed4e3480d6dfd0823b17a459113975205ed1817ff5967c5c17ea69f2008"
+}

@@ -16,10 +16,19 @@ internal static class BrowserMcpJson
         var schema = JsonNode.Parse(generated.GetRawText())!.AsObject();
         var properties = schema["properties"]!.AsObject();
         var records = properties["observation"]!["properties"]!["records"]!;
+        records["maxItems"] = BrowserServerSettings.ObservationRecordsPerPageCeiling;
         records["items"]!["properties"]!["actions"]!["items"] = new JsonObject
             { ["type"] = "string", ["enum"] = new JsonArray("activate", "follow", "fill", "select", "press") };
-        properties["observationSnapshot"]!["properties"]!["pages"]!["items"]!["properties"]!["records"] =
-            properties["observation"]!["properties"]!["records"]!.DeepClone();
+        // The SDK loses nullable dictionary-value annotations. Missing ancestor
+        // context is emitted as null; preserve the object's existing constraints.
+        records["items"]!["properties"]!["ancestorAttributes"]!["additionalProperties"]!["type"] = new JsonArray("object", "null");
+        var pages = properties["observationSnapshot"]!["properties"]!["pages"]!;
+        pages["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
+        pages["items"]!["properties"]!["records"] = records.DeepClone();
+        properties["observationSnapshot"]!["properties"]!["linkPrefix"]!["properties"]!["links"]!["items"]!["properties"]!["href"]!["pattern"] = BrowserNavigationPolicy.HttpUrlPattern;
+        properties["observationSnapshot"]!["properties"]!["textMatches"]!["properties"]!["records"]!["maxItems"] = BrowserObservationTextMatches.MaxRecords;
+        properties["observationSnapshot"]!["properties"]!["textReview"]!["properties"]!["pages"]!["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
+        properties["observationManifest"]!["properties"]!["pages"]!["maxItems"] = BrowserServerSettings.ObservationPageCeiling;
         using var document = JsonDocument.Parse(schema.ToJsonString());
         return document.RootElement.Clone();
     }
@@ -33,6 +42,7 @@ internal static class BrowserMcpJson
 }
 
 [JsonSerializable(typeof(BrowserContentResult))]
+[JsonSerializable(typeof(BrowserTextMatch))]
 [JsonSerializable(typeof(BrowserObservationCapture))]
 [JsonSerializable(typeof(BrowserActionResult))]
 [JsonSerializable(typeof(BrowserKeyActionResult))]
@@ -43,6 +53,7 @@ internal static class BrowserMcpJson
 [JsonSerializable(typeof(BrowserToolErrorResult))]
 [JsonSerializable(typeof(BrowserToolCorrelation))]
 [JsonSerializable(typeof(BrowserServerSettings))]
+[JsonSerializable(typeof(BrowserObservationTextReview))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
 [JsonSerializable(typeof(List<string>))]
 [JsonSerializable(typeof(string))]

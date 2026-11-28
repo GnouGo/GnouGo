@@ -1,0 +1,53 @@
+{
+  "source": "8be47eeaefc869e8c11cf7d148c6408377bfff0f",
+  "binary_sha256": {
+    "GnOuGo.Flow.Planning.dll": "fcda66f19e7f78597ea1ef4c1ab28df025d9c43959d23dfda6452b5a38458cc8",
+    "GnOuGo.Flow.Core.dll": "6487a03f9cec89838762e3e41c3b92dbdbc1a865875e722954c76b20ca53fc92",
+    "GnOuGo.Agent.Server.dll": "52c0b1a5c4be08ee2f504822c4e30436630c6b1c646dbedd7219a1310044ad0d",
+    "GnOuGo.Agent.Planning.Benchmark.dll": "f1a978ac57d8cd737acfd33d7e89e2553781000e12490ea347af63151f4f2f61"
+  },
+  "validation": "HybridWorkflowPlanner.CompileAsync with WorkflowPlanningRuntime.ValidateAsync on the captured session and a local candidate variation. Includes commitment assessment, graph, public interface, workflow parser, compiler, registry and runtime contracts. No operator approval or model dispatch.",
+  "plan_hash_encoding": "UTF-8 canonical JSON with sorted keys and compact separators.",
+  "scenarios": {
+    "code": {
+      "reference_run": "routing30-code-20261127-032434",
+      "reference_session": "af1c60e1d68742e9b15eae865c9760ed",
+      "captured_source": "c9030d3f9825c8d58566c18d770024f5c115b994",
+      "revision": 102,
+      "original_plan_sha256": "cddb32c10680403afea70497ca58b7c17e4e07e6c9efc5ea241610e1eb8db275",
+      "replay_plan_sha256": "4130b0286caa60881a940a73aa96bcd6529bdb8c2bfc659b81f793dac9ae8db1",
+      "compiled_yaml_sha256": "63d31add8d490fa8aae926fd5b443c1a23c061bffc4b3d332027e9b79706f638",
+      "compiled_yaml_bytes": 16631,
+      "diagnostics": [],
+      "static_status": "final_review",
+      "coverage_categories": {
+        "passed": 1,
+        "declared": 6,
+        "unverified": 21,
+        "verified": 14
+      },
+      "paid_calls": 0,
+      "executed": false
+    },
+    "amazon": {
+      "reference_run": "routing30-amazon-20261127-034551",
+      "reference_session": "81c83cd17de8440ab879cde086af58a4",
+      "captured_source": "de8c0ff96c45d4365ff82c16a5bd5033477dbdae",
+      "revision": 98,
+      "original_plan_sha256": "29cad9611d47020d42c48c7ba92d7ac2a67f9e81f95f6e292dc82768e3518047",
+      "replay_plan_sha256": "40f17309b4f979bfdf05b5c99c6b2335985d99d7032d0b01967310d6235ee8ad",
+      "compiled_yaml_sha256": "0fdda7d1d69d37e3d43564734f1f587dc07f4c1899f2411905f0b7ddfe37bf55",
+      "compiled_yaml_bytes": 249681,
+      "diagnostics": [],
+      "static_status": "final_review",
+      "coverage_categories": {
+        "passed": 1,
+        "declared": 6,
+        "unverified": 25,
+        "verified": 4
+      },
+      "paid_calls": 0,
+      "executed": false
+    }
+  }
+}

@@ -13,7 +13,6 @@ public sealed class PlannerChoiceUiTests : BunitContext
         var state = new PlanningSession { Status = PlanningStatus.FinalReview,
             Requirements = new() { Summary = "Review", Outcomes = [new("result", "Requested result")] },
             ValidationResults = [new("judge:summary", "unverified", "<script>untrusted</script> Not a proof.", [])] };
-        state.Request.Options["business_judge"] = true;
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)).Add(c => c.ReviewEnabled, true));
         Assert.NotNull(cut.Find("[aria-label='Business judge observations']"));
         Assert.Empty(cut.FindAll("script"));
@@ -50,7 +49,7 @@ public sealed class PlannerChoiceUiTests : BunitContext
     public void RequirementReviewIsExplicitAccessibleAndClearedForAnotherArtifact()
     {
         IReadOnlyList<string>? reviewed = null;
-        var state = new PlanningSession { IntentVersion = 2, Revision = 1, Status = PlanningStatus.FinalReview,
+        var state = new PlanningSession { Revision = 1, Status = PlanningStatus.FinalReview,
             Requirements = new() { Outcomes = [new("each", "For each resource, visit then extract."), new("complete", "Consume complete observations.")] } };
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state))
             .Add(c => c.ReviewEnabled, true).Add(c => c.Reviewed, ids => reviewed = ids));
@@ -95,12 +94,12 @@ public sealed class PlannerChoiceUiTests : BunitContext
     }
 
     [Fact]
-    public void HistoricalChecksRemainReadableAndSeparateFromExecutionApproval()
+    public void BusinessJudgeObservationsRemainAdvisoryAndSeparateFromExecutionApproval()
     {
         var state = new PlanningSession { Status = PlanningStatus.FinalReview, ValidationResults =
-            [new("outcome:publish", "supported", "Publish <script>unsafe()</script> via task send. External success has not been observed.", [])] };
+            [new("judge:publish", "ok", "Publish <script>unsafe()</script> via task send. External success has not been observed.", [])] };
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
-        Assert.Contains("Historical outcome checks", cut.Markup); Assert.Contains("send", cut.Markup);
+        Assert.Contains("Business judge observations", cut.Markup); Assert.Contains("do not prove correctness", cut.Markup); Assert.Contains("send", cut.Markup);
         Assert.Contains("success has not been observed", cut.Markup); Assert.Empty(cut.FindAll("script"));
         Assert.Empty(cut.FindAll("button")); Assert.NotNull(cut.Find("details[open] summary"));
     }
@@ -108,7 +107,7 @@ public sealed class PlannerChoiceUiTests : BunitContext
     [Fact]
     public void BusinessRequirementsAreReviewedWithoutTechnicalProofAnnotations()
     {
-        var state = new PlanningSession { IntentVersion = 2, Requirements = new() { Summary = "Make a report", Inputs = [], Outputs = [new() { Name = "report", Type = new() { Kind = "string" } }],
+        var state = new PlanningSession { Requirements = new() { Summary = "Make a report", Inputs = [], Outputs = [new() { Name = "report", Type = new() { Kind = "string" } }],
             Outcomes = [new("report", "Write <script>unsafe()</script> rows")] } };
         var cut = Render<PlannerStageDetails>(p => p.Add(c => c.Session, PlanningEndpoints.ToDto(state)));
         Assert.Contains("Business requirements", cut.Markup); Assert.Contains("Caller inputs: none", cut.Markup);
@@ -123,7 +122,7 @@ public sealed class PlannerChoiceUiTests : BunitContext
     public void CommitmentEvidenceKeepsVerificationHumanReviewAndUncertaintySeparate(bool violation)
     {
         IReadOnlyList<string>? reviewed = null;
-        var state = new PlanningSession { IntentVersion = 3, Revision = 1, Status = PlanningStatus.FinalReview,
+        var state = new PlanningSession { Revision = 1, Status = PlanningStatus.FinalReview,
             Requirements = new() { Outcomes = [new("deliver", "Deliver exact results") { Commitments = [new("observed_operation") { Result = new("location", "filePath") }] }] },
             ValidationResults = [new("coverage:deliver:0:operation", "verified", "Declared operation at /tasks/write; execution unobserved.", []),
                 new("coverage:deliver:limits", "unverified", "Per-item relevance has not been established.", [])] };

@@ -1,0 +1,51 @@
+{
+  "run": "sdk-responses-20261109-01",
+  "source": "2ea23c51fac05474a371c810eebc9b894a7b01f3",
+  "sdk_wire_api": "responses",
+  "native_responses_payload_observed": true,
+  "physical_provider_attempt_records": 0,
+  "campaign_request_records": 0,
+  "observed_commands": 0,
+  "external_completion_verified": true,
+  "durable_receipt_reloaded": true,
+  "cleanup": true,
+  "passed": false,
+  "historical_denial": {
+    "reason": "admission_or_transport_failure",
+    "exception_type": "InvalidOperationException",
+    "exact_rejected_guard": "unavailable; not inferred or rewritten"
+  },
+  "diagnostic_correction": {
+    "new_denials": "Keep distinct fixed reason codes for pinned provider, wire API, SDK identity, visible input/model, output allocation, protocol and exact saved response.",
+    "encrypted_provenance": "SDK upstream path, credential-free origin hash, configured provider path and exact origin/prefix comparison booleans.",
+    "never_record": [
+      "URI credentials",
+      "query parameters",
+      "authorization headers",
+      "arbitrary exception message"
+    ],
+    "authority": "No route, model, tool, permission, reservation, retry, replay or oracle change.",
+    "old_records_unchanged": true
+  },
+  "validation": {
+    "red_missing_reason_cases": 3,
+    "red_existing_generic_case_passed": 1,
+    "final_passed": 266,
+    "final_failed": 0,
+    "new_cases": 5,
+    "actual_restored_test_process_exit": 0,
+    "empty_no_restore_logs_not_counted_as_tests": true
+  },
+  "limitations": [
+    "The exact original preflight denial remains unknown.",
+    "No SDK Responses gateway compatibility or Code success established.",
+    "Any follow-up uses a fresh probe identity; this execution is never replayed."
+  ],
+  "private_evidence_sha256": {
+    "sdk-responses-01-final.json": "844b99d297cd344f070a63ecff699d6d08dbdd629363e0485cc4fb96af59f901",
+    "sdk-responses-01-admission.json": "5ccf65c9f75f9e3d737a50513cfff706a6bb93d77123fc58ceddde60b5181e06",
+    "sdk-responses-01-closed-audit.json": "56ab6584feec473591fc59854ed81756252db6842da51cd32b89b9c0ce42ee41",
+    "sdk-denial-first-cause-red.log": "70122906ab1e342cd23b7395c4d7f9b1b383796c3f5c815cafe3c71de7d3eefd",
+    "sdk-denial-first-cause-restored-check.log": "7abd74d51584fd10870c9a5bbae8024caf18a9e435893c4314f672896d45d4d9"
+  }
+}

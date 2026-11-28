@@ -25,7 +25,19 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
 {
     private readonly CopilotInferenceBudget _inference = new(maxModelCalls, maxTotalTokens, deadline, persistReservation);
     public IReadOnlySet<string> Tools { get; } = tools;
-    internal bool RequiresSandbox => Tools.Contains("bash") || Tools.Contains("powershell");
+    public IReadOnlyList<string>? SessionTools { get; internal set; }
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _directoryViews = new(StringComparer.Ordinal);
+    internal void RecordDirectoryView(string toolCallId) => _directoryViews.TryAdd(toolCallId, 0);
+    public bool WasDirectoryView(string toolCallId) => _directoryViews.ContainsKey(toolCallId);
+    public Func<int, string, int, int, CancellationToken, Task>? ReserveHostAttemptAsync
+    {
+        init => _inference.ReserveHostAttemptAsync = value;
+    }
+    internal bool InspectsSandboxPolicy => RequiresDeviceIsolation(usesSessionFileSystem: false);
+    // Native view reads through the registered session filesystem. Shell and search can start local processes.
+    internal bool RequiresDeviceIsolation(bool usesSessionFileSystem) =>
+        Tools.Contains("bash") || Tools.Contains("powershell") || Tools.Contains("rg") ||
+        (Tools.Contains("view") || Tools.Contains("apply_patch")) && !usesSessionFileSystem;
     public DateTimeOffset Deadline { get; } = deadline;
     public int ModelCalls => _inference.ModelCalls;
     /// <summary>Conservative charged token ceiling, not measured model usage.</summary>
@@ -33,6 +45,17 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     public bool Exhausted => AdmissionStop is not null;
     public CopilotAdmissionStop? AdmissionStop => _inference.AdmissionStop;
     private volatile bool _transportFailed;
+    public Func<int, string, HttpContent, string, CancellationToken, Task>? SettleHostAttemptAsync
+    {
+        init => _inference.SettleHostAttemptAsync = value;
+    }
+    internal CopilotInferenceFailure? ProviderFailure => _inference.ProviderFailure;
+    internal CancellationToken ProviderRejected => _inference.ProviderRejected;
+    internal void RecordProviderFailure(CopilotInferenceFailure failure)
+    {
+        _stopped = true;
+        _inference.RecordProviderFailure(failure);
+    }
     internal bool TransportFailed => _transportFailed;
     internal void RecordTransportFailure() => _transportFailed = true;
     public string? ApprovedPrompt { get; init; }
@@ -42,6 +65,10 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     private readonly object _operationsGate = new();
     private int _activeOperations;
     private int _sdkAdmissions;
+    public int? MaxActions { get; init; }
+    public CopilotAdaptiveActions? AdaptiveActions { get; init; }
+    public bool HasUnresolvedActions => AdaptiveActions?.Unresolved == true;
+    public int Actions { get { lock (_operationsGate) return _sdkAdmissions; } }
     private bool _unpairedSdkCompletion;
     private readonly Dictionary<string, int> _sdkActive = new(StringComparer.Ordinal);
     private TaskCompletionSource _drained = CompletedDrain();
@@ -59,7 +86,8 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
     {
         lock (_operationsGate)
         {
-            if (_stopped || DateTimeOffset.UtcNow >= Deadline || !Tools.Contains(tool)) return false;
+            if (_stopped || DateTimeOffset.UtcNow >= Deadline || !Tools.Contains(tool) ||
+                MaxActions is { } limit && _sdkAdmissions >= limit) return false;
             _sdkAdmissions++; _sdkActive[tool] = _sdkActive.GetValueOrDefault(tool) + 1;
             return true;
         }
@@ -79,7 +107,7 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
         lock (_operationsGate) return _stopped && !_unpairedSdkCompletion && _sdkAdmissions == observedCalls && _sdkActive.Values.All(n => n == 0);
     }
 
-    internal IDisposable EnterFileOperation(string tool)
+    internal IDisposable EnterHostOperation(string tool)
     {
         lock (_operationsGate)
         {
@@ -107,29 +135,22 @@ public sealed class CopilotExecutionBounds(int maxModelCalls, long maxTotalToken
             throw new InvalidOperationException("A bounded task permits one turn with its approved objective and inputs. Inspect the original receipt.");
     }
 
-    internal async Task ReserveAsync(HttpRequestMessage request, CancellationToken ct)
+    internal Task ReserveAsync(HttpRequestMessage request, CancellationToken ct) => ReserveAsync(request, null, ct);
+
+    internal async Task ReserveAsync(HttpRequestMessage request, CopilotPreparedInference? prepared, CancellationToken ct)
     {
         if (_stopped) throw new InvalidOperationException("The bounded task no longer admits inference.");
-        try { await _inference.ReserveAsync(request, ct); }
+        try { await _inference.ReserveAsync(request, prepared, ct); }
         finally { if (_inference.AdmissionStop is not null) lock (_operationsGate) _stopped = true; }
     }
 
 }
 
-internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds bounds, CopilotInferenceProxyHandler? proxy) : CopilotRequestHandler
+internal sealed class CopilotBoundedInferenceHandler(CopilotExecutionBounds bounds, CopilotInferenceProxyHandler? proxy,
+    CopilotInferenceAdapter? adapter = null) : CopilotRequestHandler
 {
-    private static readonly HttpClient Direct = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-    protected override async Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
-    {
-        await bounds.ReserveAsync(request, context.CancellationToken);
-        try
-        {
-            return proxy is null
-                ? await Direct.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, context.CancellationToken)
-                : await proxy.DispatchAsync(request, context);
-        }
-        catch { bounds.RecordTransportFailure(); throw; }
-    }
+    protected override Task<HttpResponseMessage> SendRequestAsync(HttpRequestMessage request, GitHub.Copilot.CopilotRequestContext context)
+        => CopilotInferenceDispatch.SendAsync(request, context, adapter, proxy, bounds.ReserveAsync, bounds.RecordTransportFailure, rejected: bounds.RecordProviderFailure);
     protected override Task<CopilotWebSocketHandler> OpenWebSocketAsync(GitHub.Copilot.CopilotRequestContext context)
         => Task.FromException<CopilotWebSocketHandler>(new InvalidOperationException("Unmetered WebSocket inference is unavailable for bounded tasks."));
 }

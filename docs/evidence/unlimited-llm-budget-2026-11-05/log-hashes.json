@@ -1,0 +1,82 @@
+{
+  "final-solution-build.log.gz": {
+    "raw_sha256": "62d3c79e457f4df8e060054aea691cec03bb02efad8c4f07ccfccd4cce8acd4b",
+    "archived_sha256": "9a1aa8f6573bce6b798cbcf61d960d58c0452baf2eaa9f7929b3acd66c088b2f"
+  },
+  "frontend-build.log.gz": {
+    "raw_sha256": "5fd77bc381c63dde16d5941105469275aebd34690816fd7214d2d7922f9432c6",
+    "archived_sha256": "8e3c3974dfc854fbf4b207f8ecaf08ab234471a7050ee7d601f0747c7ded93e6"
+  },
+  "final-aot-restore.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "final-aot-publish.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "final-aot-smoke.log.gz": {
+    "raw_sha256": "8553052de00f9a5bbc2676c588f8218497cf6f6eea37419ca6faf22c383187e2",
+    "archived_sha256": "61e0e0e3769f87ae8e61fcf0ea27e18a2ca4ec10c326d7731ae39525d479f292"
+  },
+  "final-server-restore.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "final-server-publish.log.gz": {
+    "raw_sha256": "e4fc68c84d41abb03a5b4e16f3151101a46b5b88de3893c573f30d331d534091",
+    "archived_sha256": "f735dfd892a3c516482b2fbf1ac1f44001b4a76ffa928a218375b84034f20a79"
+  },
+  "final-published-encrypted-storage.log.gz": {
+    "raw_sha256": "0268a9c0ae5df08cde06a1818fae2b53cf86df674fc19dc0cfc070d58ffd6563",
+    "archived_sha256": "6e47149265d3a7c08d363a991e8655565ed1de60786e252c5a666090af056e20"
+  },
+  "latest-core-tests.log.gz": {
+    "raw_sha256": "9b60c15b4885c543c1ed7abf0e68e069538beb212102fd575299234533e1fbb6",
+    "archived_sha256": "d8e497f7751a819bce740cafbaa90889bf25463d6ff668d0348fca94f3faf5f2"
+  },
+  "latest-server-tests.log.gz": {
+    "raw_sha256": "3bc6cb927706a74338f79190aae974a94ef0413992efbf3600897fbdaac902ed",
+    "archived_sha256": "5d72591a85ed7e4bd97c2764bd4ac433e7bac7443dbd9ce6e716ed4ef9b758f5"
+  },
+  "latest-persistence-tests.log.gz": {
+    "raw_sha256": "1e4134dc93f3c2f0f61aecd94865bc54e26ad2150203a0ba3e339d52480edbf0",
+    "archived_sha256": "66bac22a2fcc553043b5d1a4adff9dedd10e1a15c07772282a04793a187ff5bb"
+  },
+  "latest-rendering-tests.log.gz": {
+    "raw_sha256": "e26a3f4771eab352a4fcb74d1cbc67361349908f7dd9d3755196989ddddb5ee5",
+    "archived_sha256": "f281d7e0e91b80f2937343945e896e09e8ec592c38f18a5c8867b7cb6bfb9f8c"
+  },
+  "planning-skill-validation.log.gz": {
+    "raw_sha256": "db349825903d66adffea3ecf1bd8e1803043e8a71cf1a051235dabc5371f5bb0",
+    "archived_sha256": "b948700e0cfd3ff53a6d4a59966a080c53b11fa824a2fca0c5145f55e2c6891f"
+  },
+  "dotnet-skill-validation.log.gz": {
+    "raw_sha256": "db349825903d66adffea3ecf1bd8e1803043e8a71cf1a051235dabc5371f5bb0",
+    "archived_sha256": "b948700e0cfd3ff53a6d4a59966a080c53b11fa824a2fca0c5145f55e2c6891f"
+  },
+  "GnOuGo.Flow.Core-pack-qualified.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "GnOuGo.Flow.Planning-pack-qualified.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "GnOuGo.Flow.Integrations-pack-qualified.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "GnOuGo.Flow.Persistence-pack-qualified.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "GnOuGo.Agent.Shared-pack-qualified.log.gz": {
+    "raw_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "archived_sha256": "9ceffb7310338057cfe71a4ae1e2c98d2c485d81cdef906532a801f457a38d64"
+  },
+  "final-solution-tests.log.gz": {
+    "raw_sha256": "76091aad22eb0e7b20b72d395f12a1e7665ecc5805933977c570fb9a0f417fe1",
+    "archived_sha256": "0cb409eb0c39e4ac1fadf472264b5289c722e592cb75a19c33324a7e2e390fe2"
+  }
+}

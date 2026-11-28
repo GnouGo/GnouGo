@@ -1,0 +1,228 @@
+{
+  "kind": "received_source_bound_business_repair_admission_stop",
+  "version": 1,
+  "observed_at_utc": "2026-11-04T10:02:31.003100+00:00",
+  "campaign": "schema-portability-20261019-incremental",
+  "production_source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+  "harness_source": "1d6632c5ad4bf6e3aa9a6cd150f3776d640129de",
+  "cohort": "biz1d6632c5amz02",
+  "run": "biz1d6632c5amz02-amazon-1",
+  "status": "stopped",
+  "revision": 12,
+  "planning_ms": 951762,
+  "logical_calls": 12,
+  "physical_attempts": 13,
+  "received_usage_receipts": 12,
+  "pending_request_id": null,
+  "corrections": 1,
+  "operator_plan_revisions": 0,
+  "business_blocks": 1,
+  "accepted_checkpoints": 0,
+  "candidate_tasks": 9,
+  "finding": "The group exports the file-write success flag independently of search/product-reading success. The Judge maintained this finding after the existing evidence-only reconsideration.",
+  "repair_admission_cause": "Mixed targets include an owned tentative task and the newly introduced group body scope. The scope is neither a candidate task ID nor the parent extension scope, so admission classifies the complete finding as BUSINESS_REVIEW_REQUIRED and offers patch:null only. The second maintained verdict stops the candidate.",
+  "business_review_count": 2,
+  "judge_complete_request_bytes": [
+    40915,
+    54159
+  ],
+  "judge_peak_complete_request_bytes": 54159,
+  "known_input_tokens": 77754,
+  "known_output_tokens": 19809,
+  "reasoning_tokens_included_in_output": 15622,
+  "known_cost_eur": "0.8793630915108685928973969048",
+  "retained_reservations_eur": "0.6910457107075767063243581716",
+  "phases": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 1210,
+      "known_output_tokens": 2360,
+      "reasoning_included_in_output_tokens": 2049,
+      "known_cost_eur": "0.0687449682440289829143930584",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "52622.7628"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 891,
+      "known_output_tokens": 971,
+      "reasoning_included_in_output_tokens": 512,
+      "known_cost_eur": "0.0300429376509526791305125682",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "37377.7664"
+    },
+    "construction_implementation": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "known_input_tokens": 2552,
+      "known_output_tokens": 3557,
+      "reasoning_included_in_output_tokens": 3073,
+      "known_cost_eur": "0.1068700241524286608820109133",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "73635.2652"
+    },
+    "construction_discovery": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "known_input_tokens": 10291,
+      "known_output_tokens": 5222,
+      "reasoning_included_in_output_tokens": 4898,
+      "known_cost_eur": "0.1861660255836836926379819304",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "141633.4697"
+    },
+    "construction_draft": {
+      "logical_calls": 2,
+      "physical_attempts": 3,
+      "known_input_tokens": 25847,
+      "known_output_tokens": 5079,
+      "reasoning_included_in_output_tokens": 3071,
+      "known_cost_eur": "0.2519053582610251364164952142",
+      "retained_reservations_eur": "0.6910457107075767063243581716",
+      "elapsed_ms": "427315.4722"
+    },
+    "replan": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 20773,
+      "known_output_tokens": 633,
+      "reasoning_included_in_output_tokens": 483,
+      "known_cost_eur": "0.1098980230789873870650326505",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "63068.4812"
+    },
+    "construction_local_judge": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "known_input_tokens": 16190,
+      "known_output_tokens": 1987,
+      "reasoning_included_in_output_tokens": 1536,
+      "known_cost_eur": "0.1257357545397620538509705698",
+      "retained_reservations_eur": "0",
+      "elapsed_ms": "77661.8733"
+    }
+  },
+  "threshold_warnings": [
+    {
+      "kind": "prerequisites",
+      "current": 5,
+      "threshold": 4,
+      "basis": "captured_optimization_target",
+      "stage": "implementation",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 23959,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "construction_draft",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 23959,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "biz1d6632c5amz02-amazon-1:8:06d07a033da91e8bb42b6648411e8a3e69293402e051df699b6cd5cd1e7a4df8:9e9e754810839c3779790062f79bcc1236b40919ff72bc5ed889239f48f53b7c",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "fragment",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 26650,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "replan",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "estimated_input_tokens",
+      "current": 26650,
+      "threshold": 22000,
+      "basis": "captured_optimization_target",
+      "stage": "planning",
+      "requestId": "biz1d6632c5amz02-amazon-1:9:5887729cc14606c153889eb38b77bf71f61e36c8728c2d218d6b224b633b5d4b:816a82b1494a7207418dfe4fa2cbd92bf83bab13191ac411b1ccc3b74e70b0ef",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    },
+    {
+      "kind": "recursive_tasks",
+      "current": 9,
+      "threshold": 8,
+      "basis": "captured_optimization_target",
+      "stage": "structural_repair",
+      "sessionId": "biz1d6632c5amz02-amazon-1",
+      "blockId": "block_1",
+      "stepId": "step_1",
+      "checkpoint": 0
+    }
+  ],
+  "request7_http_statuses": [
+    500,
+    200
+  ],
+  "request7_failed_attempt_reservation_preserved": true,
+  "final_artifact": false,
+  "artifact_bound_approval": false,
+  "execution_started": false,
+  "independent_oracle_passed": false,
+  "qualification": {
+    "passed": 0,
+    "required": 6
+  },
+  "campaign_after": {
+    "ceiling_eur": "740.0301038327063045424449473",
+    "calls": 6862,
+    "session_calls": 0,
+    "known_input_tokens": 25995018,
+    "known_output_tokens": 10477429,
+    "known_cost_eur": "396.91636135848205907048708365",
+    "reserved_input_tokens": 2549886,
+    "reserved_output_tokens": 4325376,
+    "reserved_cost_eur": "127.31500234629097009318593666",
+    "cost_upper_bound_eur": "524.23136370477302916367302031",
+    "unknown_attempts": 149,
+    "available_eur": "215.79874012793327537877192699",
+    "closures": 62,
+    "unresolved_requests": [],
+    "evidence_hash": "bcabe57e687d69be977a90773313f01d33b5c08f66b3eff5a54d4fb9b035b198"
+  },
+  "captures": {
+    "run-20261104T095628192697Z.private.json": "7f3ee2353abbf529164730fff75e7e414200672a06e5f2cb72837bbbb0bd70a6",
+    "final-ledger.private.json": "1ce6d9f575466c665c699bb541d2baf167dfee61e9dd6926aa27c7e226baff7a",
+    "request7-final-journal.private.json": "972596b57b2775cc75d6d9298a6c658334f299af0f4d55ba1ce2d10b61ecdce4",
+    "planning.private.log": "e12631b553e122a6f2e0a2c3fa6c86a6fd6739935e8bb0c0e1ffa353677567c3"
+  },
+  "limitations": [
+    "No completed contribution, global review, artifact, approval, execution or runtime success occurred.",
+    "The retained failed-attempt reservation is unknown usage despite the later received successful response.",
+    "The routing diagnosis does not resolve the business finding or authorize plan edits to this stopped run."
+  ]
+}

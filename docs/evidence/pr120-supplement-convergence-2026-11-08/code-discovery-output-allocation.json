@@ -1,0 +1,44 @@
+{
+  "source_revision": "403f0f27dca97d84fb10e094b0bcc59aa62c1be4",
+  "source_request": "3c72e254535c4612a3c4cec4d78078f3:15:a88abf27e0f8f91de995c230014c33ee133cdf4132e89b21bdbbefe89c1d6346:54a4bcf2eb4bf1ba064072647cf31b936183d06a129c77f1038b512d4cddbb3f",
+  "syntax_guidance_probe": {
+    "changed_wire_paths": [
+      "messages[0].content"
+    ],
+    "all_other_wire_fields_identical": true,
+    "added_prompt_utf8_bytes": 166,
+    "physical_attempts": 1,
+    "durable_receipt": false,
+    "complete_value": false,
+    "outcome": "inconclusive native transport loss; no evidence to enable this guidance in production",
+    "retention": {
+      "evidence_hash": "ed39468aebe73f52ed003bfc76ee834722cbdbe5c9e9ff30361ac006716899ef",
+      "reservation_retained": true,
+      "request_replay_forbidden": true,
+      "run_continuation_forbidden": true
+    }
+  },
+  "output_allocation_probe": {
+    "changed_wire_paths": [
+      "max_completion_tokens"
+    ],
+    "before": 32768,
+    "after": 4096,
+    "all_other_wire_fields_identical": true,
+    "schema_valid": true,
+    "physical_attempts": 1,
+    "input_tokens": 9833,
+    "output_tokens": 82,
+    "captured_usage_tariff_estimate_eur": "0.2774294670846394984326018809",
+    "seconds_from_run_start_to_saved_report": 15.951142,
+    "candidate_applied": false,
+    "business_effects": false,
+    "limitation": "One independent exact-request result supports a fresh workflow trial; it does not prove causality, accepted-work performance or full convergence."
+  },
+  "next_profile_change": {
+    "navigation.outputTokens": 4096,
+    "draft_and_review_unchanged": true,
+    "reasoning_unchanged": true,
+    "no_grammar_requirement_or_oracle_change": true
+  }
+}

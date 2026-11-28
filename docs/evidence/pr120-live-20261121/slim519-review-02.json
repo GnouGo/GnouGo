@@ -1,0 +1,194 @@
+{
+  "source": "b2aebffd00f49011345eee77404ec4f1ec4792fd",
+  "run": "slim519-verified-20261121-02",
+  "campaign": "pr120-live-20261107-400",
+  "session_id": "11ff84808e0a45358f5de80b1af5cee0",
+  "execution_run_id": "690a1adf14b6bb909df42deb3b06c228",
+  "execution_artifact_hash": "c95c540479dae96a4fbe0670a6240135bbe45cb3621ab98db5b4d1c93ea8dac5",
+  "target_base": "e4deed940d34719b44db32e8d0ad7821e66f7e41",
+  "target_head": "9585afcbaeefddd5f634b795d589e4383243a8a5",
+  "checkout_base": "e4deed940d34719b44db32e8d0ad7821e66f7e41",
+  "checkout_head": "9585afcbaeefddd5f634b795d589e4383243a8a5",
+  "execution": {
+    "success": false,
+    "status": "failed",
+    "finalization_completed": true,
+    "outputs": null
+  },
+  "observed_commands": [],
+  "required_check_status": {
+    "dotnet_restore": "not_executed",
+    "dotnet_build": "not_executed",
+    "dotnet_tests": "not_executed",
+    "dotnet_client_tests": "not_executed",
+    "python_client_install": "not_executed",
+    "python_client_tests": "not_executed",
+    "raft_recovery_harness": "not_executed",
+    "podman_compose_helper": "not_executed",
+    "python_client_coverage": "not_executed",
+    "fibonacci_healthcheck": "not_executed",
+    "memory_lab_report": "not_executed",
+    "annotation_policy_cleanup": "not_executed",
+    "status_stream_benchmark": "not_executed",
+    "zlinq_benchmark": "not_executed",
+    "site_install": "not_executed",
+    "site_lint": "not_executed",
+    "site_typecheck": "not_executed",
+    "site_test": "not_executed",
+    "site_build": "not_executed",
+    "planet_install": "not_executed",
+    "planet_lint": "not_executed",
+    "planet_coverage": "not_executed",
+    "dashboard_install": "not_executed",
+    "dashboard_tests": "not_executed",
+    "mcp_dashboard_install": "not_executed",
+    "mcp_dashboard_tests": "not_executed",
+    "traffic_integration": "not_executed",
+    "native_publish": "not_executed",
+    "native_integration": "not_executed",
+    "kind_integration": "not_executed"
+  },
+  "kind_cluster_after": {
+    "cluster": "gnougo-d0216028a7ec559384",
+    "kubeconfig_absent": true,
+    "kind": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "podman": {
+      "exit_code": 0,
+      "absent": true
+    },
+    "absent": true
+  },
+  "github_readback": {
+    "passed": false,
+    "findings": [
+      "unique_submitted_review_receipt_missing"
+    ]
+  },
+  "oracle": {
+    "passed": false,
+    "findings": [
+      "workflow_execution_failed",
+      "caller_review_report_missing",
+      "repository_required_checks_not_independently_verified",
+      "unique_submitted_review_receipt_missing"
+    ]
+  },
+  "captured_report_sha256": "992281cbefc8da97fa06e3a92668ab8ec3992f6273f276f0d2978a6777231123",
+  "tool_calls": [
+    {
+      "server": "Github",
+      "tool": "pull_request_read",
+      "started": "2026-11-21T19:29:52.6689460+00:00",
+      "latency_ms": 1135,
+      "error": false
+    },
+    {
+      "server": "GnOuGo.Git.Mcp",
+      "tool": "git_clone",
+      "started": "2026-11-21T19:29:54.6211600+00:00",
+      "latency_ms": 102830,
+      "error": false
+    },
+    {
+      "server": "GnOuGo.GithubCopilot.Mcp",
+      "tool": "code_agent_edit",
+      "started": "2026-11-21T19:31:39.0834040+00:00",
+      "latency_ms": 26976,
+      "error": true
+    },
+    {
+      "server": "GnOuGo.Cmd.Mcp",
+      "tool": "cmd_run",
+      "started": "2026-11-21T19:32:06.4355410+00:00",
+      "latency_ms": 1270,
+      "error": false
+    }
+  ],
+  "copilot": {
+    "error_code": "COPILOT_TURN_FAILED",
+    "success": false,
+    "usageJson": null,
+    "toolExecutions": []
+  },
+  "cleanup": {
+    "exitCode": 0,
+    "success": true,
+    "checkoutAbsentAtReadback": true
+  },
+  "tracked_manifest_blobs": [
+    "AGENTS.md",
+    "global.json",
+    ".github/workflows/main.yml",
+    ".github/workflows/dashboard.yml",
+    ".github/workflows/SiteBuild.yml",
+    ".agents/skills/slimfaas-build-test/SKILL.md",
+    "src/SlimFaasSite/package.json",
+    "src/SlimFaasPlanetSaver/package.json",
+    "src/SlimFaas/ClientApp/package.json",
+    "src/SlimFaasMcp/ClientApp/package.json",
+    "client/python/slimfaas-client/pyproject.toml",
+    ".bin/test-annotation-policy.py"
+  ],
+  "caller_report_delivered": false,
+  "physical_accounting": [
+    {
+      "sessionId": "11ff84808e0a45358f5de80b1af5cee0",
+      "httpAttempts": 43,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "29.769432314410480349344978184",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    },
+    {
+      "sessionId": "11ff84808e0a45358f5de80b1af5cee0-copilot",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 1,
+      "measuredUsageTariffEstimateEur": 0,
+      "unresolvedReservationEur": "3.2908296943231441048034934498",
+      "zeroAttemptRequests": []
+    },
+    {
+      "sessionId": "11ff84808e0a45358f5de80b1af5cee0-execution",
+      "httpAttempts": 1,
+      "unresolvedAttempts": 0,
+      "measuredUsageTariffEstimateEur": "0.1289028384279475982532751092",
+      "unresolvedReservationEur": 0,
+      "zeroAttemptRequests": []
+    }
+  ],
+  "github_existing_review_ids": [
+    5965332934,
+    5965449885,
+    5965450275,
+    5965450631
+  ],
+  "github_existing_inline_comment_ids": [
+    4620992966,
+    4620992982,
+    4620992998,
+    4621091918,
+    4621092251,
+    4621092563
+  ],
+  "unreconciled_provider_attempt": {
+    "requestId": "11ff84808e0a45358f5de80b1af5cee0-copilot:24f834efc5515301dfee47481ee30193c08b0530dda462afab18df6809177fc6",
+    "fingerprint": "577d9ceb9a877c71e0cb4df2d6361b1d99c6d72ef62a90e2d21becbc8ae611e0",
+    "physicalAttemptCount": 1,
+    "bodyAvailable": false,
+    "partialBodyAvailable": false,
+    "holdEur": "3.2908296943231441048034934498",
+    "Id": "11ff84808e0a45358f5de80b1af5cee0-copilot:24f834efc5515301dfee47481ee30193c08b0530dda462afab18df6809177fc6",
+    "StartedAtUtc": null,
+    "CompletedAtUtc": null,
+    "Status": null,
+    "ObservedStatus": null,
+    "FirstByteAtUtc": null,
+    "ProviderResponseId": null,
+    "UsageKnown": null,
+    "ProtocolComplete": null,
+    "RetryDecision": null
+  }
+}

@@ -1,0 +1,74 @@
+{
+  "identity": "code-offline-dependencies-20261112-06",
+  "source": "9992a7a359ee3588dbdc067c67e8ee4feaa7dad3",
+  "positive_reference": "resume300b-sdk-keyvault-20261110-05",
+  "provider": "OpenAi from KeyVault",
+  "transport": "gnougo-structured-tools-v1",
+  "provider_endpoint_model_changed": false,
+  "sdk_network_or_bypass_expanded": false,
+  "passed": true,
+  "execution_and_verification_ms": 321124,
+  "exact_command_count": 1,
+  "script_unchanged": true,
+  "terminal_report_verified": true,
+  "durable_receipt_cold_reloaded": true,
+  "cleanup": true,
+  "toolchains": {
+    "node": "v24.20.0",
+    "pnpm": "10.34.5",
+    "python": "Python 3.11.13",
+    "python3": "Python 3.11.13"
+  },
+  "commands": [
+    {
+      "command": "uv sync --group tests",
+      "exit_code": 0,
+      "timed_out": false,
+      "started_utc": "2026-11-13T01:51:09.465659+00:00",
+      "finished_utc": "2026-11-13T01:51:14.463217+00:00",
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9afccab38a8b4af26002f4b50b78d6a5361501a6fd0be71a8afa06718d24a6d7"
+    },
+    {
+      "command": "pnpm install --frozen-lockfile",
+      "exit_code": 0,
+      "timed_out": false,
+      "started_utc": "2026-11-13T01:51:14.463869+00:00",
+      "finished_utc": "2026-11-13T01:51:42.008404+00:00",
+      "stdout_sha256": "ca4fb318dbdef05c8bf005fccb0c6998fb4a9058b386c28e09fcf67f755fce49",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "requirements_unchanged": true,
+  "pinned_head_verified": true,
+  "actual_http_attempts": [
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true
+    },
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true
+    },
+    {
+      "status": 200,
+      "failure": null,
+      "finish_reasons": [
+        "stop"
+      ],
+      "has_usage": true
+    }
+  ],
+  "captured_tariff_receipt_sum_eur": "1.2272087356736756610414222543",
+  "per_http_timing_unavailable": true,
+  "full_code_workflow_qualified": false,
+  "raw_retained_sha256": "e54b25041fd73c86b688f0840d3c900911362a1cbf7743732558eb4ac01745ef"
+}

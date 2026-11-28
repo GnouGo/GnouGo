@@ -22,7 +22,6 @@ public sealed class WorkflowValidator
         "template.render",
         "llm.call",
         "workflow.call", "workflow.route", "workflow.plan", "workflow.execute",
-        "chat_history.get", "chat_history.append",
         "mcp.call", "mcp.list",
         "emit",
         "human.input"

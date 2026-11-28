@@ -1,0 +1,66 @@
+{
+  "source": "2ea23c51fac05474a371c810eebc9b894a7b01f3",
+  "passed": 8576,
+  "skipped": 12,
+  "failed": 0,
+  "assemblies": 33,
+  "complete_disjoint_partition": true,
+  "inventory_and_actual_counts_equal": true,
+  "frozen_binaries_unchanged": true,
+  "shards": [
+    {
+      "index": 1,
+      "passed": 67
+    },
+    {
+      "index": 2,
+      "passed": 54
+    },
+    {
+      "index": 3,
+      "passed": 52
+    },
+    {
+      "index": 4,
+      "passed": 43
+    }
+  ],
+  "all_process_exit_codes_zero": true,
+  "release_build": {
+    "exit_code": 0,
+    "warnings": 0,
+    "errors": 0
+  },
+  "frontend_build": {
+    "exit_code": 0
+  },
+  "packs": {
+    "Core": "passed",
+    "Planning": "passed"
+  },
+  "native_aot": {
+    "rid": "osx-arm64",
+    "publish_exit_code": 0,
+    "published_binary_run_exit_code": 0,
+    "mocked_inference_not_live_qualification": true
+  },
+  "private_log_sha256": {
+    "post-wire-full-remainder.log": "ac06d2342a45e3cb5b26b99bdc42a22c54eab6bb87054de42ae012c0096d7989",
+    "post-wire-fixture-shard1.log": "8b198d7702c20947eb63e9497168bcf15f5719229924eb2055275cf747a04682",
+    "post-wire-fixture-shard2.log": "2c898b1d5c5506dde11221463993712f4dff675e833766c88f2b9ebc63e1b6bf",
+    "post-wire-fixture-shard3.log": "8ee3240f4c1007cbd30c6fed481bf5f107d804e167889a6108c69d6ec161c0e4",
+    "post-wire-fixture-shard4.log": "e2222ebc766c6ee2c2241e1693064d7cb4694c9ec37e622c8c46a0988f157da7",
+    "post-wire-release-build.log": "f7da391b6cc2b6d8fffa14e7bc3b83eeab350bd86d6393cd9cbec7c1f1054abf",
+    "post-wire-server-tests-build.log": "f475df05c7e726ed36d04932829d3590b4663891dca1469245d150f2a8bfb970",
+    "post-wire-frontend-build.log": "38d0c75557794864fa6d175c41f2e6c9e924a6ede95da89f4f11ca01b6556ce1",
+    "post-wire-core-pack.log": "5e71aec656ce76ff8b7422ed8032bbee8ee4f5ca5d0da1ca71565b1067928dbd",
+    "post-wire-planning-pack.log": "f317b542f5ce718998ab47faf815967ef894ec774cb9bd15123e5a62e121b7c7",
+    "post-wire-aot-publish.log": "283d975bc77ed35c22b41f8f7ffb01cb1d24f420783fd8309f6b83af088217cc",
+    "post-wire-aot-smoke.log": "edc8240b4b899389171ba60244214018f192982c7e6c3e6a4d6f90effe0d8971"
+  },
+  "limitations": [
+    "12 existing platform/opt-in skips.",
+    "Complete disjoint solution coverage, not a single unfiltered invocation.",
+    "Local fixtures do not establish autonomous live end-to-end qualification."
+  ]
+}

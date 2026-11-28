@@ -1,0 +1,111 @@
+{
+  "production_and_harness_source": "72c7724eaa320de074ed054d5dfbaa0e482d1ee6",
+  "run": "compactm72c7724eamz11a-amazon-1",
+  "status": "received_output_exhaustion",
+  "logical_requests": 7,
+  "physical_attempts": 7,
+  "received_completions": 7,
+  "judge_calls": 0,
+  "correction_charges": 0,
+  "planning_ms": 518550,
+  "intent_calls": 1,
+  "intent_latency_ms": 43187.6392,
+  "known_cost_eur": "0.8683508488278092158447857720",
+  "retained_unknown_reservation_eur": "0",
+  "provider_tokens": {
+    "input_tokens": 20667,
+    "output_tokens": 28780,
+    "reasoning_tokens": 27771
+  },
+  "failure": {
+    "request": 7,
+    "phase": "construction_draft",
+    "received_status": "output_limit",
+    "input_tokens": 3142,
+    "output_tokens": 16384,
+    "reasoning_tokens": 16384,
+    "visible_text_bytes": 0,
+    "candidate_received": false,
+    "cause_of_exhaustion": "unproven"
+  },
+  "artifact_binding_fix_exercised": false,
+  "artifact_created": false,
+  "runtime_started": false,
+  "business_oracle_passed": false,
+  "satisfied_business_obligations": 0,
+  "calls_per_satisfied_business_obligation": null,
+  "request_sizes_by_phase": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "p50_bytes": 7295,
+      "p95_bytes": 7295,
+      "maximum_bytes": 7295
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "p50_bytes": 11480,
+      "p95_bytes": 11480,
+      "maximum_bytes": 11480
+    },
+    "construction_discovery": {
+      "logical_calls": 4,
+      "p50_bytes": 14479,
+      "p95_bytes": 23912,
+      "maximum_bytes": 23912
+    },
+    "construction_draft": {
+      "logical_calls": 1,
+      "p50_bytes": 16873,
+      "p95_bytes": 16873,
+      "maximum_bytes": 16873
+    }
+  },
+  "all_issued_components_reconcile": true,
+  "phase_policy_sha256": "3e9495d2877fed6d3ddbd9a10b1817842a145bf3a66b7c563d79037d6e215e1c",
+  "settings_changed": false,
+  "no_retention_needed": "Every request has a received receipt; no uncertainty or replay.",
+  "qualifying_success": false,
+  "subsequent_output_only_experiment_supported": true,
+  "peak_request_components_by_phase": {
+    "construction_intent": {
+      "construction_context": 29,
+      "diagnostics": 26,
+      "envelope": 428,
+      "instructions": 1404,
+      "intent": 1194,
+      "interfaces": 59,
+      "response_schema": 4155
+    },
+    "construction_select": {
+      "construction_context": 911,
+      "envelope": 495,
+      "instructions": 2968,
+      "interfaces": 294,
+      "requirements": 2395,
+      "response_schema": 4417
+    },
+    "construction_discovery": {
+      "construction_context": 617,
+      "envelope": 494,
+      "evidence": 8965,
+      "instructions": 2240,
+      "mcp_descriptors": 2467,
+      "objective": 524,
+      "requirements": 2398,
+      "response_schema": 6207
+    },
+    "construction_draft": {
+      "construction_context": 1259,
+      "diagnostics": 26,
+      "envelope": 502,
+      "evidence": 25,
+      "fragment": 22,
+      "instructions": 1144,
+      "interfaces": 339,
+      "mcp_contracts": 25,
+      "objective": 524,
+      "requirements": 2393,
+      "response_schema": 10614
+    }
+  }
+}

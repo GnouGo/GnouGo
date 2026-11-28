@@ -194,18 +194,6 @@ public sealed class LookupCompilationTests
         Assert.Throws<WorkflowRuntimeException>(() => bounded.ExecuteMapping("m.lookup(source.rows,source.ids,'key')", source, PlannerFixture.Ct));
     }
 
-    [Fact]
-    public async Task FreshProposalSupportsLookupWithoutChangingIssuedRepairSchemas()
-    {
-        var plan = Plan(); var runtime = new TestRuntime { Proposal = new() { Plan = plan, Requirements = new() {
-            Summary = "Reconnect selected identities", Inputs = plan.Inputs, Outputs = [new() { Name = "rows", Type = plan.Inputs[0].Type }], Outcomes = [new("resolve", "Return the selected original records")] } } };
-        var state = await PlannerFixture.RunAsync(runtime);
-        Assert.Equal(PlanningStatus.FinalReview, state.Status); Assert.Single(runtime.Calls); Assert.Equal(0, state.ReplanAttempts);
-        Assert.Contains("lookup", runtime.Calls[0].StructuredOutputSchema!.ToJsonString());
-        var legacy = PlanningSchemas.FullProposal(state, compact: false, flatten: false, lookup: false);
-        Assert.DoesNotContain("\"lookup\"", legacy.ToJsonString());
-    }
-
     [Theory]
     [InlineData(false)]
     [InlineData(true)]

@@ -1,4 +1,4 @@
-﻿using GnOuGo.Files.Server.Options;
+using GnOuGo.Files.Server.Options;
 using GnOuGo.Files.Server.Services;
 using Microsoft.Extensions.Options;
 using System.Net.Mime;
@@ -76,15 +76,11 @@ public static class FilesApi
             context.Response.Headers.ContentDisposition = $"attachment; filename=\"{EscapeHeaderValue(record.OriginalFileName)}\"";
             context.Response.ContentLength = record.SizeBytes;
 
-            await using var stream = new FileStream(
-                record.StoredPath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                1024 * 128,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-
-            await stream.CopyToAsync(context.Response.Body, context.RequestAborted);
+            if (!await storage.DownloadAsync(record, context.Response.Body, context.RequestAborted))
+            {
+                context.Response.Clear();
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+            }
         });
 
         return endpoints;

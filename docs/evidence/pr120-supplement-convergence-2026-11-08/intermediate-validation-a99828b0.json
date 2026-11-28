@@ -1,0 +1,13 @@
+{
+  "source": "a99828b070b9943b63fb27d33d447b1e3f5bb5ac",
+  "full_solution": {
+    "exit_code": 0,
+    "test_assemblies": 33,
+    "passed": 8514,
+    "skipped": 12,
+    "failed": 0,
+    "single_unfiltered_invocation": true
+  },
+  "log_sha256": "1d27dc463599bcba852a0fed583e3a6fd88a63c3cd87e1f924605848b84f4196",
+  "scope": "Completed intermediate validation; not relabeled as final-source validation."
+}

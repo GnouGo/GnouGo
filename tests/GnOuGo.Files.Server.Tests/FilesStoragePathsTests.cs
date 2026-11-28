@@ -12,7 +12,7 @@ public sealed class FilesStoragePathsTests
     {
         var paths = new FilesStoragePaths(Microsoft.Extensions.Options.Options.Create(new FilesServerOptions()));
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: AppContext.BaseDirectory),
             ".GnOuGo",
             "data",
             "gnougo-files.db");
@@ -25,7 +25,7 @@ public sealed class FilesStoragePathsTests
     {
         var paths = new FilesStoragePaths(Microsoft.Extensions.Options.Options.Create(new FilesServerOptions()));
         var expected = Path.Combine(
-            GnOuGoWorkspace.ResolveDefaultWorkingDirectory(),
+            GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: AppContext.BaseDirectory),
             ".GnOuGo",
             "Files");
 

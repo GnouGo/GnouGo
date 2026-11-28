@@ -53,7 +53,7 @@ public sealed class GnOuGoAgentWebHostMcpIsolationTests
             "..", "..", "..", "..", "..",
             "src",
             "GnOuGo.Agent.Server"));
-        var app = GnOuGoAgentWebHost.Build(
+        var app = TelemetryTestHostArgs.Build(
             TelemetryTestHostArgs.Create(),
             urls: "http://127.0.0.1:0",
             contentRoot: contentRoot,

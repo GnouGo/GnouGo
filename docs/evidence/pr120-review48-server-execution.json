@@ -1,0 +1,105 @@
+{
+  "run": "code718-verified-20261121-48",
+  "source": "b2e44aeb5f27bc547381d201719590e000494ebd",
+  "session": "d74f1ef394ab48ba88484ba476452abd",
+  "artifact_sha256": "83e32a68835ab344a8b7966c4dba8d1f60a7e7f34e61bdf2b255628055167dfc",
+  "revision_before_delegated_review": 151,
+  "reviewed_tasks": 22,
+  "agent_id": "a4cd27fc-26c0-4670-a933-e8a7295cc8de",
+  "chat_execution_id": "d8e1c3ba3ed8f1b420aef7d583b79134",
+  "runtime_inputs": [
+    "pullRequestUrl",
+    "reviewText"
+  ],
+  "target": "AxaFrance/SmartGuide#718",
+  "checkout_head": "107c86fc87fcd89b529f6589736d27a09acb4206",
+  "checkout_base": "54513252bb6a0f48bf07edf414a80f58e19b6297",
+  "successful_clones": 1,
+  "checks": {
+    "node_install_exit": 1,
+    "node_error": "ERR_PNPM_NO_OFFLINE_TARBALL",
+    "python_install_exit": 1,
+    "python_error": "offline cache miss for langchain-community==0.4.1",
+    "dotnet_restore_subcommand_exits": [
+      0,
+      0
+    ],
+    "dotnet_restore_shell_exit": 0,
+    "lint_unit_integration": "not completed"
+  },
+  "copilot": {
+    "sdk_sessions": 1,
+    "tool_observations": 36,
+    "progress_events": 993,
+    "permission_decisions": 36,
+    "error": "COPILOT_LIMIT_REACHED",
+    "stop": {
+      "kind": "Tokens",
+      "maxModelCalls": 32,
+      "maxTotalTokens": 2000000,
+      "deadline": "2026-11-21T14:54:54.111688+00:00",
+      "modelCalls": 7,
+      "chargedTokens": 1537971,
+      "requiredInputTokens": 462091
+    },
+    "verified_termination": "verified_failure",
+    "remaining_under_limit": 462029
+  },
+  "cleanup": {
+    "alias": "delete_directory",
+    "exit": 0,
+    "confirmed_absent_after_chat": true
+  },
+  "outcome": {
+    "qualified": false,
+    "caller_text_present": false,
+    "github_reviews_read_back": 0,
+    "github_inline_comments_read_back": 0,
+    "oracle_findings": [
+      "workflow_execution_failed",
+      "caller_review_report_missing",
+      "repository_required_checks_not_independently_verified",
+      "unique_submitted_review_receipt_missing"
+    ]
+  },
+  "cost_by_phase": {
+    "planning": {
+      "physical_attempts": 48,
+      "measured_eur": "30.26140830"
+    },
+    "copilot": {
+      "physical_attempts": 7,
+      "measured_eur": "9.73550764"
+    },
+    "execution": {
+      "physical_attempts": 1,
+      "measured_eur": "0.10100983"
+    }
+  },
+  "audit": {
+    "ceiling_eur": 3100,
+    "physical_attempts": 4432,
+    "measured_eur": "2256.29160117",
+    "unresolved_http_attempts": 55,
+    "reserved_http_eur": "492.52354211",
+    "separate_application_reservations_eur": "171.63356950",
+    "remaining_eur": "179.55128722",
+    "provider_invoice": null
+  },
+  "cache_diagnostics": {
+    "source_pr_head": "107c86fc87fcd89b529f6589736d27a09acb4206",
+    "model_calls": 0,
+    "sdk_outbound_network": false,
+    "sandbox_bypass": false,
+    "node_frozen_lock_sha256": "76b0d603e14938514705e66b49bb35f0b53dfe8702673282fc12b0394e9751c4",
+    "node_default_store_frozen_fetch_exit": 0,
+    "node_new_downloads": 0,
+    "langchain_community_0_4_1_default_cache_install_exit": 0,
+    "mkdocs_material_9_7_7_before_offline_install_exit": 1,
+    "locked_wheel_sha256": "sha256:8ea9bb1737a5b524a5f9dcf2e1b4ebda8274ae3008aa7845720a97083bef708f",
+    "locked_wheel_bytes": 9305438,
+    "pinned_host_prefetch_exit": 0,
+    "mkdocs_material_9_7_7_after_offline_install_exit": 0,
+    "temporary_install_destinations_removed": true
+  }
+}

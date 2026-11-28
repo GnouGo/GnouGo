@@ -1,0 +1,13 @@
+{
+  "reference_session": "81c83cd17de8440ab879cde086af58a4",
+  "captured_revision": 144,
+  "archived_rejection": "rejected:3",
+  "original_json_bytes": 239178,
+  "presented_json_bytes": 79516,
+  "earlier_evidence_address": "rejected:2",
+  "followup_reproduces_exact_original": true,
+  "retained_evidence_unchanged": true,
+  "model_calls": 0,
+  "workflow_executed": false,
+  "source": "246a1eff8e99ffc36662dc6981de170cfcc6d10b"
+}

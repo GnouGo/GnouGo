@@ -61,6 +61,7 @@ public static class BuiltInStepContracts
                     ("provider", String()),
                     ("model", String()),
                     ("prompt", String()),
+                    ("images", Array(OpenObject())),
                     ("system", String()),
                     ("temperature", Number()),
                     ("reasoning", Enum("auto", "minimal", "low", "medium", "high", "max")),
@@ -70,7 +71,7 @@ public static class BuiltInStepContracts
                     ("text", String()),
                     ("json", Any()),
                     ("usage", OpenObject()),
-                    ("meta", Object(("model", String()))),
+                    ("meta", Object(("model", String()), ("images", Array(OpenObject())))),
                     ("raw", Any())),
                 inputRequired: true),
             ["workflow.call"] = Contract(
@@ -94,7 +95,9 @@ public static class BuiltInStepContracts
             ["mcp.call"] = Contract(
                 McpCallInput(),
                 Object(
-                    ("status", Enum("ok", "error")), ("response", Any()), ("error", OpenObject()),
+                    ("status", Enum("ok", "error")), ("response", Any()), ("content_blocks", Array(OpenObject())), ("error", OpenObject()),
+                    ("images", Array(Object(new[] { "sha256", "mimeType", "width", "height", "size" },
+                        ("sha256", String()), ("mimeType", Enum("image/png", "image/jpeg")), ("width", Integer()), ("height", Integer()), ("size", Integer())))),
                     ("correlation_id", String()), ("trace_id", String()), ("results", Array(Any())),
                     ("selection_mode", String()), ("text", String()), ("selection_text", String()),
                     ("tool_calls", Array(Any())), ("json", Any()), ("description", String()), ("messages", Array(Any()))),
@@ -179,16 +182,17 @@ public static class BuiltInStepContracts
     private static JsonObject WorkflowPlanInput() => Object(
         new[] { "raw_prompt", "generator" },
         ("raw_prompt", String()), ("name", String()), ("planning_mode", Enum("auto", "interactive")),
-        ("business_judge", Boolean()),
+        ("construction_preset", Enum("ordinary", "large")),
         ("llm_budget", Object(("max_calls", PositiveInteger()), ("max_total_tokens", PositiveInteger()),
             ("max_elapsed_ms", PositiveInteger()), ("max_estimated_cost", Object(new[] { "amount", "currency" },
                 ("amount", Number()), ("currency", String()))), ("unverifiable", Enum("fail")))),
         ("generator", Object(("provider", String()), ("model", String()), ("reasoning", String()),
-            ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()))),
-        ("max_replan_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 10, ["default"] = 4 }),
+            ("max_input_tokens", PositiveInteger()), ("max_output_tokens", PositiveInteger()),
+            ("draft_output_tokens", PositiveInteger()), ("review_output_tokens", PositiveInteger()))),
+        ("max_replan_attempts", new JsonObject { ["type"] = "integer", ["minimum"] = 0, ["maximum"] = 64, ["default"] = 4 }),
         ("policy", Object(("instructions", String()), ("allowed_step_types", Array(String())),
             ("denied_capability_ids", Array(String())), ("require_external_confirmation", Boolean()))),
-        ("limits", Object(("max_steps_total", PositiveInteger()))));
+        ("limits", Object(("max_steps_total", PositiveInteger()), ("max_steps_per_workflow", PositiveInteger()), ("max_workflows", PositiveInteger()))));
 
     private static JsonObject McpCallInput() => Object(
         new[] { "server" },

@@ -1,0 +1,46 @@
+{
+  "implementation_source": "2a83c9c09c2dedeb481f15d19eb6ce74c3670797",
+  "compared_configuration": "75abc1936a9d2c5cf41ba8cccf7787bd8e3c2370bb8df32d9de604ab6291c491",
+  "provider": "OpenAi",
+  "model": "gpt-6.1-sol-2026-09-29",
+  "differences": [],
+  "host_fingerprint_matches": true,
+  "metadata_fingerprint_matches": true,
+  "endpoint_matches": true,
+  "endpoint_differs_only_by_trailing_slash": true,
+  "configuration_hash": "e35fb6e3703ce36db3974552d6d798b800ad36cead124960a2ca249a1f475bd4",
+  "metadata_hash": "168d98a12926c08eccecfcdece4fd81cc72752008bba75d3ced2913c8c1b8d06",
+  "structured_output_supported": true,
+  "supported_reasoning_efforts": [
+    "medium",
+    "high",
+    "max"
+  ],
+  "readiness_origin": "Local configuration and declared metadata only; actual provider protocol acceptance awaits an admitted paid probe.",
+  "verified_model_max_output_tokens": 128000,
+  "planning_input_allowance": 96000,
+  "accounting_readiness_for_a_new_small_request_only": {
+    "ready": true,
+    "quote": {
+      "source_currency": "USD",
+      "target_currency": "EUR",
+      "rate": "0.8945343948474818856785043385",
+      "as_of_utc": "2026-11-03T00:00:00+00:00",
+      "source": "ecb_reference_rates"
+    },
+    "reservation_estimate_eur": "7.8524376062259593881384739244"
+  },
+  "does_not_establish_global_funding": true,
+  "diagnostic_model_maximum_in_actual_host_readiness_run": false,
+  "phase_allocations": "Configured phase policy retained. No new paid planning session was captured. No forced model maximum or allocation reduction was applied.",
+  "source_phase_defaults": {
+    "navigation_output": 8192,
+    "draft_output": 8192,
+    "review_output": 2048,
+    "reasoning": "medium"
+  },
+  "source_phase_defaults_are_not_historical_session_captures": true,
+  "historical_host_options_available": false,
+  "raw_sha256": "090ed6d11c4cc0bf2f86c6f9eb62548cf9be2b51ad3973a6677e0a06bf671899",
+  "redaction": "Endpoint origins, credentials and authority tokens omitted; exact deployment retained."
+}

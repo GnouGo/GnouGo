@@ -1,0 +1,10 @@
+{
+  "llm_budget": {
+    "max_calls": 160,
+    "max_total_tokens": 9000000,
+    "max_elapsed_ms": 7200000,
+    "max_estimated_cost": { "amount": 7.5, "currency": "EUR" }
+  },
+  "execution_verification_reserve_eur": 6,
+  "execution_verification_reserve_fraction": 0.25
+}

@@ -180,19 +180,23 @@ public sealed partial class DynamicMappingCollectionTests
         Assert.Equal(count, saved.ModelUsage!.Calls);
         if (unknown) Assert.Equal("RUN_NEEDS_RECONCILIATION", replay.Error!.Code);
     }
-    [Fact]
-    public async Task AdaptiveRestartPinsAssignmentsAndReusesCommittedSpecializations()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AdaptiveRestartPinsAssignmentsAndReusesCommittedSpecializations(bool advisory)
     {
         var store = new InMemoryWorkflowRunStore(); var cache = new Store();
         var model = new Model("item.label", "item.name", "item.title");
         var fault = new AdaptiveFaultStore(store);
         var engine = AdaptiveEngine(model, cache); engine.RunStore = fault; engine.Limits = new() { TenantId = "tenant", RunId = "restart" };
+        if (advisory) engine.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 3, MaxTotalTokens = 1 });
         var values = JsonNode.Parse("[{\"label\":\"a\"},{\"name\":\"b\"},{\"title\":\"c\"}]")!.AsArray();
         await Assert.ThrowsAsync<IOException>(() => AdaptiveRun(engine, values));
         Assert.Equal(2, model.Requests.Count);
         var saved = (await store.ReadAsync("tenant", "restart", Ct))!;
         var issued = saved.Invocations["/workflow/main/step/map/mapping/1"].ResolvedInput!.ToJsonString();
         var recovered = AdaptiveEngine(model, cache); recovered.RunStore = store;
+        if (advisory) recovered.LLMUsageBudget = new LLMUsageBudgetScope(true, new() { MaxCalls = 3, MaxTotalTokens = 1 });
         var result = await recovered.ResumeAsync("tenant", "restart", saved.Revision, new WorkflowCompiler().Compile(AdaptiveDocument()).Workflows["main"], Ct);
         Assert.True(result.Success, result.Error?.Message); Assert.Equal(3, model.Requests.Count);
         Assert.Equal(new[] { "a", "b", "c" }, Result(result).Select(v => v!.GetValue<string>()));

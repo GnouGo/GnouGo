@@ -45,6 +45,8 @@ public sealed class DocumentOperationHost
 
         var ext = Path.GetExtension(resolved).ToLowerInvariant();
         var outputFormat = string.IsNullOrWhiteSpace(format) ? "markdown" : format.Trim().ToLowerInvariant();
+        if (outputFormat == "cells" && ext != ".xlsx")
+            return DocumentReadResult.Error("UNSUPPORTED_FORMAT", "Cell output requires an XLSX workbook.");
 
         try
         {
@@ -338,6 +340,7 @@ public sealed class DocumentOperationHost
     {
         using var xlsx = DocumentFormat.OpenXml.Packaging.SpreadsheetDocument.Open(path, false);
         var wbPart = xlsx.WorkbookPart;
+        if (format == "cells") return XlsxCellReader.Read(path, wbPart);
         var sst = wbPart?.SharedStringTablePart?.SharedStringTable;
         var shared = sst is null
             ? Array.Empty<string>()

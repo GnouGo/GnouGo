@@ -77,22 +77,18 @@ public sealed class McpCallExecutor : IStepExecutor
         When tool names and input schemas are listed in the planner's `<available_mcp_servers>` section, use `mcp.call` directly with explicit `method` and `request` — no `mcp.list` step needed.
         Fallback: discover candidate servers -> choose one server -> use `mcp.list` -> choose the exact tool/prompt -> build `request` -> use `mcp.call` with explicit `method`/`methods`.
 
-        LLM-assisted MCP call pattern:
-        use `mcp.list` first -> pass `tools` and/or `prompts` from that step into `mcp.call` -> provide a natural-language `prompt` + `model` (+ optional `temperature`) -> let the model choose and call the right MCP capability.
-
-        Direct mode keeps the generic `request` object contract for both tools and prompts. Even when `kind: prompt`, `request` contains the named prompt arguments expected by the MCP server; it is not a free-form text alias.
-        In LLM-assisted mode, top-level `prompt`/`model`/`temperature` are used for the selection model, while the selected MCP tool/prompt still receives named arguments.
-        Optional `structured_output` works like `llm.call`, but is applied after the MCP capability has been executed so the final answer can be returned as strict JSON.
+        Use a bounded agent.run when real observations determine the next tool or its arguments across one or more configured servers.
+        Direct mode keeps the generic `request` object contract for both tools and prompts. Even when `kind: prompt`, `request` contains the named prompt arguments expected by the MCP server.
+        Optional `structured_output` uses the model to structure content after execution. Use llm.call for a separate content or decision step.
         By default, MCP tool errors raise MCP_CALL_ERROR/MCP_PROMPT_ERROR runtime exceptions so `on_error` handlers can run. Set `raise_on_error: false` only when the workflow intentionally wants to inspect `data.steps.<id>.status == "error"` as normal output.
         Optional `error_policy.detect_result_errors: true` treats common structured failure envelopes like `{ success: false, error_code, error_message }` as MCP errors even when the transport did not set IsError.
-        For generated plans, do NOT use `mcp.call` with only `server` as the default next step after `mcp.list` unless calling everything is the explicit goal.
+        Generated calls select an exact `method` or explicit `methods` at approval.
         Request fields must statically match the discovered MCP input_schema. Do not pass nullable structured_output fields such as `string|null` into required request fields; make the source non-null, validate it with a checked whole-value `set` and a nonnullable output_schema, add an exact `if: "${data.steps.x.json.field != null}"` guard on the same mcp.call step, or skip the call. A request property that is optional in the discovered schema is omitted automatically when its resolved value is null, unless preserve_optional_nulls=true. That explicit option keeps JSON null and still validates it against the tool schema.
 
         Output access patterns:
         - Single tool: `data.steps.<id>.status` ("ok"|"error") and `data.steps.<id>.response` (opaque tool-specific JSON).
         - Single prompt: `data.steps.<id>.status`, `data.steps.<id>.text`, `data.steps.<id>.messages`.
-        - Batch/auto: `data.steps.<id>.results` (array of `{ method, status, response|text }`).
-        - LLM-assisted: `data.steps.<id>.text`, `data.steps.<id>.json` (when structured_output is used).
+        - Batch: `data.steps.<id>.results` (array of `{ method, status, response|text }`).
         - `response` is tool-specific. Do NOT guess field names inside `response` unless documented by the tool.
         - To pass the entire tool result to a subsequent step, use `data.steps.<id>.response` or `json(data.steps.<id>.response)`.
 
@@ -119,50 +115,8 @@ public sealed class McpCallExecutor : IStepExecutor
             request: { text: "Long document here" }
         ```
 
-        LLM-assisted call using `mcp.list` output:
-        ```yaml
-        - id: discover
-          type: mcp.list
-          input:
-            server: inventory
-            include: ["tools", "prompts"]
-
-        - id: choose_and_call
-          type: mcp.call
-          input:
-            server: inventory
-            model: gpt-4o-mini
-            temperature: 0.2
-            prompt: "Find the right inventory capability and call it to summarize available items"
-            tools: "${data.steps.discover.tools}"
-            prompts: "${data.steps.discover.prompts}"
-            structured_output:
-              schema_inline:
-                type: object
-                properties:
-                  summary: { type: string }
-                  links:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        title: { type: string }
-                        url: { type: string }
-                      required: [title, url]
-                required: [summary, links]
-              strict: true
-        ```
-
-        Auto-discover all available tools:
-        ```yaml
-        - id: discover_and_call
-          type: mcp.call
-          input:
-            server: my-server
-        ```
         Output (single): `{ status, response, json? }` (tool) or `{ status, text, messages, json? }` (prompt)
-        Output (batch/auto): `{ status, results: [{ method, status, response|text }], json? }`
-        Output (LLM-assisted): `{ status, selection_mode: "llm", text, tool_calls: [...], results: [...], json?: {...} }`
+        Output (batch): `{ status, results: [{ method, status, response|text }], json? }`
         """;
 
     public async Task<JsonNode?> ExecuteAsync(StepExecutionContext ctx, CancellationToken ct)
@@ -1193,10 +1147,9 @@ Produce the final answer strictly from the executed MCP results.
 
             // ── Telemetry: extract LLM metrics from tool result ──
             ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
-            EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
-
-            // Telemetry observes the producer payload; it must not remove contract or business fields.
-            var responseContent = callResult.Content?.DeepClone();
+            var blocks = await WorkflowImages.ProjectAsync(ctx, callResult, ct);
+            var responseContent = callResult.PrimaryIsBlocks ? blocks : callResult.Content?.DeepClone();
+            EmitMcpProgressEventsAsThinking(ctx, responseContent, correlation, realtimeProgressFingerprints);
             var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(responseContent));
 
             var result = new JsonObject
@@ -1207,6 +1160,9 @@ Produce the final answer strictly from the executed MCP results.
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
             };
+
+            if (!callResult.PrimaryIsBlocks && blocks is not null) result["content_blocks"] = blocks;
+            if (WorkflowImages.References(blocks) is { Count: > 0 } images) result["images"] = images;
 
             if (!isError && tool is not null)
             {
@@ -1730,7 +1686,7 @@ Produce the final answer strictly from the executed MCP results.
         return null;
     }
 
-    private static bool IsMcpResultErrorEnvelope(JsonNode? content)
+    internal static bool IsMcpResultErrorEnvelope(JsonNode? content)
     {
         if (content is not JsonObject obj)
             return false;

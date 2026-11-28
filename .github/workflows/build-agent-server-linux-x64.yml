@@ -1,4 +1,4 @@
-﻿name: Build Agent Server linux-x64
+name: Build Agent Server linux-x64
 
 on:
   workflow_call:
@@ -18,10 +18,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      - name: Setup .NET 10
+      - name: Set up the .NET SDK
         uses: actions/setup-dotnet@v6.0.0
         with:
-          dotnet-version: "10.0.x"
+          dotnet-version: "11.0.100"
 
       - name: Ensure OTLP proto files
         uses: ./.github/actions/ensure-otlp-protos
@@ -70,6 +70,12 @@ jobs:
           & 'artifacts/publish/server/linux-x64/GnOuGo.Agent.Server' --planning-persistence-smoke $smokeRoot
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
+          }
+
+          $retentionRoot = Join-Path $env:RUNNER_TEMP ('gnougo-retention-' + [guid]::NewGuid())
+          foreach ($mode in @('write', 'verify')) {
+            & 'artifacts/publish/server/linux-x64/GnOuGo.Agent.Server' --owner-retention-smoke $mode $retentionRoot
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Validate bundled server tools

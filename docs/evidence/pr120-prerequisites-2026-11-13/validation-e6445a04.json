@@ -1,0 +1,26 @@
+{
+  "source": "e6445a041c4eddc6cbe7152101df9138d705f072",
+  "configuration": "Release",
+  "warnaserror_build": true,
+  "non_server_projects": 32,
+  "non_server_passed": 6748,
+  "non_server_skipped": 12,
+  "server_passed": 2441,
+  "server_skipped": 1,
+  "server_exact_inventory_coverage": true,
+  "server_binaries_unchanged": true,
+  "total_passed": 9189,
+  "total_skipped": 13,
+  "failed": 0,
+  "coverage": "complete disjoint solution coverage, not a single unfiltered invocation",
+  "limitations": [
+    "13 existing platform/opt-in skips.",
+    "Controlled fixtures do not qualify actual business execution."
+  ],
+  "private_log_sha256": {
+    "owned-source-solution-build.log": "c7ecf44c0131602e21fdfe0cc0c8215d4fc654f78824aa5100e7e6493593af1a",
+    "final-shared-non-server.log": "9f37281e26d91e71912b37c34cefeb172aabf9263fde23ff7e72cc7497c2e13c",
+    "final-server-partitions.log": "580d52c249219c5230048f51903599abc1db8898ca42afbc11c46657d62c6bb3",
+    "final-server-coverage.json": "0fbc66cb2485971a297f725cad17d4ac4ec0ccf4f27501cd4d17bd0f66a77f8f"
+  }
+}

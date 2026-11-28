@@ -1,0 +1,112 @@
+{
+  "product_and_benchmark_source": "246a1eff8e99ffc36662dc6981de170cfcc6d10b",
+  "platform": "Windows x64",
+  "configuration": "Release",
+  "changed_test_file_git_blobs_in_last_server_batch": {
+    "tests/GnOuGo.Agent.Server.Tests/AmazonProductContextOracleTests.cs": "efac05fbadbbf862e85d69c8bb685e8ac3716dfb",
+    "tests/GnOuGo.Agent.Server.Tests/CopilotAttachmentPlanningTests.cs": "22f647f10243c0ea5ec32adb3ad1256989834c35",
+    "tests/GnOuGo.Agent.Server.Tests/LiveProducerEffectTests.cs": "8ad90890e0897bb9b982caf43477bee8842e2a40",
+    "tests/GnOuGo.Agent.Server.Tests/RecordedWorkspaceContractTests.cs": "dcbf1648594f5a12f55ece3ce8b56c7130e5ea1f",
+    "tests/GnOuGo.Agent.Server.Tests/SharedWorkspaceExecutionTests.cs": "7170f5076d2271d3dde4ecb98e920a4d5e293af5"
+  },
+  "distinct_passing_test_names": 4478,
+  "batches_in_order": {
+    "full-planner": {
+      "trx": "TestResults/agent-routing-qualification/full-planner-246a1eff.trx",
+      "sha256": "ad29babdd5c6983ff11a41e516c3b27a8ca44b7efcab94c96e2050c1933d6497",
+      "outcomes": {
+        "Passed": 3353
+      },
+      "failed_names": []
+    },
+    "runtime": {
+      "trx": "TestResults/agent-routing-qualification/runtime-246a1eff.trx",
+      "sha256": "6b5b128aafda162a33586a85fcb6c416e17af9e4a7b9cc1e0e2747574da67739",
+      "outcomes": {
+        "Passed": 218
+      },
+      "failed_names": []
+    },
+    "sdk": {
+      "trx": "TestResults/agent-routing-qualification/sdk-246a1eff.trx",
+      "sha256": "a339097c1bcfbb53743836f08bbad70fa3f9fa8e1ae18246900c34af9d3ff7ef",
+      "outcomes": {
+        "Passed": 446
+      },
+      "failed_names": []
+    },
+    "git-cmd": {
+      "trx": "TestResults/agent-routing-qualification/git-cmd-246a1eff.trx",
+      "sha256": "975dbe81c5df02aa5b75178dc5cab8cdc42e2b51e1e2b7d91306c1ed1a70ec70",
+      "outcomes": {
+        "Passed": 190,
+        "Failed": 2
+      },
+      "failed_names": [
+        "GnOuGo.Cmd.Mcp.Tests.McpProtocolNegotiationTests.LiveStdioDiscovery_SupportsAutomaticAndLegacyNegotiation(protocolVersion: null)",
+        "GnOuGo.Cmd.Mcp.Tests.McpProtocolNegotiationTests.AllowlistedCommandsCannotReadTheMcpTransport"
+      ]
+    },
+    "cmd-protocol-retry": {
+      "trx": "TestResults/agent-routing-qualification/cmd-protocol-retry-246a1eff.trx",
+      "sha256": "cbdc25960c636dd1cf0450204f49ad143c3bc0a1421b065eb4c952fae1767c48",
+      "outcomes": {
+        "Passed": 3
+      },
+      "failed_names": []
+    },
+    "server": {
+      "trx": "TestResults/agent-routing-qualification/server-246a1eff.trx",
+      "sha256": "17efd17a7dd2907cb02969dddab3d8efe93eb2d95aae59f970fb2a437a5a5c04",
+      "outcomes": {
+        "Passed": 244,
+        "Failed": 1
+      },
+      "failed_names": [
+        "GnOuGo.Agent.Server.Tests.AmazonProductContextOracleTests.ProductContextHostConfigurationPreservesSavedAttributeRequests(policy: \"amazon-observed-first-products-v12\")"
+      ]
+    },
+    "server-contract": {
+      "trx": "TestResults/agent-routing-qualification/server-contract-246a1eff.trx",
+      "sha256": "ebd5cdcf89e7b087826a6b9dcf5fd78436cd85ad2d8d2cce9c99d0261223a79c",
+      "outcomes": {
+        "Passed": 245
+      },
+      "failed_names": []
+    },
+    "server-migrated": {
+      "trx": "TestResults/agent-routing-qualification/server-migrated-246a1eff.trx",
+      "sha256": "efbc5dd0c231fb3426c7b1e3c3dc6911aef7929eb95cd66262bdcc9c5fb7b804",
+      "outcomes": {
+        "Passed": 268,
+        "Failed": 1
+      },
+      "failed_names": [
+        "GnOuGo.Agent.Server.Tests.RecordedWorkspaceContractTests.StaticPlanUsesCurrentProducerContractsAndExactWorkspace"
+      ]
+    },
+    "server-pinned-fixtures": {
+      "trx": "TestResults/agent-routing-qualification/server-pinned-fixtures-246a1eff.trx",
+      "sha256": "2a285958f5ff043fcefaad4c611016761d9fd4ba2cdfd4ee6b15569c8cf1bc91",
+      "outcomes": {
+        "Passed": 269
+      },
+      "failed_names": []
+    }
+  },
+  "release_builds": {
+    "warnings_as_errors": true,
+    "projects": 23,
+    "warnings": 0
+  },
+  "self_contained_windows_publish_warnings": {
+    "ef_query_precompilation_notice": 3,
+    "ef_native_aot_notice": 3,
+    "aspnetcore_embedded_linker_xml_IL2101": 1
+  },
+  "retries": [
+    "Two command transport fixtures failed under concurrent load. The complete three-case negotiation class passed on rerun.",
+    "The first Server run used an obsolete prompt assertion. Its updated 245-case suite passed. The migrated review fixture then rejected a dynamic expected SHA. After pinning the fixture revisions, the full expanded Server selection passed."
+  ],
+  "model_calls": 0
+}

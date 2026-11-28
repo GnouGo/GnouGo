@@ -1,0 +1,130 @@
+{
+  "source": "422836b82c13fe95ab2d209ed0c003a0a7a3899d",
+  "session": "ed724bc7829b46988851371be967a9e7",
+  "status": "stopped",
+  "diagnostic": "MODEL_DISPATCH_UNVERIFIABLE",
+  "httpAttempts": 11,
+  "completedReceipts": 10,
+  "uncertainRequests": 1,
+  "acceptedPlan": false,
+  "delegatedApproval": false,
+  "workflowExecuted": false,
+  "independentOracleRun": false,
+  "calls": [
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:1:55438d47f181e4ffe95fb0d515086ba8d1b586e262276e324f4960e12471e1f8",
+      "status": "complete",
+      "phase": "construction_intent",
+      "inputTokens": 1211,
+      "outputTokens": 424,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 10509.9971
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:2:36e217460208039046726379f160cd37c26a34dc6ceb66de7e1fe5398e743a09:ec3f39591e6bf7a6d3dba5f39fcc26a64df4291b3ae92c29e760833fbc061325",
+      "status": "complete",
+      "phase": "construction_select",
+      "inputTokens": 1156,
+      "outputTokens": 521,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 12769.0126
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:3:886398e773f380af672b74c485d9e46abad6dc3f7061312322427ac13afd41a5:a9cb84fd131dc692d84a86b7102ae49f325a46a6dc41c845e672d3ca52ab989b",
+      "status": "complete",
+      "phase": "construction_implementation",
+      "inputTokens": 2422,
+      "outputTokens": 356,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 9555.1873
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:4:dd1f64e09d595b2ff77263e80b0b99ebae58c6ef01ab7848ae5a4349043c8332:e97a51471d9b0c9af219b5f32a3956b4f4c9fed4a8cd2bf9f6b4c953c2c4bd42",
+      "status": "complete",
+      "phase": "construction_implementation",
+      "inputTokens": 2497,
+      "outputTokens": 615,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 14542.7625
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:5:d11fef46db913649d7cfb5278ebb4e832cb05a9bc9b10d438d6fde7d68259252:e4ae4194b96daeddbca58db8af184782d84544b625fc4ec88ab9cc03d9d9d8d3",
+      "status": "complete",
+      "phase": "construction_discovery",
+      "inputTokens": 4048,
+      "outputTokens": 156,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 3386.0119
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:6:c6139722aeeb0b9289f8ae23b5df01ebbde62aa74ede10cfc80e6e69066e73c0:3d92f9e3f65bee48df8b1f640f1790ba424036ae2f5d99f94bdf0fce6a674ad5",
+      "status": "complete",
+      "phase": "construction_discovery",
+      "inputTokens": 4491,
+      "outputTokens": 109,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 4006.0991
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:7:f73307857ccbb44ba35a970a9c90aca2c570ec0233ffb9bc25c928a625b858fe:1c3d96ce672443f0fc5d2ed21d0b8bd63526428a979a8997faa186eeb2cd49b8",
+      "status": "complete",
+      "phase": "construction_discovery",
+      "inputTokens": 5933,
+      "outputTokens": 140,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 5108.041
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:8:b2330d035ad555f8c8b16e813fbeb344edd75ea70f7f50cbf308485cd138df11:8ee46c9b50eb1ab22adc591c963774ccd820c9f761df8b24f8b4aeaef01cb44c",
+      "status": "complete",
+      "phase": "construction_discovery",
+      "inputTokens": 6649,
+      "outputTokens": 120,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 4087.1056
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:9:534ad2dc63cfdbd11399f1d061ac43db0a039ff337f8cc7bb9e73fb7925e5579:2d65d18f3d0350ee446fe57ec17244761afaae1099f91d91bbba090ea1f55ad7",
+      "status": "complete",
+      "phase": "construction_discovery",
+      "inputTokens": 7114,
+      "outputTokens": 208,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 5987.5237
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:10:80f9ad12de7afcddb4606df388df12f7de3f4293c2b475d6c8dc52d9f93971a9:83a70b659cd8fad9f768b0b7b650c2df4116bb93e1cd58467d2fe63ebc0ebe83",
+      "status": "complete",
+      "phase": "construction_draft",
+      "inputTokens": 11098,
+      "outputTokens": 180,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 4682.7457
+    },
+    {
+      "requestId": "ed724bc7829b46988851371be967a9e7:11:d92d4b00255096d2cd5884c557fab384bf1dde3e0cf01b53432ca6af60e1050f:c875bb660aea3d97d3815aaed7ae83840ffa0efe8aa9c3101f5a69f313ba1a03",
+      "status": "no_retained_completion",
+      "phase": "construction_draft",
+      "inputTokens": null,
+      "outputTokens": null,
+      "issuedOutputTokens": 32768,
+      "durationMilliseconds": 300217.1236
+    }
+  ],
+  "lastAttempt": {
+    "elapsedMilliseconds": 300217.1236,
+    "responseStatus": null,
+    "responseBodyAvailable": false,
+    "failure": "transport",
+    "replayForbidden": true,
+    "capturedAttemptTimeoutMilliseconds": 600000
+  },
+  "originalRequest9HoldEur": "2.4215763546798029556650246305",
+  "newUncertainCampaignHoldEur": "7.6513569189431258396775638153",
+  "newApplicationHoldAlreadyCoveredByCampaignHoldEur": "7.6444782803403493058665472457",
+  "knownCampaignTariffEstimatesEur": "11.260008956560680698611733106",
+  "remainingNewAllocationAfterKnownEstimatesAndAllHoldsEur": "378.6670577698163905060456784475",
+  "newAttemptPermanentlyRetained": true,
+  "newRetentionPreviewOnly": false,
+  "newRetentionEvidenceHash": "316c411284a6c54ad60dc616b02898e32d65a86373d01b36154728381f19d04e"
+}

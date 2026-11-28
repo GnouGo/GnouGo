@@ -1,0 +1,200 @@
+{
+  "run": "code718-verified-20261121-50",
+  "source": "89fd5143f3b30109fc13f50c1d3f32f22e654252",
+  "session": "a98a6c3424304ba28432a566d643e2d9",
+  "revision_before_delegated_review": 135,
+  "artifact_sha256": "39b3591378d36f654e033daa9e7e307d3f4d515e04d74a396e8f90ff70bf62a2",
+  "reviewed_tasks": 20,
+  "agent_id": "8837951a-7063-490e-be07-898fae072f47",
+  "chat_execution_id": "1f7dca9a4c9cdb58ca7b6c5f10a51b14",
+  "runtime_inputs": [
+    "pullRequestUrl",
+    "reviewText"
+  ],
+  "target": "AxaFrance/SmartGuide#718",
+  "checkout": {
+    "atUtc": "2026-11-21T16:20:09.315206+00:00",
+    "workflow": "1f7dca9a4c9cdb58ca7b6c5f10a51b14",
+    "path": "workflows/pr120-live-20261107-400/code718-verified-20261121-50/repository",
+    "head": "107c86fc87fcd89b529f6589736d27a09acb4206",
+    "base": "54513252bb6a0f48bf07edf414a80f58e19b6297",
+    "changedFiles": 52
+  },
+  "successful_clones": 1,
+  "copilot": {
+    "sdk_sessions": 1,
+    "permission_decisions": 64,
+    "tool_observations": 74,
+    "progress_events": 2155,
+    "verified_termination": "verified_failure",
+    "stop": {
+      "kind": "Tokens",
+      "maxModelCalls": 32,
+      "maxTotalTokens": 2000000,
+      "deadline": "2026-11-21T16:49:42.868942+00:00",
+      "modelCalls": 9,
+      "chargedTokens": 2000000,
+      "requiredInputTokens": 368169
+    },
+    "commands_observed": 30,
+    "dependency_commands": [
+      {
+        "command": "uv sync --frozen --all-groups --native-tls --python 3.11.13",
+        "exit": 1
+      },
+      {
+        "command": "pnpm install --frozen-lockfile",
+        "exit": 0
+      },
+      {
+        "command": "cd production/mlflow && uv sync --frozen --native-tls --python 3.11.13",
+        "exit": 0
+      },
+      {
+        "command": "cd production/invoke_loadtest && uv sync --frozen --native-tls --python 3.11.13",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api_embeddings && uv sync --frozen --native-tls --python 3.12",
+        "exit": 0
+      },
+      {
+        "command": "dotnet restore production/oidc/OidcServer.Tests/OidcServer.Tests.csproj --verbosity minimal",
+        "exit": 0
+      },
+      {
+        "command": "dotnet restore production/mlflow_bff/mlflow_bff.csproj --verbosity minimal",
+        "exit": 0
+      },
+      {
+        "command": "uv sync --frozen --group tests --group ci --native-tls --python 3.11.13",
+        "exit": 0
+      },
+      {
+        "command": "cd production/api_data && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api_text_to_speech && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci --extra piper",
+        "exit": 1
+      },
+      {
+        "command": "cd packages/axa-fr-smartguide-dsl && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci --extra openai",
+        "exit": 1
+      },
+      {
+        "command": "cd packages/axa-fr-smartguide-production && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci --extra jobs",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      },
+      {
+        "command": "cd production/job && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api_a2a && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 0
+      },
+      {
+        "command": "cd production/api_audio_preprocessing && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 0
+      },
+      {
+        "command": "cd production/api_dynamic_ingestion && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api_guardrails && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 0
+      },
+      {
+        "command": "cd production/api_mail && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 0
+      },
+      {
+        "command": "cd production/api_mcp && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      },
+      {
+        "command": "cd production/api_prompt_compressor && uv sync --frozen --native-tls --python 3.11.13 --group tests --group ci",
+        "exit": 1
+      }
+    ]
+  },
+  "original_execution": {
+    "success": false,
+    "status": "needs_reconciliation",
+    "finalization_completed": false,
+    "outputs": null,
+    "caller_report_delivered": false,
+    "oracle": {
+      "passed": false,
+      "findings": [
+        "workflow_execution_failed",
+        "caller_review_report_missing",
+        "repository_required_checks_not_independently_verified",
+        "repository_not_cleaned_by_workflow",
+        "unique_submitted_review_receipt_missing"
+      ]
+    }
+  },
+  "cleanup": {
+    "workflow_timeout_ms": 29908,
+    "workspace_absent_at_original_outcome": false,
+    "reconciliation": {
+      "workflow": "1f7dca9a4c9cdb58ca7b6c5f10a51b14",
+      "id": "/workflow/main/finally/step/n_38cd336c0d6f34e3",
+      "beforeRevision": 63,
+      "afterRevision": 64,
+      "invocationStatus": "failed"
+    },
+    "recovery_attempts": [
+      {
+        "exit": -1,
+        "timed_out": true,
+        "duration_ms": 60049.969,
+        "absent_after": false
+      },
+      {
+        "exit": 0,
+        "timed_out": false,
+        "duration_ms": 3070.354,
+        "absent_after": true
+      }
+    ],
+    "after_reconciliation": "failed",
+    "final_revision": 66,
+    "physical_absence_verified": true
+  },
+  "github": {
+    "reviews": 0,
+    "inline_comments": 0
+  },
+  "calls": {
+    "planning": {
+      "count": 42,
+      "measured_eur": "26.25330240"
+    },
+    "copilot": {
+      "count": 9,
+      "measured_eur": "12.70739629"
+    },
+    "execution": {
+      "count": 1,
+      "measured_eur": "0.09325873"
+    }
+  },
+  "audit": {
+    "physical_attempts": 4577,
+    "ceiling_eur": 3100,
+    "measured_eur": "2342.99768741",
+    "unresolved_http_attempts": 55,
+    "reserved_http_eur": "492.52354211",
+    "separate_application_reservations_eur": "171.63356950",
+    "available_eur": "92.84520097",
+    "provider_invoice": null
+  }
+}

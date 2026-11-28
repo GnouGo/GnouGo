@@ -1,0 +1,39 @@
+// Read-only metadata audit in the existing ReadSession helper.
+// Uses the existing public KeyVault record API and tenant/session-scoped EF planning index.
+// Generated business content is excluded; no provider dispatch, financial write or release.
+if(args.Contains("--financial-field-audit")) {
+ await using var idx=await factory.CreateDbContextAsync();
+ var calls=await idx.Calls.AsNoTracking().Where(c=>c.TenantId=="default"&&c.SessionId==id).ToArrayAsync();
+ var paths=new Dictionary<string,int>();var amounts=new System.Text.Json.Nodes.JsonArray();int receipts=0,http=0,bodies=0,partial=0;
+ foreach(var call in calls) {
+  if(call.PayloadKey!=id+":"+call.RequestHash||!call.RequestHash.StartsWith(id+":",StringComparison.Ordinal))throw new InvalidOperationException("Owner mismatch");
+  var row=await records.GetAsync("agent-planning-model-receipts-v11","default",call.PayloadKey,"GnOuGo.Agent.Server.Planning");
+  if(row is not null){receipts++;var j=System.Text.Json.Nodes.JsonNode.Parse(row.Value)!;Scan(j["usage"],"receipt.usage",call.RequestHash);Scan(j["raw"],"receipt.raw",call.RequestHash);}
+  var h=await records.GetAsync("agent-planning-model-http-v11","default",call.RequestHash,"GnOuGo.Agent.Server.Planning");
+  if(h is null)continue;http++;var raw=System.Text.Json.Nodes.JsonNode.Parse(h.Value)!;
+  if(raw["transport"]?["Attempts"] is not System.Text.Json.Nodes.JsonArray arr)continue;
+  foreach(var a in arr) {
+   if(a is not System.Text.Json.Nodes.JsonObject attempt)continue;
+   foreach(var header in new[]{"ResponseHeaders","Headers"})Scan(attempt[header],"http."+header,call.RequestHash);
+   if(attempt["Body"] is not { } body)continue;
+   try{var value=System.Text.Json.Nodes.JsonNode.Parse(body.ToString());bodies++;Scan(value,"http.response",call.RequestHash);}catch(JsonException){partial++;}
+  }
+ }
+ Console.WriteLine(new System.Text.Json.Nodes.JsonObject{["sessionId"]=id,["tenantId"]="default",["inspectedAtUtc"]=DateTimeOffset.UtcNow,["indexedCalls"]=calls.Length,["receipts"]=receipts,["httpRecords"]=http,["parsedResponseBodies"]=bodies,["partialOrInvalidBodies"]=partial,["financialMetadataFields"]=System.Text.Json.JsonSerializer.SerializeToNode(paths),["numericFinancialEvidence"]=amounts,["modelDispatches"]=0,["historicalChanges"]=false,["scope"]="Root provider/usage/HTTP metadata; generated business content and credential headers excluded. Amounts are evidence only, never added or treated as invoices automatically."}.ToJsonString());return;
+ void Scan(System.Text.Json.Nodes.JsonNode? node,string path,string requestId) {
+  if(node is System.Text.Json.Nodes.JsonObject obj)foreach(var pair in obj) {
+   if(!System.Text.RegularExpressions.Regex.IsMatch(pair.Key,@"^[a-zA-Z0-9_.\[\]-]{1,96}$"))continue;
+   var key=pair.Key.ToLowerInvariant();
+   if(key is "input" or "output" or "choices" or "messages" or "content" or "text" or "parsed" or "json" or "arguments" or "instructions" or "schema" or "authorization" or "proxy-authorization" or "cookie" or "set-cookie" or "api-key" or "x-api-key")continue;
+   var child=path+"."+pair.Key;
+   if(System.Text.RegularExpressions.Regex.IsMatch(pair.Key,"cost|charge|bill|price|credit|premium|amount|currency|fee|usd|eur|monetary|balance|payment",System.Text.RegularExpressions.RegexOptions.IgnoreCase)) {
+    paths[child]=paths.GetValueOrDefault(child)+1;
+    decimal amount;
+    if(pair.Value is System.Text.Json.Nodes.JsonValue v && (v.TryGetValue<decimal>(out amount)||v.TryGetValue<string>(out var str)&&decimal.TryParse(str,System.Globalization.NumberStyles.Number,System.Globalization.CultureInfo.InvariantCulture,out amount)))
+     amounts.Add(new System.Text.Json.Nodes.JsonObject{["requestId"]=requestId,["path"]=child,["amount"]=amount.ToString("G29",System.Globalization.CultureInfo.InvariantCulture)});
+   }
+   Scan(pair.Value,child,requestId);
+  }
+  else if(node is System.Text.Json.Nodes.JsonArray a)foreach(var item in a)Scan(item,path+"[]",requestId);
+ }
+}

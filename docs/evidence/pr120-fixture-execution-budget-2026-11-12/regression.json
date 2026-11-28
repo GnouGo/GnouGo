@@ -1,0 +1,39 @@
+{
+  "failed_source": "f207d8b529c260c02aa02a13e16b27f7578f75ae",
+  "first_failure": "RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(typed-lookup-repair)",
+  "retained_observations": [
+    "[part-4] [xUnit.net 00:07:32.41]     GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.RetainedCompositionVisitsProductsAndWritesIndependentlyCheckedExcel(variant: \"typed-lookup-repair\") [FAIL]",
+    "[part-4] [xUnit.net 00:07:32.42]         RETAINED typed-lookup-repair: success=False; planningCalls=0; repairs=0; planningMs=24019,7; executionMs=97000,2; yamlBytes=318066; mappingCalls=8; unsampledPages=21; interpretationCalls=8; requestEstimates=[7059,4550,7063,4541,6976,5300,7023,4670,6994,4659,6665,4581,7018,4668,7011,4664]; invocations=95; steps=94; cleanupSteps=1; journalBytes=12703034; error=LLM_BUDGET_EXCEEDED Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow 'w_8445744e24cdc0e3', step 'n_e8c0940a6006e57c']",
+    "[part-4]  RETAINED typed-lookup-repair: success=False; planningCalls=0; repairs=0; planningMs=24019,7; executionMs=97000,2; yamlBytes=318066; mappingCalls=8; unsampledPages=21; interpretationCalls=8; requestEstimates=[7059,4550,7063,4541,6976,5300,7023,4670,6994,4659,6665,4581,7018,4668,7011,4664]; invocations=95; steps=94; cleanupSteps=1; journalBytes=12703034; error=LLM_BUDGET_EXCEEDED Mapping inference stopped: LLM_BUDGET_EXCEEDED. [workflow 'w_8445744e24cdc0e3', step 'n_e8c0940a6006e57c']"
+  ],
+  "partial_suite_passed": false,
+  "partial_suite_stop_exit_code": 130,
+  "partial_log_prefix_sha256": "12e443e7ed62b7393929b4573c3285cbac879f283d7bad442f3d8b22750fc203",
+  "red": {
+    "tests": 1,
+    "failed": 1,
+    "limit_kind": "elapsed_ms",
+    "limit": 120000,
+    "current": 180000,
+    "fixture_inference_requests": 0,
+    "log_sha256": "5d8dbec8932d1ed9992a5758a23d8814fa7f60d57c705b99967360e3557eb24b"
+  },
+  "green": {
+    "tests": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0,
+    "configuration": "Release",
+    "warnaserror": true,
+    "same_max_elapsed_ms": 120000,
+    "hard_expiry_verified": true,
+    "all_expected_workbook_rows_verified": true,
+    "cold_restoration_verified": true,
+    "log_sha256": "3eca2aa93a22ca1626e73d5fbb3ad4aaa67eb738d4702d68446cea425610750c"
+  },
+  "production_changed": false,
+  "provider_calls": 0,
+  "financial_campaign_writes": 0,
+  "historical_scope_resets": 0,
+  "live_workflow_qualified": false
+}

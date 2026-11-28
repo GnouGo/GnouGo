@@ -1,0 +1,221 @@
+[
+  {
+    "name": "latest-server-publish",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.Agent.Server/GnOuGo.Agent.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-publish/server",
+      "-p:PublishAot=false",
+      "-p:PublishTrimmed=true",
+      "-p:PublishSingleFile=true",
+      "-p:UseAppHost=true",
+      "-p:DebugType=None",
+      "-p:DebugSymbols=false"
+    ],
+    "started_utc": "2026-11-07T17:35:38.809829+00:00",
+    "finished_utc": "2026-11-07T17:36:37.356903+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-storage-process-1",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "artifacts/native-streaming-20261107/final-publish/server/GnOuGo.Agent.Server",
+      "--planning-persistence-smoke",
+      "artifacts/native-streaming-20261107/published-storage-702ba2be"
+    ],
+    "started_utc": "2026-11-07T17:36:37.357545+00:00",
+    "finished_utc": "2026-11-07T17:36:39.701045+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-storage-process-2",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "artifacts/native-streaming-20261107/final-publish/server/GnOuGo.Agent.Server",
+      "--planning-persistence-smoke",
+      "artifacts/native-streaming-20261107/published-storage-702ba2be"
+    ],
+    "started_utc": "2026-11-07T17:36:39.703672+00:00",
+    "finished_utc": "2026-11-07T17:36:40.801041+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-proxy-aot-publish",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "publish",
+      "src/GnOuGo.ProxyCopilot.Server/GnOuGo.ProxyCopilot.Server.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-publish/proxy",
+      "-p:PublishAot=true"
+    ],
+    "started_utc": "2026-11-07T17:36:40.803394+00:00",
+    "finished_utc": "2026-11-07T17:36:55.294146+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-proxy-native-smoke",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "python3",
+      "scripts/smoke-proxy-copilot.py",
+      "--binary",
+      "artifacts/native-streaming-20261107/final-publish/proxy/GnOuGo.ProxyCopilot.Server"
+    ],
+    "started_utc": "2026-11-07T17:36:55.294836+00:00",
+    "finished_utc": "2026-11-07T17:36:56.618277+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-planning-aot-publish",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "publish",
+      "tests/GnOuGo.Flow.Planning.Smoke/GnOuGo.Flow.Planning.Smoke.csproj",
+      "-c",
+      "Release",
+      "-r",
+      "osx-arm64",
+      "--self-contained",
+      "true",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-publish/planning-smoke",
+      "-p:PublishAot=true"
+    ],
+    "started_utc": "2026-11-07T17:36:56.627959+00:00",
+    "finished_utc": "2026-11-07T17:37:44.098855+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-planning-native-smoke",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "artifacts/native-streaming-20261107/final-publish/planning-smoke/GnOuGo.Flow.Planning.Smoke"
+    ],
+    "started_utc": "2026-11-07T17:37:44.103078+00:00",
+    "finished_utc": "2026-11-07T17:37:50.260134+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-GnOuGo.AI.Core-pack",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.AI.Core/GnOuGo.AI.Core.csproj",
+      "-c",
+      "Release",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-packages"
+    ],
+    "started_utc": "2026-11-07T17:37:50.262350+00:00",
+    "finished_utc": "2026-11-07T17:37:51.643060+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-GnOuGo.AI.Local-pack",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.AI.Local/GnOuGo.AI.Local.csproj",
+      "-c",
+      "Release",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-packages"
+    ],
+    "started_utc": "2026-11-07T17:37:51.646803+00:00",
+    "finished_utc": "2026-11-07T17:37:53.000065+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-GnOuGo.Flow.Planning-pack",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj",
+      "-c",
+      "Release",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-packages"
+    ],
+    "started_utc": "2026-11-07T17:37:53.002718+00:00",
+    "finished_utc": "2026-11-07T17:38:02.461970+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-GnOuGo.Flow.Integrations-pack",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.Flow.Integrations/GnOuGo.Flow.Integrations.csproj",
+      "-c",
+      "Release",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-packages"
+    ],
+    "started_utc": "2026-11-07T17:38:02.462856+00:00",
+    "finished_utc": "2026-11-07T17:38:04.435989+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "latest-GnOuGo.DocIngestor.Core-pack",
+    "source": "702ba2be8f1f76e7363020dc505cca43ea209491",
+    "arguments": [
+      "dotnet",
+      "pack",
+      "src/GnOuGo.DocIngestor.Core/GnOuGo.DocIngestor.Core.csproj",
+      "-c",
+      "Release",
+      "-warnaserror",
+      "-p:SkipModelMetadataGeneration=true",
+      "-p:SkipClientBuild=true",
+      "-o",
+      "artifacts/native-streaming-20261107/final-packages"
+    ],
+    "started_utc": "2026-11-07T17:38:04.438375+00:00",
+    "finished_utc": "2026-11-07T17:38:05.712720+00:00",
+    "exit_code": 0
+  }
+]

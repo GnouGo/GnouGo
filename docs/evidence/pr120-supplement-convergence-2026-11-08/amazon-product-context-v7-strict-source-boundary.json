@@ -1,0 +1,177 @@
+{
+  "kind": "Generic Browser ancestor evidence, strict independent Amazon source admission and controlled regressions",
+  "source": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+  "feature_commits": [
+    "e8cdbe3e",
+    "8ba75c31",
+    "5f962b81",
+    "e34f2373"
+  ],
+  "authority": "user-strict-amazon-sponsored-host-extension-20261109",
+  "evidence_policy": "amazon-observed-product-context-v3",
+  "oracle_version": "amazon-business-v7",
+  "routes_and_grant_unchanged": true,
+  "source_prerequisites": [
+    {
+      "search_records": 1523,
+      "capture_truncated": false,
+      "eligible_literal_redirect_entries": 0,
+      "source_findings": [
+        "search_product_redirect_route_unapproved",
+        "search_product_context_unverified"
+      ],
+      "actual_product_visits": 0,
+      "business_qualification": false,
+      "historical_provisional_context_only_check": {
+        "eligible_literal_redirect_entries": 39,
+        "source_findings": [],
+        "limitation": "Before the four source-route regressions were added; not final source admission."
+      },
+      "final_checker_source": "e34f237357d4e65c0c3e9b68465c160b4023531e"
+    },
+    {
+      "source": "e8cdbe3e04cead86d6b2af1141a0c0e6b73b57fd",
+      "release_browser_sha256": "57da671a6f5007559d9e80e6239a8b5d9854cc47789734e6b5ed66cd06d3e303",
+      "search_records": 1556,
+      "pages": 73,
+      "capture_truncated": false,
+      "manifest_truncated": false,
+      "navigation_complete": true,
+      "eligible_literal_redirect_entries": 0,
+      "source_findings": [
+        "search_product_redirect_route_unapproved",
+        "search_product_context_unverified"
+      ],
+      "actual_browser_close_verified": true,
+      "post_close_no_active_page_verified": true,
+      "business_qualification": false
+    }
+  ],
+  "known_blockers": [
+    "The fresh complete source contains literal sponsored-ads.amazon.fr/clk? entries; the grant permits only /clk/? entries. No normalization or substitution is authorized.",
+    "Other advertising list occurrences have explicit empty product ancestor identifiers, so their product context remains unverified. They were not filtered or silently omitted."
+  ],
+  "model_generations_for_prerequisites": 0,
+  "paid_amazon_relaunches_after_context_change": 0,
+  "code_prerequisite": "See code-mcp-e34-readonly-boundary.json: authenticated native identity and a fresh corporate URL block on model discovery; HTTP status is not structured in the fresh envelope. Earlier HTTP403 and pinned tool-request failures remain separately retained.",
+  "validation": {
+    "browser_regression_red": {
+      "failed": 1,
+      "passed": 1,
+      "note": "Controlled old-source runtime red; earlier missing-Xunit compilation error is not regression evidence."
+    },
+    "browser_all": {
+      "passed": 176,
+      "failed": 0
+    },
+    "source_routes_red": {
+      "failed": 4,
+      "passed": 0
+    },
+    "recovery_barrier_red": {
+      "failed": 1,
+      "passed": 0
+    },
+    "combined_focused_green": {
+      "passed": 199,
+      "failed": 0
+    },
+    "earlier_full_attempt": {
+      "source": "e8cdbe3e",
+      "complete": false,
+      "failed": true,
+      "known_failure": "Recovery fixture release HTTP500; controlled checkpoint scheduling reproduced the race. The run was interrupted after that failure for stabilized-source validation. Logs are retained; no complete pass is claimed."
+    },
+    "published_browser": {
+      "publish_exit_code": 0,
+      "smoke": {
+        "kind": "published Browser stdio MCP smoke against controlled loopback fixture",
+        "published_dll_sha256": "bac672c6c3f099cb653769c762d7ee9baa9f4337a86eb5926dd164c45aa09c90",
+        "source_equivalent_main_commit": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+        "build_worktree_commit": "0bd693de87ef9dd44dc5b60a6a16c0c9c27bb08b",
+        "observed_links": 5,
+        "source_metadata_serialized": true,
+        "empty_missing_distinct": true,
+        "repeated_occurrences_distinct": true,
+        "selected_root_confined": true,
+        "actual_close_verified": true,
+        "model_dispatches": 0,
+        "business_workflow_qualification": false,
+        "passed": true
+      },
+      "bundled_browsers_used": true,
+      "source_equivalence": "git diff Main5f versus isolated0bd is empty for Browser/Mcp.Core/Observability.Core; live Main binaries were not rebuilt."
+    },
+    "previous_complete_frozen_source": {
+      "source": "5f962b8104acca3853cc4fc8d505552ccbcc49ec",
+      "passed": 8691,
+      "skipped": 12,
+      "failed": 0,
+      "assemblies": 33,
+      "all_216_slow_cases_exactly_once": true,
+      "release_frontend_packs_aot_passed": true,
+      "proof": "validation-5f962b81.json"
+    },
+    "final_strict_source_suite": {
+      "source": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+      "complete": true,
+      "passed": 8693,
+      "skipped": 12,
+      "failed": 0,
+      "assemblies": 33,
+      "all_216_slow_cases_exactly_once": true,
+      "release_frontend_packs_aot_passed": true,
+      "proof": "validation-e34f2373.json"
+    }
+  },
+  "private_evidence_sha256": {
+    "amazon-v3-context-prerequisite.observation.json": "bb2108603bd1f2cf94bed2cb7af2c890c6ebc70e7e933d4356fd9c017cdd1cc3",
+    "amazon-v3-context-prerequisite.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "amazon-v3-source-oracle.json": "30eff0b04d32d40e761fa7361b523665f4fc1cf82a2978adb9118034621ebf77",
+    "amazon-v3-frozen-prerequisite.observation.json": "acb61f7a14ab765d43a56140ea2d48658ab857d46be80b47df8d17f6b720d81f",
+    "amazon-v3-frozen-prerequisite.close.json": "50888101f7346754a6e98e03123704d577f652f05424bfa881b79694ccfa2b7f",
+    "amazon-v3-frozen-strict-source-oracle.json": "ca152d192d83138387a5acfb970f4cfcfd8904875b8866709f4dad142450c1df",
+    "browser-ancestor-attributes-red-runtime.log": "54dcebfa4c89c1a0fa12baee208af3d63319173075fd9bde340cd5511dc43ed8",
+    "browser-ancestor-attributes-final-all.log": "a87f57c5475d26c8b5801e1d46c60efa7c951b671bce6d6b7a5d4b43b57ca329",
+    "amazon-product-context-final-focused.log": "4c915e83b97f799bcd0e893883920e14ee048791547c95253542b557002d52e6",
+    "product-context-source-routes-red.log": "dc165fa7f58ee79ab22904c9d36a60d8f6696cc78b76c1a8411a90274fb820fa",
+    "resume-checkpoint-barrier-red.log": "e038c17bc5dcec80322b87e3cf5c1f4a4b9147d17c0dde6de9f8e2fc9d98fae5",
+    "product-context-route-barrier-green.log": "7f8dbb450ff7d244bad983e9892720befea45bcdee367232575d9b9ac1b9ea7e",
+    "product-context-prerequisite-audit.json": "6fdebc9889352382e40a4cbf78fcb378f57dede2c63960cbfbb9c00e3af0f49b",
+    "stabilized-browser-publish.log": "e9a2255f829b0d9f45323fbf24b4c4d9e55c7733db30535589bee53bbac8d3e5",
+    "stabilized-browser-published-smoke.json": "1a7e83c7135b106e8de3e6d086269ad2a943126ab8b746f4b782f851b6bcde70",
+    "stabilized-browser-published-smoke.log": "ee6975420d797097edc2c7360d2e39ae766163c13d0679729c59fbb32bc97b4f",
+    "published-browser-smoke-build.log": "a4da9d4e242783af1b9a088cdb31216c14aca51d9200f79ba725ba088e0417f8",
+    "amazon-v3-initial-source-final-strict-oracle.json": "49603ea820c43a90e4610c34138a4c5392f1a7b9fcfd829ff441bd11187dcaea",
+    "product-context-empty-omission-red.log": "bb8c6530879768e5233c55cfc6d2b3c844ce5e256ce13079de74dc1a9c54e1aa",
+    "product-context-empty-omission-green.log": "394fcbde0dae140c5d3f72056dfdef4f6319ca3ecebd55f82e92665377196de4",
+    "amazon-v3-final-nav-context-source-oracle.json": "ca152d192d83138387a5acfb970f4cfcfd8904875b8866709f4dad142450c1df",
+    "amazon-v3-initial-source-nav-final-oracle.json": "490d25c121a1f93666e9fe5e80699e721e8d85546f5120a4eaa5ca3eb7e8a6bd",
+    "code-mcp-e34-readonly-proof.json": "6851f803ea57762a09608a77f6eaf8f68aa2a93292f75365542422b9cafefb66"
+  },
+  "classification_rule": "An empty source identifier alone stays unverified. Excluding a non-product navigation entry requires an observed nav element or navigation role and no product heading, occurrence or direct product identity. Unknown sponsored cards cannot be silently omitted from order.",
+  "omission_regression": {
+    "controlled_red_failed": 2,
+    "controlled_red_passed": 0,
+    "affected_green_passed": 218,
+    "affected_green_failed": 0,
+    "cases": [
+      "An unclassified empty sponsored occurrence omitted ahead of a later valid product must fail.",
+      "An empty attribute on a div without observed navigation semantics must fail."
+    ],
+    "production_src_changed_since_qualified_5f": false
+  },
+  "final_source_readiness": {
+    "verifier_source_equivalent_main": "e34f237357d4e65c0c3e9b68465c160b4023531e",
+    "capture_records": 1556,
+    "eligible_literal_redirect_entries": 0,
+    "findings": [
+      "search_product_redirect_route_unapproved",
+      "search_product_context_unverified"
+    ],
+    "product_visits": 0,
+    "actual_close_verified": true,
+    "paid_amazon_generations": 0,
+    "workflow_qualified": false
+  }
+}

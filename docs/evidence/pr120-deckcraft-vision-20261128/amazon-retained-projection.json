@@ -1,0 +1,16 @@
+{
+  "form": "improve40-amazon-20261127-234035-form-27a5afcffafe1f3846d02e4999667931",
+  "execution": "d77e51f4b9cef37bb24063e5ec55f903",
+  "source_step": "/workflow/main/step/n_3883460e7283d210",
+  "source_status": "needs_reconciliation",
+  "request_id": "d77e51f4b9cef37bb24063e5ec55f903:capture-review:1d12c779054f2685",
+  "snapshot": "d8259de0764c480f8ea473a01d70f28c",
+  "pages": 72,
+  "records": 1543,
+  "original_bytes": 1675315,
+  "original_sha256": "a8a391e5171dd01d182c05714872367c75f3cfdf276dee2e87f35b52ed366810",
+  "projected_bytes": 43082,
+  "projected_sha256": "1d12c779054f2685a013197cd152bea349ac397db35a15476770a1aa875ef35f",
+  "workflow_modified": false,
+  "inspection_only": true
+}

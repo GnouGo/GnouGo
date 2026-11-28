@@ -17,8 +17,8 @@ internal static class StepOutputTypeResolver
             "set" => ResolveSet(step, symbols),
             "mapping.dynamic" => step.OutputSchema is null ? FlowTypeDescriptor.Any : FlowTypeDescriptorConverter.FromJsonSchema(step.OutputSchema),
             "template.render" => ResolveTemplateRender(step),
-            "llm.call" => ResolveLlmCall(step),
-            "mcp.call" => ResolveMcpCall(step, mcpContracts, stepContracts[step.Type].OutputType.ResolvePath(["status"]) ?? FlowTypeDescriptor.Any),
+            "llm.call" => ResolveLlmCall(step, stepContracts[step.Type].OutputType),
+            "mcp.call" => ResolveMcpCall(step, mcpContracts, stepContracts[step.Type].OutputType),
             "agent.run" => Object(("status", FlowTypeDescriptor.String),
                 ("output", step.Input?["output_schema"] is JsonObject schema ? FlowTypeDescriptorConverter.FromJsonSchema(schema) : FlowTypeDescriptor.Any),
                 ("evidence", FlowTypeDescriptor.Array()), ("artifacts", FlowTypeDescriptor.Array()),
@@ -73,22 +73,23 @@ internal static class StepOutputTypeResolver
         return FlowTypeDescriptorConverter.FromJsonSchema(TemplateRenderContract.OutputSchema(mode));
     }
 
-    private static FlowTypeDescriptor ResolveLlmCall(StepDef step)
+    private static FlowTypeDescriptor ResolveLlmCall(StepDef step, FlowTypeDescriptor declared)
     {
         var jsonType = GetStructuredOutputType(step) ?? FlowTypeDescriptor.Any;
         return Object(
             ("text", FlowTypeDescriptor.String),
             ("json", jsonType),
             ("usage", Object()),
-            ("meta", Object(("model", FlowTypeDescriptor.String))),
+            ("meta", declared.Properties.TryGetValue("meta", out var meta) ? meta.Type : Object(("model", FlowTypeDescriptor.String))),
             ("raw", FlowTypeDescriptor.Any));
     }
 
     private static FlowTypeDescriptor ResolveMcpCall(
         StepDef step,
         IReadOnlyDictionary<(string ServerName, string ToolName), McpToolOutputContract> mcpContracts,
-        FlowTypeDescriptor statusType)
+        FlowTypeDescriptor declared)
     {
+        var statusType = declared.ResolvePath(["status"]) ?? FlowTypeDescriptor.Any;
         var input = step.Input as JsonObject;
         var kind = TryGetInputString(step, "kind") ?? "tool";
         var hasLlmAssistedSelection = input?.ContainsKey("prompt") == true;
@@ -137,25 +138,21 @@ internal static class StepOutputTypeResolver
                 : FlowTypeDescriptorConverter.FromJsonSchema(contract.OutputSchema);
         }
 
-        if (structuredJsonType != null)
-        {
-            return Object(
-                ("status", statusType),
-                ("response", responseType),
-                ("error", Object()),
-                ("correlation_id", FlowTypeDescriptor.String),
-                ("trace_id", FlowTypeDescriptor.String),
-                ("results", FlowTypeDescriptor.Array()),
-                ("json", structuredJsonType));
-        }
-
-        return Object(
+        var result = Object(
             ("status", statusType),
             ("response", responseType),
             ("error", Object()),
             ("correlation_id", FlowTypeDescriptor.String),
             ("trace_id", FlowTypeDescriptor.String),
             ("results", FlowTypeDescriptor.Array()));
+        var properties = result.Properties.ToDictionary(StringComparer.Ordinal);
+        if (structuredJsonType is not null) properties["json"] = Property(structuredJsonType);
+        if (methodName is not null)
+        {
+            foreach (var name in new[] { "images", "content_blocks" })
+                if (declared.Properties.TryGetValue(name, out var property)) properties[name] = property;
+        }
+        return result with { Properties = properties };
     }
 
     private static FlowTypeDescriptor ResolveWorkflowCall(

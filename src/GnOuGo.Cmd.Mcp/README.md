@@ -1,5 +1,7 @@
 ﻿# GnOuGo.Cmd.Mcp
 
+Set `GNOUGO_CMD_COMMAND_SUBSET` to a comma-separated list to expose selected configured aliases in a child process. Every alias must also satisfy any existing `GNOUGO_CMD_ONLY_COMMAND` restriction. An unavailable alias prevents startup.
+
 `GnOuGo.Cmd.Mcp` is a **stdio** MCP server for everyday workspace file and directory operations **via a strict allowlist**.
 
 ## MCP protocol compatibility
@@ -48,12 +50,17 @@ timeouts, output capture and process-tree termination remain enforced. See the
 
 ## Packaged filesystem commands
 
+An isolated host can set `GNOUGO_CMD_ONLY_COMMAND` to one configured alias
+for a child process. Discovery, parameter schemas, artifact metadata and
+execution then use the same single-command allowlist. Startup fails if the
+requested alias is absent from the effective configuration.
+
 The default catalog contains exactly 18 commands:
 
 | Purpose | Commands |
 |---|---|
 | Workspace navigation | `print_working_directory`, `list_root`, `list_relative_path`, `tree` |
-| File inspection | `cat_file`, `head_file`, `tail_file`, `wc`, `find_files`, `grep_recursive` |
+| File inspection | `cat_file` preserves the contents and final newline of UTF-8 text. `head_file`, `tail_file`, `wc`, `find_files`, `grep_recursive` |
 | Creation and deletion | `create_directory`, `delete_directory`, `write_file`, `delete_file` |
 | Copy and move | `copy_file`, `copy_directory`, `move_file`, `move_directory` |
 
@@ -241,7 +248,7 @@ Then on the MCP side:
 ```powershell
 dotnet build .\src\GnOuGo.Cmd.Mcp\GnOuGo.Cmd.Mcp.csproj
 
-.\src\GnOuGo.Cmd.Mcp\bin\Debug\net10.0\GnOuGo.Cmd.Mcp.exe
+.\src\GnOuGo.Cmd.Mcp\bin\Debug\net11.0\GnOuGo.Cmd.Mcp.exe
 ```
 
 ## Native AOT Publish (win-x64)

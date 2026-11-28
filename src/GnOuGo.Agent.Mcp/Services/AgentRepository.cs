@@ -186,7 +186,7 @@ public sealed class AgentRepository : IAgentRepository
 
             var key = line[..separator];
             var value = line[(separator + 1)..].TrimStart();
-            if (value is "|-" or "|")
+            if (value is "|-" or "|" or "|+")
             {
                 var blockLines = new List<string>();
                 while (i + 1 < lines.Length && (lines[i + 1].StartsWith("  ", StringComparison.Ordinal) || string.IsNullOrEmpty(lines[i + 1])))
@@ -195,7 +195,11 @@ public sealed class AgentRepository : IAgentRepository
                     blockLines.Add(lines[i].StartsWith("  ", StringComparison.Ordinal) ? lines[i][2..] : lines[i]);
                 }
 
-                values[key] = string.Join('\n', blockLines).TrimEnd('\n');
+                // Split also returns an empty sentinel after the document's last newline.
+                if (i == lines.Length - 1 && lines[i].Length == 0 && blockLines.Count > 0)
+                    blockLines.RemoveAt(blockLines.Count - 1);
+                var block = string.Join('\n', blockLines);
+                values[key] = value == "|+" && blockLines.Count > 0 ? block + "\n" : block.TrimEnd('\n');
             }
             else
             {
@@ -210,6 +214,8 @@ public sealed class AgentRepository : IAgentRepository
     {
         if (value.Length >= 2 && value[0] == '"' && value[^1] == '"')
         {
+            try { return System.Text.Json.JsonSerializer.Deserialize(value, AgentMcpJsonContext.Default.String) ?? ""; }
+            catch (System.Text.Json.JsonException) { /* Read legacy quoted scalars containing literal control characters. */ }
             return value[1..^1]
                 .Replace("\\\"", "\"", StringComparison.Ordinal)
                 .Replace("\\\\", "\\", StringComparison.Ordinal);

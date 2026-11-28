@@ -82,6 +82,10 @@ public sealed partial class SmartFlowService
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
 
+    private readonly OwnerRetentionPolicy _ownerRetention;
+    private readonly Uri? _filesPublicBase;
+    private readonly GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? _workflowOwners;
+
     [ActivatorUtilitiesConstructor]
     public SmartFlowService(
         ILLMClient llm,
@@ -106,9 +110,14 @@ public sealed partial class SmartFlowService
         ChatPlanningService? chatPlanning = null,
         IWorkflowRunStore? runStore = null,
         IExchangeRateProvider? exchangeRateProvider = null,
-        IOptions<WorkflowExecutionSettings>? executionSettings = null)
+        IOptions<WorkflowExecutionSettings>? executionSettings = null, OwnerRetentionPolicy? ownerRetention = null,
+        GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? workflowOwners = null,
+        IOptions<GnOuGo.Files.Server.Options.FilesServerOptions>? fileOptions = null)
     {
         _runStore = runStore;
+        _workflowOwners = workflowOwners;
+        _filesPublicBase = fileOptions?.Value.PublicBaseUrl;
+        _ownerRetention = ownerRetention ?? OwnerRetentionPolicy.Default;
         _planning = planning;
         _chatPlanning = chatPlanning;
         _llm = llm;
@@ -195,7 +204,7 @@ public sealed partial class SmartFlowService
         IReadOnlyList<string>? filesIds,
         JsonObject? workflowInputs,
         string? conversationId,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct, PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         var effectiveCorrelationId = string.IsNullOrWhiteSpace(correlationId)
             ? ActivityTraceId.CreateRandom().ToHexString()
@@ -233,7 +242,7 @@ public sealed partial class SmartFlowService
                                mergedWorkflowInputs,
                                messageTrace.Activity,
                                messageTrace.TraceContext,
-                               ct))
+                               ct, diagnosticGrant))
             {
                 hasError |= string.Equals(evt.Type, "error", StringComparison.OrdinalIgnoreCase);
                 if (evt.Type is "answer")
@@ -280,7 +289,7 @@ public sealed partial class SmartFlowService
         JsonObject? workflowInputs,
         Activity? parentActivity,
         AgentTraceContext traceContext,
-        [EnumeratorCancellation] CancellationToken ct)
+        [EnumeratorCancellation] CancellationToken ct, PlanningDiagnosticGrant? diagnosticGrant = null)
     {
         var previousActivity = Activity.Current;
         if (parentActivity is not null)
@@ -401,17 +410,22 @@ public sealed partial class SmartFlowService
             if (preparedAnimationEvent is not null)
                 yield return preparedAnimationEvent;
 
+            if (filesIds is { Count: > 0 })
+                filesIds = filesIds.Select(value => GnOuGo.Files.Server.Web.FilesLinks.ResolveUploadId(value, _filesPublicBase))
+                    .Distinct(StringComparer.Ordinal).ToArray();
             var telemetry = new CompositeWorkflowTelemetry(
                 new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animationBridge),
                 _otel);
             var planningBridge = _chatPlanning?.Attach(workflowInputs?["conversation_id"]?.GetValue<string>() ?? correlationId,
-                state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))));
+                state => channel.Writer.TryWrite(new SmartFlowEvent("planner_session", System.Text.Json.JsonSerializer.Serialize(state, GnOuGo.Agent.Shared.ChatJsonContext.Default.PlanningSessionDto))), runtime.Options, diagnosticGrant);
             var engine = new WorkflowEngine
             {
                 RunStore = _runStore,
+                UploadIds = filesIds,
+                SavedAgentName = resolvedWorkflow.Agent?.Name,
                 WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
-                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? _workflowOwners ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(_ownerRetention),
                 PlanningInteraction = planningBridge,
                 DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,
@@ -434,6 +448,7 @@ public sealed partial class SmartFlowService
                 Logger = _logger,
                 Limits = new ExecutionLimits
                 {
+                    FinalizationTimeoutSeconds = _executionSettings.FinalizationTimeoutSeconds,
                     MaxMappingInputTokens = _executionSettings.MaxMappingInputTokens,
                     LogStepContent = false,
                     RunId = correlationId,
@@ -445,6 +460,8 @@ public sealed partial class SmartFlowService
             };
             runtime.ConfigureAgentRunners(engine);
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
+            if (filesIds is { Count: > 0 } && _runStore is GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore durable)
+                await ChatFileAttachments.BindAsync(durable.Files, _tenantId, filesIds, inputs, ct);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 
             Exception? error = null;

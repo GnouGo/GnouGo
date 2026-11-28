@@ -46,5 +46,6 @@ public sealed class TransportTenantTests
         var context = new AgentTaskContext("owner", "run", "invocation", new());
         var json = JsonSerializer.Serialize(context, AgentTaskJsonContext.Default.AgentTaskContext);
         await Assert.ThrowsAsync<McpException>(() => tools.ValidateAsync(json, TestContext.Current.CancellationToken));
+        await Assert.ThrowsAsync<McpException>(() => tools.InspectAsync(json, TestContext.Current.CancellationToken));
     }
 }

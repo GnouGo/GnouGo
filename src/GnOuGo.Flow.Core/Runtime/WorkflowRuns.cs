@@ -17,6 +17,9 @@ public static class WorkflowRunStatus
 /// <summary>The authoritative schema-9 execution journal. Hosts must encrypt the complete payload.</summary>
 public sealed class WorkflowRun
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OwnerRetention? Retention { get; set; }
+
     public int SchemaVersion { get; set; } = 9;
     public string TenantId { get; set; } = "";
     public string RunId { get; set; } = "";
@@ -27,6 +30,9 @@ public sealed class WorkflowRun
     public JsonNode? Inputs { get; set; }
     public ExecutionLimits Limits { get; set; } = new();
     public LLMUsageBudgetLimits? ModelBudget { get; set; }
+    public string? ApplicationLlmBudgetMode { get; set; }
+    public string? ApplicationLlmBudgetOrigin { get; set; }
+    public int? ApplicationLlmBudgetVersion { get; set; }
     public LLMUsageBudgetSnapshot? ModelUsage { get; set; }
     public int StepsStarted { get; set; }
     public int FinalizationStepsStarted { get; set; }
@@ -95,6 +101,11 @@ public sealed record WorkflowRunEvent(DateTimeOffset Timestamp, string Kind, str
 public sealed class WorkflowRunConflictException(string message) : InvalidOperationException(message);
 
 /// <summary>Tenant-scoped records with a single execution owner and revision-checked commands.</summary>
+public interface IWorkflowAttachmentRunStore
+{
+    Task CreateWithUploadsAsync(WorkflowRun run, IReadOnlyList<string> uploadIds, string? savedAgentName, CancellationToken ct);
+}
+
 public interface IWorkflowRunStore
 {
     Task<WorkflowRun?> ReadAsync(string tenantId, string runId, CancellationToken ct = default);
@@ -158,9 +169,16 @@ public static class WorkflowRunStorage
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+        if (run.Retention is { IsValid: false }) throw new WorkflowRunConflictException("Invalid execution retention snapshot.");
         if (run.SchemaVersion != 9) throw new WorkflowRunConflictException(IncompatibleMessage);
         if (run.TenantId != tenantId || run.RunId != runId || run.Limits.TenantId != tenantId || run.Limits.RunId != runId)
             throw new WorkflowRunConflictException("Execution journal ownership is invalid.");
+        if (run.ApplicationLlmBudgetMode is null && (run.ApplicationLlmBudgetVersion is not null || run.ApplicationLlmBudgetOrigin is not null))
+            throw new WorkflowRunConflictException("The captured application LLM budget policy is incomplete.");
+        if (run.ApplicationLlmBudgetMode is { } mode && (run.ApplicationLlmBudgetVersion != 1 || run.ModelUsage is null ||
+            mode is not ("limited" or "unlimited") || string.IsNullOrWhiteSpace(run.ApplicationLlmBudgetOrigin) ||
+            mode == "unlimited" && run.ModelBudget is not null || mode == "limited" && run.ModelBudget is null))
+            throw new WorkflowRunConflictException("The captured application LLM budget policy is invalid.");
     }
 
     public static WorkflowRun Clone(WorkflowRun run) => Read(JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), run.TenantId, run.RunId);

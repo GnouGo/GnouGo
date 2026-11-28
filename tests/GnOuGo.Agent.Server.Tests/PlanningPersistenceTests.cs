@@ -12,12 +12,79 @@ namespace GnOuGo.Agent.Server.Tests;
 
 public sealed class PlanningPersistenceTests
 {
+    [Theory]
+    [InlineData(8)]
+    [InlineData(9)]
+    [InlineData(10)]
+    public void RetiredInternalFormatsAreRejectedWithoutUpgradingTheirPayload(int format)
+    {
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "retired", Prompt = "original" } };
+        var json = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!;
+        json["schemaVersion"] = format;
+        var retained = json.ToJsonString();
+        var error = Assert.Throws<PlanningConflictException>(() => PlanningSessionStorage.Read(retained, "tenant", "retired"));
+        Assert.Contains("format 11", error.Message);
+        Assert.Equal(retained, json.ToJsonString());
+    }
+
+    [Fact]
+    public async Task RetiredCollectionIsNeverUsedAsAReaderOrFallback()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "retired", Prompt = "original" } };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        await using var db = fixture.CreateDbContext();
+        var key = (await db.Sessions.SingleAsync(Ct)).PayloadKey;
+        Assert.True(await fixture.Records.DeleteAsync(EfPlanningSessionStore.Collection, "tenant", key, "test", Ct));
+        var payload = JsonSerializer.SerializeToNode(state, PlanningJsonContext.Default.PlanningSession)!;
+        payload["schemaVersion"] = 10;
+        var archive = await fixture.Records.UpsertAsync("agent-planning-sessions-v10", "tenant", key, payload.ToJsonString(), "test", Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => fixture.Store.LoadAsync("tenant", "retired", Ct));
+        Assert.Empty(await fixture.Store.ListAsync("tenant", Ct));
+        Assert.Equal(archive, await fixture.Records.GetAsync("agent-planning-sessions-v10", "tenant", key, "test", Ct));
+        Assert.Null(await fixture.Records.GetAsync(EfPlanningSessionStore.Collection, "tenant", key, "test", Ct));
+    }
+
+    [Fact]
+    public async Task ExplicitSuspendedConsumersRecoverExactlyInsideTheEncryptedTenantSnapshot()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        const string secret = "PRIVATE_TYPED_CONSUMER_AND_ORIGINAL_EVIDENCE";
+        var state = new PlanningSession
+        {
+            Request = new() { TenantId = "tenant", SessionId = "continuation", Prompt = secret },
+            ModelCalls = 7, ReplanAttempts = 2,
+            Construction = new() { Compact = new() { ResumingStepId = "continuation_0",
+                SuspendedSteps = [new()
+                {
+                    Id = "continuation_0", Status = "resuming", SuspendedAtCheckpoint = 1, LastPrerequisiteCheckpoint = 3,
+                    Consumer = new() { Id = "consumer", Scope = "/root", Objective = secret, RequirementIds = ["original"], ExpectedOutputs = [secret] },
+                    Prerequisite = new() { Need = secret, ExpectedType = new() { Kind = "number", Nullable = true }, EvidenceAddresses = ["source:original"] },
+                    SourceVersions = new() { ["original"] = "source-hash" }, EvidenceHashes = new() { ["source:original"] = "evidence-hash" },
+                    ContractHashes = new() { ["exact-operation@1"] = "contract-hash" }, DependencyHashes = new() { ["accepted"] = "task-hash" }
+                }] } },
+            PendingCall = new() { Id = "exact-issued", Request = new() { Prompt = secret, StructuredOutputSchema = new JsonObject { ["type"] = "object" } } }
+        };
+        Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var bytes = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        var restored = await fixture.Store.LoadAsync("tenant", "continuation", Ct);
+        Assert.Equal(bytes, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
+        Assert.Equal("continuation_0", restored!.Construction!.Compact!.ResumingStepId);
+        Assert.Equal("number", Assert.Single(restored.Construction.Compact.SuspendedSteps!).Prerequisite.ExpectedType.Kind);
+        Assert.Null(await fixture.Store.LoadAsync("another", "continuation", Ct));
+        foreach (var file in fixture.GetPhysicalFiles())
+            Assert.DoesNotContain(secret, Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+        state.Construction.Compact.SuspendedSteps = null; state.Construction.Compact.ResumingStepId = null;
+        var withoutContinuation = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
+        Assert.DoesNotContain("\"suspendedSteps\"", withoutContinuation); Assert.DoesNotContain("\"resumingStepId\"", withoutContinuation);
+    }
+
     [Fact]
     public async Task TargetedRevisionAuthorityAndBaselineRemainEncryptedAndTenantOwned()
     {
         await using var fixture = await StoreFixture.CreateAsync();
         var plan = new TaskPlan { Root = new() { Outputs = [new("private_edit_scope", new() { Kind = "string", Text = "PRIVATE_RETAINED_WORK" })] } };
-        var state = new PlanningSession { IntentVersion = 2, Request = new() { TenantId = "tenant", SessionId = "targeted", Prompt = "Correct selected output", Baseline = plan },
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "targeted", Prompt = "Correct selected output", Baseline = plan },
             Plan = plan, ModelCalls = 3, ReplanAttempts = 1, EditablePaths = ["/root/outputs/private_edit_scope"], RevisionScope = ["/root/outputs/private_edit_scope"] };
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var restored = await fixture.Store.LoadAsync("tenant", "targeted", Ct);
@@ -26,7 +93,7 @@ public sealed class PlanningPersistenceTests
         Assert.Equal("PRIVATE_RETAINED_WORK", restored.Plan!.Root.Outputs[0].Value.Text);
         Assert.Equal("PRIVATE_RETAINED_WORK", restored.Request.Baseline!.Root.Outputs[0].Value.Text);
         Assert.Null(await fixture.Store.LoadAsync("other", "targeted", Ct));
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_RETAINED_WORK", bytes); Assert.DoesNotContain("/root/outputs/private_edit_scope", bytes);
@@ -52,7 +119,7 @@ public sealed class PlanningPersistenceTests
         var key = (await db.Calls.SingleAsync(Ct)).PayloadKey;
         var encryptedRequest = await fixture.Records.GetAsync(PlanningModelJournal.RequestCollection, "tenant", key, EfPlanningSessionStore.Author, Ct);
         Assert.Contains(request.Prompt, encryptedRequest!.Value);
-        foreach (var file in Directory.GetFiles(fixture.Root, "*", SearchOption.AllDirectories))
+        foreach (var file in fixture.GetPhysicalFiles())
         {
             var bytes = Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct));
             Assert.DoesNotContain("PRIVATE_MODEL_REQUEST", bytes);
@@ -165,11 +232,130 @@ public sealed class PlanningPersistenceTests
     {
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0;
     }
+
+    [Fact]
+    public async Task OnlyPlanningProgressAdvancesTheActiveCrashWindow()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(30, clock));
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "active" } };
+        Assert.True(await store.TrySaveAsync(state, null, Ct));
+        var captured = state.Retention!;
+        clock.Now = clock.Now.AddDays(1);
+        state.Revision++; state.UpdatedAtUtc = clock.Now; state.ActiveMilliseconds += 5;
+        Assert.True(await store.TrySaveAsync(state, 0, Ct));
+        Assert.Equal(captured, state.Retention);
+        Assert.Null(state.Retention!.DeadlineUtc);
+        state.Revision++; state.ModelCalls++; state.PendingCall = new() { Id = "issued" };
+        Assert.True(await store.TrySaveAsync(state, 1, Ct));
+        Assert.Equal(clock.Now.AddDays(30), state.Retention!.CrashResumeUntilUtc);
+        Assert.Equal(captured.EnteredUtc, state.Retention.EnteredUtc);
+    }
+
+    private sealed class RetentionClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 4, 1, 8, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public async Task CommittedPlanningHeadRestoresTheExactWaitAfterLosingItsIndex()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        EfPlanningSessionStore Open(int days) => new(fixture, fixture.Records, new(days, clock));
+        var owner = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "plan" }, Yaml = "name: retained" };
+        Assert.True(await Open(30).TrySaveAsync(owner, null, Ct));
+        var hash = Assert.IsType<string>(owner.ComputeArtifactHash());
+        clock.Now = clock.Now.AddHours(6);
+        owner.Revision++; owner.Status = PlanningStatus.Clarification;
+        owner.PendingQuestions = [new("q", "Continue?", [], null)];
+        Assert.True(await Open(7).TrySaveAsync(owner, 0, Ct));
+        var waited = owner.Retention!;
+        Assert.Equal(clock.Now.AddDays(30), waited.DeadlineUtc);
+        clock.Now = clock.Now.AddDays(10);
+        owner.Revision++; owner.UpdatedAtUtc = clock.Now; owner.WaitingSinceUtc = clock.Now;
+        Assert.True(await Open(7).TrySaveAsync(owner, 1, Ct));
+        Assert.Equal(waited, owner.Retention);
+        // A higher, immutable but unpublished candidate cannot become the winner during recovery.
+        await fixture.Records.UpsertAsync(EfPlanningSessionStore.Collection, "tenant", "plan:managed:99:orphan",
+            "unpublished", EfPlanningSessionStore.Author, Ct);
+        await using (var db = fixture.CreateDbContext())
+        {
+            await db.Database.EnsureDeletedAsync(Ct);
+            await db.Database.EnsureCreatedAsync(Ct);
+        }
+        var reopened = Open(1);
+        Assert.False(await reopened.TrySaveAsync(new() { Request = owner.Request }, null, Ct));
+        await reopened.RebuildIndexAsync("tenant", Ct);
+        var restored = Assert.Single(await reopened.ListAsync("tenant", Ct));
+        Assert.Equal(2, restored.Revision);
+        Assert.Equal(waited, restored.Retention);
+        Assert.Equal(hash, restored.ComputeArtifactHash());
+        await using var index = fixture.CreateDbContext();
+        var row = await index.Set<GnOuGo.Flow.Persistence.OwnerRetentionIndex>().SingleAsync(Ct);
+        Assert.Equal(restored.Revision, row.Revision);
+        Assert.Equal(waited.DeadlineUtc!.Value.UtcTicks, row.DeadlineUtcTicks);
+        Assert.Null(await reopened.LoadAsync("someone-else", "plan", Ct));
+
+        var other = (await reopened.LoadAsync("tenant", "plan", Ct))!;
+        owner.Revision++; other.Revision++;
+        owner.Status = PlanningStatus.Saved; other.Status = PlanningStatus.Cancelled;
+        var commits = await Task.WhenAll(Open(7).TrySaveAsync(owner, 2, Ct), Open(1).TrySaveAsync(other, 2, Ct));
+        Assert.Single(commits, value => value);
+        Assert.Equal(clock.Now.AddDays(30), (await reopened.LoadAsync("tenant", "plan", Ct))!.Retention!.DeadlineUtc);
+    }
+
+    [Fact]
+    public async Task ExpiredPlanningSessionCannotReappearFromOldRevisionsOrARebuiltIndex()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(2, clock));
+        var owner = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "plan" }, Status = PlanningStatus.Clarification };
+        Assert.True(await store.TrySaveAsync(owner, null, Ct));
+        clock.Now = clock.Now.AddDays(2);
+        Assert.Null(await store.LoadAsync("tenant", "plan", Ct));
+        owner.Revision++;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TrySaveAsync(owner, 0, Ct));
+        await store.SweepAsync("tenant", Ct);
+        await store.SweepAsync("tenant", Ct);
+        await store.RebuildIndexAsync("tenant", Ct);
+        Assert.Empty(await store.ListAsync("tenant", Ct));
+        Assert.Empty(await fixture.Records.ListAsync(EfPlanningSessionStore.Collection, "tenant", "test", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TrySaveAsync(owner, null, Ct));
+    }
+
+    [Fact]
+    public async Task OfflineInspectorCanReadThePinnedRequestAfterOrdinaryResumeCloses()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(2, clock));
+        var session = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "issued" },
+            PendingCall = new() { Id = "request-1" } };
+        Assert.True(await store.TrySaveAsync(session, null, Ct));
+        clock.Now = clock.Now.AddDays(2);
+        await store.SweepAsync("tenant", Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TryAcquireLeaseAsync("tenant", "issued", Ct));
+        Assert.Null(await store.LoadAsync("tenant", "issued", Ct));
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(fixture, "tenant", "issued", Ct);
+        Assert.NotNull(lease);
+        Assert.Equal("request-1", (await store.ReadEvidenceAsync("tenant", "issued", Ct))?.PendingCall?.Id);
+        Assert.Null(await store.ReadEvidenceAsync("other", "issued", Ct));
+    }
+
     internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
     {
         public string Root { get; } = root;
         public IKeyVaultRecordStore Records { get; } = KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(root, "vault.db"), root);
         public EfPlanningSessionStore Store => new(this, Records);
+        public string[] GetPhysicalFiles()
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            return Directory.GetFiles(Root, "*", SearchOption.AllDirectories);
+        }
         public PlanningDbContext CreateDbContext() => new(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite("Data Source=" + Path.Combine(Root, "planning.db") + ";Pooling=False").Options);
         public static async Task<StoreFixture> CreateAsync(string? retainedDirectory = null)
         {

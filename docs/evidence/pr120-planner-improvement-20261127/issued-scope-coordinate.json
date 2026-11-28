@@ -1,0 +1,57 @@
+{
+  "source": "eb5fe347f5f4f75e41a4d9cdf389dcf5ac2a2d53",
+  "run": "improve40-amazon-20261127-210723",
+  "capture_sha256": {
+    "26": "3c7ef5ff0f6d08e8ad447f5c52962cad265218fc3f2aaaa6bfb7a8ebdce6cf2b",
+    "9": "491ec25da3c25a41b404bd142c64244f0ce40ea0be1caf4e7eef3df2aae1a09d",
+    "14": "4401e138f5d8d19e8337162ed7e0eee5dd9c1bd479c9f044f10540b5c494fd96",
+    "33": "4cff625f0d3cf119a537ccb731d8c081de29c36f3b83773bdcfc293611828263",
+    "8": "2821461077250fb521c50b2fd7863ce7385a19c9ad19161b484f2762763f82c4",
+    "13": "2d9d8dffd211f4e37dd428ff5efef370c9786aafcd3be085a752ff1718e5b378",
+    "20": "0ddaf5cf6e020b9377f816d4da37eb753bc1b018620312484b5c39ff68999b63",
+    "21": "3b90527eafa9cf88f5932ccbdbc1330fd18e6a10f153e7d4769d824e9331b5a5"
+  },
+  "old_wire_original": {
+    "cursor": "/root/workflow/body",
+    "wire_valid": true,
+    "error_type": "PlanningResponseException",
+    "error": "The model response violated its typed contract."
+  },
+  "old_wire_canonical": {
+    "cursor": "/tasks/workflow/body",
+    "wire_valid": true,
+    "candidate_diagnostics": [],
+    "checkpoints": 1,
+    "open_scopes": [
+      "/tasks/workflow/body",
+      "/root"
+    ]
+  },
+  "revised_wire_original": {
+    "cursor": "/root/workflow/body",
+    "wire_valid": false,
+    "wire_diagnostic_count": 1,
+    "prompt_canonical_example": true
+  },
+  "revised_wire_canonical": {
+    "cursor": "/tasks/workflow/body",
+    "wire_valid": true,
+    "wire_diagnostic_count": 0,
+    "prompt_canonical_example": true,
+    "candidate_diagnostics": [],
+    "checkpoints": 1,
+    "open_scopes": [
+      "/tasks/workflow/body",
+      "/root"
+    ]
+  },
+  "provider_calls_in_replay": 0,
+  "evidence": "Call 13 supplied one sequence with the search, assessment and always cleanup. Its only changed value in the isolated diagnostic was the explicitly named child cursor. At call 14 the live model abandoned that fragment. The first live checkpoint was accepted at call 21. An alternative earlier checkpoint cannot establish how the model would have continued.",
+  "suite": {
+    "cases": 106,
+    "passed": 106,
+    "trx_sha256": "552c2dade955c19a1305ed1bd0b81e239eff6f8ad2352d71b40c53972ed90166",
+    "assembly_sha256": "c0df257a51ce149673e4d9895e2faaf0080cb9fe7a8b1fc5ed9e74478e96ba40",
+    "planner_sha256": "974f6fdb773d0a9765cbbcaf21cb945293f30372e05438f9a94259ec057dbbae"
+  }
+}

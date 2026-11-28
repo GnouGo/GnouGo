@@ -1,0 +1,107 @@
+{
+  "source": "daceb08efaf8a7b4bca941ffaedd948a0d1f3bd7",
+  "run": "improve40-amazon-20261127-175353",
+  "session": "8718251a560241a08f9ef39330708e6a",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-27T17:57:05.1380257+00:00",
+  "finished_utc": "2026-11-27T18:09:45.0604364+00:00",
+  "wall_seconds": 759.922411,
+  "phases": {
+    "construction_discovery": {
+      "logical_calls": 6,
+      "physical_attempts": 6,
+      "input_tokens": 78610,
+      "output_tokens": 1888,
+      "measured_eur": "0.1876674259681093394077448747",
+      "duration_ms": "152505.0005"
+    },
+    "construction_draft": {
+      "logical_calls": 4,
+      "physical_attempts": 4,
+      "input_tokens": 92358,
+      "output_tokens": 2418,
+      "measured_eur": "0.2213986332574031890660592255",
+      "duration_ms": "116772.8294"
+    },
+    "construction_implementation": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 4665,
+      "output_tokens": 513,
+      "measured_eur": "0.0129635535307517084282460137",
+      "duration_ms": "29288.9136"
+    },
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2278,
+      "output_tokens": 1703,
+      "measured_eur": "0.0129476082004555808656036446",
+      "duration_ms": "347328.1005"
+    },
+    "construction_select": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2556,
+      "output_tokens": 832,
+      "measured_eur": "0.0096127562642369020501138952",
+      "duration_ms": "35356.2698"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "0.4445899772209567198177676537",
+  "input_tokens": 180467,
+  "output_tokens": 7354,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "path": "/root",
+      "message": "An extension must add work, declare an output or close an existing obligation."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "close_browser",
+      "search"
+    ],
+    [
+      "assess_capture"
+    ],
+    [
+      "capture_failure_reason",
+      "prefix_guard",
+      "prefix_selection",
+      "select_if_eligible"
+    ]
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 13,
+    "repairs": 0,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "36.947979498861047835990888731",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "32.7683257403189066059225509043",
+    "physical_attempts": 975,
+    "input_tokens": 15199395,
+    "output_tokens": 510384
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "37.392569476082004555808656391",
+    "physical_reservation_eur": "0.2373394077448747152619589977",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "32.3237357630979498861047832443",
+    "physical_attempts": 988,
+    "input_tokens": 15379862,
+    "output_tokens": 517738
+  }
+}

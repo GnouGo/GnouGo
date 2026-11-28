@@ -1,0 +1,208 @@
+{
+  "source": "65db90d9bc745d00580bdcb40fa62fe29b893a62",
+  "presentation_version": 9,
+  "cohort": "compactr65db90d9bcolhighv9a",
+  "role": "retained v9 control; not the v10 candidate",
+  "case": "collections",
+  "model": "gpt-5.5-2026-04-24",
+  "freeze_sha256": "e5ac6f144cb967412656cb75b5eebdccc066a0b74aec48eeda999846a33ad63b",
+  "command_sha256": "448528ff1d735e0dae44da1f2adaf6a163e2f6f879c279213938ba560d25a67f",
+  "benchmark_binary_sha256": "126055c812f91f76896f9e5a38ace5fcea0b17a1bedcd919b0e90db235961571",
+  "source_manifest_sha256": "7b1b6cd9c72f270fb89f77a86505ba8698a7acc495dcbcac5e04211c4a7253ef",
+  "artifact_hash": "1949f6e06faa8c1c54884185bd523fb17c66ae9d45448411edd88219653e142f",
+  "session_id": "75037700fdd790501821386430efedd6eb79f5cac98c9fad34a98a85e645d982",
+  "reviewed_revision": 28,
+  "observation_utc": "2026-10-27T13:41:14.879065+00:00",
+  "result": "Both independently checked runtime variants passed after exact artifact-bound delegated synthetic review.",
+  "planning": {
+    "logical_planning_calls": 28,
+    "physical_attempts": 30,
+    "repairs": 1,
+    "known_input_tokens": 92246,
+    "known_output_tokens": 42992,
+    "known_cost_eur": "1.5626863007585899152164212407",
+    "reserved_input_tokens": 24000,
+    "reserved_output_tokens": 65536,
+    "reserved_cost_eur": "1.8617402945113788487282463186",
+    "usage_complete": false,
+    "usage_bounded": true,
+    "receipts": 28,
+    "unknown_attempts": 2,
+    "known_reasoning_tokens": 36048,
+    "total_provider_usage_known": false,
+    "unknown_request_number": 2,
+    "request2_physical_attempts": 3,
+    "review_execution_additional_model_calls": 0,
+    "planning_accounting_unchanged_by_execution": true
+  },
+  "construction": {
+    "accepted_checkpoints": 8,
+    "closed_requirement_ids": [
+      "req_0",
+      "req_1"
+    ],
+    "task_count": 3,
+    "structure": "Closed reusable double_item(item:number) multiplies by2; parallel foreach calls it for each input item and exposes the ordered doubled array directly.",
+    "external_operations": 0,
+    "transforms_or_runtime_inference": 0,
+    "scope_bound": "maxItems100 and maxConcurrency100; no arbitrary-size or extreme-numeric generalization."
+  },
+  "review_observations": {
+    "received_judge_calls": 9,
+    "retained_v2_manifests": 8,
+    "received_proposition_occurrences": 38,
+    "propositions_by_kind": {
+      "completion": 5,
+      "global": 8,
+      "interaction": 9,
+      "local_behavior": 16
+    },
+    "acknowledgments": {
+      "broad": 37,
+      "subject": 1
+    },
+    "recorded_reuse_events": 0,
+    "recorded_transition_events": 0,
+    "clean_findings_responses": 9,
+    "interpretation": "Counts join retained received request/proposition pairs; broad acknowledgments do not establish reusable local-subject proofs. No avoided-call or causal mechanism claim."
+  },
+  "correction": {
+    "charges": 1,
+    "draft_request": 26,
+    "code": "CONSTRUCTION_INCOMPLETE",
+    "reason": "complete:true omitted explicit /root closure.",
+    "repair_request": 27,
+    "effective_change": "Explicitly closes /root and directly exports step_5.doubled; removes the proposed local copy node before acceptance.",
+    "renewed_judge_request": 28,
+    "supported_redundancy": "The discarded task was a direct local copy of an already available array. No generic duplicate-operation finding or ban.",
+    "resolved_at_acceptance": true
+  },
+  "approval": {
+    "origin": "delegated_test",
+    "authorization_sha256": "1c12ec18704a64153ce5f3b48690a8b2ed28d9d3c1152813838f23a8a4210679",
+    "review_json_sha256": "6ffd46c8684bf730a9c7004ef3749b368bdaee038d04774abc3b31df0892b1d2",
+    "public_artifact_verify": true,
+    "receipt": {
+      "id": "delegated-review-compactr65db90d9bcolhighv9a-collections-28-1949f6e06faa",
+      "origin": "delegated_test",
+      "reviewer": "codex-isolated-test-review:root+judge_instruction_arm",
+      "authorizationHash": "1c12ec18704a64153ce5f3b48690a8b2ed28d9d3c1152813838f23a8a4210679",
+      "evidenceHash": "89f6bce23763b3022e41f88bea3ed33395894c56201908eacd129df70ec9a167",
+      "tenantId": "benchmark",
+      "sessionId": "75037700fdd790501821386430efedd6eb79f5cac98c9fad34a98a85e645d982",
+      "reviewedRevision": 28,
+      "artifactHash": "1949f6e06faa8c1c54884185bd523fb17c66ae9d45448411edd88219653e142f",
+      "reviewedRequirementIds": [
+        "req_0",
+        "req_1"
+      ],
+      "reviewedAtUtc": "2026-10-27T13:31:21.798255+00:00"
+    },
+    "artifact_oracle": {
+      "version": "synthetic-artifact-v1",
+      "artifact_hash": "1949f6e06faa8c1c54884185bd523fb17c66ae9d45448411edd88219653e142f",
+      "passed": true,
+      "findings": []
+    },
+    "root_execution_stdout_sha256": "248535c5b7db4c87eae93e95a209c947db2f9a2bb8ce22efa24354f1822264ff",
+    "root_stdout_provenance": "Root reported exact command exit0 and stdout digest; raw stdout was not archived."
+  },
+  "runtime": {
+    "variants": [
+      {
+        "variant": "nominal",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "367.426",
+        "error": null,
+        "effects": [],
+        "violations": []
+      },
+      {
+        "variant": "alternate",
+        "correct": true,
+        "runtime_success": true,
+        "elapsed_ms": "2.25",
+        "error": null,
+        "effects": [],
+        "violations": []
+      }
+    ],
+    "frozen_expectations": {
+      "nominal": {
+        "input": [
+          1,
+          2,
+          4
+        ],
+        "expected": [
+          2,
+          4,
+          8
+        ]
+      },
+      "alternate": {
+        "input": [
+          3,
+          3,
+          -2
+        ],
+        "expected": [
+          6,
+          6,
+          -4
+        ]
+      }
+    },
+    "observed_arrays_retained": false,
+    "output_evidence": "Stored correct=true is the existing independent frozen oracle result. Exact arrays are expectations, not newly fabricated observed-output records.",
+    "effects": [],
+    "violations": [],
+    "independently_satisfied_business_obligations": 1,
+    "business_unit": "collections_complete_ordered_doubling_v1",
+    "logical_calls_per_business_obligation": 28,
+    "physical_attempts_per_business_obligation": 30,
+    "legacy_useful_work_count": 3,
+    "legacy_count_adopted": false,
+    "candidate_acceptance_credit": 0
+  },
+  "measurements": {
+    "file": "compact-taskplan-65db90d9-collections-measurements.json",
+    "sha256": "40ac082073eeb5a974729de475b868e75346ab465f465e66c2aed41f03ba8128",
+    "bytes": 6486
+  },
+  "limitations": [
+    "Two unknown physical attempts retain their full reservation; no release or replay occurred. This read does not inspect current campaign accounting.",
+    "This successful control is one source-bound observation, not two final-candidate successes or the 18-comparison gate.",
+    "Historical result useful_work counts3 generic dimensions; this projection uses one frozen complete business obligation, never checkpoints.",
+    "Original raw run/requests/receipts were read only in RAM and not saved; safe scalar and hash projections are retained."
+  ],
+  "response_anomalies": {
+    "received_responses": 28,
+    "empty_normalized_responses": 0,
+    "original_text_available": 28,
+    "empty_original_texts": 0,
+    "valid_original_json_responses": 28,
+    "nonempty_non_json_responses": 0,
+    "outside_string_whitespace_bytes": 13,
+    "maximum_outside_string_whitespace_run_bytes": 2,
+    "responses_with_at_least_half_outside_string_whitespace": 0,
+    "whitespace_definition": "Existing quote/escape-aware JSON scanner: spaces, tabs, CR and LF outside strings; the half-of-original-UTF8 threshold is a descriptive count, not a provider failure classification.",
+    "interface_extraction": {
+      "request_number": 2,
+      "original_utf8_bytes": 1341,
+      "outside_string_whitespace_bytes": 6,
+      "maximum_outside_string_whitespace_run_bytes": 2,
+      "outside_whitespace_share_at_least_half": false
+    },
+    "provider_finish_reason_counts": {
+      "stop": 28
+    },
+    "received_output_exhaustion_markers": 0,
+    "ordinary_completion_status_available": 0,
+    "input_rejected_before_dispatch": 0,
+    "http_outcome_codes": null,
+    "provider_input_rejection_count": null,
+    "availability_limits": "All28 received provider choices report stop; ordinary completion_status is absent for all28. Public --inspect-run does not expose the per-attempt HTTP journal, so the two unknown attempts have neither known HTTP status codes nor a known provider input-rejection classification here. Missing attempts are not counted as empty responses or output exhaustion."
+  }
+}

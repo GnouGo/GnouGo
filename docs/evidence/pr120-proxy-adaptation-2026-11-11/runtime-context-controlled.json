@@ -1,0 +1,12 @@
+{
+  "planning_passed": 2971,
+  "benchmark_passed": 435,
+  "failures": 0,
+  "skips": 0,
+  "warnaserror": true,
+  "release_warnings": 0,
+  "red_sha256": "0b7a47562c6738a0384bde42789fe13ad998cf9b7739c61e5bd0ab68a5260df9",
+  "planning_log_sha256": "8379e0cf616b5cbb380ea6b1e8b9e2daf238451a82967c39f77bc1d39c9f6369",
+  "benchmark_log_sha256": "517160238dc5797dc88643d51668c1a98fbf3970ed2fb3026a04eb421824ebd6",
+  "histories_rewritten": false
+}

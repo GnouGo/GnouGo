@@ -36,7 +36,7 @@ RUN pnpm --dir src/GnOuGo.Diff.Server/ClientApp build
 # Use --platform=$BUILDPLATFORM to run the SDK natively on the build host.
 # The publish output is framework-dependent (pure IL) — no RID needed.
 # This avoids QEMU emulation which can crash during dotnet build.
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0.100 AS build
 
 WORKDIR /src
 
@@ -66,7 +66,7 @@ RUN dotnet publish src/GnOuGo.Diff.Server/GnOuGo.Diff.Server.csproj \
 # ──────────────────────────────────────────────
 # Stage 3: Final runtime image
 # ──────────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:11.0.0 AS runtime
 
 WORKDIR /app
 

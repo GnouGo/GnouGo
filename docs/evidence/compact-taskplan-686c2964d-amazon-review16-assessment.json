@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "reviewed_utc": "2026-10-25T15:49:56.519309+00:00",
+  "source": "686c2964d2437cbe1ab6b27e8b6ae673824fc873",
+  "cohort": "compactr686c2964damz20v6j16",
+  "safe_pins": [
+    {
+      "name": "amazon-terminal-exact-metrics.json",
+      "sha256": "da73a4dd2635dceb565a500bc06f37be8dbac1b5b26a56975225d23d23f9964c",
+      "bytes": 122393
+    },
+    {
+      "name": "amazon-terminal-state-witness-safe.json",
+      "sha256": "ec9822d9c461829c9d48a450247b2c8248974f0ff153fc154d94f61db66e64d2",
+      "bytes": 138650
+    },
+    {
+      "name": "amazon-consumed-original-contract-safe.json",
+      "sha256": "23a52c565572ff074158ab5eeb4ace1722e98b93ad63321f882764caf8c74b59",
+      "bytes": 21779
+    }
+  ],
+  "source_pins": [
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.DecisionContext.cs",
+      "sha256": "2a039e85f26998dd20d0fe0856ccc8c96cb9b0ae7d97145b601e9724d83d8838"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Contracts.cs",
+      "sha256": "f3c41268c2588e7e0e60bdaf70bea7aee4edc6e1b67ecc92ae7c4120e2ab0703"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.Navigation.cs",
+      "sha256": "1fd36225306eb75db342b968b6ced3c9f00777d42ecb186f11ba543738acf0dd"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidence.cs",
+      "sha256": "e01570bf001cdc1a85b6611e489bfc8d14f37df4baa8d81e2d5845aecbcf54e9"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.ReviewEvidenceChoices.cs",
+      "sha256": "b1ad4262b35aab96ffc2875ad044d675736650b3cf5492981c6df030c67c6dc8"
+    },
+    {
+      "path": "src/GnOuGo.Flow.Core/Runtime/ModelRequestAdmission.cs",
+      "sha256": "f7124bd211532b3b99749c0121b12973582715008a2573f25431d316d59d3217"
+    }
+  ],
+  "rejected_request": {
+    "ordinal": 27,
+    "phase": "construction_local_judge",
+    "admission": "rejected_before_dispatch",
+    "complete_request_bytes": 49043,
+    "estimated_input_tokens": 16604,
+    "captured_limit": 16000,
+    "components": [
+      {
+        "component": "construction_context",
+        "serializedBytes": 11712,
+        "estimatedTokens": 3904
+      },
+      {
+        "component": "diagnostics",
+        "serializedBytes": 26,
+        "estimatedTokens": 9
+      },
+      {
+        "component": "envelope",
+        "serializedBytes": 449,
+        "estimatedTokens": 406
+      },
+      {
+        "component": "evidence",
+        "serializedBytes": 808,
+        "estimatedTokens": 270
+      },
+      {
+        "component": "fragment",
+        "serializedBytes": 3472,
+        "estimatedTokens": 1158
+      },
+      {
+        "component": "instructions",
+        "serializedBytes": 5176,
+        "estimatedTokens": 1726
+      },
+      {
+        "component": "interfaces",
+        "serializedBytes": 3497,
+        "estimatedTokens": 1166
+      },
+      {
+        "component": "mcp_contracts",
+        "serializedBytes": 16477,
+        "estimatedTokens": 5493
+      },
+      {
+        "component": "objective",
+        "serializedBytes": 350,
+        "estimatedTokens": 117
+      },
+      {
+        "component": "requirements",
+        "serializedBytes": 841,
+        "estimatedTokens": 281
+      },
+      {
+        "component": "response_schema",
+        "serializedBytes": 6235,
+        "estimatedTokens": 2079
+      }
+    ],
+    "window_index": 0,
+    "window_count": 6,
+    "no_dispatch_or_receipt": true
+  },
+  "finding": {
+    "classification": "Exact repeated host navigation metadata; no repeated complete producer core.",
+    "first_path": "/interfaces/0/producers/0/contract/outputs",
+    "second_path": "/taskEvidence/items/0/outputs",
+    "producer_id": "step_5",
+    "port_count": 19,
+    "arrays_deep_equal": true,
+    "canonical_ascii_utf8_bytes": 4728,
+    "canonical_sha256": "b146e1a5ea55dd3b358c5e34da2df804468cfa6b6e89ce076021c0b3077fab11",
+    "navigation_addresses_before_and_after": 33,
+    "navigation_set_unchanged_after_in_memory_second_array_removal": true,
+    "full_producer_description_copies": 1,
+    "selected_input_views": 1,
+    "selected_output_views": 3,
+    "mandatory_core_kept_in_memory_experiment": true,
+    "task_navigation_identity_scope_hash_and_directory_kept": true
+  },
+  "source_basis": [
+    "Contracts.cs209\u2013224 adds CompletePortDirectory to the accepted producer task-navigation row. DecisionContext.cs115\u2013120 independently adds the same complete directory in the mandatory producer semantic context.",
+    "Navigation.cs142\u2013167 traverses both outputs containers and the producer contract. ReviewEvidenceChoices.cs14\u201333 constructs evidence choices from their set and filters retained/repeated addresses. Set equality therefore preserves these displayed choices for this exact context.",
+    "ReviewEvidence.cs8\u201353 chooses bounded task-neighbor rows and retains accepted operation originals; the in-memory comparison removes none of those rows or originals.",
+    "ModelRequestAdmission.cs15\u201316 estimates the full serialized request. The4,728B canonical directory size is not a measured new full-envelope size or a promised admitted request."
+  ],
+  "limitations": [
+    "Read-only source/safe-context inspection and an in-memory removal experiment only; no source change, build, helper, store, readiness or provider action.",
+    "No blanket schema deduplication, required-sibling removal, producer-core truncation, ceiling increase or performance/causal/business-success claim.",
+    "The exact current request has no accepted review;6 source windows remain required. Other selected schema repetitions can carry ancestor/nullability/reference constraints and are not established as removable.",
+    "Browser mode and output meaning are assessed separately by C. This record does not infer runtime behavior from the selected port names."
+  ],
+  "evidence_provenance": {
+    "private_capacity_assessment": {
+      "name": "amazon-capacity-assessment-safe.json",
+      "sha256": "1fb7fd12da37aff6798dd6911c0669da962031e67092f9b9ba0d1528f454463b",
+      "bytes": 6583
+    },
+    "private_numeric": {
+      "name": "amazon-terminal-numeric-safe.json",
+      "sha256": "8f261ea2ced13170c715ae823c88341334a9bc1d1a0f1374172e5c9d1efda6d3",
+      "bytes": 18328
+    },
+    "numeric_peer": {
+      "name": "amazon-independent-review-safe.json",
+      "sha256": "fd52879fe28a6e34f15ff31a2ded680f65d8cc85b157a52f0e3c45686b4193df",
+      "bytes": 4163
+    }
+  },
+  "projection": "The private proposed remedy is excluded. This records the observed rejected request and exact duplicated host navigation metadata only; no rebuilt complete request or admitted remedy was measured."
+}

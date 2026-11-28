@@ -1,0 +1,63 @@
+{
+  "case": "collections",
+  "source": "5d05c994bbce13b740753e9233fc1b47a4b8e267",
+  "run": "collections-qualification-20261109-01",
+  "session": "22454484e46147b4ba461623b1632d56",
+  "logical_calls": 17,
+  "physical_attempts": 17,
+  "uncertain_attempts": 0,
+  "measured_usage_tariff_eur": "2.1561038961038961038961038959",
+  "global_review": "ok",
+  "reviewed_revision": 41,
+  "review_origin": "delegated_test_reviewed",
+  "artifact_hash": "7215b924d86cfc99b2d4966dc6840a26906a7fcc3f341432527935792cad5bb2",
+  "execution": {
+    "success": true,
+    "variants": [
+      {
+        "variant": "nominal",
+        "success": true,
+        "outputs": {
+          "result": [
+            2,
+            4,
+            8
+          ]
+        },
+        "oracle_passed": true
+      },
+      {
+        "variant": "alternate",
+        "success": true,
+        "outputs": {
+          "result": [
+            6,
+            6,
+            -4
+          ]
+        },
+        "oracle_passed": true
+      }
+    ]
+  },
+  "oracle": {
+    "version": "collections-native-variants-v1",
+    "independent": true,
+    "passed": true
+  },
+  "operator_plan_edits": false,
+  "never_replay_execution": true,
+  "consecutive_full_successes_so_far": 1,
+  "closed_available_before_collections02_eur": "104.080223914017017465293320588",
+  "private_evidence_sha256": {
+    "collections01-final-run.json": "9c4ecd017cfae3b310b2028c8731ca50d262ba50c314731d76b9fbc9d7c1f80c",
+    "collections01-review-notes.json": "7f33380721505686dcb3d3c7d3f796607113cc6cb1351b464893c799a4ebac40",
+    "collections01-global-review.json": "b94162b1e95f9ad301b2f65e285502c50ee7ceb050f2c97e0268410ef32535d7",
+    "collections01-closed-audit.json": "8afe311106b829b39b9e66a4a93336fbd26411db45aad1b1592ca17e23921c5c"
+  },
+  "limitations": [
+    "The second consecutive complete Collections success on this frozen source remains required.",
+    "Finite runtime capacity 100 is separate from the public array type, which has no declared maximum.",
+    "Tariff estimates and conservative holds are not provider invoices."
+  ]
+}

@@ -4,7 +4,7 @@ namespace GnOuGo.Agent.Server.Configuration;
 
 /// <summary>Explicit host policy for new executions; resumed runs use their stored policy.</summary>
 internal sealed class ConfiguredExecutionBudgetFactory(
-    LLMUsageBudgetLimits? limits, IExchangeRateProvider exchangeRates) : ILLMUsageBudgetScopeFactory
+    LLMUsageBudgetLimits? limits, IExchangeRateProvider exchangeRates, ApplicationLlmBudgetPolicy? policy = null) : ILLMUsageBudgetScopeFactory
 {
     internal const string SectionName = "Flow:Execution:LlmBudget";
 
@@ -61,5 +61,11 @@ internal sealed class ConfiguredExecutionBudgetFactory(
     }
 
     public LLMUsageBudgetScope? CreateScope()
-        => limits is null ? null : new(limits, exchangeRateProvider: exchangeRates);
+    {
+        var capture = policy?.Capture();
+        return capture?["mode"]?.GetValue<string>() == "unlimited"
+            ? LLMUsageBudgetScope.CreateTrackingOnly(exchangeRateProvider: exchangeRates, currency: capture["currency"]!.GetValue<string>(),
+                origin: capture["origin"]!.GetValue<string>())
+            : limits is null ? null : new(limits, exchangeRateProvider: exchangeRates) { PolicyOrigin = "application_execution_configuration" };
+    }
 }

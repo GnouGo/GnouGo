@@ -44,6 +44,34 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
         }
     }
     internal static bool IsProjectTool(string name) => Operations.Any(op => name == "project_" + op);
+    internal static string[] ExcludedTools(CopilotRuntimeConfiguration config) =>
+        (config.ExcludedTools ?? []).Concat(NativeFileTools.Where(name =>
+            !(name is "view" or "rg" && config.ExecutionBounds?.Tools.Contains(name) == true) &&
+            !(name == "apply_patch" && config.UseSessionFileSystem && config.ExecutionBounds?.Tools.Contains("apply_patch") == true &&
+                config.ExecutionBounds.Tools.Contains("project_write")))).Distinct(StringComparer.Ordinal).ToArray();
+
+    internal static IReadOnlyList<string> PatchTargets(JsonElement argument)
+    {
+        var patch = argument.ValueKind == JsonValueKind.String ? argument.GetString() : null;
+        if (patch is null) throw new ArgumentException("A native patch requires its text argument.");
+        var lines = patch.ReplaceLineEndings("\n").TrimEnd('\n').Split('\n');
+        if (lines.Length < 3 || lines[0] != "*** Begin Patch" || lines[^1] != "*** End Patch")
+            throw new ArgumentException("The patch envelope is incomplete.");
+        var targets = new List<string>();
+        foreach (var line in lines[1..^1])
+        {
+            if (!line.StartsWith("*** ", StringComparison.Ordinal) || line == "*** End of File") continue;
+            var separator = line.IndexOf(": ", StringComparison.Ordinal);
+            if (separator < 0 || line[..separator] is not ("*** Add File" or "*** Update File" or "*** Delete File" or "*** Move to"))
+                throw new ArgumentException("Unrecognized patch target.");
+            var path = line[(separator + 2)..];
+            if (string.IsNullOrWhiteSpace(path) || path != path.Trim() || path.Any(char.IsControl) || CopilotTransientSessionState.Contains(path))
+                throw new UnauthorizedAccessException("A patch target must be a concrete project file.");
+            targets.Add(path);
+        }
+        if (targets.Count == 0) throw new ArgumentException("The patch contains no project file target.");
+        return targets;
+    }
     internal static bool IsWrite(string name) => name is "project_write" or "project_append" or "project_mkdir" or "project_remove" or "project_rename";
     internal static string RequiredString(JsonElement args, string key)
         => args.ValueKind == JsonValueKind.Object && args.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
@@ -71,7 +99,7 @@ internal sealed class CopilotProjectFileTool(string operation, ICopilotSessionFi
     {
         static string Text(AIFunctionArguments args, string key) => args.TryGetValue(key, out var value)
             ? value is JsonElement json ? json.GetString() ?? "" : value?.ToString() ?? "" : throw new ArgumentException($"Missing '{key}'.");
-        using var admitted = bounds?.EnterFileOperation(Name);
+        using var admitted = bounds?.EnterHostOperation(Name);
         var path = Text(arguments, "path");
         ct.ThrowIfCancellationRequested();
         Validate(Name, Arguments(arguments), files, state);

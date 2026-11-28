@@ -1,57 +1,71 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Runtime;
+using GnOuGo.GithubCopilot.Core;
+using GnOuGo.GithubCopilot.Mcp;
+using GnOuGo.KeyVault.Core.Services;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace GnOuGo.Flow.Copilot;
 
-/// <summary>Transport adapter only. The MCP host owns the existing managed Copilot session implementation.</summary>
-public sealed class CopilotAgentTaskRunner(IMcpClientFactory transport, string serverName) : IAgentTaskRunner
+/// <summary>A code task uses the managed SDK session and the same durable service as external callers.</summary>
+public sealed class CopilotAgentTaskRunner(IConfiguration configuration, IConfiguration? executionPolicy = null) : IAgentTaskRunner
 {
-    public string Description => "Adaptive project editing and testing through managed Copilot with bounded permissions and verified command/file evidence.";
+    public bool SupportsActionLimit => true;
+    public string Description => "Explore, review or edit an approved project with a bounded Copilot SDK session.";
 
-    public async Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct)
+    public Task<AgentTaskRunnerContract> DescribeAsync(CancellationToken ct) => DescribeAsync(inspectRuntime: false, ct);
+
+    public Task<AgentTaskRunnerContract> DescribeAsync(bool inspectRuntime, CancellationToken ct) => InvokeAsync(null, async service =>
     {
-        var response = await CallAsync("copilot_task_contract", new JsonObject(), null, ct);
-        if (response?["schemaVersion"]?.GetValue<int>() != 9)
-            throw new InvalidOperationException("The Copilot server does not implement the schema-9 bounded task protocol.");
-        return JsonSerializer.Deserialize(response["contract"], AgentTaskJsonContext.Default.AgentTaskRunnerContract)
-            ?? throw new InvalidOperationException("The Copilot server did not declare its bounded task contract.");
-    }
+        var response = await service.ContractAsync(ct, inspectRuntime);
+        return response["contract"].Deserialize(AgentTaskJsonContext.Default.AgentTaskRunnerContract)
+            ?? throw new InvalidDataException("Missing code task contract.");
+    }, ct);
 
-    public async Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct)
+    public Task<IReadOnlyList<string>> ValidateAsync(AgentTaskContext context, CancellationToken ct) =>
+        InvokeAsync(context, service => service.ValidateAsync(context, ct), ct);
+
+    public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) =>
+        InvokeAsync(context, service => service.RunAsync(context, ct), ct, verifyProxy: true);
+
+    public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) =>
+        InvokeAsync(context, service => service.InspectAsync(context, ct), ct);
+
+    private async Task<T> InvokeAsync<T>(AgentTaskContext? context, Func<BoundedCopilotTasks, Task<T>> operation, CancellationToken ct, bool verifyProxy = false)
     {
-        AgentTaskContracts.Parse(JsonSerializer.SerializeToNode(context.Task, AgentTaskJsonContext.Default.AgentTaskDefinition));
-        var response = await CallAsync("copilot_task_validate", Arguments(context), context, ct);
-        if (response?["errors"] is not JsonArray errors) throw new InvalidOperationException("Invalid Copilot scope validation response.");
-        return errors.Select(e => e?.GetValue<string>() ?? "Invalid scope finding.").ToArray();
-    }
-
-    public Task<AgentTaskResult> RunAsync(AgentTaskContext context, CancellationToken ct) => ResultAsync("copilot_task_run", context, ct);
-    public Task<AgentTaskResult> ReconcileAsync(AgentTaskContext context, CancellationToken ct) => ResultAsync("copilot_task_inspect", context, ct);
-
-    private async Task<AgentTaskResult> ResultAsync(string method, AgentTaskContext context, CancellationToken ct)
-    {
-        var response = await CallAsync(method, Arguments(context), context, ct);
-        if (response?["schemaVersion"]?.GetValue<int>() != 9 || response["result"] is null)
-            throw new InvalidOperationException("Invalid Copilot receipt protocol. Regenerate and approve the task.");
-        return JsonSerializer.Deserialize(response["result"], AgentTaskJsonContext.Default.AgentTaskResult)
-            ?? throw new InvalidOperationException("Invalid Copilot task receipt.");
-    }
-
-    private static JsonObject Arguments(AgentTaskContext context) => new()
-    { ["contextJson"] = JsonSerializer.Serialize(context, AgentTaskJsonContext.Default.AgentTaskContext) };
-
-    private async Task<JsonNode?> CallAsync(string method, JsonObject arguments, AgentTaskContext? context, CancellationToken ct)
-    {
-        using var call = (transport as IMcpExecutionHooks)?.BeginCall(new(
-            new() { TenantId = context?.TenantId, RunId = context?.RunId, ExecutionId = context?.ExecutionId ?? context?.RunId, AgentId = context?.AgentId, AgentName = context?.AgentName,
-                StepId = context?.InvocationId, StepType = "agent.run", ServerName = serverName, MethodName = method, Kind = "tool" },
-            progress => context?.Progress?.Invoke(new(progress.EventKind ?? "progress", progress.Message)),
-            signal => context?.HumanInput?.Invoke(signal.Request, signal.Phase.ToString())));
-        await using var session = await transport.GetClientAsync(serverName, ct);
-        if (session is ILiveMcpToolDiscoverySession discovery) await discovery.EnsureToolsDiscoveredAsync(ct);
-        var result = await session.CallToolAsync(method, arguments, ct);
-        if (result.IsError) throw new InvalidOperationException("The Copilot task operation failed. Inspect its durable receipt before retrying execution.");
-        return result.Content;
+        ct.ThrowIfCancellationRequested();
+        var database = configuration["KeyVault:DatabasePath"];
+        var reader = KeyVaultSecretReaderFactory.CreateWorkspaceCatalogReader(database, AppContext.BaseDirectory);
+        var overlay = await CopilotKeyVaultConfigurationOverlay.LoadAsync(reader);
+        var builder = new ConfigurationBuilder().AddConfiguration(configuration).AddInMemoryCollection(overlay.Values);
+        if (executionPolicy is not null) builder.AddConfiguration(executionPolicy);
+        var settings = builder.Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton<IConfiguration>(settings);
+        services.AddSingleton<IKeyVaultRecordStore>(KeyVaultRecordStoreFactory.CreateWorkspaceStore(database, AppContext.BaseDirectory));
+        services.AddSingleton<IKeyVaultSecretCatalogReader>(reader);
+        services.AddSingleton<IKeyVaultSecretReader>(reader);
+        services.AddSingleton<CodeMcpTraceContextAccessor>();
+        if (context?.Execution?.Engine.HumanInputProvider is { } human)
+            services.AddSingleton<ICopilotHumanInputProvider>(new WorkflowCopilotHumanInput(context, human, ct));
+        services.AddCodeTaskServices();
+        services.AddSingleton(sp => new CodeProgressReporter(sp.GetRequiredService<CodeMcpTraceContextAccessor>(),
+            update => context?.Progress?.Invoke(new(update.Kind, update.Message))));
+        await using var provider = services.BuildServiceProvider();
+        var trace = new CodeMcpTraceContext(null, null, null, null, null, context?.ExecutionId, context?.RunId, context?.InvocationId,
+            "agent.run", null, null, null) { TenantId = context?.TenantId, ExecutionId = context?.ExecutionId,
+            AgentId = context?.AgentId, AgentName = context?.AgentName };
+        using var owner = provider.GetRequiredService<CodeMcpTraceContextAccessor>().Push(trace);
+        if (verifyProxy && settings["Code:Copilot:InferenceProxyEndpoint"] is { Length: > 0 })
+        {
+            using var ready = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            ready.CancelAfter(TimeSpan.FromSeconds(10));
+            await provider.GetRequiredService<CopilotInferenceProxyHandler>().VerifyReadyAsync(ready.Token);
+        }
+        return await operation(provider.GetRequiredService<BoundedCopilotTasks>());
     }
 }

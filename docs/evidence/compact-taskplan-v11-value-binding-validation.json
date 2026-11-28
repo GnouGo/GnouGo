@@ -1,0 +1,73 @@
+{
+  "scope": "Fresh PresentationVersion 11 discovery guidance only; existing shared native value contract. No schema, model setting, Core metadata, compiler/runtime, permission or recovery change.",
+  "reproduction": {
+    "exit_code": 1,
+    "counts": {
+      "Failed": 1,
+      "Passed": 1
+    },
+    "elapsed_seconds": 23.7674429169856,
+    "source_unchanged": true,
+    "log_sha256": "a009e865df3e5ca59659ed412dffe54c0435afb5248a3241a687d7e9c16dd1cf"
+  },
+  "affected_suites": {
+    "exit_code": 0,
+    "counts": {
+      "Passed": 295
+    },
+    "elapsed_seconds": 29.846678790985607,
+    "source_unchanged": true,
+    "log_sha256": "78568027d6db3e37410ae69bf7189a94b7eb4e15b5da49828e7877074cff516c"
+  },
+  "source_postimages": {
+    "src/GnOuGo.Flow.Planning/PlanningCompactConstruction.cs": "e7ed40cd312e38164047bdd807733e5b4a824cc456de3a6b7b5f4f4b5d0ffc8b",
+    "tests/GnOuGo.Flow.Planning.Tests/CompactSuspendedConsumerTests.cs": "cb2f7c7a6d49b110d21a30801bb46268526298092e3f9a87c08a7903d78cd8d6"
+  },
+  "exact_retained_request_measurement": {
+    "kind": "exact_retained_request_reconstruction_only",
+    "control_source": "dbe1ad97d9c6d6dd8374731595296fe8b8f468f1",
+    "request_id": "compactrdbe1ad97amz22j20v11a-amazon-1:36:f281cc3cd30b3c92a724e1de88ffa1547ef68bd506be9b44c40edcf0f88af625",
+    "old_bytes": 19613,
+    "candidate_bytes": 19853,
+    "old_estimated_tokens": 6794,
+    "candidate_estimated_tokens": 6874,
+    "input_limit": 12000,
+    "byte_delta": 240,
+    "estimated_token_delta": 80,
+    "schema_identical": true,
+    "settings_identical": true,
+    "component_bytes_reconcile": true,
+    "model_calls": 0,
+    "live_benefit_proven": false
+  },
+  "measurement_program_sha256": "e451bad398d74f0c3f68cd9242e55fe55c9eed52230e5b709db280808d8c77a4",
+  "measurement_output_sha256": "8899a16048afc14ec06d6a26f23988713dd9871bb039897ea260e5aa239c9829",
+  "retained_fixture_setup_failures": [
+    {
+      "result": {
+        "exit_code": 1,
+        "counts": {},
+        "elapsed_seconds": 21.560879875032697,
+        "source_unchanged": true,
+        "log_sha256": "c195d4736f80742c15b13af52b25364639fcb93b70986284ffe572ab848b99d1"
+      },
+      "reason": "Initial regression draft used the wrong TaskInput constructor, guidance member name and JsonObject argument type."
+    },
+    {
+      "result": {
+        "exit_code": 1,
+        "counts": {
+          "Failed": 2
+        },
+        "elapsed_seconds": 24.964463207987137,
+        "source_unchanged": true,
+        "log_sha256": "1fe9ef945d39c0038295073659d893c7e114e1da24ac3f00f5802df1d0c231ae"
+      },
+      "reason": "Declaration-only setup had not mirrored indexed input into authoritative TaskPlan inputs; shared binding preflight correctly rejected it."
+    }
+  ],
+  "business_benefit": "Unverified until fresh frozen live execution. Shared semantics do not force a kind, generate a binding or authorize effects.",
+  "historical_behavior": "Version 10 control remains unchanged; versions 2\u201310 are outside the new predicate. Pending requests remain issued-schema exact.",
+  "test_totals": "The 295 focused cases overlap future full solution/Planning suites and are not additive.",
+  "paid_calls_for_correction": 0
+}
