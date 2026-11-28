@@ -1,0 +1,27 @@
+{
+  "campaign": "pr120-agent-routing-20261126-30",
+  "opening": {
+    "ceiling": 70,
+    "attempts": 1676,
+    "input_tokens": 25524569,
+    "output_tokens": 846666,
+    "known_cost_eur": "61.999774487471526195899772866",
+    "http_reserved_eur": "0.475031890660592255125284738",
+    "retained_application_eur": "0.0463553530751708428246013667",
+    "unknown_attempts": 2,
+    "available_eur": "7.478838268792710706150341029",
+    "provider_invoice": null
+  },
+  "after_blind_control": {
+    "ceiling": 70,
+    "attempts": 1678,
+    "input_tokens": 25525637,
+    "output_tokens": 847076,
+    "known_cost_eur": "62.004075170842824601366743255",
+    "http_reserved_eur": "0.475031890660592255125284738",
+    "retained_application_eur": "0.0463553530751708428246013667",
+    "unknown_attempts": 2,
+    "available_eur": "7.474537585421412300683370640",
+    "provider_invoice": null
+  }
+}

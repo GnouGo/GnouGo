@@ -1,0 +1,10 @@
+{
+  "application": "Microsoft PowerPoint",
+  "version": "16.0",
+  "build": "20625",
+  "cell": "Sheet1!B3",
+  "initial": 11,
+  "reopened": 13.0,
+  "source_sha256": "4f83aaff2bbf09d26a773a62e0b9d64acb826cd60d08eabac324f0d2804a78f2",
+  "edited_sha256": "7d3b4632292c49823ba96b561d7f01e05a8cfc6d102749be8f798aa9455886f8"
+}

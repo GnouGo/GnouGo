@@ -36,6 +36,8 @@ llm.call and the business runner for agent.run accept an images array alongside 
 
 mcp.call keeps the structured response and projects mixed blocks into content_blocks. An image block contains an image reference. An embedded image resource carries its reference in resource.image. The business agent can request a previously observed image by digest. A successful llm.call returns inspected references under meta.images. For visual review, request a structured result with the slide or region, observed problem, severity, proposed correction and uncertainty. Match that receipt to the rendered slide digest. Check native content and public output separately.
 
+The qualification evidence includes native round trips for three OS targets, a Microsoft PowerPoint edit and a blind two-image review. [PR 120 evidence](evidence/pr120-deckcraft-vision-20261128/README.md)
+
 ## Distribution notices
 
 DeckCraft code is MIT OR Apache-2.0. The packaged NOTICE and ATTRIBUTION.md list original artwork, Lucide ISC and Feather-derived MIT icon paths. The headless source build omits the optional craft-fonts checkout. The dependency font bundle includes Ubuntu Light (Ubuntu Font Licence), Hack (MIT/Bitstream Vera), Noto Emoji (OFL) and the egui/emoji icon fonts. Platform font availability can change glyphs and wrapping. The PDF dependency includes CC0 ICC profiles. Official upstream release archives can embed additional OFL fonts and carry their own font notices. [Pinned asset inventory](https://github.com/storytold/deckcraft/blob/4a980c33ddf37eb64157777fcaeab6d19baa5878/ATTRIBUTION.md)

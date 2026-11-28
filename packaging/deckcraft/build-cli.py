@@ -67,6 +67,22 @@ def notices(source, stage, target, env):
             parent = next((d for d in (root, *root.parents) if (d / ".git").exists()), None)
             if parent is not None:
                 files.update(f for f in parent.glob("LICENSE*") if f.is_file())
+        sources = Path(__file__).resolve().parent / "licenses"
+        if p["name"].split("-")[0] == "symphonia" and p["license"] == "MPL-2.0":
+            files.add(sources / "Symphonia-MPL-2.0")
+            archive = f"{p['name']}-{p['version']}.crate"
+            cache = Path(env.get("CARGO_HOME", Path.home() / ".cargo")) / "registry" / "cache"
+            source_archive = next((f for f in cache.glob("*/" + archive) if digest(f) == tarball), None)
+            if source_archive is None:
+                raise ValueError(f"Missing verified MPL source {archive}")
+            (stage / "sources").mkdir(exist_ok=True)
+            shutil.copyfile(source_archive, stage / "sources" / archive)
+        elif p["name"] == "i_key_sort" and p["version"] == "0.12.0":
+            files.add(sources / "iKeySort-MIT")
+        elif p["name"] == "i_overlay" and p["version"] == "9.1.0":
+            files.update((sources / "iOverlay-MIT", sources / "iOverlay-APACHE"))
+        if not files:
+            raise ValueError(f"Review missing distribution notices for {p['name']} {p['version']}")
         entry = {"name": p["name"], "version": p["version"], "license": p["license"], "source": url,
                  "crate_sha256": tarball, "notices": []}
         for f in sorted(files):

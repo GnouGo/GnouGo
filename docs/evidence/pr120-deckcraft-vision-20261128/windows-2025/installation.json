@@ -1,0 +1,9 @@
+{
+  "source": "4a980c33ddf37eb64157777fcaeab6d19baa5878",
+  "patch_sha256": "fcc098e5352bde7748d9569761ec3625d394b9d9b3382713a4d26c33a956dab9",
+  "cargo_lock_sha256": "1a576f8ccf8612612230fe4bbe53dd65e48a9169f7097c192b8e99d18b3eaa89",
+  "rustc": "rustc 1.100.1 (20ddd0171 2026-11-25)\nbinary: rustc\ncommit-hash: 20ddd01716a87c0fcf06ae4752d85a4abc15bcdf\ncommit-date: 2026-11-25\nhost: x86_64-pc-windows-msvc\nrelease: 1.100.1\nLLVM version: 23.1.5",
+  "target": "x86_64-pc-windows-msvc",
+  "cli_sha256": "dcf12abe393f65429a47b5064b627c9a505dbf4c9d4dcac4493fc09eb08e24a9",
+  "components_sha256": "11e36e2f9bc7a45a31b07d6dfb5a56bda49e3fdfb04a0cfe1d3939405c129164"
+}
