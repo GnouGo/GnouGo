@@ -221,5 +221,41 @@
     "duration": "00:00:40.4769999",
     "trx_sha256": "1e60a4446949c651cda8519a63cd0e31dd451586cfd61828ddbd953f46c07c2a",
     "provider_generation_calls": 0
+  },
+  "windows_full_server_suite": {
+    "test_assembly_informational_version": "1.0.0+5218c843329ba7a6bb3a4e2aa8ff9a66b9bed496",
+    "test_assembly_sha256": "6224f9fa4afe46a166146d613a9ff0b156b98012931a456fe3200a3838b3c24f",
+    "passed": 2840,
+    "failed": 0,
+    "skipped": [
+      "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce(deferred: False)",
+      "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce(deferred: True)",
+      "GnOuGo.Agent.Server.Tests.PlanningClarificationBrowserTests.DesignerBrowserUsesRealPersistedQuestionsAndExplicitSubmission"
+    ],
+    "total": 2843,
+    "reported_duration": "1 h 52 m",
+    "log_sha256": "d261c6e827ca64bcb56187b3ca4ed0e3773f9cec3ce93ee3c3d8df80e1de94cd",
+    "follow_up_source": "4160c8eccb39cd95fcc372eb7f3b420bc8c998d2",
+    "opt_in_sdk_cases": [
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce(deferred: False)",
+        "outcome": "Passed",
+        "duration": "00:00:07.1220000"
+      },
+      {
+        "test": "GnOuGo.Agent.Server.Tests.BenchmarkAdmissionTests.LocalSdkReceivesRetryCreditAfterAToolAndRunsItOnlyOnce(deferred: True)",
+        "outcome": "Passed",
+        "duration": "00:00:01.2400000"
+      }
+    ],
+    "sdk_trx_sha256": "1888c2b68bdd020edfa234568197edbb3baec37784727f7835eb453b309d15d3",
+    "browser_follow_up": "windows_planning_clarification_browser",
+    "paid_calls_in_follow_ups": 0
+  },
+  "evidence_commit_checks": {
+    "source": "8863293c46400d742851bf1de259a2389efcb73e",
+    "native_three_os": "https://github.com/GnouGo/GnouGo/actions/runs/46147374969",
+    "planner_and_server": "https://github.com/GnouGo/GnouGo/actions/runs/46147374991",
+    "conclusions": "success"
   }
 }

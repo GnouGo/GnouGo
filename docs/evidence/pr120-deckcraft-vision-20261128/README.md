@@ -26,6 +26,8 @@ The package check verified provider capability rejection, image bytes in the HTT
 
 The hosted planner validation on `4160c8ec` completed successfully. Its five Server test reports covered every discovered case once, with 2,843 passes and one browser smoke skipped because the runner had no configured Playwright module for that test. The same browser test subsequently passed on Windows against a disposable Server and real Chromium. [Hosted planner and Server workflow](https://github.com/GnouGo/GnouGo/actions/runs/46144498707) · [Coverage and Windows browser receipt](local-validation.json)
 
+The full Windows Server run reported 2,840 passes and three opt-in skips in 1 h 52 min. Both local Copilot retry cases and the Chromium clarification case passed when rerun with their fixtures enabled. The three-OS matrix and the hosted planner suite also passed on evidence commit `8863293c`. [Windows results and binary hashes](local-validation.json) · [Hosted planner checks](https://github.com/GnouGo/GnouGo/actions/runs/46147374991) · [Packaged native checks](https://github.com/GnouGo/GnouGo/actions/runs/46147374969)
+
 ## Blind visual control
 
 Two run-owned images went through the workflow runtime, encrypted artifact store and OpenAI adapter. The prompt asked for the upper-right code and visible problems without giving the expected results. The model read `N7K-492` in the unobstructed panel. For the other panel it returned null and identified a major header overlap. Each successful receipt identifies the bytes sent by SHA-256. [Model output and image receipts](blind-vision.json) · [Control and fixtures](../../../tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft)
