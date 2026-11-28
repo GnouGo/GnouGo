@@ -1019,7 +1019,7 @@ internal static class ServerLiveDiagnostics
         if (report["adaptive_runner_profile"]?.ToString() != (adaptive is null ? null : AdaptiveLiveProfile.Version))
             throw new PlanningConflictException("The adaptive runner differs from the profile captured for this review.");
         return new(authorization, document, campaign, sessionId, grant, workspace, report["source"]!.ToString(),
-            scenario is "amazon" or "code" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target, adaptive);
+            scenario is "amazon" or "code" or "deckcraft" ? report["workspace_relative"]!.ToString() : null, report["browser_observation_policy"]?.ToString(), business?.Target, adaptive);
     }
 
     internal static JsonObject? ProbeHttpEvidence(JsonObject? transportEvidence)
@@ -1167,7 +1167,7 @@ internal static class ServerLiveDiagnostics
         var reviewed = report["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)
             ?? throw new PlanningConflictException("No retained review-ready artifact.");
         var scenario = report["scenario"]!.ToString();
-        if (scenario is not ("amazon" or "code")) throw new PlanningConflictException("This recovery requires a retained live MCP artifact.");
+        if (scenario is not ("amazon" or "code" or "deckcraft")) throw new PlanningConflictException("This recovery requires a retained live MCP artifact.");
         await using var lease = await PlanningSessionLease.TryAcquireAsync(app.Services.GetRequiredService<IDbContextFactory<PlanningDbContext>>(),
             current.Request.TenantId, current.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("The retained session has another active owner.");
         var store = app.Services.GetRequiredService<IPlanningSessionStore>();
