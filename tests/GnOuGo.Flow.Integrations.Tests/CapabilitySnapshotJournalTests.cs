@@ -27,6 +27,22 @@ public sealed class CapabilitySnapshotJournalTests : IDisposable
             Assert.DoesNotContain("PRIVATE_CATALOG_BUSINESS", System.Text.Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)), StringComparison.Ordinal);
     }
 
+    [Fact]
+    public async Task ReleasingOneOwnerPreservesTheOtherKindAndTenant()
+    {
+        var records = Records();
+        var designer = new PlanningCapabilitySnapshotJournal(records);
+        var nested = new PlanningCapabilitySnapshotJournal(records, PlanningSnapshotOwner.Workflow);
+        var snapshot = Snapshot();
+        var original = await designer.PublishAsync("tenant", "same", "action", snapshot, Ct);
+        var shared = await nested.PublishAsync("tenant", "same", "action", snapshot, Ct);
+        var foreign = await designer.PublishAsync("other", "same", "action", snapshot, Ct);
+        await PlanningCapabilitySnapshotJournal.ReleaseAsync(records, PlanningSnapshotOwner.Designer, "tenant", "same", Ct);
+        Assert.Null(await records.GetAsync(PlanningCapabilitySnapshotJournal.Collection, "tenant", original.Key, "test", Ct));
+        Assert.NotNull(await records.GetAsync(PlanningCapabilitySnapshotJournal.Collection, "tenant", shared.Key, "test", Ct));
+        Assert.NotNull(await records.GetAsync(PlanningCapabilitySnapshotJournal.Collection, "other", foreign.Key, "test", Ct));
+    }
+
     [Theory]
     [InlineData("tenant")]
     [InlineData("session")]

@@ -31,6 +31,10 @@ public sealed class DurableFileStoreTests : IDisposable
         await Open().ClaimAsync("tenant", file.Id, run, plan, Ct);
         await Open().ClaimAsync("tenant", file.Id, plan, version, Ct);
         await Open().ClaimAsync("tenant", file.Id, plan, version, Ct);
+        var preview = await Open().InspectRetentionAsync("tenant", run, expiry, Ct);
+        Assert.Equal(1, preview.Objects);
+        Assert.True(preview.SharedBytes > bytes.Length);
+        Assert.Equal(0, preview.ExclusiveBytes);
         _clock.Now = expiry;
         await Open().SweepAsync(Ct);
         Assert.False(await Open().CopyAsync("tenant", file.Id, null, Stream.Null, Ct));

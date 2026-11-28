@@ -228,7 +228,10 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         var run = NewRun(new string('x', 10_000));
         run.Status = WorkflowRunStatus.Completed;
         await Open().CreateAsync(run, Ct);
-        clock.Now = run.Retention!.DeadlineUtc!.Value.AddTicks(-1);
+        var preview = await Open().InspectRetentionAsync("tenant", "run", run.Retention!.DeadlineUtc!.Value, Ct);
+        Assert.Equal("eligible", preview.Reason);
+        Assert.NotNull(await Open().ReadAsync("tenant", "run", Ct));
+        clock.Now = run.Retention.DeadlineUtc.Value.AddTicks(-1);
         Assert.NotNull(await Open().ReadAsync("tenant", "run", Ct));
         clock.Now = clock.Now.AddTicks(1);
         Assert.Null(await Open().ReadAsync("tenant", "run", Ct));
@@ -263,6 +266,10 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         Assert.Null(await store.ReadAsync("tenant", "run", Ct));
         Assert.NotNull(await keys.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct));
         var fence = Assert.Single(await keys.ListAsync("flow-expired-executions-v1", "tenant", "test", Ct));
+        await using var evidence = await store.OpenEvidenceAsync("tenant", "run", Ct);
+        Assert.Equal(1.23m, evidence.Run.ModelUsage!.EstimatedCost);
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.OpenEvidenceAsync("other", "run", Ct));
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.AcquireAsync("tenant", "run", evidence.Run.Revision, Ct));
         Assert.True(JsonNode.Parse(fence.Value)!["pinned"]!.GetValue<bool>());
         Assert.Equal(1.23m, JsonNode.Parse(fence.Value)!["usage"]!["estimatedCost"]!.GetValue<decimal>());
     }

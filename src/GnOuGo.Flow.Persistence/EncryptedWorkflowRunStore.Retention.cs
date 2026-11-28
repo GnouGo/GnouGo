@@ -13,6 +13,30 @@ public sealed partial class EncryptedWorkflowRunStore
     private const string Expired = "flow-expired-executions-v1";
     private const string LegacyImages = "flow-run-images-v1";
 
+    internal sealed record RunEvidence(WorkflowRun Run, FileStream Owner) : IAsyncDisposable
+    {
+        public ValueTask DisposeAsync() => Owner.DisposeAsync();
+    }
+
+    internal async Task<RunEvidence> OpenEvidenceAsync(string tenant, string id, CancellationToken ct)
+    {
+        ValidateKey(tenant, id);
+        var owner = TryOwner(tenant, id) ?? throw new WorkflowRunConflictException("This run already has an active owner.");
+        try
+        {
+            await using var write = await WriteLockAsync(tenant, id, ct);
+            var marker = await _records.GetAsync(Expired, tenant, id, Author, ct);
+            if (marker is not null && JsonNode.Parse(marker.Value)?["pinned"]?.GetValue<bool>() != true)
+                throw new WorkflowRunConflictException("The retained execution evidence is unavailable.");
+            var record = await _records.GetAsync(Collection, tenant, id, Author, ct);
+            if (record is null || SplitJournal.Parse(record.Value, tenant, id) is not { } head)
+                throw new WorkflowRunConflictException("The retained execution journal is unavailable.");
+            var run = await new SplitJournal(_records, tenant, id, head).ReadAsync(ct);
+            return new(run, owner);
+        }
+        catch { await owner.DisposeAsync(); throw; }
+    }
+
     private async Task<bool> IsFencedAsync(string tenant, string id, CancellationToken ct) =>
         await _records.GetAsync(Expired, tenant, id, Author, ct) is not null;
 
@@ -30,6 +54,39 @@ public sealed partial class EncryptedWorkflowRunStore
         if (retention.Phase != OwnerRetention.Active || acquiring) return true;
         using var available = TryOwner(tenant, id);
         return available is not null;
+    }
+
+    private static bool RequiresEvidence(WorkflowRun? run, string payload)
+    {
+        var pinned = run?.Status == WorkflowRunStatus.NeedsReconciliation || run?.ModelUsage?.UncertainCalls > 0 ||
+            run?.ModelUsage is { Calls: > 0, CostEstimateAvailable: false } ||
+            run?.Retention?.Phase == OwnerRetention.Reconciliation ||
+            run?.Invocations.Values.Any(i => i.Recovery == StepRecovery.External && i.DispatchedAt.HasValue && (!i.CompletedAt.HasValue || !i.ExternalCompletionObserved)) == true;
+        if (run is null && JsonNode.Parse(payload) is JsonObject retired)
+            pinned = retired["modelUsage"] is not null || retired["invocations"] is JsonObject { Count: > 0 };
+        return pinned;
+    }
+
+    public IAsyncEnumerable<string> EnumerateOwnerIdsAsync(string tenant, CancellationToken ct) =>
+        _records.EnumerateKeysAsync(Collection, tenant, "", Author, ct);
+
+    public async Task<OwnerRetentionInspection> InspectRetentionAsync(string tenant, string id, DateTimeOffset asOf, CancellationToken ct)
+    {
+        using var owner = TryOwner(tenant, id);
+        if (owner is null) return new(id, null, null, "active_owner");
+        await using var write = await WriteLockAsync(tenant, id, ct);
+        var record = await _records.GetAsync(Collection, tenant, id, Author, ct);
+        if (record is null) return new(id, null, null, "unavailable");
+        var head = SplitJournal.Parse(record.Value, tenant, id);
+        var journal = head is null ? null : new SplitJournal(_records, tenant, id, head);
+        var policy = journal?.CommittedRetention;
+        var fence = await _records.GetAsync(Expired, tenant, id, Author, ct);
+        if (fence is not null || policy is { IsValid: true } && !policy.IsDue(asOf))
+            return OwnerRetentionInspection.Inspect(id, journal?.Revision, policy, asOf,
+                fence is not null && JsonNode.Parse(fence.Value)?["pinned"]?.GetValue<bool>() != false, fence is not null);
+        var run = journal is not null ? await journal.ReadAsync(ct) : JsonNode.Parse(record.Value)?["schemaVersion"]?.GetValue<int>() == 9
+            ? WorkflowRunStorage.Read(record.Value, tenant, id) : null;
+        return OwnerRetentionInspection.Inspect(id, run?.Revision, policy, asOf, RequiresEvidence(run, record.Value), false);
     }
 
     public async Task SweepAsync(string tenant, CancellationToken ct)
@@ -100,12 +157,7 @@ public sealed partial class EncryptedWorkflowRunStore
                         ["dispatchedAt"] = invocation.DispatchedAt, ["completedAt"] = invocation.CompletedAt,
                         ["status"] = invocation.Status, ["input"] = invocation.ResolvedInput?.DeepClone(),
                         ["receipt"] = invocation.Output?.DeepClone(), ["observation"] = invocation.Observation?.DeepClone() });
-            var pinned = run?.Status == WorkflowRunStatus.NeedsReconciliation || run?.ModelUsage?.UncertainCalls > 0 ||
-                run?.ModelUsage is { Calls: > 0, CostEstimateAvailable: false } ||
-                run?.Retention?.Phase == OwnerRetention.Reconciliation ||
-                run?.Invocations.Values.Any(i => i.Recovery == StepRecovery.External && i.DispatchedAt.HasValue && (!i.CompletedAt.HasValue || !i.ExternalCompletionObserved)) == true;
-            if (run is null && JsonNode.Parse(record.Value) is JsonObject retired)
-                pinned = retired["modelUsage"] is not null || retired["invocations"] is JsonObject { Count: > 0 };
+            var pinned = RequiresEvidence(run, record.Value);
             var marker = new JsonObject { ["owner"] = id, ["tenant"] = tenant, ["revision"] = run?.Revision,
                 ["definitionHash"] = run?.DefinitionHash, ["status"] = run?.Status, ["expiredAt"] = _retention.Clock.GetUtcNow(),
                 ["pinned"] = pinned, ["effects"] = effects,

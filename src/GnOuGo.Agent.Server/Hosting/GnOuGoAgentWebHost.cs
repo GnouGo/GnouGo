@@ -52,7 +52,14 @@ public static class GnOuGoAgentWebHost
         string? urls = null,
         string? contentRoot = null,
         bool enableHttpsRedirection = true,
-        Action<IServiceCollection>? configureServices = null)
+        Action<IServiceCollection>? configureServices = null) =>
+        BuildCore(args, urls, contentRoot, enableHttpsRedirection, configureServices, inspectionOnly: false);
+
+    internal static WebApplication BuildForRetentionInspection() =>
+        BuildCore([], null, null, false, null, inspectionOnly: true);
+
+    private static WebApplication BuildCore(string[] args, string? urls, string? contentRoot, bool enableHttpsRedirection,
+        Action<IServiceCollection>? configureServices, bool inspectionOnly)
     {
         WebApplicationBuilder builder;
         var isDesktopHosted = !string.IsNullOrWhiteSpace(contentRoot);
@@ -527,6 +534,7 @@ public static class GnOuGoAgentWebHost
             await plans.SweepAsync(tenant, ct);
             var nested = sp.GetRequiredService<GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory>();
             await nested.SweepAsync(tenant, ct);
+            await ChatPlanningService.SweepExpiredOriginsAsync(sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(), tenant, ct);
         }, sp.GetRequiredService<ILogger<GnOuGo.Flow.Persistence.OwnerRetentionWorker>>()));
         builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
@@ -563,6 +571,7 @@ public static class GnOuGoAgentWebHost
 
         configureServices?.Invoke(builder.Services);
         var app = builder.Build();
+        if (inspectionOnly) return app;
 
         app.Services.InitializeAgentMcpAsync().GetAwaiter().GetResult();
         app.Services.InitializeGnOuGoFilesServerAsync().GetAwaiter().GetResult();

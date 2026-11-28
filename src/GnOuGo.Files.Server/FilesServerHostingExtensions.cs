@@ -63,10 +63,7 @@ public static class FilesServerHostingExtensions
                 ? purgeIntervalSeconds
                 : 60,
             StorageRootPath = section[nameof(FilesServerOptions.StorageRootPath)],
-            DatabasePath = section[nameof(FilesServerOptions.DatabasePath)],
-            StreamBufferSizeBytes = int.TryParse(section[nameof(FilesServerOptions.StreamBufferSizeBytes)], NumberStyles.Integer, CultureInfo.InvariantCulture, out var streamBufferSizeBytes)
-                ? streamBufferSizeBytes
-                : 1024 * 128
+            DatabasePath = section[nameof(FilesServerOptions.DatabasePath)]
         };
     }
 }

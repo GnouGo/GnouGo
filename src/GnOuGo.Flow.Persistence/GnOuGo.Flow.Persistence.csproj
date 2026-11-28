@@ -27,6 +27,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="11.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="11.0.0" PrivateAssets="all" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tasks" Version="11.0.0" PrivateAssets="all" />
+    <InternalsVisibleTo Include="GnOuGo.Agent.Planning.Benchmark" />
+    <InternalsVisibleTo Include="GnOuGo.Flow.Persistence.Tests" />
     <None Include="README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
   <Import Project="../../build/GnOuGo.EfDesignTime.targets" />

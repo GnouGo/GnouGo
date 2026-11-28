@@ -18,7 +18,7 @@ public sealed partial class EfPlanningSessionStore(IDbContextFactory<PlanningDbC
     private readonly OwnerRetentionPolicy _policy = policy ?? OwnerRetentionPolicy.Default;
     internal const string Author = "GnOuGo.Agent.Server.Planning";
 
-    /// <summary>Acquire the same exclusive owner lease for offline inspection/recovery. Null means an owner is still active.</summary>
+    /// <summary>Acquire a live planning owner for a command. An expired owner cannot resume.</summary>
     public async Task<FileStream?> TryAcquireLeaseAsync(string tenantId, string sessionId, CancellationToken ct)
     {
         ValidateKey(tenantId, sessionId);

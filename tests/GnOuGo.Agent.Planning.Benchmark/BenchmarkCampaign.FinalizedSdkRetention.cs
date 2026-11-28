@@ -3,23 +3,23 @@ using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Planning;
 using GnOuGo.Flow.Core.Runtime;
 using GnOuGo.Flow.Planning;
+using GnOuGo.Flow.Persistence;
 
 internal sealed partial class BenchmarkCampaign
 {
     internal const string FinalizedSdkRetention = "finalized-server-sdk-request";
 
-    private static async Task<IWorkflowRunLease> OpenFinalizedExecutionAsync(JsonObject report, string workspace, CancellationToken ct)
+    private static async Task<EncryptedWorkflowRunStore.RunEvidence> OpenFinalizedExecutionAsync(JsonObject report, string workspace, CancellationToken ct)
     {
         if (report["execution_run_id"]?.GetValue<string>() is not { } id || !Guid.TryParseExact(id, "N", out _))
             throw new InvalidOperationException("The Server report does not identify a workflow execution.");
         var store = LiveWorkflowEvaluation.ExecutionStore(workspace);
-        var run = await store.ReadAsync("benchmark", id, ct) ?? throw new InvalidOperationException("The execution journal is missing.");
-        return await store.AcquireAsync("benchmark", id, run.Revision, ct);
+        return await store.OpenEvidenceAsync("benchmark", id, ct);
     }
 
     private async Task<JsonObject> InspectFinalizedSdkAsync(JsonObject report, ServerRetentionScope scope, WorkflowRun execution, string id, CancellationToken ct, string? sdkApiVersion)
     {
-        var session = await scope.Store.LoadAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("The saved planning session is missing.");
+        var session = await scope.Store.ReadEvidenceAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("The saved planning session is missing.");
         var prefix = scope.Session + "-copilot:";
         if (!id.StartsWith(prefix, StringComparison.Ordinal) || !IsSha256(id[prefix.Length..]) ||
             report["host"]?.ToString() != "GnOuGo.Agent.Server" || report["phase"]?.ToString() != "server_planning" ||

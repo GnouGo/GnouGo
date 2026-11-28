@@ -8,7 +8,7 @@ namespace GnOuGo.Agent.Server.Planning;
 
 public sealed partial class PlanningSessionService
 {
-    private const string Cancellations = "agent-planning-cancellations-v1";
+    internal const string Cancellations = "agent-planning-cancellations-v1";
 
     /// <summary>An explicit Stop action targets this session's current owner even when the UI polling revision is stale.</summary>
     public Task<PlanningSession> StopAsync(string id, CancellationToken ct) => RequestCancellationAsync(id, new() { Kind = "cancel" }, ct, stopCurrent: true);

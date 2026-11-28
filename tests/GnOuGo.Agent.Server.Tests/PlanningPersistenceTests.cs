@@ -327,6 +327,25 @@ public sealed class PlanningPersistenceTests
         await Assert.ThrowsAsync<PlanningConflictException>(() => store.TrySaveAsync(owner, null, Ct));
     }
 
+    [Fact]
+    public async Task OfflineInspectorCanReadThePinnedRequestAfterOrdinaryResumeCloses()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(2, clock));
+        var session = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "issued" },
+            PendingCall = new() { Id = "request-1" } };
+        Assert.True(await store.TrySaveAsync(session, null, Ct));
+        clock.Now = clock.Now.AddDays(2);
+        await store.SweepAsync("tenant", Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TryAcquireLeaseAsync("tenant", "issued", Ct));
+        Assert.Null(await store.LoadAsync("tenant", "issued", Ct));
+        await using var lease = await PlanningSessionLease.TryAcquireAsync(fixture, "tenant", "issued", Ct);
+        Assert.NotNull(lease);
+        Assert.Equal("request-1", (await store.ReadEvidenceAsync("tenant", "issued", Ct))?.PendingCall?.Id);
+        Assert.Null(await store.ReadEvidenceAsync("other", "issued", Ct));
+    }
+
     internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
     {
         public string Root { get; } = root;

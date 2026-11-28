@@ -10,7 +10,7 @@ namespace GnOuGo.Flow.Integrations.Planning;
 
 public sealed partial class WorkflowPlanningRuntimeFactory
 {
-    private const string Expired = "flow-expired-planning-v1";
+    public const string Expired = "flow-expired-planning-v1";
 
     private FileStream? TryOwner(string tenant, string id)
     {
@@ -29,6 +29,27 @@ public sealed partial class WorkflowPlanningRuntimeFactory
         return free is null;
     }
 
+    private static bool RequiresEvidence(OwnerRetention? policy, JsonNode? raw) =>
+        policy?.Phase == OwnerRetention.Reconciliation || raw?["pendingCall"] is not null ||
+        raw?["usage"]?["uncertainCalls"]?.GetValue<long>() > 0 ||
+        raw?["usage"]?["calls"]?.GetValue<long>() > 0 && raw["usage"]?["costEstimateAvailable"]?.GetValue<bool>() != true;
+
+    public IAsyncEnumerable<string> EnumerateOwnerIdsAsync(string tenant, CancellationToken ct) =>
+        records.EnumerateKeysAsync(Sessions, tenant, "", Author, ct);
+
+    public async Task<OwnerRetentionInspection> InspectRetentionAsync(string tenant, string id, DateTimeOffset asOf, CancellationToken ct)
+    {
+        using var owner = TryOwner(tenant, id);
+        if (owner is null) return new(id, null, null, "active_owner");
+        var saved = await records.GetAsync(Sessions, tenant, id, Author, ct);
+        if (saved is null) return new(id, null, null, "unavailable");
+        var state = PlanningSessionStorage.Read(saved.Value, tenant, id);
+        var fence = await records.GetAsync(Expired, tenant, id, Author, ct);
+        var pinned = fence is null ? RequiresEvidence(state.Retention, JsonNode.Parse(saved.Value)) :
+            JsonNode.Parse(fence.Value)?["pinned"]?.GetValue<bool>() != false;
+        return OwnerRetentionInspection.Inspect(id, state.Revision, state.Retention, asOf, pinned, fence is not null);
+    }
+
     public async Task SweepAsync(string tenant, CancellationToken ct)
     {
         await foreach (var id in records.EnumerateKeysAsync(Sessions, tenant, "", Author, ct))
@@ -43,15 +64,14 @@ public sealed partial class WorkflowPlanningRuntimeFactory
                 var raw = JsonNode.Parse(saved.Value);
                 var policy = raw?["retention"]?.Deserialize(PlanningJsonContext.Default.OwnerRetention);
                 if (policy is { IsValid: true } && !policy.IsDue(retention.Clock.GetUtcNow())) continue;
-                var pinned = policy?.Phase == OwnerRetention.Reconciliation || raw?["pendingCall"] is not null ||
-                    raw?["usage"]?["uncertainCalls"]?.GetValue<long>() > 0 ||
-                    raw?["usage"]?["calls"]?.GetValue<long>() > 0 && raw["usage"]?["costEstimateAvailable"]?.GetValue<bool>() != true;
+                var pinned = RequiresEvidence(policy, raw);
                 var marker = new JsonObject { ["tenant"] = tenant, ["session"] = id, ["expiredAt"] = retention.Clock.GetUtcNow(),
                     ["pinned"] = pinned, ["approvedHash"] = raw?["approvedHash"]?.DeepClone(), ["usage"] = raw?["usage"]?.DeepClone() };
                 fence = await records.UpsertAsync(Expired, tenant, id, marker.ToJsonString(), Author, ct);
             }
             if (JsonNode.Parse(fence.Value)?["pinned"]?.GetValue<bool>() != false) continue;
             if (files is not null) await files.ReleaseAsync(tenant, new(FileOwnerKind.WorkflowPlanning, id), ct);
+            await PlanningCapabilitySnapshotJournal.ReleaseAsync(records, PlanningSnapshotOwner.Workflow, tenant, id, ct);
             await records.DeleteAsync(Definitions, tenant, id, Author, ct);
             await records.DeleteAsync(Sessions, tenant, id, Author, ct);
         }
@@ -74,6 +94,7 @@ public sealed partial class WorkflowPlanningRuntimeFactory
             }
             if (JsonNode.Parse(fence.Value)?["pinned"]?.GetValue<bool>() != false) continue;
             if (files is not null) await files.ReleaseAsync(tenant, new(FileOwnerKind.WorkflowPlanning, id), ct);
+            await PlanningCapabilitySnapshotJournal.ReleaseAsync(records, PlanningSnapshotOwner.Workflow, tenant, id, ct);
             await records.DeleteAsync(Definitions, tenant, id, Author, ct);
         }
     }

@@ -27,6 +27,8 @@ public sealed record FileOwner(FileOwnerKind Kind, string Id)
     }
 }
 
+public sealed record FileRetentionUsage(int Objects, long ExclusiveBytes, long SharedBytes, long TemporaryGrantBytes);
+
 public sealed record StoredFile(string Id, string Digest, long Size, string ContentType, string Name);
 internal sealed record FileManifest(string Tenant, string Id, byte[] Key, string Digest, long Size,
     string ContentType, string Name, DateTimeOffset? UploadUntil, List<FileOwner> Owners, bool Writing = false)
@@ -219,6 +221,27 @@ public sealed class DurableFileStore(string root, IKeyVaultRecordStore records, 
             if (references.Contains(parts[0]) || references.Contains(parts[1]))
                 await ClaimAsync(tenant, parts[1], source, destination, ct);
         }
+    }
+
+    /// <summary>Ciphertext bytes by disjoint hold reason if this owner alone were released.</summary>
+    public async Task<FileRetentionUsage> InspectRetentionAsync(string tenant, FileOwner owner, DateTimeOffset asOf, CancellationToken ct)
+    {
+        int count = 0;
+        long exclusive = 0, shared = 0, temporary = 0;
+        await foreach (var link in records.EnumerateKeysAsync(Grants, tenant, owner.Prefix, Author, ct))
+        {
+            var id = link[(link.LastIndexOf('/') + 1)..];
+            Validate(tenant, id);
+            await using var lease = await LockAsync(id, ct);
+            var file = await FindAsync(tenant, id, ct);
+            if (file is null || !file.Owners.Contains(owner)) continue;
+            var length = new FileInfo(PathFor(id, ".enc")).Length;
+            count++;
+            if (file.Owners.Count > 1) shared += length;
+            else if (file.UploadUntil > asOf) temporary += length;
+            else exclusive += length;
+        }
+        return new(count, exclusive, shared, temporary);
     }
 
     public async Task ReleaseAsync(string tenant, FileOwner owner, CancellationToken ct)

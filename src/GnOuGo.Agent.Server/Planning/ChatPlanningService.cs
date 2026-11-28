@@ -55,6 +55,23 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
         return conversations.Values.OrderByDescending(c => c.UpdatedAtUnixMs).ToArray();
     }
 
+    internal static async Task SweepExpiredOriginsAsync(IKeyVaultRecordStore records, string tenant, CancellationToken ct)
+    {
+        await foreach (var id in records.EnumerateKeysAsync(Origins, tenant, "", Author, ct))
+        {
+            var designer = await records.GetAsync(EfPlanningSessionStore.Expired, tenant, id, Author, ct);
+            var nested = await records.GetAsync(WorkflowPlanningRuntimeFactory.Expired, tenant, id, Author, ct);
+            if (designer is null && nested is null) continue;
+            var record = await records.GetAsync(Origins, tenant, id, Author, ct);
+            if (record is null) continue;
+            var origin = JsonSerializer.Deserialize(record.Value, ChatPlanningJsonContext.Default.ChatPlanningOrigin);
+            if (origin?.Request.TenantId != tenant || origin.Request.SessionId != id) continue;
+            var fence = origin.Workflow ? nested : designer;
+            if (fence is not null && System.Text.Json.Nodes.JsonNode.Parse(fence.Value)?["pinned"]?.GetValue<bool>() == false)
+                await records.DeleteAsync(Origins, tenant, id, Author, ct);
+        }
+    }
+
     public async Task RegisterDesignerAsync(string conversationId, PlanningSession session, CancellationToken ct)
     {
         if (session.Request.TenantId != Tenant) throw new PlanningConflictException("Planning tenant mismatch.");

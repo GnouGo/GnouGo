@@ -31,7 +31,7 @@ internal sealed partial class BenchmarkCampaign
             Mode = Microsoft.Data.Sqlite.SqliteOpenMode.ReadOnly, Pooling = false };
         var contexts = new PooledDbContextFactory<PlanningDbContext>(new DbContextOptionsBuilder<PlanningDbContext>().UseSqlite(connection.ToString()).Options);
         var store = new EfPlanningSessionStore(contexts, Records);
-        var lease = await store.TryAcquireLeaseAsync("benchmark", session, ct)
+        var lease = await PlanningSessionLease.TryAcquireAsync(contexts, "benchmark", session, ct)
             ?? throw new InvalidOperationException("The Server session still has an active owner; retention cannot race it.");
         return new(store, contexts, lease, session, Path.GetDirectoryName(database)!);
     }
@@ -39,7 +39,7 @@ internal sealed partial class BenchmarkCampaign
     private async Task<JsonObject> InspectInterruptedServerAsync(JsonObject run, string collection, string runKey, string requestId,
         ServerRetentionScope scope, CancellationToken ct, string retentionKind)
     {
-        var state = await scope.Store.LoadAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("No exact Server session.");
+        var state = await scope.Store.ReadEvidenceAsync("benchmark", scope.Session, ct) ?? throw new InvalidOperationException("No exact Server session.");
         var pending = state.PendingCall;
         var cancelled = retentionKind is CancelledPlanningRetention or CancelledBeforeCampaignRetention;
         var refused = retentionKind == RefusedBeforeCampaignRetention;

@@ -191,7 +191,7 @@ public sealed partial class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore 
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);
             context.SetTelemetryAttribute("gnougo-flow.plan.run_id", context.Limits.RunId);
-            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint, capturedModel?.Capabilities, new PlanningCapabilitySnapshotJournal(records)), lease, () => context.LLMUsageBudget = inheritedBudget, capturedModel);
+            return new OwnedSession(state, new WorkflowPlanningRuntime(context, client, Checkpoint, capturedModel?.Capabilities, new PlanningCapabilitySnapshotJournal(records, PlanningSnapshotOwner.Workflow)), lease, () => context.LLMUsageBudget = inheritedBudget, capturedModel);
         }
         catch { context.LLMUsageBudget = inheritedBudget; if (capturedModel is not null) await capturedModel.DisposeAsync(); await lease.DisposeAsync(); throw; }
     }
@@ -214,6 +214,10 @@ public sealed partial class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore 
         var runtime = new WorkflowPlanningRuntime(context.Engine, (_, _) => Task.CompletedTask);
         if ((await runtime.ValidateCatalogAsync(state.Catalog!, ct)).Any(d => d.Required))
             throw new PlanningConflictException("Capability contracts changed after approval.");
+        var current = await records.GetAsync(Sessions, tenant, sessionId, Author, ct);
+        if (capturedRetention.IsDue(retention.Clock.GetUtcNow()) || current?.Value != stored.Value ||
+            await records.GetAsync(Expired, tenant, sessionId, Author, ct) is not null)
+            throw new PlanningConflictException("The approved planning session expired or changed during validation.");
         if (files is not null && context.Limits.RunId is { } run)
             await files.TransferReferencesAsync(tenant, new(FileOwnerKind.WorkflowPlanning, sessionId), new(FileOwnerKind.Execution, run),
                 JsonSerializer.SerializeToNode(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(state.Yaml!), WorkflowRunJsonContext.Default.WorkflowDocument), ct);

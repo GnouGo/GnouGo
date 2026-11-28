@@ -16,8 +16,6 @@ public sealed class FilesServerOptions
 
     public string? DatabasePath { get; set; }
 
-    public int StreamBufferSizeBytes { get; set; } = 1024 * 128;
-
     public TimeSpan GetDefaultTtl()
     {
         if (DefaultTtlHours <= 0)
@@ -33,10 +31,4 @@ public sealed class FilesServerOptions
 
         return TimeSpan.FromSeconds(PurgeIntervalSeconds);
     }
-
-    public int GetStreamBufferSize()
-    {
-        return StreamBufferSizeBytes < 81920 ? 81920 : StreamBufferSizeBytes;
-    }
 }
-

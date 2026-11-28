@@ -5,8 +5,10 @@ using GnOuGo.KeyVault.Core.Services;
 
 namespace GnOuGo.Flow.Integrations.Planning;
 
+public enum PlanningSnapshotOwner { Designer, Workflow }
+
 /// <summary>Immutable metadata payloads in the existing encrypted planning journal boundary.</summary>
-public sealed class PlanningCapabilitySnapshotJournal(IKeyVaultRecordStore records) : IPlanningCapabilitySnapshotJournal
+public sealed class PlanningCapabilitySnapshotJournal(IKeyVaultRecordStore records, PlanningSnapshotOwner owner = PlanningSnapshotOwner.Designer) : IPlanningCapabilitySnapshotJournal
 {
     public const string Collection = "planning-capability-snapshots-v11";
     private const string Author = "GnOuGo.Flow.Planning.CapabilitySnapshots";
@@ -58,7 +60,17 @@ public sealed class PlanningCapabilitySnapshotJournal(IKeyVaultRecordStore recor
         return snapshot;
     }
 
-    private static string Key(string tenant, string session, string action, string source, string version) =>
+    private static string Prefix(PlanningSnapshotOwner owner, string session) =>
+        owner + "/" + PlanningGraphCompiler.Fingerprint(session) + "/";
+
+    public static async Task ReleaseAsync(IKeyVaultRecordStore records, PlanningSnapshotOwner owner, string tenant, string session, CancellationToken ct)
+    {
+        await foreach (var key in records.EnumerateKeysAsync(Collection, tenant, Prefix(owner, session), Author, ct))
+            await records.DeleteAsync(Collection, tenant, key, Author, ct);
+    }
+
+    private string Key(string tenant, string session, string action, string source, string version) =>
+        Prefix(owner, session) +
         PlanningGraphCompiler.Fingerprint(JsonSerializer.Serialize(new[] { tenant, session, action, source, version }, PlanningJsonContext.Default.StringArray));
 
     private static void ValidateScope(params string[] values)

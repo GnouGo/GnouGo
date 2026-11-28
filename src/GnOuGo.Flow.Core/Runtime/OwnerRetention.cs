@@ -4,6 +4,15 @@ using GnOuGo.Flow.Core.Planning;
 
 namespace GnOuGo.Flow.Core.Runtime;
 
+/// <summary>Point-in-time operator inventory for one durable owner.</summary>
+public sealed record OwnerRetentionInspection(string Id, long? Revision, DateTimeOffset? DeadlineUtc, string Reason)
+{
+    public static OwnerRetentionInspection Inspect(string id, long? revision, OwnerRetention? policy, DateTimeOffset asOf,
+        bool pinned, bool fenced) => new(id, revision, policy?.DeadlineUtc ?? policy?.CrashResumeUntilUtc,
+            !fenced && policy is { IsValid: true } && !policy.IsDue(asOf) ? "within_window" :
+            pinned ? "protected_evidence" : "eligible");
+}
+
 /// <summary>Host configuration. Only newly created durable owners capture the default.</summary>
 public sealed class OwnerRetentionPolicy
 {
