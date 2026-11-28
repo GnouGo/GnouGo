@@ -31,7 +31,7 @@ public sealed class DeckCraftTests(ITestOutputHelper output)
             {
                 var receipt = await client.CallToolAsync(tool, args, deadline.Token);
                 Assert.False(receipt.IsError, tool + " failed: " + receipt.Content);
-return receipt.Content ?? new JsonObject();
+                return receipt.Content ?? new JsonObject();
             }
             var tools = await client.ListToolsAsync(deadline.Token);
             Assert.Contains(tools, t => t.Name == "insert_chart");

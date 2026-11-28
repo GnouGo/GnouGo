@@ -5,6 +5,12 @@ on:
     paths:
       - '.github/workflows/deckcraft.yml'
       - 'packaging/deckcraft/**'
+      - 'src/GnOuGo.AI.Core/VisionRequestBuilder.cs'
+      - 'src/GnOuGo.Flow.Core/Runtime/WorkflowImages.cs'
+      - 'src/GnOuGo.Flow.Core/Runtime/BusinessAgentTaskRunner.cs'
+      - 'src/GnOuGo.Flow.Integrations/DeckCraftMcp.cs'
+      - 'tests/GnOuGo.Flow.Tests/Runtime/McpCallExecutorTests.cs'
+      - 'tests/GnOuGo.Flow.Integrations.Tests/DeclaredCapabilityTests.cs'
       - 'tests/GnOuGo.Flow.Integrations.Tests/DeckCraftTests.cs'
       - 'tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft/**'
 permissions:
@@ -30,12 +36,12 @@ jobs:
         run: |
           $env:RUSTUP_TOOLCHAIN = '1.100.1'
           python packaging/deckcraft/build-cli.py "$env:RUNNER_TEMP/qualified-cli"
-      - name: Create, edit, reopen and render with the GnOuGo MCP client
+      - name: Exercise packaged vision, MCP and native presentation editing
         run: |
           $name = if ($IsWindows) { 'deckcraft-cli.exe' } else { 'deckcraft-cli' }
           $env:GNOUGO_DECKCRAFT_CLI = "$env:RUNNER_TEMP/qualified-cli/$name"
           $env:GNOUGO_DECKCRAFT_EVIDENCE = "$env:RUNNER_TEMP/roundtrip"
-          dotnet test tests/GnOuGo.Flow.Integrations.Tests -c Release -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~DeckCraftTests
+          python packaging/deckcraft/test-distribution.py "$env:RUNNER_TEMP/gnougo-packages"
       - name: Verify the exported workbooks, relationships and chart caches
         run: |
           $folder = (Get-ChildItem "$env:RUNNER_TEMP/roundtrip" -Directory -ErrorAction Stop).FullName
@@ -50,3 +56,4 @@ jobs:
           path: |
             ${{ runner.temp }}/roundtrip
             ${{ runner.temp }}/qualified-cli
+            ${{ runner.temp }}/gnougo-packages

@@ -21,6 +21,7 @@ public sealed class AdaptiveLiveProfileTests
     }
 
     [Theory]
+    [InlineData("deckcraft", "DeckCraft", "render_slide")]
     [InlineData("amazon", "GnOuGo.Browser.Mcp", "browser_get_content")]
     [InlineData(PublishedReviewQualification.Scenario, "GnOuGo.Git.Mcp", "git_compare_refs")]
     public void ExactReviewedStageCanObserveWhileSubstitutionAndCrossRunCallsAreDenied(string scenario, string server, string method)
@@ -35,6 +36,11 @@ public sealed class AdaptiveLiveProfileTests
             Input = PlanningJsonTransport.Literal(JsonSerializer.SerializeToNode(task, AgentTaskJsonContext.Default.AgentTaskDefinition)) };
         profile.BindStage(stage, new() { Kind = "agent", Method = task.Runner, FixedInput = new() { ["runner"] = task.Runner } });
         var step = "/workflow/main/step/n_" + PlanningGraphCompiler.Fingerprint(stage.Key)[..16];
+        var context = new AgentTaskContext("benchmark", "run", step, task);
+        Assert.True(profile.Approves(context));
+        var boundImage = new JsonArray((JsonNode)new JsonObject { ["sha256"] = new string('a', 64) });
+        Assert.Equal(scenario == "deckcraft", profile.Approves(context with { Task = task with { Images = boundImage } }));
+        Assert.False(profile.Approves(context with { Task = task with { Objective = "Unapproved scope" } }));
         var call = new McpCorrelationContext { TenantId = "benchmark", RunId = "run", StepId = step, StepType = "agent.run",
             ServerName = server, MethodName = method, Context = new() { ["agent_capability"] = id } };
         profile.RequireCall(call, "run");

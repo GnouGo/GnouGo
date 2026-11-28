@@ -11,6 +11,8 @@ namespace GnOuGo.Flow.Tests.Runtime;
 
 public class McpCallExecutorTests
 {
+    private const string PreviewPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/FioAAAAASUVORK5CYII=";
+
     private static CompiledDocument CompileDoc(string yaml)
     {
         var doc = WorkflowParser.Parse(yaml);
@@ -46,6 +48,71 @@ public class McpCallExecutorTests
     }
 
     [Fact]
+    public async Task BusinessAgentSeesItsInputImageAndTheImageFromItsSelectedMcpTool()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        const string sourcePng = "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAADUlEQVR4nGP4zwAE/wEHAAH/4iOeWQAAAABJRU5ErkJggg==";
+        var sourceBytes = Convert.FromBase64String(sourcePng);
+        var bytes = Convert.FromBase64String(PreviewPng);
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        var transport = new InMemoryMcpClientFactory();
+        transport.RegisterServer("preview", new MockMcpServerConfig {
+            Tools = [new McpToolInfo { Name = "render", EffectKind = "read", InputSchema = new JsonObject { ["type"] = "object" } }],
+            ToolHandlers = { ["render"] = _ => new McpCallResult {
+                Content = new JsonObject { ["page"] = 2 }, ContentBlocks = new JsonArray(
+                    (JsonNode)new JsonObject { ["type"] = "image", ["mimeType"] = "image/png", ["data"] = PreviewPng }) } }
+        });
+        var runner = new BusinessAgentTaskRunner(transport, [new("preview", "render")]);
+        var contract = await runner.DescribeAsync(ct);
+        var id = contract.InputSchema["properties"]!["capabilities"]!["items"]!["enum"]![0]!.GetValue<string>();
+        var store = new Mock<IWorkflowImageStore>();
+        store.Setup(s => s.GetAsync("tenant", "run", hash, It.IsAny<CancellationToken>())).ReturnsAsync(bytes);
+        var capabilities = new Mock<ILLMCapabilityResolver>();
+        capabilities.Setup(c => c.SupportsVisionAsync(null, "viewer", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        capabilities.Setup(c => c.InputTokenAllowanceAsync(null, "viewer", It.IsAny<int>(), It.IsAny<CancellationToken>())).ReturnsAsync(8192);
+        var model = new Mock<ILLMClient>();
+        var calls = 0;
+        model.Setup(m => m.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>())).ReturnsAsync((LLMRequest request, CancellationToken _) =>
+        {
+            var image = Assert.Single(request.Images!);
+            var expected = calls == 0 ? sourceBytes : bytes;
+            Assert.Equal(expected, image.Bytes);
+            Assert.Equal(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(expected)), image.Sha256);
+            Assert.DoesNotContain(sourcePng, request.Prompt);
+            Assert.DoesNotContain(PreviewPng, request.Prompt);
+            Assert.Contains(image.Sha256, request.Prompt);
+            return new LLMResponse { Json = new JsonObject { ["action"] = ++calls == 1 ? id : "finish", ["payload"] = "{}" },
+                Usage = new JsonObject { ["prompt_tokens"] = 80, ["completion_tokens"] = 10, ["total_tokens"] = 90 } };
+        });
+        var engine = new WorkflowEngine { McpClientFactory = transport, ImageArtifacts = store.Object, LLMClient = model.Object,
+            LLMCapabilities = capabilities.Object, LlmDefaults = new() { Model = "viewer" }, Limits = new() { TenantId = "tenant", RunId = "run" } };
+        engine.AgentTaskRunners["observe"] = runner;
+        var document = CompileDoc($$"""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: observe
+                    type: agent.run
+                    input:
+                      runner: observe
+                      objective: Inspect the input and the preview returned by the tool
+                      workspace: approved
+                      images: [{mimeType: image/png, data: "{{sourcePng}}"}]
+                      capabilities: [{{id}}]
+                      budget: {max_actions: 1, max_model_calls: 2, max_total_tokens: 36000, max_elapsed_milliseconds: 30000}
+                      verification: [{id: preview, kind: mcp.result, subject: {{id}}, facts_schema: {type: object} }]
+                      output_schema: {type: object}
+            """);
+        var run = await engine.ExecuteAsync(document.Workflows["main"], new JsonObject(), ct);
+        Assert.True(run.Success, run.Error?.Message);
+        Assert.Equal(2, calls);
+        var facts = Assert.Single(run.StepResults).Output!["evidence"]![0]!["facts"]!;
+        Assert.Equal(2, facts["result"]!["page"]!.GetValue<int>());
+        Assert.Equal(hash, facts["content_blocks"]![0]!["image"]!["sha256"]!.GetValue<string>());
+    }
+
+    [Fact]
     public void SpecializedOutputTypesPreserveTheRuntimeImageEnvelope()
     {
         var workflows = new Dictionary<string, WorkflowDef>();
@@ -67,8 +134,7 @@ public class McpCallExecutorTests
     [Fact]
     public async Task MixedPreviewProducesAReusableImageInputForTheNextWorkflowStep()
     {
-        const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/FioAAAAASUVORK5CYII=";
-        var bytes = Convert.FromBase64String(png);
+        var bytes = Convert.FromBase64String(PreviewPng);
         var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
         var factory = new InMemoryMcpClientFactory();
         factory.RegisterServer("preview", new MockMcpServerConfig {
@@ -76,7 +142,7 @@ public class McpCallExecutorTests
             ToolHandlers = { ["render"] = _ => new McpCallResult {
                 Content = new JsonObject { ["page"] = 3 }, ContentBlocks = new JsonArray(
                     (JsonNode)new JsonObject { ["type"] = "text", ["text"] = "Preview" },
-                    (JsonNode)new JsonObject { ["type"] = "image", ["mimeType"] = "image/png", ["data"] = png }) } }
+                    (JsonNode)new JsonObject { ["type"] = "image", ["mimeType"] = "image/png", ["data"] = PreviewPng }) } }
         });
         var images = new Mock<IWorkflowImageStore>();
         images.Setup(i => i.GetAsync("studio", "run-1", hash, It.IsAny<CancellationToken>())).ReturnsAsync(bytes);
@@ -109,7 +175,7 @@ public class McpCallExecutorTests
         Assert.Equal(3, output["response"]!["page"]!.GetValue<int>());
         Assert.Equal("Preview", output["content_blocks"]![0]!["text"]!.GetValue<string>());
         Assert.Equal(hash, output["images"]![0]!["sha256"]!.GetValue<string>());
-        Assert.DoesNotContain(png, output.ToJsonString());
+        Assert.DoesNotContain(PreviewPng, output.ToJsonString());
         Assert.Equal("Inspect this page.", received!.Prompt);
         Assert.Equal(bytes, Assert.Single(received.Images!).Bytes);
     }
