@@ -353,7 +353,9 @@ earlier missing and empty attributes, closes over overlapping group members acro
 pages, and reports whether it reached the final link. Every entry points to its
 original page and offset. Empty attributed groups retain every exact absolute
 HTTP(S) href. Populated groups retain HTTP(S) heading hrefs or their first
-href when they have no heading. The published href pattern matches the input
+href when they have no heading. Each index entry includes the nullable `href`
+field. Its value is null when the index has no navigable href for that entry.
+The published href pattern matches the input
 syntax for navigation. Preserve the full string including its query and percent
 escapes. Other destinations can be read from the original record. The route
 field omits the query and serves only as descriptive evidence. The original

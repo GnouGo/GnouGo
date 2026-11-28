@@ -93,12 +93,21 @@ public sealed class BrowserToolsStructuredOutputTests
         }
     }
 
-    [Fact]
-    public void IndexedNavigationHrefDeclaresTheBrowserGetUrlSyntax()
+    [Theory]
+    [InlineData(null)]
+    [InlineData("https://example.invalid/item?tag=a%2Fb&token=1%2B2")]
+    public void IndexedNavigationHrefMatchesThePublishedWireContract(string? observedHref)
     {
         var prefix = PublishedContentProperties()["observationSnapshot"]!["properties"]!["linkPrefix"]!;
-        var href = prefix["properties"]!["links"]!["items"]!["properties"]!["href"]!;
+        var item = prefix["properties"]!["links"]!["items"]!;
+        var href = item["properties"]!["href"]!;
         Assert.Equal(BrowserNavigationPolicy.HttpUrlPattern, (string?)href["pattern"]);
+        Assert.Contains("href", item["required"]!.AsArray().Select(name => (string?)name));
+        Assert.Contains("null", href["type"]!.AsArray().Select(type => (string?)type));
+        var link = new BrowserIndexedLink(0, 2, null, 0, false, "https://example.invalid/item", observedHref);
+        var wire = JsonSerializer.SerializeToNode(link, BrowserMcpJsonContext.Default.BrowserIndexedLink)!.AsObject();
+        Assert.True(wire.TryGetPropertyValue("href", out var value));
+        Assert.Equal(observedHref, (string?)value);
     }
 
     private static JsonNode[] PublishedRecordSchemas()

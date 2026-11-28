@@ -1,12 +1,10 @@
 using System.ComponentModel;
-using System.Text.Json.Serialization;
 
 namespace GnOuGo.Browser.Mcp;
 
 public sealed record BrowserIndexedLink(int Page, int Offset, int? Ancestor, int? Occurrence, bool Heading,
     [property: Description("Observed destination without its query. Descriptive evidence only. Navigate only to a literal original href.")]
     string? Route,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [property: Description("Absolute HTTP(S) href copied verbatim from the browser-resolved DOM link for empty captured attributes, headings in populated groups, or their first link without a heading. Pass the exact value to a permitted GET, preserving all escaping and query bytes. Other schemes and unselected hrefs remain in pages[page].records[offset].")]
     string? Href);
 

@@ -14,88 +14,88 @@
   },
   "closing": {
     "ceiling_eur": 70,
-    "measured_eur": "55.660104783599088838268793298",
+    "measured_eur": "56.597656036446469248291572352",
     "physical_reservation_eur": "0.475031890660592255125284738",
     "separate_application_reservation_eur": "0.0463553530751708428246013667",
-    "available_eur": "13.8185079726651480637813205973",
-    "physical_attempts": 1520,
-    "input_tokens": 22882836,
-    "output_tokens": 775975
+    "available_eur": "12.8809567198177676537585415433",
+    "physical_attempts": 1540,
+    "input_tokens": 23273257,
+    "output_tokens": 786557
   },
-  "incremental_measured_eur": "18.712125284738041002277904567",
-  "incremental_physical_attempts": 545,
-  "incremental_input_tokens": 7683441,
-  "incremental_output_tokens": 265591,
+  "incremental_measured_eur": "19.649676537585421412300683621",
+  "incremental_physical_attempts": 565,
+  "incremental_input_tokens": 8073862,
+  "incremental_output_tokens": 276173,
   "by_phase": {
     "construction_discovery": {
-      "logical_calls": 143,
-      "physical_attempts": 143,
-      "input_tokens": 1739264,
-      "output_tokens": 34446,
-      "duration_ms": "2147638.6842",
-      "measured_eur": "4.1188063781321184510250569483"
+      "logical_calls": 149,
+      "physical_attempts": 149,
+      "input_tokens": 1795998,
+      "output_tokens": 35682,
+      "duration_ms": "2247367.5427",
+      "measured_eur": "4.2536719817767653758542141237"
     },
     "construction_draft": {
-      "logical_calls": 145,
-      "physical_attempts": 145,
-      "input_tokens": 2760627,
-      "output_tokens": 93731,
-      "duration_ms": "2840857.9935",
-      "measured_eur": "6.7154646924829157175398633259"
+      "logical_calls": 146,
+      "physical_attempts": 146,
+      "input_tokens": 2781456,
+      "output_tokens": 95745,
+      "duration_ms": "2894289.6791",
+      "measured_eur": "6.7720865603644646924829157177"
     },
     "construction_implementation": {
-      "logical_calls": 127,
-      "physical_attempts": 127,
-      "input_tokens": 1641559,
-      "output_tokens": 67683,
-      "duration_ms": "2344324.2086",
-      "measured_eur": "4.0476651480637813211845102506"
+      "logical_calls": 128,
+      "physical_attempts": 128,
+      "input_tokens": 1645093,
+      "output_tokens": 68002,
+      "duration_ms": "2362348.9888",
+      "measured_eur": "4.0571685649202733485193621868"
     },
     "construction_intent": {
-      "logical_calls": 16,
-      "physical_attempts": 16,
-      "input_tokens": 36452,
-      "output_tokens": 24794,
-      "duration_ms": "2645609.9125",
-      "measured_eur": "0.1959908883826879271070615035"
+      "logical_calls": 17,
+      "physical_attempts": 17,
+      "input_tokens": 38373,
+      "output_tokens": 26156,
+      "duration_ms": "2924802.9198",
+      "measured_eur": "0.2065717539863325740318906607"
     },
     "construction_select": {
-      "logical_calls": 36,
-      "physical_attempts": 36,
-      "input_tokens": 108524,
-      "output_tokens": 19830,
-      "duration_ms": "685128.1965",
-      "measured_eur": "0.3375489749430523917995444193"
+      "logical_calls": 37,
+      "physical_attempts": 37,
+      "input_tokens": 110323,
+      "output_tokens": 20324,
+      "duration_ms": "705221.4856",
+      "measured_eur": "0.3438974943052391799544419136"
     },
     "construction_local_judge": {
-      "logical_calls": 33,
-      "physical_attempts": 33,
-      "input_tokens": 435633,
-      "output_tokens": 11915,
-      "duration_ms": "524041.0713",
-      "measured_eur": "1.0466127562642369020501138952"
+      "logical_calls": 34,
+      "physical_attempts": 34,
+      "input_tokens": 445209,
+      "output_tokens": 12075,
+      "duration_ms": "536365.7074",
+      "measured_eur": "1.0691548974943052391799544419"
     },
     "construction_global_judge": {
-      "logical_calls": 7,
-      "physical_attempts": 7,
-      "input_tokens": 94365,
-      "output_tokens": 2731,
-      "duration_ms": "109894.5276",
-      "measured_eur": "0.2273963553530751708428246014"
+      "logical_calls": 8,
+      "physical_attempts": 8,
+      "input_tokens": 102250,
+      "output_tokens": 3156,
+      "duration_ms": "126407.0192",
+      "measured_eur": "0.2472938496583143507972665148"
     },
     "business_inference": {
-      "physical_attempts": 13,
-      "measured_eur": "0.8898177676537585421412301049",
-      "input_tokens": 384914,
-      "output_tokens": 2858
+      "physical_attempts": 20,
+      "measured_eur": "1.5063940774487471526195900245",
+      "input_tokens": 652179,
+      "output_tokens": 4564
     },
     "replan": {
-      "logical_calls": 23,
-      "physical_attempts": 23,
-      "input_tokens": 470120,
-      "output_tokens": 7329,
-      "duration_ms": "320308.6924",
-      "measured_eur": "1.1042779043280182232346241459"
+      "logical_calls": 24,
+      "physical_attempts": 24,
+      "input_tokens": 490998,
+      "output_tokens": 10195,
+      "duration_ms": "363602.6721",
+      "measured_eur": "1.1648929384965831435079726653"
     },
     "operator_revision_after_observer_deadline": {
       "logical_calls": 2,
@@ -260,6 +260,30 @@
       "planning_input": 1789011,
       "planning_output": 51556,
       "planning_eur": "4.3100751708428246013667425971",
+      "business_calls": 0,
+      "business_eur": 0
+    },
+    {
+      "receipt": "server-code-9.json",
+      "source": "2c7699f019598def8513140301edc51e00ef142e",
+      "run": "improve40-code-20261128-002746",
+      "elapsed_seconds": "891.265367",
+      "planning_calls": 13,
+      "planning_input": 123156,
+      "planning_output": 8876,
+      "planning_eur": "0.3209749430523917995444191344",
+      "business_calls": 7,
+      "business_eur": "0.6165763097949886104783599196"
+    },
+    {
+      "receipt": "server-amazon-18-execution.json",
+      "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+      "run": "improve40-amazon-20261127-234035",
+      "elapsed_seconds": "598.308376",
+      "planning_calls": 0,
+      "planning_input": 0,
+      "planning_output": 0,
+      "planning_eur": 0,
       "business_calls": 0,
       "business_eur": 0
     }

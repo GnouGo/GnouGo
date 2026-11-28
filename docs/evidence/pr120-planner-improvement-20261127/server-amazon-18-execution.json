@@ -1,0 +1,164 @@
+{
+  "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+  "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+  "run": "improve40-amazon-20261127-234035",
+  "session": "299ee94971e54cee989050f13ebd40ce",
+  "scenario": "amazon",
+  "phases": {},
+  "planning_session_cost_eur": 0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "started_utc": "2026-11-28T00:48:41.349939+00:00",
+  "finished_utc": "2026-11-28T00:58:39.658315+00:00",
+  "wall_seconds": 598.308376,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "56.597656036446469248291572352",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "12.8809567198177676537585415433",
+    "physical_attempts": 1540,
+    "input_tokens": 23273257,
+    "output_tokens": 786557
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "56.597656036446469248291572352",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "12.8809567198177676537585415433",
+    "physical_attempts": 1540,
+    "input_tokens": 23273257,
+    "output_tokens": 786557
+  },
+  "business_phase": {
+    "physical_attempts": 0,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "measured_eur": "0E-27"
+  },
+  "reviewed_revision": 267,
+  "reviewed_artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+  "approval_recheck": {
+    "revision": 267,
+    "artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+    "planning_source": "2c7699f019598def8513140301edc51e00ef142e",
+    "verification_source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+    "verification_assembly": {
+      "sha256": "c92f76ecc51322b0bbed1a11d7c01e7383f2220719b14d46c0e7f334918cbdfb"
+    }
+  },
+  "execution_artifact_hash": "7c04138cd7b6582ad6d6ec69c0ef4aa569d38493d998ab1050fee1f6f9499b19",
+  "execution_started": "2026-11-28T00:56:43.2051138+00:00",
+  "execution_id": "72addb0028c95c337b92e5f7320d2487",
+  "result": {
+    "status": "final_review",
+    "calls": 106,
+    "repairs": 8,
+    "execution_status": "failed",
+    "execution_correct": false
+  },
+  "passed": false,
+  "execution": {
+    "success": false,
+    "status": "failed",
+    "finalization_completed": true
+  },
+  "mcp_events": [
+    {
+      "event_index": 0,
+      "tool": "browser_get_content",
+      "is_error": false,
+      "result_success": true,
+      "http_status": 200,
+      "url_sha256": "bc369121bd89f7d6a40c7693dcc5a57072ff2ec470e9435a392afcb52d74557c",
+      "capture_id": "b6dbbbd48ea849ddb23e7a0aaea2d2d3",
+      "records": 1536,
+      "navigation_complete": true
+    },
+    {
+      "event_index": 1,
+      "tool": "browser_close",
+      "is_error": false,
+      "result_success": true
+    },
+    {
+      "event_index": 2,
+      "tool": "browser_get_content",
+      "is_error": true,
+      "result_success": false,
+      "error_code": "INVALID_INPUT"
+    },
+    {
+      "event_index": 3,
+      "tool": "browser_close",
+      "is_error": false,
+      "result_success": true
+    }
+  ],
+  "oracle": {
+    "passed": false
+  },
+  "source_order": {},
+  "product_evidence": {},
+  "workbook_exists_on_disk": false,
+  "workbook_sha256": null,
+  "independent_workbook": null,
+  "retained_report_sha256": "bfb440d14032a8a40928dde6482255162edc8a7304cab5d5aa105c835e252660",
+  "opening_audit_sha256": "226ef2ce7473be673676a4dcd44b5eca55a2a6f52133a403c258e3fa5c70ce39",
+  "closing_audit_sha256": "226ef2ce7473be673676a4dcd44b5eca55a2a6f52133a403c258e3fa5c70ce39",
+  "verifier_host": [
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+      "sha256": "c92f76ecc51322b0bbed1a11d7c01e7383f2220719b14d46c0e7f334918cbdfb"
+    },
+    {
+      "name": "GnOuGo.Agent.Planning.Benchmark.dll",
+      "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+      "sha256": "b5ebfb44d5f9b2e6fd4193079011f556d6642112e97ebd81e99227b2856ca3c4"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "source": "c32ffb88543f57e99ba4b86f0e3747a351fb91ab",
+      "sha256": "6054eb02228ac1c3d86f4c9558d4553b191b649d845d151a8ed00a78b16ce70c"
+    }
+  ],
+  "runtime_failure": {
+    "code": "INPUT_VALIDATION",
+    "step": "set",
+    "field": "$.value.linkPrefix.links[*].href",
+    "cleanup_probe_observed_closed": true,
+    "search_received": true,
+    "business_product_visits": 0
+  },
+  "contract_replay": {
+    "method": "Deserialize the complete retained link prefix and serialize it using BrowserMcpJsonContext from the corrected production assembly. Independently validate the entire before and after search responses against the original Server discovery JSON Schema (draft 2020-12). Compare every populated href to its original page and offset.",
+    "original_http_status": 200,
+    "pages": 72,
+    "records": 1536,
+    "prefix_entries": 111,
+    "exact_original_hrefs": 15,
+    "missing_required_href_before": 96,
+    "schema_errors_after": 0,
+    "complete_source_records_unchanged": true,
+    "other_wire_fields_unchanged": true,
+    "model_calls": 0,
+    "reencoded_prefix_response_sha256": "409c1072f9dde6d6185a5375c72c653328a2ad251b3e198509fcb4b37e31b487",
+    "corrected_browser_sha256": "1341829d010fd017212ac82e3eb05727ea780f9109c948299af07e28b3135d8e",
+    "windows_regression": {
+      "original": {
+        "executed": 2,
+        "passed": 1,
+        "failed": 1,
+        "trx_sha256": "facdcfe2b1be93c87f0e02ad1f06d4a45923732a55c3a184673634e7f0903e01"
+      },
+      "fixed_schema_class": {
+        "executed": 15,
+        "passed": 15,
+        "failed": 0,
+        "trx_sha256": "d23516f999524654db787cfca27807aaf3e8f86baa1879b0f47a6fc68c9140c1"
+      }
+    }
+  }
+}
