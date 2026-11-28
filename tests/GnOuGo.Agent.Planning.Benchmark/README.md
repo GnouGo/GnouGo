@@ -728,9 +728,16 @@ uninterrupted qualification on the original source.
 Live artifact approval uses metadata-only access to the actual frozen MCPs when
 revalidating selected contracts. An empty validation engine cannot establish that
 these capabilities still exist. Execution continues to require original Release
-binary hashes and source stamps; later harness fixes use that original source root
-and record their own source/assembly separately. Retained execution rejects any
-production-source change, execution marker, retention or cancellation.
+binary hashes and source stamps. Later harness fixes use the original source root
+and record their own source and assembly. Retained execution rejects an existing
+execution marker, retention or cancellation.
+
+By default retained execution requires the original production source.
+`server-live-execute --recheck-retained-approval --expected-revision <revision> --artifact-hash <hash>`
+also accepts a change confined to `PlanningArtifactApproval.cs`. It rechecks the
+recorded checkpoint history, recompiles the exact reviewed graph and YAML, and
+records the new verifier assembly before normal Server approval and form execution.
+Supply the current audited application holds with `--retained-external-reservations-eur`.
 
 `server-live-revalidate --run <id> --expected-revision <revision> --artifact-hash <hash>`
 can recover only a completed, unapproved artifact stopped solely on catalog

@@ -65,6 +65,8 @@ internal static class ServerLiveDiagnostics
         var inspectionOnly = args.ElementAtOrDefault(1) == "server-live-inspect";
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
+        var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
+        if (recheckApproval && !executionOnly) throw new ArgumentException("Approval rechecking requires server-live-execute.");
         var retained = inspectionOnly || executionOnly || revalidationOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var observedWorkbook = args.ElementAtOrDefault(1) == "server-live-probe" && args.Contains("--probe-observed-workbook", StringComparer.Ordinal);
@@ -100,13 +102,13 @@ internal static class ServerLiveDiagnostics
         var fundingScope = await campaign.FreshAllocationAsync(CancellationToken.None);
         if (!retained && !mcpReadiness && await campaign.HasUncertainRequestAsync(CancellationToken.None))
             throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
-        if (planning || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
+        if (planning || recheckApproval || !retained && !mcpReadiness) model.RetainedExternalReservationsEur = decimal.Parse(
             SchemaPortabilityCampaign.RequiredOption(args, "--retained-external-reservations-eur"), System.Globalization.CultureInfo.InvariantCulture);
 
         var financialForecastMode = SchemaPortabilityCampaign.Option(args, "--financial-forecast-mode") ?? "strict";
         if (financialForecastMode is not ("strict" or "experimental_warning")) throw new ArgumentException("Invalid financial forecast mode.");
         model.AdvisoryFinancialForecasts = financialForecastMode == "experimental_warning";
-        if (planning)
+        if (planning || recheckApproval)
             await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: model.AdvisoryFinancialForecasts);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
@@ -636,7 +638,7 @@ internal static class ServerLiveDiagnostics
                 {
                     if (saved["execution_started"] is not null) throw new PlanningConflictException("Execution was already started; uncertain effects cannot be replayed.");
                     await campaign.RequireRunNotRetainedAsync(saved["session_id"]!.ToString(), CancellationToken.None);
-                    RequireSameProductionSource(saved["source"]!.ToString());
+                    RequireSameProductionSource(saved["source"]!.ToString(), recheckApproval);
                     var state = await app.Services.GetRequiredService<PlanningSessionService>().GetAsync(saved["session_id"]!.ToString(), CancellationToken.None)
                         ?? throw new PlanningConflictException("No retained Server session.");
                     if (revalidationOnly)
@@ -647,9 +649,21 @@ internal static class ServerLiveDiagnostics
                     }
                     if (state.Status != PlanningStatus.FinalReview || state.ComputeArtifactHash() != saved["session"]?.Deserialize(PlanningJsonContext.Default.PlanningSession)?.ComputeArtifactHash())
                         throw new PlanningConflictException("Only the exact unexecuted review-ready artifact may continue.");
+                    if (recheckApproval)
+                    {
+                        var revision = SchemaPortabilityCampaign.RequiredOption(args, "--expected-revision");
+                        var hash = SchemaPortabilityCampaign.RequiredOption(args, "--artifact-hash");
+                        if (revision != state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture) || hash != state.ComputeArtifactHash())
+                            throw new PlanningConflictException("The retained approval recheck requires the exact reviewed revision and artifact hash.");
+                        PlanningArtifactApproval.Verify(state);
+                        saved["approval_recheck"] = new JsonObject { ["revision"] = state.Revision, ["artifact_hash"] = hash,
+                            ["planning_source"] = saved["source"]!.ToString(), ["verification_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD"),
+                            ["verification_assembly"] = AssemblyEvidence(typeof(PlanningArtifactApproval).Assembly) };
+                    }
                     saved["execution_harness_source"] = SchemaPortabilityCampaign.Git("rev-parse", "HEAD");
                     saved["execution_harness_assembly"] = AssemblyEvidence(System.Reflection.Assembly.GetEntryAssembly()!);
-                    model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
+                    if (!recheckApproval) model.RetainedExternalReservationsEur = saved["retained_external_reservations_eur"]?.GetValue<decimal>() ?? 0;
+                    saved["execution_external_reservations_eur"] = model.RetainedExternalReservationsEur;
                     if (!await ExecuteReviewedLocalAsync(app, client, business, campaign, model, state, saved, root, workspace))
                         throw new PlanningConflictException("The retained artifact was revised; execution requires its new captured review-ready state.");
                 }
@@ -1031,10 +1045,12 @@ internal static class ServerLiveDiagnostics
         }
     }
 
-    private static void RequireSameProductionSource(string original)
+    private static void RequireSameProductionSource(string original, bool recheckApproval)
     {
-        if (original.Length != 40 || !original.All(char.IsAsciiHexDigit) ||
-            SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src").Length != 0)
+        if (original.Length != 40 || !original.All(char.IsAsciiHexDigit))
+            throw new PlanningConflictException("The original production source must be a full revision.");
+        var changes = SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src");
+        if (changes.Length != 0 && !(recheckApproval && changes == "src/GnOuGo.Flow.Planning/PlanningArtifactApproval.cs"))
             throw new PlanningConflictException("Retained execution requires unchanged production source and the original frozen tools.");
     }
 

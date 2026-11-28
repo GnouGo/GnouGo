@@ -51,15 +51,37 @@ public static class PlanningArtifactApproval
                     !construction.Checkpoints[sequence - 1].RequirementIds.Contains(r.Id, StringComparer.Ordinal)) ||
                 !construction.Checkpoints.Any(c => c.ClosedRequirementIds?.Contains(r.Id, StringComparer.Ordinal) == true && c.InvalidatedTaskIds.Count == 0)))
             throw new PlanningConflictException("Approval requires explicit completion of every original requirement.");
+        VerifyCheckpoints(construction);
+    }
+
+    internal static void VerifyCheckpoints(PlanningConstructionState construction)
+    {
+        var rollbacks = new Queue<PlanningConstructionInvalidation>(construction.Invalidations.Where(entry => entry.Scopes.Count > 0));
+        var invalidated = new HashSet<string>(StringComparer.Ordinal);
         for (var index = 0; index < construction.Checkpoints.Count; index++)
         {
             var checkpoint = construction.Checkpoints[index];
             if (checkpoint.Sequence != index + 1 || !Hash(checkpoint.BaseHash) || !Hash(checkpoint.PlanHash) ||
-                index > 0 && checkpoint.BaseHash != construction.Checkpoints[index - 1].PlanHash ||
                 checkpoint.ClosedRequirementIds is { } closed && (closed.Distinct(StringComparer.Ordinal).Count() != closed.Count ||
                     closed.Any(id => !checkpoint.RequirementIds.Contains(id, StringComparer.Ordinal))))
                 throw new PlanningConflictException("Construction checkpoint identities or completion claims are inconsistent.");
+            if (index > 0 && checkpoint.BaseHash != construction.Checkpoints[index - 1].PlanHash)
+            {
+                var before = construction.Checkpoints[index - 1].PlanHash;
+                if (!rollbacks.TryDequeue(out var rollback) || rollback.BeforeHash != before || rollback.AfterHash != checkpoint.BaseHash ||
+                    rollback.Sequence < 1 || rollback.Sequence > construction.Invalidations.Count ||
+                    !ReferenceEquals(construction.Invalidations[rollback.Sequence - 1], rollback) || string.IsNullOrWhiteSpace(rollback.Reason))
+                    throw new PlanningConflictException("The construction checkpoint does not follow a recorded rollback.");
+                var removed = rollback.Tasks.Select(task => task.Id).Order(StringComparer.Ordinal).ToArray();
+                var placements = rollback.Scopes.SelectMany(scope => scope.Tasks.Concat(scope.Always)).ToHashSet(StringComparer.Ordinal);
+                if (removed.Length == 0 || removed.Distinct(StringComparer.Ordinal).Count() != removed.Length ||
+                    removed.Any(id => !invalidated.Contains(id) || !placements.Contains(id)) ||
+                    !construction.FailedCandidates.Contains(PlanningGraphCompiler.Fingerprint(before + "\n" + string.Join('\n', removed)), StringComparer.Ordinal))
+                    throw new PlanningConflictException("The checkpoint rollback does not match its recorded task region.");
+            }
+            invalidated.UnionWith(checkpoint.InvalidatedTaskIds);
         }
+        if (rollbacks.Count != 0) throw new PlanningConflictException("The construction history contains an unmatched rollback.");
         static bool Hash(string? value) => value is { Length: 64 } && value.All(char.IsAsciiHexDigit);
     }
 }

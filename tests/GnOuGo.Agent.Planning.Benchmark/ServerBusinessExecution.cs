@@ -129,6 +129,8 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             {
                 command.Kind, command.ExpectedRevision, command.ArtifactHash, command.ReviewedRequirementIds, command.ApprovalReviewId
             }, ct);
+            if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
+                throw new PlanningConflictException(await response.Content.ReadFromJsonAsync<string>(ct) ?? "The Server rejected the planning command.");
             response.EnsureSuccessStatusCode();
             return await service.GetAsync(state.Request.SessionId, ct) ?? throw new PlanningConflictException("The session disappeared.");
         }

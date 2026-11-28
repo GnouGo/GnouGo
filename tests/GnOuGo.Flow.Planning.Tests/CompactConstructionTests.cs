@@ -283,6 +283,31 @@ public sealed class CompactConstructionTests
         Assert.Equal("remaining", Assert.Single(state.Construction!.Requirements).Status);
     }
 
+    [Fact]
+    public async Task CheckpointsLinkAcrossTheExactRecordedRollbackOnce()
+    {
+        var state = await PlannerFixture.RunAsync(new TestRuntime { Respond = Simple }, Fresh());
+        var history = state.Construction!;
+        var previous = history.Checkpoints[^1].PlanHash;
+        PlanningConstruction.Rollback(state, "greet", "Rebuild the producer with its original interface.");
+        var rollback = Assert.Single(history.Invalidations);
+        var rebuilt = new PlanningConstructionCheckpoint
+        {
+            Sequence = history.Checkpoints.Count + 1, BaseHash = PlanningConstruction.Hash(state.Plan), PlanHash = previous
+        };
+        history.Checkpoints.Add(rebuilt);
+        PlanningArtifactApproval.VerifyCheckpoints(history);
+
+        rollback.AfterHash = previous;
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.VerifyCheckpoints(history));
+        rollback.AfterHash = rebuilt.BaseHash;
+        history.Checkpoints.Add(new() { Sequence = rebuilt.Sequence + 1, BaseHash = rebuilt.BaseHash, PlanHash = previous });
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.VerifyCheckpoints(history));
+        history.Checkpoints.RemoveAt(history.Checkpoints.Count - 1);
+        history.FailedCandidates.Clear();
+        Assert.Throws<PlanningConflictException>(() => PlanningArtifactApproval.VerifyCheckpoints(history));
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
