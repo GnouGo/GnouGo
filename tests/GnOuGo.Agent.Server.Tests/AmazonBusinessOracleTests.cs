@@ -191,6 +191,12 @@ public sealed class AmazonBusinessOracleTests
     [InlineData("open", false)]
     [InlineData("missing_close", false)]
     [InlineData("headers", false)]
+    [InlineData("read_writer_path", true)]
+    [InlineData("read_relative_path", true)]
+    [InlineData("read_other_path", false)]
+    [InlineData("read_other_receipt", false)]
+    [InlineData("read_before_write", false)]
+    [InlineData("read_text", false)]
     public async Task TenProductQualificationReopensWorkbookAndChecksWorkflowClosure(string variant, bool expected)
     {
         using var root = new TemporaryWorkbookDirectory();
@@ -221,7 +227,18 @@ public sealed class AmazonBusinessOracleTests
                 new Cell { DataType = CellValues.String, CellValue = new CellValue(value) })))));
             part.Workbook.Append(new Sheets(new Sheet { Id = part.GetIdOfPart(sheet), SheetId = 1, Name = "Products" }));
         }
-        events.Add(new JsonObject { ["tool"] = "document_write", ["error"] = false, ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } });
+        var readback = variant.StartsWith("read_", StringComparison.Ordinal);
+        var write = new JsonObject { ["server"] = "GnOuGo.Document.Mcp", ["tool"] = "document_write", ["error"] = false,
+            ["arguments"] = new JsonObject { ["filePath"] = "./products.xlsx" }, ["result"] = new JsonObject { ["success"] = true, ["filePath"] = path } };
+        if (variant != "read_before_write") events.Add(write);
+        if (readback)
+        {
+            var readPath = variant switch { "read_relative_path" => "./products.xlsx", "read_other_path" => "other.xlsx", _ => path };
+            events.Add(new JsonObject { ["server"] = "GnOuGo.Document.Mcp", ["tool"] = "document_read", ["error"] = false,
+                ["arguments"] = new JsonObject { ["filePath"] = readPath, ["format"] = variant == "read_text" ? "text" : "cells" },
+                ["result"] = new JsonObject { ["success"] = true, ["filePath"] = variant == "read_other_receipt" ? Path.Combine(root.Path, "other.xlsx") : path } });
+        }
+        if (variant == "read_before_write") events.Add(write);
         if (variant != "missing_close") events.Add(new JsonObject { ["tool"] = "browser_close", ["error"] = false, ["result"] = new JsonObject { ["success"] = true } });
         var transport = new InMemoryMcpClientFactory();
         transport.RegisterServer("GnOuGo.Browser.Mcp", new MockMcpServerConfig { ToolHandlers = new()
@@ -230,7 +247,7 @@ public sealed class AmazonBusinessOracleTests
             ["browser_close"] = _ => new() { Content = new JsonObject { ["success"] = true } }
         } });
         var run = new JsonObject { ["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile, ["workspace_relative"] = ".",
-            ["oracle_version"] = LiveWorkflowOracles.AmazonBusinessVersion, ["max_products"] = 10,
+            ["oracle_version"] = LiveWorkflowOracles.AmazonBusinessVersion, ["max_products"] = 10, ["workflow_readback_required"] = readback,
             ["inputs"] = new JsonObject { ["query"] = Query }, ["execution"] = new JsonObject { ["success"] = true }, ["events"] = events };
         var oracle = await LiveWorkflowOracles.VerifyAsync("amazon", root.Path, run, transport);
         Assert.True(expected == oracle["passed"]!.GetValue<bool>(), oracle.ToJsonString());

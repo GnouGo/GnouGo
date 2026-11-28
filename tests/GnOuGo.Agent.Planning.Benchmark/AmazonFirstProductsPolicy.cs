@@ -68,6 +68,21 @@ internal static partial class LiveWorkflowOracles
 {
     internal const string AmazonFirstProductsVersion = "amazon-business-v16";
 
+    internal static bool ReturnedWorkbookOutcome(JsonObject run)
+    {
+        if (run["execution"]?["outputs"]?["finalOutcome"] is not JsonValue value || !value.TryGetValue<string>(out var outcome) ||
+            string.IsNullOrWhiteSpace(outcome) || run["caller_response"] is not JsonObject caller ||
+            run["execution_run_id"]?.ToString() is not { Length: > 0 } id || caller["run"]?.ToString() != id ||
+            run["run"]?.ToString() is not { Length: > 0 } agent || caller["agent"]?.ToString() != agent ||
+            caller["text"] is not JsonValue text || !text.TryGetValue<string>(out var rendered)) return false;
+        if (rendered == outcome) return true;
+        try
+        {
+            return JsonNode.Parse(rendered) is JsonObject outputs && JsonNode.DeepEquals(outputs["finalOutcome"], value);
+        }
+        catch (System.Text.Json.JsonException) { return false; }
+    }
+
     internal static JsonObject VerifyAmazonFirstProducts(IReadOnlyList<JsonObject> events, int maximum, string? query)
         => ResolvedStoreSelection(events, maximum, query, ResolveStoreSource(events, query, AmazonFirstProductsPolicy.Id, maximum), AmazonFirstProductsPolicy.Id);
 

@@ -61,5 +61,126 @@
     "pending": "0"
   },
   "trx_sha256": "a8a176311bd6c8c19109d162c3fb9e48a461d03fa3f0daff4658c24633dae45b",
-  "evidence_scope": "The original public command and the captured stopped session went through HybridWorkflowPlanner.AdvanceAsync in memory. The runtime accepted checkpoint writes and rejected any attempted inference or external action."
+  "evidence_scope": "The original public command and the captured stopped session went through HybridWorkflowPlanner.AdvanceAsync in memory. The runtime accepted checkpoint writes and rejected any attempted inference or external action.",
+  "bounded_proposal_replay": {
+    "snapshotRevision": 207,
+    "capturedRejectionRevision": 162,
+    "rollbackFindings": [],
+    "compilerFindings": [],
+    "providerCalls": 0
+  },
+  "live_resumption": {
+    "harness_source": "4d19db0e4fcea6fe25b3f0be54023781a2fbbcee",
+    "session": "59a776fd8f9c42159523cb85c3949297",
+    "revision": 214,
+    "model_calls": 88,
+    "accepted_checkpoint": 14,
+    "prior_hash": "717dd8e335b98d9f64ebad36c314a8048636f45d32f069736301b68df834942a",
+    "new_hash": "8a843b6fe68b814821241e6bf05badb804621c212663d602e391e4aeba7bb93a",
+    "review_outcome": "ok",
+    "reviewed_hash": "8a843b6fe68b814821241e6bf05badb804621c212663d602e391e4aeba7bb93a",
+    "condition": {
+      "kind": "predicate",
+      "items": [
+        {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "output",
+                  "source": "search",
+                  "port": "observationSnapshot"
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "linkPrefix",
+                  "items": [
+                    {
+                      "kind": "output",
+                      "source": "search",
+                      "port": "observationSnapshot"
+                    }
+                  ]
+                },
+                {
+                  "kind": "null"
+                }
+              ],
+              "predicate": "not_equal"
+            }
+          ],
+          "predicate": "and"
+        },
+        {
+          "kind": "predicate",
+          "items": [
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "sourceIndex",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                },
+                {
+                  "kind": "number",
+                  "number": 0
+                }
+              ],
+              "predicate": "greater_equal"
+            },
+            {
+              "kind": "predicate",
+              "items": [
+                {
+                  "kind": "field",
+                  "port": "sourceIndex",
+                  "items": [
+                    {
+                      "kind": "item"
+                    }
+                  ]
+                },
+                {
+                  "kind": "array_length",
+                  "items": [
+                    {
+                      "kind": "field",
+                      "port": "links",
+                      "items": [
+                        {
+                          "kind": "output",
+                          "source": "source_prefix",
+                          "port": "prefix"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "predicate": "less"
+            }
+          ],
+          "predicate": "and"
+        }
+      ],
+      "predicate": "and"
+    },
+    "captured_state_gzip_sha256": "cc1292686d498045a6386c6286adc608787c6ade8e0835bbd0bc82ceeb467eaf"
+  }
 }

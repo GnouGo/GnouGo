@@ -11,6 +11,30 @@ public sealed class AmazonFirstProductsTests
     private static JsonObject Verify(List<JsonObject> events, int count) => LiveWorkflowOracles.VerifyAmazonFirstProducts(events, count, Query);
     private static JsonArray Records(JsonObject source) => source["result"]!["observationSnapshot"]!["pages"]![0]!["records"]!.AsArray();
 
+    [Theory]
+    [InlineData("public_outputs", true)]
+    [InlineData("public_string", true)]
+    [InlineData("wrong_run", false)]
+    [InlineData("wrong_agent", false)]
+    [InlineData("different_outcome", false)]
+    [InlineData("missing_outcome", false)]
+    [InlineData("missing_reply", false)]
+    public void WorkbookOutcomeMustReachTheCallerForTheSameExecution(string variant, bool expected)
+    {
+        const string outcome = """{"verified":true,"workbookPath":"workflows/example/products.xlsx"}""";
+        var outputs = new JsonObject { ["finalOutcome"] = outcome };
+        var caller = new JsonObject
+        {
+            ["agent"] = variant == "wrong_agent" ? "another" : "agent",
+            ["run"] = variant == "wrong_run" ? "another" : "execution",
+            ["text"] = variant switch { "public_string" => outcome, "different_outcome" => "{}", "missing_reply" => null, _ => outputs.ToJsonString() }
+        };
+        if (variant == "missing_outcome") outputs.Remove("finalOutcome");
+        var run = new JsonObject { ["run"] = "agent", ["execution_run_id"] = "execution",
+            ["execution"] = new JsonObject { ["outputs"] = outputs }, ["caller_response"] = caller };
+        Assert.Equal(expected, LiveWorkflowOracles.ReturnedWorkbookOutcome(run));
+    }
+
     [Fact]
     public void FreshPromptAssociatesEachPathWithTheOperationThatConsumesIt()
     {

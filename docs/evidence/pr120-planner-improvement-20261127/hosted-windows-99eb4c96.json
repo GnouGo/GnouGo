@@ -1,0 +1,195 @@
+{
+  "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "actions_url": "https://github.com/GnouGo/GnouGo/actions/runs/46091546103",
+  "conclusion": "failure",
+  "selection": "441 previously discovered historical and expanded cases plus 22 cases for the qualification host, revision checks and one-time permissions.",
+  "matched_expected_exactly": false,
+  "cases": 464,
+  "outcomes": {
+    "Passed": 461,
+    "Failed": 3
+  },
+  "missing": [],
+  "extra": [
+    "GnOuGo.Agent.Server.Tests.DelegatedTestReviewTests.SignedDecisionSurvivesReopeningOnlyForTheExactReviewedArtifact"
+  ],
+  "nonpassing": [
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")",
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")",
+    "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")"
+  ],
+  "times": {
+    "creation": "2026-11-28T01:13:46.9488791+00:00",
+    "queuing": "2026-11-28T01:13:46.9488794+00:00",
+    "start": "2026-11-28T01:13:42.0766719+00:00",
+    "finish": "2026-11-28T02:07:49.3921668+00:00"
+  },
+  "trx_sha256": "3b2a9482ed2591bdcc2565be9568d636172cb4db2d145c7117fe9f99b3b69a9a",
+  "assembly_manifest_sha256": "cccb3390da88e418a935e04267a4ef37e1cb8d48ba575948e9885d4f0a9d6bb0",
+  "case_list_sha256": "f44ce8e33a80cc3d9760b53ba0a1866d72b4ee5d3d82d08594a6bd354cc59e4e",
+  "binaries": [
+    {
+      "name": "GnOuGo.Agent.Server.dll",
+      "version": "0.0.0-dev+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "B4492970063206B3D80BDAAE34AADD62A9E77D2BB09C28D647DE3E38EBC3D92A"
+    },
+    {
+      "name": "GnOuGo.Agent.Server.Tests.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "6356732E529EA4BE29DE8EF506E27CC6D564F63DFADC50BAE16ED3FCBB24B08B"
+    },
+    {
+      "name": "GnOuGo.Browser.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "541D35A702D7A81942210D3EE9EAD287093198DA471F5BCF6D320453EBE3F5CB"
+    },
+    {
+      "name": "GnOuGo.Document.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "08939DE8A6B722C4263D72410C537998F9C69152D2A3C3B5DD6138C19C0BCB42"
+    },
+    {
+      "name": "GnOuGo.Flow.Core.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "EF5B51D7D396A75618865D64C678C4C6FD9EDD665A4913D1DD69D042BBCDC287"
+    },
+    {
+      "name": "GnOuGo.Flow.Persistence.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "DB2DB50DAE441AA9AE7E73935B04F88636FA8A6F5274889FBC2D26A83290B59B"
+    },
+    {
+      "name": "GnOuGo.Flow.Planning.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "C0CB8E2B55FA639B8664536675CEDECB8ADFB547E8849B118C3102B0F8CDEBC0"
+    },
+    {
+      "name": "GnOuGo.GithubCopilot.Mcp.dll",
+      "version": "1.0.0+99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+      "sha256": "D1530DA3F0DF1FD203B0D47C12EE220EC14AC9608370AA024B2547E19ED0F4E4"
+    }
+  ],
+  "comparison": {
+    "46083729059": {
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")": {
+        "status": "Passed",
+        "duration_seconds": 64.358771,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 54967,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 288,
+        "allocatedBytes": 5268628112,
+        "logicalJournalBytes": 82020833,
+        "physicalBytes": 33560214
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "status": "Passed",
+        "duration_seconds": 93.395491,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 82081,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 392,
+        "allocatedBytes": 7130402848,
+        "logicalJournalBytes": 112465438,
+        "physicalBytes": 42022776
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "status": "Passed",
+        "duration_seconds": 96.184524,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 84026,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 392,
+        "allocatedBytes": 7152711488,
+        "logicalJournalBytes": 112465365,
+        "physicalBytes": 42030992
+      }
+    },
+    "46090070740": {
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")": {
+        "status": "Passed",
+        "duration_seconds": 68.863024,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 59510,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 288,
+        "allocatedBytes": 5292252184,
+        "logicalJournalBytes": 82020810,
+        "physicalBytes": 33650394
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "status": "Passed",
+        "duration_seconds": 100.221879,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 87476,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 392,
+        "allocatedBytes": 7165429104,
+        "logicalJournalBytes": 112465347,
+        "physicalBytes": 41969406
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "status": "Passed",
+        "duration_seconds": 109.922263,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 97289,
+        "inference": 23,
+        "mappings": 11,
+        "invocations": 392,
+        "allocatedBytes": 7186311296,
+        "logicalJournalBytes": 112465435,
+        "physicalBytes": 42022822
+      }
+    },
+    "46091546103": {
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.CorrectedNullableGuardCompositionWritesOriginalCells(variant: \"repeated\")": {
+        "status": "Failed",
+        "duration_seconds": 137.033658,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 131987,
+        "inference": 19,
+        "mappings": 9,
+        "invocations": 250,
+        "allocatedBytes": 4514629160,
+        "logicalJournalBytes": 71239981,
+        "physicalBytes": 30498448,
+        "configured_limit_ms": 120000,
+        "elapsed_at_denial_ms": 123567.102
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"repeated\")": {
+        "status": "Failed",
+        "duration_seconds": 138.503106,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 134292,
+        "inference": 21,
+        "mappings": 10,
+        "invocations": 365,
+        "allocatedBytes": 6597297624,
+        "logicalJournalBytes": 101891480,
+        "physicalBytes": 39682016,
+        "configured_limit_ms": 120000,
+        "elapsed_at_denial_ms": 121707.1305
+      },
+      "GnOuGo.Agent.Server.Tests.LocalProductOutcomeExecutionTests.V10CompositionExecutesOriginalObservationsAndExactWorkbook(variant: \"complete\")": {
+        "status": "Failed",
+        "duration_seconds": 140.653825,
+        "other_in_process_test_starts": 0,
+        "elapsedMs": 136229,
+        "inference": 21,
+        "mappings": 10,
+        "invocations": 365,
+        "allocatedBytes": 6607531520,
+        "logicalJournalBytes": 101891428,
+        "physicalBytes": 39694232,
+        "configured_limit_ms": 120000,
+        "elapsed_at_denial_ms": 123598.5565
+      }
+    }
+  },
+  "interpretation": "The three real workbook executions crossed the same 120-second mapping allowance. The previous two expanded Windows jobs passed the same cases. No other test started in their wall-time intervals in this TRX. Host I/O and CPU telemetry are unavailable."
+}

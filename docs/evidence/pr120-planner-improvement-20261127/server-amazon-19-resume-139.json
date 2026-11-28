@@ -1,0 +1,145 @@
+{
+  "source": "3053ec3b94cb3f9b03a5b2fd047ea77a1381ada5",
+  "planning_source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "run": "improve40-amazon-20261128-010738",
+  "window": "improve40-amazon-20261128-010738-scope-resume-139",
+  "session": "59a776fd8f9c42159523cb85c3949297",
+  "scenario": "amazon",
+  "phases": {
+    "replan": {
+      "logical_calls": 3,
+      "physical_attempts": 3,
+      "input_tokens": 47538,
+      "output_tokens": 312,
+      "measured_eur": "0.1097084282460136674259681093",
+      "duration_ms": "133987.1388"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 9156,
+      "output_tokens": 214,
+      "measured_eur": "0.0218314350797266514806378132",
+      "duration_ms": "84806.8071"
+    },
+    "construction_implementation": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "input_tokens": 137578,
+      "output_tokens": 5868,
+      "measured_eur": "0.3401230068337129840546697040",
+      "duration_ms": "199214.5499"
+    },
+    "construction_draft": {
+      "logical_calls": 15,
+      "physical_attempts": 15,
+      "input_tokens": 231140,
+      "output_tokens": 4483,
+      "measured_eur": "0.5469384965831435079726651480",
+      "duration_ms": "222627.1085"
+    }
+  },
+  "input_tokens": 425412,
+  "output_tokens": 10877,
+  "planning_session_cost_eur": "1.0186013667425968109339407745",
+  "wall_seconds": 1778.6192696094513,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "58.797920273348519362186788777",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "10.6806924829157175398633251183",
+    "physical_attempts": 1595,
+    "input_tokens": 24189779,
+    "output_tokens": 811254
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "59.816521640091116173120729564",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "9.6620911161731207289293843313",
+    "physical_attempts": 1625,
+    "input_tokens": 24615191,
+    "output_tokens": 822131
+  },
+  "initial_revision": 139,
+  "ending_revision": 207,
+  "initial_calls": 55,
+  "ending_calls": 85,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "location": "/",
+      "message": "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: 59a776fd8f9c42159523cb85c3949297:85:d9c1262944aa2b03e7a594e6f70620effee96864ec129c92a26b57577af6baf7:419b5aefce7d3c83bf6d5c14a2dff63ac9e25b1ef643bc7275396d4e2e118fdd; prior request: 59a776fd8f9c42159523cb85c3949297:67:c31a410ae127f62e11917a0fbf8f931b7835819a1bb0ec08fc91671929a469a3:b141bb7aa345ae07c8f246f25367b8e25018b72bda321af66622b597bfc6ac45. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal.",
+      "required": true,
+      "validationStage": null,
+      "rule": null
+    }
+  ],
+  "passed": false,
+  "result": {
+    "status": "stopped",
+    "calls": 85,
+    "repairs": 8,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "execution": null,
+  "execution_run_id": null,
+  "new_checkpoints": [
+    {
+      "sequence": 9,
+      "tasks": [
+        "source_prefix"
+      ]
+    },
+    {
+      "sequence": 10,
+      "tasks": [
+        "source_in_range"
+      ]
+    },
+    {
+      "sequence": 11,
+      "tasks": [
+        "product_visit",
+        "visit_if_source_matches"
+      ]
+    },
+    {
+      "sequence": 12,
+      "tasks": [
+        "extract_product",
+        "visit_evidence_available"
+      ]
+    }
+  ],
+  "scope_grant": {
+    "revision": 139,
+    "prior_result": {
+      "status": "stopped",
+      "calls": 55,
+      "repairs": 4,
+      "execution_status": "not_started",
+      "execution_correct": false
+    },
+    "prior_finish": "2026-11-28T01:28:18.0584257+00:00",
+    "prior_session_sha256": "2db05ddd9d0ae5e0187b28cec5a8127da60237d03b0efb6758435c34989f10db",
+    "started_utc": "2026-11-28T01:40:56.2281431+00:00",
+    "harness_source": "3053ec3b94cb3f9b03a5b2fd047ea77a1381ada5",
+    "assemblies": {
+      "entry": {
+        "sha256": "921265d85d008d4ff7138baa6536157d6ac468ef89a4fb555088d6c0a4dab35c"
+      },
+      "server": {
+        "sha256": "95e3d42dd26428182120e9415c2d3d7074f6c8b9ea4519309bfe809416bb32af"
+      }
+    },
+    "external_reservations_eur": "0.0463553530751708428246013667",
+    "execution_reserve_eur": "2.68"
+  },
+  "opening_audit_sha256": "8540d3f2ebe2a8e317d83b50d04f53c9d0fd8cf9437fb21fe8a4910b707d1d62",
+  "closing_audit_sha256": "1e9540aea27917a25444ef80fcf0d7e1a3287370d6b686924019f6f983ba9814"
+}

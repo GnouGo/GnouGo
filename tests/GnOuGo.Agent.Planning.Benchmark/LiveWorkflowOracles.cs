@@ -16,6 +16,15 @@ internal static partial class LiveWorkflowOracles
     internal const string AmazonSponsoredHostVersion = "amazon-business-v6";
     internal const string AmazonProductContextVersion = "amazon-business-v7";
     internal const string CodeBusinessVersion = "code-business-v2";
+
+    private static bool SameWorkbook(JsonNode? value, string workspace, string expected)
+    {
+        if (value is not JsonValue json || !json.TryGetValue<string>(out var path) || string.IsNullOrWhiteSpace(path) ||
+            (Path.IsPathRooted(path) && !Path.IsPathFullyQualified(path))) return false;
+        try { return Path.GetFullPath(path, workspace) == expected; }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException) { return false; }
+    }
+
     internal static async Task<JsonObject> VerifyAsync(string scenario, string root, JsonObject run, IMcpClientFactory transport,
         Func<Task<McpCallResult>>? hostClosureProbe = null)
     {
@@ -76,14 +85,18 @@ internal static partial class LiveWorkflowOracles
                 events.LastOrDefault(e => e["server"]?.ToString() == "GnOuGo.Browser.Mcp" || e["tool"]?.ToString()?.StartsWith("browser_", StringComparison.Ordinal) == true) is not { } closed ||
                 closed["tool"]?.ToString() != "browser_close" || closed["error"]?.GetValue<bool>() != false || closed["result"]?["success"]?.GetValue<bool>() != true))
                 findings.Add("workflow_browser_close_receipt_or_ten_product_contract_missing");
+            var path = Path.Combine(folder, "products.xlsx");
+            if (run["oracle_version"]?.ToString() == AmazonFirstProductsVersion && !ReturnedWorkbookOutcome(run))
+                findings.Add("public_workbook_outcome_missing_or_different");
             if (run["workflow_readback_required"]?.GetValue<bool>() == true)
             {
-                var relativeWorkbook = run["workspace_relative"]!.ToString() + "/products.xlsx";
                 bool WorkbookCall(JsonObject evt, string method) => evt["server"]?.ToString() == "GnOuGo.Document.Mcp" &&
                     evt["tool"]?.ToString() == method && evt["error"]?.GetValue<bool>() == false &&
-                    evt["result"]?["success"]?.GetValue<bool>() == true && evt["arguments"]?["filePath"]?.ToString() == relativeWorkbook;
+                    evt["result"]?["success"]?.GetValue<bool>() == true &&
+                    SameWorkbook(evt["arguments"]?["filePath"], root, path) && SameWorkbook(evt["result"]?["filePath"], root, path);
                 var lastWrite = Array.FindLastIndex(events, evt => WorkbookCall(evt, "document_write"));
-                if (lastWrite < 0 || !events.Skip(lastWrite + 1).Any(evt => WorkbookCall(evt, "document_read")))
+                if (lastWrite < 0 || !events.Skip(lastWrite + 1).Any(evt =>
+                    WorkbookCall(evt, "document_read") && evt["arguments"]?["format"]?.ToString() == "cells"))
                     findings.Add("independent_workflow_workbook_read_missing");
             }
             var browser = await transport.GetClientAsync("GnOuGo.Browser.Mcp", CancellationToken.None);
@@ -93,7 +106,6 @@ internal static partial class LiveWorkflowOracles
             if (!cleanup.IsError || cleanup.Content?.ToJsonString().Contains("No active page", StringComparison.Ordinal) != true)
                 findings.Add("browser_not_closed_by_workflow");
             await browser.CallToolAsync("browser_close", new JsonObject(), CancellationToken.None);
-            var path = Path.Combine(folder, "products.xlsx");
             if (!File.Exists(path)) findings.Add("workbook_missing");
             else
             {
@@ -141,7 +153,7 @@ internal static partial class LiveWorkflowOracles
                         }
                         if (!events.Any(e => e["tool"]?.ToString() == "document_write" && e["error"]?.GetValue<bool>() == false &&
                             e["result"]?["success"]?.GetValue<bool>() == true &&
-                            e["result"]?["filePath"]?.ToString() is { } written && Path.GetFullPath(written) == path))
+                            SameWorkbook(e["result"]?["filePath"], root, path)))
                             findings.Add("workbook_writer_receipt_missing");
                     }
                     else

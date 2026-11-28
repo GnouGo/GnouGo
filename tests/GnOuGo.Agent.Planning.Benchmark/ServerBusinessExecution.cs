@@ -305,9 +305,11 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             report["finished_utc"] = DateTimeOffset.UtcNow;
             report["execution"] = new JsonObject { ["success"] = journal.Status == WorkflowRunStatus.Completed && journal.Result?.Success == true,
                 ["status"] = journal.Status, ["finalization_completed"] = journal.FinalizationCompleted };
-            if (localReview || PublishedReviewQualification.RequiresChatReport(report))
+            var captureCaller = PublishedReviewQualification.RequiresChatReport(report) ||
+                report["oracle_version"]?.ToString() == LiveWorkflowOracles.AmazonFirstProductsVersion;
+            if (localReview || captureCaller)
                 report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
-            if (PublishedReviewQualification.RequiresChatReport(report))
+            if (captureCaller)
             {
                 var answer = Path.Combine(output, "form-response.json");
                 if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));
