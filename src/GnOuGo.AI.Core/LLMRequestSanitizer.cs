@@ -25,6 +25,7 @@ public static class LLMRequestSanitizer
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,
+            Images = request.Images,
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,

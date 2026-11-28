@@ -25,6 +25,8 @@ public interface ILLMClient
 /// </summary>
 public interface ILLMCapabilityResolver
 {
+    Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
+        => Task.FromResult<bool?>(null);
     /// <summary>Known input allowance after reserving the requested output; null means unverifiable.</summary>
     Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => Task.FromResult<int?>(null);
@@ -76,6 +78,8 @@ public interface IExchangeRateProvider
 /// </summary>
 public sealed class LLMRequest
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<WorkflowImage>? Images { get; set; }
     /// <summary>Caller-assigned durable request identity; never model instructions.</summary>
     public string? ClientRequestId { get; set; }
     public string? Provider { get; set; }
@@ -605,6 +609,9 @@ public sealed class McpPromptArgument
 /// </summary>
 public sealed class McpCallResult
 {
+    /// <summary>Original protocol blocks alongside the normalized primary business result.</summary>
+    public JsonArray? ContentBlocks { get; set; }
+    internal bool PrimaryIsBlocks => ReferenceEquals(Content, ContentBlocks) && ContentBlocks is not null;
     public bool IsError { get; set; }
     public JsonNode? Content { get; set; }
 

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace GnOuGo.Flow.Persistence;
 
 /// <summary>KeyVault is authoritative. SQLite stores no execution content and can be rebuilt at any time.</summary>
-public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtifactStore
+public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMappingArtifactStore, IWorkflowImageStore
 {
     public const string Collection = "flow-execution-journal-v9";
     private const string Author = "GnOuGo.Flow.Persistence";
@@ -39,6 +39,23 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         var path = GnOuGoWorkspace.ResolveDatabasePath(indexPath, root, ".GnOuGo/data/flow-execution-v9.db");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), path,
             GnOuGoWorkspace.ResolveDatabasePath(ownerPath, root, ".GnOuGo/data/flow-execution-v9/owners"), logger);
+    }
+
+    private const string ImageCollection = "flow-run-images-v1";
+
+    async Task IWorkflowImageStore.PutAsync(string tenant, string run, string sha256, byte[] bytes, CancellationToken ct)
+    {
+        ValidateKey(tenant, run);
+        if (Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) != sha256)
+            throw new ArgumentException("Image digest mismatch.", nameof(sha256));
+        await _records.UpsertAsync(ImageCollection, tenant, run + "/" + sha256, Convert.ToBase64String(bytes), Author, ct);
+    }
+
+    async Task<byte[]?> IWorkflowImageStore.GetAsync(string tenant, string run, string sha256, CancellationToken ct)
+    {
+        ValidateKey(tenant, run);
+        var record = await _records.GetAsync(ImageCollection, tenant, run + "/" + sha256, Author, ct);
+        return record is null ? null : Convert.FromBase64String(record.Value);
     }
 
     private const string MappingCollection = "flow-validated-mappings-v1";

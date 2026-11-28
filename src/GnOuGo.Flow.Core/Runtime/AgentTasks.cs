@@ -11,6 +11,8 @@ public sealed record AgentTaskDefinition
     public string Runner { get; init; } = "";
     public string Objective { get; init; } = "";
     public JsonObject Inputs { get; init; } = new();
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public JsonArray? Images { get; init; }
     public JsonObject OutputSchema { get; init; } = new();
     public string Workspace { get; init; } = "";
     public List<string> Capabilities { get; init; } = [];

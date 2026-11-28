@@ -43,4 +43,7 @@
     <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.157.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Compile Include="../Shared/EncodedImageHeader.cs" Link="Images/EncodedImageHeader.cs" />
+  </ItemGroup>
 </Project>

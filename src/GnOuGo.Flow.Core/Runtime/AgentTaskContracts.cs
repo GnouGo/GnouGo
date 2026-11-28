@@ -53,7 +53,7 @@ public static class AgentTaskContracts
         {"type":"object","required":["runner","objective","output_schema","workspace","capabilities","budget","verification"],
          "additionalProperties":false,"properties":{
           "runner":{"type":"string","minLength":1},"objective":{"type":"string","minLength":1},
-          "inputs":{"type":"object"},"output_schema":{"type":"object"},"workspace":{"type":"string","minLength":1},
+          "inputs":{"type":"object"},"images":{"type":"array","maxItems":8,"items":{"type":"object"}},"output_schema":{"type":"object"},"workspace":{"type":"string","minLength":1},
           "capabilities":{"type":"array","items":{"type":"string"},"uniqueItems":true},
           "budget":{"type":"object","additionalProperties":false,"required":["max_elapsed_milliseconds","max_model_calls","max_total_tokens"],
             "properties":{"max_actions":{"type":"integer","minimum":1,"maximum":2147483647},"max_elapsed_milliseconds":{"type":"integer","minimum":1},"max_model_calls":{"type":"integer","minimum":1},"max_total_tokens":{"type":"integer","minimum":1}}},
@@ -65,6 +65,7 @@ public static class AgentTaskContracts
     internal static JsonObject RunnerInputSchema(bool supportsActionLimit)
     {
         var schema = InputSchema;
+        schema["properties"]!.AsObject().Remove("images");
         if (!supportsActionLimit)
             schema["properties"]!["budget"]!["properties"]!.AsObject().Remove("max_actions");
         return schema;

@@ -74,6 +74,10 @@ public sealed class RoutingLLMClient
         }
 
         var metadata = _metadataResolver.Resolve(resolvedType, model);
+        if (request.Images is { Count: > 0 } &&
+            (_metadataResolver.ResolveDeclaredMetadata(resolvedType, model)?.Capabilities?.SupportsVision != true ||
+             provider is not (OpenAiLLMProvider or CopilotLLMProvider or OllamaLLMProvider or AnthropicLLMProvider)))
+            throw new InvalidOperationException($"Vision input is unavailable for model '{model}' on provider '{providerKey}'.");
         var sanitizedRequest = LLMRequestSanitizer.Sanitize(request, metadata, providerOpts.RequestPolicy);
         if (_options.CapturedTransports?.TryGetValue(ModelMetadataCatalog.ModelIdentityKey(resolvedType, configuredModel), out var frozenTransport) == true)
         {
@@ -346,6 +350,7 @@ public static class LLMHttpClientDefaults
 /// </summary>
 public sealed class LLMClientRequest
 {
+    public IReadOnlyList<LLMImageInput>? Images { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public LLMTransportSelection? ResolvedTransport { get; internal set; }
     [System.Text.Json.Serialization.JsonIgnore]

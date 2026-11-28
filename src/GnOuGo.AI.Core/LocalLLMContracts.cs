@@ -145,6 +145,7 @@ public sealed class LocalLLMProvider : ILLMProvider
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,
+            Images = request.Images,
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema?.DeepClone(),
             StructuredOutputStrict = request.StructuredOutputStrict,

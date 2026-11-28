@@ -28,6 +28,9 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
 {
     public Task<int?> InputTokenAllowanceAsync(string? provider, string model, int outputTokens, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).InputTokenAllowanceAsync(Provider, Model, outputTokens, ct);
+    public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
+        => ((ILLMCapabilityResolver)_client).SupportsVisionAsync(Provider, Model, ct);
+
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
         => ((ILLMCapabilityResolver)_client).SupportsStructuredOutputAsync(Provider, Model, ct);
     public Task<IReadOnlyList<string>?> SupportedReasoningLevelsAsync(string? provider, string model, CancellationToken ct)
@@ -507,6 +510,7 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
             throw new InvalidOperationException("Benchmark recovery permits only side-effect-free generation without tools.");
         var dispatched = JsonSerializer.Deserialize(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), PlanningJsonContext.Default.LLMRequest)!;
         dispatched.Provider = provider; dispatched.Model = model;
+        dispatched.Images = request.Images;
         // Planning uses the pinned transport policy; runtime bindings may impose
         // a stricter invocation allowance that the harness must preserve.
         dispatched.DisableTransportRetries = execution && request.DisableTransportRetries;
@@ -706,8 +710,13 @@ internal sealed partial class KeyVaultBenchmarkModel : ILLMClient, ILLMCapabilit
                 await ModelRequestAdmission.ValidateAsync(request, this, phaseInputLimit, "planning", token, advisoryTokens);
             if (execution)
                 await ModelRequestAdmission.ValidateAsync(dispatched, this, int.MaxValue, "execution", token);
-            var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
             var output = dispatched.MaxTokens ?? 32_768;
+            var input = Math.Max(phaseInputLimit, Encoding.UTF8.GetByteCount(json));
+            // Providers meter images differently. Reserve the declared physical input ceiling until
+            // the provider reports usage. The serialized logical request contains only image references.
+            if (dispatched.Images is { Count: > 0 })
+                input = await InputTokenAllowanceAsync(Provider, Model, output, token)
+                    ?? throw new InvalidOperationException("Vision requires a declared input capacity for financial admission.");
             // Match the retained planning estimator, including the issued envelope rather than only its prompt.
             var estimatedPlanningInput = ((long)Encoding.UTF8.GetByteCount(JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest)) + 2) / 3 + 256;
             if (policy is not null && (output > policy["max_output_tokens"]!.GetValue<int>() ||

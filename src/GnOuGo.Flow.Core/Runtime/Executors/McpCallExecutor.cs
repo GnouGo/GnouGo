@@ -1150,7 +1150,8 @@ Produce the final answer strictly from the executed MCP results.
             EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
 
             // Telemetry observes the producer payload; it must not remove contract or business fields.
-            var responseContent = callResult.Content?.DeepClone();
+            var blocks = await WorkflowImages.ProjectAsync(ctx, callResult, ct);
+            var responseContent = callResult.PrimaryIsBlocks ? blocks : callResult.Content?.DeepClone();
             var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(responseContent));
 
             var result = new JsonObject
@@ -1161,6 +1162,8 @@ Produce the final answer strictly from the executed MCP results.
                 ["correlation_id"] = correlation.CorrelationId,
                 ["trace_id"] = correlation.TraceId
             };
+
+            if (!callResult.PrimaryIsBlocks && blocks is not null) result["content_blocks"] = blocks;
 
             if (!isError && tool is not null)
             {

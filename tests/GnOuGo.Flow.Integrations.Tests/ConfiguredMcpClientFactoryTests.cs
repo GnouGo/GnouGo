@@ -577,6 +577,24 @@ public class ConfiguredMcpClientFactoryTests
     }
 
     [Fact]
+    public void MixedReceiptPreservesStructuredBusinessValueAndEveryProtocolBlock()
+    {
+        var image = JsonSerializer.Deserialize<ContentBlock>("""{"type":"image","data":"AAE=","mimeType":"image/png"}""",
+            McpJsonUtilities.DefaultOptions)!;
+        var resource = new EmbeddedResourceBlock { Resource = new TextResourceContents
+            { Uri = "memory://sources/1", MimeType = "text/plain", Text = "Source 1" } };
+        var result = McpSessionAdapter.FromProtocolResult(new CallToolResult
+        {
+            StructuredContent = JsonSerializer.SerializeToElement(new { slide = 2 }),
+            Content = [new TextContentBlock { Text = "Preview" }, image, resource]
+        });
+        Assert.Equal(2, result.Content!["slide"]!.GetValue<int>());
+        Assert.Equal("Preview", result.ContentBlocks![0]!["text"]!.ToString());
+        Assert.Equal("AAE=", result.ContentBlocks[1]!["data"]!.ToString());
+        Assert.Equal("Source 1", result.ContentBlocks[2]!["resource"]!["text"]!.ToString());
+    }
+
+    [Fact]
     public void BuildContent_PrefersStructuredContent_WhenPresent()
     {
         var result = new CallToolResult

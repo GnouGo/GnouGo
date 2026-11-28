@@ -100,6 +100,7 @@ public sealed class LlmCallExecutor : IStepExecutor
             Provider = provider,
             Model = model,
             Prompt = prompt,
+            Images = await WorkflowImages.LoadAsync(ctx, input["images"], ct),
         };
 
         // ── Telemetry: record request attributes ──
@@ -167,6 +168,8 @@ public sealed class LlmCallExecutor : IStepExecutor
             var response = await ctx.CallLLMAsync(llmClient, request, "llm.call", ct);
             var observation = new JsonObject { ["text"] = response.Text,
                 ["json"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() };
+            if (request.Images is { } seen)
+                observation["images"] = new JsonArray(seen.Select(i => (JsonNode)i.Reference()).ToArray());
             if (response.CompletionStatus is { } status) observation["completion_status"] = status;
             await ctx.RecordExternalCompletionAsync(observation, CancellationToken.None);
 
@@ -241,6 +244,9 @@ public sealed class LlmCallExecutor : IStepExecutor
                 ["meta"] = new JsonObject { ["model"] = model }
             };
 
+            if (request.Images is { } inspected)
+                result["meta"]!["images"] = new JsonArray(inspected.Select(i => (JsonNode)i.Reference()).ToArray());
+
             // Structured output: fallback parse response.Text as JSON (parity with Python)
             JsonNode? structuredJson = response.Json;
             var hasStructuredJson = response.Json != null;
@@ -280,7 +286,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         {
             // Budget accounting can also fail after dispatch. Only an explicit
             // host-owned pre-dispatch disposition establishes a known rejection.
-            if ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable) &&
+            if ((ex.Code is ErrorCodes.LlmBudgetExceeded or ErrorCodes.LlmBudgetUnverifiable or "MODEL_REQUEST_INCOMPATIBLE") &&
                 ex.Details is JsonObject details && details["dispatch_status"]?.ToString() == "not_started")
                 await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch", ["code"] = ex.Code }, CancellationToken.None);
             var classified = LlmFailureClassifier.Classify(ex);

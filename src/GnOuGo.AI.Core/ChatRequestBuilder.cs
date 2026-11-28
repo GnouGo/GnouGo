@@ -66,6 +66,17 @@ public static class ChatRequestBuilder
         bool? structuredOutputStrict = null,
         string? reasoning = null,
         int? maxOutputTokens = null)
+        => OpenAiFull(model, prompt, temperature, tools, structuredOutputSchema, structuredOutputStrict, reasoning, maxOutputTokens, null);
+
+    internal static byte[] OpenAiFull(
+        string model,
+        string prompt,
+        double? temperature,
+        IReadOnlyList<LLMToolDef>? tools,
+        JsonNode? structuredOutputSchema,
+        bool? structuredOutputStrict,
+        string? reasoning,
+        int? maxOutputTokens, IReadOnlyList<LLMImageInput>? images)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -88,7 +99,7 @@ public static class ChatRequestBuilder
             w.WriteStartArray("messages");
             w.WriteStartObject();
             w.WriteString("role", "user");
-            w.WriteString("content", prompt);
+            VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Chat);
             w.WriteEndObject();
             w.WriteEndArray();
 
@@ -171,6 +182,16 @@ public static class ChatRequestBuilder
         JsonNode? structuredOutputSchema,
         bool? structuredOutputStrict,
         int? maxOutputTokens)
+        => OpenAiResponsesBackground(model, prompt, temperature, reasoning, structuredOutputSchema, structuredOutputStrict, maxOutputTokens, null);
+
+    internal static byte[] OpenAiResponsesBackground(
+        string model,
+        string prompt,
+        double? temperature,
+        string? reasoning,
+        JsonNode? structuredOutputSchema,
+        bool? structuredOutputStrict,
+        int? maxOutputTokens, IReadOnlyList<LLMImageInput>? images)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -196,7 +217,7 @@ public static class ChatRequestBuilder
             w.WriteStartArray("input");
             w.WriteStartObject();
             w.WriteString("role", "user");
-            w.WriteString("content", prompt);
+            VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Responses);
             w.WriteEndObject();
             w.WriteEndArray();
 
@@ -251,6 +272,16 @@ public static class ChatRequestBuilder
         bool jsonMode = false,
         string? reasoning = null,
         int? maxOutputTokens = null)
+        => OllamaFull(model, prompt, temperature, tools, jsonMode, reasoning, maxOutputTokens, null);
+
+    internal static byte[] OllamaFull(
+        string model,
+        string prompt,
+        double? temperature,
+        IReadOnlyList<LLMToolDef>? tools,
+        bool jsonMode,
+        string? reasoning,
+        int? maxOutputTokens, IReadOnlyList<LLMImageInput>? images)
     {
         using var ms = new MemoryStream();
         using (var w = new Utf8JsonWriter(ms))
@@ -281,7 +312,7 @@ public static class ChatRequestBuilder
             w.WriteStartArray("messages");
             w.WriteStartObject();
             w.WriteString("role", "user");
-            w.WriteString("content", prompt);
+            VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Ollama);
             w.WriteEndObject();
             w.WriteEndArray();
 

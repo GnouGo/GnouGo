@@ -35,7 +35,7 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
 
         byte[] payload = ChatRequestBuilder.OllamaFull(
             model, request.Prompt, request.Temperature, tools, jsonMode,
-            request.Reasoning, request.MaxOutputTokens);
+            request.Reasoning, request.MaxOutputTokens, request.Images);
 
         HttpRequestMessage CreateChatRequest()
         {
@@ -44,7 +44,7 @@ public sealed class OllamaLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             if (!string.IsNullOrWhiteSpace(provider.ApiKey))
                 HttpRequestHelper.SetBearerAuth(requestMessage, provider.ApiKey);
             LLMTransportResolver.Apply(requestMessage, request.ResolvedTransport!, request.DeclaredTransportCapabilities);
-            if (request.MaxOutputTokens is > 0)
+            if (request.MaxOutputTokens is > 0 && request.Images is not { Count: > 0 })
                 HttpRequestHelper.AllowLegacyReceipt(requestMessage, ChatRequestBuilder.OllamaFull(
                     model, request.Prompt, request.Temperature, tools, jsonMode, request.Reasoning));
             return requestMessage;

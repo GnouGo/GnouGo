@@ -114,6 +114,14 @@ public sealed class StepExecutionContext
         LLMUsageBudgetScope? budget,
         CancellationToken ct)
     {
+        if (request.Images is { Count: > 0 })
+        {
+            var resolver = Engine.LLMCapabilities ?? client as ILLMCapabilityResolver;
+            if (resolver is null || await resolver.SupportsVisionAsync(request.Provider, request.Model, ct) != true)
+                throw new WorkflowRuntimeException("MODEL_REQUEST_INCOMPATIBLE",
+                    $"Vision support must be declared for model '{request.Model}' before sending images.",
+                    details: new JsonObject { ["dispatch_status"] = "not_started" });
+        }
         if (budget is null)
         {
             try

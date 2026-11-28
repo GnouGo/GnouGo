@@ -17,6 +17,12 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
         _inner = inner;
     }
 
+    public Task<bool?> SupportsVisionAsync(string? provider, string model, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        return Task.FromResult(_inner.ResolveDeclaredCapabilities(provider, model)?.SupportsVision);
+    }
+
     public Task<bool?> SupportsStructuredOutputAsync(string? provider, string model, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -69,6 +75,8 @@ public sealed class RoutingLLMClientAdapter : ILLMClient, ILLMCapabilityResolver
             Provider = request.Provider,
             Model = request.Model,
             Prompt = request.Prompt,
+            Images = request.Images?.Select(i => new LLMImageInput(i.MimeType, i.Bytes
+                ?? throw new InvalidOperationException("The referenced image has not been loaded."))).ToArray(),
             Temperature = request.Temperature,
             StructuredOutputSchema = request.StructuredOutputSchema,
             StructuredOutputStrict = request.StructuredOutputStrict,

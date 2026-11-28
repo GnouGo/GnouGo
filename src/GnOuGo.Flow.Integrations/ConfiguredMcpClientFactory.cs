@@ -1083,6 +1083,8 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
 
     public string ServerName { get; }
 
+    internal string? ProtocolVersion => _client.NegotiatedProtocolVersion;
+
     public async Task<IReadOnlyList<McpToolInfo>> EnsureToolsDiscoveredAsync(CancellationToken ct)
     {
         if (_discoveredTools is not null)
@@ -1225,11 +1227,7 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             ? await McpTaskPolling.CallAsync(_client, toolName, arguments, CreateRequestOptions().Meta, ct)
             : await _client.CallToolAsync(toolName, args, progress: null, CreateRequestOptions(), ct);
 
-        return new McpCallResult
-        {
-            IsError = result.IsError == true,
-            Content = BuildContent(result)
-        };
+        return FromProtocolResult(result);
     }
 
     public async Task<McpGetPromptResult> GetPromptAsync(string promptName, JsonNode? arguments, CancellationToken ct)
@@ -1285,6 +1283,16 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
         };
     }
 
+    internal static McpCallResult FromProtocolResult(CallToolResult result)
+    {
+        var content = BuildContent(result);
+        var structured = result.StructuredContent is JsonElement { ValueKind: not (JsonValueKind.Null or JsonValueKind.Undefined) };
+        var blocks = structured ? SerializeBlocks(result) : content as JsonArray;
+        // An array parsed from a single text block is a business value.
+        if (!structured && result.Content is [TextContentBlock]) blocks = null;
+        return new() { IsError = result.IsError == true, Content = content, ContentBlocks = blocks };
+    }
+
     private static JsonNode? BuildContent(CallToolResult result)
     {
         if (result.StructuredContent is JsonElement structuredContent
@@ -1304,7 +1312,11 @@ internal sealed class McpSessionAdapter : IMcpSession, ILiveMcpToolDiscoverySess
             catch { return text; }
         }
 
-        // Preserve protocol payloads, including embedded resources, with the SDK's AOT-safe metadata.
+        return SerializeBlocks(result);
+    }
+
+    private static JsonArray SerializeBlocks(CallToolResult result)
+    {
         var arr = new JsonArray();
         foreach (var block in result.Content)
             arr.Add(JsonSerializer.SerializeToNode(block, McpJsonUtilities.DefaultOptions.GetTypeInfo(typeof(ContentBlock))));

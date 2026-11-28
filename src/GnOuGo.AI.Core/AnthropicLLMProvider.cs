@@ -68,7 +68,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.Reasoning,
 			request.MaxOutputTokens,
 			request.StructuredOutputSchema,
-			request.StructuredOutputStrict);
+			request.StructuredOutputStrict, request.Images);
 
 		HttpRequestMessage CreateMessageRequest()
 		{
@@ -116,7 +116,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			request.Reasoning,
 			request.MaxOutputTokens,
 			request.StructuredOutputSchema,
-			request.StructuredOutputStrict);
+			request.StructuredOutputStrict, request.Images);
 
 		HttpRequestMessage CreateBatchRequest()
 		{
@@ -354,7 +354,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string? reasoning = null,
 		int? maxOutputTokens = null,
 		JsonNode? structuredOutputSchema = null,
-		bool? structuredOutputStrict = null)
+		bool? structuredOutputStrict = null, IReadOnlyList<LLMImageInput>? images = null)
 	{
 		const int DefaultMaxTokens = 16384;
 		var forceStructuredOutputTool = structuredOutputSchema != null;
@@ -377,7 +377,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteStartArray("messages");
 			w.WriteStartObject();
 			w.WriteString("role", "user");
-			w.WriteString("content", prompt);
+			VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Anthropic);
 			w.WriteEndObject();
 			w.WriteEndArray();
 
@@ -487,7 +487,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 		string? reasoning = null,
 		int? maxOutputTokens = null,
 		JsonNode? structuredOutputSchema = null,
-		bool? structuredOutputStrict = null)
+		bool? structuredOutputStrict = null, IReadOnlyList<LLMImageInput>? images = null)
 	{
 		const int DefaultMaxTokens = 16384;
 		var forceStructuredOutputTool = structuredOutputSchema != null;
@@ -518,7 +518,7 @@ public sealed class AnthropicLLMProvider : ILLMProvider, ILLMModelCatalogProvide
 			w.WriteStartArray("messages");
 			w.WriteStartObject();
 			w.WriteString("role", "user");
-			w.WriteString("content", prompt);
+			VisionRequestBuilder.WriteContent(w, prompt, images, VisionProtocol.Anthropic);
 			w.WriteEndObject();
 			w.WriteEndArray();
 

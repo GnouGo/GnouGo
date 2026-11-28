@@ -34,8 +34,14 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
     public IWorkflowRunStore? RunStore
     {
         get => _runStore;
-        set { _runStore = value; MappingArtifacts ??= value as IMappingArtifactStore; }
+        set
+        {
+            _runStore = value;
+            MappingArtifacts ??= value as IMappingArtifactStore;
+            ImageArtifacts = value as IWorkflowImageStore;
+        }
     }
+    public IWorkflowImageStore? ImageArtifacts { get; set; }
     public IMappingArtifactStore? MappingArtifacts { get; set; }
     internal string MappingExecutionId { get; private set; } = "";
     internal System.Collections.Concurrent.ConcurrentDictionary<string, MappingArtifact> MappingMemory { get; } = new(StringComparer.Ordinal);

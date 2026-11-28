@@ -61,6 +61,7 @@ public static class BuiltInStepContracts
                     ("provider", String()),
                     ("model", String()),
                     ("prompt", String()),
+                    ("images", Array(OpenObject())),
                     ("system", String()),
                     ("temperature", Number()),
                     ("reasoning", Enum("auto", "minimal", "low", "medium", "high", "max")),
@@ -70,7 +71,7 @@ public static class BuiltInStepContracts
                     ("text", String()),
                     ("json", Any()),
                     ("usage", OpenObject()),
-                    ("meta", Object(("model", String()))),
+                    ("meta", Object(("model", String()), ("images", Array(OpenObject())))),
                     ("raw", Any())),
                 inputRequired: true),
             ["workflow.call"] = Contract(
@@ -94,7 +95,7 @@ public static class BuiltInStepContracts
             ["mcp.call"] = Contract(
                 McpCallInput(),
                 Object(
-                    ("status", Enum("ok", "error")), ("response", Any()), ("error", OpenObject()),
+                    ("status", Enum("ok", "error")), ("response", Any()), ("content_blocks", Array(OpenObject())), ("error", OpenObject()),
                     ("correlation_id", String()), ("trace_id", String()), ("results", Array(Any())),
                     ("selection_mode", String()), ("text", String()), ("selection_text", String()),
                     ("tool_calls", Array(Any())), ("json", Any()), ("description", String()), ("messages", Array(Any()))),

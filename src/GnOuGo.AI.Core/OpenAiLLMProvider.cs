@@ -100,7 +100,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             request.StructuredOutputSchema,
             request.StructuredOutputStrict,
             request.Reasoning,
-            request.MaxOutputTokens);
+            request.MaxOutputTokens, request.Images);
 
         _logger.LogDebug(
             "OpenAI request body prepared ({ByteCount} bytes). ProtocolMode={ProtocolMode}",
@@ -210,7 +210,7 @@ public sealed class OpenAiLLMProvider : ILLMProvider, ILLMModelCatalogProvider
             request.Reasoning,
             request.StructuredOutputSchema,
             request.StructuredOutputStrict,
-            request.MaxOutputTokens);
+            request.MaxOutputTokens, request.Images);
 
         HttpRequestMessage CreateBackgroundRequest()
         {

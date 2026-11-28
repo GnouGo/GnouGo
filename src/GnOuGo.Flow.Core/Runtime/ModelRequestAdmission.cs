@@ -19,6 +19,8 @@ internal static class ModelRequestAdmission
     {
         ct.ThrowIfCancellationRequested();
         if (resolver is null) throw Unverifiable("Declared model capabilities are unavailable.");
+        if (request.Images is { Count: > 0 } && await resolver.SupportsVisionAsync(request.Provider, request.Model, ct) != true)
+            throw Incompatible("Vision input is unavailable for the selected model.");
         if (request.StructuredOutputSchema is not null)
         {
             var structured = await resolver.SupportsStructuredOutputAsync(request.Provider, request.Model, ct);
