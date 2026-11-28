@@ -66,6 +66,10 @@ internal static class ServerLiveDiagnostics
         var executionOnly = args.ElementAtOrDefault(1) == "server-live-execute";
         var revalidationOnly = args.ElementAtOrDefault(1) == "server-live-revalidate";
         var recheckApproval = args.Contains("--recheck-retained-approval", StringComparer.Ordinal);
+        var resumeRevision = SchemaPortabilityCampaign.Option(args, "--resume-scoped-revision");
+        if (resumeRevision is not null && (!planning || !args.Contains("--await-scoped-revision", StringComparer.Ordinal) ||
+            SchemaPortabilityCampaign.Option(args, "--case") is not ("amazon" or "code")))
+            throw new ArgumentException("Scoped resumption requires interactive business planning with --await-scoped-revision.");
         if (recheckApproval && !executionOnly) throw new ArgumentException("Approval rechecking requires server-live-execute.");
         var retained = inspectionOnly || executionOnly || revalidationOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
@@ -112,7 +116,9 @@ internal static class ServerLiveDiagnostics
             await campaign.RequireRetainedApplicationHoldsAsync(model.RetainedExternalReservationsEur, CancellationToken.None, requireComplete: model.AdvisoryFinancialForecasts);
 
         if (run.Length > 70 || !run.All(c => char.IsAsciiLetterOrDigit(c) || c == '-')) throw new ArgumentException("Invalid fresh run identity.");
-        if (!retained && await campaign.LoadAsync("planning-evaluation-runs", run) is not null) throw new PlanningConflictException("This live run already exists; start a fresh independent identity.");
+        var previous = !retained ? await campaign.LoadAsync("planning-evaluation-runs", run) : null;
+        if (!retained && (previous is null) != (resumeRevision is null))
+            throw new PlanningConflictException("A fresh run needs an unused identity. Scoped resumption needs the original stopped run.");
         var planningAllowance = fundingScope?["current_authorized_ceiling_eur"]?.GetValue<decimal>();
         JsonObject? planningEnvelope = null;
         if (SchemaPortabilityCampaign.Option(args, "--planning-envelope") is { } envelopeFile)
@@ -344,7 +350,7 @@ internal static class ServerLiveDiagnostics
         }
         if (phaseFile is not null) report["phase_policy_sha256"] = PlanningGraphCompiler.Fingerprint(await File.ReadAllTextAsync(phaseFile));
         if (delegatedScenario is not null) report["planning_discovery_authority"] = "existing_delegated_tool_allowlist_v1";
-        if (!retained) await campaign.SaveAsync("planning-evaluation-runs", run, report);
+        if (!retained && previous is null) await campaign.SaveAsync("planning-evaluation-runs", run, report);
         var invoked = 0;
         if (!planning && !retained && !mcpReadiness) app.MapPost("/api/planning/live-provider-probe", async (HttpContext context, LocalOperatorAccess access, IAntiforgery antiforgery, LlmTraceCapture capture) =>
         {
@@ -611,6 +617,16 @@ internal static class ServerLiveDiagnostics
             await campaign.SaveAsync("planning-evaluation-runs", run, report, CancellationToken.None);
             return Results.Json(report);
         });
+        if (previous is not null)
+        {
+            RequireSameProductionSource(previous["source"]!.GetValue<string>(), recheckApproval: false);
+            var snapshot = previous["session"]!.Deserialize(PlanningJsonContext.Default.PlanningSession)!;
+            var current = await app.Services.GetRequiredService<IPlanningSessionStore>().LoadAsync(snapshot.Request.TenantId,
+                snapshot.Request.SessionId, CancellationToken.None) ?? throw new PlanningConflictException("Stopped planning session missing.");
+            RequireScopedResume(previous, current, resumeRevision!);
+            await campaign.RequireRunNotRetainedAsync(current.Request.SessionId, CancellationToken.None);
+            await RequireNotCancelledAsync(app, current, CancellationToken.None);
+        }
         await app.StartAsync();
         try
         {
@@ -624,7 +640,7 @@ internal static class ServerLiveDiagnostics
             {
                 await VerifyFrontendAsync(app, root, url, run, CancellationToken.None);
                 report["frontend_ready"] = true;
-                await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                if (previous is null) await campaign.SaveAsync("planning-evaluation-runs", run, report);
             }
             if (!retained)
             {
@@ -779,21 +795,47 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
                         browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null), report["source"]!.ToString());
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null), (previous ?? report)["source"]!.ToString());
                 }
-                using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
-                    ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
-                if (!started.IsSuccessStatusCode)
+                string id;
+                if (previous is null)
                 {
-                    var detail = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(await started.Content.ReadAsStringAsync());
-                    report["result"] = new JsonObject { ["status"] = "start_refused", ["http_status"] = (int)started.StatusCode,
-                        ["detail"] = detail, ["execution_status"] = "not_started", ["execution_correct"] = false };
-                    report["passed"] = false;
-                    report["finished_utc"] = DateTimeOffset.UtcNow;
-                    await campaign.SaveAsync("planning-evaluation-runs", run, report);
-                    throw new PlanningConflictException($"Server planning start returned HTTP {(int)started.StatusCode}. {detail}");
+                    using var started = await client.PostAsJsonAsync("/api/planning", new JsonObject { ["name"] = run, ["prompt"] = prompt,
+                        ["mode"] = "auto", ["thresholdMode"] = "diagnostic" });
+                    if (!started.IsSuccessStatusCode)
+                    {
+                        var detail = app.Services.GetRequiredService<LlmTraceContentStore>().Redact(await started.Content.ReadAsStringAsync());
+                        report["result"] = new JsonObject { ["status"] = "start_refused", ["http_status"] = (int)started.StatusCode,
+                            ["detail"] = detail, ["execution_status"] = "not_started", ["execution_correct"] = false };
+                        report["passed"] = false;
+                        report["finished_utc"] = DateTimeOffset.UtcNow;
+                        await campaign.SaveAsync("planning-evaluation-runs", run, report);
+                        throw new PlanningConflictException($"Server planning start returned HTTP {(int)started.StatusCode}. {detail}");
+                    }
+                    id = (await started.Content.ReadFromJsonAsync<JsonObject>())!["id"]!.GetValue<string>();
                 }
-                var dto = await started.Content.ReadFromJsonAsync<JsonObject>(); var id = dto!["id"]!.ToString();
+                else
+                {
+                    foreach (var key in new[] { "campaign", "campaign_configuration", "provider", "model", "financial_forecast_mode",
+                        "scenario", "planning_envelope", "workflow_model_output_limit", "workspace_relative", "inputs", "mcp_builds",
+                        "adaptive_runner_profile", "qualification_profile", "oracle_version", "phase_policy_sha256", "browser_scope_approval",
+                        "browser_observation_policy", "target_head", "target_base", "sdk_wire_api", "sdk_chat_tools_reasoning_effort" })
+                        if (!JsonNode.DeepEquals(previous[key], report[key])) throw new PlanningConflictException("Scoped resumption changed " + key + ".");
+                    var resumes = previous["scoped_resumptions"] as JsonArray;
+                    if (resumes is null) previous["scoped_resumptions"] = resumes = [];
+                    resumes.Add(new JsonObject { ["revision"] = previous["session"]!["revision"]!.DeepClone(),
+                        ["prior_result"] = previous["result"]!.DeepClone(), ["prior_finish"] = previous["finished_utc"]?.DeepClone(),
+                        ["prior_session_sha256"] = PlanningGraphCompiler.Fingerprint(previous["session"]!.ToJsonString()),
+                        ["started_utc"] = report["started_utc"]!.DeepClone(), ["harness_source"] = report["source"]!.DeepClone(),
+                        ["assemblies"] = report["loaded_assemblies"]!.DeepClone(), ["external_reservations_eur"] = model.RetainedExternalReservationsEur,
+                        ["execution_reserve_eur"] = model.ExecutionVerificationReserveEur });
+                    report = previous;
+                    report.Remove("finished_utc");
+                    id = report["session_id"]!.GetValue<string>();
+                    var marker = Path.Combine(root, "artifacts/live-server-20261106", run, "observer-terminal-revision.txt");
+                    if (File.Exists(marker))
+                        File.Move(marker, marker + "." + Guid.NewGuid().ToString("N"));
+                }
                 report["session_id"] = id; report["operator_url"] = url.TrimEnd('/') + "/planning/" + id;
                 Console.WriteLine(new JsonObject { ["run"] = run, ["session_id"] = id, ["operator_url"] = report["operator_url"]!.DeepClone() }.ToJsonString());
                 var awaitPlanningClarification = args.Contains("--await-planning-clarification", StringComparer.Ordinal);
@@ -1052,6 +1094,16 @@ internal static class ServerLiveDiagnostics
         var changes = SchemaPortabilityCampaign.Git("diff", "--name-only", original, "HEAD", "--", "src");
         if (changes.Length != 0 && !(recheckApproval && changes == "src/GnOuGo.Flow.Planning/PlanningArtifactApproval.cs"))
             throw new PlanningConflictException("Retained execution requires unchanged production source and the original frozen tools.");
+    }
+
+    internal static void RequireScopedResume(JsonObject previous, PlanningSession current, string expectedRevision)
+    {
+        if (previous["execution_started"] is not null || previous["saved_agent_id"] is not null ||
+            previous["session_id"]?.ToString() != current.Request.SessionId ||
+            expectedRevision != current.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture) ||
+            !ServerLiveReviewWait.CanOfferScopedRevision(current) ||
+            !JsonNode.DeepEquals(previous["session"], JsonSerializer.SerializeToNode(current, PlanningJsonContext.Default.PlanningSession)))
+            throw new PlanningConflictException("Scoped resumption requires the exact unexecuted, stopped planning revision.");
     }
 
     private static async Task RequireNotCancelledAsync(WebApplication app, PlanningSession state, CancellationToken ct)

@@ -2,17 +2,24 @@ using GnOuGo.Flow.Core.Planning;
 
 internal static class ServerLiveReviewWait
 {
-    internal static bool CanOfferScopedRevision(PlanningSession state) =>
-        state.Status == PlanningStatus.Stopped && state.Plan is not null && state.PendingCall is null &&
-        state.ApprovedHash is null && state.Construction?.Candidate is { } candidate &&
-        state.ReplanAttempts < state.Request.MaxReplanAttempts &&
-        state.Diagnostics.Count > 0 && state.Diagnostics.All(d => d.Code is "BUSINESS_REVIEW_REQUIRED" or "CONSTRUCTION_BUSINESS_REVIEW") &&
-        candidate.Reviews.LastOrDefault(review => review["outcome"]?.ToString() == "needs_change") is { } review &&
-        review["defectWitness"] is System.Text.Json.Nodes.JsonObject && review["candidateHash"]?.ToString() == candidate.Hash;
+    internal static bool CanOfferScopedRevision(PlanningSession state)
+    {
+        if (state.Status != PlanningStatus.Stopped || state.Plan is null || state.PendingCall is not null ||
+            state.ApprovedHash is not null || state.ReplanAttempts >= state.Request.MaxReplanAttempts ||
+            state.Diagnostics.Count == 0 || state.Construction is not { } construction) return false;
+        if (state.Diagnostics.All(d => d.Code == "REPLAN_NO_PROGRESS"))
+            return construction.RebuildTasks.Count > 0 && construction.Invalidations.Count > 0 &&
+                state.StrategyAttempts?.LastOrDefault()?["identity"]?.GetValue<string>() is { Length: > 0 } last &&
+                state.StrategyAttempts.Count(a => a["identity"]?.ToString() == last) >= 2;
+        return state.Diagnostics.All(d => d.Code is "BUSINESS_REVIEW_REQUIRED" or "CONSTRUCTION_BUSINESS_REVIEW") &&
+            construction.Candidate is { } candidate &&
+            candidate.Reviews.LastOrDefault(review => review["outcome"]?.ToString() == "needs_change") is { } review &&
+            review["defectWitness"] is System.Text.Json.Nodes.JsonObject && review["candidateHash"]?.ToString() == candidate.Hash;
+    }
 
     internal static async Task<bool> AwaitNewRevisionAsync(PlanningSession stopped, Func<Task<PlanningSession?>> load, CancellationToken ct)
     {
-        if (!CanOfferScopedRevision(stopped)) throw new PlanningConflictException("An unapproved stopped business review is required.");
+        if (!CanOfferScopedRevision(stopped)) throw new PlanningConflictException("A stopped construction with an evidenced revision is required.");
         while (!ct.IsCancellationRequested)
         {
             var latest = await load() ?? throw new PlanningConflictException("The stopped session disappeared.");

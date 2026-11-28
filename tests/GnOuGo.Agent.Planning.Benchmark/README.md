@@ -739,6 +739,16 @@ recorded checkpoint history, recompiles the exact reviewed graph and YAML, and
 records the new verifier assembly before normal Server approval and form execution.
 Supply the current audited application holds with `--retained-external-reservations-eur`.
 
+`server-live-plan --await-scoped-revision --resume-scoped-revision <revision>`
+reopens the original stopped Server session for an operator's scoped revision.
+Supply the original run and planning profile and the current audited application
+holds. The host verifies the entire stored session, production source, tool builds,
+scenario inputs, revision and cancellation state. It also verifies that execution
+has never started. A repeated strategy can open the revision window when its
+journal identifies the invalidated tasks that still need to be rebuilt. The
+normal revision command selects the editable paths. Accepted work, request
+receipts, session ceilings and cumulative usage carry forward.
+
 `server-live-revalidate --run <id> --expected-revision <revision> --artifact-hash <hash>`
 can recover only a completed, unapproved artifact stopped solely on catalog
 validation, with no pending call/question and exact equality to its retained final

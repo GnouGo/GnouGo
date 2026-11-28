@@ -1,0 +1,152 @@
+{
+  "source": "99eb4c9692e8f4c688eb9ebfb685451253feb8c2",
+  "run": "improve40-amazon-20261128-010738",
+  "session": "59a776fd8f9c42159523cb85c3949297",
+  "scenario": "amazon",
+  "oracle": "amazon-business-v16",
+  "started_utc": "2026-11-28T01:09:22.1143003+00:00",
+  "finished_utc": "2026-11-28T01:28:18.0584257+00:00",
+  "wall_seconds": 1135.944125,
+  "phases": {
+    "construction_intent": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 2361,
+      "output_tokens": 1749,
+      "measured_eur": "0.0133462414578587699316628702",
+      "duration_ms": "194457.7621"
+    },
+    "construction_select": {
+      "logical_calls": 2,
+      "physical_attempts": 2,
+      "input_tokens": 5246,
+      "output_tokens": 1389,
+      "measured_eur": "0.0182779043280182232346241458",
+      "duration_ms": "40528.5764"
+    },
+    "construction_implementation": {
+      "logical_calls": 13,
+      "physical_attempts": 13,
+      "input_tokens": 143288,
+      "output_tokens": 8287,
+      "measured_eur": "0.3641503416856492027334851936",
+      "duration_ms": "240498.3258"
+    },
+    "construction_discovery": {
+      "logical_calls": 5,
+      "physical_attempts": 5,
+      "input_tokens": 66380,
+      "output_tokens": 1548,
+      "measured_eur": "0.1582596810933940774487471526",
+      "duration_ms": "70155.4816"
+    },
+    "construction_draft": {
+      "logical_calls": 22,
+      "physical_attempts": 22,
+      "input_tokens": 454230,
+      "output_tokens": 9170,
+      "measured_eur": "1.0764692482915717539863325739",
+      "duration_ms": "351171.0593"
+    },
+    "construction_local_judge": {
+      "logical_calls": 1,
+      "physical_attempts": 1,
+      "input_tokens": 8722,
+      "output_tokens": 706,
+      "measured_eur": "0.0230842824601366742596810934",
+      "duration_ms": "20289.4302"
+    },
+    "replan": {
+      "logical_calls": 11,
+      "physical_attempts": 11,
+      "input_tokens": 236295,
+      "output_tokens": 1848,
+      "measured_eur": "0.5466765375854214123006833713",
+      "duration_ms": "140974.4619"
+    }
+  },
+  "phase_duration_basis": "Sum of host invocation measurements including receipt recovery.",
+  "planning_session_cost_eur": "2.2002642369020501138952164008",
+  "input_tokens": 916522,
+  "output_tokens": 24697,
+  "planning_status": "stopped",
+  "diagnostics": [
+    {
+      "code": "REPLAN_NO_PROGRESS",
+      "path": "/",
+      "message": "The same canonical strategy was repeated on unchanged useful evidence and accepted behavior. Current request: 59a776fd8f9c42159523cb85c3949297:55:d688213ff13a00c4ae96c60a7aad63f75f887c159a0ab4dee089919e47ed2fae:47935a0d6afa9fcbde54e9abd8b669c8823f88889d8ccd0b48e77410db20f683; prior request: 59a776fd8f9c42159523cb85c3949297:48:a18d57f8b540039ba9f2684fd3847a6e4c47fe8485daebb2af2b13627bf6b727:61ede8e94afa74796bd664fb40dac549f3bb7ccfcc4a68ef97a067aa0004b5a4. Exact arguments, bindings, obligations and available evidence remain in the strategy-attempt journal."
+    }
+  ],
+  "accepted_tasks": [
+    [
+      "assess",
+      "close_browser",
+      "search"
+    ],
+    [
+      "capture_failure",
+      "select_if_clear",
+      "select_prefix"
+    ],
+    [
+      "navigate_ambiguous",
+      "navigation_branch",
+      "resolve_selection"
+    ],
+    [],
+    [
+      "visit_if_selected"
+    ],
+    [
+      "source_prefix"
+    ],
+    [
+      "if_prefix_available"
+    ],
+    [
+      "source_in_range",
+      "visit_products"
+    ]
+  ],
+  "result": {
+    "status": "stopped",
+    "calls": 55,
+    "repairs": 4,
+    "execution_status": "not_started",
+    "execution_correct": false
+  },
+  "passed": false,
+  "opening": {
+    "ceiling_eur": 70,
+    "measured_eur": "56.597656036446469248291572352",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "12.8809567198177676537585415433",
+    "physical_attempts": 1540,
+    "input_tokens": 23273257,
+    "output_tokens": 786557
+  },
+  "closing": {
+    "ceiling_eur": 70,
+    "measured_eur": "58.797920273348519362186788777",
+    "physical_reservation_eur": "0.475031890660592255125284738",
+    "separate_application_reservation_eur": "0.0463553530751708428246013667",
+    "available_eur": "10.6806924829157175398633251183",
+    "physical_attempts": 1595,
+    "input_tokens": 24189779,
+    "output_tokens": 811254
+  },
+  "terminal_window": {
+    "revision": 139,
+    "rebuild_tasks": [
+      "source_in_range"
+    ],
+    "invalidation_reason": "The condition checks only that the snapshot and prefix exist, not that sourceIndex is within the original links array. Its at_index can therefore fail before an out-of-range discrepancy is reported. Revise this condition in its original scope to check 0 <= sourceIndex < array_length(links) before indexing, preserving both branch outputs and the ordered loop.",
+    "repeat_attempts": [
+      48,
+      55
+    ],
+    "workflow_started": false,
+    "source_browser_preflight": "browser-validation-99eb4c96.json"
+  }
+}

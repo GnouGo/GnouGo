@@ -94,6 +94,30 @@ public sealed class ServerLiveReviewWaitTests
     }
 
     [Fact]
+    public async Task StoppedScopedResumptionRequiresTheExactUnexecutedRevisionAndRepeatedStrategy()
+    {
+        var state = await CurrentPlanningFixture.LiteralAsync("benchmark", "retained-scope", null, TestContext.Current.CancellationToken);
+        state.Status = PlanningStatus.Stopped;
+        state.Request.MaxReplanAttempts = 2;
+        state.Diagnostics = [new("REPLAN_NO_PROGRESS", "/construction", "Repeated range-check strategy.")];
+        var construction = state.Construction!;
+        construction.RebuildTasks = [state.Plan!.Root.Tasks[0]];
+        construction.Invalidations = [new() { Reason = "Rebuild the original range guard." }];
+        state.StrategyAttempts = [new() { ["identity"] = "range" }, new() { ["identity"] = "range" }];
+        var previous = new JsonObject { ["session_id"] = state.Request.SessionId, ["session"] = JsonNode.Parse(Serialize(state)) };
+        var revision = state.Revision.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        ServerLiveDiagnostics.RequireScopedResume(previous, state, revision);
+        Assert.Throws<PlanningConflictException>(() => ServerLiveDiagnostics.RequireScopedResume(previous, state, "-1"));
+        previous["execution_started"] = true;
+        Assert.Throws<PlanningConflictException>(() => ServerLiveDiagnostics.RequireScopedResume(previous, state, revision));
+        previous.Remove("execution_started");
+        previous["session"]!["modelCalls"] = state.ModelCalls + 1;
+        Assert.Throws<PlanningConflictException>(() => ServerLiveDiagnostics.RequireScopedResume(previous, state, revision));
+        state.StrategyAttempts.RemoveAt(0);
+        Assert.False(ServerLiveReviewWait.CanOfferScopedRevision(state));
+    }
+
+    [Fact]
     public async Task ActualScopedRevisionReturnsToRepairWithoutResettingAcceptedWorkOrUsage()
     {
         var state = await CurrentPlanningFixture.LiteralAsync("benchmark", "review-scoped", null, TestContext.Current.CancellationToken);
