@@ -1,0 +1,54 @@
+name: DeckCraft CLI qualification
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/deckcraft.yml'
+      - 'packaging/deckcraft/**'
+      - 'tests/GnOuGo.Flow.Integrations.Tests/DeckCraftTests.cs'
+      - 'tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft/**'
+permissions:
+  contents: read
+jobs:
+  roundtrip:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15, windows-2025]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: 11.0.100
+      - run: rustup toolchain install 1.100.1 --profile minimal
+      - name: Build headless CLI and collect licenses
+        run: |
+          $env:RUSTUP_TOOLCHAIN = '1.100.1'
+          python packaging/deckcraft/build-cli.py "$env:RUNNER_TEMP/qualified-cli"
+      - name: Create, edit, reopen and render with the GnOuGo MCP client
+        run: |
+          $name = if ($IsWindows) { 'deckcraft-cli.exe' } else { 'deckcraft-cli' }
+          $env:GNOUGO_DECKCRAFT_CLI = "$env:RUNNER_TEMP/qualified-cli/$name"
+          $env:GNOUGO_DECKCRAFT_EVIDENCE = "$env:RUNNER_TEMP/roundtrip"
+          dotnet test tests/GnOuGo.Flow.Integrations.Tests -c Release -p:SkipModelMetadataGeneration=true --filter FullyQualifiedName~DeckCraftTests
+      - name: Verify the exported workbooks, relationships and chart caches
+        run: |
+          $folder = (Get-ChildItem "$env:RUNNER_TEMP/roundtrip" -Directory -ErrorAction Stop).FullName
+          $verify = 'tests/GnOuGo.Agent.Planning.Benchmark/DeckCraft/verify-chart.py'
+          python $verify "$folder/before.pptx" --title 'Présentation initiale' --series Volume --categories A B --values 4 7 > "$folder/before.json"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          python $verify "$folder/after.pptx" --title 'Présentation révisée' --series Volume --categories A B --values 4 11 > "$folder/after.json"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: deckcraft-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/roundtrip
+            ${{ runner.temp }}/qualified-cli/components.json
+            ${{ runner.temp }}/qualified-cli/installation.json
+            ${{ runner.temp }}/qualified-cli/notices
