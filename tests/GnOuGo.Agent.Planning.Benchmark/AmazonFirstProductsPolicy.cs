@@ -11,6 +11,7 @@ internal static class AmazonFirstProductsPolicy
     internal static bool IsSourceEntry(string href) => AmazonDealsPolicy.IsSourceEntry(href);
     internal static void ConfigureDetailText(IDictionary<string, string?> environment)
     {
+        environment.TryAdd("Browser__IncludeObservationTextReview", "true");
         const string key = "Browser__ObservationTextSelectorPrefixes__";
         string[] prefixes = ["#title", "#productTitle", "#productDescription", "#productFactsDesktopExpander", "#feature-bullets",
             "#apex-pricetopay", "#corePrice", "#newAccordionRow_0", "#captcha", "#challenge", "#error"];
@@ -29,7 +30,10 @@ internal static class AmazonFirstProductsPolicy
         "Acquire the encoded input query at amazon.fr/s with browser_get_content, format=observation_complete and no selector. " +
         "Set prefixAttribute=data-asin and prefixGroups=10. The complete search retains observationSnapshot.pages[].records[].ancestorAttributes. " +
         "observedSourceAccepted=true establishes the observed 2xx GET, complete capture and publication of the requested prefix, including an empty link list. " +
-        "Assess the captured pages together for a challenge or error. Return a boolean for a nonempty, entirely clear capture and the observed reason. " +
+        "Assess challenge or error from observationSnapshot.textReview, selector textMatches, capture flags, HTTP status and acquisition metadata. " +
+        "Bind only those fields to the decision. The full snapshot and pages contain large source records. Keep them in the receipt. " +
+        "If the compact review is absent, inspect exact bounded pages or report insufficient evidence. Never infer clear from missing evidence. " +
+        "Return a boolean for a nonempty, entirely clear capture and the observed reason. " +
         "Select only when this boolean and observedSourceAccepted each equal true and the prefix exists. Otherwise return the actual reason. " +
         "Bind observationSnapshot.linkPrefix alone to ordered selection. Its links and ancestor table retain original order, grouping, heading, href and page/offset. " +
         "Select the first ten actual product occurrences, including sponsored cards and repeated ASINs. Use the heading or a same-card product link when no heading exists. " +

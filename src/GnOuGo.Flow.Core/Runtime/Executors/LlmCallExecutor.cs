@@ -99,8 +99,7 @@ public sealed class LlmCallExecutor : IStepExecutor
         {
             Provider = provider,
             Model = model,
-            Prompt = prompt,
-            Images = await WorkflowImages.LoadAsync(ctx, input["images"], ct),
+            Prompt = prompt
         };
 
         // ── Telemetry: record request attributes ──
@@ -154,6 +153,16 @@ public sealed class LlmCallExecutor : IStepExecutor
         {
             request.MaxTokens = (int)ExpressionEvaluator.GetNumber(maxTokensNode);
             ctx.SetTelemetryAttribute("gen_ai.request.max_tokens", request.MaxTokens);
+        }
+
+        try
+        {
+            request.Images = await WorkflowImages.LoadAsync(ctx, input["images"], ct);
+        }
+        catch (WorkflowRuntimeException ex) when (ex.Code == ErrorCodes.InputValidation)
+        {
+            await ctx.RecordExternalCompletionAsync(new JsonObject { ["status"] = "rejected_before_dispatch", ["code"] = ex.Code }, CancellationToken.None);
+            throw;
         }
 
         // ── Thinking: signal that we are calling the LLM ──

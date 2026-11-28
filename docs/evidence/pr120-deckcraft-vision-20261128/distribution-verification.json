@@ -1,0 +1,50 @@
+{
+  "actions_run": 46137668704,
+  "targets": [
+    {
+      "runner": "macos-15",
+      "installation": {
+        "source": "4a980c33ddf37eb64157777fcaeab6d19baa5878",
+        "patch_sha256": "9e4fad20c1561e1c1da24118f56ade81133ecef22e6481be2b4b030d1474762d",
+        "cargo_lock_sha256": "8a02ff83683b75a56161b3b1320efb501cb09b9109e4004a0bf822bf6ad2c930",
+        "rustc": "rustc 1.100.1 (20ddd0171 2026-11-25)\nbinary: rustc\ncommit-hash: 20ddd01716a87c0fcf06ae4752d85a4abc15bcdf\ncommit-date: 2026-11-25\nhost: aarch64-apple-darwin\nrelease: 1.100.1\nLLVM version: 23.1.5",
+        "target": "aarch64-apple-darwin",
+        "cli_sha256": "709bfa73555c5c9b30f03094ec4ee1c4ce5b80a4f428fb9e64e3e5d0d84c3157",
+        "components_sha256": "4de53a202751fe48f36c0456e9d701f7fc2f3a176b9563613eeb060559e68022"
+      },
+      "components": 187,
+      "notice_files": 122,
+      "corresponding_archives": 16
+    },
+    {
+      "runner": "ubuntu-24.04",
+      "installation": {
+        "source": "4a980c33ddf37eb64157777fcaeab6d19baa5878",
+        "patch_sha256": "9e4fad20c1561e1c1da24118f56ade81133ecef22e6481be2b4b030d1474762d",
+        "cargo_lock_sha256": "8a02ff83683b75a56161b3b1320efb501cb09b9109e4004a0bf822bf6ad2c930",
+        "rustc": "rustc 1.100.1 (20ddd0171 2026-11-25)\nbinary: rustc\ncommit-hash: 20ddd01716a87c0fcf06ae4752d85a4abc15bcdf\ncommit-date: 2026-11-25\nhost: x86_64-unknown-linux-gnu\nrelease: 1.100.1\nLLVM version: 23.1.5",
+        "target": "x86_64-unknown-linux-gnu",
+        "cli_sha256": "6a2769b926607b30ad8cd95fc38168c9993c4e5b53b0e20409b6c09e902e60e9",
+        "components_sha256": "577ba065e1865fae81feb71305e92d25c95dd0d290a270d33f8e4370d59aedd3"
+      },
+      "components": 185,
+      "notice_files": 120,
+      "corresponding_archives": 16
+    },
+    {
+      "runner": "windows-2025",
+      "installation": {
+        "source": "4a980c33ddf37eb64157777fcaeab6d19baa5878",
+        "patch_sha256": "9e4fad20c1561e1c1da24118f56ade81133ecef22e6481be2b4b030d1474762d",
+        "cargo_lock_sha256": "8a02ff83683b75a56161b3b1320efb501cb09b9109e4004a0bf822bf6ad2c930",
+        "rustc": "rustc 1.100.1 (20ddd0171 2026-11-25)\nbinary: rustc\ncommit-hash: 20ddd01716a87c0fcf06ae4752d85a4abc15bcdf\ncommit-date: 2026-11-25\nhost: x86_64-pc-windows-msvc\nrelease: 1.100.1\nLLVM version: 23.1.5",
+        "target": "x86_64-pc-windows-msvc",
+        "cli_sha256": "5a4f9fa6ebd8bbe2e4dc25d0d29bb827d51880fee6ef99fad783ac396d343c82",
+        "components_sha256": "9da37aedcc667ef5c9c755e7e69f270ec57b5a9ae14202b54e304a456d8fbfc9"
+      },
+      "components": 185,
+      "notice_files": 121,
+      "corresponding_archives": 16
+    }
+  ]
+}

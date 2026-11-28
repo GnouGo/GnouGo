@@ -1162,6 +1162,7 @@ Produce the final answer strictly from the executed MCP results.
             };
 
             if (!callResult.PrimaryIsBlocks && blocks is not null) result["content_blocks"] = blocks;
+            if (WorkflowImages.References(blocks) is { Count: > 0 } images) result["images"] = images;
 
             if (!isError && tool is not null)
             {

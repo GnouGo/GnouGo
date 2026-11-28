@@ -49,6 +49,9 @@ public sealed record BrowserObservationSnapshot(string Id,
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [Description("Compact source-ordered headings and text whose original record selectors begin with a host-configured prefix. Each entry retains its original page, offset and exact text. Truncated marks an incomplete view. Full observations remain in pages.")]
     public BrowserObservationTextMatches? TextMatches { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    [Description("Complete visible text for a bounded interpretation: distinct exact nonblank labels on each original page, original record counts and snapshot ID. Omitted when unavailable or over 64 KiB. Source records remain available for exact DOM provenance.")]
+    public BrowserObservationTextReview? TextReview { get; init; }
 }
 public sealed record BrowserSnapshotInvalidation(string SnapshotId, long Generation, string Reason, DateTimeOffset AtUtc);
 public sealed record BrowserSnapshotNavigation(long Generation, string Url, string? Title, string? Method, int? StatusCode);
@@ -390,6 +393,7 @@ public sealed partial class PlaywrightBrowserHost
                         Format = "observation_complete", ObservationManifest = null, Truncated = false,
                         ObservationSnapshot = new(snapshot.Id, pages, manifest.RecordCount, false, false)
                         {
+                            TextReview = _settings.IncludeObservationTextReview ? BrowserObservationTextReview.Create(snapshot.Id, pages, manifest.RecordCount) : null,
                             LinkPrefix = prefixAttribute is null ? null : BrowserObservationLinkPrefix.Create(pages, prefixAttribute, prefixGroups!.Value),
                             TextMatches = _observationTextSelectorPrefixes.Length == 0 ? null : BrowserObservationTextMatches.Create(pages, _observationTextSelectorPrefixes)
                         },
@@ -403,7 +407,10 @@ public sealed partial class PlaywrightBrowserHost
                     result = result with { Acquisition = Acquisition(), ObservedSourceAccepted = _observedNavigation.IsSource(result.Url) ? false : null };
                     if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
                     {
-                        if (result.ObservationSnapshot!.TextMatches is not null)
+                        if (result.ObservationSnapshot!.TextReview is not null)
+                            result = result with { ObservationSnapshot = result.ObservationSnapshot with { TextReview = null } };
+                        if (result.ObservationSnapshot.TextMatches is not null &&
+                            JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
                             result = result with { ObservationSnapshot = result.ObservationSnapshot with { TextMatches = null } };
                         if (JsonSerializer.Serialize(result, BrowserMcpJsonContext.Default.BrowserContentResult).Length > aggregateLimit)
                             throw new BrowserObservationException("OBSERVATION_INCOMPLETE", "The complete snapshot exceeds the aggregate page allowance. Narrow the requested observation explicitly.", result.Acquisition);

@@ -54,6 +54,8 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
     async Task<byte[]?> IWorkflowImageStore.GetAsync(string tenant, string run, string sha256, CancellationToken ct)
     {
         ValidateKey(tenant, run);
+        if (sha256 is not { Length: 64 } || !sha256.All(char.IsAsciiHexDigitLower))
+            throw new ArgumentException("Invalid image digest.", nameof(sha256));
         var record = await _records.GetAsync(ImageCollection, tenant, run + "/" + sha256, Author, ct);
         return record is null ? null : Convert.FromBase64String(record.Value);
     }

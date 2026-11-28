@@ -33,6 +33,8 @@ internal static class DeckCraftQualification
     internal static string Brief(string directory, string relative) => File.ReadAllText(Fixture("scenario.md")) +
         $"\nThe run owns {directory}. Use absolute file arguments under that directory. The supplied file is illustration.png. " +
         $"Declare a caller output named presentationPath with the delivered workspace path {relative}/after.pptx. " +
+        "The pinned registry publishes slide.notes (text, zero-based index) and chart.data (categories, series). Use list_commands filtered by the exact ID before run_command or batch. " +
+        "The specialized insert_table accepts rows, cols and data as rows of strings. " +
         "Keep before.pptx as evidence. Review renders in batches of at most eight. Return a structured findings array, empty if clear. " +
         "Include each reviewed image digest and slide number. Finish with eight reviewed renders from the reopened delivery.";
 
@@ -80,7 +82,7 @@ internal static class DeckCraftQualification
         }
         static void CheckCommand(JsonNode? item)
         {
-            if (item?["command"]?.ToString() is not ("slide.notes" or "chart.data" or "table.setCell" or
+            if (item?["command"]?.ToString() is not ("slide.notes" or "chart.data" or
                 "table.style" or "table.cellFill" or "shape.fill" or "shape.move" or "shape.resize" or
                 "text.size" or "text.color" or "text.bold" or "slide.background")) Deny();
         }
@@ -102,12 +104,16 @@ internal static class DeckCraftQualification
         if (journal.Result?.Success != true || !journal.FinalizationCompleted) return evidence;
         var events = report["events"]!.AsArray().OfType<JsonObject>().Where(e => e["server"]?.ToString() == "DeckCraft" && e["error"]?.GetValue<bool>() == false).ToArray();
         var reopened = Array.FindLastIndex(events, e => e["tool"]?.ToString() == "open_presentation" &&
-            e["arguments"]?["path"]?.ToString() == Path.Combine(folder, "after.pptx"));
+            e["arguments"]?["path"]?.ToString() is { } path && Path.GetFullPath(path) == Path.GetFullPath(Path.Combine(folder, "after.pptx")));
         var finalRenders = events.Skip(reopened + 1).Where(e => e["tool"]?.ToString() == "render_slide" && e["result"]?["sha256"] is not null).ToArray();
         var coverage = finalRenders.Select(e => e["arguments"]?["slide"]?.GetValue<int>() ?? 0).ToHashSet();
         var reviews = report["vision_receipts"]?.AsArray().OfType<JsonObject>().ToArray() ?? [];
-        var inspected = reviews.Where(r => r["response"] is not null).SelectMany(r => r["images"]!.AsArray()).Select(n => n!.ToString()).ToHashSet();
-        var correctOutput = journal.Result.Outputs?["presentationPath"]?.ToString() == report["workspace_relative"]!.ToString() + "/after.pptx";
+        var initialRenders = events.Take(Math.Max(reopened, 0)).Where(e => e["tool"]?.ToString() == "render_slide" && e["result"]?["sha256"] is not null).ToArray();
+        var expected = report["workspace_relative"]!.ToString() + "/after.pptx";
+        var caller = report["caller_response"];
+        var correctOutput = journal.Result.Outputs?["presentationPath"]?.ToString() == expected &&
+            caller?["run"]?.ToString() == journal.RunId && caller["agent"]?.ToString() == report["run"]?.ToString() &&
+            CallerPath(caller["text"]?.ToString()) == expected;
         var start = new ProcessStartInfo("python") { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, CreateNoWindow = true };
         start.ArgumentList.Add(Fixture("verify-deck.py")); start.ArgumentList.Add(folder);
         using var process = Process.Start(start)!;
@@ -117,13 +123,37 @@ internal static class DeckCraftQualification
         evidence["structural"] = process.ExitCode == 0 ? JsonNode.Parse(await output) : JsonValue.Create(await err);
         evidence["caller_output_matches"] = correctOutput;
         evidence["reopened_slide_coverage"] = coverage.SetEquals(Enumerable.Range(0, 8)) && reopened >= 0;
-        evidence["final_vision_coverage"] = finalRenders.Length >= 8 && finalRenders.All(e => inspected.Contains(e["result"]!["sha256"]!.ToString()));
+        evidence["initial_vision_observed"] = initialRenders.Length > 0 && reopened >= 0 && initialRenders.Any(e =>
+            reviews.Any(r => Reviewed(e, r) && Timestamp(r, "received") <= Timestamp(events[reopened], "started")));
+        evidence["final_vision_coverage"] = finalRenders.Length >= 8 && finalRenders.All(e => reviews.Any(r => Reviewed(e, r)));
         evidence["passed"] = process.ExitCode == 0 && correctOutput && evidence["reopened_slide_coverage"]!.GetValue<bool>() &&
-            evidence["final_vision_coverage"]!.GetValue<bool>() && FinalReviewsClear(finalRenders, reviews);
+            evidence["initial_vision_observed"]!.GetValue<bool>() && evidence["final_vision_coverage"]!.GetValue<bool>() &&
+            finalRenders.All(e => reviews.Any(r => Reviewed(e, r) && Findings(r) is { Count: 0 }));
         return evidence;
     }
 
-    private static bool FinalReviewsClear(JsonObject[] renders, JsonObject[] reviews) => renders.All(render =>
-        reviews.Any(review => review["images"]!.AsArray().Any(i => i?.ToString() == render["result"]!["sha256"]!.ToString()) &&
-            review["response"]?["findings"] is JsonArray { Count: 0 }));
+    private static string? CallerPath(string? text)
+    {
+        if (text is null || !text.TrimStart().StartsWith('{')) return text;
+        try { return JsonNode.Parse(text)?["presentationPath"]?.ToString(); }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
+    private static DateTimeOffset? Timestamp(JsonObject receipt, string field) =>
+        DateTimeOffset.TryParse(receipt[field]?.ToString(), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.RoundtripKind, out var timestamp) ? timestamp : null;
+
+    private static bool Reviewed(JsonObject render, JsonObject review) =>
+        Timestamp(review, "started") >= Timestamp(render, "started") && Findings(review) is not null &&
+        review["images"]?.AsArray().Any(i => i?.ToString() == render["result"]!["sha256"]!.ToString()) == true;
+
+    private static JsonArray? Findings(JsonObject review)
+    {
+        var response = review["response"] as JsonObject;
+        if (response?["findings"] is JsonArray findings) return findings;
+        if (response?["action"]?.ToString() != "finish" || response["payload"] is not JsonValue payload ||
+            !payload.TryGetValue<string>(out var json)) return null;
+        try { return (JsonNode.Parse(json) as JsonObject)?["findings"] as JsonArray; }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
 }

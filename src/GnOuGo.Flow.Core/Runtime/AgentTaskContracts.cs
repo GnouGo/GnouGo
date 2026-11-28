@@ -19,6 +19,31 @@ public static class AgentTaskContracts
             ["next_offset"] = end < text.Length ? end : null, ["text"] = text[offset..end] };
     }
 
+    internal static JsonObject? ReadObservationValue(string id, string subject, JsonNode? value, JsonArray? path, int offset, string? serializedRoot = null)
+    {
+        if (path is { Count: > 32 }) return null;
+        foreach (var segment in path ?? [])
+        {
+            if (value is JsonObject obj && segment is JsonValue key && key.TryGetValue<string>(out var name) &&
+                obj.TryGetPropertyValue(name, out var field)) value = field;
+            else if (value is JsonArray array && segment is JsonValue position && position.TryGetValue<int>(out var index) &&
+                index >= 0 && index < array.Count) value = array[index];
+            else return null;
+        }
+        var text = path is not { Count: > 0 } && serializedRoot is not null ? serializedRoot : value?.ToJsonString() ?? "null";
+        var page = ReadObservationPage(id, subject, text, offset);
+        if (page is null) return null;
+        if (path is { Count: > 0 }) page["path"] = path.DeepClone();
+        if (value is JsonArray items) page["items"] = items.Count;
+        if (value is JsonObject fields)
+        {
+            page["field_count"] = fields.Count;
+            page["fields"] = new JsonArray(fields.Select(p => p.Key).Take(32).Where(k => k.Length <= 128)
+                .Select(k => (JsonNode?)JsonValue.Create(k)).ToArray());
+        }
+        return page;
+    }
+
     public static string McpToolId(JsonObject descriptor)
     {
         using var stream = new MemoryStream();

@@ -1590,6 +1590,12 @@ then checks the cluster, nodes and kubeconfig again. The Cmd event retains
 the observations even if checkout deletion fails. The independent end-of-run
 probe checks the same resources after the workflow terminates.
 
+## DeckCraft and retained capture qualifications
+
+Set `GNOUGO_DECKCRAFT_CLI` to the qualified headless executable alongside its installation receipt. Run `--schema-portability server-live-plan --case deckcraft` with the normal Server campaign options, a fresh run name, the planning envelope, delegated review and clarification enabled. The planner receives the eight-slide brief and the run-owned input illustration. The Server records the review, saved workflow, form execution and model receipts. Passing requires a public delivery, verified before/after OOXML and visual inspection of the reopened deck. The mechanical CI test and the separate `vision-control` command can be repeated independently. [DeckCraft configuration](../../docs/deckcraft-and-vision.md) · [Qualification brief](DeckCraft/scenario.md)
+
+For a retained Amazon form, `--schema-portability retained-capture-review --run <form-attempt-key> --execution <journal-run-id> --source-step <llm-invocation-id>` reads the actual run from encrypted storage. It reuses the original instruction and schema, projects every captured page’s visible text and preserves capture flags and response metadata. It requires a complete bounded projection, a funded campaign, a compatible owned journal and normal physical-call accounting. The receipt records both prompt hashes and sizes. The command inspects the retained decision independently of the form’s status and cleanup.
+
 ## Reserving execution funds before Server planning
 
 A fresh funded `server-live-plan` accepts `--planning-envelope Profiles/server-business-planning-budget.json`. The profile caps each session at 160 calls, 9,000,000 tokens, two hours of active planning and €7.50. At session opening it protects one quarter of the audited available campaign balance for execution and verification, rounded up to cents and capped at €6. Every planning HTTP admission enforces the captured reserve. Earlier profiles retain their fixed reserves. The opening accounting includes unresolved liabilities. Execution retains the campaign ceiling and its own runtime controls. Reports capture the profile and effective monetary allowance.

@@ -34,6 +34,21 @@ public sealed class BrowserObservationTextMatchTests
         Assert.Contains(snapshot.Pages.SelectMany(page => page.Records), record => record.Text == "Unrelated original");
     }
 
+    [Fact]
+    public void TextReviewRetainsAllPagesWhileExcludingLargeSelectorsAndRefusesIncompleteOrOversizedEvidence()
+    {
+        var record = new BrowserObservationRecord("text", "p", new string('a', 20000), "", "Original label", null, null);
+        var page = new BrowserObservation("frozen", [record, record], null, false);
+        var pages = Enumerable.Repeat(page, 72).ToArray();
+        var review = Assert.IsType<BrowserObservationTextReview>(BrowserObservationTextReview.Create("frozen", pages, 144));
+        Assert.Equal(72, review.Pages.Count);
+        Assert.All(review.Pages, row => { Assert.Equal(2, row.Records); Assert.Equal(["Original label"], row.Text); });
+        Assert.Null(BrowserObservationTextReview.Create("another", pages, 144));
+        Assert.Null(BrowserObservationTextReview.Create("frozen", pages, 143));
+        Assert.Null(BrowserObservationTextReview.Create("frozen", [page with { CaptureTruncated = true }], 2));
+        Assert.Null(BrowserObservationTextReview.Create("frozen", [page with { Records = [record with { Text = new string('z', 65536) }] }], 1));
+    }
+
     [Theory]
     [InlineData(65, 1, 64)]
     [InlineData(1, 17000, 0)]

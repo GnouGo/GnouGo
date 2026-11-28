@@ -86,6 +86,22 @@ internal static class WorkflowImages
         return projection;
     }
 
+    internal static JsonArray References(JsonArray? blocks)
+    {
+        var result = new JsonArray();
+        var hashes = new HashSet<string>(StringComparer.Ordinal);
+        if (blocks is null) return result;
+        foreach (var block in blocks.OfType<JsonObject>())
+        {
+            var reference = block["type"]?.ToString() switch {
+                "image" => block["image"], "resource" => block["resource"]?["image"], _ => null
+            };
+            if (reference is JsonObject image && image["sha256"] is JsonValue digest &&
+                digest.TryGetValue<string>(out var hash) && hashes.Add(hash)) result.Add(image.DeepClone());
+        }
+        return result;
+    }
+
     internal static async Task<IReadOnlyList<WorkflowImage>?> LoadAsync(StepExecutionContext ctx, JsonNode? value, CancellationToken ct)
     {
         if (value is null) return null;

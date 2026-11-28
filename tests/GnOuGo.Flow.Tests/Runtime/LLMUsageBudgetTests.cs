@@ -11,6 +11,24 @@ namespace GnOuGo.Flow.Tests.Runtime;
 public sealed class LLMUsageBudgetTests
 {
     [Theory]
+    [InlineData(null, "LLM_BUDGET_UNVERIFIABLE")]
+    [InlineData(1024, "LLM_BUDGET_EXCEEDED")]
+    public async Task FiniteScopeRequiresAnAffordableVisionAllowanceBeforeDispatch(int? ceiling, string expected)
+    {
+        var request = Request();
+        request.Images = [new WorkflowImage(new string('a', 64), "image/png", 64, 32, 256)];
+        request.MaxTokens = 40;
+        request.VisionInputTokenCeiling = ceiling;
+        var scope = new LLMUsageBudgetScope(new() { MaxTotalTokens = 128 });
+        var client = new StubClient(Usage(1, 1));
+        var failure = await Assert.ThrowsAsync<WorkflowRuntimeException>(() =>
+            scope.CallAsync(client, null, request, "vision", TestContext.Current.CancellationToken));
+        Assert.Equal(expected, failure.Code);
+        Assert.Equal(0, client.CallCount);
+        Assert.Equal(0, scope.Snapshot.Calls);
+    }
+
+    [Theory]
     [InlineData(false, false)]
     [InlineData(false, true)]
     [InlineData(true, false)]

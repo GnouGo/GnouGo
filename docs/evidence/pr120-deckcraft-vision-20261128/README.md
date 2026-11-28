@@ -14,6 +14,8 @@ Each OS directory contains the executable fingerprint, transport receipt, initia
 
 On Windows, Microsoft PowerPoint 16.0 build 20625 opened the edited presentation, exposed the native chart’s worksheet, saved an edit to B3 and read back 13 after reopening. [Desktop receipt](powerpoint.json) · [PowerPoint-edited copy](powerpoint-edited.pptx)
 
+The final packaged artifacts passed the native workflow on all three runners. Independent readback verified each executable, each inventory, every referenced notice and all sixteen corresponding MPL source archives by digest. The distributions contain 185 components on Linux, 185 on Windows and 187 on macOS. [Package fingerprints and counts](distribution-verification.json) · [Download the qualified distributions](https://github.com/GnouGo/GnouGo/actions/runs/46137668704)
+
 The Linux dependency inventory covers 185 resolved components. Distribution packages produced by the current build include the exact source archives for 16 MPL-licensed Symphonia crates, with Cargo.lock SHA-256 verification, and the content-addressed third-party notices. [Linux component inventory](linux-components.json) · [Distribution documentation](../../deckcraft-and-vision.md)
 
 ## Blind visual control

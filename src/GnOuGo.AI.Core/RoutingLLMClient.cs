@@ -350,6 +350,7 @@ public static class LLMHttpClientDefaults
 /// </summary>
 public sealed class LLMClientRequest
 {
+    [System.Text.Json.Serialization.JsonIgnore]
     public IReadOnlyList<LLMImageInput>? Images { get; set; }
     [System.Text.Json.Serialization.JsonIgnore]
     public LLMTransportSelection? ResolvedTransport { get; internal set; }

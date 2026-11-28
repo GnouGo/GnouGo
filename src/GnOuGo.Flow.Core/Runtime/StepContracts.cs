@@ -96,6 +96,8 @@ public static class BuiltInStepContracts
                 McpCallInput(),
                 Object(
                     ("status", Enum("ok", "error")), ("response", Any()), ("content_blocks", Array(OpenObject())), ("error", OpenObject()),
+                    ("images", Array(Object(new[] { "sha256", "mimeType", "width", "height", "size" },
+                        ("sha256", String()), ("mimeType", Enum("image/png", "image/jpeg")), ("width", Integer()), ("height", Integer()), ("size", Integer())))),
                     ("correlation_id", String()), ("trace_id", String()), ("results", Array(Any())),
                     ("selection_mode", String()), ("text", String()), ("selection_text", String()),
                     ("tool_calls", Array(Any())), ("json", Any()), ("description", String()), ("messages", Array(Any()))),

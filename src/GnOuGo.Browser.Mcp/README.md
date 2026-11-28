@@ -361,6 +361,8 @@ escapes. Other destinations can be read from the original record. The route
 field omits the query and serves only as descriptive evidence. The original
 pages and aggregate response allowance apply throughout.
 
+A host can enable `Browser:IncludeObservationTextReview` to add `observationSnapshot.textReview` on complete captures. The view retains the snapshot ID, record counts and every distinct nonblank visible label per source page in order. Its serialized limit is 64 KiB. If the view or aggregate response would exceed the allowance, the field is absent. A text-review decision can bind this field, HTTP status, capture flags and any relevant `textMatches`. Exact selectors, action evidence and original URLs remain in the retained records. When the view is absent, consume bounded pages or return an incomplete assessment.
+
 The output schema publishes `maxItems` for both manifests and complete snapshots
 (100 pages) and for each returned page (200 records). Size planning for the full
 collection must account for both dimensions. Request or host settings can reduce

@@ -45,6 +45,56 @@ public class McpCallExecutorTests
         return await engine.ExecuteAsync(wf, inputs ?? new JsonObject(), cancellationToken);
     }
 
+    [Fact]
+    public async Task MixedPreviewProducesAReusableImageInputForTheNextWorkflowStep()
+    {
+        const string png = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/FioAAAAASUVORK5CYII=";
+        var bytes = Convert.FromBase64String(png);
+        var hash = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        var factory = new InMemoryMcpClientFactory();
+        factory.RegisterServer("preview", new MockMcpServerConfig {
+            Tools = [new McpToolInfo { Name = "render", InputSchema = new JsonObject { ["type"] = "object" } }],
+            ToolHandlers = { ["render"] = _ => new McpCallResult {
+                Content = new JsonObject { ["page"] = 3 }, ContentBlocks = new JsonArray(
+                    (JsonNode)new JsonObject { ["type"] = "text", ["text"] = "Preview" },
+                    (JsonNode)new JsonObject { ["type"] = "image", ["mimeType"] = "image/png", ["data"] = png }) } }
+        });
+        var images = new Mock<IWorkflowImageStore>();
+        images.Setup(i => i.GetAsync("studio", "run-1", hash, It.IsAny<CancellationToken>())).ReturnsAsync(bytes);
+        var capability = new Mock<ILLMCapabilityResolver>();
+        capability.Setup(r => r.SupportsVisionAsync(null, "viewer", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        LLMRequest? received = null;
+        var llm = new Mock<ILLMClient>();
+        llm.Setup(l => l.CallAsync(It.IsAny<LLMRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LLMRequest request, CancellationToken _) => { received = request; return new LLMResponse { Text = "Reviewed" }; });
+        var document = CompileDoc("""
+            version: 1
+            workflows:
+              main:
+                steps:
+                  - id: render
+                    type: mcp.call
+                    input: { server: preview, method: render, request: {} }
+                  - id: review
+                    type: llm.call
+                    input:
+                      model: viewer
+                      prompt: Inspect this page.
+                      images: ${data.steps.render.images}
+            """);
+        var engine = new WorkflowEngine { McpClientFactory = factory, ImageArtifacts = images.Object, LLMClient = llm.Object,
+            LLMCapabilities = capability.Object, Limits = new() { TenantId = "studio", RunId = "run-1" } };
+        var result = await engine.ExecuteAsync(document.Workflows["main"], new JsonObject(), TestContext.Current.CancellationToken);
+        Assert.True(result.Success, result.Error?.Message);
+        var output = result.StepResults[0].Output!;
+        Assert.Equal(3, output["response"]!["page"]!.GetValue<int>());
+        Assert.Equal("Preview", output["content_blocks"]![0]!["text"]!.GetValue<string>());
+        Assert.Equal(hash, output["images"]![0]!["sha256"]!.GetValue<string>());
+        Assert.DoesNotContain(png, output.ToJsonString());
+        Assert.Equal("Inspect this page.", received!.Prompt);
+        Assert.Equal(bytes, Assert.Single(received.Images!).Bytes);
+    }
+
     // ------ Basic mcp.call ------
 
     [Fact]

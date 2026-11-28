@@ -54,9 +54,10 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
 
     private async Task<LLMResponse> RecordVisionAsync(LLMRequest request, Task<LLMResponse> pending)
     {
+        var started = DateTimeOffset.UtcNow;
         var response = await pending;
         if (request.Images is { Count: > 0 } images)
-            _visionReceipts.Enqueue(new JsonObject { ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
+            _visionReceipts.Enqueue(new JsonObject { ["started"] = started, ["received"] = DateTimeOffset.UtcNow, ["request"] = request.ClientRequestId, ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
                 ["response"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() });
         return response;
     }
@@ -370,10 +371,10 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
             report["finished_utc"] = DateTimeOffset.UtcNow;
             report["execution"] = new JsonObject { ["success"] = journal.Status == WorkflowRunStatus.Completed && journal.Result?.Success == true,
                 ["status"] = journal.Status, ["finalization_completed"] = journal.FinalizationCompleted };
-            var captureCaller = PublishedReviewQualification.RequiresChatReport(report) ||
+            var captureCaller = scenario == "deckcraft" || PublishedReviewQualification.RequiresChatReport(report) ||
                 report["oracle_version"]?.ToString() == LiveWorkflowOracles.AmazonFirstProductsVersion;
             if (scenario == "deckcraft") report["vision_receipts"] = new JsonArray(_visionReceipts.Select(r => r.DeepClone()).ToArray());
-            if (localReview || captureCaller || scenario == "deckcraft")
+            if (localReview || captureCaller)
                 report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
             if (captureCaller)
             {
