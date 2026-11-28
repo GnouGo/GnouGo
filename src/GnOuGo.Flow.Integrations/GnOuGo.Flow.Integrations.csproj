@@ -31,6 +31,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Files.Core/GnOuGo.Files.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.AI.Core\GnOuGo.AI.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Flow.Core\GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Planning/GnOuGo.Flow.Planning.csproj" />

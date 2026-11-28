@@ -4,6 +4,8 @@ public sealed class FilesServerOptions
 {
     public const string SectionName = "Files";
 
+    public Uri? PublicBaseUrl { get; set; }
+
     public string TenantId { get; set; } = "default";
 
     public double DefaultTtlHours { get; set; } = 12;

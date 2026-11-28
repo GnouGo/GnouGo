@@ -30,7 +30,7 @@ public sealed partial class PlanningSessionService
     public async Task<PlanningSession> StartWithCurrentSettingsAsync(string id, LocalOperatorAccess access, CancellationToken ct)
     {
         _ = await access.GrantAsync();
-        await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct);
+        await using var lease = await AcquireOwnerAsync(id, ct);
         if (lease is null) throw new PlanningConflictException("The original session still has an active owner.");
         var state = await GetAsync(id, ct) ?? throw new KeyNotFoundException();
         if (!await CanStartWithCurrentSettingsAsync(state, ct))

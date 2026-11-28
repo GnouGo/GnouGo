@@ -28,7 +28,7 @@ The SQLite database defaults to:
 <Desktop>/GnOuGo/.GnOuGo/data/gnougo-files.db
 ```
 
-Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`.
+Override these paths with `Files:StorageRootPath` and `Files:DatabasePath`. Configure the matching local KeyVault with `KeyVault:DatabasePath`. The host uses the authenticated tenant claim or its configured `OpenTelemetry:TenantId` (default `default`). Set `Files:PublicBaseUrl` to the canonical origin and optional path prefix to accept absolute download links in chat. Relative `/api/files/{id}` links work directly.
 
 The table schema is owned by the EF Core `FilesDbContext` model. Managed builds bootstrap it with `EnsureCreatedAsync`; Native AOT builds execute the equivalent pre-generated SQLite DDL because EF Core's design-time model is unavailable there. All runtime operations (upload, list, download, purge) still go through `FilesMetadataRepository` using `FilesDbContext`.
 

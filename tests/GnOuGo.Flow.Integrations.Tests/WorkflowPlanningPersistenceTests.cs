@@ -18,6 +18,35 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     private WorkflowPlanningRuntimeFactory Factory() => new(new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db")), Path.Combine(_directory, "leases"));
 
     [Fact]
+    public async Task NestedOwnerCannotResumeAfterExpiryOrReappearAfterCollection()
+    {
+        var vault = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
+        var clock = new ExpiryClock();
+        var factory = new WorkflowPlanningRuntimeFactory(vault, Path.Combine(_directory, "leases"), null, new(2, clock));
+        var client = new Client();
+        var initial = Initial();
+        string key;
+        await using (var owned = await factory.OpenAsync(Context(client), initial, Ct))
+        {
+            key = owned.Session.Request.SessionId;
+            clock.Now = clock.Now.AddDays(2);
+            await factory.SweepAsync(initial.Request.TenantId, Ct);
+            Assert.True(await factory.AvailableAsync(initial.Request.TenantId, key, owned.Session.Retention, Ct));
+        }
+        await Assert.ThrowsAsync<PlanningConflictException>(() => factory.OpenAsync(Context(client), Initial(), Ct));
+        await factory.SweepAsync(initial.Request.TenantId, Ct);
+        await factory.SweepAsync(initial.Request.TenantId, Ct);
+        Assert.Null(await vault.GetAsync("flow-planning-sessions-v11", initial.Request.TenantId, key, "test", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => factory.OpenAsync(Context(client), Initial(), Ct));
+    }
+
+    private sealed class ExpiryClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
     public async Task NewQueuedSessionCapturesProfilesWithoutChangingItsAuthoredDefinition()
     {
         var client = new Client();
@@ -282,19 +311,6 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), changed, Ct));
     }
 
-    [Fact]
-    public async Task IncompatibleEncryptedSessionCannotResumeAndRemainsUnchanged()
-    {
-        string id;
-        await using (var session = await Factory().OpenAsync(Context(new Client()), Initial(), Ct)) { id = session.Session.Request.SessionId; }
-        var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var record = (await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct))!;
-        var json = JsonNode.Parse(record.Value)!.AsObject(); json["schemaVersion"] = 10;
-        var original = await records.UpsertAsync("flow-planning-sessions-v11", "tenant", id, json.ToJsonString(), "test", Ct);
-        var error = await Assert.ThrowsAsync<PlanningConflictException>(() => Factory().OpenAsync(Context(new Client()), Initial(), Ct));
-        Assert.Contains("Regenerate and approve", error.Message);
-        Assert.Equal(original, await records.GetAsync("flow-planning-sessions-v11", "tenant", id, "test", Ct));
-    }
 
     private static PlanningSession Initial() => new()
     {

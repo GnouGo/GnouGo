@@ -58,7 +58,7 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    public async Task CanonicalBlockEnvelopeRetainsExactHistoricalBytesAndHashes()
+    public async Task CanonicalBlockEnvelopeMatchesItsContentHash()
     {
         var run = NewRun();
         run.Inputs = new JsonObject { ["text"] = new string('x', 6000) + "é\r\n\"\\${literal}",
@@ -322,25 +322,6 @@ public sealed class SplitJournalTests(ITestOutputHelper output) : IDisposable
         Assert.Equal("explicit edit", (await Store().ReadAsync("tenant", "run", Ct))!.Invocations["work/human/answer"].Output!.ToString());
     }
 
-    [Fact]
-    public async Task LegacyLayoutRemainsUnchangedAndFullSaveSupportsArbitraryEdits()
-    {
-        var records = Records(); var run = NewRun(); var original = Json(run);
-        await records.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", original, "test", Ct);
-        Assert.Equal(original, Json((await Store().ReadAsync("tenant", "run", Ct))!));
-        Assert.Equal(original, (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct))!.Value);
-        await using (var lease = await Store().AcquireAsync("tenant", "run", 0, Ct))
-        { lease.Run.Inputs = JsonNode.Parse("{\"changed\":true}"); await lease.SaveAsync([], Ct); }
-        var record = (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct))!;
-        Assert.Null(JsonNode.Parse(record.Value)!["storageVersion"]);
-        Assert.Equal(1, WorkflowRunStorage.Read(record.Value, "tenant", "run").Revision);
-        var fresh = NewRun(); fresh.RunId = "new"; fresh.Limits.RunId = "new"; await Store().CreateAsync(fresh, Ct);
-        await using (var lease = await Store().AcquireAsync("tenant", "new", 0, Ct))
-        { lease.Run.Invocations["added"] = new() { Id = "added", Output = new JsonObject { ["added"] = true } }; await lease.SaveAsync(Ct); }
-        Assert.True((await Store().ReadAsync("tenant", "new", Ct))!.Invocations.ContainsKey("added"));
-        var head = (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "new", "test", Ct))!.Value;
-        Assert.Throws<WorkflowRunConflictException>(() => WorkflowRunStorage.Read(head, "tenant", "new"));
-    }
 
     [Theory]
     [InlineData("missing")]

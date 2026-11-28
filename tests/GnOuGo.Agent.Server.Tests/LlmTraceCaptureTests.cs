@@ -148,6 +148,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
+        state.Retention = GnOuGo.Flow.Core.Runtime.OwnerRetentionPolicy.Default.Capture().ForPlanning(state, DateTimeOffset.UtcNow, true);
         if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var prefix = workflow ? "flow" : "agent";
@@ -218,6 +219,7 @@ public sealed class LlmTraceCaptureTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
+        state.Retention = GnOuGo.Flow.Core.Runtime.OwnerRetentionPolicy.Default.Capture().ForPlanning(state, DateTimeOffset.UtcNow, true);
         await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         var request = new LLMRequest { ClientRequestId = "session:1:hash", Prompt = "JOURNALED_PRIVATE_INPUT" };
         var reservation = await fixture.Records.UpsertAsync("flow-planning-model-requests-v11", "tenant", request.ClientRequestId, JsonSerializer.Serialize(request, PlanningJsonContext.Default.LLMRequest), "test", Ct);

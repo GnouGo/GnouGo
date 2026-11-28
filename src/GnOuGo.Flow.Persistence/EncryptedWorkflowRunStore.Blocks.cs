@@ -15,9 +15,10 @@ public sealed partial class EncryptedWorkflowRunStore
     // blocks from an interrupted write are never completion evidence.
     private sealed class SplitJournal(IKeyVaultRecordStore records, string tenant, string runId, JsonObject head)
     {
-        private const string Blocks = "flow-execution-blocks-v1";
+        public const string Blocks = "flow-execution-blocks-v1";
         private const int InlineBytes = 4096, ChunkSize = 32;
-        private readonly string _prefix = Hash(new JsonArray(tenant, runId).ToJsonString()) + "/";
+        public static string Prefix(string tenant, string id) => Hash(new JsonArray(tenant, id).ToJsonString()) + "/";
+        private readonly string _prefix = Prefix(tenant, runId);
         private readonly System.Collections.Concurrent.ConcurrentDictionary<string, JsonObject> _loaded = new(StringComparer.Ordinal);
         private readonly HashSet<string> _written = new(StringComparer.Ordinal);
         private readonly Dictionary<(WorkflowInvocation Invocation, bool After), JsonNode> _snapshots = new();
@@ -48,6 +49,34 @@ public sealed partial class EncryptedWorkflowRunStore
                 node["eventCount"] is not JsonValue count || !count.TryGetValue<int>(out var eventCount) || eventCount < 0 || node["header"] is null)
                 throw Invalid();
             return node;
+        }
+
+        // Called with the long execution lease and the short publication lock. A reachable
+        // block can predate every retention window. Only age-qualified, unreachable blocks qualify.
+        public async Task CollectOrphansAsync(DateTimeOffset before, CancellationToken ct)
+        {
+            if (records is not IKeyVaultRecordReader reader) return;
+            var marked = false;
+            KeyVaultRecordCursor? cursor = null;
+            do
+            {
+                var page = await reader.QueryMetadataAsync(Blocks, tenant, _prefix, Author, cursor, 100, ct);
+                foreach (var candidate in page.Records)
+                {
+                    if (candidate.UpdatedAt > before || !candidate.Key.StartsWith(_prefix, StringComparison.Ordinal)) continue;
+                    if (!marked)
+                    {
+                        await LoadAsync(Head["header"], new(StringComparer.Ordinal), ct);
+                        foreach (var pair in Head["invocations"]!.AsObject()) await LoadAsync(pair.Value, new(StringComparer.Ordinal), ct);
+                        foreach (var chunk in Head["events"]!.AsArray()) await LoadAsync(chunk, new(StringComparer.Ordinal), ct);
+                        marked = true;
+                    }
+                    var hash = candidate.Key[_prefix.Length..];
+                    if (hash.Length == 64 && hash.All(char.IsAsciiHexDigit) && !_loaded.ContainsKey(hash))
+                        await records.DeleteAsync(Blocks, tenant, candidate.Key, Author, ct);
+                }
+                cursor = page.HasMore ? page.Next : null;
+            } while (cursor is not null);
         }
 
         public async Task RefreshAsync(CancellationToken ct)

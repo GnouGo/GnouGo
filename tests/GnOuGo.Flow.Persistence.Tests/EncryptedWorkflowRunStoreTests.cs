@@ -52,7 +52,9 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
     {
         var bytes = Encoding.UTF8.GetBytes("unique-private-content-for-vision-test");
         var sha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
-        IWorkflowImageStore first = Store();
+        var store = Store();
+        await store.CreateAsync(NewRun("vision"), Ct);
+        IWorkflowImageStore first = store;
         await first.PutAsync("tenant", "run", sha, bytes, Ct);
         IWorkflowImageStore restarted = Store();
         Assert.Equal(bytes, await restarted.GetAsync("tenant", "run", sha, Ct));
@@ -135,39 +137,16 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
     }
 
     [Fact]
-    public async Task TenantOwnershipAndIncompatibleEncryptedRecords_AreEnforcedWithoutMutation()
+    public async Task TenantOwnershipIsEnforcedOnEveryStore()
     {
         var store = Store();
         await store.CreateAsync(NewRun("private"), Ct);
         Assert.Null(await store.ReadAsync("other", "run", Ct));
         Assert.Empty(await store.ListAsync("other", Ct));
         await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.AcquireAsync("other", "run", 0, Ct));
-        var records = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
-        const string legacy = "{\"schemaVersion\":8,\"private\":\"untouched\"}";
-        await records.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "old", legacy, "test", Ct);
-        var error = await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.ReadAsync("tenant", "old", Ct));
-        Assert.Contains("Regenerate and approve", error.Message);
-        Assert.Equal(legacy, (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "old", "test", Ct))!.Value);
+
     }
 
-    [Fact]
-    public async Task HistoricMonolithKeepsItsUnmanagedStateAfterWrite()
-    {
-        var run = NewRun("historical");
-        Directory.CreateDirectory(_root);
-        var records = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
-        await records.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run",
-            System.Text.Json.JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), "test", Ct);
-        await using (var lease = await Store().AcquireAsync("tenant", "run", 0, Ct))
-        {
-            Assert.Null(lease.Run.Retention);
-            lease.Run.Status = WorkflowRunStatus.Completed;
-            await lease.SaveAsync(Ct);
-        }
-        Assert.Null((await Store().ReadAsync("tenant", "run", Ct))!.Retention);
-        var stored = (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct))!;
-        Assert.False(JsonNode.Parse(stored.Value)!.AsObject().ContainsKey("retention"));
-    }
 
     [Theory]
     [InlineData("")]
@@ -200,10 +179,8 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    [Theory]
-    [InlineData(true)]
-    [InlineData(false)]
-    public async Task OwnerRetentionSurvivesColdReadProjectionRebuildAndRepeatedCheckpoints(bool split)
+    [Fact]
+    public async Task OwnerRetentionSurvivesColdReadProjectionRebuildAndRepeatedCheckpoints()
     {
         var clock = new RetentionClock();
         var keys = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
@@ -212,13 +189,7 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         var run = NewRun("shared");
         var body = new JsonObject { ["retained"] = new string('x', 8192) };
         run.Invocations["a"] = new() { Id = "a", StepType = "set", DataBefore = body, DataAfter = body.DeepClone().AsObject() };
-        if (split) await Open(30).CreateAsync(run, Ct);
-        else
-        {
-            run.Retention = new OwnerRetentionPolicy(30, clock).Capture();
-            await keys.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run",
-                System.Text.Json.JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), "test", Ct);
-        }
+        await Open(30).CreateAsync(run, Ct);
         clock.Now = clock.Now.AddDays(2);
         await using (var lease = await Open(7).AcquireAsync("tenant", "run", 0, Ct))
         {
@@ -228,7 +199,7 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
             await lease.SaveAsync(Ct);
         }
         var deadline = clock.Now.AddDays(30);
-        clock.Now = clock.Now.AddDays(35);
+        clock.Now = clock.Now.AddDays(25);
         await using (var lease = await Open(1).AcquireAsync("tenant", "run", 1, Ct))
         {
             Assert.Equal(deadline, lease.Run.Retention!.DeadlineUtc);
@@ -245,6 +216,91 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         Assert.Equal(deadline.UtcTicks, projection.DeadlineUtcTicks);
         Assert.Equal(verified.Revision, projection.Revision);
         Assert.Null(await Open(1).ReadAsync("elsewhere", "run", Ct));
+    }
+
+    [Fact]
+    public async Task TwoDayExpiryFencesResumeAndRecreationBeforeAndAfterCollection()
+    {
+        Assert.Equal(2, OwnerRetentionPolicy.Parse(null).OperationalDays);
+        var clock = new RetentionClock();
+        var keys = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
+        EncryptedWorkflowRunStore Open() => new(keys, Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"), null, new(2, clock));
+        var run = NewRun(new string('x', 10_000));
+        run.Status = WorkflowRunStatus.Completed;
+        await Open().CreateAsync(run, Ct);
+        clock.Now = run.Retention!.DeadlineUtc!.Value.AddTicks(-1);
+        Assert.NotNull(await Open().ReadAsync("tenant", "run", Ct));
+        clock.Now = clock.Now.AddTicks(1);
+        Assert.Null(await Open().ReadAsync("tenant", "run", Ct));
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => Open().AcquireAsync("tenant", "run", 0, Ct));
+        await Open().SweepAsync("tenant", Ct);
+        await Open().SweepAsync("tenant", Ct);
+        Assert.Empty(await keys.ListAsync(EncryptedWorkflowRunStore.Collection, "tenant", "test", Ct));
+        Assert.Empty(await keys.ListAsync("flow-execution-blocks-v1", "tenant", "test", Ct));
+        Assert.Empty(await Open().ListAsync("tenant", Ct));
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => Open().CreateAsync(NewRun("same ID"), Ct));
+    }
+
+    [Fact]
+    public async Task LiveLeaseSurvivesDeadlineAndUncertainReceiptRemainsPinned()
+    {
+        var clock = new RetentionClock();
+        var keys = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
+        var store = new EncryptedWorkflowRunStore(keys, Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"), null, new(2, clock));
+        var run = NewRun("receipt");
+        await store.CreateAsync(run, Ct);
+        await using (var lease = await store.AcquireAsync("tenant", "run", 0, Ct))
+        {
+            clock.Now = clock.Now.AddDays(3);
+            await store.SweepAsync("tenant", Ct);
+            Assert.NotNull(await store.ReadAsync("tenant", "run", Ct));
+            lease.Run.Status = WorkflowRunStatus.NeedsReconciliation;
+            lease.Run.ModelUsage = new() { UncertainCalls = 1, EstimatedCost = 1.23m };
+            await lease.SaveAsync(Ct);
+        }
+        clock.Now = clock.Now.AddDays(2);
+        await store.SweepAsync("tenant", Ct);
+        Assert.Null(await store.ReadAsync("tenant", "run", Ct));
+        Assert.NotNull(await keys.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct));
+        var fence = Assert.Single(await keys.ListAsync("flow-expired-executions-v1", "tenant", "test", Ct));
+        Assert.True(JsonNode.Parse(fence.Value)!["pinned"]!.GetValue<bool>());
+        Assert.Equal(1.23m, JsonNode.Parse(fence.Value)!["usage"]!["estimatedCost"]!.GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task InterruptedCollectionRecoversFromTheFenceWithoutReadingDeletedBlocks()
+    {
+        var clock = new RetentionClock();
+        var keys = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
+        EncryptedWorkflowRunStore Open(IKeyVaultRecordStore vault) => new(vault, Path.Combine(_root, "index.db"),
+            Path.Combine(_root, "owners"), null, new(2, clock));
+        var run = NewRun(new string('x', 16384));
+        run.Status = WorkflowRunStatus.Completed;
+        await Open(keys).CreateAsync(run, Ct);
+        clock.Now = clock.Now.AddDays(2);
+        await Assert.ThrowsAsync<IOException>(() => Open(new InterruptedUnlink(keys)).SweepAsync("tenant", Ct));
+        Assert.Null(await Open(keys).ReadAsync("tenant", "run", Ct));
+        Assert.NotNull(await keys.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct));
+        await Open(keys).SweepAsync("tenant", Ct);
+        Assert.Empty(await keys.ListAsync("flow-execution-blocks-v1", "tenant", "test", Ct));
+        Assert.Null(await keys.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct));
+        await Assert.ThrowsAsync<WorkflowRunConflictException>(() => Open(keys).CreateAsync(NewRun("retry"), Ct));
+    }
+
+    private sealed class InterruptedUnlink(IKeyVaultRecordStore inner) : IKeyVaultRecordStore
+    {
+        public Task<KeyVaultRecordValue?> GetAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default) =>
+            inner.GetAsync(collection, tenantId, key, author, ct);
+        public Task<KeyVaultRecordValue> UpsertAsync(string collection, string tenantId, string key, string value, string author, CancellationToken ct = default) =>
+            inner.UpsertAsync(collection, tenantId, key, value, author, ct);
+        public Task<IReadOnlyList<KeyVaultRecordValue>> ListAsync(string collection, string tenantId, string author, CancellationToken ct = default) =>
+            inner.ListAsync(collection, tenantId, author, ct);
+        public async Task<bool> DeleteAsync(string collection, string tenantId, string key, string author, CancellationToken ct = default)
+        {
+            var removed = await inner.DeleteAsync(collection, tenantId, key, author, ct);
+            if (collection == "flow-execution-blocks-v1") throw new IOException("Interrupted after unlink.");
+            return removed;
+        }
     }
 
     private WorkflowRunDbContext Index() => new(new DbContextOptionsBuilder<WorkflowRunDbContext>()

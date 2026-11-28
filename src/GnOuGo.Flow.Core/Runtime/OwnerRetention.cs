@@ -7,8 +7,9 @@ namespace GnOuGo.Flow.Core.Runtime;
 /// <summary>Host configuration. Only newly created durable owners capture the default.</summary>
 public sealed class OwnerRetentionPolicy
 {
+    public const int CurrentVersion = 2;
     public const string ConfigurationKey = "Retention:OperationalDays";
-    public static OwnerRetentionPolicy Default { get; } = new(30);
+    public static OwnerRetentionPolicy Default { get; } = new(2);
     public int OperationalDays { get; }
     public TimeProvider Clock { get; }
 
@@ -27,7 +28,7 @@ public sealed class OwnerRetentionPolicy
     public OwnerRetention Capture()
     {
         var now = Clock.GetUtcNow().ToUniversalTime();
-        return new(1, OperationalDays, OperationalDays, OwnerRetention.Active, now, now, null, null);
+        return new(CurrentVersion, OperationalDays, OperationalDays, OwnerRetention.Active, now, now, null, null);
     }
 }
 
@@ -54,13 +55,15 @@ public sealed record OwnerRetention(int PolicyVersion, int ResumeDays, int Termi
     public DateTimeOffset CrashResumeUntilUtc => CheckpointUtc.AddDays(ResumeDays);
 
     [JsonIgnore]
-    public bool IsValid => PolicyVersion == 1 && ResumeDays > 0 && TerminalDays > 0 &&
+    public bool IsValid => PolicyVersion is 1 or OwnerRetentionPolicy.CurrentVersion && ResumeDays > 0 && TerminalDays > 0 &&
         EnteredUtc.Offset == TimeSpan.Zero && CheckpointUtc.Offset == TimeSpan.Zero && EnteredUtc <= CheckpointUtc &&
         ResumeDays <= (DateTimeOffset.MaxValue - CheckpointUtc).Days && TerminalDays <= (DateTimeOffset.MaxValue - EnteredUtc).Days &&
         Phase is Active or Waiting or Reconciliation or Terminal &&
         (Phase == Waiting) == (WaitIdentity is not null) &&
         (DeadlineUtc is null || DeadlineUtc.Value.Offset == TimeSpan.Zero) &&
         DeadlineUtc == (Phase == Active ? null : EnteredUtc.AddDays(Phase == Terminal ? TerminalDays : ResumeDays));
+
+    public bool IsDue(DateTimeOffset now) => PolicyVersion != OwnerRetentionPolicy.CurrentVersion || now >= (DeadlineUtc ?? CrashResumeUntilUtc);
 
     private OwnerRetention Advance(string phase, DateTimeOffset now, bool checkpoint, string? waitIdentity = null)
     {

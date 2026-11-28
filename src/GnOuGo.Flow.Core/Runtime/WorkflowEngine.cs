@@ -40,6 +40,10 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
             MappingArtifacts ??= value as IMappingArtifactStore;
         }
     }
+    /// <summary>Identity selected by the host from its saved agent catalog.</summary>
+    public string? SavedAgentName { get; init; }
+    /// <summary>Upload IDs supplied by the trusted chat host for this run creation.</summary>
+    public IReadOnlyList<string>? UploadIds { get; init; }
     private IWorkflowImageStore? _imageArtifacts;
     public IWorkflowImageStore? ImageArtifacts
     {

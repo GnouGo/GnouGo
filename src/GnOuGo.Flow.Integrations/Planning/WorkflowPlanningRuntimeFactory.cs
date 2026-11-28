@@ -1,3 +1,4 @@
+using GnOuGo.Files.Core;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using GnOuGo.Flow.Core.Models;
@@ -10,10 +11,13 @@ using GnOuGo.Workspace;
 namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Encrypted sessions for workflow.plan in runtime hosts.</summary>
-public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy, OwnerRetentionPolicy retention) : IPlanningRuntimeFactory
+public sealed partial class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy, OwnerRetentionPolicy retention, DurableFileStore? files = null) : IPlanningRuntimeFactory
 {
     public WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy = null)
         : this(records, leaseDirectory, hostPolicy, OwnerRetentionPolicy.Default) { }
+
+    public WorkflowPlanningRuntimeFactory WithHostPolicy(IPlanningHostPolicy? policy) =>
+        new(records, leaseDirectory, policy, retention, files);
 
     internal const string Author = "GnOuGo.Flow.Planning";
     internal const string Sessions = "flow-planning-sessions-v11";
@@ -25,11 +29,13 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
     }
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspaceWithRetention(OwnerRetentionPolicy retention, string? keyVaultPath = null,
-        string? leasePath = null, string? baseDirectory = null)
+        string? leasePath = null, string? baseDirectory = null, string? filesPath = null)
     {
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v11/leases");
-        return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases, null, retention);
+        var vault = KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root);
+        var fileRoot = DurableFileStore.ResolveRoot(filesPath, root);
+        return new(vault, leases, null, retention, new(fileRoot, vault, retention.Clock));
     }
 
     public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
@@ -42,21 +48,12 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             context.StageInvocationId ?? context.InvocationId));
         var tenant = initial.Request.TenantId;
         var key = initial.Request.SessionId;
-        Directory.CreateDirectory(leaseDirectory);
-        FileStream lease;
-        try
-        {
-            lease = new FileStream(Path.Combine(leaseDirectory, PlanningGraphCompiler.Fingerprint(tenant + "\n" + key) + ".lock"),
-                FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-        }
-        catch (IOException)
-        {
-            throw new PlanningConflictException("This planning session is active in another runtime. Resume with the same run ID after it releases the session.");
-        }
+        var lease = TryOwner(tenant, key) ?? throw new PlanningConflictException("This planning session is active in another runtime.");
         var inheritedBudget = context.LLMUsageBudget;
         IPlanningRuntimeModel? capturedModel = null;
         try
         {
+            if (await records.GetAsync(Expired, tenant, key, Author, ct) is not null) throw new PlanningConflictException("owner_expired");
             var savedDefinition = await records.GetAsync(Definitions, tenant, key, Author, ct);
             var retainedDocument = savedDefinition is null ? null : JsonNode.Parse(savedDefinition.Value)!.AsObject();
             JsonNode? creationCheckpoint = null;
@@ -110,6 +107,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             }
             if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != key || saved is not null && savedDefinition is null)
                 throw new PlanningConflictException("The planning session ownership or schema is invalid.");
+            if (state.Retention is not { IsValid: true } capturedRetention || capturedRetention.IsDue(retention.Clock.GetUtcNow()))
+                throw new PlanningConflictException("owner_expired");
             if (savedDefinition is null)
             {
                 var durableDefinition = JsonNode.Parse(definition)!.AsObject();
@@ -120,6 +119,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 };
                 await records.UpsertAsync(Definitions, tenant, key, durableDefinition.ToJsonString(), Author, ct);
             }
+            if (saved is null && files is not null)
+                await files.TransferReferencesAsync(tenant, new(FileOwnerKind.Execution, context.Limits.RunId),
+                    new(FileOwnerKind.WorkflowPlanning, key), context.Data, ct);
             // A crash after the receipt but before the coordinator checkpoint must not
             // replenish active time. Record timestamps bound the completed call interval.
             if (state.PendingCall is { } pending && await records.GetAsync(WorkflowPlanningModelJournal.Receipts, tenant, pending.Id, Author, ct) is { } completion && completion.UpdatedAt > state.UpdatedAtUtc)
@@ -177,6 +179,8 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
             var retained = state.Retention;
             async Task Checkpoint(PlanningSession snapshot, CancellationToken token)
             {
+                if (retained is { Phase: not OwnerRetention.Active } && retained.IsDue(retention.Clock.GetUtcNow()))
+                    throw new PlanningConflictException("owner_expired");
                 snapshot.Usage = budget.Snapshot;
                 var progress = PlanningRetentionCheckpoint.From(snapshot);
                 snapshot.Retention = retained?.ForPlanning(snapshot, retention.Clock.GetUtcNow(), progress != committedProgress);
@@ -198,6 +202,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         var stored = await records.GetAsync(Sessions, tenant, sessionId, Author, ct)
             ?? throw new PlanningConflictException("The approved format-11 planning session is unavailable for this tenant. Regenerate and approve the workflow.");
         var state = PlanningSessionStorage.Read(stored.Value, tenant, sessionId);
+        if (state.Retention is not { IsValid: true } capturedRetention || capturedRetention.IsDue(retention.Clock.GetUtcNow()) ||
+            await records.GetAsync(Expired, tenant, sessionId, Author, ct) is not null)
+            throw new PlanningConflictException("owner_expired");
         if (hostPolicy is not null) await hostPolicy.VerifyAsync(state, ct);
         else PlanningTokenThresholds.RejectReserved(state.Request.Options);
         if (state.SchemaVersion != 11 || state.Request.TenantId != tenant || state.Request.SessionId != sessionId ||
@@ -207,6 +214,9 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
         var runtime = new WorkflowPlanningRuntime(context.Engine, (_, _) => Task.CompletedTask);
         if ((await runtime.ValidateCatalogAsync(state.Catalog!, ct)).Any(d => d.Required))
             throw new PlanningConflictException("Capability contracts changed after approval.");
+        if (files is not null && context.Limits.RunId is { } run)
+            await files.TransferReferencesAsync(tenant, new(FileOwnerKind.WorkflowPlanning, sessionId), new(FileOwnerKind.Execution, run),
+                JsonSerializer.SerializeToNode(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(state.Yaml!), WorkflowRunJsonContext.Default.WorkflowDocument), ct);
         return state.Yaml!;
     }
 

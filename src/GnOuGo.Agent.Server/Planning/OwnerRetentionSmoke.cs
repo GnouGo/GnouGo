@@ -15,7 +15,8 @@ internal static class OwnerRetentionSmoke
     private static readonly DateTimeOffset Anchor = new(2026, 4, 1, 8, 0, 0, TimeSpan.Zero);
     private sealed class SmokeClock(DateTimeOffset now) : TimeProvider
     {
-        public override DateTimeOffset GetUtcNow() => now;
+        public DateTimeOffset Now { get; set; } = now;
+        public override DateTimeOffset GetUtcNow() => Now;
     }
 
     internal static async Task RunAsync(string directory, bool write)
@@ -26,7 +27,8 @@ internal static class OwnerRetentionSmoke
             throw new InvalidOperationException("The encrypted write fixture is missing.");
         Directory.CreateDirectory(directory);
         var records = KeyVaultRecordStoreFactory.CreateWorkspaceStore(Path.Combine(directory, "vault.db"), directory);
-        var policy = new OwnerRetentionPolicy(write ? 30 : 7, new SmokeClock(write ? Anchor : Anchor.AddDays(40)));
+        var clock = new SmokeClock(write ? Anchor : Anchor.AddDays(1));
+        var policy = new OwnerRetentionPolicy(write ? 2 : 7, clock);
         // The verifier starts with fresh projection databases and exactly the same protected records.
         var prefix = write ? "write-" : "rebuilt-";
         var planningOptions = new DbContextOptionsBuilder<PlanningDbContext>()
@@ -37,7 +39,10 @@ internal static class OwnerRetentionSmoke
         await planningDb.Database.EnsureCreatedAsync();
         var plans = new EfPlanningSessionStore(factory, records, policy);
         var index = Path.Combine(directory, prefix + "runs.db");
-        var runs = new EncryptedWorkflowRunStore(records, index, Path.Combine(directory, "owners"), null, policy);
+        var files = new GnOuGo.Files.Core.DurableFileStore(Path.Combine(directory, "Files"), records, clock);
+        var runs = new EncryptedWorkflowRunStore(records, index, Path.Combine(directory, "owners"), null, policy, files);
+        byte[] image = [10, 20, 30];
+        var digest = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(image));
         var ct = CancellationToken.None;
         var payload = new JsonObject { ["shared"] = new string('x', 8192) };
         if (write)
@@ -45,20 +50,12 @@ internal static class OwnerRetentionSmoke
             var session = new PlanningSession { Request = new() { TenantId = Tenant, SessionId = "plan" },
                 Status = PlanningStatus.Clarification, PendingQuestions = [new("q", "Continue?", [], null)] };
             if (!await plans.TrySaveAsync(session, null, ct)) throw new InvalidOperationException("Fixture already exists.");
-            foreach (var id in new[] { "monolithic", "split" })
-            {
-                var run = new WorkflowRun { TenantId = Tenant, RunId = id, Status = WorkflowRunStatus.Completed,
-                    Limits = new() { TenantId = Tenant, RunId = id } };
-                run.Invocations["step"] = new() { Id = "step", StepType = "set", Status = "completed",
-                    DataBefore = payload.DeepClone().AsObject(), DataAfter = payload.DeepClone().AsObject() };
-                if (id == "split") await runs.CreateAsync(run, ct);
-                else
-                {
-                    run.Retention = policy.Capture().ForRun(run, Anchor, true);
-                    await records.UpsertAsync(EncryptedWorkflowRunStore.Collection, Tenant, id,
-                        JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), Tenant, ct);
-                }
-            }
+            var run = new WorkflowRun { TenantId = Tenant, RunId = "split", Status = WorkflowRunStatus.Completed,
+                Limits = new() { TenantId = Tenant, RunId = "split" } };
+            run.Invocations["step"] = new() { Id = "step", StepType = "set", Status = "completed",
+                DataBefore = payload.DeepClone().AsObject(), DataAfter = payload.DeepClone().AsObject() };
+            await runs.CreateAsync(run, ct);
+            await ((IWorkflowImageStore)runs).PutAsync(Tenant, "split", digest, image, ct);
         }
         else
         {
@@ -68,10 +65,10 @@ internal static class OwnerRetentionSmoke
             if (plan.Request.SessionId != "plan" || plan.Revision != 0 || await plans.LoadAsync("foreign", "plan", ct) is not null)
                 throw new InvalidOperationException("The committed planning owner changed.");
             var projectedPlan = await planningDb.Retention.SingleAsync();
-            if (projectedPlan.Revision != plan.Revision || projectedPlan.DeadlineUtcTicks != Anchor.AddDays(30).UtcTicks)
+            if (projectedPlan.Revision != plan.Revision || projectedPlan.DeadlineUtcTicks != Anchor.AddDays(2).UtcTicks)
                 throw new InvalidOperationException("The rebuilt planning projection differs from the encrypted owner.");
             var restored = await runs.ListAsync(Tenant, ct);
-            if (!restored.Select(r => r.RunId).Order().SequenceEqual(["monolithic", "split"]))
+            if (!restored.Select(r => r.RunId).Order().SequenceEqual(["split"]))
                 throw new InvalidOperationException("An execution root was lost.");
             foreach (var run in restored)
             {
@@ -87,21 +84,32 @@ internal static class OwnerRetentionSmoke
             await using var command = indexConnection.CreateCommand();
             command.CommandText = """
                 SELECT COUNT(*) FROM OwnerRetention WHERE TenantId = $tenant AND OwnerKind = 'execution'
-                  AND OwnerId IN ('split','monolithic') AND Phase = 'terminal' AND DeadlineUtcTicks = $deadline
+                  AND OwnerId = 'split' AND Phase = 'terminal' AND DeadlineUtcTicks = $deadline
                 """;
             command.Parameters.AddWithValue("$tenant", Tenant);
-            command.Parameters.AddWithValue("$deadline", Anchor.AddDays(30).UtcTicks);
-            if ((long?)await command.ExecuteScalarAsync() != 2)
+            command.Parameters.AddWithValue("$deadline", Anchor.AddDays(2).UtcTicks);
+            if ((long?)await command.ExecuteScalarAsync() != 1)
                 throw new InvalidOperationException("The rebuilt execution projection differs from the encrypted owner.");
+            if (await ((IWorkflowImageStore)runs).GetAsync(Tenant, "split", digest, ct) is not { } restoredImage ||
+                !restoredImage.SequenceEqual(image)) throw new InvalidOperationException("The run image was lost.");
+            clock.Now = Anchor.AddDays(2);
+            if (await plans.LoadAsync(Tenant, "plan", ct) is not null || await runs.ReadAsync(Tenant, "split", ct) is not null)
+                throw new InvalidOperationException("An expired owner was available at the boundary.");
+            await plans.SweepAsync(Tenant, ct);
+            await runs.SweepAsync(Tenant, ct);
+            await plans.RebuildIndexAsync(Tenant, ct);
+            if ((await runs.ListAsync(Tenant, ct)).Count != 0 || (await plans.ListAsync(Tenant, ct)).Count != 0 ||
+                Directory.EnumerateFiles(directory, "*.enc", SearchOption.AllDirectories).Any())
+                throw new InvalidOperationException("Expired dependencies or index rows were retained.");
         }
-        Console.WriteLine(write ? "Wrote three encrypted retention owners." : "Recovered all three retention owners and rebuilt their indexes.");
+        Console.WriteLine(write ? "Wrote two encrypted retention owners." : "Recovered both owners, rebuilt their indexes and collected them at the deadline.");
     }
 
     private static void Verify(OwnerRetention? retention, string phase)
     {
-        if (retention is not { IsValid: true, PolicyVersion: 1, ResumeDays: 30, TerminalDays: 30 } ||
+        if (retention is not { IsValid: true, PolicyVersion: OwnerRetentionPolicy.CurrentVersion, ResumeDays: 2, TerminalDays: 2 } ||
             retention.Phase != phase || retention.EnteredUtc != Anchor || retention.CheckpointUtc != Anchor ||
-            retention.DeadlineUtc != Anchor.AddDays(30) || retention.CrashResumeUntilUtc != Anchor.AddDays(30))
+            retention.DeadlineUtc != Anchor.AddDays(2) || retention.CrashResumeUntilUtc != Anchor.AddDays(2))
             throw new InvalidOperationException("Cold recovery changed the captured policy or deadline.");
     }
 }

@@ -50,7 +50,7 @@ public sealed partial class PlanningSessionService
         if (!await gate.WaitAsync(0, ct)) return false;
         try
         {
-            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
+            await using var lease = await AcquireOwnerAsync(state.Request.SessionId, ct);
             if (lease is null) return false;
             try { await RequireDiscoveryRecoverySafeAsync(state, ct); return true; }
             catch (PlanningConflictException) { return false; }

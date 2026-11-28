@@ -54,6 +54,7 @@ public static class FilesServerHostingExtensions
         if (string.IsNullOrWhiteSpace(tenant)) tenant = Environment.GetEnvironmentVariable("GNouGo__TenantId");
         return new FilesServerOptions
         {
+            PublicBaseUrl = FilesLinks.ParsePublicBase(section[nameof(FilesServerOptions.PublicBaseUrl)]),
             TenantId = string.IsNullOrWhiteSpace(tenant) ? "default" : tenant.Trim(),
             DefaultTtlHours = double.TryParse(section[nameof(FilesServerOptions.DefaultTtlHours)], NumberStyles.Float, CultureInfo.InvariantCulture, out var defaultTtlHours)
                 ? defaultTtlHours

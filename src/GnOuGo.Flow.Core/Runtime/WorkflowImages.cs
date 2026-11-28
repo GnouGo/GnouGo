@@ -10,6 +10,7 @@ namespace GnOuGo.Flow.Core.Runtime;
 public sealed record WorkflowImage(string Sha256, string MimeType, int Width, int Height, int Size)
 {
     [JsonIgnore] public byte[]? Bytes { get; internal init; }
+    public static JsonObject DescribeReference(string mimeType, byte[] bytes) => WorkflowImages.Describe(mimeType, bytes).Reference();
     internal JsonObject Reference() => new() { ["sha256"] = Sha256, ["mimeType"] = MimeType,
         ["width"] = Width, ["height"] = Height, ["size"] = Size };
 }
@@ -27,7 +28,7 @@ internal static class WorkflowImages
 
     private static WorkflowRuntimeException Invalid(string reason) => new(ErrorCodes.InputValidation, reason);
 
-    private static WorkflowImage Describe(string mime, byte[] bytes)
+    internal static WorkflowImage Describe(string mime, byte[] bytes)
     {
         if (bytes.Length is 0 or > MaxBytes || mime is not ("image/png" or "image/jpeg"))
             throw Invalid("Vision input requires a PNG or JPEG up to 4 MiB.");

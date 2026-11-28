@@ -232,31 +232,6 @@ public sealed class PlanningPersistenceTests
     {
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0;
     }
-    [Fact]
-    public async Task HistoricSessionKeepsItsIndexAuthorityAndCannotBeRecreatedFromOrphanedRevisions()
-    {
-        await using var fixture = await StoreFixture.CreateAsync();
-        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "old" } };
-        // A different owner can contain the same prefix and a numeric segment in its ID.
-        var sibling = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "prefix:1:sibling" } };
-        Assert.True(await fixture.Store.TrySaveAsync(sibling, null, Ct));
-        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { TenantId = "tenant", SessionId = "prefix" } }, null, Ct));
-        await fixture.Records.UpsertAsync(EfPlanningSessionStore.Collection, "tenant", "old:0:historic",
-            JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), EfPlanningSessionStore.Author, Ct);
-        await Assert.ThrowsAsync<PlanningConflictException>(() => fixture.Store.TrySaveAsync(state, null, Ct));
-        await using (var db = fixture.CreateDbContext())
-        {
-            db.Sessions.Add(new() { TenantId = "tenant", SessionId = "old", PayloadKey = "old:0:historic", Status = state.Status,
-                UpdatedAtTicks = state.UpdatedAtUtc.UtcTicks });
-            await db.SaveChangesAsync(Ct);
-        }
-        var restored = (await fixture.Store.LoadAsync("tenant", "old", Ct))!;
-        Assert.Null(restored.Retention);
-        restored.Revision++;
-        Assert.True(await fixture.Store.TrySaveAsync(restored, 0, Ct));
-        Assert.Null((await fixture.Store.LoadAsync("tenant", "old", Ct))!.Retention);
-        Assert.Null(await fixture.Records.GetAsync(EfPlanningSessionStore.Heads, "tenant", "old", EfPlanningSessionStore.Author, Ct));
-    }
 
     [Fact]
     public async Task OnlyPlanningProgressAdvancesTheActiveCrashWindow()
@@ -330,6 +305,26 @@ public sealed class PlanningPersistenceTests
         var commits = await Task.WhenAll(Open(7).TrySaveAsync(owner, 2, Ct), Open(1).TrySaveAsync(other, 2, Ct));
         Assert.Single(commits, value => value);
         Assert.Equal(clock.Now.AddDays(30), (await reopened.LoadAsync("tenant", "plan", Ct))!.Retention!.DeadlineUtc);
+    }
+
+    [Fact]
+    public async Task ExpiredPlanningSessionCannotReappearFromOldRevisionsOrARebuiltIndex()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(2, clock));
+        var owner = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "plan" }, Status = PlanningStatus.Clarification };
+        Assert.True(await store.TrySaveAsync(owner, null, Ct));
+        clock.Now = clock.Now.AddDays(2);
+        Assert.Null(await store.LoadAsync("tenant", "plan", Ct));
+        owner.Revision++;
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TrySaveAsync(owner, 0, Ct));
+        await store.SweepAsync("tenant", Ct);
+        await store.SweepAsync("tenant", Ct);
+        await store.RebuildIndexAsync("tenant", Ct);
+        Assert.Empty(await store.ListAsync("tenant", Ct));
+        Assert.Empty(await fixture.Records.ListAsync(EfPlanningSessionStore.Collection, "tenant", "test", Ct));
+        await Assert.ThrowsAsync<PlanningConflictException>(() => store.TrySaveAsync(owner, null, Ct));
     }
 
     internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable

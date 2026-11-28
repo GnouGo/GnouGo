@@ -83,6 +83,8 @@ public sealed partial class SmartFlowService
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
 
     private readonly OwnerRetentionPolicy _ownerRetention;
+    private readonly Uri? _filesPublicBase;
+    private readonly GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? _workflowOwners;
 
     [ActivatorUtilitiesConstructor]
     public SmartFlowService(
@@ -108,9 +110,13 @@ public sealed partial class SmartFlowService
         ChatPlanningService? chatPlanning = null,
         IWorkflowRunStore? runStore = null,
         IExchangeRateProvider? exchangeRateProvider = null,
-        IOptions<WorkflowExecutionSettings>? executionSettings = null, OwnerRetentionPolicy? ownerRetention = null)
+        IOptions<WorkflowExecutionSettings>? executionSettings = null, OwnerRetentionPolicy? ownerRetention = null,
+        GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? workflowOwners = null,
+        IOptions<GnOuGo.Files.Server.Options.FilesServerOptions>? fileOptions = null)
     {
         _runStore = runStore;
+        _workflowOwners = workflowOwners;
+        _filesPublicBase = fileOptions?.Value.PublicBaseUrl;
         _ownerRetention = ownerRetention ?? OwnerRetentionPolicy.Default;
         _planning = planning;
         _chatPlanning = chatPlanning;
@@ -404,6 +410,9 @@ public sealed partial class SmartFlowService
             if (preparedAnimationEvent is not null)
                 yield return preparedAnimationEvent;
 
+            if (filesIds is { Count: > 0 })
+                filesIds = filesIds.Select(value => GnOuGo.Files.Server.Web.FilesLinks.ResolveUploadId(value, _filesPublicBase))
+                    .Distinct(StringComparer.Ordinal).ToArray();
             var telemetry = new CompositeWorkflowTelemetry(
                 new AgentStreamingTelemetry(evt => channel.Writer.TryWrite(evt), animationBridge),
                 _otel);
@@ -412,9 +421,11 @@ public sealed partial class SmartFlowService
             var engine = new WorkflowEngine
             {
                 RunStore = _runStore,
+                UploadIds = filesIds,
+                SavedAgentName = resolvedWorkflow.Agent?.Name,
                 WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
-                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(_ownerRetention),
+                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? _workflowOwners ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(_ownerRetention),
                 PlanningInteraction = planningBridge,
                 DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,
@@ -449,6 +460,8 @@ public sealed partial class SmartFlowService
             };
             runtime.ConfigureAgentRunners(engine);
             var inputs = BuildWorkflowInputs(task, selectedAgentName, correlationId, filesIds, workflowInputs);
+            if (filesIds is { Count: > 0 } && _runStore is GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore durable)
+                await ChatFileAttachments.BindAsync(durable.Files, _tenantId, filesIds, inputs, ct);
             var resolvedInputs = WorkflowInputDefaults.Apply(workflow.Source, inputs);
 
             Exception? error = null;

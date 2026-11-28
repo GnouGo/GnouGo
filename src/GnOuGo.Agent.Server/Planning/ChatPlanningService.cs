@@ -18,7 +18,8 @@ namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Routes durable planner sessions to their originating conversation; never replays the enclosing workflow.</summary>
 public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWorkflowRuntimeFactory runtimeFactory,
-    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger, PlanningHostPolicy? hostPolicy = null, OwnerRetentionPolicy? retention = null)
+    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger, PlanningHostPolicy? hostPolicy = null, OwnerRetentionPolicy? retention = null, GnOuGo.Files.Core.DurableFileStore? files = null,
+    WorkflowPlanningRuntimeFactory? workflowOwners = null)
 {
     private readonly IKeyVaultRecordStore _records = records;
     private const string Origins = "agent-chat-planning-origins-v2";
@@ -29,7 +30,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory(IPlanningHostPolicy? policy = null) => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"), policy, retention ?? OwnerRetentionPolicy.Default);
+    private WorkflowPlanningRuntimeFactory Factory(IPlanningHostPolicy? policy = null) => workflowOwners?.WithHostPolicy(policy) ?? new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"), policy, retention ?? OwnerRetentionPolicy.Default, files);
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed, GnOuGo.AI.Core.LLMOptions? options = null, PlanningDiagnosticGrant? grant = null)
         => new(this, conversationId, changed, hostPolicy is null || options is null ? null : new WorkflowHostPolicy(hostPolicy, options, runtimeFactory, grant));
@@ -43,6 +44,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
         {
             var origin = JsonSerializer.Deserialize(record.Value, ChatPlanningJsonContext.Default.ChatPlanningOrigin)!;
             if (origin.Request.TenantId != Tenant || origin.Request.SessionId != record.Key) continue;
+            if ((origin.Workflow ? await LoadAsync(record.Key, ct) : await designer.GetAsync(record.Key, ct)) is null) continue;
             var time = record.UpdatedAt.ToUnixTimeMilliseconds();
             if (conversations.TryGetValue(origin.ConversationId, out var current) && current.UpdatedAtUnixMs >= time) continue;
             var title = origin.Request.Prompt.Trim();
@@ -88,7 +90,8 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     private async Task<PlanningSession?> LoadAsync(string id, CancellationToken ct)
     {
         var record = await _records.GetAsync(Sessions, Tenant, id, Author, ct);
-        return record is null ? null : PlanningSessionHistory.Read(record.Value, Tenant, id, true, record.UpdatedAt).Session;
+        var state = record is null ? null : PlanningSessionHistory.Read(record.Value, Tenant, id, true, record.UpdatedAt).Session;
+        return state is not null && await Factory().AvailableAsync(Tenant, id, state.Retention, ct) ? state : null;
     }
 
     public async Task<PlanningSessionDto> SubmitAsync(string conversationId, string id, PlanningCommand command, CancellationToken ct)
@@ -103,6 +106,8 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
         {
             if (_waiting.TryGetValue(id, out var waiter))
             {
+                if (waiter.Session.Retention?.IsDue((retention ?? OwnerRetentionPolicy.Default).Clock.GetUtcNow()) != false)
+                    throw new PlanningConflictException("owner_expired");
                 // Validate without mutation before handing the command to the live workflow owner.
                 await new HybridWorkflowPlanner().AdvanceAsync(waiter.Session, command, new WorkflowPlanningRuntime(new WorkflowEngine(), (_, _) => Task.CompletedTask), ct);
                 if (!waiter.Command.TrySetResult(command)) throw new PlanningConflictException("An answer is already being saved.");

@@ -153,13 +153,20 @@ builder.Services.AddSingleton<IMcpClientFactory>(sp =>
 
 var retention = OwnerRetentionPolicy.Parse(builder.Configuration[OwnerRetentionPolicy.ConfigurationKey]);
 builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(retention,
-    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"]));
+    builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"], filesPath: builder.Configuration["Files:StorageRootPath"]));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ServerHumanInputProvider>();
 builder.Services.AddSingleton<IHumanInputProvider>(sp => sp.GetRequiredService<ServerHumanInputProvider>());
 builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(retention,
     builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Execution:IndexPath"],
-    logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"]));
+    logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"], filesPath: builder.Configuration["Files:StorageRootPath"]));
+
+builder.Services.AddHostedService(sp => new GnOuGo.Flow.Persistence.OwnerRetentionWorker(async ct =>
+{
+    var tenant = string.IsNullOrWhiteSpace(otelSettings.TenantId) ? "default" : otelSettings.TenantId.Trim();
+    await ((EncryptedWorkflowRunStore)sp.GetRequiredService<IWorkflowRunStore>()).SweepAsync(tenant, ct);
+    await ((GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory)sp.GetRequiredService<IPlanningRuntimeFactory>()).SweepAsync(tenant, ct);
+}, sp.GetRequiredService<ILogger<GnOuGo.Flow.Persistence.OwnerRetentionWorker>>()));
 
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));

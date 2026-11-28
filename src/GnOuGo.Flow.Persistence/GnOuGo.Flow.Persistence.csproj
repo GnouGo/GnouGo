@@ -7,7 +7,7 @@
     <IsAotCompatible>true</IsAotCompatible>
     <IsPackable>true</IsPackable>
     <PackageId>GnOuGo.Flow.Persistence</PackageId>
-    <PackageReleaseNotes>Preserve encrypted tenant-owned runtime journals and exact invocation recovery. Planning consumers use internal format 11 and reject older sessions unchanged; historical records remain retained for audit and financial inspection.</PackageReleaseNotes>
+    <PackageReleaseNotes>Capture two-day operational retention, store run-owned images in encrypted Files and fence expired owners before collection.</PackageReleaseNotes>
     <Authors>GnOuGo</Authors>
     <Description>Tenant-owned encrypted workflow execution journals with rebuildable EF Core and SQLite indexes.</Description>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
@@ -20,6 +20,7 @@
     <EFPrecompileQueriesStage>publish</EFPrecompileQueriesStage>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Files.Core/GnOuGo.Files.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Flow.Core/GnOuGo.Flow.Core.csproj" />
     <ProjectReference Include="../GnOuGo.KeyVault.Core/GnOuGo.KeyVault.Core.csproj" />
     <ProjectReference Include="../GnOuGo.Workspace/GnOuGo.Workspace.csproj" />

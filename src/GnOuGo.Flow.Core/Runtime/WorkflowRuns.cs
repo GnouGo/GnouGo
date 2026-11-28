@@ -101,6 +101,11 @@ public sealed record WorkflowRunEvent(DateTimeOffset Timestamp, string Kind, str
 public sealed class WorkflowRunConflictException(string message) : InvalidOperationException(message);
 
 /// <summary>Tenant-scoped records with a single execution owner and revision-checked commands.</summary>
+public interface IWorkflowAttachmentRunStore
+{
+    Task CreateWithUploadsAsync(WorkflowRun run, IReadOnlyList<string> uploadIds, string? savedAgentName, CancellationToken ct);
+}
+
 public interface IWorkflowRunStore
 {
     Task<WorkflowRun?> ReadAsync(string tenantId, string runId, CancellationToken ct = default);

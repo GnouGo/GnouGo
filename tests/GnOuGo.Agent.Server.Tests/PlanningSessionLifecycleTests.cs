@@ -189,6 +189,7 @@ public sealed class PlanningSessionLifecycleTests
         var workflow = new PlanningSession { Request = new() { TenantId = "planning-tests", SessionId = "shared", Name = "chat", Prompt = "Return a value" },
             Status = PlanningStatus.Stopped, ModelCalls = 1, ReplanAttempts = 0, Revision = 3,
             PendingCall = new() { Id = "reserved", Purpose = "intent", Request = new() { Prompt = "private" } } };
+        workflow.Retention = GnOuGo.Flow.Core.Runtime.OwnerRetentionPolicy.Default.Capture().ForPlanning(workflow, DateTimeOffset.UtcNow, true);
         var payload = System.Text.Json.JsonSerializer.Serialize(workflow, PlanningJsonContext.Default.PlanningSession);
         await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "planning-tests", "shared", payload, "test", Ct);
         await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "other", "foreign", payload, "test", Ct);

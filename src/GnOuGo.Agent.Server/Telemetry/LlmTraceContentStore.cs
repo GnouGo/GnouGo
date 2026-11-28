@@ -12,7 +12,8 @@ using Microsoft.Extensions.Options;
 namespace GnOuGo.Agent.Server.Telemetry;
 
 public sealed partial class LlmTraceContentStore(IKeyVaultRecordStore records, IOptionsMonitor<TraceDebugSettings> settings,
-    IOptions<OpenTelemetrySettings> telemetry, IPlanningSessionStore sessions, LLMRuntimeOptionsStore? runtimeOptions = null) : IPlanningJournalObserver
+    IOptions<OpenTelemetrySettings> telemetry, IPlanningSessionStore sessions, LLMRuntimeOptionsStore? runtimeOptions = null, OwnerRetentionPolicy? ownerRetention = null,
+    GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? workflowOwners = null) : IPlanningJournalObserver
 {
     internal const string Collection = "agent-llm-diagnostic-content-v1";
     internal const string DocumentCollection = Collection + "-documents";
@@ -78,6 +79,13 @@ public sealed partial class LlmTraceContentStore(IKeyVaultRecordStore records, I
             ? (await records.GetAsync("flow-planning-sessions-v11", Tenant, id, Author, ct) is { } value
                 ? JsonSerializer.Deserialize(value.Value, PlanningJsonContext.Default.PlanningSession) : null)
             : await sessions.LoadAsync(Tenant, id, ct);
+        if (workflow && session is not null)
+        {
+            var owners = workflowOwners ?? new GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory(records,
+                GnOuGo.Workspace.GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"),
+                null, ownerRetention ?? OwnerRetentionPolicy.Default);
+            if (!await owners.AvailableAsync(Tenant, id, session.Retention, ct)) return null;
+        }
         return session?.Request.SessionId == id && session.Request.TenantId == Tenant && session.SchemaVersion == 11 ? session : null;
     }
 

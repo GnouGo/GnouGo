@@ -146,6 +146,7 @@ public sealed class LlmInspectorDocumentsTests : BunitContext
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" }, Status = PlanningStatus.Stopped,
             RequestMeasurements = [new() { RequestId = "session:1:hash", Result = "financial_refusal_before_dispatch" }] };
+        state.Retention = GnOuGo.Flow.Core.Runtime.OwnerRetentionPolicy.Default.Capture().ForPlanning(state, DateTimeOffset.UtcNow, true);
         if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var store = Store(fixture.Records, fixture.Store);
@@ -170,6 +171,7 @@ public sealed class LlmInspectorDocumentsTests : BunitContext
     {
         await using var fixture = await PlanningPersistenceTests.StoreFixture.CreateAsync();
         var state = new PlanningSession { Request = new() { SessionId = "session", TenantId = "tenant" } };
+        state.Retention = GnOuGo.Flow.Core.Runtime.OwnerRetentionPolicy.Default.Capture().ForPlanning(state, DateTimeOffset.UtcNow, true);
         if (workflow) await fixture.Records.UpsertAsync("flow-planning-sessions-v11", "tenant", "session", JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), "test", Ct);
         else Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
         var spy = new CountingStore(fixture.Records); var store = Store(spy, fixture.Store);

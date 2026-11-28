@@ -77,7 +77,7 @@ public sealed class FileStorageService
         {
             if (await _files.InspectUploadAsync(tenant, row.Id, ct) is not { } file) continue;
             files.Add(new(row.Id, tenant, file.Name, file.ContentType, file.Size, row.CreatedUtc, row.ExpiresUtc,
-                Math.Max(0, (long)(row.ExpiresUtc - now).TotalSeconds), BuildDownloadUrl(request, row.Id)));
+                Math.Max(0, (long)(row.ExpiresUtc - now).TotalSeconds), FilesLinks.DownloadUrl(_options.PublicBaseUrl, request, row.Id)));
         }
         return new(files);
     }
@@ -156,7 +156,7 @@ public sealed class FileStorageService
         return Path.GetFileName(fileName.Trim().Trim('"'));
     }
 
-    private static FileUploadResponse ToUploadResponse(FileRecord record, HttpRequest request, DateTimeOffset now)
+    private FileUploadResponse ToUploadResponse(FileRecord record, HttpRequest request, DateTimeOffset now)
     {
         return new FileUploadResponse(
             record.Id,
@@ -167,12 +167,6 @@ public sealed class FileStorageService
             record.CreatedUtc,
             record.ExpiresUtc,
             Math.Max(0, (long)(record.ExpiresUtc - now).TotalSeconds),
-            BuildDownloadUrl(request, record.Id));
+            FilesLinks.DownloadUrl(_options.PublicBaseUrl, request, record.Id));
     }
-
-    private static string BuildDownloadUrl(HttpRequest request, string id)
-    {
-        return $"{request.Scheme}://{request.Host}/api/files/{Uri.EscapeDataString(id)}";
-    }
-
 }

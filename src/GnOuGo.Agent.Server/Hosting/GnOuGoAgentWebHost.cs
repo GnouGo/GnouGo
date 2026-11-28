@@ -514,7 +514,20 @@ public static class GnOuGoAgentWebHost
             sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
             GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:IndexPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9.db"),
             GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Execution:OwnerPath"], applicationBasePath, ".GnOuGo/data/flow-execution-v9/owners"),
-            sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerRetention));
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerRetention, sp.GetRequiredService<GnOuGo.Files.Core.DurableFileStore>()));
+        builder.Services.AddSingleton(sp => new GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory(
+                sp.GetRequiredService<GnOuGo.KeyVault.Core.Services.IKeyVaultRecordStore>(),
+                GnOuGoWorkspace.ResolveDatabasePath(builder.Configuration["Flow:Planning:OwnerPath"], applicationBasePath, ".GnOuGo/data/flow-planning-v11/leases"),
+                null, ownerRetention, sp.GetRequiredService<GnOuGo.Files.Core.DurableFileStore>()));
+        builder.Services.AddHostedService(sp => new GnOuGo.Flow.Persistence.OwnerRetentionWorker(async ct =>
+        {
+            var tenant = WorkflowExecutionTenant.Resolve(sp.GetService<Microsoft.Extensions.Options.IOptions<OpenTelemetrySettings>>());
+            await ((GnOuGo.Flow.Persistence.EncryptedWorkflowRunStore)sp.GetRequiredService<IWorkflowRunStore>()).SweepAsync(tenant, ct);
+            var plans = (GnOuGo.Agent.Server.Planning.EfPlanningSessionStore)sp.GetRequiredService<GnOuGo.Flow.Core.Planning.IPlanningSessionStore>();
+            await plans.SweepAsync(tenant, ct);
+            var nested = sp.GetRequiredService<GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory>();
+            await nested.SweepAsync(tenant, ct);
+        }, sp.GetRequiredService<ILogger<GnOuGo.Flow.Persistence.OwnerRetentionWorker>>()));
         builder.Services.AddSingleton<GnOuGo.Agent.Server.SmartFlow.WorkflowRunService>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IPlanningSessionStore, GnOuGo.Agent.Server.Planning.EfPlanningSessionStore>();
         builder.Services.AddSingleton<GnOuGo.Flow.Core.Planning.IWorkflowPlanner, GnOuGo.Flow.Planning.HybridWorkflowPlanner>();

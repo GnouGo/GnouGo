@@ -209,6 +209,8 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
         var otelServiceName = appConfig["OpenTelemetry:ServiceName"] ?? "GnOuGo.Flow.Cli";
         var otelProtocolStr = appConfig["OpenTelemetry:Protocol"] ?? "HttpProtobuf";
         var otelTenantId = appConfig["OpenTelemetry:TenantId"];
+        var ownerTenant = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim();
+        await runStore.SweepAsync(ownerTenant, cancellationToken);
 
         var otelProtocol = otelProtocolStr.Equals("Grpc", StringComparison.OrdinalIgnoreCase)
             ? OtlpExportProtocol.Grpc
@@ -277,7 +279,7 @@ runCommand.SetAction(async (ParseResult parseResult, CancellationToken cancellat
             RunStore = runStore,
             Limits = new ExecutionLimits { RunId = runId, TenantId = string.IsNullOrWhiteSpace(otelTenantId) ? "default" : otelTenantId.Trim() },
             WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
-            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(OwnerRetentionPolicy.Parse(appConfig[OwnerRetentionPolicy.ConfigurationKey]), appConfig["KeyVault:DatabasePath"], appConfig["Flow:Planning:OwnerPath"]),
+            PlanningRuntimeFactory = GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(OwnerRetentionPolicy.Parse(appConfig[OwnerRetentionPolicy.ConfigurationKey]), appConfig["KeyVault:DatabasePath"], appConfig["Flow:Planning:OwnerPath"], filesPath: appConfig["Files:StorageRootPath"]),
             LLMClient = llmClient,
             ModelUsageCostEstimator = new ModelMetadataUsageCostEstimator(),
             McpClientFactory = mcpFactory,
@@ -437,6 +439,7 @@ runsCommand.SetAction(async (ParseResult parsed, CancellationToken ct) =>
         var config = LoadHostConfiguration();
         var store = CreateRunStore(config);
         var tenant = parsed.GetValue(tenantOption)!;
+        await store.SweepAsync(tenant, ct);
         var id = parsed.GetValue(inspectIdOption);
         var command = parsed.GetValue(commandOption);
         if (command == "cancel")
@@ -473,8 +476,8 @@ static IConfiguration LoadHostConfiguration()
     var directory = File.Exists(Path.Combine(Directory.GetCurrentDirectory(), "appsettings.json")) ? Directory.GetCurrentDirectory() : AppContext.BaseDirectory;
     return new ConfigurationBuilder().SetBasePath(directory).AddJsonFile("appsettings.json", optional: true).AddEnvironmentVariables().Build();
 }
-static IWorkflowRunStore CreateRunStore(IConfiguration configuration) => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(
-    OwnerRetentionPolicy.Parse(configuration[OwnerRetentionPolicy.ConfigurationKey]), configuration["KeyVault:DatabasePath"], configuration["Flow:Execution:IndexPath"], ownerPath: configuration["Flow:Execution:OwnerPath"]);
+static EncryptedWorkflowRunStore CreateRunStore(IConfiguration configuration) => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(
+    OwnerRetentionPolicy.Parse(configuration[OwnerRetentionPolicy.ConfigurationKey]), configuration["KeyVault:DatabasePath"], configuration["Flow:Execution:IndexPath"], ownerPath: configuration["Flow:Execution:OwnerPath"], filesPath: configuration["Files:StorageRootPath"]);
 
 
 static void PrintSteps(List<GnOuGo.Flow.Core.Models.StepDef> steps, string indent)

@@ -24,7 +24,7 @@ public sealed partial class PlanningSessionService
         _queue.Writer.TryWrite(id);
         // Cancellation is the only command allowed to signal an owner without its lease.
         // It cannot modify the owner's session or discard a completed response.
-        await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct);
+        await using var lease = await AcquireOwnerAsync(id, ct);
         if (lease is null) return current;
         current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
         if (!await IsCancellationRequestedAsync(current, ct)) throw new PlanningConflictException("The session changed before cancellation was applied.");
@@ -76,7 +76,7 @@ public sealed partial class PlanningSessionService
         if (!await gate.WaitAsync(0, ct)) return new("active", state.PendingCall?.Id, cancelled);
         try
         {
-            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, state.Request.SessionId, ct);
+            await using var lease = await AcquireOwnerAsync(state.Request.SessionId, ct);
             if (lease is null) return new("active", state.PendingCall?.Id, cancelled);
             if (state.PendingCall is not { } pending) return cancelled ? new("idle", null, true) : null;
             if (state.Diagnostics.Any(d => d.Code == ErrorCodes.ModelRequestRejected)) return new("provider_rejection", pending.Id, cancelled);

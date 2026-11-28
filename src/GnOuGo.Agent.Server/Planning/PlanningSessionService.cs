@@ -31,7 +31,8 @@ public sealed partial class PlanningSessionService(
     IOptions<OpenTelemetrySettings> telemetrySettings,
     ILogger<PlanningSessionService> logger,
     PlanningHostPolicy? hostPolicy = null, IEnumerable<IPlanningDiscoveryRecoveryGuard>? discoveryRecoveryGuards = null,
-    IPlanningApprovalReviewProvider? approvalReviews = null) : BackgroundService
+    IPlanningApprovalReviewProvider? approvalReviews = null, GnOuGo.Files.Core.DurableFileStore? files = null, OwnerRetentionPolicy? ownerRetention = null,
+    GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory? workflowOwners = null) : BackgroundService
 {
     private readonly Channel<string> _queue = Channel.CreateUnbounded<string>();
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _locks = new(StringComparer.Ordinal);
@@ -44,6 +45,10 @@ public sealed partial class PlanningSessionService(
     private static readonly Histogram<double> PhaseDuration = Metrics.CreateHistogram<double>("gnougo.planning.phase.duration", "s");
     private static readonly Counter<long> Outcomes = Metrics.CreateCounter<long>("gnougo.planning.outcomes");
     private static readonly Histogram<double> QueueDuration = Metrics.CreateHistogram<double>("gnougo.planning.queue.duration", "s");
+
+    private Task<FileStream?> AcquireOwnerAsync(string id, CancellationToken ct) =>
+        store is EfPlanningSessionStore persistent ? persistent.TryAcquireLeaseAsync(Tenant, id, ct) :
+            PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct);
 
     public Task<PlanningSession?> GetAsync(string id, CancellationToken ct) => store.LoadAsync(Tenant, id, ct);
     public Task<IReadOnlyList<PlanningSession>> ListAsync(CancellationToken ct) => store.ListAsync(Tenant, ct);
@@ -62,15 +67,25 @@ public sealed partial class PlanningSessionService(
         return (await InspectAsync(id, true, ct))?.RequireSession();
     }
 
+    private GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory WorkflowOwners() =>
+        workflowOwners ?? new(records, GnOuGo.Workspace.GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"),
+            null, ownerRetention ?? OwnerRetentionPolicy.Default, files);
+
     public async Task<IReadOnlyList<PlanningSession>> ListWorkflowSessionsAsync(CancellationToken ct)
-        => (await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct))
-            .Select(ReadWorkflowSession).Where(s => s.Session is not null).Select(s => s.Session!).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+    {
+        var result = new List<PlanningSession>();
+        await foreach (var id in records.EnumerateKeysAsync(WorkflowSessions, Tenant, "", EfPlanningSessionStore.Author, ct))
+            if ((await InspectAsync(id, true, ct))?.Session is { } session) result.Add(session);
+        return result.OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+    }
 
     internal async Task<IReadOnlyList<PlanningSessionListEntry>> ListHistoryAsync(CancellationToken ct)
     {
-        var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct);
-        var chat = await records.ListAsync(WorkflowSessions, Tenant, EfPlanningSessionStore.Author, ct);
-        return designer.Concat(chat.Select(ReadWorkflowSession)).Select(s => s.Entry).OrderByDescending(s => s.UpdatedAtUtc).ToArray();
+        var designer = await EfPlanningSessionStore.InspectAllAsync(contexts, records, Tenant, ct, ownerRetention?.Clock);
+        var entries = designer.Select(s => s.Entry).ToList();
+        await foreach (var id in records.EnumerateKeysAsync(WorkflowSessions, Tenant, "", EfPlanningSessionStore.Author, ct))
+            if (await InspectAsync(id, true, ct) is { Session: not null } current) entries.Add(current.Entry);
+        return entries.OrderByDescending(s => s.UpdatedAtUtc).ToArray();
     }
 
     internal async Task<PlanningSessionInspection?> InspectAsync(string id, bool workflow, CancellationToken ct)
@@ -78,9 +93,11 @@ public sealed partial class PlanningSessionService(
         if (workflow)
         {
             var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
-            return record is null ? null : ReadWorkflowSession(record);
+            var entry = record is null ? null : ReadWorkflowSession(record);
+            if (entry is { Session: null }) return entry;
+            return entry?.Session is { } session && await WorkflowOwners().AvailableAsync(Tenant, id, session.Retention, ct) ? entry : null;
         }
-        return await EfPlanningSessionStore.InspectOwnerAsync(contexts, records, Tenant, id, ct);
+        return await EfPlanningSessionStore.InspectOwnerAsync(contexts, records, Tenant, id, ct, ownerRetention?.Clock);
     }
 
     private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
@@ -179,6 +196,9 @@ public sealed partial class PlanningSessionService(
             if (automaticId is not null && await store.LoadAsync(Tenant, automaticId, ct) is { } winner) return winner;
             throw new PlanningConflictException("The planning session already exists.");
         }
+        if (files is not null && runId is not null)
+            await files.TransferReferencesAsync(Tenant, new(GnOuGo.Files.Core.FileOwnerKind.Execution, runId),
+                new(GnOuGo.Files.Core.FileOwnerKind.Planning, state.Request.SessionId), failureEvidence, ct);
         if (!PlanningStatus.IsWaiting(state.Status)) _queue.Writer.TryWrite(state.Request.SessionId);
         return state;
     }
@@ -193,7 +213,7 @@ public sealed partial class PlanningSessionService(
         PlanningSession result;
         try
         {
-            await using var lease = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, ct)
+            await using var lease = await AcquireOwnerAsync(id, ct)
                 ?? throw new PlanningConflictException("This planning session is active in another worker. Reload it after processing completes.");
             var current = await store.LoadAsync(Tenant, id, ct) ?? throw new KeyNotFoundException("Planning session not found.");
             if (current.Revision != command.ExpectedRevision) throw new PlanningConflictException("The session changed; reload its current revision.");
@@ -315,7 +335,8 @@ public sealed partial class PlanningSessionService(
         var ownerGate = _locks.GetOrAdd(id, _ => new SemaphoreSlim(1, 1));
         await ownerGate.WaitAsync(stoppingToken);
         FileStream? acquired;
-        try { acquired = await PlanningSessionLease.TryAcquireAsync(contexts, Tenant, id, stoppingToken); }
+        try { acquired = await AcquireOwnerAsync(id, stoppingToken); }
+        catch (PlanningConflictException ex) when (ex.Message == "owner_expired") { return; }
         finally { ownerGate.Release(); }
         await using var lease = acquired;
         // Another host owns this work. Periodic recovery will try again after it releases
@@ -527,9 +548,17 @@ public sealed partial class PlanningSessionService(
         var existingYaml = existing?["agent"]?["workflow"]?.GetValue<string>();
         var host = state.Request.Options["host_save"];
         var id = existing?["agent"]?["id"]?.GetValue<string>();
+        async Task PinApprovedFilesAsync()
+        {
+            if (files is not null)
+                await files.TransferReferencesAsync(Tenant, new(GnOuGo.Files.Core.FileOwnerKind.Planning, state.Request.SessionId),
+                    GnOuGo.Files.Core.FileOwner.SavedVersion(state.Request.Name, state.Yaml),
+                    JsonSerializer.SerializeToNode(GnOuGo.Flow.Core.Parsing.WorkflowParser.Parse(state.Yaml), WorkflowRunJsonContext.Default.WorkflowDocument), ct);
+        }
         if (found && existingYaml == state.Yaml)
         {
             // Reconcile a crash after the writer committed but before the session index advanced.
+            await PinApprovedFilesAsync();
             state.SavedAgentId = id;
         }
         else
@@ -540,6 +569,7 @@ public sealed partial class PlanningSessionService(
             if (!found && existing?["error_code"]?.GetValue<string>() != "NOT_FOUND") throw new InvalidOperationException("Agent availability could not be established.");
             var request = new JsonObject { ["name"] = state.Request.Name, ["workflow"] = state.Yaml, ["originalPrompt"] = state.Request.Prompt };
             if (host is not null) request["id"] = id;
+            await PinApprovedFilesAsync();
             var saved = await agent.CallToolAsync(host is null ? "agent_add" : "agent_update", request, ct);
             if (saved.IsError || saved.Content?["success"]?.GetValue<bool>() != true) throw new InvalidOperationException("The validated agent could not be saved.");
             state.SavedAgentId = saved.Content?["agent"]?["id"]?.GetValue<string>();

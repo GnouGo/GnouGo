@@ -27,7 +27,7 @@ public sealed partial class WorkflowEngine
         var definitionHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(workflow.Name + "\n" + definition)));
         if (revision is null)
         {
-            await RunStore!.CreateAsync(new WorkflowRun
+            var initial = new WorkflowRun
             {
                 TenantId = Limits.TenantId, RunId = Limits.RunId, WorkflowName = workflow.Name,
                 WorkflowYaml = workflow.Document.Source.RawYaml ?? "", DefinitionHash = definitionHash,
@@ -36,7 +36,14 @@ public sealed partial class WorkflowEngine
                 ApplicationLlmBudgetOrigin = LLMUsageBudget?.PolicyOrigin,
                 ApplicationLlmBudgetVersion = LLMUsageBudget is null ? null : 1,
                 ModelUsage = LLMUsageBudget?.Snapshot
-            }, ct);
+            };
+            if (UploadIds is { Count: > 0 } || SavedAgentName is not null && RunStore is IWorkflowAttachmentRunStore)
+            {
+                if (RunStore is not IWorkflowAttachmentRunStore attachments)
+                    throw new InvalidOperationException("The workflow store cannot acquire uploaded files.");
+                await attachments.CreateWithUploadsAsync(initial, UploadIds ?? [], SavedAgentName, ct);
+            }
+            else await RunStore!.CreateAsync(initial, ct);
         }
         await using var lease = await RunStore!.AcquireAsync(Limits.TenantId, Limits.RunId, revision ?? 0, ct);
         var run = lease.Run;

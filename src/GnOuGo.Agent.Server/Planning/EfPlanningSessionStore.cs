@@ -10,8 +10,8 @@ using Microsoft.EntityFrameworkCore;
 namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Immutable encrypted revisions with an optimistic EF Core/SQLite index.</summary>
-public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
-    OwnerRetentionPolicy? policy = null, ILogger<EfPlanningSessionStore>? logger = null) : IPlanningSessionStore
+public sealed partial class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records,
+    OwnerRetentionPolicy? policy = null, ILogger<EfPlanningSessionStore>? logger = null, GnOuGo.Files.Core.DurableFileStore? files = null) : IPlanningSessionStore
 {
     internal const string Collection = "agent-planning-sessions-v11";
     internal const string Heads = "agent-planning-heads-v1";
@@ -19,30 +19,46 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     internal const string Author = "GnOuGo.Agent.Server.Planning";
 
     /// <summary>Acquire the same exclusive owner lease for offline inspection/recovery. Null means an owner is still active.</summary>
-    public Task<FileStream?> TryAcquireLeaseAsync(string tenantId, string sessionId, CancellationToken ct)
+    public async Task<FileStream?> TryAcquireLeaseAsync(string tenantId, string sessionId, CancellationToken ct)
     {
         ValidateKey(tenantId, sessionId);
-        return PlanningSessionLease.TryAcquireAsync(contexts, tenantId, sessionId, ct);
+        var lease = await PlanningSessionLease.TryAcquireAsync(contexts, tenantId, sessionId, ct);
+        if (lease is null) return null;
+        try
+        {
+            await using var write = await PlanningSessionLease.AcquireWriteAsync(contexts, tenantId, sessionId, ct);
+            if (await records.GetAsync(Expired, tenantId, sessionId, Author, ct) is not null ||
+                (await ReadHeadAsync(records, tenantId, sessionId, ct))?.Retention.IsDue(_policy.Clock.GetUtcNow()) == true)
+                throw new PlanningConflictException("owner_expired");
+            return lease;
+        }
+        catch { await lease.DisposeAsync(); throw; }
     }
 
     public async Task<PlanningSession?> LoadAsync(string tenantId, string sessionId, CancellationToken ct)
     {
-        var result = await InspectOwnerAsync(contexts, records, tenantId, sessionId, ct);
+        var result = await InspectOwnerAsync(contexts, records, tenantId, sessionId, ct, _policy.Clock);
         return result?.RequireSession();
     }
 
     internal static async Task<PlanningSessionInspection?> InspectOwnerAsync(IDbContextFactory<PlanningDbContext> contexts,
-        IKeyVaultRecordStore records, string tenantId, string sessionId, CancellationToken ct)
+        IKeyVaultRecordStore records, string tenantId, string sessionId, CancellationToken ct, TimeProvider? clock = null)
     {
         ValidateKey(tenantId, sessionId);
-        if (await ReadHeadAsync(records, tenantId, sessionId, ct) is { } head)
-            return await InspectAsync(records, head.Index(), ct, head.Retention);
-        await using var db = await contexts.CreateDbContextAsync(ct);
-        var tenant = tenantId;
-        var session = sessionId;
-        var queryCancellation = ct;
-        var row = await db.Sessions.SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
-        return row is null ? null : await InspectAsync(records, row, ct);
+        await using var write = await PlanningSessionLease.AcquireWriteAsync(contexts, tenantId, sessionId, ct);
+        if (await records.GetAsync(Expired, tenantId, sessionId, Author, ct) is not null) return null;
+        var head = await ReadHeadAsync(records, tenantId, sessionId, ct);
+        if (head is null || await DueAsync(contexts, head, clock ?? TimeProvider.System, ct)) return null;
+        return await InspectAsync(records, head.Index(), ct, head.Retention);
+    }
+
+    private static async Task<bool> DueAsync(IDbContextFactory<PlanningDbContext> contexts, PlanningOwnerHead head, TimeProvider clock, CancellationToken ct)
+    {
+        if (head.Retention.PolicyVersion != OwnerRetentionPolicy.CurrentVersion) return true;
+        if (!head.Retention.IsDue(clock.GetUtcNow())) return false;
+        if (head.Retention.Phase != OwnerRetention.Active) return true;
+        await using var free = await PlanningSessionLease.TryAcquireAsync(contexts, head.Tenant, head.Session, ct);
+        return free is not null;
     }
 
     public async Task<bool> TrySaveAsync(PlanningSession snapshot, long? expectedRevision, CancellationToken ct)
@@ -51,75 +67,43 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
         ValidateKey(snapshot.Request.TenantId, snapshot.Request.SessionId);
         if (snapshot.Revision < 0 || expectedRevision is { } prior && snapshot.Revision <= prior)
             throw new ArgumentException("A saved planning revision must advance monotonically.");
-        await using var db = await contexts.CreateDbContextAsync(ct);
         var tenant = snapshot.Request.TenantId;
         var session = snapshot.Request.SessionId;
         await using var write = await PlanningSessionLease.AcquireWriteAsync(contexts, tenant, session, ct);
         var previous = await ReadHeadAsync(records, tenant, session, ct);
-        var queryCancellation = ct;
-        var row = previous is null ? await db.Sessions.SingleOrDefaultAsync(s =>
-            s.TenantId == tenant && s.SessionId == session, queryCancellation) : null;
-        if ((previous?.Revision ?? row?.Revision) != expectedRevision) return false;
-
-        if (previous is null && row?.PayloadKey.StartsWith(session + ":managed:", StringComparison.Ordinal) == true)
-            throw new PlanningConflictException("The committed planning head is missing.");
-        if (expectedRevision is null && await HasLegacyPayloadAsync(tenant, session, ct))
-            throw new PlanningConflictException("Historical planning revisions exist without their committed index pointer.");
-
-        // An existing EF-only owner keeps its historical retention and selection rules.
-        snapshot.Retention = expectedRevision is null ? _policy.Capture() : previous?.Retention;
+        if (await records.GetAsync(Expired, tenant, session, Author, ct) is not null ||
+            previous is not null && await DueAsync(contexts, previous, _policy.Clock, ct))
+            throw new PlanningConflictException("owner_expired");
+        if (previous?.Revision != expectedRevision) return false;
+        if (previous is null)
+        {
+            // A lost or retired head cannot make an old ID available for another dispatch.
+            await foreach (var key in records.EnumerateKeysAsync(Collection, tenant, session + ":", Author, ct))
+                if (PayloadOwner(key) == session) throw new PlanningConflictException("Planning ID already used.");
+        }
         var progress = PlanningRetentionCheckpoint.From(snapshot);
-        snapshot.Retention = snapshot.Retention?.ForPlanning(snapshot, _policy.Clock.GetUtcNow(), progress != previous?.Progress);
-        var payloadKey = session + (snapshot.Retention is null ? ":" : ":managed:") + snapshot.Revision + ":" + Guid.NewGuid().ToString("N");
+        snapshot.Retention = (previous?.Retention ?? _policy.Capture()).ForPlanning(snapshot, _policy.Clock.GetUtcNow(), progress != previous?.Progress);
+        var payloadKey = session + ":managed:" + snapshot.Revision + ":" + Guid.NewGuid().ToString("N");
         await records.UpsertAsync(Collection, tenant, payloadKey, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, ct);
-        if (snapshot.Retention is { } retention)
+        var head = new PlanningOwnerHead(tenant, session, snapshot.Revision, payloadKey, snapshot.Status,
+            snapshot.UpdatedAtUtc.UtcTicks, snapshot.Retention, progress);
+        await records.UpsertAsync(Heads, tenant, session, JsonSerializer.Serialize(head, PlanningHeadJson.Default.PlanningOwnerHead), Author, ct);
+        try { await ProjectHeadAsync(contexts, head, CancellationToken.None); }
+        catch (Exception ex) when (ex is DbException or DbUpdateException)
         {
-            var head = new PlanningOwnerHead(tenant, session, snapshot.Revision, payloadKey, snapshot.Status, snapshot.UpdatedAtUtc.UtcTicks, retention, progress);
-            await records.UpsertAsync(Heads, tenant, session, JsonSerializer.Serialize(head, PlanningHeadJson.Default.PlanningOwnerHead), Author, ct);
-            // From this point the commit is durable even if the index is unavailable.
-            try { await ProjectHeadAsync(contexts, head, CancellationToken.None); }
-            catch (Exception ex) when (ex is DbException or DbUpdateException)
-            {
-                logger?.LogWarning("Planning index projection failed ({ErrorType}); encrypted head is authoritative.", ex.GetType().Name);
-            }
-            return true;
+            logger?.LogWarning("Planning index projection failed ({ErrorType}).", ex.GetType().Name);
         }
-
-        row!.Revision = snapshot.Revision;
-        row.Status = snapshot.Status;
-        row.UpdatedAtTicks = snapshot.UpdatedAtUtc.UtcTicks;
-        row.PayloadKey = payloadKey;
-        try { await db.SaveChangesAsync(ct); return true; }
-        catch (DbUpdateConcurrencyException)
-        {
-            await records.DeleteAsync(Collection, tenant, payloadKey, Author, CancellationToken.None);
-            return false;
-        }
+        return true;
     }
 
-    private async Task<bool> HasLegacyPayloadAsync(string tenant, string id, CancellationToken ct)
+    private static string? PayloadOwner(string key)
     {
-        var prefix = id + ":";
-        bool IsLegacy(string key)
-        {
-            if (!key.StartsWith(prefix, StringComparison.Ordinal)) return false;
-            var suffix = key.AsSpan(prefix.Length);
-            var separator = suffix.IndexOf(':');
-            return separator > 0 && separator < suffix.Length - 1 && !suffix[(separator + 1)..].Contains(':') &&
-                long.TryParse(suffix[..separator], out _);
-        }
-        if (records is IKeyVaultRecordReader reader)
-        {
-            KeyVaultRecordCursor? cursor = null;
-            do
-            {
-                var page = await reader.QueryMetadataAsync(Collection, tenant, prefix, Author, cursor, 100, ct);
-                if (page.Records.Any(item => IsLegacy(item.Key))) return true;
-                cursor = page.HasMore ? page.Next : null;
-            } while (cursor is not null);
-            return false;
-        }
-        return (await records.ListAsync(Collection, tenant, Author, ct)).Any(item => IsLegacy(item.Key));
+        var suffix = key.LastIndexOf(':');
+        if (suffix <= 0) return null;
+        var revision = key.LastIndexOf(':', suffix - 1);
+        if (revision <= 0 || !long.TryParse(key.AsSpan(revision + 1, suffix - revision - 1), out _)) return null;
+        var owner = key[..revision];
+        return owner.EndsWith(":managed", StringComparison.Ordinal) ? owner[..^8] : owner;
     }
 
     private static async Task<PlanningOwnerHead?> ReadHeadAsync(IKeyVaultRecordStore store, string tenant, string id, CancellationToken ct)
@@ -158,7 +142,8 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
         async Task Repair(string id)
         {
             await using var write = await PlanningSessionLease.AcquireWriteAsync(contexts, tenant, id, ct);
-            if (await ReadHeadAsync(records, tenant, id, ct) is not { } head) return;
+            if (await records.GetAsync(Expired, tenant, id, Author, ct) is not null ||
+                await ReadHeadAsync(records, tenant, id, ct) is not { } head || await DueAsync(contexts, head, _policy.Clock, ct)) return;
             await ProjectHeadAsync(contexts, head, ct);
         }
         if (records is IKeyVaultRecordReader reader)
@@ -176,9 +161,9 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
     }
 
     public async Task<IReadOnlyList<PlanningSession>> ListAsync(string tenantId, CancellationToken ct)
-        => (await InspectAllAsync(contexts, records, tenantId, ct)).Where(s => s.Session is not null).Select(s => s.Session!).ToArray();
+        => (await InspectAllAsync(contexts, records, tenantId, ct, _policy.Clock)).Where(s => s.Session is not null).Select(s => s.Session!).ToArray();
 
-    internal static async Task<IReadOnlyList<PlanningSessionInspection>> InspectAllAsync(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records, string tenantId, CancellationToken ct)
+    internal static async Task<IReadOnlyList<PlanningSessionInspection>> InspectAllAsync(IDbContextFactory<PlanningDbContext> contexts, IKeyVaultRecordStore records, string tenantId, CancellationToken ct, TimeProvider? clock = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -188,8 +173,7 @@ public sealed class EfPlanningSessionStore(IDbContextFactory<PlanningDbContext> 
         var snapshots = new List<PlanningSessionInspection>();
         foreach (var row in rows)
         {
-            var head = await ReadHeadAsync(records, tenant, row.SessionId, ct);
-            snapshots.Add(await InspectAsync(records, head?.Index() ?? row, ct, head?.Retention));
+            if (await InspectOwnerAsync(contexts, records, tenant, row.SessionId, ct, clock) is { } entry) snapshots.Add(entry);
         }
         return snapshots;
     }
