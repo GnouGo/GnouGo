@@ -1,17 +1,17 @@
-﻿# GnOuGo.Files.Server
+# GnOuGo.Files.Server
 
-Temporary streamed file upload/download API for GnOuGo.
+Tenant-scoped streamed upload and download API backed by encrypted Files objects.
 
-The proposed durable artifact service and owner retention policy are described in the [decision record](../../docs/adr-files-and-owner-retention.md) and [implementation plan](../../docs/files-and-owner-retention.md).
+The durable artifact service and owner retention policy are described in the [decision record](../../docs/adr-files-and-owner-retention.md) and [implementation plan](../../docs/files-and-owner-retention.md).
 
 ## Features
 
-- Streams request bodies directly to disk with a small fixed buffer.
-- Stores metadata in SQLite via Entity Framework Core (`FilesDbContext`) with read-only projections for queries.
+- Encrypts uploads in authenticated 128 KiB frames before writing them to disk. The maximum upload size is 64 MiB.
+- Stores the temporary catalog index in SQLite via Entity Framework Core (`FilesDbContext`) with read-only projections for queries.
 - Uses UTC timestamps for creation and expiration dates.
 - Default TTL is 12 hours and can be configured via typed `Files` options.
 - Per-upload TTL can be provided with the `ttl` query-string parameter.
-- A background worker purges expired metadata and files every minute by default.
+- A background worker checks temporary expiry every minute by default. Files with a durable owner grant survive expiry.
 - React/Vite/TypeScript/SCSS ClientApp for manual API testing.
 
 ## Storage

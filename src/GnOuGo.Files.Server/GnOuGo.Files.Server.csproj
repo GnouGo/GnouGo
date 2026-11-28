@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.Web" TreatAsLocalProperty="PublishSingleFile">
+<Project Sdk="Microsoft.NET.Sdk.Web" TreatAsLocalProperty="PublishSingleFile">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -47,6 +47,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../GnOuGo.Files.Core/GnOuGo.Files.Core.csproj" />
     <ProjectReference Include="..\GnOuGo.Workspace\GnOuGo.Workspace.csproj" />
   </ItemGroup>
 

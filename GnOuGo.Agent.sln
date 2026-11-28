@@ -175,6 +175,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Flow.Copilot.Tests",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Agent.Planning.Benchmark", "tests\GnOuGo.Agent.Planning.Benchmark\GnOuGo.Agent.Planning.Benchmark.csproj", "{A5331B15-C69E-48BA-9238-DD00F95E8152}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GnOuGo.Files.Core", "src\GnOuGo.Files.Core\GnOuGo.Files.Core.csproj", "{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -1109,6 +1111,18 @@ Global
 		{A5331B15-C69E-48BA-9238-DD00F95E8152}.Release|x64.Build.0 = Release|Any CPU
 		{A5331B15-C69E-48BA-9238-DD00F95E8152}.Release|x86.ActiveCfg = Release|Any CPU
 		{A5331B15-C69E-48BA-9238-DD00F95E8152}.Release|x86.Build.0 = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|x64.Build.0 = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Debug|x86.Build.0 = Debug|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|x64.ActiveCfg = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|x64.Build.0 = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|x86.ActiveCfg = Release|Any CPU
+		{CF4E7B5E-D2DA-4C53-8905-3AF42D65CD5B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

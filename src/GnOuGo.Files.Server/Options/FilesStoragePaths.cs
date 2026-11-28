@@ -1,4 +1,4 @@
-﻿using GnOuGo.Workspace;
+using GnOuGo.Workspace;
 using Microsoft.Extensions.Options;
 
 namespace GnOuGo.Files.Server.Options;
@@ -10,8 +10,7 @@ public sealed class FilesStoragePaths
     public FilesStoragePaths(IOptions<FilesServerOptions> options)
     {
         var value = options.Value;
-        var workspaceRoot = GnOuGoWorkspace.ResolveDefaultWorkingDirectorySafe(contentRootPath: AppContext.BaseDirectory);
-        StorageRootPath = ResolvePath(value.StorageRootPath, Path.Combine(workspaceRoot, GnOuGoWorkspace.WorkspaceDataSubfolder, "Files"));
+        StorageRootPath = GnOuGo.Files.Core.DurableFileStore.ResolveRoot(value.StorageRootPath, AppContext.BaseDirectory);
 
         DatabasePath = GnOuGoWorkspace.ResolveDatabasePath(
             value.DatabasePath,
@@ -23,9 +22,4 @@ public sealed class FilesStoragePaths
 
     public string DatabasePath { get; }
 
-    private static string ResolvePath(string? configuredPath, string defaultPath)
-    {
-        var path = string.IsNullOrWhiteSpace(configuredPath) ? defaultPath : configuredPath;
-        return Path.GetFullPath(Environment.ExpandEnvironmentVariables(path));
-    }
 }

@@ -1,8 +1,10 @@
-﻿namespace GnOuGo.Files.Server.Options;
+namespace GnOuGo.Files.Server.Options;
 
 public sealed class FilesServerOptions
 {
     public const string SectionName = "Files";
+
+    public string TenantId { get; set; } = "default";
 
     public double DefaultTtlHours { get; set; } = 12;
 

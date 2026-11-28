@@ -407,6 +407,8 @@ function Invoke-FilesSmoke {
     }
     $tenantA = 'warning-audit-a'
     $tenantB = 'warning-audit-b'
+    $environment['OpenTelemetry__TenantId'] = $tenantA
+    $environment['KeyVault__DatabasePath'] = Join-Path $DataDirectory 'files-vault.db'
     $headersA = @{ 'X-Tenant-Id' = $tenantA }
     $process = $null
 

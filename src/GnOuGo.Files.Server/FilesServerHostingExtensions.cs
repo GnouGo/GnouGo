@@ -1,4 +1,6 @@
-﻿using System.Globalization;
+using System.Globalization;
+using GnOuGo.Files.Core;
+using GnOuGo.KeyVault.Core.Services;
 using GnOuGo.Files.Server.Data;
 using GnOuGo.Files.Server.Data.CompiledModels;
 using GnOuGo.Files.Server.Options;
@@ -18,6 +20,8 @@ public static class FilesServerHostingExtensions
 
         services.AddSingleton<IOptions<FilesServerOptions>>(_ => Microsoft.Extensions.Options.Options.Create(ReadFilesOptions(configuration)));
         services.AddSingleton<FilesStoragePaths>();
+        services.AddSingleton(sp => new DurableFileStore(sp.GetRequiredService<FilesStoragePaths>().StorageRootPath,
+            sp.GetService<IKeyVaultRecordStore>() ?? KeyVaultRecordStoreFactory.CreateWorkspaceStore(configuration["KeyVault:DatabasePath"], AppContext.BaseDirectory)));
         services.AddDbContext<FilesDbContext>((serviceProvider, options) =>
         {
             var paths = serviceProvider.GetRequiredService<FilesStoragePaths>();
@@ -46,8 +50,11 @@ public static class FilesServerHostingExtensions
     private static FilesServerOptions ReadFilesOptions(IConfiguration configuration)
     {
         var section = configuration.GetSection(FilesServerOptions.SectionName);
+        var tenant = configuration["OpenTelemetry:TenantId"];
+        if (string.IsNullOrWhiteSpace(tenant)) tenant = Environment.GetEnvironmentVariable("GNouGo__TenantId");
         return new FilesServerOptions
         {
+            TenantId = string.IsNullOrWhiteSpace(tenant) ? "default" : tenant.Trim(),
             DefaultTtlHours = double.TryParse(section[nameof(FilesServerOptions.DefaultTtlHours)], NumberStyles.Float, CultureInfo.InvariantCulture, out var defaultTtlHours)
                 ? defaultTtlHours
                 : 12,
