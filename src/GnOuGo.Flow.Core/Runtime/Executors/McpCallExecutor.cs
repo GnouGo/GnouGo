@@ -1147,11 +1147,9 @@ Produce the final answer strictly from the executed MCP results.
 
             // ── Telemetry: extract LLM metrics from tool result ──
             ExtractUsageTelemetry(ctx, callResult.Usage, callResult.Model, provider: null);
-            EmitMcpProgressEventsAsThinking(ctx, callResult.Content, correlation, realtimeProgressFingerprints);
-
-            // Telemetry observes the producer payload; it must not remove contract or business fields.
             var blocks = await WorkflowImages.ProjectAsync(ctx, callResult, ct);
             var responseContent = callResult.PrimaryIsBlocks ? blocks : callResult.Content?.DeepClone();
+            EmitMcpProgressEventsAsThinking(ctx, responseContent, correlation, realtimeProgressFingerprints);
             var isError = callResult.IsError || (detectResultErrors && IsMcpResultErrorEnvelope(responseContent));
 
             var result = new JsonObject

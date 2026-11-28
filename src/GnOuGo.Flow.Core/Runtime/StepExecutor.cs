@@ -121,6 +121,8 @@ public sealed class StepExecutionContext
                 throw new WorkflowRuntimeException("MODEL_REQUEST_INCOMPATIBLE",
                     $"Vision support must be declared for model '{request.Model}' before sending images.",
                     details: new JsonObject { ["dispatch_status"] = "not_started" });
+            if (budget is not null && request.MaxTokens is > 0)
+                request.VisionInputTokenCeiling = await resolver.InputTokenAllowanceAsync(request.Provider, request.Model, request.MaxTokens.Value, ct);
         }
         if (budget is null)
         {

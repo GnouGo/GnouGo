@@ -98,6 +98,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
     internal PlanningApprovalReview Receipt => document.Receipt;
     internal static string[] Obligations(string scenario) => scenario switch
     {
+        "deckcraft" => ["native_objects", "visual_review", "explicit_edits", "reopen_and_render", "public_artifact", "cleanup"],
         "amazon" => ["search", "observed_product_order", "exact_product_fields", "workbook", "cleanup", "truthful_result"],
         PublishedReviewQualification.Scenario => ["pinned_checkout", "repository_checks", "requested_review", "published_verdict", "inline_comments", "cleanup", "truthful_result"],
         "code" or LocalReviewQualification.Scenario => ["pinned_checkout", "repository_checks", "requested_review", "local_report", "cleanup", "truthful_result"],
@@ -206,6 +207,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
 
     internal static bool AllowsTool(string scenario, string server, string tool) => scenario switch
     {
+        "deckcraft" => server == "DeckCraft" && DeckCraftQualification.Allows(tool),
         "amazon" => server == "GnOuGo.Browser.Mcp" && tool is "browser_get_content" or "browser_close" ||
             server == "GnOuGo.Document.Mcp" && tool is "document_write" or "document_read",
         PublishedReviewQualification.Scenario => server == "Github" && tool is "pull_request_read" or "pull_request_review_write" or "add_comment_to_pending_review" ||
@@ -233,6 +235,7 @@ internal sealed class DelegatedTestReviewAuthority(DelegatedTestAuthorization au
             return;
         }
         var relative = authorizedRelativePath ?? "workflows/" + campaign + "/" + run;
+        if (scenario == "deckcraft") { DeckCraftQualification.CheckArguments(tool, args, Path.Combine(root, relative)); return; }
         if (tool is "document_write" or "document_read") RequirePath(args["filePath"]?.ToString(), relative + (scenario == "amazon" ? "/products.xlsx" : "/review.json"), exact: true);
         if (tool == "browser_close") { ClearBrowser(); _observedRedirects.Clear(); _searchReads.Clear(); }
         if (tool == "browser_get_content")

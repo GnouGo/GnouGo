@@ -46,9 +46,20 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
     public string SourceConfigurationFingerprint(string serverName) => Discovery.SourceConfigurationFingerprint(serverName);
     public Task<IMcpSession> GetClientAsync(string serverName, CancellationToken ct) =>
         _execution is { } active && serverName != "GnOuGo.Agent.Mcp" ? active.GetClientAsync(serverName, ct) : Discovery.GetClientAsync(serverName, ct);
-    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) => (_executionModel ?? PlanningModel).CallAsync(request, ct);
+    private readonly System.Collections.Concurrent.ConcurrentQueue<JsonObject> _visionReceipts = new();
+    public Task<LLMResponse> CallAsync(LLMRequest request, CancellationToken ct) =>
+        RecordVisionAsync(request, (_executionModel ?? PlanningModel).CallAsync(request, ct));
     public Task<LLMResponse> CallWithBudgetAsync(LLMRequest request, JournaledModelBudget budget, CancellationToken ct) =>
-        _executionModel?.CallWithBudgetAsync(request, budget, ct) ?? budget.Scope.CallAsync(PlanningModel, budget.Estimator, request, budget.Stage, ct);
+        RecordVisionAsync(request, _executionModel?.CallWithBudgetAsync(request, budget, ct) ?? budget.Scope.CallAsync(PlanningModel, budget.Estimator, request, budget.Stage, ct));
+
+    private async Task<LLMResponse> RecordVisionAsync(LLMRequest request, Task<LLMResponse> pending)
+    {
+        var response = await pending;
+        if (request.Images is { Count: > 0 } images)
+            _visionReceipts.Enqueue(new JsonObject { ["images"] = new JsonArray(images.Select(i => (JsonNode?)JsonValue.Create(i.Sha256)).ToArray()),
+                ["response"] = response.Json?.DeepClone(), ["usage"] = response.Usage?.DeepClone() });
+        return response;
+    }
     public IDisposable BeginCall(McpCallExecutionContext context)
     {
         if (_execution is null || context.Correlation.TenantId != "benchmark" || _savedId is null ||
@@ -168,7 +179,7 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
         var source = (report["execution_tool_source"] ?? report["source"])!.ToString();
         var recordKey = (report["form_attempt"] ?? report["run"])!.ToString();
         var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, grant, null, "Release",
-            report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null);
+            report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), Adaptive is not null, report["deckcraft_root"]?.ToString());
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, source), report["mcp_builds"]))
             throw new PlanningConflictException("Execution requires the original tool builds.");
         var service = app.Services.GetRequiredService<PlanningSessionService>();
@@ -361,7 +372,8 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
                 ["status"] = journal.Status, ["finalization_completed"] = journal.FinalizationCompleted };
             var captureCaller = PublishedReviewQualification.RequiresChatReport(report) ||
                 report["oracle_version"]?.ToString() == LiveWorkflowOracles.AmazonFirstProductsVersion;
-            if (localReview || captureCaller)
+            if (scenario == "deckcraft") report["vision_receipts"] = new JsonArray(_visionReceipts.Select(r => r.DeepClone()).ToArray());
+            if (localReview || captureCaller || scenario == "deckcraft")
                 report["execution"]!["outputs"] = journal.Result?.Outputs?.DeepClone();
             if (captureCaller)
             {
@@ -369,7 +381,7 @@ internal sealed partial class ServerBusinessExecution : IPlanningApprovalReviewP
                 if (File.Exists(answer)) report["caller_response"] = JsonNode.Parse(await File.ReadAllTextAsync(answer, ct));
             }
             if (localKind) report["kind_cluster_after"] = await SlimFaasReviewProfile.ObserveClusterAsync(relative, workspace, ct);
-            report["oracle"] = localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
+            report["oracle"] = scenario == "deckcraft" ? await DeckCraftQualification.VerifyAsync(report, workspace, journal, ct) : localReview ? await LocalReviewQualification.VerifyAsync(workspace, report, Target!, ct) : await LiveWorkflowOracles.VerifyAsync(scenario, workspace, report, observed, observed.ProbeBrowserClosureAsync);
             report["result"]!["execution_correct"] = report["oracle"]!["passed"]!.DeepClone();
             report["result"]!["execution_status"] = journal.Status;
             report["passed"] = report["oracle"]!["passed"]!.DeepClone();

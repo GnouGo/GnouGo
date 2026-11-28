@@ -12,6 +12,7 @@ internal sealed class AdaptiveLiveProfile(string scenario)
     internal const string Version = "workflow-agent-observations-v2", Runner = "observe";
     internal IReadOnlyList<CopilotToolBinding> Tools { get; } = scenario switch
     {
+        "deckcraft" => [new("DeckCraft", "render_slide")],
         LocalReviewQualification.Scenario => [],
         "amazon" => [new("GnOuGo.Browser.Mcp", "browser_get_content")],
         PublishedReviewQualification.Scenario => [new("GnOuGo.Git.Mcp", "git_compare_refs")],

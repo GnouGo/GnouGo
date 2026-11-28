@@ -395,7 +395,13 @@ public sealed partial class LLMUsageBudgetScope
         var incremented = false;
         try
         {
-            if (_costLimit is not null)
+            if (request.Images is { Count: > 0 } && (_costLimit is not null || Limits.MaxTotalTokens is not null))
+            {
+                if (request.VisionInputTokenCeiling is not > 0 || request.MaxTokens is not > 0)
+                    throw CreateUnverifiable(stage, "vision_token_ceiling", Snapshot);
+                await EnsureLocalAllowanceAsync(request, costEstimator, request.VisionInputTokenCeiling.Value, [request.MaxTokens.Value], stage, ct);
+            }
+            else if (_costLimit is not null)
             {
                 ModelUsageCostEstimate? priceProbe;
                 try

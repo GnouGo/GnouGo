@@ -535,7 +535,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         new KeyValuePair<string, object?>("gnougo-flow.step.id", step.Id),
                         new KeyValuePair<string, object?>("gnougo-flow.step.type", step.Type),
                         new KeyValuePair<string, object?>("gnougo-flow.step.call_depth", callDepth),
-                        new KeyValuePair<string, object?>("gnougo-flow.content.input", resolvedInput.ToJsonString())
+                        new KeyValuePair<string, object?>("gnougo-flow.content.input", WorkflowTelemetryInputAttributes.FormatForTelemetry(resolvedInput))
                     });
                 }
 
@@ -561,7 +561,7 @@ public sealed partial class WorkflowEngine : IWorkflowRuntime
                         new KeyValuePair<string, object?>("gnougo-flow.step.id", step.Id),
                         new KeyValuePair<string, object?>("gnougo-flow.step.type", step.Type),
                         new KeyValuePair<string, object?>("gnougo-flow.step.call_depth", callDepth),
-                        new KeyValuePair<string, object?>("gnougo-flow.content.output", output.ToJsonString())
+                        new KeyValuePair<string, object?>("gnougo-flow.content.output", WorkflowTelemetryInputAttributes.FormatForTelemetry(output))
                     });
                 }
 

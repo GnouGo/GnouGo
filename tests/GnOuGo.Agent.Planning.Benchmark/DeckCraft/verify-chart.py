@@ -84,7 +84,8 @@ def verify(file, slide_index, expected_title, series_name, categories, values):
         slides = ET.fromstring(deck.read(pres)).findall("p:sldIdLst/p:sldId", NS)
         slide = related(deck, pres, slides[slide_index].attrib[RID], "slide")
         tree = ET.fromstring(deck.read(slide))
-        require(expected_title in [t.text for t in tree.findall(".//a:t", NS)], "Expected slide text missing")
+        if expected_title is not None:
+            require(expected_title in [t.text for t in tree.findall(".//a:t", NS)], "Expected slide text missing")
         chart, = tree.findall(".//c:chart", NS)
         chart_part = related(deck, slide, chart.attrib[RID], "chart")
         chart_xml = ET.fromstring(deck.read(chart_part))

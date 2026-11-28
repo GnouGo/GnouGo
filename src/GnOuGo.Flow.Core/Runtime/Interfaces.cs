@@ -80,6 +80,7 @@ public sealed class LLMRequest
 {
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public IReadOnlyList<WorkflowImage>? Images { get; set; }
+    internal int? VisionInputTokenCeiling { get; set; }
     /// <summary>Caller-assigned durable request identity; never model instructions.</summary>
     public string? ClientRequestId { get; set; }
     public string? Provider { get; set; }

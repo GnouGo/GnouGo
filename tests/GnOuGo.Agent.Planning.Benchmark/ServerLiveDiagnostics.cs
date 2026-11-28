@@ -91,7 +91,7 @@ internal static class ServerLiveDiagnostics
         var retained = inspectionOnly || executionOnly || revalidationOnly;
         var mcpReadiness = args.ElementAtOrDefault(1) == "server-live-mcp-readiness";
         var observedWorkbook = args.ElementAtOrDefault(1) == "server-live-probe" && args.Contains("--probe-observed-workbook", StringComparer.Ordinal);
-        var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code"
+        var delegatedScenario = planning && SchemaPortabilityCampaign.Option(args, "--case") is "amazon" or "code" or "deckcraft"
             ? SchemaPortabilityCampaign.Option(args, "--case") : null;
         var workflowOutput = SchemaPortabilityCampaign.Option(args, "--workflow-output-tokens");
         int? workflowOutputLimit = null;
@@ -176,10 +176,11 @@ internal static class ServerLiveDiagnostics
         if (retainedReport is not null && business is not null)
         {
             localReview = retainedReport["oracle_version"]?.ToString() == LocalReviewQualification.Version;
-            discoveryScenario = localReview ? LocalReviewQualification.Scenario : retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : "amazon";
+            discoveryScenario = localReview ? LocalReviewQualification.Scenario : retainedReport["scenario"]?.ToString() == "code" ? PublishedReviewQualification.Scenario : retainedReport["scenario"]?.ToString();
             browserObservationPolicy = retainedReport["browser_observation_policy"]?.ToString();
         }
-        var adaptive = localReview || adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
+        var deckcraftRoot = discoveryScenario == "deckcraft" ? DeckCraftQualification.PrepareDirectory(workspace, campaign.Id, run) : null;
+        var adaptive = localReview || deckcraftRoot is not null || adaptiveRequested || retainedReport?["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version
             ? new AdaptiveLiveProfile(discoveryScenario!) : null;
         if (business is not null) business.Adaptive = adaptive;
         if (business is not null && discoveryScenario is PublishedReviewQualification.Scenario or LocalReviewQualification.Scenario)
@@ -268,7 +269,7 @@ internal static class ServerLiveDiagnostics
                             defaultLlmProvider: model.Provider, defaultLlmModel: model.Model);
                     if (discoveryScenario is not null)
                     {
-                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null);
+                        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null, deckcraftRoot: deckcraftRoot);
                         var policyHash = DelegatedDiscoveryPolicyHash();
                         discovery = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations, defaultLlmProvider: model.Provider, defaultLlmModel: model.Model), discoveryScenario!, policyHash,
                             async ct =>
@@ -802,6 +803,7 @@ internal static class ServerLiveDiagnostics
                 var relative = "workflows/" + campaign.Id + "/" + run;
                 var prompt = scenario switch { "local" => PlanningBenchmarkCases.Prompt("local"),
                     "collections" => PlanningBenchmarkCases.Prompt("collections"),
+                    "deckcraft" => DeckCraftQualification.Brief(deckcraftRoot!, relative),
                     ReviewBoundaryQualification.Scenario => ReviewBoundaryQualification.Prompt,
                     "amazon" => LiveWorkflowEvaluation.AmazonEvaluationPrompt(relative, LiveWorkflowEvaluation.QualificationProductCount, browserObservationPolicy),
                     "code" when localReview => await LocalReviewQualification.PromptAsync(relative, business!.Target!, report,
@@ -823,10 +825,11 @@ internal static class ServerLiveDiagnostics
                     report["max_products"] = LiveWorkflowEvaluation.QualificationProductCount;
                     report["workflow_readback_required"] = true;
                 }
-                if (scenario is "amazon" or "code") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
-                if (scenario is "amazon" or "code")
+                if (scenario is "amazon" or "code" or "deckcraft") report["qualification_profile"] = LiveWorkflowEvaluation.QualificationProfile;
+                if (scenario is "amazon" or "code" or "deckcraft")
                 {
-                    report["oracle_version"] = scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
+                    if (deckcraftRoot is not null) report["deckcraft_root"] = deckcraftRoot;
+                    report["oracle_version"] = scenario == "deckcraft" ? DeckCraftQualification.Version : scenario == "amazon" ? browserObservationPolicy is null ? LiveWorkflowOracles.AmazonBusinessVersion :
                         browserObservationPolicy == AmazonFirstProductsPolicy.Id ? LiveWorkflowOracles.AmazonFirstProductsVersion :
                         browserObservationPolicy == AmazonDealsPolicy.Id ? LiveWorkflowOracles.AmazonDealsVersion :
                         browserObservationPolicy == AmazonAaxProductPolicy.Id ? LiveWorkflowOracles.AmazonAaxProductVersion :
@@ -838,7 +841,7 @@ internal static class ServerLiveDiagnostics
                         browserObservationPolicy == AmazonResolvedStorePolicy.Id ? LiveWorkflowOracles.AmazonResolvedStoreVersion :
                         browserObservationPolicy == AmazonProductContextPolicy.Id ? LiveWorkflowOracles.AmazonProductContextVersion :
                         browserObservationPolicy == AmazonSponsoredHostPolicy.Id ? LiveWorkflowOracles.AmazonSponsoredHostVersion : LiveWorkflowOracles.AmazonObservedRedirectVersion : localReview ? LocalReviewQualification.Version : PublishedReviewQualification.LocalKindVersion;
-                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null), (previous ?? report)["source"]!.ToString());
+                    report["mcp_builds"] = LiveWorkflowEvaluation.CaptureMcpBuilds(LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario!, null, "Release", browserObservationPolicy: browserObservationPolicy, adaptive: adaptive is not null, deckcraftRoot: deckcraftRoot), (previous ?? report)["source"]!.ToString());
                 }
                 string id;
                 if (previous is null)
@@ -1173,7 +1176,7 @@ internal static class ServerLiveDiagnostics
         await RequireNotCancelledAsync(app, current, CancellationToken.None);
         var discoveryScenario = report["oracle_version"]?.ToString() == LocalReviewQualification.Version ? LocalReviewQualification.Scenario : PublishedReviewQualification.UsesPublicationChecks(report) ? PublishedReviewQualification.Scenario : scenario;
         var adaptive = report["adaptive_runner_profile"]?.ToString() == AdaptiveLiveProfile.Version ? new AdaptiveLiveProfile(discoveryScenario) : null;
-        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null);
+        var configurations = LiveWorkflowEvaluation.Configuration(model.McpServers, discoveryScenario, null, "Release", report["working_directory"]!.ToString(), report["browser_observation_policy"]?.ToString(), adaptive is not null, report["deckcraft_root"]?.ToString());
         if (!JsonNode.DeepEquals(LiveWorkflowEvaluation.CaptureMcpBuilds(configurations, report["source"]!.ToString()), report["mcp_builds"]))
             throw new PlanningConflictException("The original selected tool binaries changed; exact revalidation is forbidden.");
         await using var metadata = new DelegatedPlanningDiscovery(new ConfiguredMcpClientFactory(configurations), discoveryScenario,
@@ -1321,7 +1324,7 @@ internal static class ServerLiveDiagnostics
         if (report["execution_started"] is not null) throw new PlanningConflictException("An execution-start marker forbids another execution.");
         if (await campaign.HasUncertainRequestAsync(CancellationToken.None)) throw BenchmarkCampaign.AdmissionFailure("campaign_uncertain_request_requires_recovery");
         var scenario = report["scenario"]!.ToString();
-        if (scenario is not ("local" or "collections" or "amazon" or "code" or ReviewBoundaryQualification.Scenario)) throw new PlanningConflictException("Unknown reviewed execution scenario.");
+        if (scenario is not ("local" or "collections" or "amazon" or "code" or "deckcraft" or ReviewBoundaryQualification.Scenario)) throw new PlanningConflictException("Unknown reviewed execution scenario.");
         var output = Path.Combine(root, "artifacts/live-server-20261106", report["run"]!.ToString());
         Console.WriteLine(new JsonObject { ["awaiting_delegated_review"] = true, ["session_id"] = state.Request.SessionId,
             ["revision"] = state.Revision, ["artifact_hash"] = state.ComputeArtifactHash() }.ToJsonString());

@@ -339,9 +339,10 @@ internal static class LiveWorkflowEvaluation
         return new HybridWorkflowPlanner().AdvanceAsync(session, command, runtime, ct);
     }
 
-    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string? inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null, string? browserObservationPolicy = null, bool adaptive = false)
+    internal static Dictionary<string, McpServerOptions> Configuration(IReadOnlyDictionary<string, McpServerOptions> configured, string scenario, string? inferenceEndpoint, string buildConfiguration = "Debug", string? sourceRoot = null, string? browserObservationPolicy = null, bool adaptive = false, string? deckcraftRoot = null)
     {
         AmazonObservedRedirectPolicy.Validate(browserObservationPolicy, scenario);
+        if (scenario == "deckcraft") return DeckCraftQualification.Configuration(deckcraftRoot);
         string[] names = scenario switch
         {
             LocalReviewQualification.Scenario => ["Git", "Document", "Cmd"],
@@ -484,6 +485,11 @@ internal static class LiveWorkflowEvaluation
         var builds = new JsonObject();
         foreach (var (name, configuration) in configurations)
         {
+            if (name == "DeckCraft")
+            {
+                builds[name] = DeckCraftQualification.Capture(configuration);
+                continue;
+            }
             if (name == "Github" && configuration.Type is "http" or "sse")
             {
                 builds[name] = new JsonObject { ["transport"] = configuration.Type,
@@ -536,6 +542,7 @@ internal static class LiveWorkflowEvaluation
     internal static LLMRequest ExecutionRequest(LLMRequest request, string run, int call, int outputLimit = 32768)
     {
         var copy = JsonSerializer.SerializeToNode(request, PlanningJsonContext.Default.LLMRequest)!.Deserialize(PlanningJsonContext.Default.LLMRequest)!;
+        copy.Images = request.Images;
         copy.ClientRequestId = run + "-execution:" + (request.ClientRequestId ?? call + ":" + PlanningGraphCompiler.Fingerprint(request.Prompt));
         copy.Reasoning = "medium"; copy.MaxTokens = BoundExecutionOutput(copy.MaxTokens, outputLimit);
         return copy;
@@ -727,7 +734,8 @@ internal static class LiveWorkflowEvaluation
                         result = new McpCallResult { IsError = true, Content = new JsonObject { ["success"] = false,
                             ["error_code"] = "LOCAL_KIND_CLEANUP_UNVERIFIED", ["error_message"] = "Could not verify removal of the run cluster, its nodes and kubeconfig." } };
                     }
-                    evt["error"] = result.IsError; evt["result"] = result.Content?.DeepClone();
+                    evt["error"] = result.IsError;
+                    evt["result"] = ServerName == "DeckCraft" ? DeckCraftQualification.Observe(result) : result.Content?.DeepClone();
                     owner._authority?.ObserveTool(ServerName, toolName, arguments, result);
                     return result;
                 }

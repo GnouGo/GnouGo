@@ -46,6 +46,26 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
     }
 
     [Fact]
+    public async Task ImagesRemainEncryptedAndOwnedByOneRunAcrossRestart()
+    {
+        var bytes = Encoding.UTF8.GetBytes("unique-private-content-for-vision-test");
+        var sha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes));
+        IWorkflowImageStore first = Store();
+        await first.PutAsync("tenant", "run", sha, bytes, Ct);
+        IWorkflowImageStore restarted = Store();
+        Assert.Equal(bytes, await restarted.GetAsync("tenant", "run", sha, Ct));
+        Assert.Null(await restarted.GetAsync("other", "run", sha, Ct));
+        Assert.Null(await restarted.GetAsync("tenant", "another", sha, Ct));
+        await Assert.ThrowsAsync<ArgumentException>(() => first.PutAsync("tenant", "run", sha, [0], Ct));
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => restarted.GetAsync("tenant", "run", sha, cancelled.Token));
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+        foreach (var file in Directory.GetFiles(_root, "*.db*"))
+            Assert.DoesNotContain(Convert.ToBase64String(bytes), Encoding.UTF8.GetString(await File.ReadAllBytesAsync(file, Ct)));
+    }
+
+    [Fact]
     public async Task MappingArtifactsAreEncryptedTenantScopedAndSurviveRestart()
     {
         IMappingArtifactStore first = Store();
