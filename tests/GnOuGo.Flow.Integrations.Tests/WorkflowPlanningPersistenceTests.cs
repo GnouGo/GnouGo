@@ -47,7 +47,7 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
     public async Task InterruptedCreationRestoresExactCapturedLimitsBeforeItsFirstSessionCheckpoint()
     {
         var records = new KeyVaultRecordStore(Path.Combine(_directory, "keyvault.db"));
-        var factory = new WorkflowPlanningRuntimeFactory(new InterruptFirstSession(records), Path.Combine(_directory, "leases"));
+        var factory = new WorkflowPlanningRuntimeFactory(new InterruptFirstSession(records), Path.Combine(_directory, "leases"), null, new(17));
         var client = new Client(); var original = Initial();
         original.Construction = new() { Limits = new() { MaxTasksPerDraft = 4, DraftOutputTokens = 4096, ReviewOutputTokens = 1024 } };
         var authoredOptions = original.Request.Options.ToJsonString();
@@ -57,6 +57,9 @@ public sealed class WorkflowPlanningPersistenceTests : IDisposable
         var definition = (await records.GetAsync("flow-planning-definitions-v11", "tenant", id, "test", Ct))!;
         var changedDefaults = Initial(); changedDefaults.Construction = new();
         await using var restored = await Factory().OpenAsync(Context(client), changedDefaults, Ct);
+        Assert.Equal(17, restored.Session.Retention!.ResumeDays);
+        var captured = JsonNode.Parse(definition.Value)!["creationCheckpoint"]!["session"]!["retention"];
+        Assert.Equal(captured!.Deserialize(PlanningJsonContext.Default.OwnerRetention), restored.Session.Retention);
         Assert.Equal(4, restored.Session.Construction!.Limits.MaxTasksPerDraft);
         Assert.Equal(4096, restored.Session.Construction.Limits.DraftOutputTokens);
         Assert.Equal(1024, restored.Session.Construction.Limits.ReviewOutputTokens);

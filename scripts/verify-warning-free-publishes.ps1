@@ -523,6 +523,10 @@ function Invoke-AgentServerSmoke {
             -FilePath (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
             -Arguments @('--planning-persistence-smoke', (Join-Path $DataDirectory 'planning-persistence')) `
             -LogPath (Join-Path $PublishDirectory 'planning-persistence-smoke.log'))
+        $retentionRoot = Join-Path $DataDirectory ('owner-retention-' + [guid]::NewGuid())
+        foreach ($mode in @('write', 'verify')) {
+            [void] (Invoke-LoggedCommand -FilePath (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') -Arguments @('--owner-retention-smoke', $mode, $retentionRoot) -LogPath (Join-Path $PublishDirectory "owner-retention-$mode.log"))
+        }
         $process = Start-PublishedProcess `
             -Executable (Get-PublishedExecutable $PublishDirectory 'GnOuGo.Agent.Server') `
             -WorkingDirectory $PublishDirectory `

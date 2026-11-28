@@ -1,4 +1,4 @@
-﻿name: Build Agent Server linux-x64
+name: Build Agent Server linux-x64
 
 on:
   workflow_call:
@@ -70,6 +70,12 @@ jobs:
           & 'artifacts/publish/server/linux-x64/GnOuGo.Agent.Server' --planning-persistence-smoke $smokeRoot
           if ($LASTEXITCODE -ne 0) {
             exit $LASTEXITCODE
+          }
+
+          $retentionRoot = Join-Path $env:RUNNER_TEMP ('gnougo-retention-' + [guid]::NewGuid())
+          foreach ($mode in @('write', 'verify')) {
+            & 'artifacts/publish/server/linux-x64/GnOuGo.Agent.Server' --owner-retention-smoke $mode $retentionRoot
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           }
 
       - name: Validate bundled server tools

@@ -17,6 +17,9 @@ public static class WorkflowRunStatus
 /// <summary>The authoritative schema-9 execution journal. Hosts must encrypt the complete payload.</summary>
 public sealed class WorkflowRun
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public OwnerRetention? Retention { get; set; }
+
     public int SchemaVersion { get; set; } = 9;
     public string TenantId { get; set; } = "";
     public string RunId { get; set; } = "";
@@ -161,6 +164,7 @@ public static class WorkflowRunStorage
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(tenantId);
         ArgumentException.ThrowIfNullOrWhiteSpace(runId);
+        if (run.Retention is { IsValid: false }) throw new WorkflowRunConflictException("Invalid execution retention snapshot.");
         if (run.SchemaVersion != 9) throw new WorkflowRunConflictException(IncompatibleMessage);
         if (run.TenantId != tenantId || run.RunId != runId || run.Limits.TenantId != tenantId || run.Limits.RunId != runId)
             throw new WorkflowRunConflictException("Execution journal ownership is invalid.");

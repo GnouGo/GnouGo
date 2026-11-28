@@ -163,8 +163,8 @@ internal static class PlanningPersistenceSmoke
             PendingCall = new() { Id = "exact-request", Purpose = "construction_local_judge", Request = new() { Prompt = secret,
                 StructuredOutputSchema = JsonNode.Parse("{\"type\":\"object\",\"properties\":{}}") } }
         };
-        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         Check(await store.TrySaveAsync(state, null, CancellationToken.None), "insert");
+        var original = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var reopened = new EfPlanningSessionStore(factory, KeyVaultRecordStoreFactory.CreateWorkspaceStore(vault, directory));
         var restored = await reopened.LoadAsync("smoke", state.Request.SessionId, CancellationToken.None);
         Check(restored is not null && JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession) == original, "source-generated exact current recovery");

@@ -1,6 +1,6 @@
 # ADR — Files-backed artifacts and owner retention
 
-**Status** Proposed for PR #120. **Decision date** 2026-11-28. **Scope** Local GnOuGo services, Desktop and Agent.Server.
+**Status** Lot 1 implemented on PR #120. Durable Files storage, expiry and collection are proposed. **Decision date** 2026-11-28. **Scope** Local GnOuGo services, Desktop and Agent.Server.
 
 ## Context
 

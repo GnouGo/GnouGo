@@ -5,6 +5,8 @@ Authoritative journal payloads use the public encrypted KeyVault record API. EF 
 
 `EncryptedWorkflowRunStore.CreateWorkspace()` resolves paths through `GnOuGoWorkspace`. All hosts sharing a record store must use the same owner-lock directory. Owner locks are held for the lifetime of execution and released by the operating system after process exit. Revision checks protect resume, cancellation and reconciliation commands; cancellation can be requested while a run is owned.
 
+New execution owners capture a 30-day operational policy by default. Hosts can pass an `OwnerRetentionPolicy` to `CreateWorkspaceWithRetention`. The encrypted schema-9 journal records wait, terminal and reconciliation deadlines and the last meaningful checkpoint. The EF index projects these values. Existing owners without a policy retain their prior behavior. This release records deadlines for inspection and recovery.
+
 Completed receipts are reused. An interrupted external invocation without a receipt requires reconciliation. Cleanup waits for external work to become quiescent. A managed agent's internal session is not automatically restored after a process crash.
 
 ```sh

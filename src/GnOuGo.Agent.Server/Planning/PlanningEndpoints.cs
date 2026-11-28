@@ -174,6 +174,7 @@ internal static class PlanningEndpoints
         state.Usage?.EstimatedCost ?? 0, state.Usage?.EstimatedCostCurrency ?? "", state.ActiveMilliseconds, state.HumanWaitMilliseconds, state.Phase, state.Request.Mode)
     {
         SchemaVersion = state.SchemaVersion,
+        Retention = state.Retention is null ? null : System.Text.Json.JsonSerializer.SerializeToNode(state.Retention, PlanningJsonContext.Default.OwnerRetention)?.AsObject(),
         CostEstimateAvailable = state.Usage?.CostEstimateAvailable == true,
         CostUnavailableReason = state.Usage?.CostUnavailableReason ?? (state.Usage is null ? "not_measured" : null),
         ThresholdMode = state.Request.Options[PlanningHostPolicy.CaptureOption]?["thresholdMode"]?.ToString() ?? "strict",

@@ -18,7 +18,7 @@ namespace GnOuGo.Agent.Server.Planning;
 
 /// <summary>Routes durable planner sessions to their originating conversation; never replays the enclosing workflow.</summary>
 public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWorkflowRuntimeFactory runtimeFactory,
-    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger, PlanningHostPolicy? hostPolicy = null)
+    PlanningSessionService designer, IOptions<OpenTelemetrySettings> telemetry, IHostApplicationLifetime lifetime, ILogger<ChatPlanningService> logger, PlanningHostPolicy? hostPolicy = null, OwnerRetentionPolicy? retention = null)
 {
     private readonly IKeyVaultRecordStore _records = records;
     private const string Origins = "agent-chat-planning-origins-v2";
@@ -29,7 +29,7 @@ public sealed class ChatPlanningService(IKeyVaultRecordStore records, SecureWork
     private readonly ConcurrentDictionary<string, byte> _owners = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, SemaphoreSlim> _gates = new(StringComparer.Ordinal);
     private readonly ConcurrentDictionary<string, Task<PlanningSession>> _recoveries = new(StringComparer.Ordinal);
-    private WorkflowPlanningRuntimeFactory Factory(IPlanningHostPolicy? policy = null) => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"), policy);
+    private WorkflowPlanningRuntimeFactory Factory(IPlanningHostPolicy? policy = null) => new(_records, GnOuGoWorkspace.ResolveDatabasePath(null, AppContext.BaseDirectory, ".GnOuGo/data/flow-planning-v11/leases"), policy, retention ?? OwnerRetentionPolicy.Default);
 
     public Bridge Attach(string conversationId, Action<PlanningSessionDto> changed, GnOuGo.AI.Core.LLMOptions? options = null, PlanningDiagnosticGrant? grant = null)
         => new(this, conversationId, changed, hostPolicy is null || options is null ? null : new WorkflowHostPolicy(hostPolicy, options, runtimeFactory, grant));

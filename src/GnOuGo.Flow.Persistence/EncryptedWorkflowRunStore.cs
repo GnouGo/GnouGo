@@ -20,10 +20,15 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
     private readonly string _lockDirectory;
     private readonly DbContextOptions<WorkflowRunDbContext> _options;
     private readonly ILogger _logger;
+    private readonly OwnerRetentionPolicy _retention;
     private readonly SemaphoreSlim _indexGate = new(1, 1);
 
     public EncryptedWorkflowRunStore(IKeyVaultRecordStore records, string indexPath, string lockDirectory, ILogger? logger = null)
+        : this(records, indexPath, lockDirectory, logger, OwnerRetentionPolicy.Default) { }
+
+    public EncryptedWorkflowRunStore(IKeyVaultRecordStore records, string indexPath, string lockDirectory, ILogger? logger, OwnerRetentionPolicy retention)
     {
+        _retention = retention;
         _records = records;
         _lockDirectory = Path.GetFullPath(lockDirectory);
         Directory.CreateDirectory(_lockDirectory);
@@ -35,10 +40,16 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
     public static EncryptedWorkflowRunStore CreateWorkspace(string? keyVaultPath = null, string? indexPath = null,
         string? baseDirectory = null, ILogger? logger = null, string? ownerPath = null)
     {
+        return CreateWorkspaceWithRetention(OwnerRetentionPolicy.Default, keyVaultPath, indexPath, baseDirectory, logger, ownerPath);
+    }
+
+    public static EncryptedWorkflowRunStore CreateWorkspaceWithRetention(OwnerRetentionPolicy retention, string? keyVaultPath = null,
+        string? indexPath = null, string? baseDirectory = null, ILogger? logger = null, string? ownerPath = null)
+    {
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var path = GnOuGoWorkspace.ResolveDatabasePath(indexPath, root, ".GnOuGo/data/flow-execution-v9.db");
         return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), path,
-            GnOuGoWorkspace.ResolveDatabasePath(ownerPath, root, ".GnOuGo/data/flow-execution-v9/owners"), logger);
+            GnOuGoWorkspace.ResolveDatabasePath(ownerPath, root, ".GnOuGo/data/flow-execution-v9/owners"), logger, retention);
     }
 
     private const string ImageCollection = "flow-run-images-v1";
@@ -115,6 +126,7 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         await using var write = await WriteLockAsync(run.TenantId, run.RunId, ct);
         if (await ReadAsync(run.TenantId, run.RunId, ct) is not null)
             throw new WorkflowRunConflictException("This run already exists. Inspect it and resume using its current revision.");
+        run.Retention = _retention.Capture().ForRun(run, _retention.Clock.GetUtcNow(), true);
         var journal = new SplitJournal(_records, run.TenantId, run.RunId, SplitJournal.NewHead(run.TenantId, run.RunId));
         await journal.SaveAsync(run, null, ct);
         await IndexAsync(run, CancellationToken.None);
@@ -162,6 +174,7 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         await using var write = await WriteLockAsync(tenantId, runId, ct);
         var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
         WorkflowRunStorage.RequestInput(run, request);
+        AdvanceRetention(run, true, request.StepId);
         run.Revision++; run.UpdatedAt = DateTimeOffset.UtcNow;
         await PersistAsync(run, ct, journal, [request.StepId]); return run;
     }
@@ -172,11 +185,15 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         await using var write = await WriteLockAsync(tenantId, runId, ct);
         var (run, journal) = await ReadRequiredAsync(tenantId, runId, expectedRevision, ct);
         WorkflowRunStorage.Answer(run, invocationId, response);
+        AdvanceRetention(run, true);
         run.Revision++;
         run.UpdatedAt = DateTimeOffset.UtcNow;
         await PersistAsync(run, ct, journal, [invocationId]);
         return run;
     }
+
+    private void AdvanceRetention(WorkflowRun run, bool checkpoint, string? requestedInput = null) =>
+        run.Retention = run.Retention?.ForRun(run, _retention.Clock.GetUtcNow(), checkpoint, requestedInput);
 
     private async Task PersistAsync(WorkflowRun run, CancellationToken ct, SplitJournal? journal = null, IReadOnlyCollection<string>? changed = null)
     {
@@ -202,6 +219,8 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
                     Status TEXT NOT NULL, UpdatedAtTicks INTEGER NOT NULL, PRIMARY KEY (TenantId, RunId));
                 CREATE INDEX IF NOT EXISTS IX_WorkflowRuns_TenantId_UpdatedAtTicks ON WorkflowRuns (TenantId, UpdatedAtTicks);
                 """, ct);
+            // A list rebuild and a writer can originate in different processes. Serialize the revision check and projection.
+            await using var transaction = await db.Database.BeginTransactionAsync(ct);
             var tenant = run.TenantId;
             var id = run.RunId;
             // EF Core 11.0.0 query precompilation resolves local tokens but fails on a method parameter.
@@ -210,9 +229,17 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
             if (row is null) { row = new() { TenantId = tenant, RunId = id }; db.Runs.Add(row); }
             if (row.Revision > run.Revision) return;
             row.Revision = run.Revision;
+            if (run.Retention is { } retention)
+            {
+                await OwnerRetentionIndex.EnsureTableAsync(db, ct);
+                var projection = await db.Retention.SingleOrDefaultAsync(r =>
+                    r.TenantId == tenant && r.OwnerKind == "execution" && r.OwnerId == id, queryCancellation);
+                OwnerRetentionIndex.Project(db.Retention, projection, tenant, "execution", id, run.Revision, retention);
+            }
             row.Status = run.Status;
             row.UpdatedAtTicks = run.UpdatedAt.UtcTicks;
             await db.SaveChangesAsync(ct);
+            await transaction.CommitAsync(ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -249,6 +276,7 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         private bool _disposed;
         private readonly SemaphoreSlim _snapshotGate = new(1, 1);
         public WorkflowRun Run { get; } = run;
+        private int _committedEventCount = run.Events.Count;
         public Task SaveAsync(CancellationToken ct = default) => SaveCoreAsync(null, ct);
         public Task SaveAsync(IReadOnlyCollection<string> changedInvocationIds, CancellationToken ct = default) => SaveCoreAsync(changedInvocationIds, ct);
         private async Task SaveCoreAsync(IReadOnlyCollection<string>? changed, CancellationToken ct)
@@ -289,11 +317,14 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             await using var write = await store.WriteLockAsync(Run.TenantId, Run.RunId, ct);
+            var checkpoint = Run.Events.Skip(_committedEventCount).Any(e => e.Kind is not ("model_usage" or "cancel_requested"));
             if (journal is null)
             {
                 var saved = await store.ReadAsync(Run.TenantId, Run.RunId, ct)
                     ?? throw new WorkflowRunConflictException("The owned execution journal is missing.");
+                Run.Retention = saved.Retention;
                 WorkflowRunStorage.MergeCommands(Run, saved);
+                store.AdvanceRetention(Run, checkpoint);
                 Run.Revision = saved.Revision + 1;
                 Run.UpdatedAt = DateTimeOffset.UtcNow;
                 await store.PersistAsync(Run, ct);
@@ -301,12 +332,16 @@ public sealed partial class EncryptedWorkflowRunStore : IWorkflowRunStore, IMapp
             else
             {
                 var commands = await journal.MergeCommandsAsync(Run, ct);
+                Run.Retention = journal.CommittedRetention;
+                store.AdvanceRetention(Run, checkpoint);
                 Run.Revision = journal.Revision + 1;
                 Run.UpdatedAt = DateTimeOffset.UtcNow;
                 await journal.SaveAsync(Run, changed is null ? null : changed.Concat(commands).Distinct(StringComparer.Ordinal).ToArray(), ct);
                 await store.IndexAsync(Run, CancellationToken.None);
             }
+            _committedEventCount = Run.Events.Count;
         }
+
         public async Task<bool> IsCancellationRequestedAsync(CancellationToken ct = default)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);

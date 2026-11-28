@@ -36,7 +36,9 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
             Assert.Equal(run.ModelBudget, lease.Run.ModelBudget);
             Assert.Equal(1, lease.Run.ModelUsage!.UncertainCalls); Assert.False(lease.Run.ModelUsage.CostEstimateAvailable);
             Assert.Null(lease.Run.ModelUsage.JournaledAttempts!["private-request"].VerifiedUsage);
+            lease.Run.Status = WorkflowRunStatus.Failed;
             await lease.SaveAsync(Ct);
+            Assert.Equal(OwnerRetention.Reconciliation, lease.Run.Retention!.Phase);
         }
         var restored = (await Store().ReadAsync("tenant", "run", Ct))!;
         Assert.Equal(run.ApplicationLlmBudgetMode, restored.ApplicationLlmBudgetMode);
@@ -146,6 +148,103 @@ public sealed class EncryptedWorkflowRunStoreTests : IDisposable
         var error = await Assert.ThrowsAsync<WorkflowRunConflictException>(() => store.ReadAsync("tenant", "old", Ct));
         Assert.Contains("Regenerate and approve", error.Message);
         Assert.Equal(legacy, (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "old", "test", Ct))!.Value);
+    }
+
+    [Fact]
+    public async Task HistoricMonolithKeepsItsUnmanagedStateAfterWrite()
+    {
+        var run = NewRun("historical");
+        Directory.CreateDirectory(_root);
+        var records = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
+        await records.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run",
+            System.Text.Json.JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), "test", Ct);
+        await using (var lease = await Store().AcquireAsync("tenant", "run", 0, Ct))
+        {
+            Assert.Null(lease.Run.Retention);
+            lease.Run.Status = WorkflowRunStatus.Completed;
+            await lease.SaveAsync(Ct);
+        }
+        Assert.Null((await Store().ReadAsync("tenant", "run", Ct))!.Retention);
+        var stored = (await records.GetAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run", "test", Ct))!;
+        Assert.False(JsonNode.Parse(stored.Value)!.AsObject().ContainsKey("retention"));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("0")]
+    [InlineData("-2")]
+    [InlineData("1.5")]
+    [InlineData("2147483647")]
+    public void InvalidConfiguredWindowsAreRejected(string value)
+    {
+        Assert.ThrowsAny<ArgumentException>(() => OwnerRetentionPolicy.Parse(value));
+    }
+
+    [Fact]
+    public void RepeatedTerminalWritesPreserveTheFirstDeadline()
+    {
+        var clock = new RetentionClock();
+        var retained = new OwnerRetentionPolicy(12, clock).Capture();
+        var run = NewRun("terminal");
+        run.Status = WorkflowRunStatus.Completed;
+        var finished = retained.ForRun(run, clock.Now.AddHours(1), true);
+        Assert.Equal(OwnerRetention.Terminal, finished.Phase);
+        Assert.Equal(clock.Now.AddHours(1).AddDays(12), finished.DeadlineUtc);
+        Assert.Equal(finished, finished.ForRun(run, clock.Now.AddDays(45), true));
+        Assert.True(finished.IsValid);
+    }
+
+    private sealed class RetentionClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 4, 1, 8, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task OwnerRetentionSurvivesColdReadProjectionRebuildAndRepeatedCheckpoints(bool split)
+    {
+        var clock = new RetentionClock();
+        var keys = new KeyVaultRecordStore(Path.Combine(_root, "vault.db"));
+        EncryptedWorkflowRunStore Open(int days) => new(keys, Path.Combine(_root, "index.db"), Path.Combine(_root, "owners"),
+            null, new OwnerRetentionPolicy(days, clock));
+        var run = NewRun("shared");
+        var body = new JsonObject { ["retained"] = new string('x', 8192) };
+        run.Invocations["a"] = new() { Id = "a", StepType = "set", DataBefore = body, DataAfter = body.DeepClone().AsObject() };
+        if (split) await Open(30).CreateAsync(run, Ct);
+        else
+        {
+            run.Retention = new OwnerRetentionPolicy(30, clock).Capture();
+            await keys.UpsertAsync(EncryptedWorkflowRunStore.Collection, "tenant", "run",
+                System.Text.Json.JsonSerializer.Serialize(run, WorkflowRunJsonContext.Default.WorkflowRun), "test", Ct);
+        }
+        clock.Now = clock.Now.AddDays(2);
+        await using (var lease = await Open(7).AcquireAsync("tenant", "run", 0, Ct))
+        {
+            lease.Run.Invocations["human"] = new() { Id = "human", StepType = "human.input", Status = "waiting_for_human", Recovery = StepRecovery.HumanInput };
+            lease.Run.Status = WorkflowRunStatus.WaitingForHuman;
+            lease.Run.Events.Add(new(clock.Now, "dispatched", "human"));
+            await lease.SaveAsync(Ct);
+        }
+        var deadline = clock.Now.AddDays(30);
+        clock.Now = clock.Now.AddDays(35);
+        await using (var lease = await Open(1).AcquireAsync("tenant", "run", 1, Ct))
+        {
+            Assert.Equal(deadline, lease.Run.Retention!.DeadlineUtc);
+            lease.Run.Events.Add(new(clock.Now, "model_usage", null));
+            await lease.SaveAsync(Ct);
+        }
+        await using (var db = Index()) await db.Database.EnsureDeletedAsync(Ct);
+        var verified = Assert.Single(await Open(1).ListAsync("tenant", Ct));
+        Assert.Equal(30, verified.Retention!.ResumeDays);
+        Assert.Equal(deadline, verified.Retention.DeadlineUtc);
+        Assert.True(JsonNode.DeepEquals(body, verified.Invocations["a"].DataBefore));
+        await using var index = Index();
+        var projection = await index.Set<OwnerRetentionIndex>().SingleAsync(Ct);
+        Assert.Equal(deadline.UtcTicks, projection.DeadlineUtcTicks);
+        Assert.Equal(verified.Revision, projection.Revision);
+        Assert.Null(await Open(1).ReadAsync("elsewhere", "run", Ct));
     }
 
     private WorkflowRunDbContext Index() => new(new DbContextOptionsBuilder<WorkflowRunDbContext>()

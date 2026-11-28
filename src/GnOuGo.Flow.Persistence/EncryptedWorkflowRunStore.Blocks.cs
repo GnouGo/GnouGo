@@ -26,6 +26,7 @@ public sealed partial class EncryptedWorkflowRunStore
         private readonly Dictionary<JsonValue, string> _frozenScalars = new(ReferenceEqualityComparer.Instance);
         private int _eventPrefixCount = head["eventCount"]?.GetValue<int>() ?? 0;
         public JsonObject Head { get; private set; } = head;
+        public OwnerRetention? CommittedRetention => Head["retention"]?.Deserialize(WorkflowRunJsonContext.Default.OwnerRetention);
         public long Revision => Head["revision"]!.GetValue<long>();
         public bool CancelRequested => Head["cancelRequested"]!.GetValue<bool>();
 
@@ -63,7 +64,7 @@ public sealed partial class EncryptedWorkflowRunStore
                 result.Invocations.AddOrUpdate(pair.Key, await ReadInvocationAsync(pair.Value, ct, deferred), (_, _) => throw Invalid());
             foreach (var e in await EventsAsync(ct))
                 result.Events.Add(new(e!["timestamp"]!.GetValue<DateTimeOffset>(), e["kind"]!.GetValue<string>(), e["invocationId"]?.GetValue<string>()));
-            if (result.Revision != Revision || result.CancelRequested != CancelRequested) throw Invalid();
+            if (result.Revision != Revision || result.CancelRequested != CancelRequested || result.Retention != CommittedRetention) throw Invalid();
             foreach (var pair in result.Invocations) if (pair.Key != pair.Value.Id) throw Invalid();
             if (result.Events.Count != Head["eventCount"]?.GetValue<int>()) throw Invalid();
             return result;
@@ -162,6 +163,8 @@ public sealed partial class EncryptedWorkflowRunStore
         {
             WorkflowRunStorage.ValidateOwnership(run, tenant, runId);
             var next = (JsonObject)Head.DeepClone();
+            if (run.Retention is not null)
+                next["retention"] = JsonSerializer.SerializeToNode(run.Retention, WorkflowRunJsonContext.Default.OwnerRetention);
             next["revision"] = run.Revision; next["cancelRequested"] = run.CancelRequested;
             // Serialize only the header, not the invocation dictionary. Payloads
             // remain full fidelity but identical subtrees are stored once.
@@ -169,7 +172,7 @@ public sealed partial class EncryptedWorkflowRunStore
             {
                 SchemaVersion = run.SchemaVersion, TenantId = run.TenantId, RunId = run.RunId, Revision = run.Revision,
                 WorkflowName = run.WorkflowName, DefinitionHash = run.DefinitionHash,
-                Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
+                Retention = run.Retention, Inputs = null, Limits = run.Limits, ModelBudget = run.ModelBudget, ModelUsage = run.ModelUsage,
                 ApplicationLlmBudgetMode = run.ApplicationLlmBudgetMode, ApplicationLlmBudgetOrigin = run.ApplicationLlmBudgetOrigin,
                 ApplicationLlmBudgetVersion = run.ApplicationLlmBudgetVersion,
                 StepsStarted = run.StepsStarted, FinalizationStepsStarted = run.FinalizationStepsStarted,

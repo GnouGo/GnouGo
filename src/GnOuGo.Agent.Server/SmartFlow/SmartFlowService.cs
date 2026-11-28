@@ -82,6 +82,8 @@ public sealed partial class SmartFlowService
     /// <summary>Slash commands that route to the configure-providers workflow.</summary>
     private static readonly string[] ProviderCommands = { "/llm", "/embedding", "/mcp", "/status" };
 
+    private readonly OwnerRetentionPolicy _ownerRetention;
+
     [ActivatorUtilitiesConstructor]
     public SmartFlowService(
         ILLMClient llm,
@@ -106,9 +108,10 @@ public sealed partial class SmartFlowService
         ChatPlanningService? chatPlanning = null,
         IWorkflowRunStore? runStore = null,
         IExchangeRateProvider? exchangeRateProvider = null,
-        IOptions<WorkflowExecutionSettings>? executionSettings = null)
+        IOptions<WorkflowExecutionSettings>? executionSettings = null, OwnerRetentionPolicy? ownerRetention = null)
     {
         _runStore = runStore;
+        _ownerRetention = ownerRetention ?? OwnerRetentionPolicy.Default;
         _planning = planning;
         _chatPlanning = chatPlanning;
         _llm = llm;
@@ -411,7 +414,7 @@ public sealed partial class SmartFlowService
                 RunStore = _runStore,
                 WorkflowPlanner = new GnOuGo.Flow.Planning.HybridWorkflowPlanner(),
                 PlanningPolicy = GnOuGo.Agent.Server.Planning.AgentPlanningPolicy.Create(),
-                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(),
+                PlanningRuntimeFactory = (GnOuGo.Flow.Core.Planning.IPlanningRuntimeFactory?)planningBridge ?? GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(_ownerRetention),
                 PlanningInteraction = planningBridge,
                 DefaultPlanningMode = workflowInputs?["planning_mode"]?.GetValue<string>() ?? GnOuGo.Flow.Core.Planning.PlanningMode.Interactive,
                 LLMClient = runtime.LlmClient,

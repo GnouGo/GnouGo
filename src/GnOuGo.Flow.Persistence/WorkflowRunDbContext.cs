@@ -13,8 +13,11 @@ public sealed class WorkflowRunDbContext : DbContext
     [UnconditionalSuppressMessage("AOT", "IL3050", Justification = "EF Core 11.0.0 compiled model and publish-precompiled queries; published persistence smoke tested.")]
     public WorkflowRunDbContext(DbContextOptions<WorkflowRunDbContext> options) : base(options) { }
     public DbSet<WorkflowRunIndex> Runs => Set<WorkflowRunIndex>();
+    public DbSet<GnOuGo.Flow.Persistence.OwnerRetentionIndex> Retention => Set<GnOuGo.Flow.Persistence.OwnerRetentionIndex>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<GnOuGo.Flow.Persistence.OwnerRetentionIndex>().ToTable("OwnerRetention");
         var runs = modelBuilder.Entity<WorkflowRunIndex>();
         runs.ToTable("WorkflowRuns");
         runs.HasKey(nameof(WorkflowRunIndex.TenantId), nameof(WorkflowRunIndex.RunId));

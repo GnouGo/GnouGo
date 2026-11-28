@@ -10,17 +10,26 @@ using GnOuGo.Workspace;
 namespace GnOuGo.Flow.Integrations.Planning;
 
 /// <summary>Encrypted sessions for workflow.plan in runtime hosts.</summary>
-public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy = null) : IPlanningRuntimeFactory
+public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy, OwnerRetentionPolicy retention) : IPlanningRuntimeFactory
 {
+    public WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records, string leaseDirectory, IPlanningHostPolicy? hostPolicy = null)
+        : this(records, leaseDirectory, hostPolicy, OwnerRetentionPolicy.Default) { }
+
     internal const string Author = "GnOuGo.Flow.Planning";
     internal const string Sessions = "flow-planning-sessions-v11";
     private const string Definitions = "flow-planning-definitions-v11";
 
     public static WorkflowPlanningRuntimeFactory CreateWorkspace(string? keyVaultPath = null, string? leasePath = null, string? baseDirectory = null)
     {
+        return CreateWorkspaceWithRetention(OwnerRetentionPolicy.Default, keyVaultPath, leasePath, baseDirectory);
+    }
+
+    public static WorkflowPlanningRuntimeFactory CreateWorkspaceWithRetention(OwnerRetentionPolicy retention, string? keyVaultPath = null,
+        string? leasePath = null, string? baseDirectory = null)
+    {
         var root = baseDirectory ?? AppContext.BaseDirectory;
         var leases = GnOuGoWorkspace.ResolveDatabasePath(leasePath, root, ".GnOuGo/data/flow-planning-v11/leases");
-        return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases);
+        return new(KeyVaultRecordStoreFactory.CreateWorkspaceStore(keyVaultPath, root), leases, null, retention);
     }
 
     public async Task<IPlanningRuntimeSession> OpenAsync(StepExecutionContext context, PlanningSession initial, CancellationToken ct)
@@ -68,6 +77,7 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                 {
                     if (hostPolicy is not null) await hostPolicy.CaptureAsync(state, initial, ct);
                     PlanningSessionCreation.Capture(state, initial);
+                    state.Retention = retention.Capture().ForPlanning(state, retention.Clock.GetUtcNow(), true);
                 }
                 else if (hasCreationCheckpoint)
                 {
@@ -163,10 +173,16 @@ public sealed class WorkflowPlanningRuntimeFactory(IKeyVaultRecordStore records,
                     state.UpdatedAtUtc = recovered.UpdatedAt;
                 }
             }
+            var committedProgress = PlanningRetentionCheckpoint.From(state);
+            var retained = state.Retention;
             async Task Checkpoint(PlanningSession snapshot, CancellationToken token)
             {
                 snapshot.Usage = budget.Snapshot;
+                var progress = PlanningRetentionCheckpoint.From(snapshot);
+                snapshot.Retention = retained?.ForPlanning(snapshot, retention.Clock.GetUtcNow(), progress != committedProgress);
                 await records.UpsertAsync(Sessions, tenant, key, JsonSerializer.Serialize(snapshot, PlanningJsonContext.Default.PlanningSession), Author, token);
+                retained = snapshot.Retention;
+                committedProgress = progress;
             }
             await Checkpoint(state, ct);
             context.SetTelemetryAttribute("gnougo-flow.plan.session_id", key);

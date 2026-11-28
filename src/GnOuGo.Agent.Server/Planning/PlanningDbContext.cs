@@ -1,3 +1,5 @@
+// EF 11 emits unqualified accessors for this shared type in publish-generated query files.
+global using OwnerRetentionIndex = GnOuGo.Flow.Persistence.OwnerRetentionIndex;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics.CodeAnalysis;
 
@@ -11,8 +13,11 @@ public sealed class PlanningDbContext : DbContext
     public DbSet<PlanningSessionIndex> Sessions => Set<PlanningSessionIndex>();
     public DbSet<PlanningCallIndex> Calls => Set<PlanningCallIndex>();
 
+    public DbSet<OwnerRetentionIndex> Retention => Set<OwnerRetentionIndex>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        modelBuilder.Entity<OwnerRetentionIndex>().ToTable("OwnerRetention");
         var sessions = modelBuilder.Entity<PlanningSessionIndex>();
         sessions.ToTable("PlanningSessions");
         sessions.HasKey(nameof(PlanningSessionIndex.TenantId), nameof(PlanningSessionIndex.SessionId));

@@ -34,7 +34,7 @@ internal static class PlanningSessionHistory
             if (Number(root, "schemaVersion") != 11) return new(entry, null);
             // Use the strict executable contract unchanged. Legacy fields are not removed or ignored.
             var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
-            if (state?.Request is null || state.Request.TenantId != tenant || state.Request.SessionId != id || state.SchemaVersion != 11 ||
+            if (state?.Request is null || state.Request.TenantId != tenant || state.Request.SessionId != id || state.SchemaVersion != 11 || state.Retention is { IsValid: false } ||
                 revision is { } indexed && state.Revision != indexed)
                 return new(entry, null);
             return new(entry with { Status = state.Status, Available = true }, state);

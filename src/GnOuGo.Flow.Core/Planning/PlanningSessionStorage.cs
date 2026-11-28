@@ -18,6 +18,7 @@ public static class PlanningSessionStorage
             var state = JsonSerializer.Deserialize(payload, PlanningJsonContext.Default.PlanningSession);
             if (state?.Request.TenantId != tenantId || state.Request.SessionId != sessionId)
                 throw new PlanningConflictException("The planning session does not belong to this tenant and identity.");
+            if (state.Retention is { IsValid: false }) throw new PlanningConflictException(IncompatibleMessage);
             return state;
         }
         catch (JsonException) { throw new PlanningConflictException(IncompatibleMessage); }

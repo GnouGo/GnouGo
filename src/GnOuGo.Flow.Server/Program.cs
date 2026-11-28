@@ -151,12 +151,13 @@ builder.Services.AddSingleton<IMcpClientFactory>(sp =>
     return new InMemoryMcpClientFactory();
 });
 
-builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspace(
+var retention = OwnerRetentionPolicy.Parse(builder.Configuration[OwnerRetentionPolicy.ConfigurationKey]);
+builder.Services.AddSingleton<IPlanningRuntimeFactory>(_ => GnOuGo.Flow.Integrations.Planning.WorkflowPlanningRuntimeFactory.CreateWorkspaceWithRetention(retention,
     builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Planning:OwnerPath"]));
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<ServerHumanInputProvider>();
 builder.Services.AddSingleton<IHumanInputProvider>(sp => sp.GetRequiredService<ServerHumanInputProvider>());
-builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspace(
+builder.Services.AddSingleton<IWorkflowRunStore>(sp => EncryptedWorkflowRunStore.CreateWorkspaceWithRetention(retention,
     builder.Configuration["KeyVault:DatabasePath"], builder.Configuration["Flow:Execution:IndexPath"],
     logger: sp.GetRequiredService<ILoggerFactory>().CreateLogger("GnOuGo.Flow.Persistence"), ownerPath: builder.Configuration["Flow:Execution:OwnerPath"]));
 

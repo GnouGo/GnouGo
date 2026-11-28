@@ -41,6 +41,8 @@ public sealed record PlanningSessionDto(string Id, string Name, long Revision, s
     public int SchemaVersion { get; init; } = 11;
     public string ThresholdMode { get; init; } = "strict";
     public JsonObject? EffectivePolicy { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public JsonObject? Retention { get; init; }
     public bool CostEstimateAvailable { get; init; }
     public string? CostUnavailableReason { get; init; }
     public bool CanStartWithCurrentSettings { get; init; }

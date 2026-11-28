@@ -80,12 +80,7 @@ public sealed partial class PlanningSessionService(
             var record = await records.GetAsync(WorkflowSessions, Tenant, id, EfPlanningSessionStore.Author, ct);
             return record is null ? null : ReadWorkflowSession(record);
         }
-        await using var db = await contexts.CreateDbContextAsync(ct);
-        var tenant = Tenant;
-        var session = id;
-        var queryCancellation = ct;
-        var row = await db.Sessions.AsNoTracking().SingleOrDefaultAsync(s => s.TenantId == tenant && s.SessionId == session, queryCancellation);
-        return row is null ? null : await EfPlanningSessionStore.InspectAsync(records, row, ct);
+        return await EfPlanningSessionStore.InspectOwnerAsync(contexts, records, Tenant, id, ct);
     }
 
     private PlanningSessionInspection ReadWorkflowSession(KeyVaultRecordValue record)
@@ -226,6 +221,7 @@ public sealed partial class PlanningSessionService(
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
         await db.Database.EnsureCreatedAsync(ct);
+        if (store is EfPlanningSessionStore durable) await durable.RebuildIndexAsync(Tenant, ct);
         await base.StartAsync(ct);
     }
 

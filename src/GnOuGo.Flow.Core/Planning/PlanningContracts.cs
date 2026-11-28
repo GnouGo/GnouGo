@@ -129,6 +129,9 @@ public sealed class PlanningSession
         return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(artifact.ToJsonString())));
     }
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public GnOuGo.Flow.Core.Runtime.OwnerRetention? Retention { get; set; }
+
     public int SchemaVersion { get; set; } = 11;
     public PlanningRequest Request { get; set; } = new();
     public long Revision { get; set; }

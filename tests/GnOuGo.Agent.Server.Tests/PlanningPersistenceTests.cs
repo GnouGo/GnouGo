@@ -65,8 +65,8 @@ public sealed class PlanningPersistenceTests
                 }] } },
             PendingCall = new() { Id = "exact-issued", Request = new() { Prompt = secret, StructuredOutputSchema = new JsonObject { ["type"] = "object" } } }
         };
-        var bytes = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         Assert.True(await fixture.Store.TrySaveAsync(state, null, Ct));
+        var bytes = JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession);
         var restored = await fixture.Store.LoadAsync("tenant", "continuation", Ct);
         Assert.Equal(bytes, JsonSerializer.Serialize(restored, PlanningJsonContext.Default.PlanningSession));
         Assert.Equal("continuation_0", restored!.Construction!.Compact!.ResumingStepId);
@@ -232,6 +232,106 @@ public sealed class PlanningPersistenceTests
     {
         public decimal? EstimateCost(string? model, long? inputTokens = null, long? outputTokens = null, string? providerType = null) => 0;
     }
+    [Fact]
+    public async Task HistoricSessionKeepsItsIndexAuthorityAndCannotBeRecreatedFromOrphanedRevisions()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "old" } };
+        // A different owner can contain the same prefix and a numeric segment in its ID.
+        var sibling = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "prefix:1:sibling" } };
+        Assert.True(await fixture.Store.TrySaveAsync(sibling, null, Ct));
+        Assert.True(await fixture.Store.TrySaveAsync(new() { Request = new() { TenantId = "tenant", SessionId = "prefix" } }, null, Ct));
+        await fixture.Records.UpsertAsync(EfPlanningSessionStore.Collection, "tenant", "old:0:historic",
+            JsonSerializer.Serialize(state, PlanningJsonContext.Default.PlanningSession), EfPlanningSessionStore.Author, Ct);
+        await Assert.ThrowsAsync<PlanningConflictException>(() => fixture.Store.TrySaveAsync(state, null, Ct));
+        await using (var db = fixture.CreateDbContext())
+        {
+            db.Sessions.Add(new() { TenantId = "tenant", SessionId = "old", PayloadKey = "old:0:historic", Status = state.Status,
+                UpdatedAtTicks = state.UpdatedAtUtc.UtcTicks });
+            await db.SaveChangesAsync(Ct);
+        }
+        var restored = (await fixture.Store.LoadAsync("tenant", "old", Ct))!;
+        Assert.Null(restored.Retention);
+        restored.Revision++;
+        Assert.True(await fixture.Store.TrySaveAsync(restored, 0, Ct));
+        Assert.Null((await fixture.Store.LoadAsync("tenant", "old", Ct))!.Retention);
+        Assert.Null(await fixture.Records.GetAsync(EfPlanningSessionStore.Heads, "tenant", "old", EfPlanningSessionStore.Author, Ct));
+    }
+
+    [Fact]
+    public async Task OnlyPlanningProgressAdvancesTheActiveCrashWindow()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        var store = new EfPlanningSessionStore(fixture, fixture.Records, new(30, clock));
+        var state = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "active" } };
+        Assert.True(await store.TrySaveAsync(state, null, Ct));
+        var captured = state.Retention!;
+        clock.Now = clock.Now.AddDays(1);
+        state.Revision++; state.UpdatedAtUtc = clock.Now; state.ActiveMilliseconds += 5;
+        Assert.True(await store.TrySaveAsync(state, 0, Ct));
+        Assert.Equal(captured, state.Retention);
+        Assert.Null(state.Retention!.DeadlineUtc);
+        state.Revision++; state.ModelCalls++; state.PendingCall = new() { Id = "issued" };
+        Assert.True(await store.TrySaveAsync(state, 1, Ct));
+        Assert.Equal(clock.Now.AddDays(30), state.Retention!.CrashResumeUntilUtc);
+        Assert.Equal(captured.EnteredUtc, state.Retention.EnteredUtc);
+    }
+
+    private sealed class RetentionClock : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = new(2026, 4, 1, 8, 0, 0, TimeSpan.Zero);
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    [Fact]
+    public async Task CommittedPlanningHeadRestoresTheExactWaitAfterLosingItsIndex()
+    {
+        await using var fixture = await StoreFixture.CreateAsync();
+        var clock = new RetentionClock();
+        EfPlanningSessionStore Open(int days) => new(fixture, fixture.Records, new(days, clock));
+        var owner = new PlanningSession { Request = new() { TenantId = "tenant", SessionId = "plan" }, Yaml = "name: retained" };
+        Assert.True(await Open(30).TrySaveAsync(owner, null, Ct));
+        var hash = Assert.IsType<string>(owner.ComputeArtifactHash());
+        clock.Now = clock.Now.AddHours(6);
+        owner.Revision++; owner.Status = PlanningStatus.Clarification;
+        owner.PendingQuestions = [new("q", "Continue?", [], null)];
+        Assert.True(await Open(7).TrySaveAsync(owner, 0, Ct));
+        var waited = owner.Retention!;
+        Assert.Equal(clock.Now.AddDays(30), waited.DeadlineUtc);
+        clock.Now = clock.Now.AddDays(10);
+        owner.Revision++; owner.UpdatedAtUtc = clock.Now; owner.WaitingSinceUtc = clock.Now;
+        Assert.True(await Open(7).TrySaveAsync(owner, 1, Ct));
+        Assert.Equal(waited, owner.Retention);
+        // A higher, immutable but unpublished candidate cannot become the winner during recovery.
+        await fixture.Records.UpsertAsync(EfPlanningSessionStore.Collection, "tenant", "plan:managed:99:orphan",
+            "unpublished", EfPlanningSessionStore.Author, Ct);
+        await using (var db = fixture.CreateDbContext())
+        {
+            await db.Database.EnsureDeletedAsync(Ct);
+            await db.Database.EnsureCreatedAsync(Ct);
+        }
+        var reopened = Open(1);
+        Assert.False(await reopened.TrySaveAsync(new() { Request = owner.Request }, null, Ct));
+        await reopened.RebuildIndexAsync("tenant", Ct);
+        var restored = Assert.Single(await reopened.ListAsync("tenant", Ct));
+        Assert.Equal(2, restored.Revision);
+        Assert.Equal(waited, restored.Retention);
+        Assert.Equal(hash, restored.ComputeArtifactHash());
+        await using var index = fixture.CreateDbContext();
+        var row = await index.Set<GnOuGo.Flow.Persistence.OwnerRetentionIndex>().SingleAsync(Ct);
+        Assert.Equal(restored.Revision, row.Revision);
+        Assert.Equal(waited.DeadlineUtc!.Value.UtcTicks, row.DeadlineUtcTicks);
+        Assert.Null(await reopened.LoadAsync("someone-else", "plan", Ct));
+
+        var other = (await reopened.LoadAsync("tenant", "plan", Ct))!;
+        owner.Revision++; other.Revision++;
+        owner.Status = PlanningStatus.Saved; other.Status = PlanningStatus.Cancelled;
+        var commits = await Task.WhenAll(Open(7).TrySaveAsync(owner, 2, Ct), Open(1).TrySaveAsync(other, 2, Ct));
+        Assert.Single(commits, value => value);
+        Assert.Equal(clock.Now.AddDays(30), (await reopened.LoadAsync("tenant", "plan", Ct))!.Retention!.DeadlineUtc);
+    }
+
     internal sealed class StoreFixture(string root, bool retain = false) : IDbContextFactory<PlanningDbContext>, IAsyncDisposable
     {
         public string Root { get; } = root;
